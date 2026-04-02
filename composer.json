@@ -13,7 +13,8 @@
         "pestphp/pest-plugin-laravel": "^3.0",
         "phpstan/phpstan": "^2.0",
         "laravel/pint": "^1.0",
-        "dedoc/scramble": "^0.12"
+        "dedoc/scramble": "^0.12",
+        "orchestra/testbench": "^10.11"
     },
     "autoload": {
         "psr-4": {
