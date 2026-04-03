@@ -2,15 +2,18 @@ import { NavLink } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { NavigationGroup } from '@/types'
-import { Database, LayoutDashboard } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+
+function getBrand(): string {
+  return window.MartisConfig?.brand ?? 'Martis'
+}
 
 function navClass({ isActive }: { isActive: boolean }) {
   return [
-    'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
     isActive
-      ? 'bg-brand text-white'
-      : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+      ? 'bg-white/15 text-white shadow-sm'
+      : 'text-indigo-100 hover:bg-white/10 hover:text-white',
   ].join(' ')
 }
 
@@ -23,27 +26,30 @@ export function Sidebar() {
   })
 
   return (
-    <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white px-3 py-4 dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-6 px-3">
-        <span className="text-lg font-bold text-brand">Martis</span>
+    <aside className="flex h-full w-60 flex-col bg-gradient-to-b from-indigo-700 via-indigo-600 to-purple-700 px-3 py-5">
+      <div className="mb-8 flex items-center gap-3 px-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+          <i className="pi pi-shield text-lg text-white" />
+        </div>
+        <span className="text-lg font-bold text-white">{getBrand()}</span>
       </div>
 
       <nav className="flex-1 space-y-1">
         <NavLink to="/" end className={navClass}>
-          <LayoutDashboard size={16} />
+          <i className="pi pi-th-large text-sm" />
           {t('dashboard')}
         </NavLink>
 
         {groups.map((group, i) => (
-          <div key={group.label ?? i} className="pt-4">
+          <div key={group.label ?? i} className="pt-5">
             {group.label && (
-              <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-widest text-indigo-200/60">
                 {group.label}
               </p>
             )}
             {group.resources.map((r) => (
               <NavLink key={r.uriKey} to={`/resources/${r.uriKey}`} className={navClass}>
-                <Database size={16} />
+                <i className="pi pi-database text-sm" />
                 {r.label}
               </NavLink>
             ))}
@@ -51,8 +57,8 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto text-center">
-        <span className="text-xs text-gray-400">{t('footer')}</span>
+      <div className="mt-auto px-3 pt-4 border-t border-white/10">
+        <p className="text-[11px] text-indigo-200/50 text-center">{t('footer')}</p>
       </div>
     </aside>
   )

@@ -1,47 +1,47 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
-import { useToast } from '@/contexts/ToastContext'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
-import { Sun, Moon, LogOut } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Button } from 'primereact/button'
 import { useTranslation } from 'react-i18next'
 
 export function Topbar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
-  const { addToast } = useToast()
-  const navigate = useNavigate()
   const { t } = useTranslation('navigation')
-  const { t: tAuth } = useTranslation('auth')
-
-  async function handleLogout() {
-    await logout()
-    addToast('success', tAuth('session_ended'))
-    void navigate('/login')
-  }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
+    <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-5 dark:border-gray-800 dark:bg-gray-900">
       <Breadcrumbs />
 
-      <div className="flex items-center gap-3">
-        <button
+      <div className="flex items-center gap-2">
+        <Button
+          icon={`pi pi-${theme === 'dark' ? 'sun' : 'moon'}`}
           onClick={toggle}
           aria-label={t('toggle_theme')}
-          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-        >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
+          rounded
+          text
+          severity="secondary"
+          size="small"
+        />
 
-        <span className="text-sm text-gray-600 dark:text-gray-400">{user?.name ?? user?.email}</span>
+        <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 dark:bg-gray-800">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
+            {(user?.name ?? user?.email ?? '?')[0].toUpperCase()}
+          </div>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {user?.name ?? user?.email}
+          </span>
+        </div>
 
-        <button
-          onClick={() => void handleLogout()}
+        <Button
+          icon="pi pi-sign-out"
+          onClick={() => void logout()}
           aria-label={t('logout')}
-          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-        >
-          <LogOut size={18} />
-        </button>
+          rounded
+          text
+          severity="danger"
+          size="small"
+        />
       </div>
     </header>
   )

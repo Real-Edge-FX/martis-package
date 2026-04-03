@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { InputText } from 'primereact/inputtext'
 import { Password } from 'primereact/password'
 import { Button } from 'primereact/button'
+import { IconField } from 'primereact/iconfield'
+import { InputIcon } from 'primereact/inputicon'
 
 function getBrand(): string {
   return window.MartisConfig?.brand ?? 'Martis'
@@ -85,17 +87,20 @@ export function LoginPage() {
               <label htmlFor="email" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                 {t('email')}
               </label>
-              <InputText
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                invalid={!!errors.email}
-                className="w-full"
-                placeholder="admin@example.com"
-                required
-              />
+              <IconField iconPosition="left">
+                <InputIcon className="pi pi-envelope" />
+                <InputText
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  invalid={!!errors.email}
+                  className="w-full"
+                  placeholder="admin@example.com"
+                  required
+                />
+              </IconField>
               {errors.email && <small className="p-error">{errors.email}</small>}
             </div>
 
@@ -103,19 +108,24 @@ export function LoginPage() {
               <label htmlFor="password" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                 {t('password')}
               </label>
-              <Password
-                inputId="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                feedback={false}
-                toggleMask
-                invalid={!!errors.password}
-                className="w-full"
-                inputClassName="w-full"
-                autoComplete="current-password"
-                placeholder="Enter your password"
-                required
-              />
+              <div className="p-inputgroup">
+                <span className="p-inputgroup-addon">
+                  <i className="pi pi-lock" />
+                </span>
+                <Password
+                  inputId="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  feedback={false}
+                  toggleMask
+                  invalid={!!errors.password}
+                  className="w-full"
+                  inputClassName="w-full"
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
               {errors.password && <small className="p-error">{errors.password}</small>}
             </div>
 
@@ -125,7 +135,6 @@ export function LoginPage() {
               icon={submitting ? undefined : 'pi pi-sign-in'}
               loading={submitting}
               className="w-full mt-2"
-              severity="info"
             />
           </form>
 
