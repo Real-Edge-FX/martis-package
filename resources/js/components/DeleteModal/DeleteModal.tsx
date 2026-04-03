@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { registry } from '@/lib/registry'
 import { useTranslation } from 'react-i18next'
 import { Dialog } from 'primereact/dialog'
-import { Button } from 'primereact/button'
-import { Warning } from '@phosphor-icons/react'
+import { Warning, Trash, ArrowCounterClockwise, X } from '@phosphor-icons/react'
 
 export interface DeleteModalProps {
   open: boolean
@@ -47,25 +46,37 @@ function DefaultDeleteModal({
   )
 
   const footer = (
-    <div className="flex justify-end gap-3">
-      <Button
-        label={tAct('cancel')}
+    <div className="flex justify-end gap-3 pt-2">
+      <button
+        type="button"
         onClick={onCancel}
         disabled={loading}
-        className="p-button-outlined p-button-secondary"
-      />
-      <Button
-        label={
-          loading
-            ? tAct('please_wait')
-            : isSoftDelete
-              ? tAct('archive')
-              : tAct('delete_permanent')
-        }
+        className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+        style={{
+          backgroundColor: 'var(--martis-input-bg)',
+          borderColor: 'var(--martis-border)',
+          color: 'var(--martis-text)',
+        }}
+      >
+        <X size={14} />
+        {tAct('cancel')}
+      </button>
+      <button
+        type="button"
         onClick={() => void handleConfirm()}
-        loading={loading}
-        severity={isSoftDelete ? 'warning' : 'danger'}
-      />
+        disabled={loading}
+        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+        style={{
+          backgroundColor: isSoftDelete ? '#f59e0b' : '#dc2626',
+        }}
+      >
+        {isSoftDelete ? <ArrowCounterClockwise size={14} /> : <Trash size={14} />}
+        {loading
+          ? tAct('please_wait')
+          : isSoftDelete
+            ? tAct('archive')
+            : tAct('delete_permanent')}
+      </button>
     </div>
   )
 
@@ -80,7 +91,7 @@ function DefaultDeleteModal({
       modal
       appendTo="self"
     >
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+      <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
         {isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm')}
       </p>
     </Dialog>

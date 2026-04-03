@@ -32,10 +32,10 @@ export function ResourceCreatePage() {
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      api.post<{ data: { id: string | number } }>(`/api/resources/${resource}`, data),
+      api.post<{ data: { id: string | number }; meta?: { message?: string } }>(`/api/resources/${resource}`, data),
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
-      addToast('success', tMsg('record_created'))
+      addToast('success', res.meta?.message ?? tMsg('record_created'))
       // Clear form
       setValues({})
       setErrors({})

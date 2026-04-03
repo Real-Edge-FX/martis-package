@@ -54,11 +54,11 @@ export function ResourceUpdatePage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      api.put<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}`, data),
-    onSuccess: () => {
+      api.put<{ data: ResourceRecord; meta?: { message?: string } }>(`/api/resources/${resource}/${id}`, data),
+    onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
-      addToast('success', tMsg('record_updated'))
+      addToast('success', res.meta?.message ?? tMsg('record_updated'))
       navigate(`/resources/${resource}/${id}`)
     },
     onError: (err) => {

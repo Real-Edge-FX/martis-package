@@ -30,20 +30,20 @@ export function ResourceDetailPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.delete(`/api/resources/${resource}/${id}`),
-    onSuccess: () => {
+    mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
+    onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
-      addToast('success', tMsg('record_deleted'))
+      addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       navigate(`/resources/${resource}`)
     },
     onError: () => addToast('error', tMsg('error_delete')),
   })
 
   const restoreMutation = useMutation({
-    mutationFn: () => api.put(`/api/resources/${resource}/${id}/restore`),
-    onSuccess: () => {
+    mutationFn: () => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
+    onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
-      addToast('success', tMsg('record_restored'))
+      addToast('success', res?.meta?.message ?? tMsg('record_restored'))
     },
     onError: () => addToast('error', tMsg('error_restore')),
   })

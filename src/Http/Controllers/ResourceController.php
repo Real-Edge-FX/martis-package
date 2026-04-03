@@ -173,6 +173,7 @@ class ResourceController extends MartisController
 
         return JsonResponse::make(
             $this->serializeModel($res, $res->fieldsForDetail($request), $model),
+            meta: ['message' => $resourceClass::createdMessage()],
         )->toResponse(201);
     }
 
@@ -225,6 +226,7 @@ class ResourceController extends MartisController
 
         return JsonResponse::make(
             $this->serializeModel($res, $res->fieldsForDetail($request), $model),
+            meta: ['message' => $resourceClass::updatedMessage()],
         )->toResponse();
     }
 
@@ -258,7 +260,7 @@ class ResourceController extends MartisController
         $model->delete();
         $res->afterDelete($model, $request);
 
-        return new IlluminateJsonResponse(['data' => [], 'meta' => [], 'links' => []], 200);
+        return new IlluminateJsonResponse(['data' => [], 'meta' => ['message' => $resourceClass::deletedMessage()], 'links' => []], 200);
     }
 
     // -------------------------------------------------------------------------
@@ -300,6 +302,7 @@ class ResourceController extends MartisController
 
         return JsonResponse::make(
             $this->serializeModel($res, $res->fieldsForDetail($request), $model),
+            meta: ['message' => $resourceClass::restoredMessage()],
         )->toResponse();
     }
 

@@ -245,6 +245,56 @@ abstract class Resource implements ResourceContract
         return null;
     }
 
+    // -------------------------------------------------------------------------
+    // Notification messages — customizable per resource (Nova parity)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Message shown after a record is created.
+     *
+     * Override in concrete resources to customize:
+     *   public static function createdMessage(): string
+     *   {
+     *       return 'Novo usuário cadastrado!';
+     *   }
+     */
+    public static function createdMessage(): string
+    {
+        $msg = __('martis::messages.record_created');
+
+        return is_string($msg) ? $msg : 'Record created successfully.';
+    }
+
+    /**
+     * Message shown after a record is updated.
+     */
+    public static function updatedMessage(): string
+    {
+        $msg = __('martis::messages.record_updated');
+
+        return is_string($msg) ? $msg : 'Record updated successfully.';
+    }
+
+    /**
+     * Message shown after a record is deleted.
+     */
+    public static function deletedMessage(): string
+    {
+        $msg = __('martis::messages.record_deleted');
+
+        return is_string($msg) ? $msg : 'Record deleted successfully.';
+    }
+
+    /**
+     * Message shown after a soft-deleted record is restored.
+     */
+    public static function restoredMessage(): string
+    {
+        $msg = __('martis::messages.record_restored');
+
+        return is_string($msg) ? $msg : 'Record restored successfully.';
+    }
+
     /**
      * Serialize resource metadata (not field data) to array.
      *
