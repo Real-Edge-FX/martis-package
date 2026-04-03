@@ -7,7 +7,7 @@ return [
     |--------------------------------------------------------------------------
     | The path where the Martis admin panel will be accessible.
     */
-    'path' => env('MARTIS_PATH', 'admin'),
+    'path' => env('MARTIS_PATH', 'martis'),
 
     /*
     |--------------------------------------------------------------------------
