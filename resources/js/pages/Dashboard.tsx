@@ -6,6 +6,7 @@ import { CardSkeleton } from '@/components/LoadingSkeleton'
 import { Card } from 'primereact/card'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Database, Folder, CheckCircle, CaretRight } from '@phosphor-icons/react'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -45,7 +46,7 @@ export function DashboardPage() {
                   <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
                 </div>
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/20">
-                  <i className="pi pi-database text-xl text-indigo-400" />
+                  <Database size={20} className="text-indigo-400" />
                 </div>
               </div>
             </div>
@@ -56,7 +57,7 @@ export function DashboardPage() {
                   <p className="mt-1 text-3xl font-bold martis-text">{groups.length}</p>
                 </div>
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20">
-                  <i className="pi pi-folder text-xl text-emerald-400" />
+                  <Folder size={20} className="text-emerald-400" />
                 </div>
               </div>
             </div>
@@ -67,7 +68,7 @@ export function DashboardPage() {
                   <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
                 </div>
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20">
-                  <i className="pi pi-check-circle text-xl text-amber-400" />
+                  <CheckCircle size={20} className="text-amber-400" />
                 </div>
               </div>
             </div>
@@ -82,7 +83,7 @@ export function DashboardPage() {
                   <Card className="transition-all hover:shadow-md cursor-pointer">
                     <div className="flex items-center gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20">
-                        <i className="pi pi-database text-indigo-400" />
+                        <Database className="text-indigo-400" />
                       </div>
                       <div>
                         <p className="font-semibold martis-text">{r.label}</p>
@@ -90,7 +91,7 @@ export function DashboardPage() {
                           <p className="text-xs martis-text-muted">{r.group}</p>
                         )}
                       </div>
-                      <i className="pi pi-chevron-right ml-auto martis-text-muted" />
+                      <CaretRight className="ml-auto martis-text-muted" />
                     </div>
                   </Card>
                 </Link>

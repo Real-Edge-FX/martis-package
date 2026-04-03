@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
+import { MagnifyingGlass, Database, CaretRight } from "@phosphor-icons/react"
 
 interface GlobalSearchProps {
   onClose: () => void
@@ -75,8 +76,9 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
         onKeyDown={handleKeyDown}
       >
         <div className="relative">
-          <i
-            className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-sm"
+          <MagnifyingGlass
+            size={14}
+            className="absolute left-4 top-1/2 -translate-y-1/2"
             style={{ color: "var(--martis-text-muted)" }}
           />
           <input
@@ -101,7 +103,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
               className={`martis-search-item ${i === activeIndex ? "active" : ""}`}
               onClick={() => goTo(r.uriKey)}
             >
-              <i className="pi pi-database text-sm" style={{ color: "var(--martis-accent)" }} />
+              <Database size={14} style={{ color: "var(--martis-accent)" }} />
               <div className="flex-1">
                 <div className="text-sm font-medium">{r.label}</div>
                 {r.groupLabel && (
@@ -110,7 +112,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                   </div>
                 )}
               </div>
-              <i className="pi pi-angle-right text-xs" style={{ color: "var(--martis-text-muted)" }} />
+              <CaretRight size={12} style={{ color: "var(--martis-text-muted)" }} />
             </div>
           ))}
         </div>
