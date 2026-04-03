@@ -45,7 +45,7 @@ export function DashboardPage() {
                 <Link
                   key={r.uriKey}
                   to={`/resources/${r.uriKey}`}
-                  className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition hover:border-brand hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
+                  className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition hover:border-brand hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand"
                 >
                   <Database size={20} className="text-brand" />
                   <div>
