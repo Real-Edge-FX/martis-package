@@ -5,7 +5,6 @@ import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 import { InputText } from 'primereact/inputtext'
-import { Password } from 'primereact/password'
 import { Button } from 'primereact/button'
 import { IconField } from 'primereact/iconfield'
 import { InputIcon } from 'primereact/inputicon'
@@ -21,6 +20,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -108,23 +108,30 @@ export function LoginPage() {
               <label htmlFor="password" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                 {t('password')}
               </label>
-              <div className="p-inputgroup">
-                <span className="p-inputgroup-addon">
-                  <i className="pi pi-lock" />
-                </span>
-                <Password
-                  inputId="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  feedback={false}
-                  toggleMask
-                  invalid={!!errors.password}
-                  className="w-full"
-                  inputClassName="w-full"
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  required
-                />
+              <div className="relative">
+                <IconField iconPosition="left">
+                  <InputIcon className="pi pi-lock" />
+                  <InputText
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    invalid={!!errors.password}
+                    className="w-full"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </IconField>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <i className={showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'} />
+                </button>
               </div>
               {errors.password && <small className="p-error">{errors.password}</small>}
             </div>
