@@ -25,6 +25,10 @@ export interface MartisDashboardConfig {
   showResourceCards?: boolean
 }
 
+export interface MartisToastConfig {
+  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center' | 'bottom-center'
+}
+
 export interface MartisConfigShape {
   basePath?: string
   locale?: string
@@ -34,6 +38,7 @@ export interface MartisConfigShape {
   userMenu?: MartisUserMenuConfig
   search?: MartisSearchConfig
   dashboard?: MartisDashboardConfig
+  toast?: MartisToastConfig
 }
 
 declare global {

@@ -71,16 +71,24 @@ return [
     |--------------------------------------------------------------------------
     | Configure what appears in the user profile context menu.
     | Set any option to false to hide it.
+    |
+    | 'customItems' allows you to add custom links/actions to the user menu.
+    | Each item can have: label, icon (PrimeIcons class), url (route/external).
+    | Use ['separator' => true] to add a divider between groups.
+    |
+    | Example:
+    |   'customItems' => [
+    |       ['label' => 'My Profile', 'icon' => 'pi pi-user', 'url' => '/profile'],
+    |       ['label' => 'Settings', 'icon' => 'pi pi-cog', 'url' => '/settings'],
+    |       ['separator' => true],
+    |       ['label' => 'Documentation', 'icon' => 'pi pi-book', 'url' => 'https://docs.example.com'],
+    |   ],
     */
     'user_menu' => [
         'showThemeToggle' => true,
         'showProfile' => true,
         'showNotifications' => true,
-        // 'customItems' => [
-        //     ['label' => 'Settings', 'icon' => 'pi pi-cog', 'url' => '/settings'],
-        //     ['separator' => true],
-        //     ['label' => 'Help', 'icon' => 'pi pi-question-circle', 'url' => '/help'],
-        // ],
+        // 'customItems' => [],
     ],
 
     /*
@@ -103,6 +111,18 @@ return [
     'dashboard' => [
         'showMetrics' => true,
         'showResourceCards' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Toast Notifications
+    |--------------------------------------------------------------------------
+    | Configure the position of toast notifications.
+    | Options: 'top-right', 'top-left', 'bottom-right', 'bottom-left',
+    |          'top-center', 'bottom-center'
+    */
+    'toast' => [
+        'position' => env('MARTIS_TOAST_POSITION', 'bottom-right'),
     ],
 
     /*

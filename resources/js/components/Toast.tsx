@@ -1,4 +1,5 @@
 import { useToast } from '@/contexts/ToastContext'
+import { config } from '@/lib/config'
 
 const iconMap = {
   success: 'pi-check-circle',
@@ -19,8 +20,10 @@ export function ToastContainer() {
 
   if (toasts.length === 0) return null
 
+  const position = config.toast?.position ?? 'bottom-right'
+
   return (
-    <div className="martis-toast-container" aria-live="polite">
+    <div className={`martis-toast-container pos-${position}`} aria-live="polite">
       {toasts.map((toast) => (
         <div
           key={toast.id}

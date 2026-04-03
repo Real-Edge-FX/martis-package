@@ -4,7 +4,6 @@ import { useTheme } from "@/contexts/ThemeContext"
 import { config } from "@/lib/config"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
-import { Button } from "primereact/button"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
@@ -38,14 +37,16 @@ export function Topbar() {
 
   const userMenuItems: MenuItem[] = [
     {
-      label: user?.name ?? user?.email ?? "",
-      className: "font-bold pointer-events-none opacity-80",
-      disabled: true,
-    },
-    {
-      label: user?.email ?? "",
-      className: "text-xs pointer-events-none opacity-60",
-      disabled: true,
+      template: () => (
+        <div className="px-3 py-2 pointer-events-none">
+          <div className="font-semibold text-sm" style={{ color: 'var(--martis-text)' }}>
+            {user?.name ?? user?.email ?? ""}
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>
+            {user?.email ?? ""}
+          </div>
+        </div>
+      ),
     },
     { separator: true },
     ...(showThemeToggle
@@ -111,19 +112,20 @@ export function Topbar() {
 
       <div className="flex items-center gap-3">
         {showNotifications && (
-          <Button
-            icon="pi pi-bell"
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+            style={{ color: 'var(--martis-text-muted)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             aria-label="Notifications"
-            rounded
-            text
-            severity="secondary"
-            size="small"
-            className="martis-text-muted"
-          />
+          >
+            <i className="pi pi-bell text-sm" />
+          </button>
         )}
 
         {/* User avatar + dropdown menu */}
-        <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[200px]" />
+        <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
         <div
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer transition-colors"
           style={{ backgroundColor: 'transparent' }}

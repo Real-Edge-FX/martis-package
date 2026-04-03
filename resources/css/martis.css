@@ -94,9 +94,6 @@ button {
 }
 
 /* ── PrimeReact Dark theme import (conditional) ────────────────── */
-/* Dark theme is loaded by default. Light theme PrimeReact vars
-   are overridden below for html:not(.dark). */
-
 .dark body,
 html.dark body {
   color-scheme: dark;
@@ -175,12 +172,49 @@ html.dark body {
   color: var(--martis-text-muted);
 }
 
-/* ── Button text variant ───────────────────────────────────────── */
+/* ── Button ────────────────────────────────────────────────────── */
+.p-button {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+  color: #ffffff;
+}
+.p-button:hover {
+  background-color: var(--martis-accent-hover);
+  border-color: var(--martis-accent-hover);
+}
+.p-button:focus {
+  box-shadow: 0 0 0 2px var(--martis-bg), 0 0 0 4px var(--martis-accent);
+}
+
+/* Button text variant */
 .p-button.p-button-text {
+  background: transparent;
+  border-color: transparent;
   color: var(--martis-text-muted);
 }
 .p-button.p-button-text:hover {
-  background-color: var(--martis-surface);
+  background-color: var(--martis-hover);
+  border-color: transparent;
+}
+
+/* ── Fix: Bell / icon-only button — subtle focus & hover ───────── */
+.p-button.p-button-rounded.p-button-text:focus,
+.p-button.p-button-rounded.p-button-text:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+}
+.p-button.p-button-rounded.p-button-text:hover {
+  background-color: var(--martis-hover) !important;
+}
+.p-button.p-button-rounded.p-button-text.p-button-secondary:focus,
+.p-button.p-button-rounded.p-button-text.p-button-secondary:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* ── Icon-only button sizing ───────────────────────────────────── */
+.p-button.p-button-icon-only.p-button-text {
+  @apply p-2;
 }
 
 /* ── Dialog / Modal ────────────────────────────────────────────── */
@@ -237,10 +271,13 @@ html.dark body {
   border-color: var(--martis-border);
 }
 
-/* ── Menu popup ────────────────────────────────────────────────── */
+/* ── Menu popup — Fix text visibility ──────────────────────────── */
 .p-menu {
   background-color: var(--martis-card);
-  border-color: var(--martis-border);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text);
+}
+.p-menu .p-menuitem-link {
   color: var(--martis-text);
 }
 .p-menu .p-menuitem-link:hover {
@@ -252,10 +289,16 @@ html.dark body {
 .p-menu .p-menuitem-icon {
   color: var(--martis-text-muted);
 }
-
-/* ── Icon-only button sizing ───────────────────────────────────── */
-.p-button.p-button-icon-only.p-button-text {
-  @apply p-2;
+/* Disabled items in menu (user name/email) — ensure visibility */
+.p-menu .p-menuitem.p-disabled .p-menuitem-text,
+.p-menu .p-menuitem .p-menuitem-link.p-disabled .p-menuitem-text,
+.p-menu .p-menuitem-link[aria-disabled="true"] .p-menuitem-text {
+  color: var(--martis-text) !important;
+  opacity: 1 !important;
+}
+.p-menu .p-menuitem.p-disabled .p-menuitem-link,
+.p-menu .p-menuitem-link.p-disabled {
+  opacity: 1 !important;
 }
 
 /* ── Martis Layout Helpers ─────────────────────────────────────── */
@@ -326,14 +369,20 @@ html.dark body {
 /* ── Toast Notifications (custom) ──────────────────────────────── */
 .martis-toast-container {
   position: fixed;
-  top: 16px;
-  right: 16px;
   z-index: 10000;
   display: flex;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
 }
+/* Position variants */
+.martis-toast-container.pos-top-right { top: 16px; right: 16px; }
+.martis-toast-container.pos-top-left { top: 16px; left: 16px; }
+.martis-toast-container.pos-bottom-right { bottom: 16px; right: 16px; }
+.martis-toast-container.pos-bottom-left { bottom: 16px; left: 16px; }
+.martis-toast-container.pos-top-center { top: 16px; left: 50%; transform: translateX(-50%); }
+.martis-toast-container.pos-bottom-center { bottom: 16px; left: 50%; transform: translateX(-50%); }
+
 .martis-toast {
   pointer-events: auto;
   display: flex;
@@ -355,8 +404,8 @@ html.dark body {
 .martis-toast-info { border-left: 4px solid #3b82f6; }
 
 @keyframes martis-toast-in {
-  from { opacity: 0; transform: translateX(100%); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ── PrimeReact Light Theme Overrides ──────────────────────────── */
@@ -369,9 +418,13 @@ html:not(.dark) .p-inputtext {
   border-color: var(--martis-border);
 }
 html:not(.dark) .p-button {
-  color: white;
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+  color: #ffffff;
 }
 html:not(.dark) .p-button.p-button-text {
+  background: transparent;
+  border-color: transparent;
   color: var(--martis-text-muted);
 }
 html:not(.dark) .p-datatable .p-datatable-thead > tr > th {
@@ -388,4 +441,25 @@ html:not(.dark) .p-card {
   background-color: var(--martis-card);
   border-color: var(--martis-border);
   color: var(--martis-text);
+}
+
+/* Light theme menu — ensure text is dark and visible */
+html:not(.dark) .p-menu {
+  background-color: var(--martis-card);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-menu .p-menuitem-text {
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-menu .p-menuitem-link {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-menu .p-menuitem.p-disabled .p-menuitem-text,
+html:not(.dark) .p-menu .p-menuitem .p-menuitem-link.p-disabled .p-menuitem-text {
+  color: var(--martis-text) !important;
+  opacity: 1 !important;
+}
+html:not(.dark) .p-menu .p-menuitem.p-disabled .p-menuitem-link,
+html:not(.dark) .p-menu .p-menuitem-link.p-disabled {
+  opacity: 1 !important;
 }
