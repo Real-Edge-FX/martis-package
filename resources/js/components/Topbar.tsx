@@ -4,21 +4,18 @@ import { useToast } from '@/contexts/ToastContext'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Sun, Moon, SignOut } from '@phosphor-icons/react'
 import { Button } from 'primereact/button'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 export function Topbar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { addToast } = useToast()
-  const navigate = useNavigate()
   const { t } = useTranslation('navigation')
   const { t: tAuth } = useTranslation('auth')
 
   async function handleLogout() {
     await logout()
     addToast('success', tAuth('session_ended'))
-    void navigate('/martis/login')
   }
 
   return (

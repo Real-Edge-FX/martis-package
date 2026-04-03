@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
@@ -13,7 +13,6 @@ import { Button } from 'primereact/button'
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
   const { addToast } = useToast()
-  const navigate = useNavigate()
   const { t } = useTranslation('auth')
 
   const [email, setEmail] = useState('')
@@ -29,7 +28,6 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(email, password)
-      void navigate(BASE_PATH)
     } catch (err) {
       if (err instanceof ApiError && err.errors) {
         const flat: Record<string, string> = {}
