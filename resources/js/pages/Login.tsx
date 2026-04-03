@@ -35,15 +35,18 @@ export function LoginPage() {
     try {
       await login(email, password)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 422 && err.errors) {
-        // Validation errors — show inline under fields
-        const flat: Record<string, string> = {}
-        Object.entries(err.errors).forEach(([k, v]) => {
-          flat[k] = v[0]?.message ?? String(v[0])
-        })
-        setErrors(flat)
+      if (err instanceof ApiError) {
+        // Always show toast for any API error
+        addToast('error', err.message || t('error'))
+        // Also set field-level errors for 422 validation
+        if (err.status === 422 && err.errors) {
+          const flat: Record<string, string> = {}
+          Object.entries(err.errors).forEach(([k, v]) => {
+            flat[k] = v[0]?.message ?? String(v[0])
+          })
+          setErrors(flat)
+        }
       } else {
-        // Throttle (429), server errors, network errors — show toast
         addToast('error', err instanceof Error ? err.message : t('error'))
       }
     } finally {
