@@ -290,6 +290,46 @@ class ResourceController extends MartisController
     }
 
     // -------------------------------------------------------------------------
+    // Schema — GET /api/{resource}/schema
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the field schema for a resource (used by the React frontend
+     * to know how to render each field).
+     *
+     * GET /martis/api/resources/{resource}/schema
+     */
+    public function schema(Request $request, string $resource): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $instance = new $resourceClass;
+
+        if (! $instance->authorizedToViewAny($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        $fields = $instance->fields($request);
+        $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
+
+        $data = array_merge($resourceClass::uriKey() === $resourceClass::uriKey() ? [] : [], [
+            'uriKey' => $resourceClass::uriKey(),
+            'label' => $resourceClass::label(),
+            'singularLabel' => $resourceClass::singularLabel(),
+            'softDeletes' => $resourceClass::softDeletes(),
+            'group' => $instance->group(),
+            'fields' => $fieldData,
+        ]);
+
+        return JsonResponse::make($data)->toResponse();
+    }
+
+    // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
 

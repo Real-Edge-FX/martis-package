@@ -331,3 +331,65 @@ it('registers all six resource API routes', function () {
     expect($routeNames)->toContain('martis.api.resources.destroy');
     expect($routeNames)->toContain('martis.api.resources.restore');
 });
+
+// ---------------------------------------------------------------------------
+// Schema — GET /api/resources/{resource}/schema  (Bloco 8)
+// ---------------------------------------------------------------------------
+
+it('GET /martis/api/resources/{resource}/schema returns field schema', function () {
+    $response = $this->getJson('/martis/api/resources/post-models/schema');
+
+    $response->assertStatus(200);
+
+    $data = $response->json('data');
+    expect($data['uriKey'])->toBe('post-models');
+    expect($data['label'])->toBe('Post Models');
+    expect($data['singularLabel'])->toBe('Post Model');
+    expect($data['softDeletes'])->toBeFalse();
+    expect($data['fields'])->toBeArray();
+    expect($data['fields'])->not->toBeEmpty();
+});
+
+it('schema includes field metadata with all required keys', function () {
+    $response = $this->getJson('/martis/api/resources/post-models/schema');
+    $response->assertStatus(200);
+
+    $fields = $response->json('data.fields');
+    $titleField = collect($fields)->firstWhere('attribute', 'title');
+
+    expect($titleField)->not->toBeNull();
+    expect($titleField['label'])->toBe('Title');
+    expect($titleField['type'])->toBe('text');
+    expect($titleField['sortable'])->toBeTrue();
+    expect($titleField['searchable'])->toBeTrue();
+    expect($titleField['required'])->toBeTrue();
+    expect($titleField['showOnIndex'])->toBeTrue();
+    expect($titleField['showOnDetail'])->toBeTrue();
+    expect($titleField['showOnForms'])->toBeTrue();
+});
+
+it('schema respects hideFromIndex on fields', function () {
+    $response = $this->getJson('/martis/api/resources/post-models/schema');
+    $response->assertStatus(200);
+
+    $fields = $response->json('data.fields');
+    $bodyField = collect($fields)->firstWhere('attribute', 'body');
+
+    expect($bodyField)->not->toBeNull();
+    expect($bodyField['showOnIndex'])->toBeFalse();
+});
+
+it('schema returns 404 for unknown resource', function () {
+    $response = $this->getJson('/martis/api/resources/unknown-resource/schema');
+    $response->assertStatus(404);
+});
+
+it('schema route is registered', function () {
+    $routeNames = collect(Route::getRoutes()->getRoutes())
+        ->map(fn ($r) => $r->getName())
+        ->filter()
+        ->values()
+        ->toArray();
+
+    expect($routeNames)->toContain('martis.api.resources.schema');
+});

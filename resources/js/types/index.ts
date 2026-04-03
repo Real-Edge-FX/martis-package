@@ -42,3 +42,56 @@ export interface Toast {
   message: string
 }
 
+// -------------------------------------------------------------------------
+// Field & Resource schema types (Bloco 8)
+// -------------------------------------------------------------------------
+
+export type FieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'date'
+  | 'belongs_to'
+
+export interface SelectOption {
+  value: string | number
+  label: string
+}
+
+export interface FieldDefinition {
+  attribute: string
+  label: string
+  type: FieldType
+  nullable: boolean
+  readonly: boolean
+  required: boolean
+  sortable: boolean
+  searchable: boolean
+  showOnIndex: boolean
+  showOnDetail: boolean
+  showOnForms: boolean
+  rules: string[]
+  options?: SelectOption[]
+  relatedResource?: string
+  relatedLabel?: string
+}
+
+export interface ResourceEmbedded {
+  uriKey: string
+  label: string
+  singularLabel: string
+  softDeletes: boolean
+  group: string | null
+}
+
+export interface ResourceSchema extends ResourceEmbedded {
+  fields: FieldDefinition[]
+}
+
+export interface ResourceRecord {
+  id: number | string
+  [key: string]: unknown
+  _resource: ResourceEmbedded
+}

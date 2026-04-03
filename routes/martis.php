@@ -30,6 +30,8 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
 
                         // CRUD de resources
+                        Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])
+                            ->name('resources.schema');
                         Route::get('/resources/{resource}', [ResourceController::class, 'index'])
                             ->name('resources.index');
                         Route::post('/resources/{resource}', [ResourceController::class, 'store'])

@@ -9,6 +9,10 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
+import { registerDefaultFields } from '@/components/fields'
+
+// Register all default field renderers into the global component registry
+registerDefaultFields()
 
 const container = document.getElementById('martis-root')
 
@@ -29,4 +33,3 @@ if (container) {
     </StrictMode>,
   )
 }
-
