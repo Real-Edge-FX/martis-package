@@ -1,0 +1,13 @@
+<?php
+
+namespace {{ namespace }};
+
+use Martis\Fields\Field;
+
+class {{ class }} extends Field
+{
+    public function type(): string
+    {
+        return '{{ type }}';
+    }
+}
