@@ -1,9 +1,11 @@
-/**
- * Runtime configuration injected by the Blade template via window.MartisConfig.
- * All route references MUST use BASE_PATH instead of hardcoded paths.
- */
-const cfg = (window as unknown as Record<string, unknown>).MartisConfig as
-  | { locale?: string; brand?: string; basePath?: string }
-  | undefined
+declare global {
+  interface Window {
+    MartisConfig?: {
+      basePath?: string
+      locale?: string
+      brand?: string
+    }
+  }
+}
 
-export const BASE_PATH: string = cfg?.basePath ?? "/admin"
+export const BASE_PATH = window.MartisConfig?.basePath ?? '/martis'

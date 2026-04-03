@@ -6,7 +6,6 @@ import type { ResourceSchema } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
-import { BASE_PATH } from "@/lib/config"
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -37,7 +36,7 @@ export function ResourceCreatePage() {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', tMsg('record_created'))
-      navigate(`${BASE_PATH}/resources/${resource}/${res.data.id}`)
+      navigate(`/resources/${resource}/${res.data.id}`)
     },
     onError: (err) => {
       if (err instanceof ApiError && err.errors) {
@@ -78,7 +77,7 @@ export function ResourceCreatePage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
-          to={`${BASE_PATH}/resources/${resource}`}
+          to={`/resources/${resource}`}
           className="text-sm text-blue-600 hover:underline dark:text-blue-400"
         >
           ← {schema.label}
@@ -122,7 +121,7 @@ export function ResourceCreatePage() {
 
           <div className="flex justify-end gap-3 rounded-b-xl border-t border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
             <Link
-              to={`${BASE_PATH}/resources/${resource}`}
+              to={`/resources/${resource}`}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
               {tAct('cancel')}

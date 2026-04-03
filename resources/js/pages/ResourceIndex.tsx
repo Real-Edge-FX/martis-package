@@ -8,7 +8,6 @@ import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
-import { BASE_PATH } from "@/lib/config"
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -140,7 +139,7 @@ export function ResourceIndexPage() {
         </div>
         <button
           type="button"
-          onClick={() => navigate(`${BASE_PATH}/resources/${resource}/create`)}
+          onClick={() => navigate(`/resources/${resource}/create`)}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           + {tAct('create')} {schema.singularLabel}
@@ -176,7 +175,7 @@ export function ResourceIndexPage() {
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
         onToggleAll={handleToggleAll}
-        onClickRow={(row) => navigate(`${BASE_PATH}/resources/${resource}/${row.id}`)}
+        onClickRow={(row) => navigate(`/resources/${resource}/${row.id}`)}
         resourceKey={resource}
       />
 

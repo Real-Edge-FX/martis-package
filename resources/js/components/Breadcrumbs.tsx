@@ -1,6 +1,5 @@
 import { Link, useMatches } from 'react-router-dom'
 import { ChevronRight, Home } from 'lucide-react'
-import { BASE_PATH } from "@/lib/config"
 
 interface BreadcrumbHandle {
   crumb?: string
@@ -15,7 +14,7 @@ export function Breadcrumbs() {
 
   return (
     <nav aria-label="Breadcrumbs" className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-      <Link to={BASE_PATH} className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-100">
+      <Link to="/" className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-100">
         <Home size={14} />
       </Link>
       {crumbs.map((m, i) => (

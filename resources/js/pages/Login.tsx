@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
-import { BASE_PATH } from '@/lib/config'
 import { Card } from 'primereact/card'
 import { InputText } from 'primereact/inputtext'
 import { Password } from 'primereact/password'
@@ -20,7 +19,7 @@ export function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  if (!isLoading && user) return <Navigate to={BASE_PATH} replace />
+  if (!isLoading && user) return <Navigate to="/" replace />
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

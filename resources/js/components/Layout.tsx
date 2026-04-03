@@ -4,7 +4,6 @@ import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
 import { ToastContainer } from '@/components/Toast'
 import { TableSkeleton } from '@/components/LoadingSkeleton'
-import { BASE_PATH } from "@/lib/config"
 
 export function Layout() {
   const { user, isLoading } = useAuth()
@@ -19,7 +18,7 @@ export function Layout() {
     )
   }
 
-  if (!user) return <Navigate to={`${BASE_PATH}/login`} replace />
+  if (!user) return <Navigate to="/login" replace />
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">

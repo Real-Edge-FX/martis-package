@@ -7,9 +7,9 @@
     <title>{{ config('martis.brand.name', 'Martis') }} Admin</title>
     <script>
         window.MartisConfig = {
+            basePath: "/{{ config('martis.path', 'martis') }}",
             locale: "{{ config('martis.locale', 'en') }}",
-            brand: "{{ config('martis.brand.name', 'Martis') }}",
-            basePath: "/{{ config('martis.path', 'admin') }}"
+            brand: "{{ config('martis.brand.name', 'Martis') }}"
         };
     </script>
     @vite(['resources/js/app.tsx'], 'vendor/martis')

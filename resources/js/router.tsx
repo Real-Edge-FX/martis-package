@@ -1,55 +1,55 @@
-import { createBrowserRouter } from "react-router-dom"
-import { Layout } from "@/components/Layout"
-import { LoginPage } from "@/pages/Login"
-import { DashboardPage } from "@/pages/Dashboard"
-import { BASE_PATH } from "@/lib/config"
+import { createBrowserRouter } from 'react-router-dom'
+import { Layout } from '@/components/Layout'
+import { LoginPage } from '@/pages/Login'
+import { DashboardPage } from '@/pages/Dashboard'
+import { BASE_PATH } from '@/lib/config'
 
 export const router = createBrowserRouter([
   {
-    path: `${BASE_PATH}/login`,
+    path: '/login',
     element: <LoginPage />,
   },
   {
-    path: BASE_PATH,
+    path: '/',
     element: <Layout />,
     children: [
       {
         index: true,
         element: <DashboardPage />,
-        handle: { crumb: "Dashboard" },
+        handle: { crumb: 'Dashboard' },
       },
       {
-        path: "resources/:resource",
+        path: 'resources/:resource',
         lazy: async () => {
-          const { ResourceIndexPage } = await import("@/pages/ResourceIndex")
-          return { element: <ResourceIndexPage />, handle: { crumb: "Resources" } }
+          const { ResourceIndexPage } = await import('@/pages/ResourceIndex')
+          return { element: <ResourceIndexPage />, handle: { crumb: 'Resources' } }
         },
       },
       {
-        path: "resources/:resource/create",
+        path: 'resources/:resource/create',
         lazy: async () => {
-          const { ResourceCreatePage } = await import("@/pages/ResourceCreate")
-          return { element: <ResourceCreatePage />, handle: { crumb: "Create" } }
+          const { ResourceCreatePage } = await import('@/pages/ResourceCreate')
+          return { element: <ResourceCreatePage />, handle: { crumb: 'Create' } }
         },
       },
       {
-        path: "resources/:resource/:id",
+        path: 'resources/:resource/:id',
         lazy: async () => {
-          const { ResourceDetailPage } = await import("@/pages/ResourceDetail")
-          return { element: <ResourceDetailPage />, handle: { crumb: "Detail" } }
+          const { ResourceDetailPage } = await import('@/pages/ResourceDetail')
+          return { element: <ResourceDetailPage />, handle: { crumb: 'Detail' } }
         },
       },
       {
-        path: "resources/:resource/:id/edit",
+        path: 'resources/:resource/:id/edit',
         lazy: async () => {
-          const { ResourceUpdatePage } = await import("@/pages/ResourceUpdate")
-          return { element: <ResourceUpdatePage />, handle: { crumb: "Edit" } }
+          const { ResourceUpdatePage } = await import('@/pages/ResourceUpdate')
+          return { element: <ResourceUpdatePage />, handle: { crumb: 'Edit' } }
         },
       },
     ],
   },
   {
-    path: "*",
+    path: '*',
     element: <LoginPage />,
   },
-])
+], { basename: BASE_PATH })
