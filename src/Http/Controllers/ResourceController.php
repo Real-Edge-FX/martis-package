@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\File;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -156,8 +157,11 @@ class ResourceController extends MartisController
         }
 
         foreach ($fields as $field) {
-            if ($request->has($field->attribute())) {
-                $field->fill($model, $request->input($field->attribute()));
+            $attr = $field->attribute();
+            if ($request->hasFile($attr)) {
+                $field->fill($model, $request->file($attr));
+            } elseif ($request->has($attr)) {
+                $field->fill($model, $request->input($attr));
             }
         }
 
@@ -205,8 +209,11 @@ class ResourceController extends MartisController
         }
 
         foreach ($fields as $field) {
-            if ($request->has($field->attribute())) {
-                $field->fill($model, $request->input($field->attribute()));
+            $attr = $field->attribute();
+            if ($request->hasFile($attr)) {
+                $field->fill($model, $request->file($attr));
+            } elseif ($request->has($attr)) {
+                $field->fill($model, $request->input($attr));
             }
         }
 
@@ -247,6 +254,7 @@ class ResourceController extends MartisController
         }
 
         $res->beforeDelete($model, $request);
+        $this->deleteUploadedFiles($res->fieldsForDetail($request), $model);
         $model->delete();
         $res->afterDelete($model, $request);
 
@@ -338,6 +346,20 @@ class ResourceController extends MartisController
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Delete stored files for all File/Image fields before model deletion.
+     *
+     * @param  list<FieldContract>  $fields
+     */
+    private function deleteUploadedFiles(array $fields, Model $model): void
+    {
+        foreach ($fields as $field) {
+            if ($field instanceof File) {
+                $field->deleteStoredFile($model);
+            }
+        }
+    }
 
     /**
      * Resolve the resource class from the URI key.
