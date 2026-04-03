@@ -1,16 +1,32 @@
-/* PrimeReact theme — must come before tailwind base to allow overrides */
+/* PrimeReact theme + components */
 @import "primereact/resources/themes/lara-light-indigo/theme.css";
 @import "primereact/resources/primereact.min.css";
 @import "primeicons/primeicons.css";
 
+/* Tailwind (preflight disabled — PrimeReact provides its own reset) */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --sidebar-width: 240px;
-  }
+/* Minimal reset compatible with PrimeReact (replaces Tailwind Preflight) */
+*, ::before, ::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --sidebar-width: 240px;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img, video {
+  max-width: 100%;
+  height: auto;
 }
 
 /* PrimeReact integration: ensure PrimeReact components respect Tailwind's dark mode */
