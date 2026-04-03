@@ -4,10 +4,13 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
-import { Card } from 'primereact/card'
 import { InputText } from 'primereact/inputtext'
 import { Password } from 'primereact/password'
 import { Button } from 'primereact/button'
+
+function getBrand(): string {
+  return window.MartisConfig?.brand ?? 'Martis'
+}
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
@@ -42,58 +45,95 @@ export function LoginPage() {
     }
   }
 
+  const brand = getBrand()
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <Card className="w-full max-w-sm shadow-md">
-        <h1 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
-          {t('title')}
-        </h1>
+    <div className="flex min-h-screen">
+      {/* Left panel — brand accent */}
+      <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-600">
+        <div className="text-center text-white px-12">
+          <div className="mb-6 flex items-center justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+              <i className="pi pi-shield text-3xl text-white" />
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold mb-3">{brand}</h2>
+          <p className="text-indigo-100 text-lg">Administration Panel</p>
+        </div>
+      </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('email')}
-            </label>
-            <InputText
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              invalid={!!errors.email}
-              className="w-full"
-              required
-            />
-            {errors.email && <small className="text-red-500">{errors.email}</small>}
+      {/* Right panel — login form */}
+      <div className="flex flex-1 items-center justify-center bg-white dark:bg-gray-950 px-6">
+        <div className="w-full max-w-md">
+          {/* Mobile brand header */}
+          <div className="lg:hidden mb-8 text-center">
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600">
+              <i className="pi pi-shield text-2xl text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{brand}</h1>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('password')}
-            </label>
-            <Password
-              inputId="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              feedback={false}
-              toggleMask
-              invalid={!!errors.password}
-              className="w-full"
-              inputClassName="w-full"
-              autoComplete="current-password"
-              required
-            />
-            {errors.password && <small className="text-red-500">{errors.password}</small>}
+          <div className="hidden lg:block mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Enter your credentials to access the admin panel.
+            </p>
           </div>
 
-          <Button
-            type="submit"
-            label={submitting ? t('signing_in') : t('sign_in')}
-            loading={submitting}
-            className="w-full"
-          />
-        </form>
-      </Card>
+          <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="email" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {t('email')}
+              </label>
+              <InputText
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                invalid={!!errors.email}
+                className="w-full"
+                placeholder="admin@example.com"
+                required
+              />
+              {errors.email && <small className="p-error">{errors.email}</small>}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor="password" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {t('password')}
+              </label>
+              <Password
+                inputId="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                feedback={false}
+                toggleMask
+                invalid={!!errors.password}
+                className="w-full"
+                inputClassName="w-full"
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                required
+              />
+              {errors.password && <small className="p-error">{errors.password}</small>}
+            </div>
+
+            <Button
+              type="submit"
+              label={submitting ? t('signing_in') : t('sign_in')}
+              icon={submitting ? undefined : 'pi pi-sign-in'}
+              loading={submitting}
+              className="w-full mt-2"
+              severity="info"
+            />
+          </form>
+
+          <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-600">
+            Powered by {brand}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
