@@ -11,9 +11,16 @@ export class ApiError extends Error {
   }
 }
 
+function getCsrfToken(): string {
+  // Prefer XSRF-TOKEN cookie — always fresh (updated on every Laravel response)
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/)
+  if (match) return decodeURIComponent(match[1])
+  // Fallback to meta tag (may be stale after session regeneration)
+  return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const csrfToken =
-    document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+  const csrfToken = getCsrfToken()
 
   const res = await fetch(`${BASE_PATH}${path}`, {
     method,
@@ -21,7 +28,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'X-CSRF-TOKEN': csrfToken,
+      'X-XSRF-TOKEN': csrfToken,
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
