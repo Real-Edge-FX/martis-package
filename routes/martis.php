@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\ResourceController;
@@ -9,19 +10,24 @@ Route::middleware(config('martis.middleware', ['web']))
     ->prefix(config('martis.path', 'martis'))
     ->name('martis.')
     ->group(function () {
-        // Public routes — no auth required
+        // Rotas públicas — sem autenticação
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-        // Protected routes — require martis.auth middleware
+        // Rotas protegidas — requerem middleware martis.auth
         Route::middleware(config('martis.auth_middleware', ['martis.auth']))
             ->group(function () {
-                // API routes for resource CRUD
+                // Rotas de API
                 Route::prefix('api')
                     ->name('api.')
                     ->middleware(config('martis.api_middleware', ['throttle:60,1']))
                     ->group(function () {
+                        // Auth
+                        Route::get('/auth/user', [AuthController::class, 'user'])->name('auth.user');
+                        Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+
+                        // CRUD de resources
                         Route::get('/resources/{resource}', [ResourceController::class, 'index'])
                             ->name('resources.index');
                         Route::post('/resources/{resource}', [ResourceController::class, 'store'])
@@ -36,7 +42,7 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->name('resources.restore');
                     });
 
-                // SPA catch-all — must come AFTER API routes
+                // SPA catch-all — deve vir APÓS as rotas de API
                 Route::get('/', [DashboardController::class, 'index'])->name('index');
                 Route::get('/{path}', [DashboardController::class, 'index'])
                     ->where('path', '(?!api/).*')
