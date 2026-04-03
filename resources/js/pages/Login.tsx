@@ -123,9 +123,10 @@ export function LoginPage() {
             <Button
               type="submit"
               label={submitting ? t('signing_in') : t('sign_in')}
-              
+              icon={submitting ? undefined : 'pi pi-sign-in'}
               loading={submitting}
               className="w-full"
+              style={{ padding: '0.875rem 1.25rem', fontSize: '1rem' }}
             />
           </form>
         </div>
