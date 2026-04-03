@@ -36,3 +36,28 @@ it('translations pt-BR returns portuguese strings', function () {
     expect($data['navigation']['dashboard'])->toBe('Painel');
     expect($data['messages']['record_created'])->toBe('Registro criado com sucesso.');
 });
+
+it('translations en-US is alias for en', function () {
+    $data = $this->getJson('/martis/api/translations/en-US')->json();
+
+    expect($data)->toBeArray();
+    expect($data['actions']['create'])->toBe('Create');
+    expect($data['auth']['sign_in'])->toBe('Sign in');
+    expect($data['messages']['record_created'])->toBe('Record created successfully.');
+});
+
+it('translations pt-PT returns european portuguese strings', function () {
+    $data = $this->getJson('/martis/api/translations/pt-PT')->json();
+
+    expect($data['actions']['create'])->toBe('Criar');
+    expect($data['auth']['sign_in'])->toBe('Entrar');
+    expect($data['auth']['password'])->toBe('Palavra-passe');
+    expect($data['messages']['record_created'])->toBe('Registo criado com sucesso.');
+    expect($data['navigation']['logout'])->toBe('Terminar sessão');
+});
+
+it('translations pt-PT endpoint returns all namespaces', function () {
+    $data = $this->getJson('/martis/api/translations/pt-PT')->json();
+
+    expect($data)->toHaveKeys(['actions', 'auth', 'navigation', 'messages', 'resources', 'martis']);
+});
