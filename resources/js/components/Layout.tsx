@@ -2,7 +2,6 @@ import { Outlet, Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
-import { ToastContainer } from '@/components/Toast'
 import { TableSkeleton } from '@/components/LoadingSkeleton'
 
 export function Layout() {
@@ -29,7 +28,6 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
-      <ToastContainer />
     </div>
   )
 }

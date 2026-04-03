@@ -10,6 +10,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
+import { ToastContainer } from '@/components/Toast'
 import { registerDefaultFields } from '@/components/fields'
 import { initI18n } from '@/lib/i18n'
 
@@ -26,6 +27,7 @@ function App() {
               <ToastProvider>
                 <AuthProvider>
                   <RouterProvider router={router} />
+                  <ToastContainer />
                 </AuthProvider>
               </ToastProvider>
             </QueryClientProvider>

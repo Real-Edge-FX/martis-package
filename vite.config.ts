@@ -4,7 +4,7 @@ import path from 'path'
 
 export default defineConfig({
     plugins: [react()],
-    base: '/martis/',
+    base: '/vendor/martis/',
     build: {
         outDir: 'public',
         manifest: 'manifest.json',
@@ -13,7 +13,7 @@ export default defineConfig({
         },
     },
     server: {
-        base: '/martis/',
+        base: '/vendor/martis/',
         cors: true,
     },
     resolve: {
