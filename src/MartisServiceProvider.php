@@ -4,6 +4,10 @@ namespace Martis;
 
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
+use Martis\Console\FieldMakeCommand;
+use Martis\Console\InstallCommand;
+use Martis\Console\ResourceMakeCommand;
+use Martis\Console\UserCommand;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Http\Middleware\MartisAuthenticate;
 
@@ -31,6 +35,13 @@ class MartisServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'martis');
 
         if ($this->app->runningInConsole()) {
+            $this->commands([
+                InstallCommand::class,
+                ResourceMakeCommand::class,
+                FieldMakeCommand::class,
+                UserCommand::class,
+            ]);
+
             $this->publishes([
                 __DIR__.'/../config/martis.php' => config_path('martis.php'),
             ], 'martis-config');
