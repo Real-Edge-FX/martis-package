@@ -9,4 +9,5 @@ return [
     'registered' => 'Recursos registrados',
     'welcome' => 'Bem-vindo ao Martis Admin Engine.',
     'hello' => 'Olá, :name',
+    'no_records' => 'Nenhum registro encontrado.',
 ];

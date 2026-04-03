@@ -17,4 +17,5 @@ return [
     'show_trashed' => 'Mostrar eliminados',
     'hide_trashed' => 'Ocultar eliminados',
     'only_trashed' => 'Apenas eliminados',
+    'no_records' => 'Nenhum registo encontrado.',
 ];

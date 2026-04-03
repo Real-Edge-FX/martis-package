@@ -59,6 +59,26 @@ class TranslationsController extends MartisController
             }
         }
 
-        return response()->json($translations);
+        return response()->json($this->convertPlaceholders($translations));
+    }
+
+    /**
+     * Recursively convert Laravel-style :variable placeholders to
+     * react-i18next {{variable}} format.
+     *
+     * @param  array<string, mixed>  $translations
+     * @return array<string, mixed>
+     */
+    private function convertPlaceholders(array $translations): array
+    {
+        foreach ($translations as $key => $value) {
+            if (is_array($value)) {
+                $translations[$key] = $this->convertPlaceholders($value);
+            } elseif (is_string($value)) {
+                $translations[$key] = preg_replace('/:([a-zA-Z_][a-zA-Z0-9_]*)/', '{{$1}}', $value);
+            }
+        }
+
+        return $translations;
     }
 }

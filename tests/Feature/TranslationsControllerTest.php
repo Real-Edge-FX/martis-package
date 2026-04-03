@@ -61,3 +61,32 @@ it('translations pt-PT endpoint returns all namespaces', function () {
 
     expect($data)->toHaveKeys(['actions', 'auth', 'navigation', 'messages', 'resources', 'martis']);
 });
+
+it('translations convert :variable placeholders to {{variable}} format', function () {
+    $data = $this->getJson('/martis/api/translations/en')->json();
+
+    expect($data['resources']['new'])->toBe('New {{label}}');
+    expect($data['resources']['search'])->toBe('Search {{label}}…');
+    expect($data['resources']['selected'])->toBe('{{count}} selected');
+    expect($data['resources']['edit'])->toBe('Edit {{label}}');
+    expect($data['resources']['hello'])->toBe('Hello, {{name}}');
+});
+
+it('translations no_records key exists in en', function () {
+    $data = $this->getJson('/martis/api/translations/en')->json();
+
+    expect($data['resources']['no_records'])->toBe('No records found.');
+});
+
+it('translations no_records key exists in pt-BR', function () {
+    $data = $this->getJson('/martis/api/translations/pt-BR')->json();
+
+    expect($data['resources']['no_records'])->toBe('Nenhum registro encontrado.');
+});
+
+it('translations pt-BR converts :variable placeholders', function () {
+    $data = $this->getJson('/martis/api/translations/pt-BR')->json();
+
+    expect($data['resources']['new'])->toBe('Novo {{label}}');
+    expect($data['resources']['search'])->toBe('Buscar {{label}}…');
+});

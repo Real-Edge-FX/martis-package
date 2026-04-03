@@ -9,4 +9,5 @@ return [
     'registered' => 'Registered resources',
     'welcome' => 'Welcome to Martis Admin Engine.',
     'hello' => 'Hello, :name',
+    'no_records' => 'No records found.',
 ];

@@ -200,7 +200,7 @@ describe('Table', () => {
         selectedIds={new Set()} onToggleSelect={vi.fn()} onToggleAll={vi.fn()}
       />
     )
-    expect(screen.getByText('Nenhum registro encontrado.')).toBeTruthy()
+    expect(screen.getByText('No records found.')).toBeTruthy()
   })
 
   it('calls onSort when sortable column header clicked', () => {

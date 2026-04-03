@@ -4,6 +4,7 @@ import { FieldDisplay } from '@/components/fields'
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 import { CaretUp, CaretDown, CaretUpDown } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 
 export interface TableColumn {
   field: FieldDefinition
@@ -42,6 +43,7 @@ function DefaultTable({
   onClickRow,
   resourceKey,
 }: TableProps) {
+  const { t } = useTranslation('resources')
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
   const selectedRows = rows.filter((r) => selectedIds.has(r.id))
 
@@ -79,7 +81,7 @@ function DefaultTable({
       }
       emptyMessage={
         <div className="py-8 text-center text-sm text-gray-400">
-          Nenhum registro encontrado.
+          {t('no_records')}
         </div>
       }
       className="w-full"
