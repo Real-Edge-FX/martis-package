@@ -18,6 +18,7 @@ export interface MartisUserMenuConfig {
 export interface MartisSearchConfig {
   enabled?: boolean
   placeholder?: string
+  style?: 'bar' | 'icon'
 }
 
 export interface MartisDashboardConfig {

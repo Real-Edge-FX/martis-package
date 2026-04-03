@@ -100,6 +100,7 @@ return [
     'search' => [
         'enabled' => true,
         'placeholder' => null, // null = use i18n default "Press / to search"
+        'style' => env('MARTIS_SEARCH_STYLE', 'bar'), // 'bar' (full search bar) or 'icon' (magnifying glass only)
     ],
 
     /*

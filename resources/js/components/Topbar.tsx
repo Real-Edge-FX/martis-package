@@ -8,16 +8,36 @@ import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches)
+    handler(mq)
+    mq.addEventListener('change', handler as (e: MediaQueryListEvent) => void)
+    return () => mq.removeEventListener('change', handler as (e: MediaQueryListEvent) => void)
+  }, [breakpoint])
+  return isMobile
+}
+
 export function Topbar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
   const menuRef = useRef<Menu>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   const showThemeToggle = config.userMenu?.showThemeToggle !== false
   const showNotifications = config.userMenu?.showNotifications !== false
   const searchEnabled = config.search?.enabled !== false
+  const searchStyle = config.search?.style ?? 'bar'
+
+  // On mobile: always show icon only. On desktop: respect config
+  const showSearchBar = searchEnabled && !isMobile && searchStyle === 'bar'
+  const showSearchIcon = searchEnabled && (isMobile || searchStyle === 'icon')
 
   // Keyboard shortcut: "/" to open search
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -82,8 +102,8 @@ export function Topbar() {
     >
       <Breadcrumbs />
 
-      {/* Search bar trigger — Nova style */}
-      {searchEnabled && (
+      {/* Search bar (desktop, style=bar) */}
+      {showSearchBar && (
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
@@ -111,6 +131,21 @@ export function Topbar() {
       )}
 
       <div className="flex items-center gap-3">
+        {/* Search icon (mobile, or desktop style=icon) */}
+        {showSearchIcon && (
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+            style={{ color: 'var(--martis-text-muted)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+            aria-label="Search"
+          >
+            <i className="pi pi-search text-sm" />
+          </button>
+        )}
+
         {showNotifications && (
           <button
             type="button"
@@ -142,10 +177,10 @@ export function Topbar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
             {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
           </div>
-          <span className="text-sm font-medium martis-text">
+          <span className="text-sm font-medium martis-text hidden sm:inline">
             {user?.name ?? user?.email}
           </span>
-          <i className="pi pi-chevron-down text-xs martis-text-muted" />
+          <i className="pi pi-chevron-down text-xs martis-text-muted hidden sm:inline" />
         </div>
       </div>
 
