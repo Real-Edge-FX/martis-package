@@ -9,24 +9,24 @@ use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\TranslationsController;
 
 Route::middleware(config('martis.middleware', ['web']))
-    ->prefix(config('martis.path', 'martis'))
+    ->prefix(config('martis.path', 'admin'))
     ->name('martis.')
     ->group(function () {
-        // Rotas públicas — sem autenticação
+        // Public routes — no authentication required
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])
             ->middleware('throttle:5,1')
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-        // Translations — público para carregar antes do login
+        // Translations — public, loaded before login
         Route::get('/api/translations/{locale}', [TranslationsController::class, 'show'])
             ->name('api.translations.show');
 
-        // Rotas protegidas — requerem middleware martis.auth
+        // Protected routes — require martis.auth middleware
         Route::middleware(config('martis.auth_middleware', ['martis.auth']))
             ->group(function () {
-                // Rotas de API
+                // API routes
                 Route::prefix('api')
                     ->name('api.')
                     ->middleware(config('martis.api_middleware', ['throttle:60,1']))
@@ -36,7 +36,7 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
 
-                        // CRUD de resources
+                        // Resource CRUD
                         Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])
                             ->name('resources.schema');
                         Route::get('/resources/{resource}', [ResourceController::class, 'index'])
@@ -53,7 +53,7 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->name('resources.restore');
                     });
 
-                // SPA catch-all — deve vir APÓS as rotas de API
+                // SPA catch-all — must come AFTER api routes
                 Route::get('/', [DashboardController::class, 'index'])->name('index');
                 Route::get('/{path}', [DashboardController::class, 'index'])
                     ->where('path', '(?!api/).*')

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { NavigationGroup } from '@/types'
-import { Database, LayoutDashboard } from 'lucide-react'
+import { Database, SquaresFour } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -30,7 +30,7 @@ export function Sidebar() {
 
       <nav className="flex-1 space-y-1">
         <NavLink to="/martis" end className={navClass}>
-          <LayoutDashboard size={16} />
+          <SquaresFour size={16} weight="fill" />
           {t('dashboard')}
         </NavLink>
 
@@ -43,7 +43,7 @@ export function Sidebar() {
             )}
             {group.resources.map((r) => (
               <NavLink key={r.uriKey} to={`/martis/resources/${r.uriKey}`} className={navClass}>
-                <Database size={16} />
+                <Database size={16} weight="fill" />
                 {r.label}
               </NavLink>
             ))}

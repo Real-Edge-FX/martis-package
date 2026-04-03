@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
+import { BASE_PATH } from "@/lib/config"
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
@@ -16,7 +17,7 @@ export function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  if (!isLoading && user) return <Navigate to="/martis" replace />
+  if (!isLoading && user) return <Navigate to={BASE_PATH} replace />
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -24,7 +25,7 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(email, password)
-      void navigate('/martis')
+      void navigate(BASE_PATH)
     } catch (err) {
       if (err instanceof ApiError && err.errors) {
         const flat: Record<string, string> = {}

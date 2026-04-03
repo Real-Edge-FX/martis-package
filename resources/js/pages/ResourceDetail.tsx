@@ -7,6 +7,7 @@ import { FieldDisplay } from '@/components/fields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
+import { BASE_PATH } from "@/lib/config"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -34,7 +35,7 @@ export function ResourceDetailPage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', tMsg('record_deleted'))
-      navigate(`/martis/resources/${resource}`)
+      navigate(`${BASE_PATH}/resources/${resource}`)
     },
     onError: () => addToast('error', tMsg('error_delete')),
   })
@@ -72,7 +73,7 @@ export function ResourceDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            to={`/martis/resources/${resource}`}
+            to={`${BASE_PATH}/resources/${resource}`}
             className="text-sm text-blue-600 hover:underline dark:text-blue-400"
           >
             ← {schema.label}
@@ -99,7 +100,7 @@ export function ResourceDetailPage() {
             </button>
           ) : null}
           <Link
-            to={`/martis/resources/${resource}/${id}/edit`}
+            to={`${BASE_PATH}/resources/${resource}/${id}/edit`}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
           >
             {tAct('edit')}

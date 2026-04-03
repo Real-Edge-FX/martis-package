@@ -6,6 +6,7 @@ import { CardSkeleton } from '@/components/LoadingSkeleton'
 import { Database } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { BASE_PATH } from "@/lib/config"
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -44,7 +45,7 @@ export function DashboardPage() {
               g.resources.map((r) => (
                 <Link
                   key={r.uriKey}
-                  to={`/martis/resources/${r.uriKey}`}
+                  to={`${BASE_PATH}/resources/${r.uriKey}`}
                   className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition hover:border-brand hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
                 >
                   <Database size={20} className="text-brand" />

@@ -42,7 +42,7 @@ class LoginController extends MartisController
         if (! $auth->attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'As credenciais fornecidas estão incorretas.',
+                    'message' => __('auth.failed'),
                     'errors' => ['email' => [__('auth.failed')]],
                 ], 422);
             }
