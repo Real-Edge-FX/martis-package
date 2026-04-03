@@ -1,25 +1,25 @@
-import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/contexts/ToastContext'
-import { ApiError } from '@/lib/api'
-import { useTranslation } from 'react-i18next'
-import { InputText } from 'primereact/inputtext'
-import { Button } from 'primereact/button'
-import { IconField } from 'primereact/iconfield'
-import { InputIcon } from 'primereact/inputicon'
+import { useState, type FormEvent } from "react"
+import { Navigate } from "react-router-dom"
+import { useAuth } from "@/contexts/AuthContext"
+import { useToast } from "@/contexts/ToastContext"
+import { ApiError } from "@/lib/api"
+import { useTranslation } from "react-i18next"
+import { InputText } from "primereact/inputtext"
+import { Button } from "primereact/button"
+import { IconField } from "primereact/iconfield"
+import { InputIcon } from "primereact/inputicon"
 
 function getBrand(): string {
-  return window.MartisConfig?.brand ?? 'Martis'
+  return window.MartisConfig?.brand ?? "Martis"
 }
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
   const { addToast } = useToast()
-  const { t } = useTranslation('auth')
+  const { t } = useTranslation("auth")
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -40,7 +40,7 @@ export function LoginPage() {
         })
         setErrors(flat)
       } else {
-        addToast('error', err instanceof Error ? err.message : t('error'))
+        addToast("error", err instanceof Error ? err.message : t("error"))
       }
     } finally {
       setSubmitting(false)
@@ -76,7 +76,7 @@ export function LoginPage() {
           </div>
 
           <div className="hidden lg:block mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("title")}</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Enter your credentials to access the admin panel.
             </p>
@@ -85,7 +85,7 @@ export function LoginPage() {
           <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-5">
             <div className="flex flex-col gap-2">
               <label htmlFor="email" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                {t('email')}
+                {t("email")}
               </label>
               <IconField iconPosition="left">
                 <InputIcon className="pi pi-envelope" />
@@ -106,40 +106,41 @@ export function LoginPage() {
 
             <div className="flex flex-col gap-2">
               <label htmlFor="password" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                {t('password')}
+                {t("password")}
               </label>
               <div className="relative">
                 <IconField iconPosition="left">
                   <InputIcon className="pi pi-lock" />
                   <InputText
                     id="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     invalid={!!errors.password}
-                    className="w-full"
+                    className="w-full pr-10"
                     placeholder="Enter your password"
                     required
                   />
                 </IconField>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+                <span
+                  role="button"
                   tabIndex={-1}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword(!showPassword)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setShowPassword(!showPassword) }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer select-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  <i className={showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'} />
-                </button>
+                  <i className={`pi ${showPassword ? "pi-eye-slash" : "pi-eye"} text-sm`} />
+                </span>
               </div>
               {errors.password && <small className="p-error">{errors.password}</small>}
             </div>
 
             <Button
               type="submit"
-              label={submitting ? t('signing_in') : t('sign_in')}
-              icon={submitting ? undefined : 'pi pi-sign-in'}
+              label={submitting ? t("signing_in") : t("sign_in")}
+              icon={submitting ? undefined : "pi pi-sign-in"}
               loading={submitting}
               className="w-full mt-2"
             />
