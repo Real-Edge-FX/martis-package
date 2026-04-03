@@ -463,3 +463,85 @@ html:not(.dark) .p-menu .p-menuitem.p-disabled .p-menuitem-link,
 html:not(.dark) .p-menu .p-menuitem-link.p-disabled {
   opacity: 1 !important;
 }
+
+/* ── Light Theme — Menu focus/highlight fix ─────────────────────── */
+html:not(.dark) .p-menu .p-menuitem-link:focus,
+html:not(.dark) .p-menu .p-menuitem-link.p-focus,
+html:not(.dark) .p-menu .p-menuitem.p-focus > .p-menuitem-content,
+html:not(.dark) .p-menu .p-menuitem:not(.p-disabled).p-focus > .p-menuitem-content {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+  box-shadow: none !important;
+}
+html:not(.dark) .p-menu .p-menuitem:not(.p-disabled).p-focus > .p-menuitem-content .p-menuitem-link .p-menuitem-text {
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-menu .p-menuitem:not(.p-disabled).p-focus > .p-menuitem-content .p-menuitem-link .p-menuitem-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-menu .p-menuitem-content {
+  background: transparent;
+  color: var(--martis-text);
+}
+html:not(.dark) .p-menu .p-menuitem:hover > .p-menuitem-content {
+  background-color: var(--martis-hover) !important;
+}
+html:not(.dark) .p-menu .p-menuitem:hover > .p-menuitem-content .p-menuitem-link .p-menuitem-text {
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-menu .p-menuitem:hover > .p-menuitem-content .p-menuitem-link .p-menuitem-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-menu .p-menu-separator {
+  border-color: var(--martis-border);
+}
+
+/* Light theme — Dialog/Modal */
+html:not(.dark) .p-dialog {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-dialog .p-dialog-header {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-dialog .p-dialog-content {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+}
+
+/* Light theme — Dropdown panel */
+html:not(.dark) .p-dropdown {
+  background-color: var(--martis-input-bg);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-dropdown-panel {
+  background-color: var(--martis-surface);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover,
+html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-focus {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+}
+
+/* Light theme — Paginator */
+html:not(.dark) .p-paginator {
+  background-color: transparent;
+}
+html:not(.dark) .p-paginator .p-paginator-page {
+  color: var(--martis-text-muted);
+}
+
+/* Light theme — InputText */
+html:not(.dark) .p-inputtext {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-inputtext::placeholder {
+  color: var(--martis-text-muted);
+}
