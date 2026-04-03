@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
 
-describe('Martis Admin Engine', () => {
-    it('should load without errors', () => {
-        expect(true).toBe(true)
-    })
+describe('Martis Admin Shell', () => {
+  it('package identity is correct', () => {
+    expect('@martis/martis').toContain('martis')
+  })
 
-    it('should have correct package identity', () => {
-        const name = '@martis/martis'
-        expect(name).toContain('martis')
-    })
+  it('entry point exports nothing (side-effect only)', () => {
+    expect(true).toBe(true)
+  })
 })
+

@@ -233,6 +233,15 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Return the navigation group for this resource (null = top-level).
+     * Override to group resources in the sidebar.
+     */
+    public function group(): ?string
+    {
+        return null;
+    }
+
+    /**
      * Serialize resource metadata (not field data) to array.
      *
      * @return array<string, mixed>
@@ -244,6 +253,7 @@ abstract class Resource implements ResourceContract
             'label' => static::label(),
             'singularLabel' => static::singularLabel(),
             'softDeletes' => static::softDeletes(),
+            'group' => $this->group(),
         ];
     }
 }

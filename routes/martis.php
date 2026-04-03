@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\LoginController;
+use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ResourceController;
 
 Route::middleware(config('martis.middleware', ['web']))
@@ -26,6 +27,7 @@ Route::middleware(config('martis.middleware', ['web']))
                         // Auth
                         Route::get('/auth/user', [AuthController::class, 'user'])->name('auth.user');
                         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+                        Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
 
                         // CRUD de resources
                         Route::get('/resources/{resource}', [ResourceController::class, 'index'])
