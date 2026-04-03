@@ -6,6 +6,7 @@ import type { ResourceRecord, ResourceSchema } from '@/types'
 import { FieldDisplay } from '@/components/fields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useToast } from '@/contexts/ToastContext'
+import { useTranslation } from 'react-i18next'
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -13,6 +14,8 @@ export function ResourceDetailPage() {
   const qc = useQueryClient()
   const { addToast } = useToast()
   const [showDelete, setShowDelete] = useState(false)
+  const { t: tAct } = useTranslation('actions')
+  const { t: tMsg } = useTranslation('messages')
 
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
@@ -30,19 +33,19 @@ export function ResourceDetailPage() {
     mutationFn: () => api.delete(`/api/resources/${resource}/${id}`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
-      addToast('success', 'Registro excluído com sucesso.')
+      addToast('success', tMsg('record_deleted'))
       navigate(`/martis/resources/${resource}`)
     },
-    onError: () => addToast('error', 'Erro ao excluir registro.'),
+    onError: () => addToast('error', tMsg('error_delete')),
   })
 
   const restoreMutation = useMutation({
     mutationFn: () => api.put(`/api/resources/${resource}/${id}/restore`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
-      addToast('success', 'Registro restaurado com sucesso.')
+      addToast('success', tMsg('record_restored'))
     },
-    onError: () => addToast('error', 'Erro ao restaurar registro.'),
+    onError: () => addToast('error', tMsg('error_restore')),
   })
 
   const schema = schemaQuery.data?.data
@@ -55,7 +58,7 @@ export function ResourceDetailPage() {
   if (!schema || !record) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
-        Registro não encontrado.
+        {tMsg('record_not_found')}
       </div>
     )
   }
@@ -80,7 +83,7 @@ export function ResourceDetailPage() {
           </h1>
           {isDeleted && (
             <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
-              Arquivado
+              {tMsg('archived')}
             </span>
           )}
         </div>
@@ -92,21 +95,21 @@ export function ResourceDetailPage() {
               disabled={restoreMutation.isPending}
               className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
             >
-              Restaurar
+              {tAct('restore')}
             </button>
           ) : null}
           <Link
             to={`/martis/resources/${resource}/${id}/edit`}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
           >
-            Editar
+            {tAct('edit')}
           </Link>
           <button
             type="button"
             onClick={() => setShowDelete(true)}
             className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
           >
-            Excluir
+            {tAct('delete')}
           </button>
         </div>
       </div>

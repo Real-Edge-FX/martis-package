@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Martis Admin</title>
+    <script>
+        window.MartisConfig = {
+            locale: "{{ config('martis.locale', 'en') }}",
+            brand: "{{ config('martis.brand.name', 'Martis') }}"
+        };
+    </script>
     @vite(['resources/js/app.tsx'], 'vendor/martis')
 </head>
 <body>

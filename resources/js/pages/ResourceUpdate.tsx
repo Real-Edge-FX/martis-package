@@ -1,16 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
 import type { ResourceRecord, ResourceSchema } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
+import { useTranslation } from 'react-i18next'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { addToast } = useToast()
+  const { t: tAct } = useTranslation('actions')
+  const { t: tMsg } = useTranslation('messages')
 
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
@@ -26,15 +29,20 @@ export function ResourceUpdatePage() {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
-  const formFields = schema?.fields.filter((f) => f.showOnForms) ?? []
+
+  // Stable reference — recomputed only when schema changes
+  const formFields = useMemo(
+    () => schema?.fields.filter((f) => f.showOnForms) ?? [],
+    [schema],
+  )
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [initialized, setInitialized] = useState(false)
 
-  // Pre-populate form when record loads
+  // Pre-populate form only after BOTH schema and record are loaded
   useEffect(() => {
-    if (record && !initialized) {
+    if (record && schema && !initialized) {
       const initial: Record<string, unknown> = {}
       formFields.forEach((field) => {
         initial[field.attribute] = record[field.attribute] ?? null
@@ -42,7 +50,7 @@ export function ResourceUpdatePage() {
       setValues(initial)
       setInitialized(true)
     }
-  }, [record, initialized, formFields])
+  }, [record, schema, formFields, initialized])
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
@@ -50,18 +58,18 @@ export function ResourceUpdatePage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
-      addToast('success', 'Registro atualizado com sucesso.')
+      addToast('success', tMsg('record_updated'))
       navigate(`/martis/resources/${resource}/${id}`)
     },
     onError: (err) => {
       if (err instanceof ApiError && err.errors) {
         const fieldErrors: Record<string, string> = {}
         Object.entries(err.errors).forEach(([attr, messages]) => {
-          fieldErrors[attr] = messages[0]?.message ?? 'Inválido'
+          fieldErrors[attr] = messages[0]?.message ?? tMsg('invalid_field')
         })
         setErrors(fieldErrors)
       } else {
-        addToast('error', 'Erro ao atualizar registro.')
+        addToast('error', tMsg('error_update'))
       }
     },
   })
@@ -82,7 +90,7 @@ export function ResourceUpdatePage() {
   if (!schema || !record) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800">
-        Registro não encontrado.
+        {tMsg('record_not_found')}
       </div>
     )
   }
@@ -99,7 +107,7 @@ export function ResourceUpdatePage() {
         </Link>
         <span className="text-gray-300 dark:text-gray-600">/</span>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Editar {schema.singularLabel}
+          {tAct('edit')} {schema.singularLabel}
         </h1>
       </div>
 
@@ -139,14 +147,14 @@ export function ResourceUpdatePage() {
               to={`/martis/resources/${resource}/${id}`}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
-              Cancelar
+              {tAct('cancel')}
             </Link>
             <button
               type="submit"
               disabled={updateMutation.isPending}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {updateMutation.isPending ? 'Salvando…' : 'Salvar alterações'}
+              {updateMutation.isPending ? tAct('saving') : tAct('save')}
             </button>
           </div>
         </div>

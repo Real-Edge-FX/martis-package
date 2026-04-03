@@ -42,6 +42,10 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../resources/views' => resource_path('views/vendor/martis'),
             ], 'martis-views');
+
+            $this->publishes([
+                __DIR__.'/../resources/lang' => $this->app->langPath('vendor/martis'),
+            ], 'martis-lang');
         }
     }
 

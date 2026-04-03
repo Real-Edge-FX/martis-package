@@ -7,12 +7,16 @@ import { Table } from '@/components/Table'
 import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useToast } from '@/contexts/ToastContext'
+import { useTranslation } from 'react-i18next'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { addToast } = useToast()
+  const { t } = useTranslation('resources')
+  const { t: tMsg } = useTranslation('messages')
+  const { t: tAct } = useTranslation('actions')
 
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -63,11 +67,11 @@ export function ResourceIndexPage() {
     mutationFn: (id: string | number) => api.delete(`/api/resources/${resource}/${id}`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
-      addToast('success', 'Registro excluído com sucesso.')
+      addToast('success', tMsg('record_deleted'))
       setDeleteTarget(null)
     },
     onError: () => {
-      addToast('error', 'Erro ao excluir registro.')
+      addToast('error', tMsg('error_delete'))
     },
   })
 
@@ -108,7 +112,7 @@ export function ResourceIndexPage() {
   if (schemaQuery.isError || !schema) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
-        Erro ao carregar schema do resource.
+        {tMsg('error_schema')}
       </div>
     )
   }
@@ -129,7 +133,7 @@ export function ResourceIndexPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{schema.label}</h1>
           {selectedIds.size > 0 && (
             <p className="text-sm text-blue-600 dark:text-blue-400">
-              {selectedIds.size} selecionado(s)
+              {t('selected', { count: selectedIds.size })}
             </p>
           )}
         </div>
@@ -138,7 +142,7 @@ export function ResourceIndexPage() {
           onClick={() => navigate(`/martis/resources/${resource}/create`)}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
-          + Novo {schema.singularLabel}
+          + {tAct('create')} {schema.singularLabel}
         </button>
       </div>
 
@@ -147,7 +151,7 @@ export function ResourceIndexPage() {
         <div className="relative flex-1">
           <input
             type="search"
-            placeholder={`Pesquisar ${schema.label.toLowerCase()}...`}
+            placeholder={t('search', { label: schema.label.toLowerCase() })}
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500"
@@ -157,7 +161,7 @@ export function ResourceIndexPage() {
           </span>
         </div>
         {indexQuery.isFetching && (
-          <span className="text-xs text-gray-400 dark:text-gray-500">Carregando…</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{tMsg('loading')}</span>
         )}
       </div>
 

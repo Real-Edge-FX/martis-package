@@ -45,6 +45,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Localisation
+    |--------------------------------------------------------------------------
+    | Default locale for the Martis admin panel.
+    | Override per user by setting locale dynamically or publish lang files.
+    */
+    'locale' => env('MARTIS_LOCALE', config('app.locale', 'en')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Pagination
     |--------------------------------------------------------------------------
     */

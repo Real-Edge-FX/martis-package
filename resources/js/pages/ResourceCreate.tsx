@@ -1,16 +1,19 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
 import type { ResourceSchema } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
+import { useTranslation } from 'react-i18next'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { addToast } = useToast()
+  const { t: tAct } = useTranslation('actions')
+  const { t: tMsg } = useTranslation('messages')
 
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
@@ -19,7 +22,10 @@ export function ResourceCreatePage() {
   })
 
   const schema = schemaQuery.data?.data
-  const formFields = schema?.fields.filter((f) => f.showOnForms) ?? []
+  const formFields = useMemo(
+    () => schema?.fields.filter((f) => f.showOnForms) ?? [],
+    [schema],
+  )
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -29,18 +35,18 @@ export function ResourceCreatePage() {
       api.post<{ data: { id: string | number } }>(`/api/resources/${resource}`, data),
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
-      addToast('success', 'Registro criado com sucesso.')
+      addToast('success', tMsg('record_created'))
       navigate(`/martis/resources/${resource}/${res.data.id}`)
     },
     onError: (err) => {
       if (err instanceof ApiError && err.errors) {
         const fieldErrors: Record<string, string> = {}
         Object.entries(err.errors).forEach(([attr, messages]) => {
-          fieldErrors[attr] = messages[0]?.message ?? 'Inválido'
+          fieldErrors[attr] = messages[0]?.message ?? tMsg('invalid_field')
         })
         setErrors(fieldErrors)
       } else {
-        addToast('error', 'Erro ao criar registro.')
+        addToast('error', tMsg('error_create'))
       }
     },
   })
@@ -61,7 +67,7 @@ export function ResourceCreatePage() {
   if (!schema) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800">
-        Erro ao carregar schema do resource.
+        {tMsg('error_schema')}
       </div>
     )
   }
@@ -78,7 +84,7 @@ export function ResourceCreatePage() {
         </Link>
         <span className="text-gray-300 dark:text-gray-600">/</span>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Novo {schema.singularLabel}
+          {tAct('create')} {schema.singularLabel}
         </h1>
       </div>
 
@@ -118,14 +124,14 @@ export function ResourceCreatePage() {
               to={`/martis/resources/${resource}`}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
-              Cancelar
+              {tAct('cancel')}
             </Link>
             <button
               type="submit"
               disabled={createMutation.isPending}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {createMutation.isPending ? 'Salvando…' : `Criar ${schema.singularLabel}`}
+              {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
             </button>
           </div>
         </div>

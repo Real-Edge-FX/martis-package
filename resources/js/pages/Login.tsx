@@ -3,11 +3,13 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
+import { useTranslation } from 'react-i18next'
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
   const { addToast } = useToast()
   const navigate = useNavigate()
+  const { t } = useTranslation('auth')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,7 +33,7 @@ export function LoginPage() {
         })
         setErrors(flat)
       } else {
-        addToast('error', err instanceof Error ? err.message : 'Erro ao fazer login.')
+        addToast('error', err instanceof Error ? err.message : t('error'))
       }
     } finally {
       setSubmitting(false)
@@ -42,13 +44,13 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-md dark:border-gray-800 dark:bg-gray-900">
         <h1 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
-          Martis Admin
+          {t('title')}
         </h1>
 
         <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-4">
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Email
+              {t('email')}
             </label>
             <input
               id="email"
@@ -64,7 +66,7 @@ export function LoginPage() {
 
           <div>
             <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Password
+              {t('password')}
             </label>
             <input
               id="password"
@@ -83,11 +85,10 @@ export function LoginPage() {
             disabled={submitting}
             className="w-full rounded-md bg-brand py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-50"
           >
-            {submitting ? 'A entrar…' : 'Entrar'}
+            {submitting ? t('signing_in') : t('sign_in')}
           </button>
         </form>
       </div>
     </div>
   )
 }
-

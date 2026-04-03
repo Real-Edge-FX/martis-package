@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { registry } from '@/lib/registry'
+import { useTranslation } from 'react-i18next'
 
 export interface DeleteModalProps {
   open: boolean
@@ -17,6 +18,8 @@ function DefaultDeleteModal({
   onCancel,
 }: DeleteModalProps) {
   const [loading, setLoading] = useState(false)
+  const { t: tAct } = useTranslation('actions')
+  const { t: tMsg } = useTranslation('messages')
 
   if (!open) return null
 
@@ -51,13 +54,11 @@ function DefaultDeleteModal({
             id="delete-modal-title"
             className="text-lg font-semibold text-gray-900 dark:text-white"
           >
-            {isSoftDelete ? 'Arquivar' : 'Excluir'} {resourceLabel}
+            {isSoftDelete ? tAct('archive') : tAct('delete')} {resourceLabel}
           </h2>
         </div>
         <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-          {isSoftDelete
-            ? `Este registro será arquivado e poderá ser restaurado posteriormente.`
-            : `Esta ação é permanente e não pode ser desfeita. Tem certeza?`}
+          {isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm')}
         </p>
         <div className="flex justify-end gap-3">
           <button
@@ -66,7 +67,7 @@ function DefaultDeleteModal({
             disabled={loading}
             className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
-            Cancelar
+            {tAct('cancel')}
           </button>
           <button
             type="button"
@@ -80,10 +81,10 @@ function DefaultDeleteModal({
             ].join(' ')}
           >
             {loading
-              ? 'Aguarde...'
+              ? tAct('please_wait')
               : isSoftDelete
-                ? 'Arquivar'
-                : 'Excluir permanentemente'}
+                ? tAct('archive')
+                : tAct('delete_permanent')}
           </button>
         </div>
       </div>

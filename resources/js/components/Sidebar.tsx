@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { NavigationGroup } from '@/types'
 import { Database, LayoutDashboard } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 function navClass({ isActive }: { isActive: boolean }) {
   return [
@@ -14,6 +15,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 }
 
 export function Sidebar() {
+  const { t } = useTranslation('navigation')
   const { data: groups = [] } = useQuery<NavigationGroup[]>({
     queryKey: ['navigation'],
     queryFn: () => api.get('/api/navigation'),
@@ -29,7 +31,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1">
         <NavLink to="/martis" end className={navClass}>
           <LayoutDashboard size={16} />
-          Dashboard
+          {t('dashboard')}
         </NavLink>
 
         {groups.map((group, i) => (
@@ -50,9 +52,8 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto text-center">
-        <span className="text-xs text-gray-400">Martis Admin Engine</span>
+        <span className="text-xs text-gray-400">{t('footer')}</span>
       </div>
     </aside>
   )
 }
-

@@ -293,26 +293,26 @@ describe('DeleteModal', () => {
       />
     )
     expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(screen.getByText(/Excluir User/)).toBeTruthy()
+    expect(screen.getByText(/Delete User/)).toBeTruthy()
   })
 
-  it('shows "Arquivar" for soft delete', () => {
+  it('shows "Archive" for soft delete', () => {
     render(
       <DeleteModal open={true} resourceLabel="Post" isSoftDelete={true}
         onConfirm={vi.fn()} onCancel={vi.fn()}
       />
     )
-    expect(screen.getByText(/Arquivar Post/)).toBeTruthy()
+    expect(screen.getByText(/Archive Post/)).toBeTruthy()
   })
 
-  it('calls onCancel when Cancelar clicked', () => {
+  it('calls onCancel when Cancel clicked', () => {
     const onCancel = vi.fn()
     render(
       <DeleteModal open={true} resourceLabel="User" isSoftDelete={false}
         onConfirm={vi.fn()} onCancel={onCancel}
       />
     )
-    fireEvent.click(screen.getByText('Cancelar'))
+    fireEvent.click(screen.getByText('Cancel'))
     expect(onCancel).toHaveBeenCalled()
   })
 })

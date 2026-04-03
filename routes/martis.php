@@ -6,6 +6,7 @@ use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ResourceController;
+use Martis\Http\Controllers\TranslationsController;
 
 Route::middleware(config('martis.middleware', ['web']))
     ->prefix(config('martis.path', 'martis'))
@@ -30,6 +31,10 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::get('/auth/user', [AuthController::class, 'user'])->name('auth.user');
                         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+
+                        // Translations
+                        Route::get('/translations/{locale}', [TranslationsController::class, 'show'])
+                            ->name('translations.show');
 
                         // CRUD de resources
                         Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])

@@ -4,16 +4,19 @@ import { useToast } from '@/contexts/ToastContext'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Sun, Moon, LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 export function Topbar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { addToast } = useToast()
   const navigate = useNavigate()
+  const { t } = useTranslation('navigation')
+  const { t: tAuth } = useTranslation('auth')
 
   async function handleLogout() {
     await logout()
-    addToast('success', 'Sessão encerrada.')
+    addToast('success', tAuth('session_ended'))
     void navigate('/martis/login')
   }
 
@@ -24,7 +27,7 @@ export function Topbar() {
       <div className="flex items-center gap-3">
         <button
           onClick={toggle}
-          aria-label="Alternar tema"
+          aria-label={t('toggle_theme')}
           className="rounded-md p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -34,7 +37,7 @@ export function Topbar() {
 
         <button
           onClick={() => void handleLogout()}
-          aria-label="Sair"
+          aria-label={t('logout')}
           className="rounded-md p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
         >
           <LogOut size={18} />
@@ -43,4 +46,3 @@ export function Topbar() {
     </header>
   )
 }
-
