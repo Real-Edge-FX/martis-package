@@ -9,6 +9,7 @@ import { InputText } from 'primereact/inputtext'
 import { Button } from 'primereact/button'
 import { IconField } from 'primereact/iconfield'
 import { InputIcon } from 'primereact/inputicon'
+import logoSrc from '@images/logo.png'
 
 function getBrand(): string {
   return config.brand ?? 'Martis'
@@ -53,12 +54,14 @@ export function LoginPage() {
   return (
     <div className="martis-bg flex min-h-screen items-center justify-center">
       <div className="w-full max-w-sm">
-        {/* Brand */}
+        {/* Brand logo */}
         <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/20">
-            <i className="pi pi-shield text-2xl text-indigo-400" />
-          </div>
-          <h1 className="text-xl font-bold martis-text">{brand}</h1>
+          <img
+            src={logoSrc}
+            alt={brand}
+            className="mx-auto h-16 w-auto object-contain"
+            style={{ maxWidth: 280 }}
+          />
         </div>
 
         {/* Form card */}

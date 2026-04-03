@@ -16,9 +16,10 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["resources/js/*"]
+      "@/*": ["resources/js/*"],
+      "@images/*": ["resources/images/*"]
     }
   },
-  "include": ["resources/js/**/*"],
+  "include": ["resources/js/**/*", "resources/images/**/*"],
   "exclude": ["node_modules", "public"]
 }

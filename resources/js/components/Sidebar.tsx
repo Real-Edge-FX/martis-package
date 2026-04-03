@@ -5,6 +5,7 @@ import { api } from "@/lib/api"
 import { config } from "@/lib/config"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
+import logoSrc from "@images/logo.png"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
@@ -41,6 +42,8 @@ export function Sidebar() {
     setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }))
   }
 
+  const brand = getBrand()
+
   return (
     <aside
       className={[
@@ -49,11 +52,24 @@ export function Sidebar() {
       ].join(" ")}
     >
       {/* Brand */}
-      <div className={["mb-8 flex items-center gap-3", collapsed ? "justify-center" : "px-3"].join(" ")}>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20">
-          <i className="pi pi-shield text-lg text-indigo-400" />
-        </div>
-        {!collapsed && <span className="text-lg font-bold martis-text">{getBrand()}</span>}
+      <div className={["mb-8 flex items-center", collapsed ? "justify-center" : "px-3"].join(" ")}>
+        {collapsed ? (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden">
+            <img
+              src={logoSrc}
+              alt={brand}
+              className="h-9 w-auto object-contain object-left"
+              style={{ maxWidth: 'none', width: 100 }}
+            />
+          </div>
+        ) : (
+          <img
+            src={logoSrc}
+            alt={brand}
+            className="h-8 w-auto object-contain"
+            style={{ maxWidth: 160 }}
+          />
+        )}
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden">
