@@ -7,7 +7,7 @@
     <title>{{ config('martis.brand.name', 'Martis') }} Admin</title>
     <script>
         window.MartisConfig = {
-            basePath: "/{{ config('martis.path', 'martis') }}",
+            basePath: "/{{ config('martis.path', 'admin') }}",
             locale: "{{ config('martis.locale', 'en') }}",
             brand: "{{ config('martis.brand.name', 'Martis') }}"
         };

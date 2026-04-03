@@ -42,7 +42,7 @@ export async function initI18n(): Promise<void> {
       resources: { [locale]: translations },
       lng: locale,
       fallbackLng: "en",
-      interpolation: { prefix: ":", suffix: "", escapeValue: false },
+      interpolation: { escapeValue: false },
       react: { useSuspense: false },
     })
   })()
