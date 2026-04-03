@@ -1,3 +1,8 @@
+/* PrimeReact theme — must come before tailwind base to allow overrides */
+@import "primereact/resources/themes/lara-light-indigo/theme.css";
+@import "primereact/resources/primereact.min.css";
+@import "primeicons/primeicons.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,3 +13,12 @@
   }
 }
 
+/* PrimeReact integration: ensure PrimeReact components respect Tailwind's dark mode */
+.dark .p-component {
+  color-scheme: dark;
+}
+
+/* Normalize PrimeReact button sizing in icon-only buttons */
+.p-button.p-button-icon-only.p-button-text {
+  @apply p-2;
+}

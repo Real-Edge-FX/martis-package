@@ -1,10 +1,10 @@
 import { useToast } from '@/contexts/ToastContext'
-import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react'
+import { X, CheckCircle, WarningCircle, Warning, Info } from '@phosphor-icons/react'
 
 const icons = {
   success: CheckCircle,
-  error: AlertCircle,
-  warning: AlertTriangle,
+  error: WarningCircle,
+  warning: Warning,
   info: Info,
 }
 
@@ -33,14 +33,14 @@ export function ToastContainer() {
             role="alert"
             className={`flex min-w-64 items-start gap-3 rounded-lg border p-3 shadow-md ${styles[toast.type]}`}
           >
-            <Icon size={16} className="mt-0.5 shrink-0" />
+            <Icon size={16} weight="fill" className="mt-0.5 shrink-0" />
             <span className="flex-1 text-sm">{toast.message}</span>
             <button
               onClick={() => removeToast(toast.id)}
               className="shrink-0 opacity-70 hover:opacity-100"
               aria-label="Fechar"
             >
-              <X size={14} />
+              <X size={14} weight="bold" />
             </button>
           </div>
         )
@@ -48,4 +48,3 @@ export function ToastContainer() {
     </div>
   )
 }
-

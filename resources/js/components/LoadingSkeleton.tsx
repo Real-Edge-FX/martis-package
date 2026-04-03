@@ -1,21 +1,11 @@
-interface SkeletonProps {
-  className?: string
-}
-
-function SkeletonLine({ className = '' }: SkeletonProps) {
-  return (
-    <div
-      className={`animate-pulse rounded bg-gray-200 dark:bg-gray-700 ${className}`}
-    />
-  )
-}
+import { Skeleton } from 'primereact/skeleton'
 
 export function TableSkeleton() {
   return (
     <div className="space-y-3">
-      <SkeletonLine className="h-10 w-full" />
+      <Skeleton height="2.5rem" className="w-full" />
       {Array.from({ length: 5 }).map((_, i) => (
-        <SkeletonLine key={i} className="h-12 w-full" />
+        <Skeleton key={i} height="3rem" className="w-full" />
       ))}
     </div>
   )
@@ -24,10 +14,9 @@ export function TableSkeleton() {
 export function CardSkeleton() {
   return (
     <div className="space-y-2 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-      <SkeletonLine className="h-5 w-1/3" />
-      <SkeletonLine className="h-4 w-2/3" />
-      <SkeletonLine className="h-4 w-1/2" />
+      <Skeleton height="1.25rem" width="33%" />
+      <Skeleton height="1rem" width="66%" />
+      <Skeleton height="1rem" width="50%" />
     </div>
   )
 }
-

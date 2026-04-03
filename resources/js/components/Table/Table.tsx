@@ -1,6 +1,9 @@
 import { registry } from '@/lib/registry'
 import type { FieldDefinition, ResourceRecord } from '@/types'
 import { FieldDisplay } from '@/components/fields'
+import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from 'primereact/datatable'
+import { Column } from 'primereact/column'
+import { CaretUp, CaretDown, CaretUpDown } from '@phosphor-icons/react'
 
 export interface TableColumn {
   field: FieldDefinition
@@ -20,6 +23,13 @@ export interface TableProps {
   resourceKey?: string
 }
 
+function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
+  if (!active) return <CaretUpDown size={14} className="text-gray-400" />
+  return dir === 'asc'
+    ? <CaretUp size={14} className="text-indigo-600" />
+    : <CaretDown size={14} className="text-indigo-600" />
+}
+
 function DefaultTable({
   columns,
   rows,
@@ -33,99 +43,76 @@ function DefaultTable({
   resourceKey,
 }: TableProps) {
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
-  const someSelected = rows.some((r) => selectedIds.has(r.id))
+  const selectedRows = rows.filter((r) => selectedIds.has(r.id))
+
+  function handleSelectionChange(e: DataTableSelectionMultipleChangeEvent<ResourceRecord[]>) {
+    const next = new Set((e.value as ResourceRecord[]).map((r) => r.id))
+    const prev = selectedIds
+    // Detect added or removed
+    for (const row of rows) {
+      if (next.has(row.id) !== prev.has(row.id)) {
+        onToggleSelect(row.id)
+      }
+    }
+    if (allSelected && next.size === 0) onToggleAll()
+    if (!allSelected && next.size === rows.length) onToggleAll()
+  }
+
+  const sortOrder = sortDir === 'asc' ? 1 : -1
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-        <thead className="bg-gray-50 dark:bg-gray-900">
-          <tr>
-            {/* Checkbox column */}
-            <th className="w-10 px-4 py-3">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                ref={(el) => {
-                  if (el) el.indeterminate = someSelected && !allSelected
-                }}
-                onChange={onToggleAll}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 dark:border-gray-600"
-                aria-label="Selecionar todos"
-              />
-            </th>
-            {columns.map(({ field }) => (
-              <th
-                key={field.attribute}
-                className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+    <DataTable
+      value={rows}
+      selection={selectedRows}
+      onSelectionChange={handleSelectionChange}
+      selectionMode="checkbox"
+      dataKey="id"
+      removableSort
+      sortField={sortBy ?? undefined}
+      sortOrder={sortOrder}
+      onSort={(e: DataTableSortEvent) => {
+        if (e.sortField) onSort(String(e.sortField))
+      }}
+      onRowClick={(e) => onClickRow?.(e.data as ResourceRecord)}
+      rowClassName={(row: ResourceRecord) =>
+        selectedIds.has(row.id) ? 'bg-indigo-50 dark:bg-indigo-950/20' : ''
+      }
+      emptyMessage={
+        <div className="py-8 text-center text-sm text-gray-400">
+          Nenhum registro encontrado.
+        </div>
+      }
+      className="w-full"
+      tableClassName="min-w-full"
+    >
+      <Column selectionMode="multiple" headerStyle={{ width: '2.5rem' }} />
+      {columns.map(({ field }) => (
+        <Column
+          key={field.attribute}
+          field={field.attribute}
+          header={
+            field.sortable ? (
+              <button
+                type="button"
+                className="flex items-center gap-1 font-medium uppercase tracking-wider text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                onClick={() => onSort(field.attribute)}
               >
-                {field.sortable ? (
-                  <button
-                    type="button"
-                    onClick={() => onSort(field.attribute)}
-                    className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
-                  >
-                    {field.label}
-                    <SortIcon active={sortBy === field.attribute} dir={sortDir} />
-                  </button>
-                ) : (
-                  field.label
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 bg-white dark:divide-gray-800 dark:bg-gray-950">
-          {rows.length === 0 ? (
-            <tr>
-              <td
-                colSpan={columns.length + 1}
-                className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500"
-              >
-                Nenhum registro encontrado.
-              </td>
-            </tr>
-          ) : (
-            rows.map((row) => (
-              <tr
-                key={row.id}
-                onClick={() => onClickRow?.(row)}
-                className={[
-                  'transition-colors',
-                  onClickRow ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900' : '',
-                  selectedIds.has(row.id) ? 'bg-blue-50 dark:bg-blue-950/20' : '',
-                ].join(' ')}
-              >
-                <td
-                  className="w-10 px-4 py-3"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(row.id)}
-                    onChange={() => onToggleSelect(row.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 dark:border-gray-600"
-                    aria-label={`Selecionar registro ${row.id}`}
-                  />
-                </td>
-                {columns.map(({ field }) => (
-                  <td key={field.attribute} className="px-4 py-3 text-sm">
-                    <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} />
-                  </td>
-                ))}
-              </tr>
-            ))
+                {field.label}
+                <SortIcon active={sortBy === field.attribute} dir={sortDir} />
+              </button>
+            ) : (
+              <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                {field.label}
+              </span>
+            )
+          }
+          body={(row: ResourceRecord) => (
+            <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} />
           )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-  return (
-    <span className={active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-300 dark:text-gray-600'}>
-      {active && dir === 'desc' ? '↓' : '↑'}
-    </span>
+          sortable={false}
+        />
+      ))}
+    </DataTable>
   )
 }
 

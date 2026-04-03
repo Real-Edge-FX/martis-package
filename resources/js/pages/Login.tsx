@@ -4,7 +4,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
-import { BASE_PATH } from "@/lib/config"
+import { BASE_PATH } from '@/lib/config'
+import { Card } from 'primereact/card'
+import { InputText } from 'primereact/inputtext'
+import { Password } from 'primereact/password'
+import { Button } from 'primereact/button'
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
@@ -43,53 +47,56 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-md dark:border-gray-800 dark:bg-gray-900">
+      <Card className="w-full max-w-sm shadow-md">
         <h1 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
           {t('title')}
         </h1>
 
         <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-4">
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('email')}
             </label>
-            <input
+            <InputText
               id="email"
               type="email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              invalid={!!errors.email}
+              className="w-full"
               required
             />
-            {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+            {errors.email && <small className="text-red-500">{errors.email}</small>}
           </div>
 
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('password')}
             </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
+            <Password
+              inputId="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              feedback={false}
+              toggleMask
+              invalid={!!errors.password}
+              className="w-full"
+              inputClassName="w-full"
+              autoComplete="current-password"
               required
             />
-            {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
+            {errors.password && <small className="text-red-500">{errors.password}</small>}
           </div>
 
-          <button
+          <Button
             type="submit"
-            disabled={submitting}
-            className="w-full rounded-md bg-brand py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-50"
-          >
-            {submitting ? t('signing_in') : t('sign_in')}
-          </button>
+            label={submitting ? t('signing_in') : t('sign_in')}
+            loading={submitting}
+            className="w-full"
+          />
         </form>
-      </div>
+      </Card>
     </div>
   )
 }

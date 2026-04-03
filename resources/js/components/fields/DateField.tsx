@@ -1,16 +1,16 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
+import { Calendar } from 'primereact/calendar'
 
 function formatDate(value: unknown): string {
   if (!value || typeof value !== 'string') return ''
   const d = new Date(value)
-  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('pt-BR')
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString()
 }
 
-function toInputDate(value: unknown): string {
-  if (!value || typeof value !== 'string') return ''
+function toDate(value: unknown): Date | null {
+  if (!value || typeof value !== 'string') return null
   const d = new Date(value)
-  if (isNaN(d.getTime())) return ''
-  return d.toISOString().split('T')[0]
+  return isNaN(d.getTime()) ? null : d
 }
 
 export function DateFieldDisplay({ value }: FieldDisplayProps) {
@@ -23,30 +23,33 @@ export function DateFieldDisplay({ value }: FieldDisplayProps) {
 }
 
 export function DateFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const dateValue = toDate(value)
+
+  function handleChange(d: Date | null) {
+    if (!d) {
+      onChange(null)
+    } else {
+      onChange(d.toISOString().split('T')[0])
+    }
+  }
+
   return (
-    <div>
-      <input
-        type="date"
-        id={field.attribute}
+    <div className="flex flex-col gap-1">
+      <Calendar
+        inputId={field.attribute}
         name={field.attribute}
-        value={toInputDate(value)}
-        readOnly={field.readonly}
+        value={dateValue}
+        onChange={(e) => handleChange((e.value as Date | null) ?? null)}
+        readOnlyInput={field.readonly}
         required={field.required}
-        onChange={(e) => onChange(e.target.value || null)}
-        className={[
-          'block w-full rounded-md border px-3 py-2 text-sm shadow-sm',
-          'bg-white text-gray-900',
-          'dark:bg-gray-900 dark:text-white',
-          error
-            ? 'border-red-500 focus:ring-red-500'
-            : 'border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500',
-          'focus:outline-none focus:ring-1',
-          field.readonly ? 'cursor-not-allowed opacity-60' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        invalid={!!error}
+        disabled={field.readonly}
+        dateFormat="yy-mm-dd"
+        showIcon
+        className="w-full"
+        inputClassName="w-full"
       />
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <small className="text-red-500">{error}</small>}
     </div>
   )
 }

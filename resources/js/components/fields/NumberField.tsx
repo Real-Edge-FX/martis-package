@@ -1,4 +1,5 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
+import { InputNumber } from 'primereact/inputnumber'
 
 export function NumberFieldDisplay({ value }: FieldDisplayProps) {
   if (value === null || value === undefined) {
@@ -10,30 +11,23 @@ export function NumberFieldDisplay({ value }: FieldDisplayProps) {
 }
 
 export function NumberFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const numValue = value === null || value === undefined || value === '' ? null : Number(value)
+
   return (
-    <div>
-      <input
-        type="number"
-        id={field.attribute}
+    <div className="flex flex-col gap-1">
+      <InputNumber
+        inputId={field.attribute}
         name={field.attribute}
-        value={value === null || value === undefined ? '' : String(value)}
+        value={numValue}
+        onValueChange={(e) => onChange(e.value ?? null)}
         readOnly={field.readonly}
         required={field.required}
-        onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-        className={[
-          'block w-full rounded-md border px-3 py-2 text-sm shadow-sm font-mono',
-          'bg-white text-gray-900 placeholder-gray-400',
-          'dark:bg-gray-900 dark:text-white dark:placeholder-gray-500',
-          error
-            ? 'border-red-500 focus:ring-red-500'
-            : 'border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500',
-          'focus:outline-none focus:ring-1',
-          field.readonly ? 'cursor-not-allowed opacity-60' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        invalid={!!error}
+        disabled={field.readonly}
+        className="w-full"
+        inputClassName="w-full font-mono"
       />
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <small className="text-red-500">{error}</small>}
     </div>
   )
 }
