@@ -161,7 +161,9 @@ class ResourceController extends MartisController
             }
         }
 
+        $res->beforeSave($model, $request, creating: true);
         $model->save();
+        $res->afterSave($model, $request, creating: true);
 
         $res = new $resourceClass($model);
 
@@ -208,7 +210,9 @@ class ResourceController extends MartisController
             }
         }
 
+        $res->beforeSave($model, $request, creating: false);
         $model->save();
+        $res->afterSave($model, $request, creating: false);
 
         $res = new $resourceClass($model);
 
@@ -242,7 +246,9 @@ class ResourceController extends MartisController
             return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
         }
 
+        $res->beforeDelete($model, $request);
         $model->delete();
+        $res->afterDelete($model, $request);
 
         return new IlluminateJsonResponse(['data' => [], 'meta' => [], 'links' => []], 200);
     }

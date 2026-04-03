@@ -106,6 +106,7 @@ export function ResourceCreatePage() {
                     value={values[field.attribute] ?? null}
                     onChange={(v) => handleChange(field.attribute, v)}
                     error={errors[field.attribute]}
+                    resourceKey={resource}
                   />
                 </div>
               </div>

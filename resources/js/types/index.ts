@@ -76,6 +76,8 @@ export interface FieldDefinition {
   options?: SelectOption[]
   relatedResource?: string
   relatedLabel?: string
+  /** Explicit component override key (set via PHP field->component('key')). */
+  component?: string | null
 }
 
 export interface ResourceEmbedded {

@@ -49,6 +49,13 @@ abstract class Field implements FieldContract
     /** @var list<string> */
     protected array $extraRules = [];
 
+    /**
+     * Custom component key for the React renderer.
+     * When set, the frontend resolves this exact key from the component registry
+     * instead of the default "field:display:{type}" / "field:input:{type}" keys.
+     */
+    protected ?string $componentKey = null;
+
     protected function __construct(
         protected readonly string $attribute,
         protected readonly string $label,
@@ -135,6 +142,7 @@ abstract class Field implements FieldContract
             'showOnDetail' => $this->showOnDetail,
             'showOnForms' => $this->showOnForms,
             'rules' => $this->buildRules(),
+            'component' => $this->componentKey,
         ], $this->extraAttributes());
     }
 
@@ -316,6 +324,34 @@ abstract class Field implements FieldContract
         $this->fillCallback = $callback;
 
         return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Component override — Bloco 9
+    // -------------------------------------------------------------------------
+
+    /**
+     * Override the React component used to render this field.
+     *
+     * The key must be registered in the frontend componentRegistry:
+     *   componentRegistry.register('my-rating', MyRatingComponent)
+     *
+     * Example:
+     *   Text::make('status')->component('status-badge')
+     */
+    public function component(string $key): static
+    {
+        $this->componentKey = $key;
+
+        return $this;
+    }
+
+    /**
+     * Return the custom component key (null = use default for type).
+     */
+    public function getComponentKey(): ?string
+    {
+        return $this->componentKey;
     }
 
     // -------------------------------------------------------------------------

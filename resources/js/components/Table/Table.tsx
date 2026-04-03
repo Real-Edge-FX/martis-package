@@ -16,6 +16,8 @@ export interface TableProps {
   onToggleSelect: (id: string | number) => void
   onToggleAll: () => void
   onClickRow?: (row: ResourceRecord) => void
+  /** Resource URI key — enables per-resource field display overrides */
+  resourceKey?: string
 }
 
 function DefaultTable({
@@ -28,6 +30,7 @@ function DefaultTable({
   onToggleSelect,
   onToggleAll,
   onClickRow,
+  resourceKey,
 }: TableProps) {
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
   const someSelected = rows.some((r) => selectedIds.has(r.id))
@@ -106,7 +109,7 @@ function DefaultTable({
                 </td>
                 {columns.map(({ field }) => (
                   <td key={field.attribute} className="px-4 py-3 text-sm">
-                    <FieldDisplay field={field} value={row[field.attribute]} />
+                    <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} />
                   </td>
                 ))}
               </tr>

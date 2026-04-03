@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\ResourceContract;
+use Martis\Events\AfterDelete;
+use Martis\Events\AfterSave;
+use Martis\Events\BeforeDelete;
+use Martis\Events\BeforeSave;
 
 /**
  * Base class for all Martis admin resources.
@@ -255,5 +259,58 @@ abstract class Resource implements ResourceContract
             'softDeletes' => static::softDeletes(),
             'group' => $this->group(),
         ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Server-side hooks — Bloco 9
+    // -------------------------------------------------------------------------
+
+    /**
+     * Called immediately before the model is saved (create or update).
+     *
+     * Override in concrete resources to add custom logic:
+     *   public function beforeSave(Model $model, Request $request, bool $creating): void
+     *   {
+     *       $model->slug = Str::slug($model->title);
+     *   }
+     *
+     * The BeforeSave event is also dispatched for listener-based decoupling.
+     */
+    public function beforeSave(Model $model, Request $request, bool $creating): void
+    {
+        BeforeSave::dispatch(static::class, $model, $request, $creating);
+    }
+
+    /**
+     * Called immediately after the model is saved (create or update).
+     *
+     * Override to trigger side effects (cache busting, notifications, jobs).
+     * The AfterSave event is also dispatched.
+     */
+    public function afterSave(Model $model, Request $request, bool $creating): void
+    {
+        AfterSave::dispatch(static::class, $model, $request, $creating);
+    }
+
+    /**
+     * Called immediately before the model is deleted (or soft-deleted).
+     *
+     * Override to guard deletions or cascade cleanup.
+     * The BeforeDelete event is also dispatched.
+     */
+    public function beforeDelete(Model $model, Request $request): void
+    {
+        BeforeDelete::dispatch(static::class, $model, $request);
+    }
+
+    /**
+     * Called immediately after the model is deleted (or soft-deleted).
+     *
+     * Override to clean up related data, update caches, etc.
+     * The AfterDelete event is also dispatched.
+     */
+    public function afterDelete(Model $model, Request $request): void
+    {
+        AfterDelete::dispatch(static::class, $model, $request);
     }
 }

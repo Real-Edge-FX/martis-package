@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { registry } from '@/lib/registry'
+import { componentRegistry } from '@/lib/componentRegistry'
 import type { FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { TextFieldDisplay, TextFieldInput } from './TextField'
@@ -44,19 +44,19 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
 
 export function registerDefaultFields(): void {
   Object.entries(DEFAULT_DISPLAY).forEach(([type, component]) => {
-    if (!registry.has(`field:display:${type}`)) {
-      registry.register(`field:display:${type}`, component)
+    if (!componentRegistry.has(`field:display:${type}`)) {
+      componentRegistry.register(`field:display:${type}`, component)
     }
   })
   Object.entries(DEFAULT_INPUT).forEach(([type, component]) => {
-    if (!registry.has(`field:input:${type}`)) {
-      registry.register(`field:input:${type}`, component)
+    if (!componentRegistry.has(`field:input:${type}`)) {
+      componentRegistry.register(`field:input:${type}`, component)
     }
   })
 }
 
 // -------------------------------------------------------------------------
-// Resolved renderers (use registry, fall back to defaults)
+// Fallback helpers
 // -------------------------------------------------------------------------
 
 function getFallbackDisplay(type: string): ComponentType<FieldDisplayProps> {
@@ -67,29 +67,65 @@ function getFallbackInput(type: string): ComponentType<FieldInputProps> {
   return DEFAULT_INPUT[type] ?? TextFieldInput
 }
 
-/** Renders a field value in read-only display mode (index / detail). */
-export function FieldDisplay({ field, value }: { field: FieldDefinition; value: unknown }) {
-  const Component = registry.resolve<FieldDisplayProps>(
-    `field:display:${field.type}`,
+// -------------------------------------------------------------------------
+// Rendered components — supports 4-tier override resolution
+// -------------------------------------------------------------------------
+
+/**
+ * Renders a field value in read-only display mode (index / detail).
+ *
+ * Override resolution (highest to lowest priority):
+ *   1. field.component (explicit key set in PHP via ->component('key'))
+ *   2. Per-resource override (componentRegistry.registerResourceFieldDisplay)
+ *   3. Global type override (componentRegistry.registerFieldDisplay)
+ *   4. Built-in default component for the type
+ *
+ * @param resourceKey  The resource URI key (e.g. "users") — enables per-resource overrides
+ */
+export function FieldDisplay({
+  field,
+  value,
+  resourceKey,
+}: {
+  field: FieldDefinition
+  value: unknown
+  resourceKey?: string
+}) {
+  const Component = componentRegistry.resolveDisplay(
+    field.type,
+    field.attribute,
+    resourceKey,
+    field.component,
     getFallbackDisplay(field.type),
   )
   return <Component field={field} value={value} />
 }
 
-/** Renders a field as an editable input (create / update forms). */
+/**
+ * Renders a field as an editable input (create / update forms).
+ *
+ * Override resolution follows the same 4-tier chain as FieldDisplay.
+ *
+ * @param resourceKey  The resource URI key — enables per-resource overrides
+ */
 export function FieldInput({
   field,
   value,
   onChange,
   error,
+  resourceKey,
 }: {
   field: FieldDefinition
   value: unknown
   onChange: (v: unknown) => void
   error?: string
+  resourceKey?: string
 }) {
-  const Component = registry.resolve<FieldInputProps>(
-    `field:input:${field.type}`,
+  const Component = componentRegistry.resolveInput(
+    field.type,
+    field.attribute,
+    resourceKey,
+    field.component,
     getFallbackInput(field.type),
   )
   return <Component field={field} value={value} onChange={onChange} error={error} />

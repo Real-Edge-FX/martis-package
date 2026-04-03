@@ -172,6 +172,7 @@ export function ResourceIndexPage() {
         onToggleSelect={handleToggleSelect}
         onToggleAll={handleToggleAll}
         onClickRow={(row) => navigate(`/martis/resources/${resource}/${row.id}`)}
+        resourceKey={resource}
       />
 
       {/* Pagination */}
