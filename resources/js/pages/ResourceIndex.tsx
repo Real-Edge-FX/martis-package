@@ -111,7 +111,7 @@ export function ResourceIndexPage() {
 
   if (schemaQuery.isError || !schema) {
     return (
-      <div className="rounded-lg border border-red-800 bg-red-950/20 p-6 text-red-400">
+      <div className="rounded-lg border p-6" style={{ borderColor: '#ef4444', backgroundColor: 'var(--martis-surface)', color: '#ef4444' }}>
         {tMsg('error_schema')}
       </div>
     )
@@ -130,7 +130,7 @@ export function ResourceIndexPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">{schema.label}</h1>
+          <h1 className="text-2xl font-bold martis-text">{schema.label}</h1>
           {selectedIds.size > 0 && (
             <p className="text-sm text-indigo-400">
               {t('selected', { count: selectedIds.size })}
@@ -140,7 +140,8 @@ export function ResourceIndexPage() {
         <button
           type="button"
           onClick={() => navigate(`/resources/${resource}/create`)}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="rounded-lg px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          style={{ backgroundColor: 'var(--martis-accent)' }}
         >
           + {tAct('create')} {schema.singularLabel}
         </button>
@@ -154,15 +155,19 @@ export function ResourceIndexPage() {
             placeholder={t('search', { label: schema.label.toLowerCase() })}
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="block w-full rounded-md py-2 pl-9 pr-4 text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-200"
-            style={{ backgroundColor: '#111827', border: '1px solid #334155' }}
+            className="block w-full rounded-md py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-1"
+            style={{
+              backgroundColor: 'var(--martis-input-bg)',
+              border: '1px solid var(--martis-border)',
+              color: 'var(--martis-text)',
+            }}
           />
           <span className="absolute inset-y-0 left-3 flex items-center">
-            <i className="pi pi-search text-slate-500 text-sm" />
+            <i className="pi pi-search text-sm martis-text-muted" />
           </span>
         </div>
         {indexQuery.isFetching && (
-          <span className="text-xs text-slate-500">{tMsg('loading')}</span>
+          <span className="text-xs martis-text-muted">{tMsg('loading')}</span>
         )}
       </div>
 
@@ -210,14 +215,14 @@ export function ResourceIndexPage() {
 function IndexSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="h-8 w-48 rounded bg-slate-800" />
-      <div className="h-10 w-full rounded bg-slate-800" />
-      <div className="rounded-lg" style={{ border: '1px solid #334155' }}>
+      <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
+      <div className="h-10 w-full rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
+      <div className="rounded-lg border martis-border">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex gap-4 border-b border-slate-700 px-4 py-3">
-            <div className="h-4 w-4 rounded bg-slate-700" />
-            <div className="h-4 flex-1 rounded bg-slate-700" />
-            <div className="h-4 w-32 rounded bg-slate-700" />
+          <div key={i} className="flex gap-4 border-b px-4 py-3" style={{ borderColor: 'var(--martis-border)' }}>
+            <div className="h-4 w-4 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
+            <div className="h-4 flex-1 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
+            <div className="h-4 w-32 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
           </div>
         ))}
       </div>

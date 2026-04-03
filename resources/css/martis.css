@@ -8,20 +8,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Minimal reset compatible with PrimeReact (replaces Tailwind Preflight) */
+/* Minimal reset compatible with PrimeReact */
 *, ::before, ::after {
   box-sizing: border-box;
 }
 
+/* ── Theme Variables ──────────────────────────────────────────────
+   Dark theme = default (:root).
+   Light theme = html:not(.dark) overrides.
+   All component colors reference these variables so both themes
+   stay coherent automatically.
+──────────────────────────────────────────────────────────────── */
+
 :root {
   --sidebar-width: 240px;
-  --nova-bg: #1b2332;
-  --nova-surface: #1e293b;
-  --nova-sidebar: #111827;
-  --nova-border: #334155;
-  --nova-text: #e2e8f0;
-  --nova-text-muted: #94a3b8;
-  --nova-accent: #6366f1;
+
+  /* Dark theme (default) */
+  --martis-bg: #1b2332;
+  --martis-surface: #1e293b;
+  --martis-sidebar: #111827;
+  --martis-border: #334155;
+  --martis-text: #e2e8f0;
+  --martis-text-muted: #94a3b8;
+  --martis-accent: #6366f1;
+  --martis-accent-hover: #4f46e5;
+  --martis-hover: rgba(255, 255, 255, 0.05);
+  --martis-active: rgba(255, 255, 255, 0.1);
+  --martis-card: #1e293b;
+  --martis-input-bg: #111827;
+  --martis-topbar: #1e293b;
+  --martis-search-bg: rgba(255, 255, 255, 0.06);
+  --martis-search-border: rgba(255, 255, 255, 0.1);
+  --martis-row-even: rgba(30, 41, 59, 0.5);
+  --martis-row-hover: rgba(51, 65, 85, 0.5);
+}
+
+html:not(.dark) {
+  /* Light theme */
+  --martis-bg: #f1f5f9;
+  --martis-surface: #ffffff;
+  --martis-sidebar: #ffffff;
+  --martis-border: #e2e8f0;
+  --martis-text: #1e293b;
+  --martis-text-muted: #64748b;
+  --martis-accent: #6366f1;
+  --martis-accent-hover: #4f46e5;
+  --martis-hover: rgba(0, 0, 0, 0.04);
+  --martis-active: rgba(0, 0, 0, 0.08);
+  --martis-card: #ffffff;
+  --martis-input-bg: #ffffff;
+  --martis-topbar: #ffffff;
+  --martis-search-bg: rgba(0, 0, 0, 0.04);
+  --martis-search-border: rgba(0, 0, 0, 0.12);
+  --martis-row-even: rgba(248, 250, 252, 1);
+  --martis-row-hover: rgba(241, 245, 249, 1);
 }
 
 body {
@@ -29,8 +69,8 @@ body {
   font-family: var(--font-family), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--nova-bg);
-  color: var(--nova-text);
+  background-color: var(--martis-bg);
+  color: var(--martis-text);
 }
 
 img, video {
@@ -53,165 +93,299 @@ button {
   padding: 0;
 }
 
-/* ── Nova Dark Theme — PrimeReact Overrides ─────────────────────── */
+/* ── PrimeReact Dark theme import (conditional) ────────────────── */
+/* Dark theme is loaded by default. Light theme PrimeReact vars
+   are overridden below for html:not(.dark). */
 
-/* Global component background */
-.p-component {
+.dark body,
+html.dark body {
   color-scheme: dark;
 }
 
-/* DataTable — Nova-style dark rows */
+/* ── DataTable ─────────────────────────────────────────────────── */
 .p-datatable {
   background: transparent;
 }
 .p-datatable .p-datatable-thead > tr > th {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text-muted);
-  border-color: var(--nova-border);
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
 }
 .p-datatable .p-datatable-tbody > tr {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text);
-  border-color: var(--nova-border);
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
 }
 .p-datatable .p-datatable-tbody > tr:nth-child(even) {
-  background-color: rgba(30, 41, 59, 0.5);
+  background-color: var(--martis-row-even);
 }
 .p-datatable .p-datatable-tbody > tr:hover {
-  background-color: rgba(51, 65, 85, 0.5) !important;
+  background-color: var(--martis-row-hover) !important;
 }
 .p-datatable .p-datatable-tbody > tr.bg-indigo-50 {
   background-color: rgba(99, 102, 241, 0.1) !important;
 }
 .p-datatable .p-datatable-emptymessage td {
-  background-color: var(--nova-sidebar);
-  border-color: var(--nova-border);
+  background-color: var(--martis-sidebar);
+  border-color: var(--martis-border);
 }
 .p-datatable .p-sortable-column:hover {
-  background-color: rgba(51, 65, 85, 0.5) !important;
+  background-color: var(--martis-row-hover) !important;
 }
 
-/* Checkbox — Nova style */
+/* ── Checkbox ──────────────────────────────────────────────────── */
 .p-checkbox .p-checkbox-box {
-  background-color: var(--nova-surface);
-  border-color: var(--nova-border);
+  background-color: var(--martis-surface);
+  border-color: var(--martis-border);
 }
 .p-checkbox .p-checkbox-box.p-highlight {
-  background-color: var(--nova-accent);
-  border-color: var(--nova-accent);
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
 }
 
-/* Card — Nova dark */
+/* ── Card ──────────────────────────────────────────────────────── */
 .p-card {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text);
+  background-color: var(--martis-card);
+  color: var(--martis-text);
   box-shadow: none;
-  border: 1px solid var(--nova-border);
+  border: 1px solid var(--martis-border);
 }
 .p-card .p-card-body {
-  color: var(--nova-text);
+  color: var(--martis-text);
 }
 .p-card:hover {
-  border-color: var(--nova-accent);
+  border-color: var(--martis-accent);
 }
 
-/* InputText — Nova dark */
+/* ── InputText ─────────────────────────────────────────────────── */
 .p-inputtext {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text);
-  border-color: var(--nova-border);
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
 }
 .p-inputtext:focus {
-  border-color: var(--nova-accent);
-  box-shadow: 0 0 0 1px var(--nova-accent);
+  border-color: var(--martis-accent);
+  box-shadow: 0 0 0 1px var(--martis-accent);
 }
 .p-inputtext::placeholder {
-  color: var(--nova-text-muted);
+  color: var(--martis-text-muted);
 }
 
-/* Button text variant */
+/* ── Button text variant ───────────────────────────────────────── */
 .p-button.p-button-text {
-  color: var(--nova-text-muted);
+  color: var(--martis-text-muted);
 }
 .p-button.p-button-text:hover {
-  background-color: var(--nova-surface);
+  background-color: var(--martis-surface);
 }
 
-/* Dialog / Modal */
+/* ── Dialog / Modal ────────────────────────────────────────────── */
 .p-dialog {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text);
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text);
 }
 .p-dialog .p-dialog-header {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text);
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text);
 }
 .p-dialog .p-dialog-content {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text-muted);
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text-muted);
 }
 .p-dialog .p-dialog-footer {
-  background-color: var(--nova-sidebar);
+  background-color: var(--martis-sidebar);
 }
 
-/* Paginator */
+/* ── Paginator ─────────────────────────────────────────────────── */
 .p-paginator {
   background-color: transparent;
-  color: var(--nova-text-muted);
-  border-color: var(--nova-border);
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
 }
 .p-paginator .p-paginator-page {
-  color: var(--nova-text-muted);
+  color: var(--martis-text-muted);
 }
 .p-paginator .p-paginator-page.p-highlight {
-  background-color: var(--nova-accent);
+  background-color: var(--martis-accent);
   color: white;
 }
 
-/* Dropdown */
+/* ── Dropdown ──────────────────────────────────────────────────── */
 .p-dropdown {
-  background-color: var(--nova-sidebar);
-  color: var(--nova-text);
-  border-color: var(--nova-border);
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
 }
 .p-dropdown-panel {
-  background-color: var(--nova-sidebar);
-  border-color: var(--nova-border);
+  background-color: var(--martis-sidebar);
+  border-color: var(--martis-border);
 }
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
-  color: var(--nova-text-muted);
+  color: var(--martis-text-muted);
 }
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
-  background-color: var(--nova-surface);
+  background-color: var(--martis-surface);
 }
 
-/* Toast */
+/* ── Toast ─────────────────────────────────────────────────────── */
 .p-toast .p-toast-message {
-  background-color: var(--nova-surface);
-  border-color: var(--nova-border);
+  background-color: var(--martis-surface);
+  border-color: var(--martis-border);
 }
 
-/* Menu popup */
+/* ── Menu popup ────────────────────────────────────────────────── */
 .p-menu {
-  background-color: var(--nova-sidebar);
-  border-color: var(--nova-border);
-  color: var(--nova-text);
+  background-color: var(--martis-card);
+  border-color: var(--martis-border);
+  color: var(--martis-text);
 }
 .p-menu .p-menuitem-link:hover {
-  background-color: var(--nova-surface);
+  background-color: var(--martis-hover);
 }
 .p-menu .p-menuitem-text {
-  color: var(--nova-text);
+  color: var(--martis-text);
 }
 .p-menu .p-menuitem-icon {
-  color: var(--nova-text-muted);
+  color: var(--martis-text-muted);
 }
 
-/* Normalize PrimeReact button sizing in icon-only buttons */
+/* ── Icon-only button sizing ───────────────────────────────────── */
 .p-button.p-button-icon-only.p-button-text {
   @apply p-2;
+}
+
+/* ── Martis Layout Helpers ─────────────────────────────────────── */
+.martis-bg { background-color: var(--martis-bg); }
+.martis-surface { background-color: var(--martis-surface); }
+.martis-sidebar-bg { background-color: var(--martis-sidebar); }
+.martis-topbar-bg { background-color: var(--martis-topbar); }
+.martis-card-bg { background-color: var(--martis-card); }
+.martis-text { color: var(--martis-text); }
+.martis-text-muted { color: var(--martis-text-muted); }
+.martis-border { border-color: var(--martis-border); }
+.martis-input-bg { background-color: var(--martis-input-bg); }
+
+/* ── Global Search Modal ───────────────────────────────────────── */
+.martis-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+.martis-search-modal {
+  width: 100%;
+  max-width: 560px;
+  background-color: var(--martis-card);
+  border: 1px solid var(--martis-border);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.martis-search-input {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  border: none;
+  border-bottom: 1px solid var(--martis-border);
+  background: transparent;
+  color: var(--martis-text);
+  font-size: 15px;
+  outline: none;
+}
+.martis-search-input::placeholder {
+  color: var(--martis-text-muted);
+}
+.martis-search-results {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 8px;
+}
+.martis-search-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--martis-text);
+  transition: background-color 0.15s;
+}
+.martis-search-item:hover,
+.martis-search-item.active {
+  background-color: var(--martis-hover);
+}
+
+/* ── Toast Notifications (custom) ──────────────────────────────── */
+.martis-toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.martis-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 300px;
+  max-width: 420px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-card);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  animation: martis-toast-in 0.3s ease-out;
+  color: var(--martis-text);
+}
+.martis-toast-success { border-left: 4px solid #22c55e; }
+.martis-toast-error { border-left: 4px solid #ef4444; }
+.martis-toast-warning { border-left: 4px solid #f59e0b; }
+.martis-toast-info { border-left: 4px solid #3b82f6; }
+
+@keyframes martis-toast-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── PrimeReact Light Theme Overrides ──────────────────────────── */
+html:not(.dark) .p-component {
+  color-scheme: light;
+}
+html:not(.dark) .p-inputtext {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-button {
+  color: white;
+}
+html:not(.dark) .p-button.p-button-text {
+  color: var(--martis-text-muted);
+}
+html:not(.dark) .p-datatable .p-datatable-thead > tr > th {
+  background-color: var(--martis-surface);
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-datatable .p-datatable-tbody > tr {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-card {
+  background-color: var(--martis-card);
+  border-color: var(--martis-border);
+  color: var(--martis-text);
 }

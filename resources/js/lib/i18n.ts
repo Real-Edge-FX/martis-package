@@ -1,19 +1,9 @@
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
-import { BASE_PATH } from "./config"
-
-declare global {
-  interface Window {
-    MartisConfig?: {
-      locale?: string
-      brand?: string
-      basePath?: string
-    }
-  }
-}
+import { BASE_PATH, config } from "./config"
 
 export function getLocale(): string {
-  return window.MartisConfig?.locale ?? "en"
+  return config.locale ?? "en"
 }
 
 let initPromise: Promise<void> | null = null

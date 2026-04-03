@@ -36,6 +36,10 @@ export function ResourceCreatePage() {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', tMsg('record_created'))
+      // Clear form
+      setValues({})
+      setErrors({})
+      // Navigate to the newly created record
       navigate(`/resources/${resource}/${res.data.id}`)
     },
     onError: (err) => {
@@ -45,6 +49,7 @@ export function ResourceCreatePage() {
           fieldErrors[attr] = messages[0]?.message ?? tMsg('invalid_field')
         })
         setErrors(fieldErrors)
+        addToast('error', tMsg('validation_errors', 'Please fix the errors below.'))
       } else {
         addToast('error', tMsg('error_create'))
       }
@@ -66,7 +71,7 @@ export function ResourceCreatePage() {
 
   if (!schema) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800">
+      <div className="rounded-lg border p-6 martis-border" style={{ backgroundColor: 'var(--martis-surface)', color: '#ef4444' }}>
         {tMsg('error_schema')}
       </div>
     )
@@ -78,25 +83,26 @@ export function ResourceCreatePage() {
       <div className="flex items-center gap-3">
         <Link
           to={`/resources/${resource}`}
-          className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+          className="text-sm hover:underline"
+          style={{ color: 'var(--martis-accent)' }}
         >
-          ← {schema.label}
+          &larr; {schema.label}
         </Link>
-        <span className="text-gray-300 dark:text-gray-600">/</span>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <span className="martis-text-muted">/</span>
+        <h1 className="text-2xl font-bold martis-text">
           {tAct('create')} {schema.singularLabel}
         </h1>
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
-        <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        <div className="martis-card-bg rounded-xl border martis-border">
+          <div className="divide-y" style={{ borderColor: 'var(--martis-border)' }}>
             {formFields.map((field) => (
-              <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4">
+              <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4" style={{ borderColor: 'var(--martis-border)' }}>
                 <div>
                   <label
                     htmlFor={field.attribute}
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    className="block text-sm font-medium martis-text-muted"
                   >
                     {field.label}
                     {field.required && (
@@ -119,17 +125,19 @@ export function ResourceCreatePage() {
             ))}
           </div>
 
-          <div className="flex justify-end gap-3 rounded-b-xl border-t border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
             <Link
               to={`/resources/${resource}`}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              className="rounded-md border px-4 py-2 text-sm font-medium martis-text-muted martis-border"
+              style={{ backgroundColor: 'var(--martis-input-bg)', borderColor: 'var(--martis-border)' }}
             >
               {tAct('cancel')}
             </Link>
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              style={{ backgroundColor: 'var(--martis-accent)' }}
             >
               {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
             </button>
@@ -143,12 +151,12 @@ export function ResourceCreatePage() {
 function FormSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      <div className="h-8 w-48 rounded bg-gray-200 dark:bg-gray-800" />
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800">
+      <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
+      <div className="rounded-xl border martis-border">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-3 gap-4 border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-            <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="col-span-2 h-10 rounded bg-gray-200 dark:bg-gray-700" />
+          <div key={i} className="grid grid-cols-3 gap-4 border-b px-6 py-4" style={{ borderColor: 'var(--martis-border)' }}>
+            <div className="h-4 w-24 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
+            <div className="col-span-2 h-10 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
           </div>
         ))}
       </div>

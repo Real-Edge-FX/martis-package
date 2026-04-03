@@ -1,7 +1,9 @@
-import { useRef } from "react"
+import { useRef, useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTheme } from "@/contexts/ThemeContext"
+import { config } from "@/lib/config"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
+import { GlobalSearch } from "@/components/GlobalSearch"
 import { Button } from "primereact/button"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
@@ -12,6 +14,27 @@ export function Topbar() {
   const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
   const menuRef = useRef<Menu>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  const showThemeToggle = config.userMenu?.showThemeToggle !== false
+  const showNotifications = config.userMenu?.showNotifications !== false
+  const searchEnabled = config.search?.enabled !== false
+
+  // Keyboard shortcut: "/" to open search
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!searchEnabled) return
+    if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+      e.preventDefault()
+      setSearchOpen(true)
+    }
+  }, [searchEnabled])
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [handleKeyDown])
 
   const userMenuItems: MenuItem[] = [
     {
@@ -25,12 +48,25 @@ export function Topbar() {
       disabled: true,
     },
     { separator: true },
-    {
-      label: theme === "dark" ? t("light_mode") : t("dark_mode"),
-      icon: `pi pi-${theme === "dark" ? "sun" : "moon"}`,
-      command: () => toggle(),
-    },
-    { separator: true },
+    ...(showThemeToggle
+      ? [
+          {
+            label: theme === "dark" ? t("light_mode") : t("dark_mode"),
+            icon: `pi pi-${theme === "dark" ? "sun" : "moon"}`,
+            command: () => toggle(),
+          },
+          { separator: true } as MenuItem,
+        ]
+      : []),
+    ...(config.userMenu?.customItems?.map((item) =>
+      item.separator
+        ? ({ separator: true } as MenuItem)
+        : ({
+            label: item.label,
+            icon: item.icon,
+            url: item.url,
+          } as MenuItem),
+    ) ?? []),
     {
       label: t("logout"),
       icon: "pi pi-sign-out",
@@ -41,51 +77,78 @@ export function Topbar() {
 
   return (
     <header
-      className="flex h-14 items-center justify-between border-b px-5"
-      style={{ backgroundColor: "#1e293b", borderColor: "#334155" }}
+      className="martis-topbar-bg flex h-14 items-center justify-between border-b martis-border px-5"
     >
       <Breadcrumbs />
 
-      <div className="flex items-center gap-3">
-        <Button
-          icon="pi pi-bell"
-          aria-label="Notifications"
-          rounded
-          text
-          severity="secondary"
-          size="small"
-          className="text-slate-400 hover:text-white"
-        />
+      {/* Search bar trigger — Nova style */}
+      {searchEnabled && (
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer border-0"
+          style={{
+            backgroundColor: 'var(--martis-search-bg)',
+            border: '1px solid var(--martis-search-border)',
+            color: 'var(--martis-text-muted)',
+            minWidth: 220,
+          }}
+        >
+          <i className="pi pi-search text-xs" />
+          <span>{config.search?.placeholder ?? t("search_placeholder", "Press / to search")}</span>
+          <kbd
+            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-mono"
+            style={{
+              backgroundColor: 'var(--martis-hover)',
+              border: '1px solid var(--martis-search-border)',
+              color: 'var(--martis-text-muted)',
+            }}
+          >
+            /
+          </kbd>
+        </button>
+      )}
 
-        <Button
-          icon={`pi pi-${theme === "dark" ? "sun" : "moon"}`}
-          onClick={toggle}
-          aria-label={t("toggle_theme")}
-          rounded
-          text
-          severity="secondary"
-          size="small"
-          className="text-slate-400 hover:text-white"
-        />
+      <div className="flex items-center gap-3">
+        {showNotifications && (
+          <Button
+            icon="pi pi-bell"
+            aria-label="Notifications"
+            rounded
+            text
+            severity="secondary"
+            size="small"
+            className="martis-text-muted"
+          />
+        )}
 
         {/* User avatar + dropdown menu */}
         <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[200px]" />
         <div
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-white/5 transition-colors"
+          className="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer transition-colors"
+          style={{ backgroundColor: 'transparent' }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           onClick={(e) => menuRef.current?.toggle(e)}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") menuRef.current?.toggle(e as unknown as React.SyntheticEvent) }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ")
+              menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
+          }}
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
             {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
           </div>
-          <span className="text-sm font-medium text-slate-300">
+          <span className="text-sm font-medium martis-text">
             {user?.name ?? user?.email}
           </span>
-          <i className="pi pi-chevron-down text-xs text-slate-500" />
+          <i className="pi pi-chevron-down text-xs martis-text-muted" />
         </div>
       </div>
+
+      {/* Global search modal */}
+      {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
     </header>
   )
 }

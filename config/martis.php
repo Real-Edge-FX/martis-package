@@ -54,6 +54,59 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Theme
+    |--------------------------------------------------------------------------
+    | Configure the default theme and whether users can toggle between themes.
+    | 'default' => 'dark' or 'light'
+    | 'allowToggle' => true/false — shows the toggle in the user menu
+    */
+    'theme' => [
+        'default' => env('MARTIS_THEME', 'dark'),
+        'allowToggle' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Menu
+    |--------------------------------------------------------------------------
+    | Configure what appears in the user profile context menu.
+    | Set any option to false to hide it.
+    */
+    'user_menu' => [
+        'showThemeToggle' => true,
+        'showProfile' => true,
+        'showNotifications' => true,
+        // 'customItems' => [
+        //     ['label' => 'Settings', 'icon' => 'pi pi-cog', 'url' => '/settings'],
+        //     ['separator' => true],
+        //     ['label' => 'Help', 'icon' => 'pi pi-question-circle', 'url' => '/help'],
+        // ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Global Search
+    |--------------------------------------------------------------------------
+    | Configure the search bar in the topbar.
+    */
+    'search' => [
+        'enabled' => true,
+        'placeholder' => null, // null = use i18n default "Press / to search"
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    | Configure the default dashboard layout.
+    */
+    'dashboard' => [
+        'showMetrics' => true,
+        'showResourceCards' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pagination
     |--------------------------------------------------------------------------
     */

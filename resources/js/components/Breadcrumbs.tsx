@@ -13,19 +13,19 @@ export function Breadcrumbs() {
   )
 
   return (
-    <nav aria-label="Breadcrumbs" className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-      <Link to="/" className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-100">
+    <nav aria-label="Breadcrumbs" className="flex items-center gap-1 text-sm martis-text-muted">
+      <Link to="/" className="flex items-center gap-1 hover:opacity-80">
         <Home size={14} />
       </Link>
       {crumbs.map((m, i) => (
         <span key={m.id} className="flex items-center gap-1">
           <ChevronRight size={12} />
           {i === crumbs.length - 1 ? (
-            <span className="font-medium text-gray-900 dark:text-gray-100">
+            <span className="font-medium martis-text">
               {(m.handle as BreadcrumbHandle).crumb}
             </span>
           ) : (
-            <Link to={m.pathname} className="hover:text-gray-900 dark:hover:text-gray-100">
+            <Link to={m.pathname} className="hover:opacity-80">
               {(m.handle as BreadcrumbHandle).crumb}
             </Link>
           )}
@@ -34,4 +34,3 @@ export function Breadcrumbs() {
     </nav>
   )
 }
-
