@@ -111,7 +111,7 @@ export function ResourceIndexPage() {
 
   if (schemaQuery.isError || !schema) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
+      <div className="rounded-lg border border-red-800 bg-red-950/20 p-6 text-red-400">
         {tMsg('error_schema')}
       </div>
     )
@@ -130,9 +130,9 @@ export function ResourceIndexPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{schema.label}</h1>
+          <h1 className="text-2xl font-bold text-white">{schema.label}</h1>
           {selectedIds.size > 0 && (
-            <p className="text-sm text-blue-600 dark:text-blue-400">
+            <p className="text-sm text-indigo-400">
               {t('selected', { count: selectedIds.size })}
             </p>
           )}
@@ -140,7 +140,7 @@ export function ResourceIndexPage() {
         <button
           type="button"
           onClick={() => navigate(`/resources/${resource}/create`)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900"
         >
           + {tAct('create')} {schema.singularLabel}
         </button>
@@ -154,14 +154,15 @@ export function ResourceIndexPage() {
             placeholder={t('search', { label: schema.label.toLowerCase() })}
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500"
+            className="block w-full rounded-md py-2 pl-9 pr-4 text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-200"
+            style={{ backgroundColor: '#111827', border: '1px solid #334155' }}
           />
-          <span className="absolute inset-y-0 left-3 flex items-center text-gray-400">
-            🔍
+          <span className="absolute inset-y-0 left-3 flex items-center">
+            <i className="pi pi-search text-slate-500 text-sm" />
           </span>
         </div>
         {indexQuery.isFetching && (
-          <span className="text-xs text-gray-400 dark:text-gray-500">{tMsg('loading')}</span>
+          <span className="text-xs text-slate-500">{tMsg('loading')}</span>
         )}
       </div>
 
@@ -209,14 +210,14 @@ export function ResourceIndexPage() {
 function IndexSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="h-8 w-48 rounded bg-gray-200 dark:bg-gray-800" />
-      <div className="h-10 w-full rounded bg-gray-200 dark:bg-gray-800" />
-      <div className="rounded-lg border border-gray-200 dark:border-gray-800">
+      <div className="h-8 w-48 rounded bg-slate-800" />
+      <div className="h-10 w-full rounded bg-slate-800" />
+      <div className="rounded-lg" style={{ border: '1px solid #334155' }}>
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex gap-4 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-            <div className="h-4 w-4 rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="h-4 flex-1 rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+          <div key={i} className="flex gap-4 border-b border-slate-700 px-4 py-3">
+            <div className="h-4 w-4 rounded bg-slate-700" />
+            <div className="h-4 flex-1 rounded bg-slate-700" />
+            <div className="h-4 w-32 rounded bg-slate-700" />
           </div>
         ))}
       </div>

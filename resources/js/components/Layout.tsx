@@ -9,7 +9,7 @@ export function Layout() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#1b2332' }}>
         <div className="w-96">
           <TableSkeleton />
         </div>
@@ -20,7 +20,7 @@ export function Layout() {
   if (!user) return <Navigate to="/login" replace />
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#1b2332' }}>
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar />
@@ -31,4 +31,3 @@ export function Layout() {
     </div>
   )
 }
-

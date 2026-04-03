@@ -1,5 +1,5 @@
-/* PrimeReact theme + components */
-@import "primereact/resources/themes/lara-light-indigo/theme.css";
+/* PrimeReact dark theme + components */
+@import "primereact/resources/themes/lara-dark-indigo/theme.css";
 @import "primereact/resources/primereact.min.css";
 @import "primeicons/primeicons.css";
 
@@ -15,6 +15,13 @@
 
 :root {
   --sidebar-width: 240px;
+  --nova-bg: #1b2332;
+  --nova-surface: #1e293b;
+  --nova-sidebar: #111827;
+  --nova-border: #334155;
+  --nova-text: #e2e8f0;
+  --nova-text-muted: #94a3b8;
+  --nova-accent: #6366f1;
 }
 
 body {
@@ -22,6 +29,8 @@ body {
   font-family: var(--font-family), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--nova-bg);
+  color: var(--nova-text);
 }
 
 img, video {
@@ -29,13 +38,13 @@ img, video {
   height: auto;
 }
 
-/* Remove default link underline globally (opt-in via .underline) */
+/* Remove default link underline globally */
 a {
   text-decoration: none;
   color: inherit;
 }
 
-/* Reset bare button elements — no border/bg unless styled */
+/* Reset bare button elements */
 button {
   border: none;
   background: transparent;
@@ -44,146 +53,165 @@ button {
   padding: 0;
 }
 
-/* ── PrimeReact Dark Mode Overrides ─────────────────────────────── */
+/* ── Nova Dark Theme — PrimeReact Overrides ─────────────────────── */
 
-.dark .p-component {
+/* Global component background */
+.p-component {
   color-scheme: dark;
 }
 
-/* DataTable */
-.dark .p-datatable {
+/* DataTable — Nova-style dark rows */
+.p-datatable {
   background: transparent;
 }
-.dark .p-datatable .p-datatable-thead > tr > th {
-  background-color: rgb(17 24 39); /* gray-900 */
-  color: rgb(209 213 219); /* gray-300 */
-  border-color: rgb(55 65 81); /* gray-700 */
+.p-datatable .p-datatable-thead > tr > th {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text-muted);
+  border-color: var(--nova-border);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
 }
-.dark .p-datatable .p-datatable-tbody > tr {
-  background-color: rgb(17 24 39); /* gray-900 */
-  color: rgb(229 231 235); /* gray-200 */
-  border-color: rgb(55 65 81); /* gray-700 */
+.p-datatable .p-datatable-tbody > tr {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text);
+  border-color: var(--nova-border);
 }
-.dark .p-datatable .p-datatable-tbody > tr:nth-child(even) {
-  background-color: rgb(24 30 46); /* slightly lighter */
+.p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background-color: rgba(30, 41, 59, 0.5);
 }
-.dark .p-datatable .p-datatable-tbody > tr:hover {
-  background-color: rgb(31 41 55) !important; /* gray-800 */
+.p-datatable .p-datatable-tbody > tr:hover {
+  background-color: rgba(51, 65, 85, 0.5) !important;
 }
-.dark .p-datatable .p-datatable-tbody > tr.bg-indigo-50 {
+.p-datatable .p-datatable-tbody > tr.bg-indigo-50 {
   background-color: rgba(99, 102, 241, 0.1) !important;
 }
-.dark .p-datatable .p-datatable-emptymessage td {
-  background-color: rgb(17 24 39);
-  border-color: rgb(55 65 81);
+.p-datatable .p-datatable-emptymessage td {
+  background-color: var(--nova-sidebar);
+  border-color: var(--nova-border);
 }
-.dark .p-datatable .p-sortable-column:hover {
-  background-color: rgb(31 41 55) !important;
-}
-
-/* Checkbox */
-.dark .p-checkbox .p-checkbox-box {
-  background-color: rgb(31 41 55);
-  border-color: rgb(75 85 99);
-}
-.dark .p-checkbox .p-checkbox-box.p-highlight {
-  background-color: rgb(99 102 241);
-  border-color: rgb(99 102 241);
+.p-datatable .p-sortable-column:hover {
+  background-color: rgba(51, 65, 85, 0.5) !important;
 }
 
-/* Card */
-.dark .p-card {
-  background-color: rgb(17 24 39); /* gray-900 */
-  color: rgb(229 231 235);
+/* Checkbox — Nova style */
+.p-checkbox .p-checkbox-box {
+  background-color: var(--nova-surface);
+  border-color: var(--nova-border);
+}
+.p-checkbox .p-checkbox-box.p-highlight {
+  background-color: var(--nova-accent);
+  border-color: var(--nova-accent);
+}
+
+/* Card — Nova dark */
+.p-card {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text);
   box-shadow: none;
-  border: 1px solid rgb(55 65 81);
+  border: 1px solid var(--nova-border);
 }
-.dark .p-card .p-card-body {
-  color: rgb(229 231 235);
+.p-card .p-card-body {
+  color: var(--nova-text);
 }
-
-/* InputText */
-.dark .p-inputtext {
-  background-color: rgb(17 24 39);
-  color: rgb(229 231 235);
-  border-color: rgb(75 85 99);
-}
-.dark .p-inputtext:focus {
-  border-color: rgb(99 102 241);
-  box-shadow: 0 0 0 1px rgb(99 102 241);
-}
-.dark .p-inputtext::placeholder {
-  color: rgb(107 114 128);
+.p-card:hover {
+  border-color: var(--nova-accent);
 }
 
-/* Button */
-.dark .p-button.p-button-text {
-  color: rgb(156 163 175);
+/* InputText — Nova dark */
+.p-inputtext {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text);
+  border-color: var(--nova-border);
 }
-.dark .p-button.p-button-text:hover {
-  background-color: rgb(31 41 55);
+.p-inputtext:focus {
+  border-color: var(--nova-accent);
+  box-shadow: 0 0 0 1px var(--nova-accent);
+}
+.p-inputtext::placeholder {
+  color: var(--nova-text-muted);
+}
+
+/* Button text variant */
+.p-button.p-button-text {
+  color: var(--nova-text-muted);
+}
+.p-button.p-button-text:hover {
+  background-color: var(--nova-surface);
 }
 
 /* Dialog / Modal */
-.dark .p-dialog {
-  background-color: rgb(17 24 39);
-  color: rgb(229 231 235);
+.p-dialog {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text);
 }
-.dark .p-dialog .p-dialog-header {
-  background-color: rgb(17 24 39);
-  color: rgb(229 231 235);
+.p-dialog .p-dialog-header {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text);
 }
-.dark .p-dialog .p-dialog-content {
-  background-color: rgb(17 24 39);
-  color: rgb(209 213 219);
+.p-dialog .p-dialog-content {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text-muted);
 }
-.dark .p-dialog .p-dialog-footer {
-  background-color: rgb(17 24 39);
+.p-dialog .p-dialog-footer {
+  background-color: var(--nova-sidebar);
 }
 
 /* Paginator */
-.dark .p-paginator {
+.p-paginator {
   background-color: transparent;
-  color: rgb(209 213 219);
-  border-color: rgb(55 65 81);
+  color: var(--nova-text-muted);
+  border-color: var(--nova-border);
 }
-.dark .p-paginator .p-paginator-page {
-  color: rgb(156 163 175);
+.p-paginator .p-paginator-page {
+  color: var(--nova-text-muted);
 }
-.dark .p-paginator .p-paginator-page.p-highlight {
-  background-color: rgb(99 102 241);
+.p-paginator .p-paginator-page.p-highlight {
+  background-color: var(--nova-accent);
   color: white;
 }
 
 /* Dropdown */
-.dark .p-dropdown {
-  background-color: rgb(17 24 39);
-  color: rgb(229 231 235);
-  border-color: rgb(75 85 99);
+.p-dropdown {
+  background-color: var(--nova-sidebar);
+  color: var(--nova-text);
+  border-color: var(--nova-border);
 }
-.dark .p-dropdown-panel {
-  background-color: rgb(17 24 39);
-  border-color: rgb(55 65 81);
+.p-dropdown-panel {
+  background-color: var(--nova-sidebar);
+  border-color: var(--nova-border);
 }
-.dark .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
-  color: rgb(209 213 219);
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item {
+  color: var(--nova-text-muted);
 }
-.dark .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
-  background-color: rgb(31 41 55);
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
+  background-color: var(--nova-surface);
 }
 
-/* Toast dark */
-.dark .p-toast .p-toast-message {
-  background-color: rgb(31 41 55);
-  border-color: rgb(55 65 81);
+/* Toast */
+.p-toast .p-toast-message {
+  background-color: var(--nova-surface);
+  border-color: var(--nova-border);
+}
+
+/* Menu popup */
+.p-menu {
+  background-color: var(--nova-sidebar);
+  border-color: var(--nova-border);
+  color: var(--nova-text);
+}
+.p-menu .p-menuitem-link:hover {
+  background-color: var(--nova-surface);
+}
+.p-menu .p-menuitem-text {
+  color: var(--nova-text);
+}
+.p-menu .p-menuitem-icon {
+  color: var(--nova-text-muted);
 }
 
 /* Normalize PrimeReact button sizing in icon-only buttons */
 .p-button.p-button-icon-only.p-button-text {
   @apply p-2;
-}
-
-/* Resource cards — hover shadow in dark mode */
-.dark .p-card:hover {
-  border-color: rgb(99 102 241);
 }
