@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api } from '@/lib/api'
+import { BASE_PATH } from '@/lib/config'
 import type { User } from '@/types'
 
 interface AuthContextValue {
@@ -39,9 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api.post('/api/auth/logout')
     } catch {
-      // ignore
+      // ignore — session may already be invalid
     }
-    setUser(null)
+    // Full page reload ensures server session is cleared and fresh CSRF token
+    window.location.href = BASE_PATH + '/login'
   }, [])
 
   return (

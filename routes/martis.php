@@ -19,6 +19,9 @@ Route::middleware(config('martis.middleware', ['web']))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+        // API logout — public so it works even with stale CSRF/session
+        Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+
         // Translations — public, loaded before login
         Route::get('/api/translations/{locale}', [TranslationsController::class, 'show'])
             ->name('api.translations.show');
@@ -33,7 +36,6 @@ Route::middleware(config('martis.middleware', ['web']))
                     ->group(function () {
                         // Auth
                         Route::get('/auth/user', [AuthController::class, 'user'])->name('auth.user');
-                        Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
 
                         // Resource CRUD
