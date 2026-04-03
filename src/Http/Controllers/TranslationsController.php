@@ -18,7 +18,7 @@ class TranslationsController extends MartisController
         // Sanitize locale — only alphanumeric, hyphens and underscores
         $locale = preg_replace('/[^a-zA-Z0-9\-_]/', '', $locale) ?? 'en';
 
-        $langBase = realpath(__DIR__.'/../../../../resources/lang');
+        $langBase = realpath(__DIR__.'/../../../resources/lang');
 
         if ($langBase === false) {
             return response()->json([]);

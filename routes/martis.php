@@ -19,6 +19,10 @@ Route::middleware(config('martis.middleware', ['web']))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+        // Translations — público para carregar antes do login
+        Route::get('/api/translations/{locale}', [TranslationsController::class, 'show'])
+            ->name('api.translations.show');
+
         // Rotas protegidas — requerem middleware martis.auth
         Route::middleware(config('martis.auth_middleware', ['martis.auth']))
             ->group(function () {
@@ -31,10 +35,6 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::get('/auth/user', [AuthController::class, 'user'])->name('auth.user');
                         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
-
-                        // Translations
-                        Route::get('/translations/{locale}', [TranslationsController::class, 'show'])
-                            ->name('translations.show');
 
                         // CRUD de resources
                         Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])

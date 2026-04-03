@@ -1,0 +1,19 @@
+<?php
+
+return [
+    'record_created' => 'Registro criado com sucesso.',
+    'record_updated' => 'Registro atualizado com sucesso.',
+    'record_deleted' => 'Registro excluído com sucesso.',
+    'record_restored' => 'Registro restaurado com sucesso.',
+    'record_not_found' => 'Registro não encontrado.',
+    'loading' => 'Carregando…',
+    'error_schema' => 'Erro ao carregar esquema do recurso.',
+    'error_update' => 'Erro ao atualizar registro.',
+    'error_create' => 'Erro ao criar registro.',
+    'error_delete' => 'Erro ao excluir registro.',
+    'error_restore' => 'Erro ao restaurar registro.',
+    'invalid_field' => 'Inválido',
+    'archived' => 'Arquivado',
+    'archive_confirm' => 'Este registro será arquivado e poderá ser restaurado depois.',
+    'delete_confirm' => 'Esta ação é permanente e não pode ser desfeita. Tem certeza?',
+];
