@@ -2,7 +2,10 @@
 
 namespace Martis;
 
+use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
+use Martis\Discovery\ResourceDiscovery;
+use Martis\Http\Middleware\MartisAuthenticate;
 
 class MartisServiceProvider extends ServiceProvider
 {
@@ -12,21 +15,56 @@ class MartisServiceProvider extends ServiceProvider
             __DIR__.'/../config/martis.php',
             'martis'
         );
+
+        $this->app->singleton(ResourceRegistry::class, function (): ResourceRegistry {
+            return new ResourceRegistry;
+        });
     }
 
     public function boot(): void
     {
+        $this->registerMiddlewareAlias();
+        $this->discoverResources();
+
         $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'martis');
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'martis');
 
-        $this->publishes([
-            __DIR__.'/../config/martis.php' => config_path('martis.php'),
-        ], 'martis-config');
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/../config/martis.php' => config_path('martis.php'),
+            ], 'martis-config');
 
-        $this->publishes([
-            __DIR__.'/../public' => public_path('vendor/martis'),
-        ], 'martis-assets');
+            $this->publishes([
+                __DIR__.'/../public' => public_path('vendor/martis'),
+            ], 'martis-assets');
+
+            $this->publishes([
+                __DIR__.'/../resources/views' => resource_path('views/vendor/martis'),
+            ], 'martis-views');
+        }
+    }
+
+    protected function registerMiddlewareAlias(): void
+    {
+        /** @var Router $router */
+        $router = $this->app->make('router');
+        $router->aliasMiddleware('martis.auth', MartisAuthenticate::class);
+    }
+
+    /**
+     * Auto-discover and register Resource classes from the configured path.
+     */
+    protected function discoverResources(): void
+    {
+        /** @var string $resourcesPath */
+        $resourcesPath = config('martis.resources_path', app_path('Martis'));
+
+        $discovery = new ResourceDiscovery($resourcesPath);
+        $classes = $discovery->discover();
+
+        if ($classes !== []) {
+            $this->app->make(ResourceRegistry::class)->registerMany($classes);
+        }
     }
 }

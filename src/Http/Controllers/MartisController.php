@@ -2,18 +2,11 @@
 
 namespace Martis\Http\Controllers;
 
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
-class MartisController extends Controller
+abstract class MartisController extends Controller
 {
-    public function index(Request $request): View
-    {
-        return view('martis::app', [
-            'config' => [
-                'path' => config('martis.path', 'martis'),
-            ],
-        ]);
-    }
+    // Base controller for all Martis controllers.
+    // Shared guards, response helpers, and middleware can be added here
+    // as the package evolves.
 }

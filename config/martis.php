@@ -13,20 +13,60 @@ return [
     |--------------------------------------------------------------------------
     | Martis Authentication Guard
     |--------------------------------------------------------------------------
+    | null = use Laravel's default guard (auth.php default).
     */
-    'guard' => env('MARTIS_GUARD', 'web'),
+    'guard' => env('MARTIS_GUARD', null),
 
     /*
     |--------------------------------------------------------------------------
-    | Martis Storage Driver
+    | Base Middleware
     |--------------------------------------------------------------------------
+    | Applied to all Martis routes (public and protected).
     */
-    'storage_driver' => env('MARTIS_STORAGE_DRIVER', 'local'),
+    'middleware' => ['web'],
 
     /*
     |--------------------------------------------------------------------------
-    | Middleware
+    | Auth Middleware
+    |--------------------------------------------------------------------------
+    | Applied to protected Martis routes (everything except login/logout).
+    */
+    'auth_middleware' => ['martis.auth'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Brand
     |--------------------------------------------------------------------------
     */
-    'middleware' => ['web', 'auth'],
+    'brand' => [
+        'name' => env('MARTIS_BRAND_NAME', 'Martis'),
+        'logo' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pagination
+    |--------------------------------------------------------------------------
+    */
+    'pagination' => [
+        'default_per_page' => 25,
+        'max_per_page' => 100,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Storage
+    |--------------------------------------------------------------------------
+    */
+    'storage' => [
+        'disk' => env('MARTIS_STORAGE_DISK', 'public'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resources Path
+    |--------------------------------------------------------------------------
+    | Where auto-discovery looks for Martis resource classes in the app.
+    */
+    'resources_path' => app_path('Martis'),
 ];
