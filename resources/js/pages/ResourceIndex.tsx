@@ -20,6 +20,7 @@ export function ResourceIndexPage() {
   const { t: tAct } = useTranslation('actions')
 
   const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortBy, setSortBy] = useState<string | null>(null)
@@ -46,11 +47,17 @@ export function ResourceIndexPage() {
 
   const schema = schemaQuery.data?.data
 
+  // Resolve effective per-page (state overrides schema default)
+  const effectivePerPage = perPage ?? schema?.perPage ?? 25
+
   // Index data
   const indexQuery = useQuery({
-    queryKey: ['resources', resource, page, debouncedSearch, sortBy, sortDir],
+    queryKey: ['resources', resource, page, debouncedSearch, sortBy, sortDir, effectivePerPage],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page) })
+      const params = new URLSearchParams({
+        page: String(page),
+        per_page: String(effectivePerPage),
+      })
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (sortBy) {
         params.set('sort', sortBy)
@@ -75,7 +82,6 @@ export function ResourceIndexPage() {
       addToast('error', tMsg('error_delete'))
     },
   })
-
 
   function handleSort(attribute: string) {
     if (sortBy === attribute) {
@@ -106,6 +112,11 @@ export function ResourceIndexPage() {
     }
   }
 
+  function handlePerPageChange(value: number) {
+    setPerPage(value)
+    setPage(1)
+  }
+
   if (schemaQuery.isLoading) {
     return <IndexSkeleton />
   }
@@ -125,6 +136,9 @@ export function ResourceIndexPage() {
   const rows = indexQuery.data?.data ?? []
   const meta = indexQuery.data?.meta
   const isSoftDelete = schema.softDeletes
+  const perPageOptions = schema.perPageOptions ?? [10, 25, 50, 100]
+  const showSearch = (schema as unknown as Record<string, unknown>).indexSearchable !== false
+  const searchPlaceholder = schema.searchPlaceholder || t('search', { label: schema.label.toLowerCase() })
 
   return (
     <div className="space-y-4">
@@ -132,11 +146,6 @@ export function ResourceIndexPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold martis-text">{schema.label}</h1>
-          {selectedIds.size > 0 && (
-            <p className="text-sm text-indigo-400">
-              {t('selected', { count: selectedIds.size })}
-            </p>
-          )}
         </div>
         <button
           type="button"
@@ -148,13 +157,13 @@ export function ResourceIndexPage() {
         </button>
       </div>
 
-      {/* Search — configurable via Resource::indexSearchable() */}
-      {(schema as unknown as Record<string, unknown>).indexSearchable !== false && (
-        <div className="flex items-center gap-3">
+      {/* Search + Per Page controls */}
+      <div className="flex items-center gap-3">
+        {showSearch && (
           <div className="relative flex-1">
             <input
               type="search"
-              placeholder={t('search', { label: schema.label.toLowerCase() })}
+              placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-1"
@@ -168,13 +177,28 @@ export function ResourceIndexPage() {
               <MagnifyingGlass size={14} className="martis-text-muted" />
             </span>
           </div>
-          {indexQuery.isFetching && (
-            <span className="text-xs martis-text-muted">{tMsg('loading')}</span>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Table */}
+        {/* Per-page selector */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page')}:</label>
+          <select
+            value={effectivePerPage}
+            onChange={(e) => handlePerPageChange(Number(e.target.value))}
+            className="martis-perpage-select"
+          >
+            {perPageOptions.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        {indexQuery.isFetching && (
+          <span className="text-xs martis-text-muted">{tMsg('loading')}</span>
+        )}
+      </div>
+
+      {/* Table — checkboxes hidden until bulk actions are implemented */}
       <Table
         columns={indexColumns}
         rows={rows}
@@ -186,6 +210,7 @@ export function ResourceIndexPage() {
         onToggleAll={handleToggleAll}
         onClickRow={(row) => navigate(`/resources/${resource}/${row.id}`)}
         resourceKey={resource}
+        selectable={false}
       />
 
       {/* Pagination */}
@@ -224,7 +249,6 @@ function IndexSkeleton() {
       <div className="rounded-lg border martis-border">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex gap-4 border-b px-4 py-3" style={{ borderColor: 'var(--martis-border)' }}>
-            <div className="h-4 w-4 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
             <div className="h-4 flex-1 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
             <div className="h-4 w-32 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
           </div>

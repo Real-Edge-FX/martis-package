@@ -20,4 +20,5 @@ return [
     'max_size' => 'Max: :size',
     'render_error' => 'An error occurred while rendering this page.',
     'id_label' => 'Relationship ID',
+    'per_page' => 'Per page',
 ];

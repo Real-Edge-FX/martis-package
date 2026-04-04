@@ -876,3 +876,111 @@ html:not(.dark) .martis-dropzone {
 .martis-datatable th:hover .martis-sort-icon {
   opacity: 0.8;
 }
+
+/* ── Fix: Checkbox check-mark visibility in dark theme (REA-1140) ── */
+/* PrimeReact checkbox checked icon inherits text color — force white */
+.p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
+.p-checkbox .p-checkbox-box.p-highlight svg,
+.p-checkbox .p-checkbox-box.p-highlight .p-icon {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+/* Increase checkbox size slightly for better visibility */
+.p-checkbox .p-checkbox-box {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.p-checkbox .p-checkbox-box.p-highlight {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
+/* Light theme checkbox */
+html:not(.dark) .p-checkbox .p-checkbox-box {
+  background-color: var(--martis-surface);
+  border-color: #cbd5e1;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* ── Fix: Table header and separator improvements (REA-1140) ────── */
+/* Dark theme — header row gets distinct background + thick bottom border */
+.martis-datatable thead th {
+  background-color: rgba(17, 24, 39, 0.8) !important;
+  border-bottom: 2px solid var(--martis-accent) !important;
+  padding: 0.875rem 1rem !important;
+}
+
+/* Dark theme — softer row separators */
+.martis-datatable tbody tr {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4) !important;
+}
+
+/* Light theme — header with subtle background and accent bottom border */
+html:not(.dark) .martis-datatable thead th {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-bottom: 2px solid var(--martis-accent) !important;
+}
+
+/* Light theme — subtle but visible separators */
+html:not(.dark) .martis-datatable tbody tr {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* PrimeReact DataTable header overrides for both themes */
+.martis-datatable .p-datatable-thead > tr > th {
+  background-color: rgba(17, 24, 39, 0.8) !important;
+  border-bottom: 2px solid var(--martis-accent) !important;
+  padding: 0.875rem 1rem !important;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+html:not(.dark) .martis-datatable .p-datatable-thead > tr > th {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+/* PrimeReact DataTable row border overrides */
+.martis-datatable .p-datatable-tbody > tr {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+html:not(.dark) .martis-datatable .p-datatable-tbody > tr {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.martis-datatable .p-datatable-tbody > tr > td {
+  border-color: transparent !important;
+}
+
+/* ── Per-page selector styling ─────────────────────────────────── */
+.martis-perpage-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border: 1px solid var(--martis-border);
+  border-radius: 0.375rem;
+  padding: 0.375rem 2rem 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 12px;
+}
+.martis-perpage-select:focus {
+  border-color: var(--martis-accent);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--martis-accent);
+}

@@ -122,6 +122,35 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
+    /**
+     * Return the per-page options shown in the per-page dropdown.
+     * Override in concrete resources to customize.
+     *
+     * @return list<int>
+     */
+    public static function perPageOptions(): array
+    {
+        return [10, 25, 50, 100];
+    }
+
+    /**
+     * Return the default number of records per page.
+     * Override in concrete resources to customize.
+     */
+    public static function perPage(): int
+    {
+        return 25;
+    }
+
+    /**
+     * Return the placeholder text for the resource search field.
+     * Return null to use the default translated placeholder.
+     */
+    public static function searchPlaceholder(): ?string
+    {
+        return null;
+    }
+
     public function title(): string
     {
         if ($this->model === null) {

@@ -221,6 +221,7 @@ describe('Table', () => {
       <Table columns={columns} rows={rows}
         sortBy={null} sortDir="asc" onSort={vi.fn()}
         selectedIds={new Set()} onToggleSelect={onToggleSelect} onToggleAll={vi.fn()}
+        selectable={true}
       />
     )
     const checkboxes = screen.getAllByRole('checkbox')

@@ -22,6 +22,8 @@ export interface TableProps {
   onClickRow?: (row: ResourceRecord) => void
   /** Resource URI key — enables per-resource field display overrides */
   resourceKey?: string
+  /** Whether to show row selection checkboxes (default: false) */
+  selectable?: boolean
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
@@ -42,6 +44,7 @@ function DefaultTable({
   onToggleAll,
   onClickRow,
   resourceKey,
+  selectable = false,
 }: TableProps) {
   const { t } = useTranslation('resources')
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
@@ -50,7 +53,6 @@ function DefaultTable({
   function handleSelectionChange(e: DataTableSelectionMultipleChangeEvent<ResourceRecord[]>) {
     const next = new Set((e.value as ResourceRecord[]).map((r) => r.id))
     const prev = selectedIds
-    // Detect added or removed
     for (const row of rows) {
       if (next.has(row.id) !== prev.has(row.id)) {
         onToggleSelect(row.id)
@@ -65,9 +67,9 @@ function DefaultTable({
   return (
     <DataTable
       value={rows}
-      selection={selectedRows}
+      selection={selectable ? selectedRows : []}
       onSelectionChange={handleSelectionChange}
-      selectionMode="checkbox"
+      selectionMode={selectable ? 'checkbox' : null}
       dataKey="id"
       removableSort
       sortField={sortBy ?? undefined}
@@ -77,7 +79,7 @@ function DefaultTable({
       }}
       onRowClick={(e) => onClickRow?.(e.data as ResourceRecord)}
       rowClassName={(row: ResourceRecord) =>
-        selectedIds.has(row.id) ? 'bg-indigo-50 dark:bg-indigo-950/20' : ''
+        selectable && selectedIds.has(row.id) ? 'bg-indigo-50 dark:bg-indigo-950/20' : ''
       }
       emptyMessage={
         <div className="py-8 text-center text-sm text-gray-400">
@@ -87,7 +89,9 @@ function DefaultTable({
       className="w-full martis-datatable martis-datatable-striped"
       tableClassName="min-w-full"
     >
-      <Column selectionMode="multiple" headerStyle={{ width: '2.5rem' }} />
+      {selectable && (
+        <Column selectionMode="multiple" headerStyle={{ width: '2.5rem' }} />
+      )}
       {columns.map(({ field }) => (
         <Column
           key={field.attribute}

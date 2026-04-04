@@ -101,6 +101,10 @@ export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
+  indexSearchable?: boolean
+  perPageOptions?: number[]
+  perPage?: number
+  searchPlaceholder?: string | null
 }
 
 export interface ResourceRecord {
