@@ -44,6 +44,7 @@ class VendorPublishCommand extends Command
 
         if (! $published) {
             $this->components->warn('Nothing was published.');
+
             return self::FAILURE;
         }
 

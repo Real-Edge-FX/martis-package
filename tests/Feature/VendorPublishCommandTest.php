@@ -1,13 +1,12 @@
 <?php
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Contracts\Console\Kernel;
 use Martis\Console\VendorPublishCommand;
-use Martis\MartisServiceProvider;
 
 // martis:vendor-publish
 
 it('martis:vendor-publish is registered in the service provider', function () {
-    $commands = $this->app->make(\Illuminate\Contracts\Console\Kernel::class)->all();
+    $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:vendor-publish');
 });
 
@@ -36,7 +35,7 @@ it('martis:vendor-publish --force flag is accepted', function () {
 });
 
 it('VendorPublishCommand class is registered in the service provider', function () {
-    $commands = $this->app->make(\Illuminate\Contracts\Console\Kernel::class)->all();
+    $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:vendor-publish');
     expect($commands['martis:vendor-publish'])->toBeInstanceOf(VendorPublishCommand::class);
 });
