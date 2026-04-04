@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useState, useRef, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { File as FileIcon, DownloadSimple, Trash, UploadSimple, Plus } from '@phosphor-icons/react'
@@ -176,6 +177,7 @@ interface MultiFileItem {
 }
 
 function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t: tRes } = useTranslation("resources")
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
 
@@ -281,7 +283,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
           className="flex w-full items-center gap-2 text-sm martis-text-muted"
         >
           {items.length > 0 ? <Plus size={20} /> : <UploadSimple size={20} />}
-          <span>{items.length > 0 ? 'Add more files' : 'Choose files or drag here'}</span>
+          <span>{items.length > 0 ? tRes('add_more_files') : tRes('choose_files')}</span>
         </button>
 
         <input

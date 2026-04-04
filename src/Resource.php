@@ -240,6 +240,16 @@ abstract class Resource implements ResourceContract
      * Return the navigation group for this resource (null = top-level).
      * Override to group resources in the sidebar.
      */
+    /**
+     * Return the icon name for this resource (Phosphor icon key).
+     * Override in concrete resources to customize the sidebar icon.
+     * Common values: 'database', 'article', 'users', 'folders', 'gear', 'chart-bar', 'tag'.
+     */
+    public function icon(): string
+    {
+        return 'database';
+    }
+
     public function group(): ?string
     {
         return null;
@@ -328,6 +338,7 @@ abstract class Resource implements ResourceContract
             'singularLabel' => static::singularLabel(),
             'softDeletes' => static::softDeletes(),
             'group' => $this->group(),
+            'icon' => $this->icon(),
         ];
     }
 

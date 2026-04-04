@@ -672,3 +672,9 @@ html:not(.dark) .martis-dropzone {
   border-color: #cbd5e1 !important;
   background-color: #f8fafc !important;
 }
+
+/* ── Themed dividers (uses CSS variables for border color) ──── */
+.martis-divide > * + * {
+  border-top: 1px solid var(--martis-border);
+}
+

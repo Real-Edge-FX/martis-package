@@ -4,8 +4,10 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\File;
@@ -158,9 +160,18 @@ class ResourceController extends MartisController
 
         $this->fillFields($request, $fields, $model);
 
-        $res->beforeSave($model, $request, creating: true);
-        $model->save();
-        $res->afterSave($model, $request, creating: true);
+        try {
+            $res->beforeSave($model, $request, creating: true);
+            $model->save();
+            $res->afterSave($model, $request, creating: true);
+        } catch (QueryException $e) {
+            Log::error('Martis: database error on store', [
+                'resource' => $resource,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->handleDatabaseError($e);
+        }
 
         $res = new $resourceClass($model);
 
@@ -211,9 +222,19 @@ class ResourceController extends MartisController
 
         $this->fillFields($request, $fields, $model);
 
-        $res->beforeSave($model, $request, creating: false);
-        $model->save();
-        $res->afterSave($model, $request, creating: false);
+        try {
+            $res->beforeSave($model, $request, creating: false);
+            $model->save();
+            $res->afterSave($model, $request, creating: false);
+        } catch (QueryException $e) {
+            Log::error('Martis: database error on update', [
+                'resource' => $resource,
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->handleDatabaseError($e);
+        }
 
         $res = new $resourceClass($model);
 
@@ -248,10 +269,20 @@ class ResourceController extends MartisController
             return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
         }
 
-        $res->beforeDelete($model, $request);
-        $this->deleteUploadedFiles($res->fieldsForDetail($request), $model);
-        $model->delete();
-        $res->afterDelete($model, $request);
+        try {
+            $res->beforeDelete($model, $request);
+            $this->deleteUploadedFiles($res->fieldsForDetail($request), $model);
+            $model->delete();
+            $res->afterDelete($model, $request);
+        } catch (QueryException $e) {
+            Log::error('Martis: database error on delete', [
+                'resource' => $resource,
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->handleDatabaseError($e);
+        }
 
         return new IlluminateJsonResponse(['data' => [], 'meta' => ['message' => $resourceClass::deletedMessage()], 'links' => []], 200);
     }
@@ -327,12 +358,13 @@ class ResourceController extends MartisController
         $fields = $instance->fields($request);
         $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
 
-        $data = array_merge($resourceClass::uriKey() === $resourceClass::uriKey() ? [] : [], [
+        $data = [
             'uriKey' => $resourceClass::uriKey(),
             'label' => $resourceClass::label(),
             'singularLabel' => $resourceClass::singularLabel(),
             'softDeletes' => $resourceClass::softDeletes(),
             'group' => $instance->group(),
+            'icon' => $instance->icon(),
             'fields' => $fieldData,
             'messages' => [
                 'created' => $resourceClass::createdMessage(),
@@ -344,7 +376,7 @@ class ResourceController extends MartisController
             ],
             'errorDisplay' => $resourceClass::errorDisplay(),
             'validationMessage' => $resourceClass::validationMessage(),
-        ]);
+        ];
 
         return JsonResponse::make($data)->toResponse();
     }
@@ -352,6 +384,27 @@ class ResourceController extends MartisController
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Handle a database exception and return a sanitized JSON error.
+     *
+     * Never expose raw SQL, credentials, or connection details to the client.
+     */
+    private function handleDatabaseError(QueryException $e): IlluminateJsonResponse
+    {
+        $code = (string) ($e->errorInfo[1] ?? '');
+
+        $message = match ($code) {
+            '1048' => 'A required field is missing. Please check all mandatory fields.',
+            '1062' => 'A record with this value already exists. Please use a unique value.',
+            '1364' => 'A required field was not provided. Please fill in all mandatory fields.',
+            '1451' => 'This record cannot be modified because it is referenced by other records.',
+            '1452' => 'The referenced record does not exist. Please check relationship fields.',
+            default => 'A database error occurred. Please check your input and try again.',
+        };
+
+        return JsonErrorResponse::serverError($message)->toResponse();
+    }
 
     /**
      * Fill all fields from request data, handling single and multiple file uploads.

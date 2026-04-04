@@ -88,5 +88,5 @@ it('translations pt-BR converts :variable placeholders', function () {
     $data = $this->getJson('/martis/api/translations/pt-BR')->json();
 
     expect($data['resources']['new'])->toBe('Novo {{label}}');
-    expect($data['resources']['search'])->toBe('Buscar {{label}}…');
+    expect($data['resources']['search'])->toBe('Pesquisar {{label}}…');
 });

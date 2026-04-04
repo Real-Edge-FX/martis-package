@@ -2,7 +2,7 @@
 
 return [
     'new' => 'Novo :label',
-    'search' => 'Buscar :label…',
+    'search' => 'Pesquisar :label…',
     'selected' => ':count selecionado(s)',
     'edit' => 'Editar :label',
     'loading' => 'Carregando…',
@@ -10,4 +10,14 @@ return [
     'welcome' => 'Bem-vindo ao Martis Admin Engine.',
     'hello' => 'Olá, :name',
     'no_records' => 'Nenhum registro encontrado.',
+    'choose_files' => 'Arraste arquivos aqui ou clique para escolher',
+    'add_more_files' => 'Adicionar mais arquivos',
+    'choose_images' => 'Arraste imagens aqui ou clique para escolher',
+    'add_more_images' => 'Adicionar mais imagens',
+    'change' => 'Alterar',
+    'remove' => 'Remover',
+    'download' => 'Baixar',
+    'max_size' => 'Máx: :size',
+    'render_error' => 'Ocorreu um erro ao renderizar esta página.',
+    'id_label' => 'ID de relação',
 ];

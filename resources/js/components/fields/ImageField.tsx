@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useState, useRef, useMemo, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Image as ImageIcon, Plus, Trash } from '@phosphor-icons/react'
@@ -190,6 +191,7 @@ interface MultiImageItem {
 }
 
 function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t: tRes } = useTranslation("resources")
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
 
@@ -284,7 +286,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
           className="flex w-full flex-col items-center gap-2 px-4 py-4 text-sm martis-text-muted"
         >
           {items.length > 0 ? <Plus size={24} /> : <ImageIcon size={28} />}
-          <span>{items.length > 0 ? 'Add more images' : 'Click or drag images here'}</span>
+          <span>{items.length > 0 ? tRes('add_more_images') : tRes('choose_images')}</span>
         </button>
 
         <input

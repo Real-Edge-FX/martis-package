@@ -1,4 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+// Mock react-i18next
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        choose_files: "Choose files or drag here",
+        add_more_files: "Add more files",
+        choose_images: "Click or drag images here",
+        add_more_images: "Add more images",
+      }
+      return map[key] ?? key
+    },
+    i18n: { language: "en" },
+  }),
+}))
 import { render, screen, fireEvent } from '@testing-library/react'
 import { registerDefaultFields } from '@/components/fields'
 import { FieldDisplay, FieldInput } from '@/components/fields'

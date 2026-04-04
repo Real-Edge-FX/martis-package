@@ -6,7 +6,8 @@ import { config } from "@/lib/config"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
 import logoSrc from "@images/logo.png"
-import { SquaresFour, Database, CaretDown, CaretRight, CaretDoubleRight, CaretDoubleLeft } from "@phosphor-icons/react"
+import { SquaresFour, CaretDown, CaretRight, CaretDoubleRight, CaretDoubleLeft } from "@phosphor-icons/react"
+import { ResourceIcon } from "./ResourceIcon"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
@@ -106,7 +107,7 @@ export function Sidebar() {
               )}
               {(isExpanded || collapsed) && group.resources.map((r) => (
                 <NavLink key={r.uriKey} to={`/resources/${r.uriKey}`} className={navClass} title={r.label}>
-                  <Database size={16} className="shrink-0" />
+                  <ResourceIcon name={r.icon} size={16} className="shrink-0" />
                   {!collapsed && r.label}
                 </NavLink>
               ))}
