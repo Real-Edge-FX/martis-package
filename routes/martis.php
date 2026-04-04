@@ -19,7 +19,10 @@ Route::middleware(config('martis.middleware', ['web']))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-        // API logout — public so it works even with stale CSRF/session
+        // API auth — public (exempt from CSRF via playground bootstrap/app.php)
+        Route::post('/api/auth/login', [AuthController::class, 'login'])
+            ->middleware('throttle:5,1')
+            ->name('api.auth.login');
         Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
         // Translations — public, loaded before login
