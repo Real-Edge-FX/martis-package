@@ -142,10 +142,12 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
   }
 
   function getOptionLabel(record: RelatedRecord): string {
-    if (record._title) return record._title
-    if (titleAttribute && record[titleAttribute] !== undefined) {
+    // Prioritize the BelongsTo field's titleAttribute over the resource's _title
+    if (titleAttribute && record[titleAttribute] !== undefined && record[titleAttribute] !== null) {
       return String(record[titleAttribute])
     }
+    // Fall back to resource title
+    if (record._title) return record._title
     // Try common label attributes
     for (const attr of ['name', 'title', 'label', 'email']) {
       if (record[attr] !== undefined && record[attr] !== null) {
@@ -154,6 +156,19 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     }
     return `#${record.id}`
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   function handleSelect(record: RelatedRecord) {
     const label = getOptionLabel(record)
