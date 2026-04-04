@@ -88,7 +88,7 @@ export function ResourceDetailPage() {
         </Link>
         <span style={{ color: "var(--martis-text-muted)" }}>/</span>
         <span className="font-semibold" style={{ color: "var(--martis-text)" }}>
-          {schema.singularLabel} #{id}
+          {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </span>
         {isDeleted && (
           <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
@@ -100,7 +100,7 @@ export function ResourceDetailPage() {
       {/* Header with title and actions */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold" style={{ color: "var(--martis-text)" }}>
-          {schema.singularLabel} #{id}
+          {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </h1>
         <div className="flex items-center gap-2">
           {isDeleted && schema.softDeletes ? (

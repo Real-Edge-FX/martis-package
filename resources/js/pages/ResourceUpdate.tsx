@@ -6,6 +6,8 @@ import type { ResourceRecord, ResourceSchema } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
+import { ArrowLeft } from '@phosphor-icons/react'
+import { ResourceIcon } from '@/components/ResourceIcon'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -116,29 +118,47 @@ export function ResourceUpdatePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm">
         <Link
           to={`/resources/${resource}/${id}`}
-          className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors no-underline"
+          style={{
+            color: "var(--martis-primary)",
+            backgroundColor: "transparent",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
-          ← {schema.singularLabel} #{id}
+          <ArrowLeft size={14} weight="bold" />
+          <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
+          {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </Link>
-        <span className="text-gray-300 dark:text-gray-600">/</span>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <span style={{ color: "var(--martis-text-muted)" }}>/</span>
+        <span className="font-semibold" style={{ color: "var(--martis-text)" }}>
           {tAct('edit')} {schema.singularLabel}
-        </h1>
-      </div>
+        </span>
+      </nav>
+
+      <h1 className="text-2xl font-bold" style={{ color: "var(--martis-text)" }}>
+        {tAct('edit')} {schema.singularLabel}
+      </h1>
 
       <form onSubmit={handleSubmit} noValidate>
-        <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        <div className="rounded-xl border"
+            style={{
+              borderColor: "var(--martis-border)",
+              backgroundColor: "var(--martis-card)",
+            }}>
+          <div className="martis-divide"
+              style={{ borderColor: "var(--martis-border)" }}>
             {formFields.map((field) => (
               <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4">
                 <div>
                   <label
                     htmlFor={field.attribute}
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--martis-text-muted)" }}
                   >
                     {field.label}
                     {field.required && (
@@ -161,10 +181,19 @@ export function ResourceUpdatePage() {
             ))}
           </div>
 
-          <div className="flex justify-end gap-3 rounded-b-xl border-t border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4"
+            style={{
+              borderColor: "var(--martis-border)",
+              backgroundColor: "var(--martis-hover)",
+            }}>
             <Link
               to={`/resources/${resource}/${id}`}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              className="rounded-md border px-4 py-2 text-sm font-medium no-underline"
+              style={{
+                borderColor: "var(--martis-border)",
+                backgroundColor: "var(--martis-surface)",
+                color: "var(--martis-text)",
+              }}
             >
               {tAct('cancel')}
             </Link>

@@ -96,6 +96,29 @@ abstract class Resource implements ResourceContract
         return Str::headline(class_basename(static::model()));
     }
 
+    /**
+     * The model attribute used as the display title for individual records.
+     * Override in concrete resources to customize (e.g. return 'name', 'title', 'email').
+     * Default: 'id' — shows the primary key.
+     */
+    public static function titleAttribute(): string
+    {
+        return 'id';
+    }
+
+    /**
+     * Return the display title for this specific resource instance.
+     * Uses the attribute defined by titleAttribute().
+     */
+    public function title(): string
+    {
+        if ($this->model === null) {
+            return '';
+        }
+
+        return (string) $this->model->getAttribute(static::titleAttribute());
+    }
+
     // -------------------------------------------------------------------------
     // Context-aware field resolution
     // -------------------------------------------------------------------------
@@ -336,6 +359,7 @@ abstract class Resource implements ResourceContract
             'uriKey' => static::uriKey(),
             'label' => static::label(),
             'singularLabel' => static::singularLabel(),
+            'titleAttribute' => static::titleAttribute(),
             'softDeletes' => static::softDeletes(),
             'group' => $this->group(),
             'icon' => $this->icon(),

@@ -365,6 +365,7 @@ class ResourceController extends MartisController
             'softDeletes' => $resourceClass::softDeletes(),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
+            'titleAttribute' => $resourceClass::titleAttribute(),
             'fields' => $fieldData,
             'messages' => [
                 'created' => $resourceClass::createdMessage(),
@@ -628,6 +629,7 @@ class ResourceController extends MartisController
             $data[$field->attribute()] = $field->resolve($model);
         }
 
+        $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();
 
         return $data;

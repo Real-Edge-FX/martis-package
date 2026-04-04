@@ -11,6 +11,7 @@ export interface ResourceMeta {
   singularLabel: string
   icon: string | null
   group: string | null
+  titleAttribute?: string
 }
 
 export interface NavigationGroup {
@@ -83,6 +84,7 @@ export interface ResourceEmbedded {
   singularLabel: string
   softDeletes: boolean
   group: string | null
+  titleAttribute?: string
 }
 
 export interface ResourceMessages {
@@ -102,6 +104,7 @@ export interface ResourceSchema extends ResourceEmbedded {
 
 export interface ResourceRecord {
   id: number | string
+  _title?: string
   [key: string]: unknown
   _resource: ResourceEmbedded
 }

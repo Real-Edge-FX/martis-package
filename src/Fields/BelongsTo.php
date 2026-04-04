@@ -54,8 +54,15 @@ class BelongsTo extends Field
      */
     public static function make(string $relationship, ?string $label = null): static
     {
+        // If caller passes the FK column (e.g. "user_id"), derive relationship name
+        if (str_ends_with($relationship, '_id')) {
+            $foreignKey = $relationship;
+            $relationship = substr($relationship, 0, -3);
+        } else {
+            $foreignKey = "{$relationship}_id";
+        }
+
         $label = $label ?? Str::title(str_replace('_', ' ', $relationship));
-        $foreignKey = "{$relationship}_id";
 
         return new static($foreignKey, $label, $relationship, $foreignKey);
     }
