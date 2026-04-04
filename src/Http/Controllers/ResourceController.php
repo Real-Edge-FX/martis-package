@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +20,6 @@ use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
-use Dedoc\Scramble\Attributes\QueryParameter;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
