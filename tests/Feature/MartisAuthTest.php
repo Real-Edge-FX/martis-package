@@ -104,7 +104,7 @@ it('GET /martis/api/auth/user returns authenticated user as JSON', function () {
 it('GET /martis/api/auth/user returns null when unauthenticated', function () {
     $response = $this->getJson('/martis/api/auth/user');
 
-    $response->assertStatus(200)->assertContent('{}');
+    $response->assertStatus(200)->assertContent('null');
 });
 
 it('POST /martis/api/auth/logout logs out the user', function () {
