@@ -45,6 +45,9 @@ class Heading extends Field
         // Heading is not a data field — never writes to the model
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function extraAttributes(): array
     {
         return [

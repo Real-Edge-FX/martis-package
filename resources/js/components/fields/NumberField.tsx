@@ -12,6 +12,10 @@ export function NumberFieldDisplay({ value }: FieldDisplayProps) {
 
 export function NumberFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const numValue = value === null || value === undefined || value === '' ? null : Number(value)
+  const ext = field as unknown as Record<string, unknown>
+  const min = ext.min as number | undefined
+  const max = ext.max as number | undefined
+  const step = ext.step as number | undefined
 
   return (
     <div className="flex flex-col gap-1">
@@ -25,6 +29,9 @@ export function NumberFieldInput({ field, value, onChange, error }: FieldInputPr
         invalid={!!error}
         disabled={field.readonly}
         className="w-full"
+        min={min}
+        max={max}
+        step={step ?? 1}
         inputClassName="w-full font-mono"
       />
       {error && <small className="text-red-500">{error}</small>}

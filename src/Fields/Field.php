@@ -143,7 +143,7 @@ abstract class Field implements FieldContract
             'showOnForms' => $this->showOnForms,
             'rules' => $this->buildRules(),
             'component' => $this->componentKey,
-        ], $this->extraAttributes());
+        ], $this->extraAttributes(), $this->meta);
     }
 
     // -------------------------------------------------------------------------
@@ -363,7 +363,32 @@ abstract class Field implements FieldContract
      *
      * Concrete fields (Select, BelongsTo, etc.) override this to include
      * type-specific data (options, related model info, etc.).
+     */
+    // -------------------------------------------------------------------------
+    // Arbitrary metadata — withMeta()
+    // -------------------------------------------------------------------------
+
+    /** @var array<string, mixed> */
+    protected array $meta = [];
+
+    /**
+     * Attach arbitrary key-value metadata to the field schema.
      *
+     * This data is merged into toArray() and made available to the frontend
+     * React component as extra properties on the FieldDefinition object.
+     *
+     * Equivalent to Laravel Nova's withMeta().
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function withMeta(array $meta): static
+    {
+        $this->meta = array_merge($this->meta, $meta);
+
+        return $this;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function extraAttributes(): array

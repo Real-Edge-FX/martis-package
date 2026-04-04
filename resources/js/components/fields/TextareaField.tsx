@@ -20,7 +20,7 @@ export function TextareaFieldInput({ field, value, onChange, error }: FieldInput
         onChange={(e) => onChange(e.target.value)}
         invalid={!!error}
         disabled={field.readonly}
-        rows={4}
+        rows={(field as unknown as Record<string, unknown>).rows as number ?? 5}
         className="w-full"
         autoResize
       />

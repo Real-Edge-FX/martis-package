@@ -29,6 +29,9 @@ class Image extends File
 
     protected ?int $thumbnailHeight = null;
 
+    /** @var list<string> Default accepted image extensions. */
+    protected array $acceptedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+
     public function type(): string
     {
         return 'image';
