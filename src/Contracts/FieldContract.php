@@ -120,6 +120,39 @@ interface FieldContract
     /** Return whether this field is visible on forms. */
     public function isShownOnForms(): bool;
 
+    // Nova v5 parity — granular visibility
+
+    /** Hide this field when creating a new record. */
+    public function hideWhenCreating(): static;
+
+    /** Hide this field when updating an existing record. */
+    public function hideWhenUpdating(): static;
+
+    /** Show this field on create forms. */
+    public function showOnCreating(): static;
+
+    /** Show this field on update forms. */
+    public function showOnUpdating(): static;
+
+    /** Show this field only on the index view. */
+    public function onlyOnIndex(): static;
+
+    /** Show this field only on the detail view. */
+    public function onlyOnDetail(): static;
+
+    /** Show this field only on create and update forms. */
+    public function onlyOnForms(): static;
+
+    /** Show this field everywhere except on forms. */
+    public function exceptOnForms(): static;
+
+    /**
+     * Determine if this field should be visible in the given context.
+     *
+     * @param  string  $context  One of: index, detail, create, update, inline-create, preview
+     */
+    public function isVisibleForContext(string $context): bool;
+
     /** Return whether this field is sortable. */
     public function isSortable(): bool;
 

@@ -148,6 +148,56 @@ class StubField implements FieldContract
         return $this;
     }
 
+    public function hideWhenCreating(): static
+    {
+        return $this;
+    }
+
+    public function hideWhenUpdating(): static
+    {
+        return $this;
+    }
+
+    public function showOnCreating(): static
+    {
+        return $this;
+    }
+
+    public function showOnUpdating(): static
+    {
+        return $this;
+    }
+
+    public function onlyOnIndex(): static
+    {
+        return $this;
+    }
+
+    public function onlyOnDetail(): static
+    {
+        return $this;
+    }
+
+    public function onlyOnForms(): static
+    {
+        return $this;
+    }
+
+    public function exceptOnForms(): static
+    {
+        return $this;
+    }
+
+    public function isVisibleForContext(string $context): bool
+    {
+        return match ($context) {
+            index => $this->onIndex,
+            detail, preview => $this->onDetail,
+            create, update, inline - create => $this->onForms,
+            default => true,
+        };
+    }
+
     public function isShownOnIndex(): bool
     {
         return $this->onIndex;

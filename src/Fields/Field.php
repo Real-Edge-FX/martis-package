@@ -6,6 +6,7 @@ use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
+use Martis\FieldContext;
 
 /**
  * Abstract base class for all Martis fields.
@@ -36,6 +37,12 @@ abstract class Field implements FieldContract
     protected bool $showOnDetail = true;
 
     protected bool $showOnForms = true;
+
+    protected ?bool $showOnCreate = null;
+
+    protected ?bool $showOnUpdate = null;
+
+    protected ?bool $showOnPreview = null;
 
     protected bool $sortable = false;
 
@@ -244,6 +251,142 @@ abstract class Field implements FieldContract
         $this->showOnForms = false;
 
         return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Nova v5 parity — granular visibility flags
+    // -------------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    public function hideWhenCreating(): static
+    {
+        $this->showOnCreate = false;
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function hideWhenUpdating(): static
+    {
+        $this->showOnUpdate = false;
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function showOnCreating(): static
+    {
+        $this->showOnCreate = true;
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function showOnUpdating(): static
+    {
+        $this->showOnUpdate = true;
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function onlyOnIndex(): static
+    {
+        $this->showOnIndex = true;
+        $this->showOnDetail = false;
+        $this->showOnForms = false;
+        $this->showOnCreate = false;
+        $this->showOnUpdate = false;
+        $this->showOnPreview = false;
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function onlyOnDetail(): static
+    {
+        $this->showOnIndex = false;
+        $this->showOnDetail = true;
+        $this->showOnForms = false;
+        $this->showOnCreate = false;
+        $this->showOnUpdate = false;
+        $this->showOnPreview = false;
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function onlyOnForms(): static
+    {
+        $this->showOnIndex = false;
+        $this->showOnDetail = false;
+        $this->showOnForms = true;
+        $this->showOnCreate = null;
+        $this->showOnUpdate = null;
+        $this->showOnPreview = false;
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function exceptOnForms(): static
+    {
+        $this->showOnForms = false;
+        $this->showOnCreate = false;
+        $this->showOnUpdate = false;
+
+        return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Context-aware visibility resolution
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine if this field should be visible in the given context.
+     *
+     * Resolution rules per context:
+     *   index         → showOnIndex
+     *   detail        → showOnDetail
+     *   create        → showOnCreate ?? showOnForms
+     *   update        → showOnUpdate ?? showOnForms
+     *   inline-create → showOnCreate ?? showOnForms  (same as create)
+     *   preview       → showOnPreview ?? showOnDetail
+     *
+     * Conflict resolution: hide wins. If a field has conflicting flags
+     * (e.g. onlyOnIndex() + hideFromIndex()), the explicit hide takes
+     * precedence because restrictive behavior is safer.
+     *
+     * {@inheritDoc}
+     */
+    public function isVisibleForContext(string $context): bool
+    {
+        return match ($context) {
+            FieldContext::INDEX->value => $this->showOnIndex,
+            FieldContext::DETAIL->value => $this->showOnDetail,
+            FieldContext::CREATE->value,
+            FieldContext::INLINE_CREATE->value => $this->showOnCreate ?? $this->showOnForms,
+            FieldContext::UPDATE->value => $this->showOnUpdate ?? $this->showOnForms,
+            FieldContext::PREVIEW->value => $this->showOnPreview ?? $this->showOnDetail,
+            default => true,
+        };
+    }
+
+    /**
+     * Filter an array of fields to only those visible in the given context.
+     *
+     * This is the central filtering entry point. All controller methods
+     * and the schema endpoint call this after resolving the raw field set.
+     *
+     * @param  list<FieldContract>  $fields
+     * @return list<FieldContract>
+     */
+    public static function filterForContext(array $fields, string $context): array
+    {
+        return array_values(array_filter(
+            $fields,
+            fn (FieldContract $f): bool => $f->isVisibleForContext($context),
+        ));
     }
 
     /** {@inheritDoc} */
