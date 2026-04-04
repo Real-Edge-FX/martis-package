@@ -41,11 +41,14 @@ const iconMap: Record<string, React.ComponentType<IconProps>> = {
   chat: ChatCircle,
 }
 
-interface ResourceIconProps extends IconProps {
-  name: string | null | undefined
+interface ResourceIconProps {
+  iconName: string | null | undefined
+  size?: number
+  className?: string
+  weight?: IconProps["weight"]
 }
 
-export function ResourceIcon({ name, ...props }: ResourceIconProps) {
-  const Icon = iconMap[name ?? "database"] ?? Database
-  return <Icon {...props} />
+export function ResourceIcon({ iconName, size, className, weight }: ResourceIconProps) {
+  const Icon = iconMap[iconName ?? "database"] ?? Database
+  return <Icon size={size} className={className} weight={weight} />
 }

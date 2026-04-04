@@ -83,7 +83,7 @@ export function ResourceDetailPage() {
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
           <ArrowLeft size={14} weight="bold" />
-          <ResourceIcon name={((schema as unknown as { icon?: string }).icon)} size={14} />
+          <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
           {schema.label}
         </Link>
         <span style={{ color: "var(--martis-text-muted)" }}>/</span>

@@ -107,7 +107,7 @@ export function Sidebar() {
               )}
               {(isExpanded || collapsed) && group.resources.map((r) => (
                 <NavLink key={r.uriKey} to={`/resources/${r.uriKey}`} className={navClass} title={r.label}>
-                  <ResourceIcon name={r.icon} size={16} className="shrink-0" />
+                  <ResourceIcon iconName={r.icon} size={16} className="shrink-0" />
                   {!collapsed && r.label}
                 </NavLink>
               ))}
