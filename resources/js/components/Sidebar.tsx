@@ -126,11 +126,6 @@ export function Sidebar() {
           {collapsed ? <CaretDoubleRight size={16} /> : <CaretDoubleLeft size={16} />}
           {!collapsed && <span className="text-xs">{t("collapse_sidebar")}</span>}
         </button>
-        {!collapsed && (
-          <p className="mt-2 text-[11px] text-center" style={{ color: 'var(--martis-text-muted)', opacity: 0.5 }}>
-            {t("footer")}
-          </p>
-        )}
       </div>
     </aside>
   )

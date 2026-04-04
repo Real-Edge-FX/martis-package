@@ -33,6 +33,17 @@ export interface MartisToastConfig {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "top-center" | "bottom-center"
 }
 
+export interface MartisFooterConfig {
+  enabled?: boolean
+  /** Custom footer text. null = auto-generate from brand.name */
+  text?: string | null
+}
+
+export interface MartisLayoutConfig {
+  /** Layout preset: "sidebar" (default), "topnav", "minimal", "custom" */
+  preset?: "sidebar" | "topnav" | "minimal" | "custom"
+}
+
 export interface MartisConfigShape {
   basePath?: string
   locale?: string
@@ -43,6 +54,8 @@ export interface MartisConfigShape {
   search?: MartisSearchConfig
   dashboard?: MartisDashboardConfig
   toast?: MartisToastConfig
+  footer?: MartisFooterConfig
+  layout?: MartisLayoutConfig
 }
 
 declare global {

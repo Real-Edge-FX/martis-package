@@ -9,4 +9,6 @@ return [
     'logout' => 'Sign out',
     'collapse_sidebar' => 'Collapse',
     'expand_sidebar' => 'Expand',
+    'footer_default' => '© {{brand}} · Powered by Martis',
+    'dashboards' => 'Dashboards',
 ];

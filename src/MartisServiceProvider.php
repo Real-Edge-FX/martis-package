@@ -4,6 +4,7 @@ namespace Martis;
 
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
+use Martis\Console\ComponentMakeCommand;
 use Martis\Console\FieldMakeCommand;
 use Martis\Console\InstallCommand;
 use Martis\Console\ResourceMakeCommand;
@@ -40,6 +41,7 @@ class MartisServiceProvider extends ServiceProvider
                 ResourceMakeCommand::class,
                 FieldMakeCommand::class,
                 UserCommand::class,
+                ComponentMakeCommand::class,
             ]);
 
             $this->publishes([

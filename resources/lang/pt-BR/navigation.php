@@ -9,4 +9,6 @@ return [
     'logout' => 'Sair',
     'collapse_sidebar' => 'Recolher',
     'expand_sidebar' => 'Expandir',
+    'footer_default' => '© {{brand}} · Powered by Martis',
+    'dashboards' => 'Painéis',
 ];

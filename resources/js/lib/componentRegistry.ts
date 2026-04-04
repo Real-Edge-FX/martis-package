@@ -156,6 +156,11 @@ class ComponentRegistry {
     return fallback
   }
 
+  /** Resolve a component by key, returning undefined if not found. */
+  resolve(key: string): ComponentType<never> | undefined {
+    return this.components.get(key)
+  }
+
   /** Check whether a key is registered. */
   has(key: string): boolean {
     return this.components.has(key)

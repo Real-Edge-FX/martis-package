@@ -45,6 +45,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Footer
+    |--------------------------------------------------------------------------
+    | Configure the default footer displayed at the bottom of the admin panel.
+    | Set enabled to false to hide the footer entirely.
+    | When text is null, the footer displays: "© {brand.name} · Powered by Martis"
+    */
+    'footer' => [
+        'enabled' => true,
+        'text' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Layout
+    |--------------------------------------------------------------------------
+    | Choose the global layout preset for the admin panel.
+    | Available presets: "sidebar", "topnav", "minimal", "custom"
+    */
+    'layout' => [
+        'preset' => env('MARTIS_LAYOUT', 'sidebar'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Localisation
     |--------------------------------------------------------------------------
     | Default locale for the Martis admin panel.
