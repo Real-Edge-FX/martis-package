@@ -133,7 +133,21 @@ return [
     |--------------------------------------------------------------------------
     | Dashboard
     |--------------------------------------------------------------------------
-    | Configure the default dashboard layout.
+    |
+    | Configure the dashboard page layout and visible sections.
+    |
+    | showMetrics       - Show the summary metrics row at the top of the
+    |                     dashboard (total resources, groups, active count).
+    |                     Set to false to hide the entire metrics section.
+    |
+    | showResourceCards - Show the grid of resource quick-access cards below
+    |                     the metrics. Each card links to the resource index.
+    |                     Set to false to hide the resource cards section.
+    |
+    | Note: The dashboard currently displays navigation-derived metadata.
+    | Future versions will support custom metrics via Resource::metrics()
+    | and user-defined dashboard widgets/cards.
+    |
     */
     'dashboard' => [
         'showMetrics' => true,

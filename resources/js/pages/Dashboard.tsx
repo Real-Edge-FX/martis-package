@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { config } from '@/lib/config'
 import type { NavigationGroup } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { CardSkeleton } from '@/components/LoadingSkeleton'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { Card } from 'primereact/card'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +21,9 @@ export function DashboardPage() {
 
   const totalResources = groups.reduce((n, g) => n + g.resources.length, 0)
   const name = user?.name ?? user?.email ?? ''
+
+  const showMetrics = config.dashboard?.showMetrics !== false
+  const showResourceCards = config.dashboard?.showResourceCards !== false
 
   return (
     <div>
@@ -38,66 +43,72 @@ export function DashboardPage() {
       ) : (
         <>
           {/* Stats row — Nova-style metric cards */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <div className="martis-card-bg rounded-xl p-5 border martis-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium martis-text-muted">{t('registered')}</p>
-                  <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
+          {showMetrics && (
+            <div className="mb-6 grid gap-4 sm:grid-cols-3">
+              <div className="martis-card-bg rounded-xl p-5 border martis-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium martis-text-muted">{t('registered')}</p>
+                    <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/20">
+                    <Database size={20} className="text-indigo-400" />
+                  </div>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/20">
-                  <Database size={20} className="text-indigo-400" />
+              </div>
+              <div className="martis-card-bg rounded-xl p-5 border martis-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium martis-text-muted">{t('groups')}</p>
+                    <p className="mt-1 text-3xl font-bold martis-text">{groups.length}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20">
+                    <Folder size={20} className="text-emerald-400" />
+                  </div>
+                </div>
+              </div>
+              <div className="martis-card-bg rounded-xl p-5 border martis-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium martis-text-muted">{t('active')}</p>
+                    <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20">
+                    <CheckCircle size={20} className="text-amber-400" />
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="martis-card-bg rounded-xl p-5 border martis-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium martis-text-muted">Groups</p>
-                  <p className="mt-1 text-3xl font-bold martis-text">{groups.length}</p>
-                </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20">
-                  <Folder size={20} className="text-emerald-400" />
-                </div>
-              </div>
-            </div>
-            <div className="martis-card-bg rounded-xl p-5 border martis-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium martis-text-muted">Active</p>
-                  <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
-                </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20">
-                  <CheckCircle size={20} className="text-amber-400" />
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Resource cards */}
-          <h2 className="mb-3 text-lg font-semibold martis-text">{t('registered')}</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groups.flatMap((g) =>
-              g.resources.map((r) => (
-                <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block">
-                  <Card className="transition-all hover:shadow-md cursor-pointer">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20">
-                        <Database className="text-indigo-400" />
-                      </div>
-                      <div>
-                        <p className="font-semibold martis-text">{r.label}</p>
-                        {r.group && (
-                          <p className="text-xs martis-text-muted">{r.group}</p>
-                        )}
-                      </div>
-                      <CaretRight className="ml-auto martis-text-muted" />
-                    </div>
-                  </Card>
-                </Link>
-              )),
-            )}
-          </div>
+          {showResourceCards && (
+            <>
+              <h2 className="mb-3 text-lg font-semibold martis-text">{t('registered')}</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {groups.flatMap((g) =>
+                  g.resources.map((r) => (
+                    <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block">
+                      <Card className="transition-all hover:shadow-md cursor-pointer">
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20">
+                            <ResourceIcon iconName={r.icon ?? null} size={20} className="text-indigo-400" />
+                          </div>
+                          <div>
+                            <p className="font-semibold martis-text">{r.label}</p>
+                            {r.group && (
+                              <p className="text-xs martis-text-muted">{r.group}</p>
+                            )}
+                          </div>
+                          <CaretRight className="ml-auto martis-text-muted" />
+                        </div>
+                      </Card>
+                    </Link>
+                  )),
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

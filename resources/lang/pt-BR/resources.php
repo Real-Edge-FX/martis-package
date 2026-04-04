@@ -21,4 +21,6 @@ return [
     'render_error' => 'Ocorreu um erro ao renderizar esta página.',
     'id_label' => 'ID de relação',
     'per_page' => 'Por página',
+    'groups' => 'Grupos',
+    'active' => 'Ativos',
 ];

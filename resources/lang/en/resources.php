@@ -21,4 +21,6 @@ return [
     'render_error' => 'An error occurred while rendering this page.',
     'id_label' => 'Relationship ID',
     'per_page' => 'Per page',
+    'groups' => 'Groups',
+    'active' => 'Active',
 ];
