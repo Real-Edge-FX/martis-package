@@ -97,6 +97,15 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Return an optional subtitle displayed below the resource label.
+     * Override to provide context about the resource (e.g. "Manage blog posts and articles").
+     */
+    public static function subtitle(): ?string
+    {
+        return null;
+    }
+
+    /**
      * The model attribute used as the display title for individual records.
      * Override in concrete resources to customize (e.g. return 'name', 'title', 'email').
      * Default: 'id' — shows the primary key.
@@ -448,6 +457,7 @@ abstract class Resource implements ResourceContract
             'uriKey' => static::uriKey(),
             'label' => static::label(),
             'singularLabel' => static::singularLabel(),
+            'subtitle' => static::subtitle(),
             'titleAttribute' => static::titleAttribute(),
             'softDeletes' => static::softDeletes(),
             'group' => $this->group(),

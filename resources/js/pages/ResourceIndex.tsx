@@ -150,6 +150,9 @@ export function ResourceIndexPage() {
             <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={24} />
             {schema.label}
           </h1>
+          {(schema as unknown as { subtitle?: string }).subtitle && (
+            <p className="text-sm martis-text-muted mt-1">{(schema as unknown as { subtitle?: string }).subtitle}</p>
+          )}
         </div>
         <button
           type="button"

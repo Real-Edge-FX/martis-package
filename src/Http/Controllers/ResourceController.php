@@ -366,6 +366,7 @@ class ResourceController extends MartisController
             'uriKey' => $resourceClass::uriKey(),
             'label' => $resourceClass::label(),
             'singularLabel' => $resourceClass::singularLabel(),
+            'subtitle' => $resourceClass::subtitle(),
             'softDeletes' => $resourceClass::softDeletes(),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
