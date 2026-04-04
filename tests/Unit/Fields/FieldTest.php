@@ -411,3 +411,249 @@ it('searchable flag defaults to false', function () {
 it('searchable() marks field as searchable', function () {
     expect(Text::make('title')->searchable()->isSearchable())->toBeTrue();
 });
+
+
+// ---------------------------------------------------------------------------
+// DateTime
+// ---------------------------------------------------------------------------
+
+it('DateTime::make creates a datetime field', function () {
+    $field = \Martis\Fields\DateTime::make('created_at');
+
+    expect($field->attribute())->toBe('created_at')
+        ->and($field->type())->toBe('datetime');
+});
+
+it('DateTime inherits date resolution', function () {
+    $date = new DateTime('2025-06-15 14:30:00');
+    $model = new FieldTestModel;
+    $model->setAttribute('published_at', $date);
+    $field = \Martis\Fields\DateTime::make('published_at');
+
+    expect($field->resolve($model))->toBeString();
+});
+
+it('DateTime toArray has correct type', function () {
+    $field = \Martis\Fields\DateTime::make('created_at')->sortable();
+    $arr = $field->toArray();
+
+    expect($arr['type'])->toBe('datetime')
+        ->and($arr['sortable'])->toBeTrue();
+});
+
+// ---------------------------------------------------------------------------
+// Id
+// ---------------------------------------------------------------------------
+
+it('Id::make creates an id field', function () {
+    $field = \Martis\Fields\Id::make();
+
+    expect($field->attribute())->toBe('id')
+        ->and($field->type())->toBe('id')
+        ->and($field->label())->toBe('ID');
+});
+
+it('Id defaults to readonly and hidden from forms', function () {
+    $field = \Martis\Fields\Id::make();
+    $arr = $field->toArray();
+
+    expect($arr['readonly'])->toBeTrue()
+        ->and($arr['showOnForms'])->toBeFalse()
+        ->and($arr['sortable'])->toBeTrue();
+});
+
+it('Id readonly prevents fill', function () {
+    $model = new FieldTestModel;
+    $model->setAttribute('id', 1);
+    $field = \Martis\Fields\Id::make();
+    $field->fill($model, 999);
+
+    expect($model->getAttribute('id'))->toBe(1);
+});
+
+it('Id accepts custom attribute and label', function () {
+    $field = \Martis\Fields\Id::make('uuid', 'UUID');
+
+    expect($field->attribute())->toBe('uuid')
+        ->and($field->label())->toBe('UUID');
+});
+
+// ---------------------------------------------------------------------------
+// Email
+// ---------------------------------------------------------------------------
+
+it('Email::make creates an email field', function () {
+    $field = \Martis\Fields\Email::make('email');
+
+    expect($field->type())->toBe('email');
+});
+
+it('Email adds email validation rule', function () {
+    $field = \Martis\Fields\Email::make('email');
+    $rules = $field->buildRules();
+
+    expect($rules)->toContain('email');
+});
+
+it('Email required adds both required and email rules', function () {
+    $field = \Martis\Fields\Email::make('email')->required();
+    $rules = $field->buildRules();
+
+    expect($rules)->toContain('required')
+        ->and($rules)->toContain('email');
+});
+
+it('Email resolves value from model', function () {
+    $model = new FieldTestModel;
+    $model->setAttribute('email', 'test@example.com');
+    $field = \Martis\Fields\Email::make('email');
+
+    expect($field->resolve($model))->toBe('test@example.com');
+});
+
+// ---------------------------------------------------------------------------
+// Password
+// ---------------------------------------------------------------------------
+
+it('Password::make creates a password field', function () {
+    $field = \Martis\Fields\Password::make('password');
+
+    expect($field->type())->toBe('password');
+});
+
+it('Password is hidden from index and detail by default', function () {
+    $field = \Martis\Fields\Password::make('password');
+    $arr = $field->toArray();
+
+    expect($arr['showOnIndex'])->toBeFalse()
+        ->and($arr['showOnDetail'])->toBeFalse()
+        ->and($arr['showOnForms'])->toBeTrue();
+});
+
+it('Password resolve always returns null', function () {
+    $model = new FieldTestModel;
+    $model->setAttribute('password', 'hashed_value');
+    $field = \Martis\Fields\Password::make('password');
+
+    expect($field->resolve($model))->toBeNull();
+});
+
+it('Password fill does not write when value is empty', function () {
+    $model = new FieldTestModel;
+    $model->setAttribute('password', 'existing');
+    $field = \Martis\Fields\Password::make('password');
+    $field->fill($model, '');
+
+    expect($model->getAttribute('password'))->toBe('existing');
+});
+
+it('Password fill does not write when value is null', function () {
+    $model = new FieldTestModel;
+    $model->setAttribute('password', 'existing');
+    $field = \Martis\Fields\Password::make('password');
+    $field->fill($model, null);
+
+    expect($model->getAttribute('password'))->toBe('existing');
+});
+
+// ---------------------------------------------------------------------------
+// Hidden
+// ---------------------------------------------------------------------------
+
+it('Hidden::make creates a hidden field', function () {
+    $field = \Martis\Fields\Hidden::make('tenant_id');
+
+    expect($field->attribute())->toBe('tenant_id')
+        ->and($field->type())->toBe('hidden');
+});
+
+it('Hidden is not shown on index or detail', function () {
+    $field = \Martis\Fields\Hidden::make('tenant_id');
+    $arr = $field->toArray();
+
+    expect($arr['showOnIndex'])->toBeFalse()
+        ->and($arr['showOnDetail'])->toBeFalse()
+        ->and($arr['showOnForms'])->toBeTrue();
+});
+
+it('Hidden resolves and fills like a standard field', function () {
+    $model = new FieldTestModel(['status' => 'draft']);
+    $field = \Martis\Fields\Hidden::make('status');
+
+    expect($field->resolve($model))->toBe('draft');
+
+    $field->fill($model, 'published');
+    expect($model->getAttribute('status'))->toBe('published');
+});
+
+it('Hidden label is auto-generated from attribute', function () {
+    $field = \Martis\Fields\Hidden::make('tenant_id');
+
+    expect($field->label())->toBe('Tenant Id');
+});
+
+// ---------------------------------------------------------------------------
+// Heading
+// ---------------------------------------------------------------------------
+
+it('Heading::make creates a heading field', function () {
+    $field = \Martis\Fields\Heading::make('section', 'Personal Info');
+
+    expect($field->attribute())->toBe('section')
+        ->and($field->type())->toBe('heading')
+        ->and($field->label())->toBe('Personal Info');
+});
+
+it('Heading is hidden from index', function () {
+    $field = \Martis\Fields\Heading::make('section', 'Info');
+    $arr = $field->toArray();
+
+    expect($arr['showOnIndex'])->toBeFalse()
+        ->and($arr['showOnDetail'])->toBeTrue()
+        ->and($arr['showOnForms'])->toBeTrue();
+});
+
+it('Heading content appears in toArray', function () {
+    $field = \Martis\Fields\Heading::make('section', 'Settings')
+        ->content('Configure your preferences');
+    $arr = $field->toArray();
+
+    expect($arr['content'])->toBe('Configure your preferences');
+});
+
+it('Heading resolve always returns null', function () {
+    $model = new FieldTestModel(['title' => 'test']);
+    $field = \Martis\Fields\Heading::make('section', 'Header');
+
+    expect($field->resolve($model))->toBeNull();
+});
+
+it('Heading fill is a no-op', function () {
+    $model = new FieldTestModel(['title' => 'original']);
+    $field = \Martis\Fields\Heading::make('title', 'Header');
+    $field->fill($model, 'changed');
+
+    expect($model->getAttribute('title'))->toBe('original');
+});
+
+// ---------------------------------------------------------------------------
+// withMeta — all fields
+// ---------------------------------------------------------------------------
+
+it('withMeta merges arbitrary metadata into toArray', function () {
+    $field = Text::make('title')->withMeta(['highlight' => true, 'maxWidth' => 300]);
+    $arr = $field->toArray();
+
+    expect($arr['highlight'])->toBeTrue()
+        ->and($arr['maxWidth'])->toBe(300);
+});
+
+it('withMeta is chainable and merges multiple calls', function () {
+    $field = Text::make('title')
+        ->withMeta(['a' => 1])
+        ->withMeta(['b' => 2]);
+    $arr = $field->toArray();
+
+    expect($arr['a'])->toBe(1)
+        ->and($arr['b'])->toBe(2);
+});

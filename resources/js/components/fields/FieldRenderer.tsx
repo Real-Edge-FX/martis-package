@@ -16,6 +16,7 @@ import { IdFieldDisplay, IdFieldInput } from './IdField'
 import { EmailFieldDisplay, EmailFieldInput } from './EmailField'
 import { PasswordFieldDisplay, PasswordFieldInput } from './PasswordField'
 import { HeadingFieldDisplay, HeadingFieldInput } from './HeadingField'
+import { HiddenFieldDisplay, HiddenFieldInput } from './HiddenField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -36,6 +37,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   email: EmailFieldDisplay,
   password: PasswordFieldDisplay,
   heading: HeadingFieldDisplay,
+  hidden: HiddenFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -57,6 +59,7 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   email: EmailFieldInput,
   password: PasswordFieldInput,
   heading: HeadingFieldInput,
+  hidden: HiddenFieldInput,
 }
 
 // -------------------------------------------------------------------------
