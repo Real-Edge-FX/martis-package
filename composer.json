@@ -3,7 +3,6 @@
     "description": "Martis \u2014 Laravel Admin Engine. Feature parity with Laravel Nova.",
     "type": "library",
     "license": "proprietary",
-    "version": "0.1.0-dev",
     "require": {
         "php": "^8.2",
         "laravel/framework": "^11.0|^12.0"
