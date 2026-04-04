@@ -8,9 +8,14 @@ import { NumberFieldDisplay, NumberFieldInput } from './NumberField'
 import { BooleanFieldDisplay, BooleanFieldInput } from './BooleanField'
 import { SelectFieldDisplay, SelectFieldInput } from './SelectField'
 import { DateFieldDisplay, DateFieldInput } from './DateField'
+import { DateTimeFieldDisplay, DateTimeFieldInput } from './DateTimeField'
 import { BelongsToFieldDisplay, BelongsToFieldInput } from './BelongsToField'
 import { FileFieldDisplay, FileFieldInput } from './FileField'
 import { ImageFieldDisplay, ImageFieldInput } from './ImageField'
+import { IdFieldDisplay, IdFieldInput } from './IdField'
+import { EmailFieldDisplay, EmailFieldInput } from './EmailField'
+import { PasswordFieldDisplay, PasswordFieldInput } from './PasswordField'
+import { HeadingFieldDisplay, HeadingFieldInput } from './HeadingField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -23,9 +28,14 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   boolean: BooleanFieldDisplay,
   select: SelectFieldDisplay,
   date: DateFieldDisplay,
+  datetime: DateTimeFieldDisplay,
   belongs_to: BelongsToFieldDisplay,
   file: FileFieldDisplay,
   image: ImageFieldDisplay,
+  id: IdFieldDisplay,
+  email: EmailFieldDisplay,
+  password: PasswordFieldDisplay,
+  heading: HeadingFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -39,9 +49,14 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   boolean: BooleanFieldInput,
   select: SelectFieldInput,
   date: DateFieldInput,
+  datetime: DateTimeFieldInput,
   belongs_to: BelongsToFieldInput,
   file: FileFieldInput,
   image: ImageFieldInput,
+  id: IdFieldInput,
+  email: EmailFieldInput,
+  password: PasswordFieldInput,
+  heading: HeadingFieldInput,
 }
 
 // -------------------------------------------------------------------------

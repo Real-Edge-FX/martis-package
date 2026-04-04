@@ -46,14 +46,7 @@ export interface Toast {
 // Field & Resource schema types (Bloco 8)
 // -------------------------------------------------------------------------
 
-export type FieldType =
-  | 'text'
-  | 'textarea'
-  | 'number'
-  | 'boolean'
-  | 'select'
-  | 'date'
-  | 'belongs_to'
+export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'select'  | 'date'  | 'datetime'  | 'belongs_to'  | 'id'  | 'email'  | 'password'  | 'heading'  | 'file'  | 'image'
 
 export interface SelectOption {
   value: string | number
@@ -78,6 +71,8 @@ export interface FieldDefinition {
   relatedLabel?: string
   /** Explicit component override key (set via PHP field->component('key')). */
   component?: string | null
+  /** Content text for heading fields. */
+  content?: string | null
 }
 
 export interface ResourceEmbedded {
