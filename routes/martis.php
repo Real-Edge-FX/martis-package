@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Martis\Http\Controllers\AttachmentController;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\LoginController;
@@ -40,6 +41,10 @@ Route::middleware(config('martis.middleware', ['web']))
                     ->middleware(config('martis.api_middleware', ['throttle:60,1']))
                     ->group(function () {
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+
+                        // Attachment upload (Trix / Markdown file uploads)
+                        Route::post('/attachments/upload', [AttachmentController::class, 'upload'])
+                            ->name('attachments.upload');
 
                         // Resource CRUD
                         Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])

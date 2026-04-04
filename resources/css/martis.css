@@ -1148,3 +1148,224 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   background-color: inherit !important;
   cursor: default !important;
 }
+
+/* == Trix Editor — Dark Mode & Theme Integration ==========================
+   Ensures Trix toolbar, dialogs, and content area integrate
+   with the Martis dark/light theme system.
+   ========================================================================= */
+
+/* Wrapper styling */
+.martis-trix-wrapper {
+  border: 1px solid var(--martis-border);
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+/* Trix toolbar */
+.martis-trix-wrapper trix-toolbar {
+  background-color: var(--martis-surface-alt, var(--martis-surface));
+  border-bottom: 1px solid var(--martis-border);
+  padding: 0.25rem;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button-group {
+  border: 1px solid var(--martis-border);
+  border-radius: 0.25rem;
+  margin: 0.125rem 0.25rem 0.125rem 0;
+  overflow: hidden;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button-group:not(:first-child) {
+  margin-left: 0;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button {
+  background-color: transparent;
+  border: none;
+  border-bottom: none;
+  color: var(--martis-text);
+  padding: 0.375rem 0.5rem;
+  min-width: 2rem;
+  height: 2rem;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button::before {
+  filter: var(--martis-trix-icon-filter, none);
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button:hover {
+  background-color: var(--martis-hover);
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button.trix-active {
+  background-color: var(--martis-active);
+  color: var(--martis-accent);
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button:not(:first-child) {
+  border-left: 1px solid var(--martis-border);
+}
+
+/* Trix dialogs (link dialog, etc.) */
+.martis-trix-wrapper trix-toolbar .trix-dialogs {
+  position: relative;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog {
+  background-color: var(--martis-card);
+  border: 1px solid var(--martis-border);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  margin-top: 0.25rem;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog__link-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"],
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"] {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border: 1px solid var(--martis-border);
+  border-radius: 0.25rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  flex: 1;
+  min-width: 200px;
+  outline: none;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"]:focus,
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"]:focus {
+  border-color: var(--martis-accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"]:invalid,
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"]:invalid {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group {
+  margin: 0;
+  border: none;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button {
+  background-color: var(--martis-accent);
+  color: #ffffff;
+  border-radius: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  height: auto;
+  border: none;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button:hover {
+  background-color: var(--martis-accent-hover);
+}
+
+.martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button:not(:first-child) {
+  border-left: none;
+  margin-left: 0.25rem;
+}
+
+/* Trix editor content area */
+.martis-trix-wrapper trix-editor {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border: none;
+  min-height: 200px;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  outline: none;
+}
+
+.martis-trix-wrapper trix-editor:empty::before {
+  color: var(--martis-text-muted);
+}
+
+.martis-trix-wrapper trix-editor a {
+  color: var(--martis-accent);
+  text-decoration: underline;
+}
+
+.martis-trix-wrapper trix-editor blockquote {
+  border-left: 3px solid var(--martis-border);
+  padding-left: 0.75rem;
+  color: var(--martis-text-muted);
+  margin: 0.5rem 0;
+}
+
+.martis-trix-wrapper trix-editor pre {
+  background-color: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  overflow-x: auto;
+}
+
+.martis-trix-wrapper trix-editor ul,
+.martis-trix-wrapper trix-editor ol {
+  padding-left: 1.5rem;
+}
+
+.martis-trix-wrapper trix-editor h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.375rem;
+}
+
+/* Attachment (image) styling within trix */
+.martis-trix-wrapper trix-editor figure.attachment {
+  margin: 0.5rem 0;
+}
+
+.martis-trix-wrapper trix-editor figure.attachment img {
+  max-width: 100%;
+  border-radius: 0.25rem;
+}
+
+.martis-trix-wrapper trix-editor figure.attachment .attachment__caption {
+  color: var(--martis-text-muted);
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.25rem 0;
+}
+
+/* Progress bar for uploading attachments */
+.martis-trix-wrapper trix-editor figure.attachment .attachment__progress {
+  height: 3px;
+  background-color: var(--martis-accent);
+}
+
+/* Dark mode icon filter — invert the trix button icons */
+:root {
+  --martis-trix-icon-filter: invert(0.85);
+}
+
+html:not(.dark) {
+  --martis-trix-icon-filter: none;
+}
+
+/* Light mode overrides */
+html:not(.dark) .martis-trix-wrapper trix-toolbar {
+  background-color: #f9fafb;
+}
+
+html:not(.dark) .martis-trix-wrapper trix-editor {
+  background-color: #ffffff;
+}
