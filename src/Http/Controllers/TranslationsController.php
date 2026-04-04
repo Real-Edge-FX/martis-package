@@ -22,7 +22,20 @@ class TranslationsController extends MartisController
      * Return all translation strings for the given locale as JSON.
      * Falls back to 'en' when the requested locale is not found.
      *
-     * Endpoint: GET /martis/api/translations/{locale}
+     * Accepts any BCP-47 locale tag (e.g. `pt-PT`, `pt-pt`, `pt_PT`, `en`).
+     * The locale is normalised to canonical form (language lowercase, region uppercase)
+     * before resolving the lang/ folder, so `pt-pt` and `pt-PT` both resolve correctly.
+     *
+     * @param  string  $locale  BCP-47 locale identifier (e.g. `pt-PT`, `pt-BR`, `en`)
+     *
+     * @response array{
+     *   actions: array<string, string>,
+     *   auth: array<string, string>,
+     *   martis: array<string, string>,
+     *   messages: array<string, string>,
+     *   navigation: array<string, string>,
+     *   resources: array<string, string>
+     * }
      */
     public function show(Request $request, string $locale): JsonResponse
     {
@@ -31,6 +44,12 @@ class TranslationsController extends MartisController
 
         // Apply alias (e.g. en-US → en)
         $locale = self::LOCALE_ALIASES[$locale] ?? $locale;
+
+        // Normalise to BCP-47 canonical form: language lowercase, region uppercase
+        // e.g. pt-pt → pt-PT, pt-br → pt-BR, en-us → en-US
+        if (preg_match('/^([a-z]{2,3})[-_]([a-zA-Z]{2,4})$/', $locale, $m)) {
+            $locale = strtolower($m[1]).'-'.strtoupper($m[2]);
+        }
 
         $langBase = realpath(__DIR__.'/../../../resources/lang');
 

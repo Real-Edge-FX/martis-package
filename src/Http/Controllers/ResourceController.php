@@ -19,6 +19,7 @@ use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Dedoc\Scramble\Attributes\QueryParameter;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -44,7 +45,20 @@ class ResourceController extends MartisController
     // Index — GET /api/{resource}
     // -------------------------------------------------------------------------
 
-    /** Return a paginated, sortable, and searchable list of resource records. */
+    /**
+     * Listar registros do resource com paginação, ordenação e pesquisa.
+     *
+     * Retorna uma lista paginada dos registros do resource especificado.
+     * Suporta pesquisa por texto, ordenação por coluna e controlo do tamanho da página.
+     * Os campos disponíveis para pesquisa e ordenação dependem da definição do Resource.
+     *
+     * Autenticação: requer sessão autenticada (cookie de sessão Laravel).
+     * A resposta inclui um envelope com data, meta (paginação) e links (navegação).
+     */
+    #[QueryParameter('search', description: 'Filtrar registros por texto livre. Pesquisa em todos os campos marcados como pesquisáveis no Resource.', required: false, type: 'string')]
+    #[QueryParameter('per_page', description: 'Número de registros por página. Máximo: 100. Padrão definido pelo Resource (geralmente 15).', required: false, type: 'integer', example: 15)]
+    #[QueryParameter('sort', description: 'Nome do atributo pelo qual ordenar (ex: "name", "created_at"). Deve ser um campo marcado como sortable no Resource.', required: false, type: 'string')]
+    #[QueryParameter('direction', description: 'Direção da ordenação. Valores aceites: "asc" (crescente) ou "desc" (decrescente). Padrão: "asc".', required: false, type: 'string', example: 'asc')]
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
