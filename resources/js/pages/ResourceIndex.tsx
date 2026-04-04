@@ -8,6 +8,7 @@ import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
+import { MagnifyingGlass } from '@phosphor-icons/react'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -163,7 +164,7 @@ export function ResourceIndexPage() {
             }}
           />
           <span className="absolute inset-y-0 left-3 flex items-center">
-            <i className="pi pi-search text-sm martis-text-muted" />
+            <MagnifyingGlass size={14} className="martis-text-muted" />
           </span>
         </div>
         {indexQuery.isFetching && (

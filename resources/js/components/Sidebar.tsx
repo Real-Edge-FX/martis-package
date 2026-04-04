@@ -6,6 +6,7 @@ import { config } from "@/lib/config"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
 import logoSrc from "@images/logo.png"
+import { SquaresFour, Database, CaretDown, CaretRight, CaretDoubleRight, CaretDoubleLeft } from "@phosphor-icons/react"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
@@ -80,7 +81,7 @@ export function Sidebar() {
           </p>
         )}
         <NavLink to="/" end className={navClass} title={t("dashboard")}>
-          <i className="pi pi-th-large text-sm shrink-0" />
+          <SquaresFour size={16} className="shrink-0" />
           {!collapsed && t("dashboard")}
         </NavLink>
 
@@ -97,7 +98,7 @@ export function Sidebar() {
                   className="mb-2 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-widest martis-text-muted hover:opacity-80 transition-opacity cursor-pointer bg-transparent border-0"
                 >
                   <span>{group.label}</span>
-                  <i className={`pi ${isExpanded ? "pi-chevron-down" : "pi-chevron-right"} text-[9px]`} />
+                  {isExpanded ? <CaretDown size={10} /> : <CaretRight size={10} />}
                 </button>
               )}
               {collapsed && group.label && (
@@ -105,7 +106,7 @@ export function Sidebar() {
               )}
               {(isExpanded || collapsed) && group.resources.map((r) => (
                 <NavLink key={r.uriKey} to={`/resources/${r.uriKey}`} className={navClass} title={r.label}>
-                  <i className="pi pi-database text-sm shrink-0" />
+                  <Database size={16} className="shrink-0" />
                   {!collapsed && r.label}
                 </NavLink>
               ))}
@@ -122,7 +123,7 @@ export function Sidebar() {
           className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm martis-text-muted hover:bg-[var(--martis-hover)] transition-all no-underline border-0 bg-transparent cursor-pointer"
           title={collapsed ? t("expand_sidebar") : t("collapse_sidebar")}
         >
-          <i className={`pi ${collapsed ? "pi-angle-double-right" : "pi-angle-double-left"} text-sm`} />
+          {collapsed ? <CaretDoubleRight size={16} /> : <CaretDoubleLeft size={16} />}
           {!collapsed && <span className="text-xs">{t("collapse_sidebar")}</span>}
         </button>
         {!collapsed && (

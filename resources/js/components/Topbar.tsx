@@ -7,6 +7,7 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
+import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut } from "@phosphor-icons/react"
 
 export function Topbar() {
   const { user, logout } = useAuth()
@@ -52,9 +53,12 @@ export function Topbar() {
     ...(showThemeToggle
       ? [
           {
-            label: theme === "dark" ? t("light_mode") : t("dark_mode"),
-            icon: `pi pi-${theme === "dark" ? "sun" : "moon"}`,
-            command: () => toggle(),
+            template: (_item: MenuItem, options: { className: string; onClick: (e: React.SyntheticEvent) => void }) => (
+              <a className={options.className} onClick={(e) => { toggle(); options.onClick(e) }} role="menuitem">
+                {theme === "dark" ? <Sun size={16} className="p-menuitem-icon" /> : <Moon size={16} className="p-menuitem-icon" />}
+                <span className="p-menuitem-text">{theme === "dark" ? t("light_mode") : t("dark_mode")}</span>
+              </a>
+            ),
           },
           { separator: true } as MenuItem,
         ]
@@ -69,10 +73,12 @@ export function Topbar() {
           } as MenuItem),
     ) ?? []),
     {
-      label: t("logout"),
-      icon: "pi pi-sign-out",
-      className: "text-red-500",
-      command: () => void logout(),
+      template: (_item: MenuItem, options: { className: string; onClick: (e: React.SyntheticEvent) => void }) => (
+        <a className={`${options.className} text-red-500`} onClick={(e) => { void logout(); options.onClick(e) }} role="menuitem">
+          <SignOut size={16} className="p-menuitem-icon" />
+          <span className="p-menuitem-text">{t("logout")}</span>
+        </a>
+      ),
     },
   ]
 
@@ -95,7 +101,7 @@ export function Topbar() {
             minWidth: 220,
           }}
         >
-          <i className="pi pi-search text-xs" />
+          <MagnifyingGlass size={12} />
           <span>{config.search?.placeholder ?? t("search_placeholder", "Press / to search")}</span>
           <kbd
             className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-mono"
@@ -120,7 +126,7 @@ export function Topbar() {
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             aria-label="Notifications"
           >
-            <i className="pi pi-bell text-sm" />
+            <Bell size={16} />
           </button>
         )}
 
@@ -145,7 +151,7 @@ export function Topbar() {
           <span className="text-sm font-medium martis-text">
             {user?.name ?? user?.email}
           </span>
-          <i className="pi pi-chevron-down text-xs martis-text-muted" />
+          <CaretDown size={12} className="martis-text-muted" />
         </div>
       </div>
 

@@ -10,6 +10,7 @@ import { Button } from 'primereact/button'
 import { IconField } from 'primereact/iconfield'
 import { InputIcon } from 'primereact/inputicon'
 import logoSrc from '@images/logo.png'
+import { Envelope, Lock, Eye, EyeSlash } from '@phosphor-icons/react'
 
 function getBrand(): string {
   return config.brand ?? 'Martis'
@@ -72,7 +73,7 @@ export function LoginPage() {
                 {t('email')}
               </label>
               <IconField iconPosition="left">
-                <InputIcon className="pi pi-envelope" />
+                <InputIcon><Envelope size={14} /></InputIcon>
                 <InputText
                   id="email"
                   type="email"
@@ -94,7 +95,7 @@ export function LoginPage() {
               </label>
               <div className="relative">
                 <IconField iconPosition="left">
-                  <InputIcon className="pi pi-lock" />
+                  <InputIcon><Lock size={14} /></InputIcon>
                   <InputText
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -114,7 +115,7 @@ export function LoginPage() {
                   tabIndex={-1}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <i className={showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'} />
+                  {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               {errors.password && <small className="p-error">{errors.password}</small>}
@@ -123,7 +124,7 @@ export function LoginPage() {
             <Button
               type="submit"
               label={submitting ? t('signing_in') : t('sign_in')}
-              
+
               loading={submitting}
               className="w-full"
             />
