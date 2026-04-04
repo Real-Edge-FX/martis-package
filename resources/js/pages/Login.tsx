@@ -127,10 +127,11 @@ export function LoginPage() {
             <Button
               type="submit"
               label={submitting ? t("signing_in") : t("sign_in")}
-              icon={submitting ? undefined : <SignIn size={16} weight="bold" />}
+              icon={submitting ? undefined : <SignIn size={20} weight="bold" />}
               loading={submitting}
               className="w-full"
               raised
+              style={{ padding: '0.875rem 1.5rem', fontSize: '1rem', fontWeight: 700 }}
             />
           </form>
         </div>
