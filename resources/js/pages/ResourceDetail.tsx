@@ -34,7 +34,7 @@ export function ResourceDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
     onSuccess: (res) => {
-      void qc.invalidateQueries({ queryKey: ["resources", resource] })
+      void qc.invalidateQueries({ queryKey: ["resources"] })
       addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
       navigate(`/resources/${resource}`)
     },
