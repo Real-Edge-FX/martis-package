@@ -61,29 +61,65 @@ interface ResourceContract
     public function getModel(): ?Model;
 
     // -------------------------------------------------------------------------
-    // Field resolution for views
+    // Context-aware field resolution
+    //
+    // Each context method is an explicit override point. If not overridden, every
+    // context falls back — ultimately — to fields(). See Resource.php for the
+    // full resolution chain.
     // -------------------------------------------------------------------------
 
     /**
-     * Return only fields visible on the index (list) view.
+     * Return fields for the index (list) context.
+     * Override to show different columns on the listing page.
+     * Falls back to fields() when not overridden.
      *
      * @return list<FieldContract>
      */
     public function fieldsForIndex(Request $request): array;
 
     /**
-     * Return only fields visible on the detail (show) view.
+     * Return fields for the detail (show) context.
+     * Override to show different fields on the record detail page.
+     * Falls back to fields() when not overridden.
      *
      * @return list<FieldContract>
      */
     public function fieldsForDetail(Request $request): array;
 
     /**
-     * Return only fields visible on create/edit forms.
+     * Return fields for the create form context.
+     * Override to show different fields when creating a record.
+     * Falls back to fields() when not overridden.
      *
      * @return list<FieldContract>
      */
-    public function fieldsForForms(Request $request): array;
+    public function fieldsForCreate(Request $request): array;
+
+    /**
+     * Return fields for the update form context.
+     * Override to show different fields when editing a record.
+     * Falls back to fields() when not overridden.
+     *
+     * @return list<FieldContract>
+     */
+    public function fieldsForUpdate(Request $request): array;
+
+    /**
+     * Return fields for the inline-create context.
+     * Falls back to fieldsForCreate(), which itself falls back to fields().
+     *
+     * @return list<FieldContract>
+     */
+    public function fieldsForInlineCreate(Request $request): array;
+
+    /**
+     * Return fields for the preview context.
+     * Override to show a lightweight field set in preview panels.
+     * Falls back to fields() when not overridden.
+     *
+     * @return list<FieldContract>
+     */
+    public function fieldsForPreview(Request $request): array;
 
     // -------------------------------------------------------------------------
     // Index configuration

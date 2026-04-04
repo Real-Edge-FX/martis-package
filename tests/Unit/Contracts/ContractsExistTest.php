@@ -30,6 +30,18 @@ it('ResourceContract declares required methods', function () {
         ->and($methods)->toContain('authorizedToDelete');
 });
 
+it('ResourceContract declares all context-aware field resolution methods', function () {
+    $methods = get_class_methods(ResourceContract::class);
+    expect($methods)->toContain('fieldsForIndex')
+        ->and($methods)->toContain('fieldsForDetail')
+        ->and($methods)->toContain('fieldsForCreate')
+        ->and($methods)->toContain('fieldsForUpdate')
+        ->and($methods)->toContain('fieldsForInlineCreate')
+        ->and($methods)->toContain('fieldsForPreview');
+    // fieldsForForms must NOT exist — it was removed in REA-1106
+    expect($methods)->not->toContain('fieldsForForms');
+});
+
 it('FieldContract declares required methods', function () {
     $methods = get_class_methods(FieldContract::class);
     expect($methods)->toContain('attribute')

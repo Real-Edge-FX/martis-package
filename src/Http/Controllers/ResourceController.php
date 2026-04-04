@@ -196,7 +196,7 @@ class ResourceController extends MartisController
 
         $model = $resourceClass::newModel();
         $res = new $resourceClass($model);
-        $fields = $res->fieldsForForms($request);
+        $fields = $res->fieldsForCreate($request);
 
         $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
@@ -267,7 +267,7 @@ class ResourceController extends MartisController
             return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
         }
 
-        $fields = $res->fieldsForForms($request);
+        $fields = $res->fieldsForUpdate($request);
 
         // Set unique-ignore ID so unique validation skips the current record
         foreach ($fields as $field) {

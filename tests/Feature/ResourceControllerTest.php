@@ -41,7 +41,7 @@ class PostResource extends Resource
     {
         return [
             Text::make('title')->sortable()->searchable()->required(),
-            Text::make('body')->nullable()->hideFromIndex(),
+            Text::make('body')->nullable(),
         ];
     }
 }
@@ -368,15 +368,18 @@ it('schema includes field metadata with all required keys', function () {
     expect($titleField['showOnForms'])->toBeTrue();
 });
 
-it('schema respects hideFromIndex on fields', function () {
+it('schema returns all fields with visibility metadata', function () {
     $response = $this->getJson('/martis/api/resources/post-models/schema');
     $response->assertStatus(200);
 
     $fields = $response->json('data.fields');
     $bodyField = collect($fields)->firstWhere('attribute', 'body');
 
+    // schema() returns ALL fields from fields() with their metadata
     expect($bodyField)->not->toBeNull();
-    expect($bodyField['showOnIndex'])->toBeFalse();
+    expect($bodyField)->toHaveKey('showOnIndex');
+    expect($bodyField)->toHaveKey('showOnDetail');
+    expect($bodyField)->toHaveKey('showOnForms');
 });
 
 it('schema returns 404 for unknown resource', function () {

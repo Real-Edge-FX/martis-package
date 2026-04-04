@@ -147,33 +147,61 @@ abstract class Resource implements ResourceContract
 
     // -------------------------------------------------------------------------
     // Context-aware field resolution
+    //
+    // Each method is an explicit override point. Override any of them in your
+    // concrete resource to return a different set of fields for that context.
+    // If not overridden, every context falls back to fields().
+    //
+    // Resolution order per context:
+    //   index         -> fieldsForIndex()        -> fields()
+    //   detail        -> fieldsForDetail()       -> fields()
+    //   create        -> fieldsForCreate()       -> fields()
+    //   update        -> fieldsForUpdate()       -> fields()
+    //   inline-create -> fieldsForInlineCreate() -> fieldsForCreate() -> fields()
+    //   preview       -> fieldsForPreview()      -> fields()
     // -------------------------------------------------------------------------
 
     /** {@inheritDoc} */
     public function fieldsForIndex(Request $request): array
     {
-        return array_values(array_filter(
-            $this->fields($request),
-            fn (FieldContract $field): bool => $field->isShownOnIndex()
-        ));
+        return $this->fields($request);
     }
 
     /** {@inheritDoc} */
     public function fieldsForDetail(Request $request): array
     {
-        return array_values(array_filter(
-            $this->fields($request),
-            fn (FieldContract $field): bool => $field->isShownOnDetail()
-        ));
+        return $this->fields($request);
     }
 
     /** {@inheritDoc} */
-    public function fieldsForForms(Request $request): array
+    public function fieldsForCreate(Request $request): array
     {
-        return array_values(array_filter(
-            $this->fields($request),
-            fn (FieldContract $field): bool => $field->isShownOnForms()
-        ));
+        return $this->fields($request);
+    }
+
+    /** {@inheritDoc} */
+    public function fieldsForUpdate(Request $request): array
+    {
+        return $this->fields($request);
+    }
+
+    /**
+     * Return fields for inline-create context (creating a related record
+     * without leaving the current page).
+     *
+     * Falls back to fieldsForCreate(), which itself falls back to fields().
+     *
+     * {@inheritDoc}
+     */
+    public function fieldsForInlineCreate(Request $request): array
+    {
+        return $this->fieldsForCreate($request);
+    }
+
+    /** {@inheritDoc} */
+    public function fieldsForPreview(Request $request): array
+    {
+        return $this->fields($request);
     }
 
     // -------------------------------------------------------------------------

@@ -315,68 +315,207 @@ it('softDeletes returns false when model does not use SoftDeletes', function () 
 it('softDeletes returns true when model uses SoftDeletes', function () {
     expect(SoftDeletableResource::softDeletes())->toBeTrue();
 });
-
 // ---------------------------------------------------------------------------
-// Context-aware field resolution
+// Context-aware field resolution — all 7 cenarios
+//
+// Cenario 1: only fields() defined → all contexts fall back to fields()
+// Cenario 2: fieldsForCreate() + fields() defined
+// Cenario 3: fieldsForUpdate() + fields() defined
+// Cenario 4: fieldsForInlineCreate() + fieldsForCreate() + fields()
+// Cenario 5: fieldsForIndex() + fieldsForDetail() + fields()
+// Cenario 6: fieldsForPreview() + fields()
+// Cenario 7: all context methods overridden
 // ---------------------------------------------------------------------------
 
-it('fieldsForIndex returns only fields shown on index', function () {
+// Cenario 1 — only fields() implemented; all contexts use it as fallback
+it('[C1] fieldsForIndex falls back to fields() when not overridden', function () {
     $resource = new SimpleResource;
     $request = Request::create('/');
-    $fields = $resource->fieldsForIndex($request);
-
-    expect($fields)->toHaveCount(3);
-    expect(array_map(fn ($f) => $f->attribute(), $fields))->toContain('id', 'name', 'email');
-    expect(array_map(fn ($f) => $f->attribute(), $fields))->not->toContain('secret');
+    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($request));
+    expect($attrs)->toContain('id', 'name', 'email', 'secret');
 });
 
-it('fieldsForDetail returns only fields shown on detail', function () {
+it('[C1] fieldsForDetail falls back to fields() when not overridden', function () {
     $resource = new SimpleResource;
     $request = Request::create('/');
-    $fields = $resource->fieldsForDetail($request);
-
-    expect($fields)->toHaveCount(3);
-    expect(array_map(fn ($f) => $f->attribute(), $fields))->not->toContain('secret');
+    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForDetail($request));
+    expect($attrs)->toContain('id', 'name', 'email', 'secret');
 });
 
-it('fieldsForForms returns only fields shown on forms', function () {
+it('[C1] fieldsForCreate falls back to fields() when not overridden', function () {
     $resource = new SimpleResource;
     $request = Request::create('/');
-    $fields = $resource->fieldsForForms($request);
-
-    // id is hidden from forms; secret is hidden from all
-    expect($fields)->toHaveCount(2);
-    expect(array_map(fn ($f) => $f->attribute(), $fields))->toContain('name', 'email');
-    expect(array_map(fn ($f) => $f->attribute(), $fields))->not->toContain('id', 'secret');
+    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($request));
+    expect($attrs)->toContain('id', 'name', 'email', 'secret');
 });
 
-it('fieldsForIndex returns empty array when all fields are hidden', function () {
-    $resource = new class extends Resource
-    {
-        public static function model(): string
-        {
-            return SimpleModel::class;
+it('[C1] fieldsForUpdate falls back to fields() when not overridden', function () {
+    $resource = new SimpleResource;
+    $request = Request::create('/');
+    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($request));
+    expect($attrs)->toContain('id', 'name', 'email', 'secret');
+});
+
+it('[C1] fieldsForInlineCreate falls back to fields() when not overridden', function () {
+    $resource = new SimpleResource;
+    $request = Request::create('/');
+    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForInlineCreate($request));
+    expect($attrs)->toContain('id', 'name', 'email', 'secret');
+});
+
+it('[C1] fieldsForPreview falls back to fields() when not overridden', function () {
+    $resource = new SimpleResource;
+    $request = Request::create('/');
+    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForPreview($request));
+    expect($attrs)->toContain('id', 'name', 'email', 'secret');
+});
+
+// Cenario 2 — fieldsForCreate() overridden; inline-create uses fieldsForCreate();
+// other contexts fall back to fields()
+it('[C2] fieldsForCreate uses override; inline-create inherits it; others use fields()', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array {
+            return [new StubField('base')];
         }
-
-        public function fields(Request $request): array
-        {
-            return [new StubField('hidden', onIndex: false, onDetail: false, onForms: false)];
+        public function fieldsForCreate(Request $request): array {
+            return [new StubField('create_only')];
         }
     };
-
-    expect($resource->fieldsForIndex(Request::create('/')))->toBe([]);
-    expect($resource->fieldsForDetail(Request::create('/')))->toBe([]);
-    expect($resource->fieldsForForms(Request::create('/')))->toBe([]);
+    $req = Request::create('/');
+    // create uses override
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['create_only']);
+    // inline-create inherits from fieldsForCreate()
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForInlineCreate($req)))->toBe(['create_only']);
+    // other contexts fall back to fields()
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForDetail($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForPreview($req)))->toBe(['base']);
 });
 
-it('fieldsForIndex returns sequential numeric keys', function () {
-    $resource = new SimpleResource;
-    $fields = $resource->fieldsForIndex(Request::create('/'));
-
-    expect(array_is_list($fields))->toBeTrue();
+// Cenario 3 — fieldsForUpdate() overridden; others fall back to fields()
+it('[C3] fieldsForUpdate uses override; other contexts use fields()', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array {
+            return [new StubField('base')];
+        }
+        public function fieldsForUpdate(Request $request): array {
+            return [new StubField('update_only')];
+        }
+    };
+    $req = Request::create('/');
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['update_only']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForInlineCreate($req)))->toBe(['base']);
 });
 
-// ---------------------------------------------------------------------------
+// Cenario 4 — fieldsForInlineCreate + fieldsForCreate + fields() all defined
+it('[C4] fieldsForInlineCreate takes precedence over fieldsForCreate in inline context', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array {
+            return [new StubField('base')];
+        }
+        public function fieldsForCreate(Request $request): array {
+            return [new StubField('create_only')];
+        }
+        public function fieldsForInlineCreate(Request $request): array {
+            return [new StubField('inline_create_only')];
+        }
+    };
+    $req = Request::create('/');
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['create_only']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForInlineCreate($req)))->toBe(['inline_create_only']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($req)))->toBe(['base']);
+});
+
+// Cenario 5 — fieldsForIndex + fieldsForDetail overridden; others fall back to fields()
+it('[C5] fieldsForIndex and fieldsForDetail use overrides; create/update/etc use fields()', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array {
+            return [new StubField('base')];
+        }
+        public function fieldsForIndex(Request $request): array {
+            return [new StubField('index_only')];
+        }
+        public function fieldsForDetail(Request $request): array {
+            return [new StubField('detail_only')];
+        }
+    };
+    $req = Request::create('/');
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($req)))->toBe(['index_only']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForDetail($req)))->toBe(['detail_only']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForInlineCreate($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForPreview($req)))->toBe(['base']);
+});
+
+// Cenario 6 — fieldsForPreview() overridden; others fall back to fields()
+it('[C6] fieldsForPreview uses override; other contexts use fields()', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array {
+            return [new StubField('base')];
+        }
+        public function fieldsForPreview(Request $request): array {
+            return [new StubField('preview_only')];
+        }
+    };
+    $req = Request::create('/');
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForPreview($req)))->toBe(['preview_only']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForDetail($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['base']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['base']);
+});
+
+// Cenario 7 — all context methods overridden; each context uses its own fields
+it('[C7] when all context methods are overridden each uses its own field set', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array { return [new StubField('base')]; }
+        public function fieldsForIndex(Request $request): array { return [new StubField('idx')]; }
+        public function fieldsForDetail(Request $request): array { return [new StubField('dtl')]; }
+        public function fieldsForCreate(Request $request): array { return [new StubField('crt')]; }
+        public function fieldsForUpdate(Request $request): array { return [new StubField('upd')]; }
+        public function fieldsForInlineCreate(Request $request): array { return [new StubField('inl')]; }
+        public function fieldsForPreview(Request $request): array { return [new StubField('prv')]; }
+    };
+    $req = Request::create('/');
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($req)))->toBe(['idx']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForDetail($req)))->toBe(['dtl']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['crt']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['upd']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForInlineCreate($req)))->toBe(['inl']);
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForPreview($req)))->toBe(['prv']);
+});
+
+// Cross-context isolation — fieldsForCreate must not leak into fieldsForUpdate and vice versa
+it('fieldsForCreate does not leak into fieldsForUpdate', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array { return [new StubField('base')]; }
+        public function fieldsForCreate(Request $request): array { return [new StubField('create_only')]; }
+    };
+    $req = Request::create('/');
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['base']);
+});
+
+it('fieldsForUpdate does not leak into fieldsForCreate', function () {
+    $resource = new class extends Resource {
+        public static function model(): string { return SimpleModel::class; }
+        public function fields(Request $request): array { return [new StubField('base')]; }
+        public function fieldsForUpdate(Request $request): array { return [new StubField('update_only')]; }
+    };
+    $req = Request::create('/');
+    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['base']);
+});
+
 // Constructor and model accessor
 // ---------------------------------------------------------------------------
 
