@@ -97,6 +97,7 @@ export interface ResourceMessages {
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   messages?: ResourceMessages
+  errorDisplay?: 'inline' | 'toast'
 }
 
 export interface ResourceRecord {

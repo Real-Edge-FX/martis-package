@@ -47,13 +47,19 @@ export function ResourceCreatePage() {
       navigate(`/resources/${resource}/${res.data.id}`)
     },
     onError: (err) => {
-      if (err instanceof ApiError && err.errors) {
-        const fieldErrors: Record<string, string> = {}
-        Object.entries(err.errors).forEach(([attr, messages]) => {
-          fieldErrors[attr] = messages[0]?.message ?? tMsg('invalid_field')
-        })
-        setErrors(fieldErrors)
-        addToast('error', tMsg('validation_errors', 'Please fix the errors below.'))
+      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
+        const errorDisplay = schema?.errorDisplay ?? 'inline'
+        if (errorDisplay === 'inline') {
+          setErrors(err.errorsByField())
+          addToast('error', err.message || tMsg('validation_errors', 'Please fix the errors below.'))
+        } else {
+          // toast mode: show all errors as individual toasts
+          for (const e of err.errors) {
+            addToast('error', `${e.field}: ${e.message}`)
+          }
+        }
+      } else if (err instanceof ApiError) {
+        addToast('error', err.message || tMsg('error_create'))
       } else {
         addToast('error', tMsg('error_create'))
       }

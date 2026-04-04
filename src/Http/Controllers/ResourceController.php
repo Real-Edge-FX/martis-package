@@ -335,6 +335,7 @@ class ResourceController extends MartisController
                 'deleteConfirm' => $resourceClass::deleteConfirmMessage(),
                 'archiveConfirm' => $resourceClass::archiveConfirmMessage(),
             ],
+            'errorDisplay' => $resourceClass::errorDisplay(),
         ]);
 
         return JsonResponse::make($data)->toResponse();

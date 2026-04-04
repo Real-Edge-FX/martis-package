@@ -39,11 +39,7 @@ export function LoginPage() {
       if (err instanceof ApiError) {
         addToast("error", err.message || t("error"))
         if (err.status === 422 && err.errors) {
-          const flat: Record<string, string> = {}
-          Object.entries(err.errors).forEach(([k, v]) => {
-            flat[k] = v[0]?.message ?? String(v[0])
-          })
-          setErrors(flat)
+          setErrors(err.errorsByField())
         }
       } else {
         addToast("error", err instanceof Error ? err.message : t("error"))

@@ -1,13 +1,38 @@
 import { BASE_PATH } from '@/lib/config'
 
+export interface ValidationError {
+  field: string
+  message: string
+  code: string
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
-    public readonly errors?: Record<string, { message: string; code: string }[]>,
+    public readonly errors?: ValidationError[],
   ) {
     super(message)
     this.name = 'ApiError'
+  }
+
+  /** Group errors by field name for inline display. */
+  errorsByField(): Record<string, string> {
+    const result: Record<string, string> = {}
+    if (this.errors) {
+      for (const err of this.errors) {
+        if (err.field && !result[err.field]) {
+          result[err.field] = err.message
+        }
+      }
+    }
+    return result
+  }
+
+  /** Get all error messages as a single string for toast display. */
+  errorSummary(): string {
+    if (!this.errors || this.errors.length === 0) return this.message
+    return this.errors.map(e => e.message).join('. ')
   }
 }
 
@@ -17,6 +42,32 @@ function getCsrfToken(): string {
   if (match) return decodeURIComponent(match[1])
   // Fallback to meta tag (may be stale after session regeneration)
   return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+}
+
+/**
+ * Normalize errors from either format:
+ * - Martis format: [{field, message, code}]
+ * - Laravel format: {email: ["msg1", "msg2"]}
+ */
+function normalizeErrors(raw: unknown): ValidationError[] | undefined {
+  if (!raw) return undefined
+  if (Array.isArray(raw)) {
+    // Already Martis format (or empty)
+    return raw as ValidationError[]
+  }
+  if (typeof raw === 'object') {
+    // Laravel format: Record<string, string[]>
+    const result: ValidationError[] = []
+    for (const [field, messages] of Object.entries(raw as Record<string, unknown>)) {
+      if (Array.isArray(messages)) {
+        for (const msg of messages) {
+          result.push({ field, message: String(msg), code: 'invalid' })
+        }
+      }
+    }
+    return result.length > 0 ? result : undefined
+  }
+  return undefined
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -38,8 +89,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const json: unknown = await res.json()
 
   if (!res.ok) {
-    const err = json as { message?: string; errors?: Record<string, { message: string; code: string }[]> }
-    throw new ApiError(res.status, err.message ?? 'Request failed', err.errors)
+    const err = json as { message?: string; errors?: unknown }
+    throw new ApiError(res.status, err.message ?? 'Request failed', normalizeErrors(err.errors))
   }
 
   return json as T
@@ -137,8 +188,8 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
   const json: unknown = await res.json()
 
   if (!res.ok) {
-    const err = json as { message?: string; errors?: Record<string, { message: string; code: string }[]> }
-    throw new ApiError(res.status, err.message ?? 'Request failed', err.errors)
+    const err = json as { message?: string; errors?: unknown }
+    throw new ApiError(res.status, err.message ?? 'Request failed', normalizeErrors(err.errors))
   }
 
   return json as T
