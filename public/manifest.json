@@ -27,15 +27,15 @@
     "file": "assets/InterVariable-CWi-zmRD.woff2",
     "src": "../../node_modules/.pnpm/primereact@10.9.7_@types+react@18.3.28_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/primereact/resources/themes/lara-dark-indigo/fonts/InterVariable.woff2"
   },
-  "_DeleteModal-DMhKZq2B.js": {
-    "file": "assets/DeleteModal-DMhKZq2B.js",
+  "_DeleteModal-Q2L34T_f.js": {
+    "file": "assets/DeleteModal-Q2L34T_f.js",
     "name": "DeleteModal",
     "imports": [
       "resources/js/app.tsx"
     ]
   },
-  "_useMutation-CAtYYzZr.js": {
-    "file": "assets/useMutation-CAtYYzZr.js",
+  "_useMutation-D2YMuUao.js": {
+    "file": "assets/useMutation-D2YMuUao.js",
     "name": "useMutation",
     "imports": [
       "resources/js/app.tsx"
@@ -46,7 +46,7 @@
     "src": "resources/images/logo.png"
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-BT30AVH0.js",
+    "file": "assets/app-CovQDAbz.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -71,45 +71,45 @@
     ]
   },
   "resources/js/pages/ResourceCreate.tsx": {
-    "file": "assets/ResourceCreate-m9YgNux5.js",
+    "file": "assets/ResourceCreate-DJ_e1FLK.js",
     "name": "ResourceCreate",
     "src": "resources/js/pages/ResourceCreate.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_useMutation-CAtYYzZr.js"
+      "_useMutation-D2YMuUao.js"
     ]
   },
   "resources/js/pages/ResourceDetail.tsx": {
-    "file": "assets/ResourceDetail-E0RyxG0d.js",
+    "file": "assets/ResourceDetail-CmX4zlLw.js",
     "name": "ResourceDetail",
     "src": "resources/js/pages/ResourceDetail.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_useMutation-CAtYYzZr.js",
-      "_DeleteModal-DMhKZq2B.js"
+      "_useMutation-D2YMuUao.js",
+      "_DeleteModal-Q2L34T_f.js"
     ]
   },
   "resources/js/pages/ResourceIndex.tsx": {
-    "file": "assets/ResourceIndex-cu-p5Zaa.js",
+    "file": "assets/ResourceIndex-B5JmnMIO.js",
     "name": "ResourceIndex",
     "src": "resources/js/pages/ResourceIndex.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_useMutation-CAtYYzZr.js",
-      "_DeleteModal-DMhKZq2B.js"
+      "_useMutation-D2YMuUao.js",
+      "_DeleteModal-Q2L34T_f.js"
     ]
   },
   "resources/js/pages/ResourceUpdate.tsx": {
-    "file": "assets/ResourceUpdate-DsYni-V1.js",
+    "file": "assets/ResourceUpdate-BfdW-trR.js",
     "name": "ResourceUpdate",
     "src": "resources/js/pages/ResourceUpdate.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_useMutation-CAtYYzZr.js"
+      "_useMutation-D2YMuUao.js"
     ]
   }
 }
