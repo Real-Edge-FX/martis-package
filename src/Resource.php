@@ -357,6 +357,16 @@ abstract class Resource implements ResourceContract
         return 'inline';
     }
 
+    /**
+     * Message shown in the toast when validation fails.
+     * Override to customize per resource.
+     */
+    public static function validationMessage(): string
+    {
+        $msg = __('martis::messages.validation_failed');
+        return is_string($msg) ? $msg : 'The given data was invalid.';
+    }
+
     public function beforeSave(Model $model, Request $request, bool $creating): void
     {
         BeforeSave::dispatch(static::class, $model, $request, $creating);

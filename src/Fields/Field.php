@@ -58,6 +58,9 @@ abstract class Field implements FieldContract
     /** ID to ignore for unique validation on updates. */
     protected int|string|null $uniqueIgnoreId = null;
 
+    /** Custom error message for unique validation. */
+    protected ?string $uniqueMessage = null;
+
     /**
      * Custom component key for the React renderer.
      * When set, the frontend resolves this exact key from the component registry
@@ -299,6 +302,30 @@ abstract class Field implements FieldContract
         $this->uniqueColumn = $column;
 
         return $this;
+    }
+
+    /**
+     * Set a custom error message for unique validation.
+     */
+    public function uniqueMessage(string $message): static
+    {
+        $this->uniqueMessage = $message;
+
+        return $this;
+    }
+
+    /**
+     * Get custom validation messages for this field.
+     *
+     * @return array<string, string>
+     */
+    public function validationMessages(): array
+    {
+        $messages = [];
+        if ($this->uniqueMessage !== null && ($this->uniqueTable !== null || $this->uniqueColumn !== null)) {
+            $messages[$this->attribute . '.unique'] = $this->uniqueMessage;
+        }
+        return $messages;
     }
 
     /**

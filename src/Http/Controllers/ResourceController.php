@@ -152,7 +152,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
         $fields = $res->fieldsForForms($request);
 
-        $validationError = $this->validateRequest($request, $fields);
+        $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
             return $validationError;
         }
@@ -205,7 +205,7 @@ class ResourceController extends MartisController
             }
         }
 
-        $validationError = $this->validateRequest($request, $fields, isUpdate: true);
+        $validationError = $this->validateRequest($request, $fields, isUpdate: true, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
             return $validationError;
         }
@@ -344,6 +344,7 @@ class ResourceController extends MartisController
                 'archiveConfirm' => $resourceClass::archiveConfirmMessage(),
             ],
             'errorDisplay' => $resourceClass::errorDisplay(),
+            'validationMessage' => $resourceClass::validationMessage(),
         ]);
 
         return JsonResponse::make($data)->toResponse();
@@ -505,7 +506,7 @@ class ResourceController extends MartisController
      *
      * @param  list<FieldContract>  $fields
      */
-    private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
+    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?string $validationMessage = null): ?IlluminateJsonResponse
     {
         $rules = [];
 
@@ -541,10 +542,19 @@ class ResourceController extends MartisController
             return null;
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        // Collect custom validation messages from fields
+        $customMessages = [];
+        foreach ($fields as $field) {
+            if (method_exists($field, 'validationMessages')) {
+                $customMessages = array_merge($customMessages, $field->validationMessages());
+            }
+        }
+
+        $validator = Validator::make($request->all(), $rules, $customMessages);
 
         if ($validator->fails()) {
-            return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
+            $msg = $validationMessage ?? 'The given data was invalid.';
+            return JsonErrorResponse::validation($validator->errors()->toArray(), $msg)->toResponse();
         }
 
         return null;

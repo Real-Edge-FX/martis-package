@@ -52,21 +52,21 @@ final class JsonErrorResponse
      *
      * @param  array<string, list<string>>  $fieldErrors
      */
-    public static function validation(array $fieldErrors): self
+    public static function validation(array $fieldErrors, string $message = 'The given data was invalid.'): self
     {
         $errors = [];
 
         foreach ($fieldErrors as $field => $messages) {
-            foreach ($messages as $message) {
+            foreach ($messages as $message_text) {
                 $errors[] = [
                     'field' => $field,
-                    'message' => $message,
-                    'code' => self::inferCode($message),
+                    'message' => $message_text,
+                    'code' => self::inferCode($message_text),
                 ];
             }
         }
 
-        return new self('The given data was invalid.', $errors, 422);
+        return new self($message, $errors, 422);
     }
 
     /**

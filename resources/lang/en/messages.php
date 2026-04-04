@@ -16,4 +16,5 @@ return [
     'archived' => 'Archived',
     'archive_confirm' => 'This record will be archived and can be restored later.',
     'delete_confirm' => 'This action is permanent and cannot be undone. Are you sure?',
+    'validation_failed' => 'The given data was invalid.',
 ];
