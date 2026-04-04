@@ -22,6 +22,11 @@ import { BadgeFieldDisplay, BadgeFieldInput } from './BadgeField'
 import { StatusFieldDisplay, StatusFieldInput } from './StatusField'
 import { MultiSelectFieldDisplay, MultiSelectFieldInput } from './MultiSelectField'
 import { TagFieldDisplay, TagFieldInput } from './TagField'
+import { UrlFieldDisplay, UrlFieldInput } from './UrlField'
+import { CodeFieldDisplay, CodeFieldInput } from './CodeField'
+import { ColorFieldDisplay, ColorFieldInput } from './ColorField'
+import { MarkdownFieldDisplay, MarkdownFieldInput } from './MarkdownField'
+import { TrixFieldDisplay, TrixFieldInput } from './TrixField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -48,6 +53,11 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   status: StatusFieldDisplay,
   multi_select: MultiSelectFieldDisplay,
   tag: TagFieldDisplay,
+  url: UrlFieldDisplay,
+  code: CodeFieldDisplay,
+  color: ColorFieldDisplay,
+  markdown: MarkdownFieldDisplay,
+  trix: TrixFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -75,6 +85,11 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   status: StatusFieldInput,
   multi_select: MultiSelectFieldInput,
   tag: TagFieldInput,
+  url: UrlFieldInput,
+  code: CodeFieldInput,
+  color: ColorFieldInput,
+  markdown: MarkdownFieldInput,
+  trix: TrixFieldInput,
 }
 
 // -------------------------------------------------------------------------
@@ -169,3 +184,4 @@ export function FieldInput({
   )
   return <Component field={field} value={value} onChange={onChange} error={error} />
 }
+

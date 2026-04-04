@@ -1,0 +1,151 @@
+<?php
+
+namespace Martis\Fields;
+
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Code editor field — provides syntax-highlighted code editing.
+ *
+ * Paridade com Laravel Nova v5: Code field.
+ * Referência: https://nova.laravel.com/docs/v5/resources/fields
+ *
+ * Contextos:
+ *  - index: oculto por padrão (não adequado como coluna)
+ *  - detail: exibição com syntax highlighting
+ *  - create: editor de código
+ *  - update: editor de código
+ *
+ * Divergências intencionais do Nova:
+ *  - Usa CodeMirror 6 (via @uiw/react-codemirror) em vez de CodeMirror 5.
+ *  - Language modes mapeados para extensões do CodeMirror 6.
+ */
+class Code extends Field
+{
+    protected bool $isJson = false;
+
+    protected string $language = 'javascript';
+
+    /**
+     * Supported languages matching Nova v5 documentation.
+     *
+     * @var list<string>
+     */
+    protected static array $supportedLanguages = [
+        'dockerfile', 'htmlmixed', 'javascript', 'markdown', 'nginx',
+        'php', 'ruby', 'sass', 'shell', 'sql', 'twig', 'vim',
+        'vue', 'xml', 'yaml-frontmatter', 'yaml',
+    ];
+
+    public function type(): string
+    {
+        return 'code';
+    }
+
+    /**
+     * Override make() to default to hidden on index.
+     * Code fields are not meaningful as table columns.
+     */
+    public static function make(string $attribute, ?string $label = null): static
+    {
+        return parent::make($attribute, $label)->hideFromIndex();
+    }
+
+    /**
+     * Mark this field as storing JSON data.
+     *
+     * When enabled, the value is decoded from JSON for editing
+     * and encoded back to JSON for storage. The Eloquent model
+     * should cast the column appropriately (e.g. 'array', 'json', 'object').
+     *
+     * Note: This does NOT automatically add a 'json' validation rule.
+     * Add ->rules(['json']) explicitly if needed.
+     */
+    public function json(): static
+    {
+        $this->isJson = true;
+
+        return $this;
+    }
+
+    /**
+     * Set the syntax highlighting language.
+     */
+    public function language(string $language): static
+    {
+        $this->language = $language;
+
+        return $this;
+    }
+
+    public function isJson(): bool
+    {
+        return $this->isJson;
+    }
+
+    public function getLanguage(): string
+    {
+        return $this->language;
+    }
+
+    /**
+     * Resolve value: if json mode, pretty-print the value for display/edit.
+     */
+    public function resolve(Model $model, ?string $attribute = null): mixed
+    {
+        $value = parent::resolve($model, $attribute);
+
+        if ($this->isJson && $value !== null) {
+            if (is_array($value) || is_object($value)) {
+                return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+            // Try to decode and re-encode for pretty-printing
+            if (is_string($value)) {
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                }
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * Fill: if json mode, decode the JSON string before storing.
+     */
+    public function fill(Model $model, mixed $value): void
+    {
+        if ($this->readonly) {
+            return;
+        }
+
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $value, $this->attribute);
+
+            return;
+        }
+
+        if ($this->isJson && is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $model->setAttribute($this->attribute, $decoded);
+
+                return;
+            }
+        }
+
+        $model->setAttribute($this->attribute, $value);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function extraAttributes(): array
+    {
+        return [
+            'json' => $this->isJson,
+            'language' => $this->language,
+        ];
+    }
+}
