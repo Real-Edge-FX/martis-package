@@ -21,6 +21,7 @@ export function TextFieldInput({ field, value, onChange, error }: FieldInputProp
         onChange={(e) => onChange(e.target.value)}
         invalid={!!error}
         disabled={field.readonly}
+        placeholder={field.placeholder ?? undefined}
         className="w-full"
       />
       {error && <small className="text-red-500">{error}</small>}

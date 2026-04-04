@@ -21,6 +21,7 @@ export function TextareaFieldInput({ field, value, onChange, error }: FieldInput
         invalid={!!error}
         disabled={field.readonly}
         rows={(field as unknown as Record<string, unknown>).rows as number ?? 5}
+        placeholder={field.placeholder ?? undefined}
         className="w-full"
         autoResize
       />

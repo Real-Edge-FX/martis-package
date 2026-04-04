@@ -24,7 +24,7 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
           invalid={!!error}
           disabled={field.readonly}
           className="w-full"
-          placeholder="Leave blank to keep current"
+          placeholder={field.placeholder ?? "Leave blank to keep current"}
         />
         <button
           type="button"

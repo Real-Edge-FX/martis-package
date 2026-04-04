@@ -28,6 +28,7 @@ export function NumberFieldInput({ field, value, onChange, error }: FieldInputPr
         required={field.required}
         invalid={!!error}
         disabled={field.readonly}
+        placeholder={field.placeholder ?? undefined}
         className="w-full"
         min={min}
         max={max}

@@ -69,6 +69,8 @@ abstract class Field implements FieldContract
      */
     protected ?string $componentKey = null;
 
+    protected ?string $placeholder = null;
+
     protected function __construct(
         protected readonly string $attribute,
         protected readonly string $label,
@@ -180,6 +182,16 @@ abstract class Field implements FieldContract
     public function required(): static
     {
         $this->required = true;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom placeholder text for the field input.
+     */
+    public function placeholder(string $text): static
+    {
+        $this->placeholder = $text;
 
         return $this;
     }
