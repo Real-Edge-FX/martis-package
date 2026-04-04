@@ -373,12 +373,20 @@ it('[C1] fieldsForPreview falls back to fields() when not overridden', function 
 // Cenario 2 — fieldsForCreate() overridden; inline-create uses fieldsForCreate();
 // other contexts fall back to fields()
 it('[C2] fieldsForCreate uses override; inline-create inherits it; others use fields()', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array {
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
             return [new StubField('base')];
         }
-        public function fieldsForCreate(Request $request): array {
+
+        public function fieldsForCreate(Request $request): array
+        {
             return [new StubField('create_only')];
         }
     };
@@ -396,12 +404,20 @@ it('[C2] fieldsForCreate uses override; inline-create inherits it; others use fi
 
 // Cenario 3 — fieldsForUpdate() overridden; others fall back to fields()
 it('[C3] fieldsForUpdate uses override; other contexts use fields()', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array {
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
             return [new StubField('base')];
         }
-        public function fieldsForUpdate(Request $request): array {
+
+        public function fieldsForUpdate(Request $request): array
+        {
             return [new StubField('update_only')];
         }
     };
@@ -414,15 +430,25 @@ it('[C3] fieldsForUpdate uses override; other contexts use fields()', function (
 
 // Cenario 4 — fieldsForInlineCreate + fieldsForCreate + fields() all defined
 it('[C4] fieldsForInlineCreate takes precedence over fieldsForCreate in inline context', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array {
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
             return [new StubField('base')];
         }
-        public function fieldsForCreate(Request $request): array {
+
+        public function fieldsForCreate(Request $request): array
+        {
             return [new StubField('create_only')];
         }
-        public function fieldsForInlineCreate(Request $request): array {
+
+        public function fieldsForInlineCreate(Request $request): array
+        {
             return [new StubField('inline_create_only')];
         }
     };
@@ -434,15 +460,25 @@ it('[C4] fieldsForInlineCreate takes precedence over fieldsForCreate in inline c
 
 // Cenario 5 — fieldsForIndex + fieldsForDetail overridden; others fall back to fields()
 it('[C5] fieldsForIndex and fieldsForDetail use overrides; create/update/etc use fields()', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array {
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
             return [new StubField('base')];
         }
-        public function fieldsForIndex(Request $request): array {
+
+        public function fieldsForIndex(Request $request): array
+        {
             return [new StubField('index_only')];
         }
-        public function fieldsForDetail(Request $request): array {
+
+        public function fieldsForDetail(Request $request): array
+        {
             return [new StubField('detail_only')];
         }
     };
@@ -457,12 +493,20 @@ it('[C5] fieldsForIndex and fieldsForDetail use overrides; create/update/etc use
 
 // Cenario 6 — fieldsForPreview() overridden; others fall back to fields()
 it('[C6] fieldsForPreview uses override; other contexts use fields()', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array {
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
             return [new StubField('base')];
         }
-        public function fieldsForPreview(Request $request): array {
+
+        public function fieldsForPreview(Request $request): array
+        {
             return [new StubField('preview_only')];
         }
     };
@@ -476,15 +520,47 @@ it('[C6] fieldsForPreview uses override; other contexts use fields()', function 
 
 // Cenario 7 — all context methods overridden; each context uses its own fields
 it('[C7] when all context methods are overridden each uses its own field set', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array { return [new StubField('base')]; }
-        public function fieldsForIndex(Request $request): array { return [new StubField('idx')]; }
-        public function fieldsForDetail(Request $request): array { return [new StubField('dtl')]; }
-        public function fieldsForCreate(Request $request): array { return [new StubField('crt')]; }
-        public function fieldsForUpdate(Request $request): array { return [new StubField('upd')]; }
-        public function fieldsForInlineCreate(Request $request): array { return [new StubField('inl')]; }
-        public function fieldsForPreview(Request $request): array { return [new StubField('prv')]; }
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
+            return [new StubField('base')];
+        }
+
+        public function fieldsForIndex(Request $request): array
+        {
+            return [new StubField('idx')];
+        }
+
+        public function fieldsForDetail(Request $request): array
+        {
+            return [new StubField('dtl')];
+        }
+
+        public function fieldsForCreate(Request $request): array
+        {
+            return [new StubField('crt')];
+        }
+
+        public function fieldsForUpdate(Request $request): array
+        {
+            return [new StubField('upd')];
+        }
+
+        public function fieldsForInlineCreate(Request $request): array
+        {
+            return [new StubField('inl')];
+        }
+
+        public function fieldsForPreview(Request $request): array
+        {
+            return [new StubField('prv')];
+        }
     };
     $req = Request::create('/');
     expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($req)))->toBe(['idx']);
@@ -497,20 +573,44 @@ it('[C7] when all context methods are overridden each uses its own field set', f
 
 // Cross-context isolation — fieldsForCreate must not leak into fieldsForUpdate and vice versa
 it('fieldsForCreate does not leak into fieldsForUpdate', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array { return [new StubField('base')]; }
-        public function fieldsForCreate(Request $request): array { return [new StubField('create_only')]; }
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
+            return [new StubField('base')];
+        }
+
+        public function fieldsForCreate(Request $request): array
+        {
+            return [new StubField('create_only')];
+        }
     };
     $req = Request::create('/');
     expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['base']);
 });
 
 it('fieldsForUpdate does not leak into fieldsForCreate', function () {
-    $resource = new class extends Resource {
-        public static function model(): string { return SimpleModel::class; }
-        public function fields(Request $request): array { return [new StubField('base')]; }
-        public function fieldsForUpdate(Request $request): array { return [new StubField('update_only')]; }
+    $resource = new class extends Resource
+    {
+        public static function model(): string
+        {
+            return SimpleModel::class;
+        }
+
+        public function fields(Request $request): array
+        {
+            return [new StubField('base')];
+        }
+
+        public function fieldsForUpdate(Request $request): array
+        {
+            return [new StubField('update_only')];
+        }
     };
     $req = Request::create('/');
     expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['base']);
