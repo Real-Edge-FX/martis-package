@@ -17,4 +17,12 @@ return [
     'archive_confirm' => 'This record will be archived and can be restored later.',
     'delete_confirm' => 'This action is permanent and cannot be undone. Are you sure?',
     'validation_failed' => 'The given data was invalid.',
+    'no_results_found' => 'No results found.',
+    'no_options' => 'No options available.',
+    'no_tags_available' => 'No tags available.',
+    'search' => 'Search…',
+    'search_tags' => 'Search tags…',
+    'select' => 'Select…',
+    'no_records_available' => 'No records available.',
+    'select_field' => 'Select {{field}}…',
 ];

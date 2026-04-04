@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -58,6 +59,7 @@ interface RelatedRecord {
 }
 
 export function BelongsToFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t: tMsg } = useTranslation('messages')
   const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
   const isNullable = (field as unknown as Record<string, unknown>).nullable as boolean | undefined
@@ -230,7 +232,7 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
         <span className="martis-belongs-to-trigger-label">
           {selectedLabel ?? (currentId !== null ? `#${currentId}` : (
             <span style={{ color: 'var(--martis-text-muted)' }}>
-              {isNullable ? 'Select...' : `Select ${field.label}...`}
+              {isNullable ? tMsg('select') : tMsg('select_field', { field: field.label })}
             </span>
           ))}
         </span>
@@ -266,7 +268,7 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
               type="text"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search..."
+              placeholder={tMsg('search')}
               className="martis-belongs-to-search-input"
             />
           </div>
@@ -274,10 +276,10 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
           {/* Options list */}
           <div className="martis-belongs-to-options">
             {loading && options.length === 0 ? (
-              <div className="martis-belongs-to-empty">Loading...</div>
+              <div className="martis-belongs-to-empty">{tMsg('loading')}</div>
             ) : !loading && options.length === 0 ? (
               <div className="martis-belongs-to-empty">
-                {search ? 'No results found' : 'No records available'}
+                {search ? tMsg('no_results_found') : tMsg('no_records_available')}
               </div>
             ) : (
               options.map((record) => {

@@ -16,4 +16,12 @@ return [
     'archived' => 'Arquivado',
     'archive_confirm' => 'Este registro será arquivado e poderá ser restaurado depois.',
     'delete_confirm' => 'Esta ação é permanente e não pode ser desfeita. Tem certeza?',
+    'no_results_found' => 'Nenhum resultado encontrado.',
+    'no_options' => 'Nenhuma opção disponível.',
+    'no_tags_available' => 'Nenhuma tag disponível.',
+    'search' => 'Buscar…',
+    'search_tags' => 'Buscar tags…',
+    'select' => 'Selecionar…',
+    'no_records_available' => 'Nenhum registro disponível.',
+    'select_field' => 'Selecionar {{field}}…',
 ];

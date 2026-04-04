@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, X, Plus, Check } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -79,6 +80,7 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
 // ---------------------------------------------------------------------------
 
 export function TagFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t: tMsg } = useTranslation('messages')
   const relatedResource = (field as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as Record<string, unknown>).titleAttribute as string | undefined
   const preload = (field as Record<string, unknown>).preload as boolean | undefined
@@ -258,7 +260,7 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
               type="text"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search tags..."
+              placeholder={tMsg('search_tags')}
               style={{
                 flex: 1,
                 border: 'none',
@@ -281,7 +283,7 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
                   color: 'var(--martis-text-muted)',
                 }}
               >
-                Loading...
+                {tMsg('loading')}
               </div>
             ) : options.length === 0 ? (
               <div
@@ -292,7 +294,7 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
                   color: 'var(--martis-text-muted)',
                 }}
               >
-                {search ? 'No results' : 'No tags available'}
+                {search ? tMsg('no_results_found') : tMsg('no_tags_available')}
               </div>
             ) : (
               options.map((record) => {

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CaretDown, X, Check } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
@@ -77,6 +78,7 @@ export function MultiSelectFieldDisplay({ field, value }: FieldDisplayProps) {
 // ---------------------------------------------------------------------------
 
 export function MultiSelectFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t: tMsg } = useTranslation('messages')
   const options = getOptions(field as Record<string, unknown>)
   const selected = toArray(value)
 
@@ -110,7 +112,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setDebouncedSearch(query)
-    }, 150)
+    }, 300)
   }, [])
 
   function toggle(val: string) {
@@ -168,7 +170,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
       >
         {selected.length === 0 ? (
           <span style={{ color: 'var(--martis-text-muted)', fontSize: '0.875rem' }}>
-            {field.placeholder ?? 'Select...'}
+            {field.placeholder ?? tMsg('select')}
           </span>
         ) : (
           selected.map((v) => (
@@ -229,7 +231,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
               type="text"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search..."
+              placeholder={tMsg('search')}
               className="martis-input"
               style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
             />
@@ -246,7 +248,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                   color: 'var(--martis-text-muted)',
                 }}
               >
-                No options
+                {debouncedSearch ? tMsg('no_results_found') : tMsg('no_options')}
               </div>
             ) : (
               groupedOptions.map(({ group, items }) => (
