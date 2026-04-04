@@ -105,7 +105,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
   return (
     <div className="flex flex-col gap-1">
       <div
-        className={`relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
+        className={`martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
           borderColor: error ? '#ef4444' : 'var(--martis-border)',
@@ -266,7 +266,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
 
       {/* Drop zone / add button */}
       <div
-        className={`relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
+        className={`martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
           borderColor: error ? '#ef4444' : 'var(--martis-border)',

@@ -56,7 +56,7 @@ html:not(.dark) {
   --martis-hover: rgba(0, 0, 0, 0.04);
   --martis-active: rgba(0, 0, 0, 0.08);
   --martis-card: #ffffff;
-  --martis-input-bg: #ffffff;
+  --martis-input-bg: #f8fafc;
   --martis-topbar: #ffffff;
   --martis-search-bg: rgba(0, 0, 0, 0.04);
   --martis-search-border: rgba(0, 0, 0, 0.12);
@@ -576,4 +576,99 @@ html:not(.dark) .p-inputtext::placeholder {
 .p-menu .p-menuitem-link {
   padding: 0.625rem 1rem;
   gap: 0.625rem;
+}
+
+/* ── Fix #1: Light Theme — InputIcon visibility (REA-1140) ─────── */
+/* PrimeReact dark theme sets icon color to light grey/white.
+   In light mode these are invisible on white input backgrounds.  */
+html:not(.dark) .p-inputicon,
+html:not(.dark) .p-input-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-icon-field .p-inputicon svg,
+html:not(.dark) .p-icon-field .p-input-icon svg {
+  color: var(--martis-text-muted);
+}
+
+/* ── Fix #2: Light Theme — Calendar / DatePicker (REA-1140) ────── */
+/* PrimeReact Calendar popup inherits dark theme — override all
+   surfaces, text, and interactive states for light mode.          */
+html:not(.dark) .p-datepicker {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-datepicker .p-datepicker-header {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+  border-bottom-color: var(--martis-border);
+}
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-month,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-year,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title button {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-prev,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-next {
+  color: var(--martis-text-muted);
+  background: transparent;
+}
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-prev:hover,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-next:hover {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker table th > span {
+  color: var(--martis-text-muted);
+}
+html:not(.dark) .p-datepicker table td > span {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker table td > span:hover {
+  background-color: var(--martis-hover) !important;
+}
+html:not(.dark) .p-datepicker table td.p-datepicker-today > span {
+  background-color: var(--martis-hover);
+  color: var(--martis-accent);
+}
+html:not(.dark) .p-datepicker table td > span.p-highlight {
+  background-color: var(--martis-accent) !important;
+  color: #ffffff !important;
+}
+html:not(.dark) .p-datepicker table td.p-datepicker-other-month > span {
+  color: var(--martis-text-muted);
+  opacity: 0.5;
+}
+html:not(.dark) .p-datepicker .p-timepicker {
+  border-top-color: var(--martis-border);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker .p-timepicker span {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker .p-timepicker button {
+  color: var(--martis-text-muted);
+}
+html:not(.dark) .p-datepicker .p-timepicker button:hover {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+/* Calendar trigger button icon */
+html:not(.dark) .p-calendar .p-datepicker-trigger {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+  color: #ffffff;
+}
+html:not(.dark) .p-calendar .p-datepicker-trigger:hover {
+  background-color: var(--martis-accent-hover);
+  border-color: var(--martis-accent-hover);
+}
+
+
+/* ── Fix #3: Light Theme — File/Image upload zones (REA-1140) ──── */
+/* Dashed border + stronger color for upload zones in light mode    */
+html:not(.dark) .martis-dropzone {
+  border-style: dashed !important;
+  border-color: #cbd5e1 !important;
+  background-color: #f8fafc !important;
 }

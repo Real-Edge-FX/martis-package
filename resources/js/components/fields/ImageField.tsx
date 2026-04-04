@@ -99,7 +99,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
   return (
     <div className="flex flex-col gap-1">
       <div
-        className={`relative rounded-md border transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
+        className={`martis-dropzone relative rounded-md border transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
           borderColor: error ? '#ef4444' : 'var(--martis-border)',
@@ -269,7 +269,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
 
       {/* Drop zone / add button */}
       <div
-        className={`relative rounded-md border transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
+        className={`martis-dropzone relative rounded-md border transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
           borderColor: error ? '#ef4444' : 'var(--martis-border)',
