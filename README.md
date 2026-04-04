@@ -159,7 +159,7 @@ Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `h
 | `Tag` | Tag and chip display |
 | `KeyValue` | Key-value pair editor |
 
-All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `rules()`, `help()`, `withMeta()`, `displayAsLink()`, and PrimeReact prop passthrough.
+All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `rules()`, `help()`, `withMeta()`, and PrimeReact prop passthrough. `displayAsLink()` is available on `BelongsTo` fields only.
 
 ### Authorization
 
@@ -173,9 +173,13 @@ Global search across resources and records. Per-resource search with configurabl
 
 Full i18n support via Laravel lang files. Ships with `pt-BR` and `en`, extensible to any locale.
 
-### API Documentation
+### API Documentation (Development)
 
-Auto-generated OpenAPI/Swagger documentation via Scramble, available at `/docs/api`.
+Auto-generated OpenAPI/Swagger documentation via [Scramble](https://scramble.dedoc.co) (dev dependency). Install it in your project to get `/docs/api`:
+
+```bash
+composer require dedoc/scramble --dev
+```
 
 ## Artisan Commands
 
@@ -248,7 +252,7 @@ make ci          # Full CI: lint + typecheck + PHPStan + tests
 | Icons | Phosphor Icons |
 | Build | Vite, pnpm |
 | Testing | Pest (PHP), Vitest (JS), PHPStan Level 8 |
-| API Docs | Scramble (OpenAPI / Swagger) |
+| API Docs | Scramble (OpenAPI / Swagger, dev dependency) |
 
 ## Documentation
 
