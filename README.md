@@ -1,29 +1,24 @@
-# Martis
+<p align="center">
+  <img src="resources/images/logo.png" alt="Martis" width="400">
+</p>
 
-[![Build](https://img.shields.io/github/actions/workflow/status/Real-Edge-FX/martis/ci.yml?branch=develop)](https://github.com/Real-Edge-FX/martis/actions)
-[![License](https://img.shields.io/github/license/Real-Edge-FX/martis)](LICENSE)
-[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-blue)](https://php.net)
-[![Laravel 11+](https://img.shields.io/badge/Laravel-11%2B-red)](https://laravel.com)
-[![React 19](https://img.shields.io/badge/React-19-61dafb)](https://react.dev)
+<p align="center">
+  <strong>A modern, open-source admin engine for Laravel.</strong><br>
+  React-first. Context-aware. Built for developers who ship.
+</p>
 
-**Martis** is a modern, open-source admin engine for Laravel — a React-first alternative to Laravel Nova, built on PrimeReact, Tailwind CSS, and Inertia.js.
+<p align="center">
+  <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/v/martis/martis?style=flat-square&label=version" alt="Version"></a>
+  <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/dt/martis/martis?style=flat-square" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.2+">
+  <img src="https://img.shields.io/badge/Laravel-11%2B-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel 11+">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
+</p>
 
-## Documentation
+---
 
-- [Installation Guide](docs/installation-guide.md) — step-by-step setup for new projects (EN)
-- [Tutorial PT-BR](docs/tutorial-pt-br.md) — guia completo em português
-- [API Overview](docs/api/overview.md) — REST API reference
-- [Override System](docs/overrides.md) — how to customize components without forking
-- [Parity Map](docs/PARITY_MAP.md) — Nova v5 feature coverage
-- [Fields Reference](docs/fields.md) — complete field type documentation
-- [Resources Reference](docs/resources.md) — Resource class methods and hooks
-
-## Requirements
-
-- PHP 8.2+
-- Laravel 11+ or 12+
-- Node.js 20+
-- pnpm 8+
+Martis is a full-featured admin panel engine for Laravel, designed as a React-first alternative to Laravel Nova. It is built on **PrimeReact**, **Tailwind CSS**, and **Inertia.js**, giving you a modern SPA experience with the power and simplicity of Laravel on the backend.
 
 ## Installation
 
@@ -31,103 +26,26 @@
 composer require martis/martis
 ```
 
-Run the install command to publish assets, config, and scaffold the admin panel:
-
 ```bash
 php artisan martis:install
 ```
 
+The install command publishes assets, configuration, and scaffolds the admin panel in your Laravel application.
+
+## Requirements
+
+| Dependency | Version |
+|------------|---------|
+| PHP | 8.2+ |
+| Laravel | 11+ or 12+ |
+| Node.js | 20+ |
+| pnpm | 8+ |
+
 ## Features
 
-### Core Engine
+### Resources & CRUD
 
-- **Resources** — Automatic CRUD from Eloquent models with full lifecycle hooks
-- **Context-Aware Fields** — Backend is the single source of truth for field resolution per context (`index`, `detail`, `create`, `update`, `inline-create`, `preview`) with cascading fallback chain
-- **Visibility Flags** — `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `hideWhenUpdating()`, `onlyOnIndex()`, `onlyOnDetail()`, `onlyOnForms()`, `exceptOnForms()` — all resolved server-side
-- **Authorization** — Laravel policies and gates, per-resource and per-action
-- **Search** — Global search across resources + records, per-resource search with configurable `indexSearchable()`
-- **Authentication** — Laravel auth integration with custom guards
-- **Localization** — Full i18n support via Laravel lang files (`pt-BR`, `en`, extensible)
-- **Swagger / OpenAPI** — Auto-generated API documentation via Scramble
-
-### Field Types (22 types)
-
-| Field | Description |
-|-------|-------------|
-| `Id` | Auto-incrementing primary key (hidden on forms) |
-| `Text` | Single-line text input with placeholder support |
-| `Textarea` | Multi-line text with configurable rows |
-| `Number` | Numeric input with min/max/step |
-| `Email` | Email input with icon and validation |
-| `Password` | Password input with visibility toggle |
-| `Boolean` | Toggle switch for boolean values |
-| `Select` | Single-select dropdown with options |
-| `MultiSelect` | Multi-select with chips display |
-| `Date` | Date picker |
-| `DateTime` | Date + time picker |
-| `File` | File upload with drag & drop, size validation, download link |
-| `Image` | Image upload with preview, thumbnail, drag & drop |
-| `BelongsTo` | Searchable relationship dropdown with async search, debounce, and `titleAttribute` |
-| `Hidden` | Hidden field (rendered in forms but not visible) |
-| `Heading` | Section heading / divider (non-data) |
-| `Badge` | Colored status badge (index/detail display) |
-| `Status` | Status indicator with loading/success/failed states |
-| `Tag` | Tag/chip display |
-| `KeyValue` | Key-value pair editor |
-
-All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `rules()`, `help()`, `withMeta()`, `displayAsLink()`, customizable visibility per context, and PrimeReact prop passthrough.
-
-### Relationships
-
-- **BelongsTo** — Searchable dropdown with async search, debounce, clear button, `titleAttribute()`, `displayAsLink()`
-
-### Artisan Commands
-
-| Command | Description |
-|---------|-------------|
-| `martis:install` | Install the Martis admin panel |
-| `martis:resource` | Create a new resource class |
-| `martis:field` | Create a custom field (PHP + React TSX) |
-| `martis:component` | Generate a React component with auto-registration |
-| `martis:theme` | Scaffold a custom theme (dark + light mode) |
-| `martis:user` | Create a new admin user |
-| `martis:vendor-publish` | Publish package files (config, assets, views, lang) |
-
-### UI & Frontend
-
-- **React 19** + **PrimeReact** — modern component library with dark/light theme
-- **Tailwind CSS** — utility-first styling with theme variables
-- **Phosphor Icons** — consistent iconography across the admin panel
-- **Global Search** — searches resources and records (2+ chars, debounce, grouped results)
-- **Responsive DataTable** — striped rows, rounded corners, hover effects, configurable per resource
-- **Breadcrumbs** — consistent navigation with resource icons
-- **Toast Notifications** — success/error/info feedback on all operations
-- **Dark / Light Mode** — full theme support with CSS custom properties
-
-### Developer Experience
-
-- **Override System** — customize any React component without forking the package
-- **Custom Fields** — `martis:field` scaffolds PHP class + React component with hot reload
-- **4-Tier Component Resolution** — project → override → custom → default
-- **Stubs** — all generators use customizable stubs
-- **PHPStan Level 8** — strict static analysis on the entire codebase
-- **Pest + Vitest** — comprehensive PHP and JS test suites
-
-## Configuration
-
-After installation, publish the config file:
-
-```bash
-php artisan vendor:publish --tag=martis-config
-```
-
-Edit `config/martis.php` to configure your admin path, middleware, branding, and theme options.
-
-## Quick Start
-
-### Defining a Resource
-
-Create a resource class in `app/Martis/`. Martis auto-discovers all classes in that directory:
+Automatic CRUD generation from Eloquent models with full lifecycle hooks. Define a resource class, and Martis handles listing, creation, editing, detail views, and deletion.
 
 ```php
 namespace App\Martis;
@@ -150,43 +68,33 @@ class PostResource extends Resource
     public function fields(Request $request): array
     {
         return [
-            Text::make('title')
+            Text::make(title)
                 ->sortable()
                 ->searchable()
                 ->required()
-                ->placeholder('Enter post title'),
+                ->placeholder(Enter post title),
 
-            Textarea::make('body')
+            Textarea::make(body)
                 ->hideFromIndex()
                 ->rows(6),
 
-            BelongsTo::make('category_id', 'Category')
-                ->titleAttribute('name')
+            BelongsTo::make(category_id, Category)
+                ->titleAttribute(name)
                 ->searchable(),
 
-            DateTime::make('published_at')
+            DateTime::make(published_at)
                 ->sortable()
                 ->nullable(),
-        ];
-    }
-
-    // Optional: override fields for specific contexts
-    public function fieldsForIndex(Request $request): array
-    {
-        return [
-            Text::make('title')->sortable(),
-            BelongsTo::make('category_id', 'Category')->displayAsLink(),
-            DateTime::make('published_at')->sortable(),
         ];
     }
 }
 ```
 
-No manual registration needed — classes in `app/Martis/` are registered automatically on boot.
+Classes in `app/Martis/` are auto-discovered — no manual registration required.
 
 ### Context-Aware Field Resolution
 
-The backend resolves fields per context using this precedence chain:
+The backend is the **single source of truth** for which fields appear in each context. Override any context method to customize what the user sees:
 
 | Context | Resolution Order |
 |---------|-----------------|
@@ -197,32 +105,132 @@ The backend resolves fields per context using this precedence chain:
 | Inline Create | `fieldsForInlineCreate()` → `fieldsForCreate()` → `fields()` |
 | Preview | `fieldsForPreview()` → `fields()` |
 
-The `/schema` endpoint returns pre-filtered arrays (`fieldsForIndex`, `fieldsForDetail`, etc.) — the frontend consumes them directly without additional filtering.
-
-## Development Setup
-
-Clone and bootstrap the local environment:
-
-```bash
-git clone https://github.com/Real-Edge-FX/martis.git
-cd martis
-
-# Install PHP and JS dependencies
-make install
-
-# Start Docker services (MySQL + Redis)
-make start
-
-# Configure the playground app
-cp playground/.env.example playground/.env
-cd playground && php artisan key:generate && php artisan migrate --seed && cd ..
-
-# Build frontend assets
-make build
+```php
+// Show only key columns in the index table
+public function fieldsForIndex(Request $request): array
+{
+    return [
+        Text::make(title)->sortable(),
+        BelongsTo::make(category_id, Category)->displayAsLink(),
+        DateTime::make(published_at)->sortable(),
+    ];
+}
 ```
 
-The playground admin panel is available at `http://localhost/martis`.
-Default credentials: `admin@martis.local` / `password`
+The `/schema` endpoint returns pre-filtered arrays per context — the frontend consumes them directly without additional filtering logic.
+
+### Visibility Flags
+
+Control field visibility per context with fluent methods — all resolved server-side:
+
+```php
+Text::make(slug)
+    ->hideWhenCreating()   // hidden on create forms
+    ->sortable();
+
+DateTime::make(created_at)
+    ->exceptOnForms();     // visible on index & detail, hidden on all forms
+```
+
+Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `hideWhenUpdating()`, `onlyOnIndex()`, `onlyOnDetail()`, `onlyOnForms()`, `exceptOnForms()`.
+
+### 22 Built-in Field Types
+
+| Field | Description |
+|-------|-------------|
+| `Id` | Auto-incrementing primary key (hidden on forms) |
+| `Text` | Single-line text input with placeholder support |
+| `Textarea` | Multi-line text with configurable rows |
+| `Number` | Numeric input with min/max/step |
+| `Email` | Email input with icon and validation |
+| `Password` | Password input with visibility toggle |
+| `Boolean` | Toggle switch for boolean values |
+| `Select` | Single-select dropdown |
+| `MultiSelect` | Multi-select with chips display |
+| `Date` | Date picker |
+| `DateTime` | Date + time picker |
+| `File` | File upload with drag & drop and download |
+| `Image` | Image upload with preview and thumbnail |
+| `BelongsTo` | Searchable relationship dropdown with async search |
+| `Hidden` | Hidden field (rendered in forms, not visible) |
+| `Heading` | Section heading / visual divider |
+| `Badge` | Colored status badge for index & detail |
+| `Status` | Status indicator (loading / success / failed) |
+| `Tag` | Tag and chip display |
+| `KeyValue` | Key-value pair editor |
+
+All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `rules()`, `help()`, `withMeta()`, `displayAsLink()`, and PrimeReact prop passthrough.
+
+### Authorization
+
+Integrates with Laravel policies and gates. Per-resource and per-action authorization out of the box.
+
+### Search
+
+Global search across resources and records. Per-resource search with configurable `indexSearchable()`. Debounced, grouped results with 2+ character threshold.
+
+### Localization
+
+Full i18n support via Laravel lang files. Ships with `pt-BR` and `en`, extensible to any locale.
+
+### API Documentation
+
+Auto-generated OpenAPI/Swagger documentation via Scramble, available at `/docs/api`.
+
+## Artisan Commands
+
+| Command | Description |
+|---------|-------------|
+| `martis:install` | Install the Martis admin panel |
+| `martis:resource` | Create a new resource class |
+| `martis:field` | Create a custom field (PHP + React TSX) |
+| `martis:component` | Generate a React component with auto-registration |
+| `martis:theme` | Scaffold a custom theme (dark + light mode) |
+| `martis:user` | Create a new admin user |
+| `martis:vendor-publish` | Publish package files (config, assets, views, lang) |
+
+## Configuration
+
+```bash
+php artisan vendor:publish --tag=martis-config
+```
+
+Edit `config/martis.php` to configure:
+
+- Admin panel URL path
+- Middleware stack
+- Branding (name, logo)
+- Theme (dark/light mode defaults)
+- Authentication guard
+
+## UI & Frontend
+
+- **React 19** + **PrimeReact** — modern component library with full theme support
+- **Tailwind CSS** — utility-first styling with CSS custom properties
+- **Phosphor Icons** — consistent iconography
+- **Dark / Light Mode** — toggle with persistent user preference
+- **Responsive DataTable** — striped rows, rounded corners, hover effects
+- **Breadcrumbs** — contextual navigation with resource icons
+- **Toast Notifications** — success, error, and info feedback on all operations
+- **Global Search** — search resources and records from the top bar
+
+## Extensibility
+
+### Override System
+
+Customize any React component without forking the package. Martis uses a 4-tier component resolution system:
+
+**Project → Override → Custom → Default**
+
+### Custom Fields
+
+Generate a custom field with both PHP and React scaffolding:
+
+```bash
+php artisan martis:field MyCustomField
+```
+
+This creates the PHP field class and a React component with hot reload support.
 
 ## Testing
 
@@ -240,18 +248,17 @@ make ci          # Full CI: lint + typecheck + PHPStan + tests
 | Icons | Phosphor Icons |
 | Build | Vite, pnpm |
 | Testing | Pest (PHP), Vitest (JS), PHPStan Level 8 |
-| API Docs | Scramble (OpenAPI/Swagger) |
-| CI | GitHub Actions |
+| API Docs | Scramble (OpenAPI / Swagger) |
 
-## Contributing
+## Documentation
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/my-feature`
-3. Write tests for your change
-4. Ensure CI passes: `make ci`
-5. Open a pull request against `develop`
-
-Code style is enforced via [Laravel Pint](https://laravel.com/docs/pint) (PHP) and [ESLint](https://eslint.org) (TypeScript/React).
+- [Installation Guide](docs/installation-guide.md)
+- [Tutorial (PT-BR)](docs/tutorial-pt-br.md)
+- [API Overview](docs/api/overview.md)
+- [Override System](docs/overrides.md)
+- [Fields Reference](docs/fields.md)
+- [Resources Reference](docs/resources.md)
+- [Nova v5 Parity Map](docs/PARITY_MAP.md)
 
 ## License
 
