@@ -984,3 +984,108 @@ html:not(.dark) .martis-datatable .p-datatable-tbody > tr {
   outline: none;
   box-shadow: 0 0 0 1px var(--martis-accent);
 }
+
+/* ── Fix: Paginator full light theme override (REA-1140) ─────────
+   PrimeReact lara-dark-indigo bleeds dark styles into light mode.
+   Force correct colors on all paginator interactive elements.
+──────────────────────────────────────────────────────────────── */
+html:not(.dark) .p-paginator .p-paginator-page {
+  color: var(--martis-text-muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+html:not(.dark) .p-paginator .p-paginator-page:hover {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-paginator .p-paginator-page.p-highlight {
+  background-color: var(--martis-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-paginator .p-paginator-prev,
+html:not(.dark) .p-paginator .p-paginator-next,
+html:not(.dark) .p-paginator .p-paginator-first,
+html:not(.dark) .p-paginator .p-paginator-last {
+  color: var(--martis-text-muted) !important;
+  background: transparent !important;
+}
+html:not(.dark) .p-paginator .p-paginator-prev:hover,
+html:not(.dark) .p-paginator .p-paginator-next:hover,
+html:not(.dark) .p-paginator .p-paginator-first:hover,
+html:not(.dark) .p-paginator .p-paginator-last:hover {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+}
+
+/* ── Fix: Light theme striped rows visibility (REA-1140) ─────────
+   --martis-surface in light = #ffffff = same as row bg → invisible.
+   Use a slightly tinted background for even rows in light mode.
+──────────────────────────────────────────────────────────────── */
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even),
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even) {
+  background-color: #f8fafc !important;
+}
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover,
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover {
+  background-color: var(--martis-row-hover) !important;
+}
+
+/* ── Fix: Light theme DataTable row background (REA-1140) ────────
+   Force white on odd rows and proper light bg on even rows         */
+html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background-color: var(--martis-row-even) !important;
+}
+
+/* ── DataTable gridlines support (REA-1140) ──────────────────────
+   Applied via .martis-datatable-gridlines class from Resource PHP  */
+.martis-datatable-gridlines .p-datatable-tbody > tr > td,
+.martis-datatable-gridlines tbody td {
+  border-right: 1px solid var(--martis-border) !important;
+}
+.martis-datatable-gridlines .p-datatable-tbody > tr > td:last-child,
+.martis-datatable-gridlines tbody td:last-child {
+  border-right: none !important;
+}
+.martis-datatable-gridlines .p-datatable-thead > tr > th,
+.martis-datatable-gridlines thead th {
+  border-right: 1px solid var(--martis-border) !important;
+}
+.martis-datatable-gridlines .p-datatable-thead > tr > th:last-child,
+.martis-datatable-gridlines thead th:last-child {
+  border-right: none !important;
+}
+
+/* ── DataTable size variants (REA-1140) ──────────────────────────
+   .martis-datatable-sm / .martis-datatable-lg for compact/large    */
+.martis-datatable-sm .p-datatable-tbody > tr > td,
+.martis-datatable-sm tbody td {
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+}
+.martis-datatable-sm .p-datatable-thead > tr > th,
+.martis-datatable-sm thead th {
+  padding: 0.5rem 0.75rem !important;
+}
+.martis-datatable-lg .p-datatable-tbody > tr > td,
+.martis-datatable-lg tbody td {
+  padding: 1rem 1.25rem !important;
+  font-size: 1rem !important;
+}
+.martis-datatable-lg .p-datatable-thead > tr > th,
+.martis-datatable-lg thead th {
+  padding: 1rem 1.25rem !important;
+}
+
+/* ── Pagination border uses CSS variables (REA-1140) ──────────── */
+.martis-pagination-wrapper {
+  border-top: 1px solid var(--martis-border);
+}
+
+/* ── DataTable no-hover variant (REA-1140) ──────────────────────
+   Disable row hover effect when tableRowHover is false             */
+.martis-datatable-no-hover .p-datatable-tbody > tr:hover,
+.martis-datatable-no-hover tbody tr:hover {
+  background-color: inherit !important;
+  cursor: default !important;
+}

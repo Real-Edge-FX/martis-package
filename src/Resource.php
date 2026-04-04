@@ -322,6 +322,46 @@ abstract class Resource implements ResourceContract
         return 'database';
     }
 
+    // -------------------------------------------------------------------------
+    // DataTable display configuration — configurable per resource (REA-1140)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Whether the DataTable should display striped rows.
+     * Override in concrete resources to disable.
+     */
+    public static function tableStriped(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Whether to show vertical grid lines between columns.
+     * Override to return true if you want cell borders.
+     */
+    public static function tableShowGridlines(): bool
+    {
+        return false;
+    }
+
+    /**
+     * DataTable size: 'normal', 'small', or 'large'.
+     * Controls cell padding and font sizes.
+     */
+    public static function tableSize(): string
+    {
+        return 'normal';
+    }
+
+    /**
+     * Whether table rows should highlight on hover.
+     * Default true — set false for static tables.
+     */
+    public static function tableRowHover(): bool
+    {
+        return true;
+    }
+
     public function group(): ?string
     {
         return null;

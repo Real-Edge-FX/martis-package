@@ -30,9 +30,9 @@ function DefaultPagination({
   }
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-800">
+    <div className="martis-pagination-wrapper">
       <div className="flex items-center justify-between px-4 py-1">
-        <span className="text-sm text-gray-500 dark:text-gray-400">
+        <span className="text-sm martis-text-muted">
           {from !== null && to !== null ? (
             <>
               Showing <strong>{from}</strong>–<strong>{to}</strong> of{' '}

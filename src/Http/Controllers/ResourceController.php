@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\DeferredRelationSync;
+use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
@@ -638,13 +639,26 @@ class ResourceController extends MartisController
      * @param  list<FieldContract>  $fields
      * @return array<string, mixed>
      */
-    private function serializeModel(Resource $resource, array $fields, Model $model): array
+    /**
+     * Serialize a model into an array of attribute values using its fields.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  bool  $forDisplay  When true, uses resolveForDisplay() which applies displayUsing() callbacks
+     * @return array<string, mixed>
+     */
+    private function serializeModel(Resource $resource, array $fields, Model $model, bool $forDisplay = true): array
     {
         /** @var array<string, mixed> $data */
         $data = ['id' => $model->getKey()];
 
         foreach ($fields as $field) {
-            $data[$field->attribute()] = $field->resolve($model);
+            if ($forDisplay) {
+                /** @var FieldContract&Field $fieldInstance */
+                $fieldInstance = $field;
+                $data[$field->attribute()] = $fieldInstance->resolveForDisplay($model);
+            } else {
+                $data[$field->attribute()] = $field->resolve($model);
+            }
         }
 
         $data['_title'] = $resource->title();

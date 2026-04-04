@@ -137,7 +137,7 @@ export function ResourceIndexPage() {
   const meta = indexQuery.data?.meta
   const isSoftDelete = schema.softDeletes
   const perPageOptions = schema.perPageOptions ?? [10, 25, 50, 100]
-  const showSearch = (schema as unknown as Record<string, unknown>).indexSearchable !== false
+  const showSearch = schema.indexSearchable !== false
   const searchPlaceholder = schema.searchPlaceholder || t('search', { label: schema.label.toLowerCase() })
 
   return (
@@ -211,6 +211,12 @@ export function ResourceIndexPage() {
         onClickRow={(row) => navigate(`/resources/${resource}/${row.id}`)}
         resourceKey={resource}
         selectable={false}
+        tableConfig={{
+          striped: schema.tableStriped,
+          showGridlines: schema.tableShowGridlines,
+          size: schema.tableSize,
+          rowHover: schema.tableRowHover,
+        }}
       />
 
       {/* Pagination */}

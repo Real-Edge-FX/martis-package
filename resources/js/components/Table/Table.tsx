@@ -24,6 +24,13 @@ export interface TableProps {
   resourceKey?: string
   /** Whether to show row selection checkboxes (default: false) */
   selectable?: boolean
+  /** DataTable configuration from Resource schema */
+  tableConfig?: {
+    striped?: boolean
+    showGridlines?: boolean
+    size?: 'normal' | 'small' | 'large'
+    rowHover?: boolean
+  }
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
@@ -45,6 +52,7 @@ function DefaultTable({
   onClickRow,
   resourceKey,
   selectable = false,
+  tableConfig,
 }: TableProps) {
   const { t } = useTranslation('resources')
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
@@ -63,6 +71,22 @@ function DefaultTable({
   }
 
   const sortOrder = sortDir === 'asc' ? 1 : -1
+
+  // Build dynamic class list from table configuration
+  const striped = tableConfig?.striped !== false // default true
+  const gridlines = tableConfig?.showGridlines === true
+  const size = tableConfig?.size ?? 'normal'
+  const rowHover = tableConfig?.rowHover !== false // default true
+
+  const classNames = [
+    'w-full',
+    'martis-datatable',
+    striped && 'martis-datatable-striped',
+    gridlines && 'martis-datatable-gridlines',
+    size === 'small' && 'martis-datatable-sm',
+    size === 'large' && 'martis-datatable-lg',
+    !rowHover && 'martis-datatable-no-hover',
+  ].filter(Boolean).join(' ')
 
   return (
     <DataTable
@@ -86,7 +110,7 @@ function DefaultTable({
           {t('no_records')}
         </div>
       }
-      className="w-full martis-datatable martis-datatable-striped"
+      className={classNames}
       tableClassName="min-w-full"
     >
       {selectable && (

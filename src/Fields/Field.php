@@ -46,6 +46,9 @@ abstract class Field implements FieldContract
     /** @var callable|null */
     protected mixed $fillCallback = null;
 
+    /** @var callable|null */
+    protected mixed $displayCallback = null;
+
     /** @var list<string> */
     protected array $extraRules = [];
 
@@ -397,6 +400,39 @@ abstract class Field implements FieldContract
         $this->fillCallback = $callback;
 
         return $this;
+    }
+
+    /**
+     * Customize how the field value is formatted for display (index + detail).
+     *
+     * Applied AFTER resolveUsing(). Does NOT affect form values.
+     * Equivalent to Laravel Nova's displayUsing().
+     *
+     * @param  callable(mixed $value, Model $model, string $attribute): mixed  $callback
+     */
+    public function displayUsing(callable $callback): static
+    {
+        $this->displayCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the field value for display contexts (index / detail).
+     *
+     * Applies resolveUsing() first, then displayUsing() on top.
+     * Use this in serialization instead of resolve() when building
+     * index or detail responses.
+     */
+    public function resolveForDisplay(Model $model, ?string $attribute = null): mixed
+    {
+        $value = $this->resolve($model, $attribute);
+
+        if ($this->displayCallback !== null) {
+            return ($this->displayCallback)($value, $model, $attribute ?? $this->attribute);
+        }
+
+        return $value;
     }
 
     // -------------------------------------------------------------------------

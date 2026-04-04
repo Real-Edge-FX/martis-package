@@ -105,6 +105,10 @@ export interface ResourceSchema extends ResourceEmbedded {
   perPageOptions?: number[]
   perPage?: number
   searchPlaceholder?: string | null
+  tableStriped?: boolean
+  tableShowGridlines?: boolean
+  tableSize?: 'normal' | 'small' | 'large'
+  tableRowHover?: boolean
 }
 
 export interface ResourceRecord {

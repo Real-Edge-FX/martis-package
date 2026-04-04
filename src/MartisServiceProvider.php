@@ -8,6 +8,7 @@ use Martis\Console\ComponentMakeCommand;
 use Martis\Console\FieldMakeCommand;
 use Martis\Console\InstallCommand;
 use Martis\Console\ResourceMakeCommand;
+use Martis\Console\ThemeMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -42,6 +43,7 @@ class MartisServiceProvider extends ServiceProvider
                 FieldMakeCommand::class,
                 UserCommand::class,
                 ComponentMakeCommand::class,
+                ThemeMakeCommand::class,
             ]);
 
             $this->publishes([
