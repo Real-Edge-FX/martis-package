@@ -49,17 +49,14 @@ abstract class Field implements FieldContract
     /** @var list<string> */
     protected array $extraRules = [];
 
-    /** Table name for unique validation (set via unique()). */
-    protected ?string $uniqueTable = null;
-
-    /** Column for unique validation (defaults to attribute). */
-    protected ?string $uniqueColumn = null;
-
-    /** ID to ignore for unique validation on updates. */
-    protected int|string|null $uniqueIgnoreId = null;
+    /** Unique validation config: [table, column]. */
+    protected ?array $uniqueConfig = null;
 
     /** Custom error message for unique validation. */
     protected ?string $uniqueMessage = null;
+
+    /** ID to ignore for unique validation on updates. */
+    protected int|string|null $uniqueIgnoreId = null;
 
     /**
      * Custom component key for the React renderer.
@@ -293,22 +290,12 @@ abstract class Field implements FieldContract
     /**
      * Mark this field as unique in the database.
      *
-     * @param  string|null  $table   Table name (auto-detected from resource model if null)
-     * @param  string|null  $column  Column name (defaults to field attribute)
+     * @param  array{0: string, 1?: string}  $config   [table] or [table, column]
+     * @param  string|null  $message  Custom error message for unique violation
      */
-    public function unique(?string $table = null, ?string $column = null): static
+    public function unique(array $config, ?string $message = null): static
     {
-        $this->uniqueTable = $table;
-        $this->uniqueColumn = $column;
-
-        return $this;
-    }
-
-    /**
-     * Set a custom error message for unique validation.
-     */
-    public function uniqueMessage(string $message): static
-    {
+        $this->uniqueConfig = $config;
         $this->uniqueMessage = $message;
 
         return $this;
@@ -322,7 +309,7 @@ abstract class Field implements FieldContract
     public function validationMessages(): array
     {
         $messages = [];
-        if ($this->uniqueMessage !== null && ($this->uniqueTable !== null || $this->uniqueColumn !== null)) {
+        if ($this->uniqueMessage !== null && $this->uniqueConfig !== null) {
             $messages[$this->attribute . '.unique'] = $this->uniqueMessage;
         }
         return $messages;
@@ -354,9 +341,9 @@ abstract class Field implements FieldContract
         }
 
         // Auto-add unique rule if unique() was called
-        if ($this->uniqueTable !== null || $this->uniqueColumn !== null) {
-            $table = $this->uniqueTable ?? '';
-            $column = $this->uniqueColumn ?? $this->attribute;
+        if ($this->uniqueConfig !== null) {
+            $table = $this->uniqueConfig[0];
+            $column = $this->uniqueConfig[1] ?? $this->attribute;
             $rule = "unique:{$table},{$column}";
             if ($this->uniqueIgnoreId !== null) {
                 $rule .= ",{$this->uniqueIgnoreId}";
