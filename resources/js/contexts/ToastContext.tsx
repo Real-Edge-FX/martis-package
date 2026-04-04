@@ -33,7 +33,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         severity: severityMap[type] ?? "info",
         summary: type.charAt(0).toUpperCase() + type.slice(1),
         detail: message,
-        life: 4000,
+        life: 5000,
+        sticky: false,
+        closable: true,
       })
     },
     [],

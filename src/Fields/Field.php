@@ -49,6 +49,15 @@ abstract class Field implements FieldContract
     /** @var list<string> */
     protected array $extraRules = [];
 
+    /** Table name for unique validation (set via unique()). */
+    protected ?string $uniqueTable = null;
+
+    /** Column for unique validation (defaults to attribute). */
+    protected ?string $uniqueColumn = null;
+
+    /** ID to ignore for unique validation on updates. */
+    protected int|string|null $uniqueIgnoreId = null;
+
     /**
      * Custom component key for the React renderer.
      * When set, the frontend resolves this exact key from the component registry
@@ -279,6 +288,28 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * Mark this field as unique in the database.
+     *
+     * @param  string|null  $table   Table name (auto-detected from resource model if null)
+     * @param  string|null  $column  Column name (defaults to field attribute)
+     */
+    public function unique(?string $table = null, ?string $column = null): static
+    {
+        $this->uniqueTable = $table;
+        $this->uniqueColumn = $column;
+
+        return $this;
+    }
+
+    /**
+     * Set the ID to ignore for unique validation (used on updates).
+     */
+    public function setUniqueIgnoreId(int|string|null $id): void
+    {
+        $this->uniqueIgnoreId = $id;
+    }
+
+    /**
      * Build the full list of validation rules for this field.
      *
      * @return list<string>
@@ -293,6 +324,17 @@ abstract class Field implements FieldContract
             $rules[] = 'nullable';
         } else {
             $rules[] = 'sometimes';
+        }
+
+        // Auto-add unique rule if unique() was called
+        if ($this->uniqueTable !== null || $this->uniqueColumn !== null) {
+            $table = $this->uniqueTable ?? '';
+            $column = $this->uniqueColumn ?? $this->attribute;
+            $rule = "unique:{$table},{$column}";
+            if ($this->uniqueIgnoreId !== null) {
+                $rule .= ",{$this->uniqueIgnoreId}";
+            }
+            $rules[] = $rule;
         }
 
         return array_merge($rules, $this->extraRules);
