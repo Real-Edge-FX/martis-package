@@ -101,10 +101,10 @@ it('GET /martis/api/auth/user returns authenticated user as JSON', function () {
         ->assertJsonFragment(['id' => $user->id, 'email' => 'user@example.com']);
 });
 
-it('GET /martis/api/auth/user returns 401 when unauthenticated', function () {
+it('GET /martis/api/auth/user returns null when unauthenticated', function () {
     $response = $this->getJson('/martis/api/auth/user');
 
-    $response->assertStatus(401);
+    $response->assertStatus(200)->assertContent('{}');
 });
 
 it('POST /martis/api/auth/logout logs out the user', function () {

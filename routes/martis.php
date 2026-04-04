@@ -25,6 +25,8 @@ Route::middleware(config('martis.middleware', ['web']))
         // Translations — public, loaded before login
         Route::get('/api/translations/{locale}', [TranslationsController::class, 'show'])
             ->name('api.translations.show');
+        // Auth user check — public so login page can check session without 401
+        Route::get('/api/auth/user', [AuthController::class, 'user'])->name('api.auth.user');
 
         // Protected routes — require martis.auth middleware
         Route::middleware(config('martis.auth_middleware', ['martis.auth']))
@@ -34,8 +36,6 @@ Route::middleware(config('martis.middleware', ['web']))
                     ->name('api.')
                     ->middleware(config('martis.api_middleware', ['throttle:60,1']))
                     ->group(function () {
-                        // Auth
-                        Route::get('/auth/user', [AuthController::class, 'user'])->name('auth.user');
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
 
                         // Resource CRUD
