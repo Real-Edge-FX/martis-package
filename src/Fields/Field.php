@@ -49,7 +49,11 @@ abstract class Field implements FieldContract
     /** @var list<string> */
     protected array $extraRules = [];
 
-    /** Unique validation config: [table, column]. */
+    /**
+     * Unique validation config: [table] or [table, column].
+     *
+     * @var array{0: string, 1?: string}|null
+     */
     protected ?array $uniqueConfig = null;
 
     /** Custom error message for unique validation. */
@@ -290,7 +294,7 @@ abstract class Field implements FieldContract
     /**
      * Mark this field as unique in the database.
      *
-     * @param  array{0: string, 1?: string}  $config   [table] or [table, column]
+     * @param  array{0: string, 1?: string}  $config  [table] or [table, column]
      * @param  string|null  $message  Custom error message for unique violation
      */
     public function unique(array $config, ?string $message = null): static
@@ -310,8 +314,9 @@ abstract class Field implements FieldContract
     {
         $messages = [];
         if ($this->uniqueMessage !== null && $this->uniqueConfig !== null) {
-            $messages[$this->attribute . '.unique'] = $this->uniqueMessage;
+            $messages[$this->attribute.'.unique'] = $this->uniqueMessage;
         }
+
         return $messages;
     }
 

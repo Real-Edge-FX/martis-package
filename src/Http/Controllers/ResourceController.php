@@ -3,7 +3,6 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\QueryException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -554,6 +553,7 @@ class ResourceController extends MartisController
 
         if ($validator->fails()) {
             $msg = $validationMessage ?? 'The given data was invalid.';
+
             return JsonErrorResponse::validation($validator->errors()->toArray(), $msg)->toResponse();
         }
 
@@ -578,34 +578,5 @@ class ResourceController extends MartisController
         $data['_resource'] = $resource->toArray();
 
         return $data;
-    }
-
-    /**
-     * Convert a QueryException into a user-friendly validation error.
-     * Never exposes raw SQL, connection details, or internal structure.
-     */
-    private function handleQueryException(QueryException $e): JsonErrorResponse
-    {
-        // Duplicate entry (MySQL 1062, PostgreSQL 23505, SQLite 19/2067)
-        $code = (int) $e->errorInfo[1];
-        if (in_array($code, [1062, 23505, 19, 2067], true)) {
-            // Try to extract the field name from the key constraint name
-            $message = 'A record with this value already exists.';
-            if (preg_match("/for key '(?:[^.]*\.)?([^']+)'/", $e->getMessage(), $m)) {
-                $key = $m[1];
-                // Convert constraint name like "users_email_unique" to field "email"
-                $parts = explode('_', $key);
-                if (count($parts) >= 3 && end($parts) === 'unique') {
-                    array_pop($parts);   // remove "unique"
-                    array_shift($parts); // remove table name
-                    $field = implode('_', $parts);
-                    return JsonErrorResponse::validation([$field => ["This {$field} is already taken."]]);
-                }
-            }
-            return JsonErrorResponse::validation(['_global' => [$message]]);
-        }
-
-        // Any other DB error — return generic message, never leak SQL
-        return JsonErrorResponse::serverError('An error occurred while saving. Please try again.');
     }
 }

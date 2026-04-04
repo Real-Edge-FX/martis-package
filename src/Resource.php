@@ -364,6 +364,7 @@ abstract class Resource implements ResourceContract
     public static function validationMessage(): string
     {
         $msg = __('martis::messages.validation_failed');
+
         return is_string($msg) ? $msg : 'The given data was invalid.';
     }
 
