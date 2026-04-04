@@ -113,6 +113,15 @@ abstract class Resource implements ResourceContract
      * When titleAttribute is 'id' (default), returns "{SingularLabel} #{id}"
      * so the frontend displays a meaningful label instead of just a number.
      */
+    /**
+     * Whether to show the search bar on the resource index page.
+     * Override to return false to hide the search bar.
+     */
+    public static function indexSearchable(): bool
+    {
+        return true;
+    }
+
     public function title(): string
     {
         if ($this->model === null) {

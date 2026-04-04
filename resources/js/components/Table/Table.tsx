@@ -84,7 +84,7 @@ function DefaultTable({
           {t('no_records')}
         </div>
       }
-      className="w-full"
+      className="w-full martis-datatable martis-datatable-striped"
       tableClassName="min-w-full"
     >
       <Column selectionMode="multiple" headerStyle={{ width: '2.5rem' }} />

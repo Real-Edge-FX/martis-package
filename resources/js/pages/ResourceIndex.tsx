@@ -148,29 +148,31 @@ export function ResourceIndexPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <input
-            type="search"
-            placeholder={t('search', { label: schema.label.toLowerCase() })}
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="block w-full rounded-md py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-1"
-            style={{
-              backgroundColor: 'var(--martis-input-bg)',
-              border: '1px solid var(--martis-border)',
-              color: 'var(--martis-text)',
-            }}
-          />
-          <span className="absolute inset-y-0 left-3 flex items-center">
-            <MagnifyingGlass size={14} className="martis-text-muted" />
-          </span>
+      {/* Search — configurable via Resource::indexSearchable() */}
+      {(schema as unknown as Record<string, unknown>).indexSearchable !== false && (
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <input
+              type="search"
+              placeholder={t('search', { label: schema.label.toLowerCase() })}
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-1"
+              style={{
+                backgroundColor: 'var(--martis-input-bg)',
+                border: '1px solid var(--martis-border)',
+                color: 'var(--martis-text)',
+              }}
+            />
+            <span className="absolute inset-y-0 left-3 flex items-center">
+              <MagnifyingGlass size={14} className="martis-text-muted" />
+            </span>
+          </div>
+          {indexQuery.isFetching && (
+            <span className="text-xs martis-text-muted">{tMsg('loading')}</span>
+          )}
         </div>
-        {indexQuery.isFetching && (
-          <span className="text-xs martis-text-muted">{tMsg('loading')}</span>
-        )}
-      </div>
+      )}
 
       {/* Table */}
       <Table

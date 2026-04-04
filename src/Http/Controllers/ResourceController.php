@@ -369,6 +369,7 @@ class ResourceController extends MartisController
             'group' => $instance->group(),
             'icon' => $instance->icon(),
             'titleAttribute' => $resourceClass::titleAttribute(),
+            'indexSearchable' => $resourceClass::indexSearchable(),
             'fields' => $fieldData,
             'messages' => [
                 'created' => $resourceClass::createdMessage(),

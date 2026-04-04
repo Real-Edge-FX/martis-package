@@ -795,3 +795,84 @@ html:not(.dark) .martis-dropzone {
   font-size: 0.875rem;
   color: var(--martis-text-muted);
 }
+
+
+/* Resource search input placeholder */
+.martis-resource-search::placeholder {
+  color: var(--martis-text-muted);
+  opacity: 0.7;
+}
+
+/* DataTable — improved styling */
+.martis-datatable {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-card);
+}
+
+.martis-datatable table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.martis-datatable thead th {
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--martis-text-muted);
+  background-color: var(--martis-surface);
+  border-bottom: 1px solid var(--martis-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.martis-datatable tbody tr {
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--martis-border);
+}
+
+.martis-datatable tbody tr:last-child {
+  border-bottom: none;
+}
+
+.martis-datatable tbody tr:hover {
+  background-color: var(--martis-hover);
+  cursor: pointer;
+}
+
+/* Striped rows */
+.martis-datatable-striped tbody tr:nth-child(even) {
+  background-color: var(--martis-surface);
+}
+
+.martis-datatable-striped tbody tr:nth-child(even):hover {
+  background-color: var(--martis-hover);
+}
+
+.martis-datatable tbody td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+  vertical-align: middle;
+}
+
+/* Checkbox column */
+.martis-datatable th:first-child,
+.martis-datatable td:first-child {
+  width: 3rem;
+  text-align: center;
+}
+
+/* Sort icon */
+.martis-datatable .martis-sort-icon {
+  display: inline-flex;
+  margin-left: 0.25rem;
+  opacity: 0.4;
+}
+
+.martis-datatable th:hover .martis-sort-icon {
+  opacity: 0.8;
+}
