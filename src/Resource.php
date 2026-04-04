@@ -296,6 +296,26 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Confirmation message shown before deleting a record.
+     */
+    public static function deleteConfirmMessage(): string
+    {
+        $msg = __('martis::messages.delete_confirm');
+
+        return is_string($msg) ? $msg : 'This action is permanent and cannot be undone. Are you sure?';
+    }
+
+    /**
+     * Confirmation message shown before archiving (soft-deleting) a record.
+     */
+    public static function archiveConfirmMessage(): string
+    {
+        $msg = __('martis::messages.archive_confirm');
+
+        return is_string($msg) ? $msg : 'This record will be archived. You can restore it later.';
+    }
+
+    /**
      * Serialize resource metadata (not field data) to array.
      *
      * @return array<string, mixed>

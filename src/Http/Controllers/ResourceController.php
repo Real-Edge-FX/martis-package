@@ -341,6 +341,14 @@ class ResourceController extends MartisController
             'softDeletes' => $resourceClass::softDeletes(),
             'group' => $instance->group(),
             'fields' => $fieldData,
+            'messages' => [
+                'created' => $resourceClass::createdMessage(),
+                'updated' => $resourceClass::updatedMessage(),
+                'deleted' => $resourceClass::deletedMessage(),
+                'restored' => $resourceClass::restoredMessage(),
+                'deleteConfirm' => $resourceClass::deleteConfirmMessage(),
+                'archiveConfirm' => $resourceClass::archiveConfirmMessage(),
+            ],
         ]);
 
         return JsonResponse::make($data)->toResponse();

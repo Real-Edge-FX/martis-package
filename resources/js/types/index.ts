@@ -88,8 +88,18 @@ export interface ResourceEmbedded {
   group: string | null
 }
 
+export interface ResourceMessages {
+  created: string
+  updated: string
+  deleted: string
+  restored: string
+  deleteConfirm: string
+  archiveConfirm: string
+}
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
+  messages?: ResourceMessages
 }
 
 export interface ResourceRecord {

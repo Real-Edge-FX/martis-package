@@ -136,6 +136,7 @@ export function ResourceDetailPage() {
         isSoftDelete={schema.softDeletes}
         onConfirm={async () => { await deleteMutation.mutateAsync(); }}
         onCancel={() => setShowDelete(false)}
+        confirmMessage={schema.softDeletes ? schema.messages?.archiveConfirm : schema.messages?.deleteConfirm}
       />
     </div>
   )

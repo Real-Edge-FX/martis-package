@@ -64,10 +64,10 @@ export function ResourceIndexPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string | number) => api.delete(`/api/resources/${resource}/${id}`),
-    onSuccess: () => {
+    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
+    onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
-      addToast('success', tMsg('record_deleted'))
+      addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setDeleteTarget(null)
     },
     onError: () => {
@@ -207,6 +207,7 @@ export function ResourceIndexPage() {
           if (deleteTarget) await deleteMutation.mutateAsync(deleteTarget.id)
         }}
         onCancel={() => setDeleteTarget(null)}
+        confirmMessage={isSoftDelete ? schema.messages?.archiveConfirm : schema.messages?.deleteConfirm}
       />
     </div>
   )

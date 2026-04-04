@@ -10,6 +10,7 @@ export interface DeleteModalProps {
   isSoftDelete: boolean
   onConfirm: () => Promise<void>
   onCancel: () => void
+  confirmMessage?: string
 }
 
 function DefaultDeleteModal({
@@ -18,6 +19,7 @@ function DefaultDeleteModal({
   isSoftDelete,
   onConfirm,
   onCancel,
+  confirmMessage,
 }: DeleteModalProps) {
   const [loading, setLoading] = useState(false)
   const { t: tAct } = useTranslation('actions')
@@ -92,7 +94,7 @@ function DefaultDeleteModal({
       appendTo="self"
     >
       <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-        {isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm')}
+        {confirmMessage ?? (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))}
       </p>
     </Dialog>
   )
