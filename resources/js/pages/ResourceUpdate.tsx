@@ -47,7 +47,11 @@ export function ResourceUpdatePage() {
     if (record && schema && !initialized) {
       const initial: Record<string, unknown> = {}
       formFields.forEach((field) => {
-        initial[field.attribute] = record[field.attribute] ?? null
+        const val = record[field.attribute] ?? null
+        // BelongsTo fields return {id, title} from the API — keep the full
+        // object so the dropdown can display the label, and let the
+        // BelongsToFieldInput component extract the ID internally.
+        initial[field.attribute] = val
       })
       setValues(initial)
       setInitialized(true)
@@ -97,8 +101,17 @@ export function ResourceUpdatePage() {
     // Filter values: skip file/image fields that haven't changed (still object from API)
     const submitValues: Record<string, unknown> = {}
     for (const [key, val] of Object.entries(values)) {
-      // If val is a plain object with 'url' (existing file value), skip it — no change
-      if (val !== null && typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
+      if (val === null || val === undefined) {
+        submitValues[key] = val
+        continue
+      }
+      // Skip File objects that are still existing server values (have 'url')
+      if (typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
+        continue
+      }
+      // BelongsTo: if value is still the original {id, title} object, extract just the ID
+      if (typeof val === 'object' && !(val instanceof File) && 'id' in (val as Record<string, unknown>) && 'title' in (val as Record<string, unknown>)) {
+        submitValues[key] = (val as Record<string, unknown>).id
         continue
       }
       submitValues[key] = val

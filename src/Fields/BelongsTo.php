@@ -16,9 +16,6 @@ use Illuminate\Support\Str;
  * but resolves via the relationship method (e.g. `author`) so it can
  * display a human-readable label instead of a bare integer.
  *
- * Track C hook: override `resolveOptions()` in a subclass to supply paginated
- * options from a custom source (e.g. MorphTo, remote API).
- *
  * @phpstan-consistent-constructor
  */
 class BelongsTo extends Field
@@ -30,6 +27,12 @@ class BelongsTo extends Field
     protected string $foreignKey;
 
     protected ?string $relatedUriKey = null;
+
+    /**
+     * Whether the dropdown should support text search.
+     * Defaults to true — set to false via ->relationSearchable(false).
+     */
+    protected bool $relationSearchable = true;
 
     /**
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
@@ -106,6 +109,17 @@ class BelongsTo extends Field
     }
 
     /**
+     * Configure whether the dropdown supports text search.
+     * Defaults to true.
+     */
+    public function relationSearchable(bool $value = true): static
+    {
+        $this->relationSearchable = $value;
+
+        return $this;
+    }
+
+    /**
      * Resolve the field value: returns the foreign key value AND the display title.
      *
      * Returns an array so the frontend has both the stored ID and human label:
@@ -156,6 +170,12 @@ class BelongsTo extends Field
 
         // Accept either a raw ID or an array with 'id' key
         $id = is_array($value) ? ($value['id'] ?? null) : $value;
+
+        // Convert empty strings to null (from FormData serialization)
+        if ($id === '' || $id === 'null') {
+            $id = null;
+        }
+
         $model->setAttribute($this->foreignKey, $id);
     }
 
@@ -168,7 +188,9 @@ class BelongsTo extends Field
             'relationship' => $this->relationship,
             'foreignKey' => $this->foreignKey,
             'titleAttribute' => $this->titleAttribute,
-            'relatedUriKey' => $this->relatedUriKey,
+            'relatedResource' => $this->relatedUriKey,
+            'relatedLabel' => $this->relatedUriKey ? Str::title(str_replace('_', ' ', $this->relationship)) : null,
+            'relationSearchable' => $this->relationSearchable,
         ], fn (mixed $v): bool => $v !== null);
     }
 }

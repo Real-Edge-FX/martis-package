@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useRef, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { File as FileIcon, DownloadSimple, Trash, UploadSimple, Plus } from '@phosphor-icons/react'
+import { useToastSafe } from "@/contexts/ToastContext"
 
 interface FileValue {
   path: string
@@ -72,6 +73,8 @@ export function FileFieldDisplay({ value, field }: FieldDisplayProps) {
 function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const { addToast } = useToastSafe()
+  const { t: tMsg } = useTranslation("messages")
 
   const currentFile = value instanceof window.File ? value : null
   const existingFile = isFileValue(value) ? value : null
@@ -84,8 +87,20 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
     ? acceptedTypes.map((t) => `.${t}`).join(',')
     : undefined
 
+  function formatSize(kb: number): string {
+    return kb >= 1024 ? `${(kb / 1024).toFixed(0)} MB` : `${kb} KB`
+  }
+
   function handleFile(file: globalThis.File) {
+    if (acceptedTypes && acceptedTypes.length > 0) {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+      if (!acceptedTypes.includes(ext)) {
+        addToast('error', tMsg('file_type_not_allowed', `File type .${ext} is not allowed. Accepted: ${acceptedTypes.join(', ')}`))
+        return
+      }
+    }
     if (maxSize && file.size > maxSize * 1024) {
+      addToast('error', tMsg('file_too_large', `File "${file.name}" exceeds the maximum size of ${formatSize(maxSize)}.`))
       return
     }
     onChange(file)
@@ -157,7 +172,12 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
 
       {maxSize && (
         <span className="text-xs martis-text-muted">
-          Max: {maxSize >= 1024 ? `${(maxSize / 1024).toFixed(0)} MB` : `${maxSize} KB`}
+          Max: {formatSize(maxSize)}
+        </span>
+      )}
+      {acceptedTypes && acceptedTypes.length > 0 && (
+        <span className="text-xs martis-text-muted">
+          Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
         </span>
       )}
       {error && <small className="text-red-500">{error}</small>}
@@ -178,8 +198,10 @@ interface MultiFileItem {
 
 function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
   const { t: tRes } = useTranslation("resources")
+  const { t: tMsg } = useTranslation("messages")
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const { addToast } = useToastSafe()
 
   const acceptedTypes = (field as unknown as Record<string, unknown>).acceptedTypes as string[] | undefined
   const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
@@ -187,6 +209,10 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
   const accept = acceptedTypes?.length
     ? acceptedTypes.map((t) => `.${t}`).join(',')
     : undefined
+
+  function formatSize(kb: number): string {
+    return kb >= 1024 ? `${(kb / 1024).toFixed(0)} MB` : `${kb} KB`
+  }
 
   // Parse current value into items
   const items: MultiFileItem[] = (() => {
@@ -208,7 +234,17 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
   function handleFiles(files: FileList | globalThis.File[]) {
     const newItems = [...items]
     for (const file of Array.from(files)) {
-      if (maxSize && file.size > maxSize * 1024) continue
+      if (acceptedTypes && acceptedTypes.length > 0) {
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+        if (!acceptedTypes.includes(ext)) {
+          addToast('error', tMsg('file_type_not_allowed', `File type .${ext} is not allowed. Accepted: ${acceptedTypes.join(', ')}`))
+          continue
+        }
+      }
+      if (maxSize && file.size > maxSize * 1024) {
+        addToast('error', tMsg('file_too_large', `File "${file.name}" exceeds the maximum size of ${formatSize(maxSize)}.`))
+        continue
+      }
       newItems.push({ id: `new-${Date.now()}-${Math.random()}`, file })
     }
     emitChange(newItems)
@@ -306,7 +342,12 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
 
       {maxSize && (
         <span className="text-xs martis-text-muted">
-          Max per file: {maxSize >= 1024 ? `${(maxSize / 1024).toFixed(0)} MB` : `${maxSize} KB`}
+          Max per file: {formatSize(maxSize)}
+        </span>
+      )}
+      {acceptedTypes && acceptedTypes.length > 0 && (
+        <span className="text-xs martis-text-muted">
+          Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
         </span>
       )}
       {error && <small className="text-red-500">{error}</small>}

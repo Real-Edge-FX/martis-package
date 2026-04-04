@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useRef, useMemo, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Image as ImageIcon, Plus, Trash } from '@phosphor-icons/react'
+import { useToastSafe } from "@/contexts/ToastContext"
 
 interface ImageValue {
   path: string
@@ -66,6 +67,8 @@ export function ImageFieldDisplay({ value, field }: FieldDisplayProps) {
 function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const { addToast } = useToastSafe()
+  const { t: tMsg } = useTranslation("messages")
 
   const currentFile = value instanceof window.File ? value : null
   const existingImage = isImageValue(value) ? value : null
@@ -79,9 +82,19 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
     return null
   }, [currentFile, existingImage])
 
+  function formatSize(kb: number): string {
+    return kb >= 1024 ? `${(kb / 1024).toFixed(0)} MB` : `${kb} KB`
+  }
+
   function handleFile(file: globalThis.File) {
-    if (!file.type.startsWith('image/')) return
-    if (maxSize && file.size > maxSize * 1024) return
+    if (!file.type.startsWith('image/')) {
+      addToast('error', tMsg('file_not_image', `"${file.name}" is not a valid image file.`))
+      return
+    }
+    if (maxSize && file.size > maxSize * 1024) {
+      addToast('error', tMsg('file_too_large', `File "${file.name}" exceeds the maximum size of ${formatSize(maxSize)}.`))
+      return
+    }
     onChange(file)
   }
 
@@ -170,7 +183,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
 
       {maxSize && (
         <span className="text-xs martis-text-muted">
-          Max: {maxSize >= 1024 ? `${(maxSize / 1024).toFixed(0)} MB` : `${maxSize} KB`}
+          Max: {formatSize(maxSize)}
         </span>
       )}
       {error && <small className="text-red-500">{error}</small>}
@@ -192,10 +205,16 @@ interface MultiImageItem {
 
 function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) {
   const { t: tRes } = useTranslation("resources")
+  const { t: tMsg } = useTranslation("messages")
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const { addToast } = useToastSafe()
 
   const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
+
+  function formatSize(kb: number): string {
+    return kb >= 1024 ? `${(kb / 1024).toFixed(0)} MB` : `${kb} KB`
+  }
 
   // Parse current value into items
   const items: MultiImageItem[] = useMemo(() => {
@@ -220,8 +239,14 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
   function handleFiles(files: FileList | globalThis.File[]) {
     const newItems = [...items]
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) continue
-      if (maxSize && file.size > maxSize * 1024) continue
+      if (!file.type.startsWith('image/')) {
+        addToast('error', tMsg('file_not_image', `"${file.name}" is not a valid image file.`))
+        continue
+      }
+      if (maxSize && file.size > maxSize * 1024) {
+        addToast('error', tMsg('file_too_large', `File "${file.name}" exceeds the maximum size of ${formatSize(maxSize)}.`))
+        continue
+      }
       newItems.push({
         id: `new-${Date.now()}-${Math.random()}`,
         file,
@@ -309,7 +334,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
 
       {maxSize && (
         <span className="text-xs martis-text-muted">
-          Max per image: {maxSize >= 1024 ? `${(maxSize / 1024).toFixed(0)} MB` : `${maxSize} KB`}
+          Max per image: {formatSize(maxSize)}
         </span>
       )}
       {error && <small className="text-red-500">{error}</small>}

@@ -291,7 +291,7 @@ it('BelongsTo titleAttribute and relatedResource appear in toArray', function ()
     $arr = $field->toArray();
 
     expect($arr['titleAttribute'])->toBe('full_name')
-        ->and($arr['relatedUriKey'])->toBe('users');
+        ->and($arr['relatedResource'])->toBe('users');
 });
 
 // ---------------------------------------------------------------------------

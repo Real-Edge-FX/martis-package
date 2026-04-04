@@ -56,3 +56,18 @@ export function useToast() {
   if (!ctx) throw new Error("useToast must be used within ToastProvider")
   return ctx
 }
+
+/** No-op fallback for field components rendered outside ToastProvider (e.g. tests). */
+const noopToast: ToastContextValue = {
+  addToast: () => {},
+  toastRef: { current: null },
+}
+
+/**
+ * Safe variant of useToast that returns a no-op when used outside ToastProvider.
+ * Use this in field components that need toast but must also work in tests.
+ */
+export function useToastSafe(): ToastContextValue {
+  const ctx = useContext(ToastContext)
+  return ctx ?? noopToast
+}
