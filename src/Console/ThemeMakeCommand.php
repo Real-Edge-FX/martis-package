@@ -16,12 +16,12 @@ class ThemeMakeCommand extends Command
         $name = $this->argument('name') ?? 'custom';
         $name = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]/', '-', $name));
 
+        // 1. Create source CSS in resources/
         $dir = resource_path('css/martis');
         $path = $dir.'/'.$name.'.css';
 
         if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
-            $this->components->info('Created directory: resources/css/martis/');
         }
 
         if (file_exists($path) && ! $this->confirm("Theme '{$name}.css' already exists. Overwrite?")) {
@@ -33,17 +33,54 @@ class ThemeMakeCommand extends Command
         file_put_contents($path, $this->themeStub($name));
         $this->components->info("Theme created: resources/css/martis/{$name}.css");
 
-        $this->components->twoColumnDetail('<fg=green>Next steps</>');
+        // 2. Publish to public/vendor/martis/themes/
+        $publicDir = public_path('vendor/martis/themes');
+        if (! is_dir($publicDir)) {
+            mkdir($publicDir, 0755, true);
+        }
+        copy($path, $publicDir.'/'.$name.'.css');
+        $this->components->info("Published to: public/vendor/martis/themes/{$name}.css");
+
+        // 3. Update config/martis.php theme.name
+        $configPath = config_path('martis.php');
+        if (file_exists($configPath)) {
+            $configContent = file_get_contents($configPath);
+
+            if ($configContent === false) {
+                return self::SUCCESS;
+            }
+
+            if (str_contains($configContent, "'name' =>")) {
+                // Update existing name value
+                $configContent = (string) preg_replace(
+                    "/('name'\s*=>\s*)(env\([^)]+\)|'[^']*'|null)/",
+                    "'{$name}'",
+                    $configContent,
+                    1 // only first occurrence within theme block
+                );
+            } else {
+                // Add name key after allowToggle line
+                $configContent = (string) preg_replace(
+                    "/(\s*'allowToggle'\s*=>.*?,)/",
+                    "\n        'name' => '{$name}',",
+                    $configContent
+                );
+            }
+
+            file_put_contents($configPath, (string) $configContent);
+            $this->components->info("Config updated: config/martis.php theme.name = '{$name}'");
+        }
+
+        $this->newLine();
+        $this->components->twoColumnDetail('<fg=green>Done</>');
         $this->newLine();
         $this->line('  1. Edit the CSS variables in <comment>resources/css/martis/'.$name.'.css</comment>');
-        $this->line('  2. Import it in your app CSS <comment>after</comment> the Martis styles:');
+        $this->line('  2. Re-publish: <comment>php artisan martis:theme '.$name.'</comment> (copies to public)');
+        $this->line('  3. Or change theme in <comment>config/martis.php</comment>:');
         $this->newLine();
-        $this->line("     <comment>@import 'martis/resources/css/martis.css';</comment>");
-        $this->line("     <comment>@import './css/martis/{$name}.css';</comment>");
+        $this->line("     <comment>'theme' => ['name' => '{$name}']</comment>");
         $this->newLine();
-        $this->line('  3. Or set the theme in <comment>config/martis.php</comment>:');
-        $this->newLine();
-        $this->line("     <comment>'theme' => '{$name}',</comment>");
+        $this->line('  The theme is loaded automatically — no CSS imports needed.');
         $this->newLine();
 
         return self::SUCCESS;
@@ -56,7 +93,8 @@ class ThemeMakeCommand extends Command
  * Martis Theme: {$name}
  *
  * Override the default Martis CSS variables for both dark and light modes.
- * Import this file AFTER martis.css in your app's CSS pipeline.
+ * After editing, re-run: php artisan martis:theme {$name}
+ * This publishes the updated file to public/ automatically.
  *
  * All Martis components use these variables, so changing a value here
  * will propagate across the entire admin panel automatically.

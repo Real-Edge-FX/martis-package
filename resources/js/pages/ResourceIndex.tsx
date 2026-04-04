@@ -9,6 +9,7 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass } from '@phosphor-icons/react'
+import { ResourceIcon } from '@/components/ResourceIcon'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -145,7 +146,10 @@ export function ResourceIndexPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold martis-text">{schema.label}</h1>
+          <h1 className="text-2xl font-bold martis-text flex items-center gap-2">
+            <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={24} />
+            {schema.label}
+          </h1>
         </div>
         <button
           type="button"

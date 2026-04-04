@@ -26,6 +26,9 @@
             else document.documentElement.classList.remove('dark');
         })();
     </script>
+    @if(config('martis.theme.name'))
+        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . config('martis.theme.name') . '.css') }}">
+    @endif
     @vite(['resources/js/app.tsx'], 'vendor/martis')
 </head>
 <body>

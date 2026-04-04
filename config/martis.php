@@ -87,6 +87,7 @@ return [
     'theme' => [
         'default' => env('MARTIS_THEME', 'dark'),
         'allowToggle' => true,
+        'name' => env('MARTIS_THEME_NAME', null),
     ],
 
     /*
