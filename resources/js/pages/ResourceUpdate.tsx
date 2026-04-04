@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, ApiError } from '@/lib/api'
+import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { ResourceRecord, ResourceSchema } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
@@ -53,8 +53,12 @@ export function ResourceUpdatePage() {
   }, [record, schema, formFields, initialized])
 
   const updateMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
-      api.put<{ data: ResourceRecord; meta?: { message?: string } }>(`/api/resources/${resource}/${id}`, data),
+    mutationFn: (data: Record<string, unknown>) => {
+      if (hasFileValues(data)) {
+        return api.upload<{ data: ResourceRecord; meta?: { message?: string } }>('PUT', `/api/resources/${resource}/${id}`, data)
+      }
+      return api.put<{ data: ResourceRecord; meta?: { message?: string } }>(`/api/resources/${resource}/${id}`, data)
+    },
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
@@ -82,7 +86,16 @@ export function ResourceUpdatePage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
-    updateMutation.mutate(values)
+    // Filter values: skip file/image fields that haven't changed (still object from API)
+    const submitValues: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(values)) {
+      // If val is a plain object with 'url' (existing file value), skip it — no change
+      if (val !== null && typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
+        continue
+      }
+      submitValues[key] = val
+    }
+    updateMutation.mutate(submitValues)
   }
 
   if (schemaQuery.isLoading || recordQuery.isLoading) return <FormSkeleton />

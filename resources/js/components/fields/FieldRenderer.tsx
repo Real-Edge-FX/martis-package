@@ -9,6 +9,8 @@ import { BooleanFieldDisplay, BooleanFieldInput } from './BooleanField'
 import { SelectFieldDisplay, SelectFieldInput } from './SelectField'
 import { DateFieldDisplay, DateFieldInput } from './DateField'
 import { BelongsToFieldDisplay, BelongsToFieldInput } from './BelongsToField'
+import { FileFieldDisplay, FileFieldInput } from './FileField'
+import { ImageFieldDisplay, ImageFieldInput } from './ImageField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -22,6 +24,8 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   select: SelectFieldDisplay,
   date: DateFieldDisplay,
   belongs_to: BelongsToFieldDisplay,
+  file: FileFieldDisplay,
+  image: ImageFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -36,6 +40,8 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   select: SelectFieldInput,
   date: DateFieldInput,
   belongs_to: BelongsToFieldInput,
+  file: FileFieldInput,
+  image: ImageFieldInput,
 }
 
 // -------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, ApiError } from '@/lib/api'
+import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { ResourceSchema } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
@@ -31,8 +31,12 @@ export function ResourceCreatePage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const createMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
-      api.post<{ data: { id: string | number }; meta?: { message?: string } }>(`/api/resources/${resource}`, data),
+    mutationFn: (data: Record<string, unknown>) => {
+      if (hasFileValues(data)) {
+        return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>('POST', `/api/resources/${resource}`, data)
+      }
+      return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(`/api/resources/${resource}`, data)
+    },
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res.meta?.message ?? tMsg('record_created'))
