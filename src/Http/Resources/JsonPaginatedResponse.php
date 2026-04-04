@@ -3,35 +3,14 @@
 namespace Martis\Http\Resources;
 
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
+use Martis\Contracts\PaginationContract;
 
 /**
  * Standard JSON response envelope for paginated resource collections.
  *
- * Shape:
- * ```json
- * {
- *   "data": [ ... ],
- *   "meta": {
- *     "current_page": 1,
- *     "from": 1,
- *     "last_page": 5,
- *     "per_page": 15,
- *     "to": 15,
- *     "total": 75
- *   },
- *   "links": {
- *     "first": "...",
- *     "last":  "...",
- *     "prev":  null,
- *     "next":  "..."
- *   }
- * }
- * ```
- *
- * The `meta` and `links` blocks follow the JSON:API Pagination spec so that
- * future adoption of the spec requires no breaking changes.
+ * Implements PaginationContract so pagination metadata is always consistent.
  */
-final class JsonPaginatedResponse
+final class JsonPaginatedResponse implements PaginationContract
 {
     /**
      * @param  list<array<string, mixed>>  $data
@@ -54,8 +33,6 @@ final class JsonPaginatedResponse
     ) {}
 
     /**
-     * Static factory.
-     *
      * @param  list<array<string, mixed>>  $data
      * @param  array{
      *   current_page: int,
@@ -75,6 +52,36 @@ final class JsonPaginatedResponse
         array $extraMeta = [],
     ): self {
         return new self($data, $paginationMeta, $links, $extraMeta);
+    }
+
+    public function total(): int
+    {
+        return $this->paginationMeta['total'];
+    }
+
+    public function perPage(): int
+    {
+        return $this->paginationMeta['per_page'];
+    }
+
+    public function currentPage(): int
+    {
+        return $this->paginationMeta['current_page'];
+    }
+
+    public function lastPage(): int
+    {
+        return $this->paginationMeta['last_page'];
+    }
+
+    public function from(): ?int
+    {
+        return $this->paginationMeta['from'];
+    }
+
+    public function to(): ?int
+    {
+        return $this->paginationMeta['to'];
     }
 
     /**

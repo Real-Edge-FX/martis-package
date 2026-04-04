@@ -2,6 +2,7 @@
 
 namespace Martis\Contracts;
 
+use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -12,24 +13,26 @@ use Illuminate\Database\Eloquent\Model;
  *   - fill a model instance with a value from user input,
  *   - serialize itself to an array for the JSON API / React frontend.
  *
- * Visibility helpers follow the fluent builder pattern so that chains like
- * `Text::make('Title')->hideFromIndex()->required()` remain readable.
- *
- * TypeScript counterpart: the React frontend uses a discriminated union of
- * field descriptors keyed by `type`. Each `type` value produced by
- * `FieldContract::type()` MUST have a corresponding TypeScript type in
- * `resources/js/types/fields.d.ts`.
+ * This contract must mirror every public method on the base Field class 1:1.
+ * Any method added to Field.php MUST be added here as well.
  */
 interface FieldContract
 {
-    /**
-     * Return the model attribute name this field maps to (e.g. "title").
-     */
+    // -------------------------------------------------------------------------
+    // Factory
+    // -------------------------------------------------------------------------
+
+    /** Create a new field instance. */
+    public static function make(string $attribute, ?string $label = null): static;
+
+    // -------------------------------------------------------------------------
+    // Core identity
+    // -------------------------------------------------------------------------
+
+    /** Return the model attribute name this field maps to (e.g. "title"). */
     public function attribute(): string;
 
-    /**
-     * Return the human-readable column label (e.g. "Title").
-     */
+    /** Return the human-readable column label (e.g. "Title"). */
     public function label(): string;
 
     /**
@@ -38,25 +41,21 @@ interface FieldContract
      */
     public function type(): string;
 
-    /**
-     * Resolve the field value from a model instance.
-     */
+    // -------------------------------------------------------------------------
+    // Value resolution
+    // -------------------------------------------------------------------------
+
+    /** Resolve the field value from a model instance. */
     public function resolve(Model $model, ?string $attribute = null): mixed;
 
-    /**
-     * Write the incoming request value into the model.
-     */
+    /** Resolve the field value for display purposes (may apply display callbacks). */
+    public function resolveForDisplay(Model $model, ?string $attribute = null): mixed;
+
+    /** Write the incoming request value into the model. */
     public function fill(Model $model, mixed $value): void;
 
-    /**
-     * Serialize the field descriptor for the JSON API response.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(): array;
-
     // -------------------------------------------------------------------------
-    // Fluent visibility / validation modifiers
+    // Fluent configuration
     // -------------------------------------------------------------------------
 
     /** Mark this field as nullable. */
@@ -67,6 +66,32 @@ interface FieldContract
 
     /** Require a non-null value on create/update. */
     public function required(): static;
+
+    /** Set a placeholder text for the input. */
+    public function placeholder(string $text): static;
+
+    /** Mark this field as sortable on the index view. */
+    public function sortable(bool $value = true): static;
+
+    /** Mark this field as searchable. */
+    public function searchable(bool $value = true): static;
+
+    /** Override the frontend component used to render this field. */
+    public function component(string $key): static;
+
+    /** Return the custom component key, or null for the default. */
+    public function getComponentKey(): ?string;
+
+    /**
+     * Merge additional metadata into the field descriptor.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function withMeta(array $meta): static;
+
+    // -------------------------------------------------------------------------
+    // Visibility
+    // -------------------------------------------------------------------------
 
     /** Show this field on the index (list) view. */
     public function showOnIndex(): static;
@@ -94,4 +119,52 @@ interface FieldContract
 
     /** Return whether this field is visible on forms. */
     public function isShownOnForms(): bool;
+
+    /** Return whether this field is sortable. */
+    public function isSortable(): bool;
+
+    /** Return whether this field is searchable. */
+    public function isSearchable(): bool;
+
+    // -------------------------------------------------------------------------
+    // Validation
+    // -------------------------------------------------------------------------
+
+    /**
+     * Set validation rules for this field.
+     *
+     * @param  list<string|Rule>  $rules
+     */
+    public function rules(array $rules): static;
+
+    /**
+     * Build the final validation rules array (merges required/nullable flags).
+     *
+     * @return list<string|Rule>
+     */
+    public function buildRules(): array;
+
+    // -------------------------------------------------------------------------
+    // Callbacks
+    // -------------------------------------------------------------------------
+
+    /** Override how the value is resolved from the model. */
+    public function resolveUsing(callable $callback): static;
+
+    /** Override how the value is filled into the model. */
+    public function fillUsing(callable $callback): static;
+
+    /** Override how the resolved value is transformed for display. */
+    public function displayUsing(callable $callback): static;
+
+    // -------------------------------------------------------------------------
+    // Serialization
+    // -------------------------------------------------------------------------
+
+    /**
+     * Serialize the field descriptor for the JSON API response.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array;
 }

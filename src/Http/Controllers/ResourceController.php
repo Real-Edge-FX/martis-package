@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -512,7 +513,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
         $searchableFields = array_filter(
             $instance->fields($request),
-            fn (FieldContract $field): bool => method_exists($field, 'isSearchable') && $field->isSearchable(),
+            fn (FieldContract $field): bool => $field->isSearchable(),
         );
 
         if (empty($searchableFields)) {
@@ -552,7 +553,7 @@ class ResourceController extends MartisController
             fn (FieldContract $field): string => $field->attribute(),
             array_values(array_filter(
                 $instance->fields($request),
-                fn (FieldContract $field): bool => method_exists($field, 'isSortable') && $field->isSortable(),
+                fn (FieldContract $field): bool => $field->isSortable(),
             )),
         );
 
@@ -573,15 +574,11 @@ class ResourceController extends MartisController
         $rules = [];
 
         foreach ($fields as $field) {
-            if (! method_exists($field, 'buildRules')) {
-                continue;
-            }
-
             $fieldRules = $field->buildRules();
 
             if ($isUpdate) {
                 // On update, fields are optional unless explicitly provided
-                $fieldRules = array_values(array_filter($fieldRules, fn (string $r): bool => $r !== 'required'));
+                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule $r): bool => is_string($r) && $r !== 'required'));
                 if (empty($fieldRules)) {
                     $fieldRules = ['sometimes'];
                 } elseif (! in_array('sometimes', $fieldRules, true)) {

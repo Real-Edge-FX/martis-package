@@ -162,6 +162,82 @@ class StubField implements FieldContract
     {
         return $this->onForms;
     }
+
+    public static function make(string $attribute, ?string $label = null): static
+    {
+        return new static($attribute);
+    }
+
+    public function placeholder(string $text): static
+    {
+        return $this;
+    }
+
+    public function sortable(bool $value = true): static
+    {
+        return $this;
+    }
+
+    public function searchable(bool $value = true): static
+    {
+        return $this;
+    }
+
+    public function isSortable(): bool
+    {
+        return false;
+    }
+
+    public function isSearchable(): bool
+    {
+        return false;
+    }
+
+    public function rules(array $rules): static
+    {
+        return $this;
+    }
+
+    public function buildRules(): array
+    {
+        return [];
+    }
+
+    public function resolveUsing(callable $callback): static
+    {
+        return $this;
+    }
+
+    public function fillUsing(callable $callback): static
+    {
+        return $this;
+    }
+
+    public function displayUsing(callable $callback): static
+    {
+        return $this;
+    }
+
+    public function resolveForDisplay(Model $model, ?string $attribute = null): mixed
+    {
+        return null;
+    }
+
+    public function component(string $key): static
+    {
+        return $this;
+    }
+
+    public function getComponentKey(): ?string
+    {
+        return null;
+    }
+
+    /** @param array<string, mixed> $meta */
+    public function withMeta(array $meta): static
+    {
+        return $this;
+    }
 }
 
 class SimpleResource extends Resource
