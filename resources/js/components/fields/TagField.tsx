@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MagnifyingGlass, X, Plus } from '@phosphor-icons/react'
+import { MagnifyingGlass, X, Plus, Check } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
@@ -62,9 +62,9 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
           key={tag.id}
           className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
           style={{
-            backgroundColor: 'var(--martis-badge-info-bg, #dbeafe)',
-            color: 'var(--martis-badge-info-text, #1e40af)',
-            border: '1px solid var(--martis-badge-info-border, #bfdbfe)',
+            backgroundColor: 'var(--martis-badge-info-bg)',
+            color: 'var(--martis-badge-info-text)',
+            border: '1px solid var(--martis-badge-info-border)',
           }}
         >
           {tag.title ?? String(tag.id)}
@@ -102,6 +102,13 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
     }
     document.addEventListener('mousedown', handleOutside)
     return () => document.removeEventListener('mousedown', handleOutside)
+  }, [])
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [])
 
   const fetchOptions = useCallback(async (query: string) => {
@@ -187,11 +194,11 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
           {selected.map((tag) => (
             <span
               key={tag.id}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium"
               style={{
-                backgroundColor: 'var(--martis-badge-info-bg, #dbeafe)',
-                color: 'var(--martis-badge-info-text, #1e40af)',
-                border: '1px solid var(--martis-badge-info-border, #bfdbfe)',
+                backgroundColor: 'var(--martis-badge-info-bg)',
+                color: 'var(--martis-badge-info-text)',
+                border: '1px solid var(--martis-badge-info-border)',
               }}
             >
               {tag.title ?? String(tag.id)}
@@ -200,7 +207,8 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
                   type="button"
                   onClick={() => removeTag(tag.id)}
                   title={`Remove ${tag.title}`}
-                  style={{ color: 'var(--martis-badge-info-text, #1e40af)', lineHeight: 1 }}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--martis-badge-info-text)', lineHeight: 1 }}
                 >
                   <X size={10} weight="bold" />
                 </button>
@@ -215,7 +223,7 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-1.5 text-xs font-medium"
+          className="flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
           style={{ color: 'var(--martis-accent)' }}
         >
           <Plus size={12} weight="bold" />
@@ -295,22 +303,19 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
                     key={record.id}
                     type="button"
                     onClick={() => toggleTag(record)}
-                    className="w-full text-left flex items-center justify-between"
+                    className="w-full text-left flex items-center justify-between transition-colors"
                     style={{
                       padding: '0.5rem 0.75rem',
                       fontSize: '0.875rem',
                       color: 'var(--martis-text)',
                       backgroundColor: alreadySelected ? 'var(--martis-surface-alt)' : 'transparent',
                     }}
+                    onMouseEnter={(e) => { if (!alreadySelected) e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = alreadySelected ? 'var(--martis-surface-alt)' : 'transparent' }}
                   >
                     <span>{label}</span>
                     {alreadySelected && (
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: 'var(--martis-accent)' }}
-                      >
-                        ✓
-                      </span>
+                      <Check size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
                     )}
                   </button>
                 )

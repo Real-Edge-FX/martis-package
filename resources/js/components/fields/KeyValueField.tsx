@@ -113,17 +113,7 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
     emitChange(next)
   }
 
-  const inputBase: React.CSSProperties = {
-    backgroundColor: 'var(--martis-input-bg)',
-    borderColor: 'var(--martis-border)',
-    color: 'var(--martis-text)',
-    padding: '0.375rem 0.625rem',
-    borderRadius: '0.375rem',
-    border: '1px solid var(--martis-border)',
-    fontSize: '0.875rem',
-    outline: 'none',
-    width: '100%',
-  }
+  const inputBase: React.CSSProperties = {}
 
   return (
     <div className="flex flex-col gap-2">

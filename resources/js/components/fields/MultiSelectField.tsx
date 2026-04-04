@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { CaretDown, X, Check } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
@@ -60,7 +60,7 @@ export function MultiSelectFieldDisplay({ field, value }: FieldDisplayProps) {
           key={v}
           className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
           style={{
-            backgroundColor: 'var(--martis-surface-alt, #f3f4f6)',
+            backgroundColor: 'var(--martis-surface-alt)',
             color: 'var(--martis-text)',
             border: '1px solid var(--martis-border)',
           }}
@@ -82,17 +82,35 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
 
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false)
         setSearch('')
+        setDebouncedSearch('')
       }
     }
     document.addEventListener('mousedown', handleOutside)
     return () => document.removeEventListener('mousedown', handleOutside)
+  }, [])
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  const handleSearchChange = useCallback((query: string) => {
+    setSearch(query)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(query)
+    }, 150)
   }, [])
 
   function toggle(val: string) {
@@ -110,8 +128,8 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
   }
 
   const filteredOptions = options.filter((o) =>
-    o.label.toLowerCase().includes(search.toLowerCase()) ||
-    String(o.value).toLowerCase().includes(search.toLowerCase()),
+    o.label.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    String(o.value).toLowerCase().includes(debouncedSearch.toLowerCase()),
   )
 
   // Group options
@@ -137,16 +155,15 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
       {/* Trigger with chips */}
       <div
         onClick={() => !field.readonly && setOpen(!open)}
-        className="martis-input flex flex-wrap items-center gap-1 min-h-[2.375rem] cursor-pointer"
+        className="martis-input flex flex-wrap items-center gap-1 cursor-pointer"
         style={{
-          backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? '#ef4444' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
-          border: `1px solid ${error ? '#ef4444' : open ? 'var(--martis-accent)' : 'var(--martis-border)'}`,
-          borderRadius: '0.375rem',
+          minHeight: '2.375rem',
           padding: '0.375rem 2rem 0.375rem 0.5rem',
           position: 'relative',
           opacity: field.readonly ? 0.7 : 1,
           cursor: field.readonly ? 'not-allowed' : 'pointer',
+          ...(error ? { borderColor: '#ef4444', boxShadow: '0 0 0 1px #ef4444' } : {}),
+          ...(open && !error ? { borderColor: 'var(--martis-accent)', boxShadow: '0 0 0 1px var(--martis-accent)' } : {}),
         }}
       >
         {selected.length === 0 ? (
@@ -157,7 +174,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
           selected.map((v) => (
             <span
               key={v}
-              className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium"
+              className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium"
               style={{
                 backgroundColor: 'var(--martis-surface-alt)',
                 color: 'var(--martis-text)',
@@ -169,6 +186,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                 <button
                   type="button"
                   onClick={(e) => removeChip(v, e)}
+                  className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--martis-text-muted)', lineHeight: 1 }}
                 >
                   <X size={10} weight="bold" />
@@ -210,18 +228,10 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
               autoFocus
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search..."
-              style={{
-                width: '100%',
-                fontSize: '0.75rem',
-                padding: '0.25rem 0.5rem',
-                backgroundColor: 'var(--martis-input-bg)',
-                border: '1px solid var(--martis-border)',
-                borderRadius: '0.25rem',
-                color: 'var(--martis-text)',
-                outline: 'none',
-              }}
+              className="martis-input"
+              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
             />
           </div>
 
@@ -248,7 +258,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                         fontSize: '0.625rem',
                         fontWeight: 700,
                         letterSpacing: '0.05em',
-                        textTransform: 'uppercase',
+                        textTransform: 'uppercase' as const,
                         color: 'var(--martis-text-muted)',
                         borderBottom: '1px solid var(--martis-border)',
                       }}
@@ -264,13 +274,15 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                         key={val}
                         type="button"
                         onClick={() => toggle(val)}
-                        className="w-full text-left flex items-center justify-between"
+                        className="w-full text-left flex items-center justify-between transition-colors"
                         style={{
                           padding: '0.5rem 0.75rem',
                           fontSize: '0.875rem',
                           color: 'var(--martis-text)',
                           backgroundColor: isSelected ? 'var(--martis-surface-alt)' : 'transparent',
                         }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = isSelected ? 'var(--martis-surface-alt)' : 'transparent' }}
                       >
                         <span>{opt.label}</span>
                         {isSelected && (

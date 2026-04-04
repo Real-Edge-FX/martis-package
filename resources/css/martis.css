@@ -41,6 +41,22 @@
   --martis-search-border: rgba(255, 255, 255, 0.1);
   --martis-row-even: rgba(30, 41, 59, 0.5);
   --martis-row-hover: rgba(51, 65, 85, 0.5);
+
+  --martis-surface-alt: #283548;
+
+  /* Badge colors */
+  --martis-badge-info-bg: rgba(99, 102, 241, 0.15);
+  --martis-badge-info-text: #a5b4fc;
+  --martis-badge-info-border: rgba(99, 102, 241, 0.3);
+  --martis-badge-success-bg: rgba(34, 197, 94, 0.15);
+  --martis-badge-success-text: #86efac;
+  --martis-badge-success-border: rgba(34, 197, 94, 0.3);
+  --martis-badge-warning-bg: rgba(245, 158, 11, 0.15);
+  --martis-badge-warning-text: #fcd34d;
+  --martis-badge-warning-border: rgba(245, 158, 11, 0.3);
+  --martis-badge-danger-bg: rgba(239, 68, 68, 0.15);
+  --martis-badge-danger-text: #fca5a5;
+  --martis-badge-danger-border: rgba(239, 68, 68, 0.3);
 }
 
 html:not(.dark) {
@@ -62,6 +78,22 @@ html:not(.dark) {
   --martis-search-border: rgba(0, 0, 0, 0.12);
   --martis-row-even: rgba(248, 250, 252, 1);
   --martis-row-hover: rgba(241, 245, 249, 1);
+
+  --martis-surface-alt: #f1f5f9;
+
+  /* Badge colors */
+  --martis-badge-info-bg: #dbeafe;
+  --martis-badge-info-text: #1e40af;
+  --martis-badge-info-border: #bfdbfe;
+  --martis-badge-success-bg: #dcfce7;
+  --martis-badge-success-text: #15803d;
+  --martis-badge-success-border: #bbf7d0;
+  --martis-badge-warning-bg: #fef9c3;
+  --martis-badge-warning-text: #a16207;
+  --martis-badge-warning-border: #fde68a;
+  --martis-badge-danger-bg: #fee2e2;
+  --martis-badge-danger-text: #b91c1c;
+  --martis-badge-danger-border: #fecaca;
 }
 
 body {
@@ -311,6 +343,33 @@ html.dark body {
 .martis-text-muted { color: var(--martis-text-muted); }
 .martis-border { border-color: var(--martis-border); }
 .martis-input-bg { background-color: var(--martis-input-bg); }
+.martis-surface-alt { background-color: var(--martis-surface-alt); }
+
+/* ── Custom Input (matches PrimeReact InputText styling) ─────── */
+.martis-input {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border: 1px solid var(--martis-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.martis-input:focus {
+  border-color: var(--martis-accent);
+  box-shadow: 0 0 0 1px var(--martis-accent);
+}
+.martis-input::placeholder {
+  color: var(--martis-text-muted);
+}
+.martis-input:disabled,
+.martis-input[readonly] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
 
 /* ── Global Search Modal ───────────────────────────────────────── */
 .martis-search-overlay {

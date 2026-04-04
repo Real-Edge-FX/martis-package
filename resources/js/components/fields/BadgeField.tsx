@@ -5,13 +5,13 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 // ---------------------------------------------------------------------------
 
 const TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  info:    { bg: 'var(--martis-badge-info-bg, #dbeafe)',    text: 'var(--martis-badge-info-text, #1e40af)',    border: 'var(--martis-badge-info-border, #bfdbfe)' },
-  success: { bg: 'var(--martis-badge-success-bg, #dcfce7)', text: 'var(--martis-badge-success-text, #15803d)', border: 'var(--martis-badge-success-border, #bbf7d0)' },
-  warning: { bg: 'var(--martis-badge-warning-bg, #fef9c3)', text: 'var(--martis-badge-warning-text, #a16207)', border: 'var(--martis-badge-warning-border, #fde68a)' },
-  danger:  { bg: 'var(--martis-badge-danger-bg, #fee2e2)',  text: 'var(--martis-badge-danger-text, #b91c1c)',  border: 'var(--martis-badge-danger-border, #fecaca)' },
+  info:    { bg: 'var(--martis-badge-info-bg)',    text: 'var(--martis-badge-info-text)',    border: 'var(--martis-badge-info-border)' },
+  success: { bg: 'var(--martis-badge-success-bg)', text: 'var(--martis-badge-success-text)', border: 'var(--martis-badge-success-border)' },
+  warning: { bg: 'var(--martis-badge-warning-bg)', text: 'var(--martis-badge-warning-text)', border: 'var(--martis-badge-warning-border)' },
+  danger:  { bg: 'var(--martis-badge-danger-bg)',  text: 'var(--martis-badge-danger-text)',  border: 'var(--martis-badge-danger-border)' },
 }
 
-const DEFAULT_STYLE = { bg: 'var(--martis-surface-alt, #f3f4f6)', text: 'var(--martis-text, #374151)', border: 'var(--martis-border, #e5e7eb)' }
+const DEFAULT_STYLE = { bg: 'var(--martis-surface-alt)', text: 'var(--martis-text)', border: 'var(--martis-border)' }
 
 function resolveBadgeType(
   value: unknown,
