@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
-import { CaretDown, MagnifyingGlass, X } from '@phosphor-icons/react'
+import { CaretDown, MagnifyingGlass, X, Check } from '@phosphor-icons/react'
 
 interface BelongsToValue {
   id: number | string
@@ -46,7 +46,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Input — Searchable dropdown
+// Input — Searchable dropdown (single select)
 // ---------------------------------------------------------------------------
 
 interface RelatedRecord {
@@ -58,6 +58,7 @@ interface RelatedRecord {
 export function BelongsToFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
+  const isNullable = (field as unknown as Record<string, unknown>).nullable as boolean | undefined
 
   // Extract current ID from value (handles both plain ID and {id, title} objects)
   const currentId = useMemo(() => {
@@ -151,7 +152,7 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
         return String(record[attr])
       }
     }
-    return String(record.id)
+    return `#${record.id}`
   }
 
   function handleSelect(record: RelatedRecord) {
@@ -164,6 +165,7 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
 
   function handleClear(e: React.MouseEvent) {
     e.stopPropagation()
+    e.preventDefault()
     onChange(null)
     setSelectedLabel(null)
     setSearch('')
@@ -201,70 +203,63 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
         type="button"
         onClick={() => !field.readonly && setOpen(!open)}
         disabled={field.readonly}
-        className={[
-          'flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors',
-          field.readonly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-        ].join(' ')}
+        className="martis-belongs-to-trigger"
         style={{
-          backgroundColor: 'var(--martis-input-bg)',
           borderColor: error ? '#ef4444' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
-          color: 'var(--martis-text)',
+          opacity: field.readonly ? 0.6 : 1,
+          cursor: field.readonly ? 'not-allowed' : 'pointer',
         }}
       >
-        <span className="flex-1 truncate">
+        <span className="martis-belongs-to-trigger-label">
           {selectedLabel ?? (currentId !== null ? `#${currentId}` : (
             <span style={{ color: 'var(--martis-text-muted)' }}>
-              {field.nullable ? 'Select...' : `Select ${field.label}...`}
+              {isNullable ? 'Select...' : `Select ${field.label}...`}
             </span>
           ))}
         </span>
 
-        {currentId !== null && field.nullable && !field.readonly && (
+        {currentId !== null && isNullable && !field.readonly && (
           <span
             role="button"
             tabIndex={-1}
             onClick={handleClear}
             onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
-            className="flex-shrink-0 rounded-full p-0.5 hover:bg-red-500/10"
+            className="martis-belongs-to-clear"
+            title="Clear selection"
           >
-            <X size={14} className="text-red-400" />
+            <X size={14} weight="bold" />
           </span>
         )}
 
-        <CaretDown size={14} className="flex-shrink-0 martis-text-muted" />
+        <CaretDown
+          size={14}
+          weight="bold"
+          style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }}
+        />
       </button>
 
       {/* Dropdown panel */}
       {open && (
-        <div
-          className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border shadow-lg"
-          style={{
-            backgroundColor: 'var(--martis-card, var(--martis-surface))',
-            borderColor: 'var(--martis-border)',
-          }}
-        >
+        <div className="martis-belongs-to-dropdown">
           {/* Search input */}
-          <div className="border-b px-3 py-2" style={{ borderColor: 'var(--martis-border)' }}>
-            <div className="flex items-center gap-2">
-              <MagnifyingGlass size={14} className="martis-text-muted flex-shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search..."
-                className="w-full bg-transparent text-sm outline-none"
-                style={{ color: 'var(--martis-text)' }}
-              />
-            </div>
+          <div className="martis-belongs-to-search">
+            <MagnifyingGlass size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search..."
+              className="martis-belongs-to-search-input"
+            />
           </div>
 
           {/* Options list */}
-          <div className="max-h-60 overflow-y-auto">
+          <div className="martis-belongs-to-options">
             {loading ? (
-              <div className="px-3 py-4 text-center text-sm martis-text-muted">Loading...</div>
+              <div className="martis-belongs-to-empty">Loading...</div>
             ) : options.length === 0 ? (
-              <div className="px-3 py-4 text-center text-sm martis-text-muted">
+              <div className="martis-belongs-to-empty">
                 {search ? 'No results found' : 'No records available'}
               </div>
             ) : (
@@ -276,21 +271,11 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
                     key={record.id}
                     type="button"
                     onClick={() => handleSelect(record)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors"
-                    style={{
-                      backgroundColor: isSelected ? 'var(--martis-accent-light, rgba(99,102,241,0.1))' : 'transparent',
-                      color: 'var(--martis-text)',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--martis-hover)'
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'
-                    }}
+                    className={`martis-belongs-to-option ${isSelected ? 'martis-belongs-to-option--selected' : ''}`}
                   >
-                    <span className="flex-1 truncate">{label}</span>
+                    <span className="martis-belongs-to-option-label">{label}</span>
                     {isSelected && (
-                      <span className="text-xs font-medium" style={{ color: 'var(--martis-accent)' }}>✓</span>
+                      <Check size={14} weight="bold" style={{ color: 'var(--martis-accent)' }} />
                     )}
                   </button>
                 )

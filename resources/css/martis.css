@@ -678,3 +678,120 @@ html:not(.dark) .martis-dropzone {
   border-top: 1px solid var(--martis-border);
 }
 
+
+/* ── BelongsTo Dropdown ────────────────────────────────────────── */
+.martis-belongs-to-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--martis-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  transition: border-color 0.15s;
+}
+.martis-belongs-to-trigger:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+}
+.martis-belongs-to-trigger-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-belongs-to-clear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.25rem;
+  color: #ef4444;
+  transition: background-color 0.15s;
+}
+.martis-belongs-to-clear:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+.martis-belongs-to-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-card);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+.martis-belongs-to-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--martis-border);
+  background-color: var(--martis-input-bg);
+}
+.martis-belongs-to-search-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+}
+.martis-belongs-to-search-input::placeholder {
+  color: var(--martis-text-muted);
+}
+.martis-belongs-to-options {
+  max-height: 15rem;
+  overflow-y: auto;
+}
+.martis-belongs-to-options::-webkit-scrollbar {
+  width: 6px;
+}
+.martis-belongs-to-options::-webkit-scrollbar-track {
+  background: var(--martis-input-bg);
+}
+.martis-belongs-to-options::-webkit-scrollbar-thumb {
+  background: var(--martis-border);
+  border-radius: 3px;
+}
+.martis-belongs-to-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+  background: transparent;
+  border: none;
+  transition: background-color 0.1s;
+}
+.martis-belongs-to-option:hover {
+  background-color: var(--martis-hover);
+}
+.martis-belongs-to-option--selected {
+  background-color: rgba(99, 102, 241, 0.1);
+}
+.martis-belongs-to-option--selected:hover {
+  background-color: rgba(99, 102, 241, 0.15);
+}
+.martis-belongs-to-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-belongs-to-empty {
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--martis-text-muted);
+}

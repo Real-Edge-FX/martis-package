@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
  *   - Validates that uploaded files are images
  *   - Optional thumbnail generation (via GD or Intervention Image)
  *   - Resolves to array with {path, url, name, thumbnailUrl}
+ *   - Configurable accepted image types
  *
  * Usage:
  *   Image::make('featured_image')
@@ -21,11 +22,14 @@ use Illuminate\Support\Facades\Storage;
  *       ->storagePath('uploads/images')
  *       ->thumbnail(300, 300)
  *       ->maxSize(5120)
+ *       ->preserveOriginalName()
+ *       ->sanitizeFileName()
  *       ->nullable()
  *
  *   Image::make('gallery')
  *       ->multiple()
  *       ->thumbnail(200, 200)
+ *       ->acceptedTypes(['jpg', 'jpeg', 'png', 'webp'])
  *       ->disk('public')
  */
 class Image extends File
@@ -84,7 +88,8 @@ class Image extends File
         if ($value instanceof UploadedFile) {
             $this->deleteStoredFile($model);
 
-            $path = $value->store($this->storagePath, $this->disk);
+            $filename = $this->generateStorageFilename($value);
+            $path = $value->storeAs($this->storagePath, $filename, $this->disk);
 
             if ($path) {
                 $model->setAttribute($this->attribute, $path);
@@ -148,7 +153,8 @@ class Image extends File
         $newPaths = [];
         foreach ($rawFiles as $file) {
             if ($file instanceof UploadedFile) {
-                $path = $file->store($this->storagePath, $this->disk);
+                $filename = $this->generateStorageFilename($file);
+                $path = $file->storeAs($this->storagePath, $filename, $this->disk);
                 if ($path) {
                     $newPaths[] = $path;
                     if ($this->thumbnailWidth !== null || $this->thumbnailHeight !== null) {
@@ -194,7 +200,7 @@ class Image extends File
         return [
             'path' => $path,
             'url' => $url,
-            'name' => basename($path),
+            'name' => $this->resolveDisplayName($path),
             'thumbnailUrl' => $thumbnailUrl,
         ];
     }
@@ -225,7 +231,7 @@ class Image extends File
             return [
                 'path' => $path,
                 'url' => $url,
-                'name' => basename($path),
+                'name' => $this->resolveDisplayName($path),
                 'thumbnailUrl' => $thumbnailUrl,
             ];
         }, $paths);

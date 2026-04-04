@@ -75,6 +75,15 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
   const hasValue = currentFile !== null || existingImage !== null
 
   const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
+  const acceptedTypes = (field as unknown as Record<string, unknown>).acceptedTypes as string[] | undefined
+  const showFileInfo = (field as unknown as Record<string, unknown>).showFileInfo as boolean | undefined
+
+  const acceptAttr = useMemo(() => {
+    if (acceptedTypes && acceptedTypes.length > 0) {
+      return acceptedTypes.map(t => `.${t}`).join(',')
+    }
+    return 'image/*'
+  }, [acceptedTypes])
 
   const previewUrl = useMemo(() => {
     if (currentFile) return URL.createObjectURL(currentFile)
@@ -87,7 +96,13 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
   }
 
   function handleFile(file: globalThis.File) {
-    if (!file.type.startsWith('image/')) {
+    if (acceptedTypes && acceptedTypes.length > 0) {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+      if (!acceptedTypes.includes(ext)) {
+        addToast('error', tMsg('file_type_not_allowed', `Image type .${ext} is not allowed. Accepted: ${acceptedTypes.join(', ')}`))
+        return
+      }
+    } else if (!file.type.startsWith('image/')) {
       addToast('error', tMsg('file_not_image', `"${file.name}" is not a valid image file.`))
       return
     }
@@ -133,7 +148,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
               />
             )}
             <div className="flex flex-1 flex-col gap-1">
-              <span className="truncate text-sm martis-text">
+              <span className="truncate text-sm" style={{ color: 'var(--martis-text)' }}>
                 {currentFile ? currentFile.name : existingImage?.name}
               </span>
               <div className="flex gap-2">
@@ -159,7 +174,8 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex w-full flex-col items-center gap-2 px-4 py-6 text-sm martis-text-muted"
+            className="flex w-full flex-col items-center gap-2 px-4 py-6 text-sm"
+            style={{ color: 'var(--martis-text-muted)' }}
           >
             <ImageIcon size={28} />
             <span>Click or drag image here</span>
@@ -171,7 +187,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
           id={field.attribute}
           name={field.attribute}
           type="file"
-          accept="image/*"
+          accept={acceptAttr}
           disabled={field.readonly}
           className="sr-only"
           onChange={(e) => {
@@ -181,10 +197,19 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
         />
       </div>
 
-      {maxSize && (
-        <span className="text-xs martis-text-muted">
-          Max: {formatSize(maxSize)}
-        </span>
+      {showFileInfo !== false && (
+        <>
+          {maxSize && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Max: {formatSize(maxSize)}
+            </span>
+          )}
+          {acceptedTypes && acceptedTypes.length > 0 && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
+            </span>
+          )}
+        </>
       )}
       {error && <small className="text-red-500">{error}</small>}
     </div>
@@ -211,6 +236,15 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
   const { addToast } = useToastSafe()
 
   const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
+  const acceptedTypes = (field as unknown as Record<string, unknown>).acceptedTypes as string[] | undefined
+  const showFileInfo = (field as unknown as Record<string, unknown>).showFileInfo as boolean | undefined
+
+  const acceptAttr = useMemo(() => {
+    if (acceptedTypes && acceptedTypes.length > 0) {
+      return acceptedTypes.map(t => `.${t}`).join(',')
+    }
+    return 'image/*'
+  }, [acceptedTypes])
 
   function formatSize(kb: number): string {
     return kb >= 1024 ? `${(kb / 1024).toFixed(0)} MB` : `${kb} KB`
@@ -239,7 +273,13 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
   function handleFiles(files: FileList | globalThis.File[]) {
     const newItems = [...items]
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) {
+      if (acceptedTypes && acceptedTypes.length > 0) {
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+        if (!acceptedTypes.includes(ext)) {
+          addToast('error', tMsg('file_type_not_allowed', `Image type .${ext} is not allowed. Accepted: ${acceptedTypes.join(', ')}`))
+          continue
+        }
+      } else if (!file.type.startsWith('image/')) {
         addToast('error', tMsg('file_not_image', `"${file.name}" is not a valid image file.`))
         continue
       }
@@ -308,7 +348,8 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex w-full flex-col items-center gap-2 px-4 py-4 text-sm martis-text-muted"
+          className="flex w-full flex-col items-center gap-2 px-4 py-4 text-sm"
+          style={{ color: 'var(--martis-text-muted)' }}
         >
           {items.length > 0 ? <Plus size={24} /> : <ImageIcon size={28} />}
           <span>{items.length > 0 ? tRes('add_more_images') : tRes('choose_images')}</span>
@@ -319,7 +360,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
           id={field.attribute}
           name={field.attribute}
           type="file"
-          accept="image/*"
+          accept={acceptAttr}
           multiple
           disabled={field.readonly}
           className="sr-only"
@@ -332,10 +373,19 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
         />
       </div>
 
-      {maxSize && (
-        <span className="text-xs martis-text-muted">
-          Max per image: {formatSize(maxSize)}
-        </span>
+      {showFileInfo !== false && (
+        <>
+          {maxSize && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Max per image: {formatSize(maxSize)}
+            </span>
+          )}
+          {acceptedTypes && acceptedTypes.length > 0 && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
+            </span>
+          )}
+        </>
       )}
       {error && <small className="text-red-500">{error}</small>}
     </div>

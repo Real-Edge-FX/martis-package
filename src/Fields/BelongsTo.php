@@ -16,6 +16,10 @@ use Illuminate\Support\Str;
  * but resolves via the relationship method (e.g. `author`) so it can
  * display a human-readable label instead of a bare integer.
  *
+ * Supports single (standard BelongsTo) and multiple (BelongsToMany-style)
+ * modes. In multiple mode, the frontend renders checkboxes and the backend
+ * syncs a pivot table.
+ *
  * @phpstan-consistent-constructor
  */
 class BelongsTo extends Field
@@ -33,6 +37,12 @@ class BelongsTo extends Field
      * Defaults to true — set to false via ->relationSearchable(false).
      */
     protected bool $relationSearchable = true;
+
+    /**
+     * When true, the field operates in many-to-many mode:
+     * uses a pivot table and renders as multi-select with checkboxes.
+     */
+    protected bool $multiple = false;
 
     /**
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
@@ -120,19 +130,40 @@ class BelongsTo extends Field
     }
 
     /**
+     * Enable multi-select mode (many-to-many via pivot table).
+     *
+     * In this mode, the field renders as a multi-select with checkboxes.
+     * The Eloquent model must define a belongsToMany() relationship
+     * matching the relationship name.
+     *
+     * Example:
+     *   BelongsTo::make('authors', 'Authors')
+     *       ->relatedResource('users')
+     *       ->multiple()
+     */
+    public function multiple(bool $value = true): static
+    {
+        $this->multiple = $value;
+
+        return $this;
+    }
+
+    /**
      * Resolve the field value: returns the foreign key value AND the display title.
      *
-     * Returns an array so the frontend has both the stored ID and human label:
-     * `['id' => 42, 'title' => 'Jane Doe']`
+     * Single mode: `['id' => 42, 'title' => 'Jane Doe']`
+     * Multiple mode: `[['id' => 1, 'title' => 'Jane'], ['id' => 2, 'title' => 'John']]`
      *
-     * Falls back to just the foreign key when the relationship is not loaded.
-     *
-     * @return array{id: mixed, title: string|null}|null
+     * @return array{id: mixed, title: string|null}|list<array{id: mixed, title: string|null}>|null
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
             return ($this->resolveCallback)($model->getAttribute($this->foreignKey), $model, $this->foreignKey);
+        }
+
+        if ($this->multiple) {
+            return $this->resolveMultiple($model);
         }
 
         $foreignKeyValue = $model->getAttribute($this->foreignKey);
@@ -154,7 +185,31 @@ class BelongsTo extends Field
     }
 
     /**
-     * Fill the foreign key column on the model.
+     * Resolve for multiple mode: load all related models.
+     *
+     * @return list<array{id: mixed, title: string|null}>
+     */
+    protected function resolveMultiple(Model $model): array
+    {
+        if (! method_exists($model, $this->relationship)) {
+            return [];
+        }
+
+        $related = $model->{$this->relationship};
+
+        if ($related === null) {
+            return [];
+        }
+
+        return $related->map(fn (Model $item): array => [
+            'id' => $item->getKey(),
+            'title' => $item->getAttribute($this->titleAttribute),
+        ])->values()->all();
+    }
+
+    /**
+     * Fill the foreign key column on the model (single mode)
+     * or sync pivot table (multiple mode).
      */
     public function fill(Model $model, mixed $value): void
     {
@@ -164,6 +219,15 @@ class BelongsTo extends Field
 
         if ($this->fillCallback !== null) {
             ($this->fillCallback)($model, $value, $this->foreignKey);
+
+            return;
+        }
+
+        if ($this->multiple) {
+            // Multiple mode: sync happens after model is saved (needs ID).
+            // Store the IDs in a static registry for deferred sync.
+            $ids = $this->extractMultipleIds($value);
+            DeferredRelationSync::register($model, $this->relationship, $ids);
 
             return;
         }
@@ -180,6 +244,43 @@ class BelongsTo extends Field
     }
 
     /**
+     * Extract IDs from the multiple-mode value.
+     *
+     * @return list<int|string>
+     */
+    protected function extractMultipleIds(mixed $value): array
+    {
+        if ($value === null || $value === '' || $value === []) {
+            return [];
+        }
+
+        // Array of IDs
+        if (is_array($value)) {
+            // Could be [1, 2, 3] or [['id' => 1], ['id' => 2]]
+            return array_values(array_filter(array_map(function (mixed $item): int|string|null {
+                if (is_array($item) && isset($item['id'])) {
+                    return $item['id'];
+                }
+                if (is_string($item) && ($item === '' || $item === 'null')) {
+                    return null;
+                }
+
+                return $item;
+            }, $value), fn ($v): bool => $v !== null));
+        }
+
+        // JSON string
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $this->extractMultipleIds($decoded);
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function extraAttributes(): array
@@ -191,6 +292,7 @@ class BelongsTo extends Field
             'relatedResource' => $this->relatedUriKey,
             'relatedLabel' => $this->relatedUriKey ? Str::title(str_replace('_', ' ', $this->relationship)) : null,
             'relationSearchable' => $this->relationSearchable,
+            'multiple' => $this->multiple ?: null,
         ], fn (mixed $v): bool => $v !== null);
     }
 }

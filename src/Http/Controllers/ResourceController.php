@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\DeferredRelationSync;
 use Martis\Fields\File;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
@@ -164,6 +165,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: true);
             $model->save();
             $res->afterSave($model, $request, creating: true);
+            $this->syncDeferredRelations($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on store', [
                 'resource' => $resource,
@@ -226,6 +228,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: false);
             $model->save();
             $res->afterSave($model, $request, creating: false);
+            $this->syncDeferredRelations($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on update', [
                 'resource' => $resource,
@@ -612,6 +615,17 @@ class ResourceController extends MartisController
         }
 
         return null;
+    }
+
+    /**
+     * Sync deferred many-to-many relationships after model save.
+     *
+     * BelongsTo fields in multiple mode register pending syncs during fill().
+     * This method executes them after the model has been persisted.
+     */
+    private function syncDeferredRelations(Model $model): void
+    {
+        DeferredRelationSync::sync($model);
     }
 
     /**

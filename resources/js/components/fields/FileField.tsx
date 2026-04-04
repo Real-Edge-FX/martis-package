@@ -1,7 +1,21 @@
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import { File as FileIcon, DownloadSimple, Trash, UploadSimple, Plus } from '@phosphor-icons/react'
+import {
+  File as FileIcon,
+  FilePdf,
+  FileDoc,
+  FileText as FileTextIcon,
+  FileZip,
+  FileXls,
+  FilePpt,
+  FileCode,
+  FileCsv,
+  DownloadSimple,
+  Trash,
+  UploadSimple,
+  Plus,
+} from '@phosphor-icons/react'
 import { useToastSafe } from "@/contexts/ToastContext"
 
 interface FileValue {
@@ -16,6 +30,53 @@ function isFileValue(v: unknown): v is FileValue {
 
 function isFileValueArray(v: unknown): v is FileValue[] {
   return Array.isArray(v) && v.every(isFileValue)
+}
+
+/**
+ * Return the best Phosphor icon for a given filename extension.
+ */
+function getFileTypeIcon(filename: string, size: number) {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  switch (ext) {
+    case 'pdf':
+      return <FilePdf size={size} style={{ color: '#ef4444' }} />
+    case 'doc':
+    case 'docx':
+      return <FileDoc size={size} style={{ color: '#3b82f6' }} />
+    case 'xls':
+    case 'xlsx':
+      return <FileXls size={size} style={{ color: '#22c55e' }} />
+    case 'ppt':
+    case 'pptx':
+      return <FilePpt size={size} style={{ color: '#f97316' }} />
+    case 'zip':
+    case 'rar':
+    case 'gz':
+    case '7z':
+    case 'tar':
+      return <FileZip size={size} style={{ color: '#a855f7' }} />
+    case 'csv':
+      return <FileCsv size={size} style={{ color: '#22c55e' }} />
+    case 'txt':
+    case 'md':
+    case 'rtf':
+      return <FileTextIcon size={size} style={{ color: 'var(--martis-text-muted)' }} />
+    case 'js':
+    case 'ts':
+    case 'jsx':
+    case 'tsx':
+    case 'php':
+    case 'py':
+    case 'html':
+    case 'css':
+    case 'json':
+    case 'xml':
+    case 'yaml':
+    case 'yml':
+      return <FileCode size={size} style={{ color: '#6366f1' }} />
+    default:
+      return <FileIcon size={size} style={{ color: 'var(--martis-text-muted)' }} />
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +99,7 @@ export function FileFieldDisplay({ value, field }: FieldDisplayProps) {
             className="inline-flex items-center gap-2 text-sm hover:underline"
             style={{ color: 'var(--martis-accent)' }}
           >
-            <FileIcon size={16} />
+            {getFileTypeIcon(file.name, 16)}
             {file.name}
             <DownloadSimple size={14} />
           </a>
@@ -59,7 +120,7 @@ export function FileFieldDisplay({ value, field }: FieldDisplayProps) {
       className="inline-flex items-center gap-2 text-sm hover:underline"
       style={{ color: 'var(--martis-accent)' }}
     >
-      <FileIcon size={16} />
+      {getFileTypeIcon(value.name, 16)}
       {value.name}
       <DownloadSimple size={14} />
     </a>
@@ -82,6 +143,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
 
   const acceptedTypes = (field as unknown as Record<string, unknown>).acceptedTypes as string[] | undefined
   const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
+  const showFileInfo = (field as unknown as Record<string, unknown>).showFileInfo as boolean | undefined
 
   const accept = acceptedTypes?.length
     ? acceptedTypes.map((t) => `.${t}`).join(',')
@@ -118,6 +180,8 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
     if (inputRef.current) inputRef.current.value = ''
   }
 
+  const displayName = currentFile ? currentFile.name : existingFile?.name ?? ''
+
   return (
     <div className="flex flex-col gap-1">
       <div
@@ -132,10 +196,21 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
       >
         {hasValue ? (
           <>
-            <FileIcon size={20} className="martis-text-muted flex-shrink-0" />
-            <span className="flex-1 truncate text-sm martis-text">
-              {currentFile ? currentFile.name : existingFile?.name}
+            {getFileTypeIcon(displayName, 20)}
+            <span className="flex-1 truncate text-sm" style={{ color: 'var(--martis-text)' }}>
+              {displayName}
             </span>
+            {existingFile && (
+              <a
+                href={existingFile.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 rounded p-1 hover:opacity-70"
+                style={{ color: 'var(--martis-accent)' }}
+              >
+                <DownloadSimple size={16} />
+              </a>
+            )}
             <button
               type="button"
               onClick={handleClear}
@@ -148,7 +223,8 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex w-full items-center gap-2 text-sm martis-text-muted"
+            className="flex w-full items-center gap-2 text-sm"
+            style={{ color: 'var(--martis-text-muted)' }}
           >
             <UploadSimple size={20} />
             <span>Choose file or drag here</span>
@@ -170,15 +246,19 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
         />
       </div>
 
-      {maxSize && (
-        <span className="text-xs martis-text-muted">
-          Max: {formatSize(maxSize)}
-        </span>
-      )}
-      {acceptedTypes && acceptedTypes.length > 0 && (
-        <span className="text-xs martis-text-muted">
-          Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
-        </span>
+      {showFileInfo !== false && (
+        <>
+          {maxSize && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Max: {formatSize(maxSize)}
+            </span>
+          )}
+          {acceptedTypes && acceptedTypes.length > 0 && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
+            </span>
+          )}
+        </>
       )}
       {error && <small className="text-red-500">{error}</small>}
     </div>
@@ -205,6 +285,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
 
   const acceptedTypes = (field as unknown as Record<string, unknown>).acceptedTypes as string[] | undefined
   const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
+  const showFileInfo = (field as unknown as Record<string, unknown>).showFileInfo as boolean | undefined
 
   const accept = acceptedTypes?.length
     ? acceptedTypes.map((t) => `.${t}`).join(',')
@@ -276,8 +357,8 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
                   borderColor: 'var(--martis-border)',
                 }}
               >
-                <FileIcon size={16} className="martis-text-muted flex-shrink-0" />
-                <span className="flex-1 truncate text-sm martis-text">{name}</span>
+                {getFileTypeIcon(name, 16)}
+                <span className="flex-1 truncate text-sm" style={{ color: 'var(--martis-text)' }}>{name}</span>
                 {item.existing && (
                   <a
                     href={item.existing.url}
@@ -316,7 +397,8 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex w-full items-center gap-2 text-sm martis-text-muted"
+          className="flex w-full items-center gap-2 text-sm"
+          style={{ color: 'var(--martis-text-muted)' }}
         >
           {items.length > 0 ? <Plus size={20} /> : <UploadSimple size={20} />}
           <span>{items.length > 0 ? tRes('add_more_files') : tRes('choose_files')}</span>
@@ -340,15 +422,19 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
         />
       </div>
 
-      {maxSize && (
-        <span className="text-xs martis-text-muted">
-          Max per file: {formatSize(maxSize)}
-        </span>
-      )}
-      {acceptedTypes && acceptedTypes.length > 0 && (
-        <span className="text-xs martis-text-muted">
-          Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
-        </span>
+      {showFileInfo !== false && (
+        <>
+          {maxSize && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Max per file: {formatSize(maxSize)}
+            </span>
+          )}
+          {acceptedTypes && acceptedTypes.length > 0 && (
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              Accepted: {acceptedTypes.map(t => `.${t}`).join(', ')}
+            </span>
+          )}
+        </>
       )}
       {error && <small className="text-red-500">{error}</small>}
     </div>

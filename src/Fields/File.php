@@ -6,12 +6,13 @@ use Illuminate\Contracts\Filesystem\Cloud;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * File upload field.
  *
  * Stores any uploaded file on a configurable disk.
- * Resolves to an array with {path, url, name} for frontend rendering.
+ * Resolves to an array with {path, url, name, originalName} for frontend rendering.
  *
  * Usage:
  *   File::make('attachment')
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Storage;
  *       ->storagePath('uploads/docs')
  *       ->maxSize(10240)   // 10MB in KB
  *       ->acceptedTypes(['pdf', 'doc', 'docx'])
+ *       ->preserveOriginalName()
+ *       ->sanitizeFileName()
  *       ->nullable()
  *
  *   File::make('documents')
@@ -39,6 +42,29 @@ class File extends Field
     protected array $acceptedTypes = [];
 
     protected bool $multiple = false;
+
+    /**
+     * When true, store files with their original name instead of a random hash.
+     */
+    protected bool $preserveOriginalName = false;
+
+    /**
+     * When true, sanitize filenames (replace spaces/special chars with underscores).
+     */
+    protected bool $sanitizeFileNames = false;
+
+    /**
+     * Custom filename sanitizer callable.
+     * Receives (string $filename) and must return string.
+     *
+     * @var callable|null
+     */
+    protected mixed $fileNameSanitizer = null;
+
+    /**
+     * When false, frontend hides file info (max size, accepted types).
+     */
+    protected bool $showFileInfo = true;
 
     public function type(): string
     {
@@ -114,6 +140,116 @@ class File extends Field
         return $this->multiple;
     }
 
+    /**
+     * Preserve the original filename when storing uploaded files.
+     * A unique suffix is appended to avoid collisions.
+     */
+    public function preserveOriginalName(bool $value = true): static
+    {
+        $this->preserveOriginalName = $value;
+
+        return $this;
+    }
+
+    /**
+     * Enable filename sanitization: replaces spaces and special characters
+     * with underscores, lowercases the name.
+     *
+     * Optionally accepts a callable for custom sanitization:
+     *   ->sanitizeFileName(fn(string $name) => preg_replace('/[^a-z0-9._-]/', '_', strtolower($name)))
+     *
+     * @param  bool|callable  $sanitizer  true for default, or a custom callable(string): string
+     */
+    public function sanitizeFileName(bool|callable $sanitizer = true): static
+    {
+        if (is_callable($sanitizer)) {
+            $this->sanitizeFileNames = true;
+            $this->fileNameSanitizer = $sanitizer;
+        } else {
+            $this->sanitizeFileNames = $sanitizer;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Show or hide the file info (max size, accepted types) below the field.
+     */
+    public function showFileInfo(bool $value = true): static
+    {
+        $this->showFileInfo = $value;
+
+        return $this;
+    }
+
+    /**
+     * Hide file info display below the field.
+     */
+    public function hideFileInfo(): static
+    {
+        $this->showFileInfo = false;
+
+        return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Filename handling
+    // -------------------------------------------------------------------------
+
+    /**
+     * Generate the storage filename for an uploaded file.
+     */
+    protected function generateStorageFilename(UploadedFile $file): string
+    {
+        $originalName = $file->getClientOriginalName();
+
+        if (! $this->preserveOriginalName) {
+            // Default Laravel behavior: random hash
+            return $file->hashName();
+        }
+
+        // Sanitize if enabled
+        if ($this->sanitizeFileNames) {
+            $originalName = $this->sanitizeFilenameValue($originalName);
+        }
+
+        // Add unique suffix to avoid collisions
+        $name = pathinfo($originalName, PATHINFO_FILENAME);
+        $ext = pathinfo($originalName, PATHINFO_EXTENSION);
+        $suffix = '_'.Str::lower(Str::random(6));
+
+        return $name.$suffix.($ext ? '.'.$ext : '');
+    }
+
+    /**
+     * Apply sanitization to a filename.
+     */
+    protected function sanitizeFilenameValue(string $filename): string
+    {
+        if ($this->fileNameSanitizer !== null) {
+            return ($this->fileNameSanitizer)($filename);
+        }
+
+        // Default sanitizer: lowercase, replace spaces and special chars with underscore
+        $name = pathinfo($filename, PATHINFO_FILENAME);
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+
+        $name = Str::lower($name);
+        $name = (string) preg_replace('/[^a-z0-9._-]/', '_', $name);
+        $name = (string) preg_replace('/_+/', '_', $name);
+        $name = trim($name, '_');
+
+        return $name.($ext ? '.'.Str::lower($ext) : '');
+    }
+
+    /**
+     * Get the original filename for display purposes.
+     */
+    protected function getDisplayName(UploadedFile $file): string
+    {
+        return $file->getClientOriginalName();
+    }
+
     // -------------------------------------------------------------------------
     // Value lifecycle
     // -------------------------------------------------------------------------
@@ -149,7 +285,8 @@ class File extends Field
 
         if ($value instanceof UploadedFile) {
             $this->deleteStoredFile($model);
-            $path = $value->store($this->storagePath, $this->disk);
+            $filename = $this->generateStorageFilename($value);
+            $path = $value->storeAs($this->storagePath, $filename, $this->disk);
             $model->setAttribute($this->attribute, $path ?: null);
 
             return;
@@ -205,7 +342,8 @@ class File extends Field
         $newPaths = [];
         foreach ($rawFiles as $file) {
             if ($file instanceof UploadedFile) {
-                $path = $file->store($this->storagePath, $this->disk);
+                $filename = $this->generateStorageFilename($file);
+                $path = $file->storeAs($this->storagePath, $filename, $this->disk);
                 if ($path) {
                     $newPaths[] = $path;
                 }
@@ -248,7 +386,7 @@ class File extends Field
         return [
             'path' => $path,
             'url' => $disk->url($path),
-            'name' => basename($path),
+            'name' => $this->resolveDisplayName($path),
         ];
     }
 
@@ -271,8 +409,31 @@ class File extends Field
         return array_map(fn (string $path): array => [
             'path' => $path,
             'url' => $disk->url($path),
-            'name' => basename($path),
+            'name' => $this->resolveDisplayName($path),
         ], $paths);
+    }
+
+    /**
+     * Get a human-friendly display name from a stored path.
+     *
+     * If preserveOriginalName is on, the stored filename is meaningful.
+     * Otherwise, show the basename (hash name).
+     */
+    protected function resolveDisplayName(string $path): string
+    {
+        $basename = basename($path);
+
+        if ($this->preserveOriginalName) {
+            // Remove the _xxxxxx suffix we added for uniqueness
+            $name = pathinfo($basename, PATHINFO_FILENAME);
+            $ext = pathinfo($basename, PATHINFO_EXTENSION);
+            // Remove last _xxxxxx (6 random chars) if present
+            $cleanName = (string) preg_replace('/_[a-z0-9]{6}$/', '', $name);
+
+            return $cleanName.($ext ? '.'.$ext : '');
+        }
+
+        return $basename;
     }
 
     /**
@@ -422,6 +583,7 @@ class File extends Field
             'maxSize' => $this->maxSize,
             'acceptedTypes' => $this->acceptedTypes,
             'multiple' => $this->multiple,
+            'showFileInfo' => $this->showFileInfo,
         ];
     }
 }
