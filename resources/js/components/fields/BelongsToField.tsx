@@ -125,12 +125,13 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     }
   }, [relatedResource])
 
-  // Load options when dropdown opens
+  // Load initial options when dropdown opens (search uses debounce separately)
   useEffect(() => {
     if (open) {
-      void fetchOptions(search)
+      void fetchOptions("")
     }
-  }, [open, fetchOptions, search])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   // Debounced search
   function handleSearchChange(query: string) {
@@ -271,9 +272,9 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
 
           {/* Options list */}
           <div className="martis-belongs-to-options">
-            {loading ? (
+            {loading && options.length === 0 ? (
               <div className="martis-belongs-to-empty">Loading...</div>
-            ) : options.length === 0 ? (
+            ) : !loading && options.length === 0 ? (
               <div className="martis-belongs-to-empty">
                 {search ? 'No results found' : 'No records available'}
               </div>
