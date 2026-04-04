@@ -99,6 +99,10 @@ export interface ResourceMessages {
 
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
+  fieldsForIndex?: FieldDefinition[]
+  fieldsForDetail?: FieldDefinition[]
+  fieldsForCreate?: FieldDefinition[]
+  fieldsForUpdate?: FieldDefinition[]
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
   indexSearchable?: boolean

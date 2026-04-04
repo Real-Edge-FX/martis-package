@@ -130,7 +130,7 @@ export function ResourceIndexPage() {
     )
   }
 
-  const indexColumns = schema.fields
+  const indexColumns = (schema.fieldsForIndex ?? schema.fields)
     .filter((f) => f.showOnIndex)
     .map((field) => ({ field }))
 

@@ -25,7 +25,7 @@ export function ResourceCreatePage() {
 
   const schema = schemaQuery.data?.data
   const formFields = useMemo(
-    () => schema?.fields.filter((f) => f.showOnForms) ?? [],
+    () => schema?.fieldsForCreate ?? schema?.fields.filter((f) => f.showOnForms) ?? [],
     [schema],
   )
 

@@ -454,6 +454,12 @@ class ResourceController extends MartisController
         $fields = $instance->fields($request);
         $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
 
+        // Context-specific field arrays for frontend consumption
+        $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), $instance->fieldsForIndex($request));
+        $fieldsForDetail = array_map(fn (FieldContract $f): array => $f->toArray(), $instance->fieldsForDetail($request));
+        $fieldsForCreate = array_map(fn (FieldContract $f): array => $f->toArray(), $instance->fieldsForCreate($request));
+        $fieldsForUpdate = array_map(fn (FieldContract $f): array => $f->toArray(), $instance->fieldsForUpdate($request));
+
         $data = [
             'uriKey' => $resourceClass::uriKey(),
             'label' => $resourceClass::label(),
@@ -468,6 +474,10 @@ class ResourceController extends MartisController
             'perPage' => $resourceClass::perPage(),
             'searchPlaceholder' => $resourceClass::searchPlaceholder(),
             'fields' => $fieldData,
+            'fieldsForIndex' => $fieldsForIndex,
+            'fieldsForDetail' => $fieldsForDetail,
+            'fieldsForCreate' => $fieldsForCreate,
+            'fieldsForUpdate' => $fieldsForUpdate,
             'messages' => [
                 'created' => $resourceClass::createdMessage(),
                 'updated' => $resourceClass::updatedMessage(),

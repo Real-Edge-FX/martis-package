@@ -65,7 +65,7 @@ export function ResourceDetailPage() {
     )
   }
 
-  const detailFields = schema.fields.filter((f) => f.showOnDetail)
+  const detailFields = schema.fieldsForDetail ?? schema.fields.filter((f) => f.showOnDetail)
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
 
   return (
