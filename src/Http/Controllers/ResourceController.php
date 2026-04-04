@@ -46,19 +46,19 @@ class ResourceController extends MartisController
     // -------------------------------------------------------------------------
 
     /**
-     * Listar registros do resource com paginação, ordenação e pesquisa.
+     * List resource records with pagination, sorting and search.
      *
-     * Retorna uma lista paginada dos registros do resource especificado.
-     * Suporta pesquisa por texto, ordenação por coluna e controlo do tamanho da página.
-     * Os campos disponíveis para pesquisa e ordenação dependem da definição do Resource.
+     * Returns a paginated list of records for the specified resource.
+     * Supports free-text search, column sorting and page size control.
+     * Available search and sort fields depend on the Resource definition.
      *
-     * Autenticação: requer sessão autenticada (cookie de sessão Laravel).
-     * A resposta inclui um envelope com data, meta (paginação) e links (navegação).
+     * Authentication: requires an authenticated session (Laravel session cookie).
+     * The response includes an envelope with data, meta (pagination) and links (navigation).
      */
-    #[QueryParameter('search', description: 'Filtrar registros por texto livre. Pesquisa em todos os campos marcados como pesquisáveis no Resource.', required: false, type: 'string')]
-    #[QueryParameter('per_page', description: 'Número de registros por página. Máximo: 100. Padrão definido pelo Resource (geralmente 15).', required: false, type: 'integer', example: 15)]
-    #[QueryParameter('sort', description: 'Nome do atributo pelo qual ordenar (ex: "name", "created_at"). Deve ser um campo marcado como sortable no Resource.', required: false, type: 'string')]
-    #[QueryParameter('direction', description: 'Direção da ordenação. Valores aceites: "asc" (crescente) ou "desc" (decrescente). Padrão: "asc".', required: false, type: 'string', example: 'asc')]
+    #[QueryParameter('search', description: 'Filter records by free text. Searches all fields marked as searchable in the Resource.', required: false, type: 'string')]
+    #[QueryParameter('per_page', description: 'Number of records per page. Maximum: 100. Default defined by the Resource (usually 15).', required: false, type: 'integer', example: 15)]
+    #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource.', required: false, type: 'string')]
+    #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default: "asc".', required: false, type: 'string', example: 'asc')]
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -122,7 +122,19 @@ class ResourceController extends MartisController
     // Show — GET /api/{resource}/{id}
     // -------------------------------------------------------------------------
 
-    /** Return a single resource record by primary key. */
+    /**
+     * Retrieve a single resource record by primary key.
+     *
+     * Returns the full detail representation of a resource record.
+     * Uses the fields defined in `fieldsForDetail()`, which may differ from the index view.
+     *
+     * Authentication: requires an authenticated session (Laravel session cookie).
+     *
+     * @param  string  $resource  Resource URI key (e.g. `users`, `products`)
+     * @param  int|string  $id  Primary key of the record to retrieve
+     *
+     * @response array{data: array<string, mixed>, meta: array{message: string}, links: array<string, string>}
+     */
     public function show(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -153,7 +165,20 @@ class ResourceController extends MartisController
     // Store — POST /api/{resource}
     // -------------------------------------------------------------------------
 
-    /** Validate and persist a new resource record. */
+    /**
+     * Create a new resource record.
+     *
+     * Validates the request against the resource's field rules and persists the record.
+     * Triggers `beforeSave()` / `afterSave()` lifecycle hooks defined on the Resource.
+     * Returns the newly created record using the detail representation.
+     *
+     * Authentication: requires an authenticated session (Laravel session cookie).
+     *
+     * @param  string  $resource  Resource URI key (e.g. `users`, `products`)
+     *
+     * @response 201 array{data: array<string, mixed>, meta: array{message: string}, links: array<string, string>}
+     * @response 422 array{message: string, errors: array<string, list<string>>}
+     */
     public function store(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -206,7 +231,21 @@ class ResourceController extends MartisController
     // Update — PUT /api/{resource}/{id}
     // -------------------------------------------------------------------------
 
-    /** Validate and update an existing resource record. */
+    /**
+     * Update an existing resource record.
+     *
+     * Validates the request (all fields are optional on update) and persists the changes.
+     * Unique validation automatically ignores the current record to avoid false conflicts.
+     * Triggers `beforeSave()` / `afterSave()` lifecycle hooks defined on the Resource.
+     *
+     * Authentication: requires an authenticated session (Laravel session cookie).
+     *
+     * @param  string  $resource  Resource URI key (e.g. `users`, `products`)
+     * @param  int|string  $id  Primary key of the record to update
+     *
+     * @response array{data: array<string, mixed>, meta: array{message: string}, links: array<string, string>}
+     * @response 422 array{message: string, errors: array<string, list<string>>}
+     */
     public function update(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -271,7 +310,20 @@ class ResourceController extends MartisController
     // Destroy — DELETE /api/{resource}/{id}
     // -------------------------------------------------------------------------
 
-    /** Delete (or soft-delete) a resource record by primary key. */
+    /**
+     * Delete a resource record by primary key.
+     *
+     * Performs a soft delete when the Resource supports it (i.e. the underlying model uses `SoftDeletes`).
+     * Otherwise performs a hard delete. Deletes any stored files associated with File/Image fields.
+     * Triggers `beforeDelete()` / `afterDelete()` lifecycle hooks defined on the Resource.
+     *
+     * Authentication: requires an authenticated session (Laravel session cookie).
+     *
+     * @param  string  $resource  Resource URI key (e.g. `users`, `products`)
+     * @param  int|string  $id  Primary key of the record to delete
+     *
+     * @response array{data: array<mixed>, meta: array{message: string}, links: array<string, string>}
+     */
     public function destroy(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -315,7 +367,19 @@ class ResourceController extends MartisController
     // Restore — PUT /api/{resource}/{id}/restore
     // -------------------------------------------------------------------------
 
-    /** Restore a soft-deleted resource record. */
+    /**
+     * Restore a soft-deleted resource record.
+     *
+     * Only available for resources whose model uses `SoftDeletes`.
+     * Returns 404 when the resource does not support soft deletes or the record is not found.
+     *
+     * Authentication: requires an authenticated session (Laravel session cookie).
+     *
+     * @param  string  $resource  Resource URI key (e.g. `users`, `products`)
+     * @param  int|string  $id  Primary key of the record to restore
+     *
+     * @response array{data: array<string, mixed>, meta: array{message: string}, links: array<string, string>}
+     */
     public function restore(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -360,10 +424,17 @@ class ResourceController extends MartisController
     // -------------------------------------------------------------------------
 
     /**
-     * Return the field schema for a resource (used by the React frontend
-     * to know how to render each field).
+     * Return the field schema for a resource.
      *
-     * GET /martis/api/resources/{resource}/schema
+     * Used by the React frontend to determine how to render each field (type, label,
+     * validation rules, options for selects, etc.). Also returns resource metadata
+     * such as labels, soft-delete support, icon and per-page options.
+     *
+     * Authentication: requires an authenticated session (Laravel session cookie).
+     *
+     * @param  string  $resource  Resource URI key (e.g. `users`, `products`)
+     *
+     * @response array{data: array<string, mixed>, meta: array{message: string}, links: array<string, string>}
      */
     public function schema(Request $request, string $resource): IlluminateJsonResponse
     {
