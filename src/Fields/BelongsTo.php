@@ -45,6 +45,12 @@ class BelongsTo extends Field
     protected bool $multiple = false;
 
     /**
+     * Whether to display the related record as a clickable link on index/detail.
+     * Defaults to true — set to false via ->displayAsLink(false).
+     */
+    protected bool $displayAsLink = true;
+
+    /**
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
      * @param  string  $foreignKey  Database column storing the FK (e.g. "author_id")
      */
@@ -144,6 +150,17 @@ class BelongsTo extends Field
     public function multiple(bool $value = true): static
     {
         $this->multiple = $value;
+
+        return $this;
+    }
+
+    /**
+     * Configure whether the field displays as a clickable link on index/detail.
+     * Defaults to true. Set to false to render as plain text.
+     */
+    public function displayAsLink(bool $value = true): static
+    {
+        $this->displayAsLink = $value;
 
         return $this;
     }
@@ -293,6 +310,7 @@ class BelongsTo extends Field
             'relatedLabel' => $this->relatedUriKey ? Str::title(str_replace('_', ' ', $this->relationship)) : null,
             'relationSearchable' => $this->relationSearchable,
             'multiple' => $this->multiple ?: null,
+            'displayAsLink' => $this->displayAsLink,
         ], fn (mixed $v): bool => $v !== null);
     }
 }

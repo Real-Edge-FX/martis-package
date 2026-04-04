@@ -27,7 +27,9 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
     const label = value.title ?? String(value.id)
     const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
 
-    if (relatedResource) {
+    const displayAsLink = (field as unknown as Record<string, unknown>).displayAsLink !== false
+
+    if (relatedResource && displayAsLink) {
       return (
         <Link
           to={`/resources/${relatedResource}/${value.id}`}

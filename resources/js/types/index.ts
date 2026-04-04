@@ -72,7 +72,7 @@ export interface FieldDefinition {
   relatedLabel?: string
   /** Explicit component override key (set via PHP field->component('key')). */
   component?: string | null
-  placeholder?: string | null
+  placeholder?: string
   /** Content text for heading fields. */
   content?: string | null
   /** Whether the field accepts multiple values (File/Image fields). */
