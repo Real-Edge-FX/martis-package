@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Contracts\Filesystem\Cloud;
+use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -38,8 +39,8 @@ class Image extends File
 
     protected ?int $thumbnailHeight = null;
 
-    /** @var list<string> Default accepted image extensions. */
-    protected array $acceptedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+    /** @var list<string> Default accepted image extensions (SVG excluded: cannot pass the 'image' validation rule and may contain XSS payloads). */
+    protected array $acceptedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
 
     public function type(): string
     {
@@ -289,7 +290,7 @@ class Image extends File
     /**
      * Replace the generic 'file' rule with 'image' (JPEG, PNG, GIF, WebP, BMP).
      *
-     * @return list<string>
+     * @return list<string|Rule>
      */
     public function buildRules(): array
     {

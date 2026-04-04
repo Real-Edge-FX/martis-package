@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 
 class AuthController extends MartisController
 {
+    /** Return the currently authenticated user as JSON. */
     public function user(Request $request): JsonResponse
     {
         /** @var string|null $guardName */
@@ -17,6 +18,7 @@ class AuthController extends MartisController
         return response()->json(auth()->guard($guardName)->user());
     }
 
+    /** Log out the current user, invalidate the session, and regenerate the CSRF token. */
     public function logout(Request $request): JsonResponse|RedirectResponse
     {
         /** @var string|null $guardName */

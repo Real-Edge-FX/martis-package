@@ -16,6 +16,7 @@ use Martis\Http\Middleware\MartisAuthenticate;
 
 class MartisServiceProvider extends ServiceProvider
 {
+    /** Register the ResourceRegistry singleton and merge package config. */
     public function register(): void
     {
         $this->mergeConfigFrom(
@@ -28,6 +29,7 @@ class MartisServiceProvider extends ServiceProvider
         });
     }
 
+    /** Boot package services: routes, views, translations, assets, and console commands. */
     public function boot(): void
     {
         $this->registerMiddlewareAlias();

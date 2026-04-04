@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class MartisAuthenticate
 {
+    /** Reject unauthenticated requests: throw for JSON, redirect to login for HTML. */
     public function handle(Request $request, Closure $next): Response
     {
         /** @var string|null $guardName */

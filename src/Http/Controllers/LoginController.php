@@ -11,6 +11,7 @@ use Illuminate\Http\Response;
 
 class LoginController extends MartisController
 {
+    /** Render the login page, or redirect to dashboard if already authenticated. */
     public function showLoginForm(): Response|RedirectResponse
     {
         /** @var string|null $guardName */
@@ -26,6 +27,7 @@ class LoginController extends MartisController
         return response(view('martis::app'));
     }
 
+    /** Validate credentials, authenticate the user, and regenerate the session. */
     public function login(Request $request): JsonResponse|RedirectResponse
     {
         $credentials = $request->validate([
@@ -59,6 +61,7 @@ class LoginController extends MartisController
         return redirect()->intended(route('martis.index'));
     }
 
+    /** Log out the user, invalidate the session, and redirect to the login page. */
     public function logout(Request $request): RedirectResponse
     {
         /** @var string|null $guardName */

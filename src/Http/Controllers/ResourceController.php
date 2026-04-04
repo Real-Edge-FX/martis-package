@@ -44,6 +44,7 @@ class ResourceController extends MartisController
     // Index — GET /api/{resource}
     // -------------------------------------------------------------------------
 
+    /** Return a paginated, sortable, and searchable list of resource records. */
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -107,6 +108,7 @@ class ResourceController extends MartisController
     // Show — GET /api/{resource}/{id}
     // -------------------------------------------------------------------------
 
+    /** Return a single resource record by primary key. */
     public function show(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -137,6 +139,7 @@ class ResourceController extends MartisController
     // Store — POST /api/{resource}
     // -------------------------------------------------------------------------
 
+    /** Validate and persist a new resource record. */
     public function store(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -189,6 +192,7 @@ class ResourceController extends MartisController
     // Update — PUT /api/{resource}/{id}
     // -------------------------------------------------------------------------
 
+    /** Validate and update an existing resource record. */
     public function update(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -253,6 +257,7 @@ class ResourceController extends MartisController
     // Destroy — DELETE /api/{resource}/{id}
     // -------------------------------------------------------------------------
 
+    /** Delete (or soft-delete) a resource record by primary key. */
     public function destroy(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -296,6 +301,7 @@ class ResourceController extends MartisController
     // Restore — PUT /api/{resource}/{id}/restore
     // -------------------------------------------------------------------------
 
+    /** Restore a soft-deleted resource record. */
     public function restore(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -631,12 +637,6 @@ class ResourceController extends MartisController
         DeferredRelationSync::sync($model);
     }
 
-    /**
-     * Serialize a single model to array using the given fields.
-     *
-     * @param  list<FieldContract>  $fields
-     * @return array<string, mixed>
-     */
     /**
      * Serialize a model into an array of attribute values using its fields.
      *

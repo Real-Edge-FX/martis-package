@@ -56,9 +56,7 @@ abstract class Resource implements ResourceContract
     // Defaults — may be overridden by concrete resources
     // -------------------------------------------------------------------------
 
-    /**
-     * Return a fresh (unsaved) model instance.
-     */
+    /** {@inheritDoc} */
     public static function newModel(): Model
     {
         $class = static::model();
@@ -69,47 +67,31 @@ abstract class Resource implements ResourceContract
         return $instance;
     }
 
-    /**
-     * Return the URL key used in route segments.
-     * Derived from model class name: BlogPost → "blog-posts".
-     */
+    /** {@inheritDoc} */
     public static function uriKey(): string
     {
         return Str::plural(Str::kebab(class_basename(static::model())));
     }
 
-    /**
-     * Return the plural human-readable label.
-     * Derived from model class name: BlogPost → "Blog Posts".
-     */
+    /** {@inheritDoc} */
     public static function label(): string
     {
         return Str::plural(Str::headline(class_basename(static::model())));
     }
 
-    /**
-     * Return the singular human-readable label.
-     * Derived from model class name: BlogPost → "Blog Post".
-     */
+    /** {@inheritDoc} */
     public static function singularLabel(): string
     {
         return Str::headline(class_basename(static::model()));
     }
 
-    /**
-     * Return an optional subtitle displayed below the resource label.
-     * Override to provide context about the resource (e.g. "Manage blog posts and articles").
-     */
+    /** {@inheritDoc} */
     public static function subtitle(): ?string
     {
         return null;
     }
 
-    /**
-     * The model attribute used as the display title for individual records.
-     * Override in concrete resources to customize (e.g. return 'name', 'title', 'email').
-     * Default: 'id' — shows the primary key.
-     */
+    /** {@inheritDoc} */
     public static function titleAttribute(): string
     {
         return 'id';
@@ -122,39 +104,25 @@ abstract class Resource implements ResourceContract
      * When titleAttribute is 'id' (default), returns "{SingularLabel} #{id}"
      * so the frontend displays a meaningful label instead of just a number.
      */
-    /**
-     * Whether to show the search bar on the resource index page.
-     * Override to return false to hide the search bar.
-     */
+    /** {@inheritDoc} */
     public static function indexSearchable(): bool
     {
         return true;
     }
 
-    /**
-     * Return the per-page options shown in the per-page dropdown.
-     * Override in concrete resources to customize.
-     *
-     * @return list<int>
-     */
+    /** {@inheritDoc} */
     public static function perPageOptions(): array
     {
         return [10, 25, 50, 100];
     }
 
-    /**
-     * Return the default number of records per page.
-     * Override in concrete resources to customize.
-     */
+    /** {@inheritDoc} */
     public static function perPage(): int
     {
         return 25;
     }
 
-    /**
-     * Return the placeholder text for the resource search field.
-     * Return null to use the default translated placeholder.
-     */
+    /** {@inheritDoc} */
     public static function searchPlaceholder(): ?string
     {
         return null;
@@ -181,11 +149,7 @@ abstract class Resource implements ResourceContract
     // Context-aware field resolution
     // -------------------------------------------------------------------------
 
-    /**
-     * Return only fields visible on the index (list) view.
-     *
-     * @return list<FieldContract>
-     */
+    /** {@inheritDoc} */
     public function fieldsForIndex(Request $request): array
     {
         return array_values(array_filter(
@@ -194,11 +158,7 @@ abstract class Resource implements ResourceContract
         ));
     }
 
-    /**
-     * Return only fields visible on the detail (show) view.
-     *
-     * @return list<FieldContract>
-     */
+    /** {@inheritDoc} */
     public function fieldsForDetail(Request $request): array
     {
         return array_values(array_filter(
@@ -207,11 +167,7 @@ abstract class Resource implements ResourceContract
         ));
     }
 
-    /**
-     * Return only fields visible on create and edit forms.
-     *
-     * @return list<FieldContract>
-     */
+    /** {@inheritDoc} */
     public function fieldsForForms(Request $request): array
     {
         return array_values(array_filter(
@@ -224,9 +180,7 @@ abstract class Resource implements ResourceContract
     // Soft delete awareness
     // -------------------------------------------------------------------------
 
-    /**
-     * Determine whether the associated model uses soft deletes.
-     */
+    /** {@inheritDoc} */
     public static function softDeletes(): bool
     {
         return in_array(
@@ -309,9 +263,7 @@ abstract class Resource implements ResourceContract
     // Accessors
     // -------------------------------------------------------------------------
 
-    /**
-     * Return the underlying model instance.
-     */
+    /** {@inheritDoc} */
     public function getModel(): ?Model
     {
         return $this->model;
@@ -321,11 +273,7 @@ abstract class Resource implements ResourceContract
      * Return the navigation group for this resource (null = top-level).
      * Override to group resources in the sidebar.
      */
-    /**
-     * Return the icon name for this resource (Phosphor icon key).
-     * Override in concrete resources to customize the sidebar icon.
-     * Common values: 'database', 'article', 'users', 'folders', 'gear', 'chart-bar', 'tag'.
-     */
+    /** {@inheritDoc} */
     public function icon(): string
     {
         return 'database';
@@ -371,6 +319,7 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
+    /** {@inheritDoc} */
     public function group(): ?string
     {
         return null;
@@ -446,11 +395,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'This record will be archived. You can restore it later.';
     }
 
-    /**
-     * Serialize resource metadata (not field data) to array.
-     *
-     * @return array<string, mixed>
-     */
+    /** {@inheritDoc} */
     public function toArray(): array
     {
         return [
@@ -469,17 +414,6 @@ abstract class Resource implements ResourceContract
     // Server-side hooks — Bloco 9
     // -------------------------------------------------------------------------
 
-    /**
-     * Called immediately before the model is saved (create or update).
-     *
-     * Override in concrete resources to add custom logic:
-     *   public function beforeSave(Model $model, Request $request, bool $creating): void
-     *   {
-     *       $model->slug = Str::slug($model->title);
-     *   }
-     *
-     * The BeforeSave event is also dispatched for listener-based decoupling.
-     */
     /**
      * Error display strategy for this resource.
      *
@@ -502,39 +436,25 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'The given data was invalid.';
     }
 
+    /** {@inheritDoc} */
     public function beforeSave(Model $model, Request $request, bool $creating): void
     {
         BeforeSave::dispatch(static::class, $model, $request, $creating);
     }
 
-    /**
-     * Called immediately after the model is saved (create or update).
-     *
-     * Override to trigger side effects (cache busting, notifications, jobs).
-     * The AfterSave event is also dispatched.
-     */
+    /** {@inheritDoc} */
     public function afterSave(Model $model, Request $request, bool $creating): void
     {
         AfterSave::dispatch(static::class, $model, $request, $creating);
     }
 
-    /**
-     * Called immediately before the model is deleted (or soft-deleted).
-     *
-     * Override to guard deletions or cascade cleanup.
-     * The BeforeDelete event is also dispatched.
-     */
+    /** {@inheritDoc} */
     public function beforeDelete(Model $model, Request $request): void
     {
         BeforeDelete::dispatch(static::class, $model, $request);
     }
 
-    /**
-     * Called immediately after the model is deleted (or soft-deleted).
-     *
-     * Override to clean up related data, update caches, etc.
-     * The AfterDelete event is also dispatched.
-     */
+    /** {@inheritDoc} */
     public function afterDelete(Model $model, Request $request): void
     {
         AfterDelete::dispatch(static::class, $model, $request);

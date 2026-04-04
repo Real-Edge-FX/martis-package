@@ -2,6 +2,7 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
@@ -49,7 +50,7 @@ abstract class Field implements FieldContract
     /** @var callable|null */
     protected mixed $displayCallback = null;
 
-    /** @var list<string> */
+    /** @var list<string|Rule> */
     protected array $extraRules = [];
 
     /**
@@ -83,12 +84,7 @@ abstract class Field implements FieldContract
     // Factory
     // -------------------------------------------------------------------------
 
-    /**
-     * Create a new field instance.
-     *
-     * @param  string  $attribute  Model attribute name (e.g. "title")
-     * @param  string|null  $label  Human-readable label; defaults to title-cased attribute
-     */
+    /** {@inheritDoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return new static($attribute, $label ?? Str::title(str_replace('_', ' ', $attribute)));
@@ -98,11 +94,13 @@ abstract class Field implements FieldContract
     // FieldContract — identity
     // -------------------------------------------------------------------------
 
+    /** {@inheritDoc} */
     public function attribute(): string
     {
         return $this->attribute;
     }
 
+    /** {@inheritDoc} */
     public function label(): string
     {
         return $this->label;
@@ -112,6 +110,7 @@ abstract class Field implements FieldContract
     // FieldContract — value resolution and filling
     // -------------------------------------------------------------------------
 
+    /** {@inheritDoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute;
@@ -123,6 +122,7 @@ abstract class Field implements FieldContract
         return $model->getAttribute($attr);
     }
 
+    /** {@inheritDoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {
@@ -142,9 +142,7 @@ abstract class Field implements FieldContract
     // FieldContract — serialization
     // -------------------------------------------------------------------------
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** {@inheritDoc} */
     public function toArray(): array
     {
         return array_merge([
@@ -168,6 +166,7 @@ abstract class Field implements FieldContract
     // FieldContract — visibility
     // -------------------------------------------------------------------------
 
+    /** {@inheritDoc} */
     public function nullable(): static
     {
         $this->nullable = true;
@@ -175,6 +174,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function readonly(): static
     {
         $this->readonly = true;
@@ -182,6 +182,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function required(): static
     {
         $this->required = true;
@@ -189,9 +190,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Set a custom placeholder text for the field input.
-     */
+    /** {@inheritDoc} */
     public function placeholder(string $text): static
     {
         $this->placeholder = $text;
@@ -199,6 +198,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function showOnIndex(): static
     {
         $this->showOnIndex = true;
@@ -206,6 +206,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function hideFromIndex(): static
     {
         $this->showOnIndex = false;
@@ -213,6 +214,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function showOnDetail(): static
     {
         $this->showOnDetail = true;
@@ -220,6 +222,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function hideFromDetail(): static
     {
         $this->showOnDetail = false;
@@ -227,6 +230,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function showOnForms(): static
     {
         $this->showOnForms = true;
@@ -234,6 +238,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function hideFromForms(): static
     {
         $this->showOnForms = false;
@@ -241,16 +246,19 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function isShownOnIndex(): bool
     {
         return $this->showOnIndex;
     }
 
+    /** {@inheritDoc} */
     public function isShownOnDetail(): bool
     {
         return $this->showOnDetail;
     }
 
+    /** {@inheritDoc} */
     public function isShownOnForms(): bool
     {
         return $this->showOnForms;
@@ -260,9 +268,7 @@ abstract class Field implements FieldContract
     // Sortable / Searchable
     // -------------------------------------------------------------------------
 
-    /**
-     * Allow this field to be used as a sort column in the index view.
-     */
+    /** {@inheritDoc} */
     public function sortable(bool $value = true): static
     {
         $this->sortable = $value;
@@ -270,9 +276,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Include this field when performing full-text search on the resource.
-     */
+    /** {@inheritDoc} */
     public function searchable(bool $value = true): static
     {
         $this->searchable = $value;
@@ -280,11 +284,13 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function isSortable(): bool
     {
         return $this->sortable;
     }
 
+    /** {@inheritDoc} */
     public function isSearchable(): bool
     {
         return $this->searchable;
@@ -295,9 +301,9 @@ abstract class Field implements FieldContract
     // -------------------------------------------------------------------------
 
     /**
-     * Append extra Laravel validation rules.
+     * {@inheritDoc}
      *
-     * @param  list<string>  $rules
+     * @param  list<string|Rule>  $rules
      */
     public function rules(array $rules): static
     {
@@ -344,9 +350,9 @@ abstract class Field implements FieldContract
     }
 
     /**
-     * Build the full list of validation rules for this field.
+     * {@inheritDoc}
      *
-     * @return list<string>
+     * @return list<string|Rule>
      */
     public function buildRules(): array
     {
@@ -439,15 +445,7 @@ abstract class Field implements FieldContract
     // Component override — Bloco 9
     // -------------------------------------------------------------------------
 
-    /**
-     * Override the React component used to render this field.
-     *
-     * The key must be registered in the frontend componentRegistry:
-     *   componentRegistry.register('my-rating', MyRatingComponent)
-     *
-     * Example:
-     *   Text::make('status')->component('status-badge')
-     */
+    /** {@inheritDoc} */
     public function component(string $key): static
     {
         $this->componentKey = $key;
@@ -455,9 +453,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Return the custom component key (null = use default for type).
-     */
+    /** {@inheritDoc} */
     public function getComponentKey(): ?string
     {
         return $this->componentKey;
@@ -467,12 +463,6 @@ abstract class Field implements FieldContract
     // Extension point — Track C hook
     // -------------------------------------------------------------------------
 
-    /**
-     * Return extra attributes merged into toArray().
-     *
-     * Concrete fields (Select, BelongsTo, etc.) override this to include
-     * type-specific data (options, related model info, etc.).
-     */
     // -------------------------------------------------------------------------
     // Arbitrary metadata — withMeta()
     // -------------------------------------------------------------------------
@@ -480,16 +470,7 @@ abstract class Field implements FieldContract
     /** @var array<string, mixed> */
     protected array $meta = [];
 
-    /**
-     * Attach arbitrary key-value metadata to the field schema.
-     *
-     * This data is merged into toArray() and made available to the frontend
-     * React component as extra properties on the FieldDefinition object.
-     *
-     * Equivalent to Laravel Nova's withMeta().
-     *
-     * @param  array<string, mixed>  $meta
-     */
+    /** {@inheritDoc} */
     public function withMeta(array $meta): static
     {
         $this->meta = array_merge($this->meta, $meta);
@@ -498,6 +479,11 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * Return extra attributes merged into toArray().
+     *
+     * Concrete fields (Select, BelongsTo, etc.) override this to include
+     * type-specific data (options, related model info, etc.).
+     *
      * @return array<string, mixed>
      */
     protected function extraAttributes(): array

@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Contracts\Filesystem\Cloud;
+use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -508,7 +509,7 @@ class File extends Field
     // -------------------------------------------------------------------------
 
     /**
-     * @return list<string>
+     * @return list<string|Rule>
      */
     public function buildRules(): array
     {
