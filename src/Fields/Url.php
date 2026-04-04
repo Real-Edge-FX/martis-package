@@ -2,6 +2,8 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Contracts\Validation\Rule;
+
 /**
  * URL field — renders clickable links on index/detail and a text input on forms.
  *
@@ -56,7 +58,7 @@ class Url extends Field
     }
 
     /**
-     * @return list<string|\Illuminate\Contracts\Validation\Rule>
+     * @return list<string|Rule>
      */
     public function buildRules(): array
     {

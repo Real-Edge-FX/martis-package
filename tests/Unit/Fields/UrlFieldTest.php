@@ -6,7 +6,9 @@ use Martis\Fields\Url;
 class UrlTestModel extends Model
 {
     protected $table = 'users';
+
     protected $fillable = ['website_url'];
+
     public $timestamps = false;
 }
 
@@ -70,7 +72,7 @@ it('Url resolves null as null', function () {
 it('Url resolveForDisplay applies displayUsing callback', function () {
     $model = new UrlTestModel(['website_url' => 'https://example.com']);
     $field = Url::make('website_url')
-        ->displayUsing(fn ($value) => 'Go to ' . parse_url($value, PHP_URL_HOST));
+        ->displayUsing(fn ($value) => 'Go to '.parse_url($value, PHP_URL_HOST));
 
     expect($field->resolveForDisplay($model))->toBe('Go to example.com');
 });

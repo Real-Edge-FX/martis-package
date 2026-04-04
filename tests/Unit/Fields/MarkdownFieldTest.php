@@ -6,7 +6,9 @@ use Martis\Fields\Markdown;
 class MarkdownTestModel extends Model
 {
     protected $table = 'users';
+
     protected $fillable = ['description_md'];
+
     public $timestamps = false;
 }
 
@@ -168,7 +170,7 @@ it('Markdown toArray contains required keys', function () {
 it('Markdown respects resolveUsing callback', function () {
     $model = new MarkdownTestModel(['description_md' => '# Hello']);
     $field = Markdown::make('description_md')
-        ->resolveUsing(fn ($value) => $value . "\n\nAppended.");
+        ->resolveUsing(fn ($value) => $value."\n\nAppended.");
 
     expect($field->resolve($model))->toBe("# Hello\n\nAppended.");
 });

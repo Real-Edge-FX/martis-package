@@ -6,7 +6,9 @@ use Martis\Fields\Color;
 class ColorTestModel extends Model
 {
     protected $table = 'users';
+
     protected $fillable = ['label_color'];
+
     public $timestamps = false;
 }
 

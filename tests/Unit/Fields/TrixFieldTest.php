@@ -6,7 +6,9 @@ use Martis\Fields\Trix;
 class TrixTestModel extends Model
 {
     protected $table = 'users';
+
     protected $fillable = ['bio_html'];
+
     public $timestamps = false;
 }
 

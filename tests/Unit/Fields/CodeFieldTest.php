@@ -6,7 +6,9 @@ use Martis\Fields\Code;
 class CodeTestModel extends Model
 {
     protected $table = 'users';
+
     protected $fillable = ['snippet', 'config_json'];
+
     public $timestamps = false;
 
     protected function casts(): array
