@@ -132,7 +132,6 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     if (open) {
       void fetchOptions("")
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   // Debounced search
