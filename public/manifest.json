@@ -1,0 +1,115 @@
+{
+  "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.eot": {
+    "file": "assets/primeicons-DMOk5skT.eot",
+    "src": "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.eot"
+  },
+  "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.svg": {
+    "file": "assets/primeicons-Dr5RGzOO.svg",
+    "src": "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.svg"
+  },
+  "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.ttf": {
+    "file": "assets/primeicons-MpK4pl85.ttf",
+    "src": "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.ttf"
+  },
+  "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.woff": {
+    "file": "assets/primeicons-WjwUDZjB.woff",
+    "src": "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.woff"
+  },
+  "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.woff2": {
+    "file": "assets/primeicons-C6QP2o4f.woff2",
+    "src": "../../node_modules/.pnpm/primeicons@7.0.0/node_modules/primeicons/fonts/primeicons.woff2"
+  },
+  "../../node_modules/.pnpm/primereact@10.9.7_@types+react@18.3.28_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/primereact/resources/themes/lara-dark-indigo/fonts/InterVariable-Italic.woff2": {
+    "file": "assets/InterVariable-Italic-d6KXgdvN.woff2",
+    "src": "../../node_modules/.pnpm/primereact@10.9.7_@types+react@18.3.28_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/primereact/resources/themes/lara-dark-indigo/fonts/InterVariable-Italic.woff2"
+  },
+  "../../node_modules/.pnpm/primereact@10.9.7_@types+react@18.3.28_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/primereact/resources/themes/lara-dark-indigo/fonts/InterVariable.woff2": {
+    "file": "assets/InterVariable-CWi-zmRD.woff2",
+    "src": "../../node_modules/.pnpm/primereact@10.9.7_@types+react@18.3.28_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/primereact/resources/themes/lara-dark-indigo/fonts/InterVariable.woff2"
+  },
+  "_DeleteModal-DMhKZq2B.js": {
+    "file": "assets/DeleteModal-DMhKZq2B.js",
+    "name": "DeleteModal",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_useMutation-CAtYYzZr.js": {
+    "file": "assets/useMutation-CAtYYzZr.js",
+    "name": "useMutation",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "resources/images/logo.png": {
+    "file": "assets/logo-Ctxf8qMz.png",
+    "src": "resources/images/logo.png"
+  },
+  "resources/js/app.tsx": {
+    "file": "assets/app-BT30AVH0.js",
+    "name": "app",
+    "src": "resources/js/app.tsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "resources/js/pages/ResourceIndex.tsx",
+      "resources/js/pages/ResourceCreate.tsx",
+      "resources/js/pages/ResourceDetail.tsx",
+      "resources/js/pages/ResourceUpdate.tsx"
+    ],
+    "css": [
+      "assets/app-3aNnNijX.css"
+    ],
+    "assets": [
+      "assets/logo-Ctxf8qMz.png",
+      "assets/InterVariable-CWi-zmRD.woff2",
+      "assets/InterVariable-Italic-d6KXgdvN.woff2",
+      "assets/primeicons-DMOk5skT.eot",
+      "assets/primeicons-C6QP2o4f.woff2",
+      "assets/primeicons-WjwUDZjB.woff",
+      "assets/primeicons-MpK4pl85.ttf",
+      "assets/primeicons-Dr5RGzOO.svg"
+    ]
+  },
+  "resources/js/pages/ResourceCreate.tsx": {
+    "file": "assets/ResourceCreate-m9YgNux5.js",
+    "name": "ResourceCreate",
+    "src": "resources/js/pages/ResourceCreate.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_useMutation-CAtYYzZr.js"
+    ]
+  },
+  "resources/js/pages/ResourceDetail.tsx": {
+    "file": "assets/ResourceDetail-E0RyxG0d.js",
+    "name": "ResourceDetail",
+    "src": "resources/js/pages/ResourceDetail.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_useMutation-CAtYYzZr.js",
+      "_DeleteModal-DMhKZq2B.js"
+    ]
+  },
+  "resources/js/pages/ResourceIndex.tsx": {
+    "file": "assets/ResourceIndex-cu-p5Zaa.js",
+    "name": "ResourceIndex",
+    "src": "resources/js/pages/ResourceIndex.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_useMutation-CAtYYzZr.js",
+      "_DeleteModal-DMhKZq2B.js"
+    ]
+  },
+  "resources/js/pages/ResourceUpdate.tsx": {
+    "file": "assets/ResourceUpdate-DsYni-V1.js",
+    "name": "ResourceUpdate",
+    "src": "resources/js/pages/ResourceUpdate.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_useMutation-CAtYYzZr.js"
+    ]
+  }
+}

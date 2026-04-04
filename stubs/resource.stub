@@ -1,0 +1,23 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Models\{{ model }};
+use Illuminate\Http\Request;
+use Martis\Fields\Text;
+use Martis\Resource;
+
+class {{ class }} extends Resource
+{
+    public static function model(): string
+    {
+        return {{ model }}::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('id')->hideFromForms()->sortable(),
+        ];
+    }
+}

@@ -1,0 +1,64 @@
+<?php
+
+use Martis\Contracts\FieldContract;
+use Martis\Contracts\PaginationContract;
+use Martis\Contracts\ResourceContract;
+
+it('ResourceContract interface exists', function () {
+    expect(interface_exists(ResourceContract::class))->toBeTrue();
+});
+
+it('FieldContract interface exists', function () {
+    expect(interface_exists(FieldContract::class))->toBeTrue();
+});
+
+it('PaginationContract interface exists', function () {
+    expect(interface_exists(PaginationContract::class))->toBeTrue();
+});
+
+it('ResourceContract declares required methods', function () {
+    $methods = get_class_methods(ResourceContract::class);
+    expect($methods)->toContain('fields')
+        ->and($methods)->toContain('model')
+        ->and($methods)->toContain('newModel')
+        ->and($methods)->toContain('uriKey')
+        ->and($methods)->toContain('label')
+        ->and($methods)->toContain('singularLabel')
+        ->and($methods)->toContain('authorizedToView')
+        ->and($methods)->toContain('authorizedToCreate')
+        ->and($methods)->toContain('authorizedToUpdate')
+        ->and($methods)->toContain('authorizedToDelete');
+});
+
+it('FieldContract declares required methods', function () {
+    $methods = get_class_methods(FieldContract::class);
+    expect($methods)->toContain('attribute')
+        ->and($methods)->toContain('label')
+        ->and($methods)->toContain('type')
+        ->and($methods)->toContain('resolve')
+        ->and($methods)->toContain('fill')
+        ->and($methods)->toContain('toArray')
+        ->and($methods)->toContain('nullable')
+        ->and($methods)->toContain('readonly')
+        ->and($methods)->toContain('required')
+        ->and($methods)->toContain('showOnIndex')
+        ->and($methods)->toContain('hideFromIndex')
+        ->and($methods)->toContain('showOnDetail')
+        ->and($methods)->toContain('hideFromDetail')
+        ->and($methods)->toContain('showOnForms')
+        ->and($methods)->toContain('hideFromForms')
+        ->and($methods)->toContain('isShownOnIndex')
+        ->and($methods)->toContain('isShownOnDetail')
+        ->and($methods)->toContain('isShownOnForms');
+});
+
+it('PaginationContract declares required methods', function () {
+    $methods = get_class_methods(PaginationContract::class);
+    expect($methods)->toContain('total')
+        ->and($methods)->toContain('perPage')
+        ->and($methods)->toContain('currentPage')
+        ->and($methods)->toContain('lastPage')
+        ->and($methods)->toContain('from')
+        ->and($methods)->toContain('to')
+        ->and($methods)->toContain('toArray');
+});

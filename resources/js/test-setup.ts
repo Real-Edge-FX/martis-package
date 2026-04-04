@@ -1,0 +1,72 @@
+// Test setup
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+
+// Initialize i18n with English translations for tests
+// This ensures t() returns actual strings rather than key names
+i18n.use(initReactI18next).init({
+  resources: {
+    en: {
+      actions: {
+        create: 'Create',
+        edit: 'Edit',
+        delete: 'Delete',
+        save: 'Save changes',
+        cancel: 'Cancel',
+        saving: 'Saving…',
+        confirm: 'Confirm',
+        restore: 'Restore',
+        archive: 'Archive',
+        delete_permanent: 'Delete permanently',
+        please_wait: 'Please wait…',
+      },
+      messages: {
+        record_created: 'Record created successfully.',
+        record_updated: 'Record updated successfully.',
+        record_deleted: 'Record deleted successfully.',
+        record_restored: 'Record restored successfully.',
+        record_not_found: 'Record not found.',
+        loading: 'Loading…',
+        error_schema: 'Error loading resource schema.',
+        error_update: 'Error updating record.',
+        error_create: 'Error creating record.',
+        error_delete: 'Error deleting record.',
+        error_restore: 'Error restoring record.',
+        invalid_field: 'Invalid',
+        archived: 'Archived',
+        archive_confirm: 'This record will be archived and can be restored later.',
+        delete_confirm: 'This action is permanent and cannot be undone. Are you sure?',
+      },
+      navigation: {
+        dashboard: 'Dashboard',
+        footer: 'Martis Admin Engine',
+        toggle_theme: 'Toggle theme',
+        logout: 'Sign out',
+      },
+      resources: {
+        new: 'New {{label}}',
+        search: 'Search {{label}}…',
+        selected: '{{count}} selected',
+        edit: 'Edit {{label}}',
+        loading: 'Loading…',
+        registered: 'Registered resources',
+        welcome: 'Welcome to Martis Admin Engine.',
+        hello: 'Hello, {{name}}',
+        no_records: 'No records found.',
+      },
+      auth: {
+        title: 'Martis Admin',
+        email: 'Email',
+        password: 'Password',
+        sign_in: 'Sign in',
+        signing_in: 'Signing in…',
+        error: 'Error signing in.',
+        session_ended: 'Session ended.',
+      },
+    },
+  },
+  lng: 'en',
+  fallbackLng: 'en',
+  interpolation: { escapeValue: false },
+  react: { useSuspense: false },
+})

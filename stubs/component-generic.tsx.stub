@@ -1,0 +1,7 @@
+export function {{ class }}() {
+  return (
+    <div>
+      <p>{{ class }} component</p>
+    </div>
+  )
+}

@@ -1,0 +1,11 @@
+/node_modules/
+/vendor/
+/composer.lock
+/.vite/
+/.phpunit.cache/
+/public/assets/hot
+*.swp
+*.swo
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,1091 @@
+/* PrimeReact dark theme + components */
+@import "primereact/resources/themes/lara-dark-indigo/theme.css";
+@import "primereact/resources/primereact.min.css";
+@import "primeicons/primeicons.css";
+
+/* Tailwind (preflight disabled — PrimeReact provides its own reset) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Minimal reset compatible with PrimeReact */
+*, ::before, ::after {
+  box-sizing: border-box;
+}
+
+/* ── Theme Variables ──────────────────────────────────────────────
+   Dark theme = default (:root).
+   Light theme = html:not(.dark) overrides.
+   All component colors reference these variables so both themes
+   stay coherent automatically.
+──────────────────────────────────────────────────────────────── */
+
+:root {
+  --sidebar-width: 240px;
+
+  /* Dark theme (default) */
+  --martis-bg: #1b2332;
+  --martis-surface: #1e293b;
+  --martis-sidebar: #111827;
+  --martis-border: #334155;
+  --martis-text: #e2e8f0;
+  --martis-text-muted: #94a3b8;
+  --martis-accent: #6366f1;
+  --martis-accent-hover: #4f46e5;
+  --martis-hover: rgba(255, 255, 255, 0.05);
+  --martis-active: rgba(255, 255, 255, 0.1);
+  --martis-card: #1e293b;
+  --martis-input-bg: #111827;
+  --martis-topbar: #1e293b;
+  --martis-search-bg: rgba(255, 255, 255, 0.06);
+  --martis-search-border: rgba(255, 255, 255, 0.1);
+  --martis-row-even: rgba(30, 41, 59, 0.5);
+  --martis-row-hover: rgba(51, 65, 85, 0.5);
+}
+
+html:not(.dark) {
+  /* Light theme */
+  --martis-bg: #f1f5f9;
+  --martis-surface: #ffffff;
+  --martis-sidebar: #ffffff;
+  --martis-border: #e2e8f0;
+  --martis-text: #1e293b;
+  --martis-text-muted: #64748b;
+  --martis-accent: #6366f1;
+  --martis-accent-hover: #4f46e5;
+  --martis-hover: rgba(0, 0, 0, 0.04);
+  --martis-active: rgba(0, 0, 0, 0.08);
+  --martis-card: #ffffff;
+  --martis-input-bg: #f8fafc;
+  --martis-topbar: #ffffff;
+  --martis-search-bg: rgba(0, 0, 0, 0.04);
+  --martis-search-border: rgba(0, 0, 0, 0.12);
+  --martis-row-even: rgba(248, 250, 252, 1);
+  --martis-row-hover: rgba(241, 245, 249, 1);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--martis-bg);
+  color: var(--martis-text);
+}
+
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Remove default link underline globally */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Reset bare button elements */
+button {
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── PrimeReact Dark theme import (conditional) ────────────────── */
+.dark body,
+html.dark body {
+  color-scheme: dark;
+}
+
+/* ── DataTable ─────────────────────────────────────────────────── */
+.p-datatable {
+  background: transparent;
+}
+.p-datatable .p-datatable-thead > tr > th {
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.p-datatable .p-datatable-tbody > tr {
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+.p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background-color: var(--martis-row-even);
+}
+.p-datatable .p-datatable-tbody > tr:hover {
+  background-color: var(--martis-row-hover) !important;
+}
+.p-datatable .p-datatable-tbody > tr.bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+.p-datatable .p-datatable-emptymessage td {
+  background-color: var(--martis-sidebar);
+  border-color: var(--martis-border);
+}
+.p-datatable .p-sortable-column:hover {
+  background-color: var(--martis-row-hover) !important;
+}
+
+/* ── Checkbox ──────────────────────────────────────────────────── */
+.p-checkbox .p-checkbox-box {
+  background-color: var(--martis-surface);
+  border-color: var(--martis-border);
+}
+.p-checkbox .p-checkbox-box.p-highlight {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+}
+
+/* ── Card ──────────────────────────────────────────────────────── */
+.p-card {
+  background-color: var(--martis-card);
+  color: var(--martis-text);
+  box-shadow: none;
+  border: 1px solid var(--martis-border);
+}
+.p-card .p-card-body {
+  color: var(--martis-text);
+}
+.p-card:hover {
+  border-color: var(--martis-accent);
+}
+
+/* ── InputText ─────────────────────────────────────────────────── */
+.p-inputtext {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+.p-inputtext:focus {
+  border-color: var(--martis-accent);
+  box-shadow: 0 0 0 1px var(--martis-accent);
+}
+.p-inputtext::placeholder {
+  color: var(--martis-text-muted);
+}
+
+/* ── Button ────────────────────────────────────────────────────── */
+.p-button {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+  color: #ffffff;
+}
+.p-button:hover {
+  background-color: var(--martis-accent-hover);
+  border-color: var(--martis-accent-hover);
+}
+.p-button:focus {
+  box-shadow: 0 0 0 2px var(--martis-bg), 0 0 0 4px var(--martis-accent);
+}
+
+/* Button text variant */
+.p-button.p-button-text {
+  background: transparent;
+  border-color: transparent;
+  color: var(--martis-text-muted);
+}
+.p-button.p-button-text:hover {
+  background-color: var(--martis-hover);
+  border-color: transparent;
+}
+
+/* ── Fix: Bell / icon-only button — subtle focus & hover ───────── */
+.p-button.p-button-rounded.p-button-text:focus,
+.p-button.p-button-rounded.p-button-text:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+}
+.p-button.p-button-rounded.p-button-text:hover {
+  background-color: var(--martis-hover) !important;
+}
+.p-button.p-button-rounded.p-button-text.p-button-secondary:focus,
+.p-button.p-button-rounded.p-button-text.p-button-secondary:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* ── Icon-only button sizing ───────────────────────────────────── */
+.p-button.p-button-icon-only.p-button-text {
+  @apply p-2;
+}
+
+/* ── Dialog / Modal ────────────────────────────────────────────── */
+.p-dialog {
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text);
+}
+.p-dialog .p-dialog-header {
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text);
+}
+.p-dialog .p-dialog-content {
+  background-color: var(--martis-sidebar);
+  color: var(--martis-text-muted);
+}
+.p-dialog .p-dialog-footer {
+  background-color: var(--martis-sidebar);
+}
+
+/* ── Paginator ─────────────────────────────────────────────────── */
+.p-paginator {
+  background-color: transparent;
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
+}
+.p-paginator .p-paginator-page {
+  color: var(--martis-text-muted);
+}
+.p-paginator .p-paginator-page.p-highlight {
+  background-color: var(--martis-accent);
+  color: white;
+}
+
+/* ── Dropdown ──────────────────────────────────────────────────── */
+.p-dropdown {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+.p-dropdown-panel {
+  background-color: var(--martis-sidebar);
+  border-color: var(--martis-border);
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item {
+  color: var(--martis-text-muted);
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
+  background-color: var(--martis-surface);
+}
+
+/* ── Toast ─────────────────────────────────────────────────────── */
+.p-toast .p-toast-message {
+  background-color: var(--martis-surface);
+  border-color: var(--martis-border);
+}
+
+/* ── Menu popup — Fix text visibility ──────────────────────────── */
+.p-menu {
+  background-color: var(--martis-card);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text);
+}
+.p-menu .p-menuitem-link {
+  color: var(--martis-text);
+}
+.p-menu .p-menuitem-link:hover {
+  background-color: var(--martis-hover);
+}
+.p-menu .p-menuitem-text {
+  color: var(--martis-text);
+}
+.p-menu .p-menuitem-icon {
+  color: var(--martis-text-muted);
+}
+/* Disabled items in menu (user name/email) — ensure visibility */
+.p-menu .p-menuitem.p-disabled .p-menuitem-text,
+.p-menu .p-menuitem .p-menuitem-link.p-disabled .p-menuitem-text,
+.p-menu .p-menuitem-link[aria-disabled="true"] .p-menuitem-text {
+  color: var(--martis-text) !important;
+  opacity: 1 !important;
+}
+.p-menu .p-menuitem.p-disabled .p-menuitem-link,
+.p-menu .p-menuitem-link.p-disabled {
+  opacity: 1 !important;
+}
+
+/* ── Martis Layout Helpers ─────────────────────────────────────── */
+.martis-bg { background-color: var(--martis-bg); }
+.martis-surface { background-color: var(--martis-surface); }
+.martis-sidebar-bg { background-color: var(--martis-sidebar); }
+.martis-topbar-bg { background-color: var(--martis-topbar); }
+.martis-card-bg { background-color: var(--martis-card); }
+.martis-text { color: var(--martis-text); }
+.martis-text-muted { color: var(--martis-text-muted); }
+.martis-border { border-color: var(--martis-border); }
+.martis-input-bg { background-color: var(--martis-input-bg); }
+
+/* ── Global Search Modal ───────────────────────────────────────── */
+.martis-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+.martis-search-modal {
+  width: 100%;
+  max-width: 560px;
+  background-color: var(--martis-card);
+  border: 1px solid var(--martis-border);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.martis-search-input {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  border: none;
+  border-bottom: 1px solid var(--martis-border);
+  background: transparent;
+  color: var(--martis-text);
+  font-size: 15px;
+  outline: none;
+}
+.martis-search-input::placeholder {
+  color: var(--martis-text-muted);
+}
+.martis-search-results {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 8px;
+}
+.martis-search-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--martis-text);
+  transition: background-color 0.15s;
+}
+.martis-search-item:hover,
+.martis-search-item.active {
+  background-color: var(--martis-hover);
+}
+
+/* ── Toast Notifications (custom) ──────────────────────────────── */
+.martis-toast-container {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+/* Position variants */
+.martis-toast-container.pos-top-right { top: 16px; right: 16px; }
+.martis-toast-container.pos-top-left { top: 16px; left: 16px; }
+.martis-toast-container.pos-bottom-right { bottom: 16px; right: 16px; }
+.martis-toast-container.pos-bottom-left { bottom: 16px; left: 16px; }
+.martis-toast-container.pos-top-center { top: 16px; left: 50%; transform: translateX(-50%); }
+.martis-toast-container.pos-bottom-center { bottom: 16px; left: 50%; transform: translateX(-50%); }
+
+.martis-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 300px;
+  max-width: 420px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-card);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  animation: martis-toast-in 0.3s ease-out;
+  color: var(--martis-text);
+}
+.martis-toast-success { border-left: 4px solid #22c55e; }
+.martis-toast-error { border-left: 4px solid #ef4444; }
+.martis-toast-warning { border-left: 4px solid #f59e0b; }
+.martis-toast-info { border-left: 4px solid #3b82f6; }
+
+@keyframes martis-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── PrimeReact Light Theme Overrides ──────────────────────────── */
+html:not(.dark) .p-component {
+  color-scheme: light;
+}
+html:not(.dark) .p-inputtext {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-button {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+  color: #ffffff;
+}
+html:not(.dark) .p-button.p-button-text {
+  background: transparent;
+  border-color: transparent;
+  color: var(--martis-text-muted);
+}
+html:not(.dark) .p-datatable .p-datatable-thead > tr > th {
+  background-color: var(--martis-surface);
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-datatable .p-datatable-tbody > tr {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-card {
+  background-color: var(--martis-card);
+  border-color: var(--martis-border);
+  color: var(--martis-text);
+}
+
+/* Light theme menu — ensure text is dark and visible */
+html:not(.dark) .p-menu {
+  background-color: var(--martis-card);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-menu .p-menuitem-text {
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-menu .p-menuitem-link {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-menu .p-menuitem.p-disabled .p-menuitem-text,
+html:not(.dark) .p-menu .p-menuitem .p-menuitem-link.p-disabled .p-menuitem-text {
+  color: var(--martis-text) !important;
+  opacity: 1 !important;
+}
+html:not(.dark) .p-menu .p-menuitem.p-disabled .p-menuitem-link,
+html:not(.dark) .p-menu .p-menuitem-link.p-disabled {
+  opacity: 1 !important;
+}
+
+/* ── Light Theme — Menu focus/highlight fix ─────────────────────── */
+html:not(.dark) .p-menu .p-menuitem-link:focus,
+html:not(.dark) .p-menu .p-menuitem-link.p-focus,
+html:not(.dark) .p-menu .p-menuitem.p-focus > .p-menuitem-content,
+html:not(.dark) .p-menu .p-menuitem:not(.p-disabled).p-focus > .p-menuitem-content {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+  box-shadow: none !important;
+}
+html:not(.dark) .p-menu .p-menuitem:not(.p-disabled).p-focus > .p-menuitem-content .p-menuitem-link .p-menuitem-text {
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-menu .p-menuitem:not(.p-disabled).p-focus > .p-menuitem-content .p-menuitem-link .p-menuitem-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-menu .p-menuitem-content {
+  background: transparent;
+  color: var(--martis-text);
+}
+html:not(.dark) .p-menu .p-menuitem:hover > .p-menuitem-content {
+  background-color: var(--martis-hover) !important;
+}
+html:not(.dark) .p-menu .p-menuitem:hover > .p-menuitem-content .p-menuitem-link .p-menuitem-text {
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-menu .p-menuitem:hover > .p-menuitem-content .p-menuitem-link .p-menuitem-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-menu .p-menu-separator {
+  border-color: var(--martis-border);
+}
+
+/* Light theme — Dialog/Modal */
+html:not(.dark) .p-dialog {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-dialog .p-dialog-header {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-dialog .p-dialog-content {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+}
+
+/* Light theme — Dropdown panel */
+html:not(.dark) .p-dropdown {
+  background-color: var(--martis-input-bg);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-dropdown-panel {
+  background-color: var(--martis-surface);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover,
+html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-focus {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+}
+
+/* Light theme — Paginator */
+html:not(.dark) .p-paginator {
+  background-color: transparent;
+}
+html:not(.dark) .p-paginator .p-paginator-page {
+  color: var(--martis-text-muted);
+}
+
+/* Light theme — InputText */
+html:not(.dark) .p-inputtext {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-inputtext::placeholder {
+  color: var(--martis-text-muted);
+}
+
+
+/* ── Login Button — prominent styling ──────────────────────────── */
+.p-button.p-button-raised {
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  box-shadow: 0 4px 14px -2px rgba(99, 102, 241, 0.4);
+}
+.p-button.p-button-raised:hover {
+  box-shadow: 0 6px 20px -2px rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+}
+.p-button.p-button-lg,
+.p-button.p-button-raised.p-button-lg {
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+}
+
+/* ── Menu Separator — thicker divider lines ────────────────────── */
+.p-menu .p-menu-separator {
+  border-top: 1px solid var(--martis-border);
+  margin: 4px 0;
+}
+
+/* ── Menu items — comfortable padding and readable text ────────── */
+.p-menu .p-menuitem > .p-menuitem-content {
+  padding: 0;
+}
+.p-menu .p-menuitem-link {
+  padding: 0.625rem 1rem;
+  gap: 0.625rem;
+}
+
+/* ── Fix #1: Light Theme — InputIcon visibility (REA-1140) ─────── */
+/* PrimeReact dark theme sets icon color to light grey/white.
+   In light mode these are invisible on white input backgrounds.  */
+html:not(.dark) .p-inputicon,
+html:not(.dark) .p-input-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-icon-field .p-inputicon svg,
+html:not(.dark) .p-icon-field .p-input-icon svg {
+  color: var(--martis-text-muted);
+}
+
+/* ── Fix #2: Light Theme — Calendar / DatePicker (REA-1140) ────── */
+/* PrimeReact Calendar popup inherits dark theme — override all
+   surfaces, text, and interactive states for light mode.          */
+html:not(.dark) .p-datepicker {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+html:not(.dark) .p-datepicker .p-datepicker-header {
+  background-color: var(--martis-surface);
+  color: var(--martis-text);
+  border-bottom-color: var(--martis-border);
+}
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-month,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-year,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title button {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-prev,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-next {
+  color: var(--martis-text-muted);
+  background: transparent;
+}
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-prev:hover,
+html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-next:hover {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker table th > span {
+  color: var(--martis-text-muted);
+}
+html:not(.dark) .p-datepicker table td > span {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker table td > span:hover {
+  background-color: var(--martis-hover) !important;
+}
+html:not(.dark) .p-datepicker table td.p-datepicker-today > span {
+  background-color: var(--martis-hover);
+  color: var(--martis-accent);
+}
+html:not(.dark) .p-datepicker table td > span.p-highlight {
+  background-color: var(--martis-accent) !important;
+  color: #ffffff !important;
+}
+html:not(.dark) .p-datepicker table td.p-datepicker-other-month > span {
+  color: var(--martis-text-muted);
+  opacity: 0.5;
+}
+html:not(.dark) .p-datepicker .p-timepicker {
+  border-top-color: var(--martis-border);
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker .p-timepicker span {
+  color: var(--martis-text);
+}
+html:not(.dark) .p-datepicker .p-timepicker button {
+  color: var(--martis-text-muted);
+}
+html:not(.dark) .p-datepicker .p-timepicker button:hover {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+/* Calendar trigger button icon */
+html:not(.dark) .p-calendar .p-datepicker-trigger {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+  color: #ffffff;
+}
+html:not(.dark) .p-calendar .p-datepicker-trigger:hover {
+  background-color: var(--martis-accent-hover);
+  border-color: var(--martis-accent-hover);
+}
+
+
+/* ── Fix #3: Light Theme — File/Image upload zones (REA-1140) ──── */
+/* Dashed border + stronger color for upload zones in light mode    */
+html:not(.dark) .martis-dropzone {
+  border-style: dashed !important;
+  border-color: #cbd5e1 !important;
+  background-color: #f8fafc !important;
+}
+
+/* ── Themed dividers (uses CSS variables for border color) ──── */
+.martis-divide > * + * {
+  border-top: 1px solid var(--martis-border);
+}
+
+
+/* ── BelongsTo Dropdown ────────────────────────────────────────── */
+.martis-belongs-to-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--martis-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  transition: border-color 0.15s;
+}
+.martis-belongs-to-trigger:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+}
+.martis-belongs-to-trigger-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-belongs-to-clear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.25rem;
+  color: #ef4444;
+  transition: background-color 0.15s;
+}
+.martis-belongs-to-clear:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+.martis-belongs-to-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-card);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+.martis-belongs-to-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--martis-border);
+  background-color: var(--martis-input-bg);
+}
+.martis-belongs-to-search-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+}
+.martis-belongs-to-search-input::placeholder {
+  color: var(--martis-text-muted);
+}
+.martis-belongs-to-options {
+  max-height: 15rem;
+  overflow-y: auto;
+}
+.martis-belongs-to-options::-webkit-scrollbar {
+  width: 6px;
+}
+.martis-belongs-to-options::-webkit-scrollbar-track {
+  background: var(--martis-input-bg);
+}
+.martis-belongs-to-options::-webkit-scrollbar-thumb {
+  background: var(--martis-border);
+  border-radius: 3px;
+}
+.martis-belongs-to-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+  background: transparent;
+  border: none;
+  transition: background-color 0.1s;
+}
+.martis-belongs-to-option:hover {
+  background-color: var(--martis-hover);
+}
+.martis-belongs-to-option--selected {
+  background-color: rgba(99, 102, 241, 0.1);
+}
+.martis-belongs-to-option--selected:hover {
+  background-color: rgba(99, 102, 241, 0.15);
+}
+.martis-belongs-to-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-belongs-to-empty {
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--martis-text-muted);
+}
+
+
+/* Resource search input placeholder */
+.martis-resource-search::placeholder {
+  color: var(--martis-text-muted);
+  opacity: 0.7;
+}
+
+/* DataTable — improved styling */
+.martis-datatable {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-card);
+}
+
+.martis-datatable table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.martis-datatable thead th {
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--martis-text-muted);
+  background-color: var(--martis-surface);
+  border-bottom: 1px solid var(--martis-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.martis-datatable tbody tr {
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--martis-border);
+}
+
+.martis-datatable tbody tr:last-child {
+  border-bottom: none;
+}
+
+.martis-datatable tbody tr:hover {
+  background-color: var(--martis-hover);
+  cursor: pointer;
+}
+
+/* Striped rows */
+.martis-datatable-striped tbody tr:nth-child(even) {
+  background-color: var(--martis-surface);
+}
+
+.martis-datatable-striped tbody tr:nth-child(even):hover {
+  background-color: var(--martis-hover);
+}
+
+.martis-datatable tbody td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+  vertical-align: middle;
+}
+
+/* Checkbox column */
+.martis-datatable th:first-child,
+.martis-datatable td:first-child {
+  width: 3rem;
+  text-align: center;
+}
+
+/* Sort icon */
+.martis-datatable .martis-sort-icon {
+  display: inline-flex;
+  margin-left: 0.25rem;
+  opacity: 0.4;
+}
+
+.martis-datatable th:hover .martis-sort-icon {
+  opacity: 0.8;
+}
+
+/* ── Fix: Checkbox check-mark visibility in dark theme (REA-1140) ── */
+/* PrimeReact checkbox checked icon inherits text color — force white */
+.p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
+.p-checkbox .p-checkbox-box.p-highlight svg,
+.p-checkbox .p-checkbox-box.p-highlight .p-icon {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+/* Increase checkbox size slightly for better visibility */
+.p-checkbox .p-checkbox-box {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.p-checkbox .p-checkbox-box.p-highlight {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
+/* Light theme checkbox */
+html:not(.dark) .p-checkbox .p-checkbox-box {
+  background-color: var(--martis-surface);
+  border-color: #cbd5e1;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* ── Fix: Table header and separator improvements (REA-1140) ────── */
+/* Dark theme — header row gets distinct background + thick bottom border */
+.martis-datatable thead th {
+  background-color: rgba(17, 24, 39, 0.8) !important;
+  border-bottom: 2px solid var(--martis-accent) !important;
+  padding: 0.875rem 1rem !important;
+}
+
+/* Dark theme — softer row separators */
+.martis-datatable tbody tr {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4) !important;
+}
+
+/* Light theme — header with subtle background and accent bottom border */
+html:not(.dark) .martis-datatable thead th {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-bottom: 2px solid var(--martis-accent) !important;
+}
+
+/* Light theme — subtle but visible separators */
+html:not(.dark) .martis-datatable tbody tr {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* PrimeReact DataTable header overrides for both themes */
+.martis-datatable .p-datatable-thead > tr > th {
+  background-color: rgba(17, 24, 39, 0.8) !important;
+  border-bottom: 2px solid var(--martis-accent) !important;
+  padding: 0.875rem 1rem !important;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+html:not(.dark) .martis-datatable .p-datatable-thead > tr > th {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+/* PrimeReact DataTable row border overrides */
+.martis-datatable .p-datatable-tbody > tr {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+html:not(.dark) .martis-datatable .p-datatable-tbody > tr {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.martis-datatable .p-datatable-tbody > tr > td {
+  border-color: transparent !important;
+}
+
+/* ── Per-page selector styling ─────────────────────────────────── */
+.martis-perpage-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border: 1px solid var(--martis-border);
+  border-radius: 0.375rem;
+  padding: 0.375rem 2rem 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 12px;
+}
+.martis-perpage-select:focus {
+  border-color: var(--martis-accent);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--martis-accent);
+}
+
+/* ── Fix: Paginator full light theme override (REA-1140) ─────────
+   PrimeReact lara-dark-indigo bleeds dark styles into light mode.
+   Force correct colors on all paginator interactive elements.
+──────────────────────────────────────────────────────────────── */
+html:not(.dark) .p-paginator .p-paginator-page {
+  color: var(--martis-text-muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+html:not(.dark) .p-paginator .p-paginator-page:hover {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-paginator .p-paginator-page.p-highlight {
+  background-color: var(--martis-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-paginator .p-paginator-prev,
+html:not(.dark) .p-paginator .p-paginator-next,
+html:not(.dark) .p-paginator .p-paginator-first,
+html:not(.dark) .p-paginator .p-paginator-last {
+  color: var(--martis-text-muted) !important;
+  background: transparent !important;
+}
+html:not(.dark) .p-paginator .p-paginator-prev:hover,
+html:not(.dark) .p-paginator .p-paginator-next:hover,
+html:not(.dark) .p-paginator .p-paginator-first:hover,
+html:not(.dark) .p-paginator .p-paginator-last:hover {
+  background-color: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
+}
+
+/* ── Fix: Light theme striped rows visibility (REA-1140) ─────────
+   --martis-surface in light = #ffffff = same as row bg → invisible.
+   Use a slightly tinted background for even rows in light mode.
+──────────────────────────────────────────────────────────────── */
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even),
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even) {
+  background-color: #f8fafc !important;
+}
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover,
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover {
+  background-color: var(--martis-row-hover) !important;
+}
+
+/* ── Fix: Light theme DataTable row background (REA-1140) ────────
+   Force white on odd rows and proper light bg on even rows         */
+html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background-color: var(--martis-row-even) !important;
+}
+
+/* ── DataTable gridlines support (REA-1140) ──────────────────────
+   Applied via .martis-datatable-gridlines class from Resource PHP  */
+.martis-datatable-gridlines .p-datatable-tbody > tr > td,
+.martis-datatable-gridlines tbody td {
+  border-right: 1px solid var(--martis-border) !important;
+}
+.martis-datatable-gridlines .p-datatable-tbody > tr > td:last-child,
+.martis-datatable-gridlines tbody td:last-child {
+  border-right: none !important;
+}
+.martis-datatable-gridlines .p-datatable-thead > tr > th,
+.martis-datatable-gridlines thead th {
+  border-right: 1px solid var(--martis-border) !important;
+}
+.martis-datatable-gridlines .p-datatable-thead > tr > th:last-child,
+.martis-datatable-gridlines thead th:last-child {
+  border-right: none !important;
+}
+
+/* ── DataTable size variants (REA-1140) ──────────────────────────
+   .martis-datatable-sm / .martis-datatable-lg for compact/large    */
+.martis-datatable-sm .p-datatable-tbody > tr > td,
+.martis-datatable-sm tbody td {
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+}
+.martis-datatable-sm .p-datatable-thead > tr > th,
+.martis-datatable-sm thead th {
+  padding: 0.5rem 0.75rem !important;
+}
+.martis-datatable-lg .p-datatable-tbody > tr > td,
+.martis-datatable-lg tbody td {
+  padding: 1rem 1.25rem !important;
+  font-size: 1rem !important;
+}
+.martis-datatable-lg .p-datatable-thead > tr > th,
+.martis-datatable-lg thead th {
+  padding: 1rem 1.25rem !important;
+}
+
+/* ── Pagination border uses CSS variables (REA-1140) ──────────── */
+.martis-pagination-wrapper {
+  /* no border — clean transition from table to paginator */
+}
+
+/* ── DataTable no-hover variant (REA-1140) ──────────────────────
+   Disable row hover effect when tableRowHover is false             */
+.martis-datatable-no-hover .p-datatable-tbody > tr:hover,
+.martis-datatable-no-hover tbody tr:hover {
+  background-color: inherit !important;
+  cursor: default !important;
+}

@@ -1,0 +1,462 @@
+<?php
+
+namespace Martis;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
+use Martis\Contracts\FieldContract;
+use Martis\Contracts\ResourceContract;
+use Martis\Events\AfterDelete;
+use Martis\Events\AfterSave;
+use Martis\Events\BeforeDelete;
+use Martis\Events\BeforeSave;
+
+/**
+ * Base class for all Martis admin resources.
+ *
+ * A Resource wraps an Eloquent model and declares its fields, authorization
+ * rules, display metadata, and contextual field visibility. Every custom
+ * resource in the consuming application MUST extend this class.
+ *
+ * Design mandate: the backend never renders UI — it only exposes data and
+ * metadata via the JSON API. The React frontend is responsible for rendering.
+ */
+abstract class Resource implements ResourceContract
+{
+    /**
+     * The underlying model instance (null when creating a new record).
+     */
+    protected ?Model $model;
+
+    public function __construct(?Model $model = null)
+    {
+        $this->model = $model;
+    }
+
+    // -------------------------------------------------------------------------
+    // Abstract — must be implemented by concrete resources
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return all fields for this resource.
+     *
+     * @return list<FieldContract>
+     */
+    abstract public function fields(Request $request): array;
+
+    /**
+     * Return the fully-qualified Eloquent model class name.
+     */
+    abstract public static function model(): string;
+
+    // -------------------------------------------------------------------------
+    // Defaults — may be overridden by concrete resources
+    // -------------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    public static function newModel(): Model
+    {
+        $class = static::model();
+
+        /** @var Model $instance */
+        $instance = new $class;
+
+        return $instance;
+    }
+
+    /** {@inheritDoc} */
+    public static function uriKey(): string
+    {
+        return Str::plural(Str::kebab(class_basename(static::model())));
+    }
+
+    /** {@inheritDoc} */
+    public static function label(): string
+    {
+        return Str::plural(Str::headline(class_basename(static::model())));
+    }
+
+    /** {@inheritDoc} */
+    public static function singularLabel(): string
+    {
+        return Str::headline(class_basename(static::model()));
+    }
+
+    /** {@inheritDoc} */
+    public static function subtitle(): ?string
+    {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    public static function titleAttribute(): string
+    {
+        return 'id';
+    }
+
+    /**
+     * Return the display title for this specific resource instance.
+     * Uses the attribute defined by titleAttribute().
+     *
+     * When titleAttribute is 'id' (default), returns "{SingularLabel} #{id}"
+     * so the frontend displays a meaningful label instead of just a number.
+     */
+    /** {@inheritDoc} */
+    public static function indexSearchable(): bool
+    {
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    public static function perPageOptions(): array
+    {
+        return [10, 25, 50, 100];
+    }
+
+    /** {@inheritDoc} */
+    public static function perPage(): int
+    {
+        return 25;
+    }
+
+    /** {@inheritDoc} */
+    public static function searchPlaceholder(): ?string
+    {
+        return null;
+    }
+
+    public function title(): string
+    {
+        if ($this->model === null) {
+            return '';
+        }
+
+        $attr = static::titleAttribute();
+        $value = (string) $this->model->getAttribute($attr);
+
+        // Default titleAttribute is 'id' — return a formatted label
+        if ($attr === 'id') {
+            return static::singularLabel().' #'.$value;
+        }
+
+        return $value;
+    }
+
+    // -------------------------------------------------------------------------
+    // Context-aware field resolution
+    // -------------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    public function fieldsForIndex(Request $request): array
+    {
+        return array_values(array_filter(
+            $this->fields($request),
+            fn (FieldContract $field): bool => $field->isShownOnIndex()
+        ));
+    }
+
+    /** {@inheritDoc} */
+    public function fieldsForDetail(Request $request): array
+    {
+        return array_values(array_filter(
+            $this->fields($request),
+            fn (FieldContract $field): bool => $field->isShownOnDetail()
+        ));
+    }
+
+    /** {@inheritDoc} */
+    public function fieldsForForms(Request $request): array
+    {
+        return array_values(array_filter(
+            $this->fields($request),
+            fn (FieldContract $field): bool => $field->isShownOnForms()
+        ));
+    }
+
+    // -------------------------------------------------------------------------
+    // Soft delete awareness
+    // -------------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    public static function softDeletes(): bool
+    {
+        return in_array(
+            SoftDeletes::class,
+            class_uses_recursive(static::model()),
+            true
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Authorization
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether the current user may view any resource of this type.
+     */
+    public function authorizedToViewAny(Request $request): bool
+    {
+        return $this->checkPolicy('viewAny', null);
+    }
+
+    /**
+     * Determine whether the current user may view this specific resource.
+     */
+    public function authorizedToView(Request $request): bool
+    {
+        return $this->checkPolicy('view', $this->model);
+    }
+
+    /**
+     * Determine whether the current user may create resources of this type.
+     */
+    public function authorizedToCreate(Request $request): bool
+    {
+        return $this->checkPolicy('create', null);
+    }
+
+    /**
+     * Determine whether the current user may update this resource.
+     */
+    public function authorizedToUpdate(Request $request): bool
+    {
+        return $this->checkPolicy('update', $this->model);
+    }
+
+    /**
+     * Determine whether the current user may delete this resource.
+     */
+    public function authorizedToDelete(Request $request): bool
+    {
+        return $this->checkPolicy('delete', $this->model);
+    }
+
+    /**
+     * Check a policy ability for the resource's model.
+     *
+     * When no policy is registered for the model, returns true (permissive
+     * default) so resources work out-of-the-box without requiring policies.
+     * Once a policy is registered, it is the sole source of truth.
+     *
+     * @param  string  $ability  Policy method name (viewAny, view, create, update, delete)
+     * @param  Model|null  $model  The model instance (null for collection-level checks)
+     */
+    protected function checkPolicy(string $ability, ?Model $model): bool
+    {
+        $modelClass = static::model();
+
+        if (Gate::getPolicyFor($modelClass) === null) {
+            return true;
+        }
+
+        if ($model !== null) {
+            return Gate::allows($ability, $model);
+        }
+
+        return Gate::allows($ability, $modelClass);
+    }
+
+    // -------------------------------------------------------------------------
+    // Accessors
+    // -------------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    public function getModel(): ?Model
+    {
+        return $this->model;
+    }
+
+    /**
+     * Return the navigation group for this resource (null = top-level).
+     * Override to group resources in the sidebar.
+     */
+    /** {@inheritDoc} */
+    public function icon(): string
+    {
+        return 'database';
+    }
+
+    // -------------------------------------------------------------------------
+    // DataTable display configuration — configurable per resource (REA-1140)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Whether the DataTable should display striped rows.
+     * Override in concrete resources to disable.
+     */
+    public static function tableStriped(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Whether to show vertical grid lines between columns.
+     * Override to return true if you want cell borders.
+     */
+    public static function tableShowGridlines(): bool
+    {
+        return false;
+    }
+
+    /**
+     * DataTable size: 'normal', 'small', or 'large'.
+     * Controls cell padding and font sizes.
+     */
+    public static function tableSize(): string
+    {
+        return 'normal';
+    }
+
+    /**
+     * Whether table rows should highlight on hover.
+     * Default true — set false for static tables.
+     */
+    public static function tableRowHover(): bool
+    {
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    public function group(): ?string
+    {
+        return null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Notification messages — customizable per resource (Nova parity)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Message shown after a record is created.
+     *
+     * Override in concrete resources to customize:
+     *   public static function createdMessage(): string
+     *   {
+     *       return 'Novo usuário cadastrado!';
+     *   }
+     */
+    public static function createdMessage(): string
+    {
+        $msg = __('martis::messages.record_created');
+
+        return is_string($msg) ? $msg : 'Record created successfully.';
+    }
+
+    /**
+     * Message shown after a record is updated.
+     */
+    public static function updatedMessage(): string
+    {
+        $msg = __('martis::messages.record_updated');
+
+        return is_string($msg) ? $msg : 'Record updated successfully.';
+    }
+
+    /**
+     * Message shown after a record is deleted.
+     */
+    public static function deletedMessage(): string
+    {
+        $msg = __('martis::messages.record_deleted');
+
+        return is_string($msg) ? $msg : 'Record deleted successfully.';
+    }
+
+    /**
+     * Message shown after a soft-deleted record is restored.
+     */
+    public static function restoredMessage(): string
+    {
+        $msg = __('martis::messages.record_restored');
+
+        return is_string($msg) ? $msg : 'Record restored successfully.';
+    }
+
+    /**
+     * Confirmation message shown before deleting a record.
+     */
+    public static function deleteConfirmMessage(): string
+    {
+        $msg = __('martis::messages.delete_confirm');
+
+        return is_string($msg) ? $msg : 'This action is permanent and cannot be undone. Are you sure?';
+    }
+
+    /**
+     * Confirmation message shown before archiving (soft-deleting) a record.
+     */
+    public static function archiveConfirmMessage(): string
+    {
+        $msg = __('martis::messages.archive_confirm');
+
+        return is_string($msg) ? $msg : 'This record will be archived. You can restore it later.';
+    }
+
+    /** {@inheritDoc} */
+    public function toArray(): array
+    {
+        return [
+            'uriKey' => static::uriKey(),
+            'label' => static::label(),
+            'singularLabel' => static::singularLabel(),
+            'subtitle' => static::subtitle(),
+            'titleAttribute' => static::titleAttribute(),
+            'softDeletes' => static::softDeletes(),
+            'group' => $this->group(),
+            'icon' => $this->icon(),
+        ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Server-side hooks — Bloco 9
+    // -------------------------------------------------------------------------
+
+    /**
+     * Error display strategy for this resource.
+     *
+     * Return "inline" to show validation errors next to each field,
+     * or "toast" to show them as toast notifications.
+     */
+    public static function errorDisplay(): string
+    {
+        return 'inline';
+    }
+
+    /**
+     * Message shown in the toast when validation fails.
+     * Override to customize per resource.
+     */
+    public static function validationMessage(): string
+    {
+        $msg = __('martis::messages.validation_failed');
+
+        return is_string($msg) ? $msg : 'The given data was invalid.';
+    }
+
+    /** {@inheritDoc} */
+    public function beforeSave(Model $model, Request $request, bool $creating): void
+    {
+        BeforeSave::dispatch(static::class, $model, $request, $creating);
+    }
+
+    /** {@inheritDoc} */
+    public function afterSave(Model $model, Request $request, bool $creating): void
+    {
+        AfterSave::dispatch(static::class, $model, $request, $creating);
+    }
+
+    /** {@inheritDoc} */
+    public function beforeDelete(Model $model, Request $request): void
+    {
+        BeforeDelete::dispatch(static::class, $model, $request);
+    }
+
+    /** {@inheritDoc} */
+    public function afterDelete(Model $model, Request $request): void
+    {
+        AfterDelete::dispatch(static::class, $model, $request);
+    }
+}

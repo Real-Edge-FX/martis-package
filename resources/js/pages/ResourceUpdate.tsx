@@ -1,0 +1,241 @@
+import { useMemo, useEffect, useState } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api, ApiError, hasFileValues } from '@/lib/api'
+import type { ResourceRecord, ResourceSchema } from '@/types'
+import { FieldInput } from '@/components/fields'
+import { useToast } from '@/contexts/ToastContext'
+import { useTranslation } from 'react-i18next'
+import { ArrowLeft } from '@phosphor-icons/react'
+import { ResourceIcon } from '@/components/ResourceIcon'
+
+export function ResourceUpdatePage() {
+  const { resource, id } = useParams<{ resource: string; id: string }>()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const { addToast } = useToast()
+  const { t: tAct } = useTranslation('actions')
+  const { t: tMsg } = useTranslation('messages')
+
+  const schemaQuery = useQuery({
+    queryKey: ['schema', resource],
+    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${resource}/schema`),
+    enabled: !!resource,
+  })
+
+  const recordQuery = useQuery({
+    queryKey: ['resource', resource, id],
+    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}`),
+    enabled: !!resource && !!id,
+  })
+
+  const schema = schemaQuery.data?.data
+  const record = recordQuery.data?.data
+
+  // Stable reference — recomputed only when schema changes
+  const formFields = useMemo(
+    () => schema?.fields.filter((f) => f.showOnForms) ?? [],
+    [schema],
+  )
+
+  const [values, setValues] = useState<Record<string, unknown>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [initialized, setInitialized] = useState(false)
+
+  // Pre-populate form only after BOTH schema and record are loaded
+  useEffect(() => {
+    if (record && schema && !initialized) {
+      const initial: Record<string, unknown> = {}
+      formFields.forEach((field) => {
+        const val = record[field.attribute] ?? null
+        // BelongsTo fields return {id, title} from the API — keep the full
+        // object so the dropdown can display the label, and let the
+        // BelongsToFieldInput component extract the ID internally.
+        initial[field.attribute] = val
+      })
+      setValues(initial)
+      setInitialized(true)
+    }
+  }, [record, schema, formFields, initialized])
+
+  const updateMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => {
+      if (hasFileValues(data)) {
+        return api.upload<{ data: ResourceRecord; meta?: { message?: string } }>('PUT', `/api/resources/${resource}/${id}`, data)
+      }
+      return api.put<{ data: ResourceRecord; meta?: { message?: string } }>(`/api/resources/${resource}/${id}`, data)
+    },
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
+      addToast('success', res.meta?.message ?? tMsg('record_updated'))
+      navigate(`/resources/${resource}/${id}`)
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
+        const errorDisplay = schema?.errorDisplay ?? 'inline'
+        if (errorDisplay === 'inline') {
+          setErrors(err.errorsByField())
+          addToast('error', err.message || tMsg('validation_errors', 'Please fix the errors below.'))
+        } else {
+          for (const e of err.errors) {
+            addToast('error', `${e.field}: ${e.message}`)
+          }
+        }
+      } else if (err instanceof ApiError) {
+        addToast('error', err.message || tMsg('error_update'))
+      } else {
+        addToast('error', tMsg('error_update'))
+      }
+    },
+  })
+
+  function handleChange(attribute: string, value: unknown) {
+    setValues((prev) => ({ ...prev, [attribute]: value }))
+    if (errors[attribute]) setErrors((prev) => ({ ...prev, [attribute]: '' }))
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrors({})
+    // Filter values: skip file/image fields that haven't changed (still object from API)
+    const submitValues: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(values)) {
+      if (val === null || val === undefined) {
+        submitValues[key] = val
+        continue
+      }
+      // Skip File objects that are still existing server values (have 'url')
+      if (typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
+        continue
+      }
+      // BelongsTo: if value is still the original {id, title} object, extract just the ID
+      if (typeof val === 'object' && !(val instanceof File) && 'id' in (val as Record<string, unknown>) && 'title' in (val as Record<string, unknown>)) {
+        submitValues[key] = (val as Record<string, unknown>).id
+        continue
+      }
+      submitValues[key] = val
+    }
+    updateMutation.mutate(submitValues)
+  }
+
+  if (schemaQuery.isLoading || recordQuery.isLoading) return <FormSkeleton />
+
+  if (!schema || !record) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800">
+        {tMsg('record_not_found')}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm">
+        <Link
+          to={`/resources/${resource}/${id}`}
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors no-underline"
+          style={{
+            color: "var(--martis-primary)",
+            backgroundColor: "transparent",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+        >
+          <ArrowLeft size={14} weight="bold" />
+          <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
+          {record._title ? record._title : `${schema.singularLabel} #${id}`}
+        </Link>
+        <span style={{ color: "var(--martis-text-muted)" }}>/</span>
+        <span className="font-semibold" style={{ color: "var(--martis-text)" }}>
+          {tAct('edit')} {schema.singularLabel}
+        </span>
+      </nav>
+
+      <h1 className="text-2xl font-bold" style={{ color: "var(--martis-text)" }}>
+        {tAct('edit')} {schema.singularLabel}
+      </h1>
+
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="rounded-xl border"
+            style={{
+              borderColor: "var(--martis-border)",
+              backgroundColor: "var(--martis-card)",
+            }}>
+          <div className="martis-divide"
+              style={{ borderColor: "var(--martis-border)" }}>
+            {formFields.map((field) => (
+              <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4">
+                <div>
+                  <label
+                    htmlFor={field.attribute}
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--martis-text-muted)" }}
+                  >
+                    {field.label}
+                    {field.required && (
+                      <span className="ml-1 text-red-500" aria-hidden="true">
+                        *
+                      </span>
+                    )}
+                  </label>
+                </div>
+                <div className="col-span-2">
+                  <FieldInput
+                    field={field}
+                    value={values[field.attribute] ?? null}
+                    onChange={(v) => handleChange(field.attribute, v)}
+                    error={errors[field.attribute]}
+                    resourceKey={resource}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4"
+            style={{
+              borderColor: "var(--martis-border)",
+              backgroundColor: "var(--martis-hover)",
+            }}>
+            <Link
+              to={`/resources/${resource}/${id}`}
+              className="rounded-md border px-4 py-2 text-sm font-medium no-underline"
+              style={{
+                borderColor: "var(--martis-border)",
+                backgroundColor: "var(--martis-surface)",
+                color: "var(--martis-text)",
+              }}
+            >
+              {tAct('cancel')}
+            </Link>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {updateMutation.isPending ? tAct('saving') : tAct('save')}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function FormSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-8 w-48 rounded bg-gray-200 dark:bg-gray-800" />
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="grid grid-cols-3 gap-4 border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+            <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="col-span-2 h-10 rounded bg-gray-200 dark:bg-gray-700" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,28 @@
+import type { FieldProps } from '@martis/types'
+
+/**
+ * {{ class }} — display component (shown on index and detail views).
+ */
+export function {{ class }}Display({ value }: FieldProps) {
+  return <span>{String(value ?? '')}</span>
+}
+
+/**
+ * {{ class }} — input component (shown on create and edit forms).
+ */
+export function {{ class }}Input({
+  field,
+  value,
+  onChange,
+}: FieldProps & { onChange: (v: unknown) => void }) {
+  return (
+    <input
+      type="text"
+      id={field.attribute}
+      name={field.attribute}
+      value={String(value ?? '')}
+      onChange={(e) => onChange(e.target.value)}
+      className="martis-input"
+    />
+  )
+}

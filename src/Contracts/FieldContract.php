@@ -1,0 +1,170 @@
+<?php
+
+namespace Martis\Contracts;
+
+use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Contract for all Martis Field classes.
+ *
+ * A Field maps a model attribute to a UI component. It knows how to:
+ *   - resolve its value from a model instance,
+ *   - fill a model instance with a value from user input,
+ *   - serialize itself to an array for the JSON API / React frontend.
+ *
+ * This contract must mirror every public method on the base Field class 1:1.
+ * Any method added to Field.php MUST be added here as well.
+ */
+interface FieldContract
+{
+    // -------------------------------------------------------------------------
+    // Factory
+    // -------------------------------------------------------------------------
+
+    /** Create a new field instance. */
+    public static function make(string $attribute, ?string $label = null): static;
+
+    // -------------------------------------------------------------------------
+    // Core identity
+    // -------------------------------------------------------------------------
+
+    /** Return the model attribute name this field maps to (e.g. "title"). */
+    public function attribute(): string;
+
+    /** Return the human-readable column label (e.g. "Title"). */
+    public function label(): string;
+
+    /**
+     * Return the field type identifier consumed by the React renderer.
+     * Must be a stable, lowercase snake_case string (e.g. "text", "boolean").
+     */
+    public function type(): string;
+
+    // -------------------------------------------------------------------------
+    // Value resolution
+    // -------------------------------------------------------------------------
+
+    /** Resolve the field value from a model instance. */
+    public function resolve(Model $model, ?string $attribute = null): mixed;
+
+    /** Resolve the field value for display purposes (may apply display callbacks). */
+    public function resolveForDisplay(Model $model, ?string $attribute = null): mixed;
+
+    /** Write the incoming request value into the model. */
+    public function fill(Model $model, mixed $value): void;
+
+    // -------------------------------------------------------------------------
+    // Fluent configuration
+    // -------------------------------------------------------------------------
+
+    /** Mark this field as nullable. */
+    public function nullable(): static;
+
+    /** Prevent this field from being modified through the UI. */
+    public function readonly(): static;
+
+    /** Require a non-null value on create/update. */
+    public function required(): static;
+
+    /** Set a placeholder text for the input. */
+    public function placeholder(string $text): static;
+
+    /** Mark this field as sortable on the index view. */
+    public function sortable(bool $value = true): static;
+
+    /** Mark this field as searchable. */
+    public function searchable(bool $value = true): static;
+
+    /** Override the frontend component used to render this field. */
+    public function component(string $key): static;
+
+    /** Return the custom component key, or null for the default. */
+    public function getComponentKey(): ?string;
+
+    /**
+     * Merge additional metadata into the field descriptor.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function withMeta(array $meta): static;
+
+    // -------------------------------------------------------------------------
+    // Visibility
+    // -------------------------------------------------------------------------
+
+    /** Show this field on the index (list) view. */
+    public function showOnIndex(): static;
+
+    /** Hide this field from the index view. */
+    public function hideFromIndex(): static;
+
+    /** Show this field on the detail (show) view. */
+    public function showOnDetail(): static;
+
+    /** Hide this field from the detail view. */
+    public function hideFromDetail(): static;
+
+    /** Show this field on create and edit forms. */
+    public function showOnForms(): static;
+
+    /** Hide this field from create and edit forms. */
+    public function hideFromForms(): static;
+
+    /** Return whether this field is visible on the index view. */
+    public function isShownOnIndex(): bool;
+
+    /** Return whether this field is visible on the detail view. */
+    public function isShownOnDetail(): bool;
+
+    /** Return whether this field is visible on forms. */
+    public function isShownOnForms(): bool;
+
+    /** Return whether this field is sortable. */
+    public function isSortable(): bool;
+
+    /** Return whether this field is searchable. */
+    public function isSearchable(): bool;
+
+    // -------------------------------------------------------------------------
+    // Validation
+    // -------------------------------------------------------------------------
+
+    /**
+     * Set validation rules for this field.
+     *
+     * @param  list<string|Rule>  $rules
+     */
+    public function rules(array $rules): static;
+
+    /**
+     * Build the final validation rules array (merges required/nullable flags).
+     *
+     * @return list<string|Rule>
+     */
+    public function buildRules(): array;
+
+    // -------------------------------------------------------------------------
+    // Callbacks
+    // -------------------------------------------------------------------------
+
+    /** Override how the value is resolved from the model. */
+    public function resolveUsing(callable $callback): static;
+
+    /** Override how the value is filled into the model. */
+    public function fillUsing(callable $callback): static;
+
+    /** Override how the resolved value is transformed for display. */
+    public function displayUsing(callable $callback): static;
+
+    // -------------------------------------------------------------------------
+    // Serialization
+    // -------------------------------------------------------------------------
+
+    /**
+     * Serialize the field descriptor for the JSON API response.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array;
+}

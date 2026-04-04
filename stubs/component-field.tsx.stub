@@ -1,0 +1,8 @@
+import type { FieldDisplayProps } from '@/components/fields/types'
+
+export function {{ class }}({ value, field }: FieldDisplayProps) {
+  // field.meta contains data passed via withMeta() in PHP
+  return (
+    <span>{String(value ?? '')}</span>
+  )
+}

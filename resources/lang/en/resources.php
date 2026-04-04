@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'new' => 'New :label',
+    'search' => 'Search :label…',
+    'selected' => ':count selected',
+    'edit' => 'Edit :label',
+    'loading' => 'Loading…',
+    'registered' => 'Registered resources',
+    'welcome' => 'Welcome to Martis Admin Engine.',
+    'hello' => 'Hello, :name',
+    'no_records' => 'No records found.',
+    'choose_files' => 'Choose files or drag here',
+    'add_more_files' => 'Add more files',
+    'choose_images' => 'Click or drag images here',
+    'add_more_images' => 'Add more images',
+    'change' => 'Change',
+    'remove' => 'Remove',
+    'download' => 'Download',
+    'max_size' => 'Max: :size',
+    'render_error' => 'An error occurred while rendering this page.',
+    'id_label' => 'Relationship ID',
+    'per_page' => 'Per page',
+    'groups' => 'Groups',
+    'active' => 'Active',
+];
