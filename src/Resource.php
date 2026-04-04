@@ -109,6 +109,9 @@ abstract class Resource implements ResourceContract
     /**
      * Return the display title for this specific resource instance.
      * Uses the attribute defined by titleAttribute().
+     *
+     * When titleAttribute is 'id' (default), returns "{SingularLabel} #{id}"
+     * so the frontend displays a meaningful label instead of just a number.
      */
     public function title(): string
     {
@@ -116,7 +119,15 @@ abstract class Resource implements ResourceContract
             return '';
         }
 
-        return (string) $this->model->getAttribute(static::titleAttribute());
+        $attr = static::titleAttribute();
+        $value = (string) $this->model->getAttribute($attr);
+
+        // Default titleAttribute is 'id' — return a formatted label
+        if ($attr === 'id') {
+            return static::singularLabel().' #'.$value;
+        }
+
+        return $value;
     }
 
     // -------------------------------------------------------------------------
