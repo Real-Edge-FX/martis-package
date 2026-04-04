@@ -67,7 +67,7 @@ class ResourceController extends MartisController
         $this->applySorting($request, $query, $resourceClass);
 
         $perPage = min(
-            (int) ($request->query('per_page', $resourceClass::perPage())),
+            (int) ($request->query('per_page', (string) $resourceClass::perPage())),
             (int) config('martis.pagination.max_per_page', 100),
         );
 
