@@ -73,6 +73,8 @@ export interface FieldDefinition {
   component?: string | null
   /** Content text for heading fields. */
   content?: string | null
+  /** Whether the field accepts multiple values (File/Image fields). */
+  multiple?: boolean
 }
 
 export interface ResourceEmbedded {

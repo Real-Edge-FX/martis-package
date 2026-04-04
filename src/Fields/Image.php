@@ -22,6 +22,11 @@ use Illuminate\Support\Facades\Storage;
  *       ->thumbnail(300, 300)
  *       ->maxSize(5120)
  *       ->nullable()
+ *
+ *   Image::make('gallery')
+ *       ->multiple()
+ *       ->thumbnail(200, 200)
+ *       ->disk('public')
  */
 class Image extends File
 {
@@ -70,6 +75,12 @@ class Image extends File
             return;
         }
 
+        if ($this->multiple) {
+            $this->fillMultiple($model, $value);
+
+            return;
+        }
+
         if ($value instanceof UploadedFile) {
             $this->deleteStoredFile($model);
 
@@ -99,7 +110,60 @@ class Image extends File
     }
 
     /**
-     * @return array{path: string, url: string, name: string, thumbnailUrl: string}|null
+     * Fill for multiple mode with thumbnail support.
+     */
+    protected function fillMultiple(Model $model, mixed $value): void
+    {
+        $existingPaths = $this->getExistingPaths($model);
+
+        if (! is_array($value) || $value === []) {
+            foreach ($existingPaths as $path) {
+                $this->deleteImageAndThumb($path);
+            }
+            $model->setAttribute($this->attribute, json_encode([]));
+
+            return;
+        }
+
+        /** @var array<mixed> $rawFiles */
+        $rawFiles = $value['files'] ?? [];
+        /** @var array<mixed> $rawExisting */
+        $rawExisting = $value['existing'] ?? [];
+
+        /** @var list<string> $keepPaths */
+        $keepPaths = [];
+        foreach ($rawExisting as $p) {
+            if (is_string($p) && $p !== '') {
+                $keepPaths[] = $p;
+            }
+        }
+
+        // Delete files (and thumbnails) that are no longer kept
+        $removedPaths = array_diff($existingPaths, $keepPaths);
+        foreach ($removedPaths as $path) {
+            $this->deleteImageAndThumb($path);
+        }
+
+        // Store new uploads with thumbnails
+        $newPaths = [];
+        foreach ($rawFiles as $file) {
+            if ($file instanceof UploadedFile) {
+                $path = $file->store($this->storagePath, $this->disk);
+                if ($path) {
+                    $newPaths[] = $path;
+                    if ($this->thumbnailWidth !== null || $this->thumbnailHeight !== null) {
+                        $this->generateThumbnail($path, $file);
+                    }
+                }
+            }
+        }
+
+        $allPaths = array_merge($keepPaths, $newPaths);
+        $model->setAttribute($this->attribute, json_encode($allPaths));
+    }
+
+    /**
+     * @return array{path: string, url: string, name: string, thumbnailUrl: string}|list<array{path: string, url: string, name: string, thumbnailUrl: string}>|null
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
@@ -107,6 +171,10 @@ class Image extends File
 
         if ($this->resolveCallback !== null) {
             return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr);
+        }
+
+        if ($this->multiple) {
+            return $this->resolveMultiple($model, $attr);
         }
 
         $path = $model->getAttribute($attr);
@@ -132,13 +200,71 @@ class Image extends File
     }
 
     /**
+     * Resolve for multiple mode with thumbnailUrl.
+     *
+     * @return list<array{path: string, url: string, name: string, thumbnailUrl: string}>
+     */
+    protected function resolveMultiple(Model $model, string $attr): array
+    {
+        $paths = $this->getExistingPathsFromRaw($model->getAttribute($attr));
+
+        if (empty($paths)) {
+            return [];
+        }
+
+        /** @var Cloud $disk */
+        $disk = Storage::disk($this->disk);
+
+        return array_map(function (string $path) use ($disk): array {
+            $url = $disk->url($path);
+            $thumbPath = $this->getThumbnailPath($path);
+            $thumbnailUrl = ($thumbPath !== null && $disk->exists($thumbPath))
+                ? $disk->url($thumbPath)
+                : $url;
+
+            return [
+                'path' => $path,
+                'url' => $url,
+                'name' => basename($path),
+                'thumbnailUrl' => $thumbnailUrl,
+            ];
+        }, $paths);
+    }
+
+    /**
      * Delete main image and its thumbnail.
      */
     public function deleteStoredFile(Model $model): void
     {
+        if ($this->multiple) {
+            $paths = $this->getExistingPaths($model);
+            foreach ($paths as $path) {
+                $this->deleteImageAndThumb($path);
+            }
+
+            return;
+        }
+
         $path = $model->getAttribute($this->attribute);
 
         if ($path === null || $path === '') {
+            return;
+        }
+
+        Storage::disk($this->disk)->delete($path);
+
+        $thumbPath = $this->getThumbnailPath($path);
+        if ($thumbPath !== null) {
+            Storage::disk($this->disk)->delete($thumbPath);
+        }
+    }
+
+    /**
+     * Delete a single image and its thumbnail from disk.
+     */
+    protected function deleteImageAndThumb(string $path): void
+    {
+        if ($path === '') {
             return;
         }
 
@@ -163,7 +289,24 @@ class Image extends File
     {
         $rules = parent::buildRules();
 
-        // Replace 'file' with 'image' (more specific)
+        // Replace 'file' with 'image' (more specific) — only for single mode
+        $key = array_search('file', $rules, true);
+        if ($key !== false) {
+            $rules[$key] = 'image';
+        }
+
+        return array_values($rules);
+    }
+
+    /**
+     * Item rules for multiple mode — use 'image' instead of 'file'.
+     *
+     * @return list<string>
+     */
+    public function buildItemRules(): array
+    {
+        $rules = parent::buildItemRules();
+
         $key = array_search('file', $rules, true);
         if ($key !== false) {
             $rules[$key] = 'image';

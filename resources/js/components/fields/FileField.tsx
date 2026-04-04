@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import { File as FileIcon, DownloadSimple, Trash, UploadSimple } from '@phosphor-icons/react'
+import { File as FileIcon, DownloadSimple, Trash, UploadSimple, Plus } from '@phosphor-icons/react'
 
 interface FileValue {
   path: string
@@ -12,7 +12,39 @@ function isFileValue(v: unknown): v is FileValue {
   return v !== null && typeof v === 'object' && 'url' in (v as Record<string, unknown>)
 }
 
-export function FileFieldDisplay({ value }: FieldDisplayProps) {
+function isFileValueArray(v: unknown): v is FileValue[] {
+  return Array.isArray(v) && v.every(isFileValue)
+}
+
+// ---------------------------------------------------------------------------
+// Display
+// ---------------------------------------------------------------------------
+
+export function FileFieldDisplay({ value, field }: FieldDisplayProps) {
+  const multiple = (field as unknown as Record<string, unknown>).multiple as boolean | undefined
+
+  if (multiple && isFileValueArray(value)) {
+    if (value.length === 0) return <span className="martis-text-muted">—</span>
+    return (
+      <div className="flex flex-col gap-1">
+        {value.map((file) => (
+          <a
+            key={file.path}
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm hover:underline"
+            style={{ color: 'var(--martis-accent)' }}
+          >
+            <FileIcon size={16} />
+            {file.name}
+            <DownloadSimple size={14} />
+          </a>
+        ))}
+      </div>
+    )
+  }
+
   if (!isFileValue(value)) {
     return <span className="martis-text-muted">—</span>
   }
@@ -32,7 +64,11 @@ export function FileFieldDisplay({ value }: FieldDisplayProps) {
   )
 }
 
-export function FileFieldInput({ field, value, onChange, error }: FieldInputProps) {
+// ---------------------------------------------------------------------------
+// Input — Single mode
+// ---------------------------------------------------------------------------
+
+function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
 
@@ -126,4 +162,161 @@ export function FileFieldInput({ field, value, onChange, error }: FieldInputProp
       {error && <small className="text-red-500">{error}</small>}
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Input — Multiple mode
+// ---------------------------------------------------------------------------
+
+/** Internal representation for each item in the multiple list. */
+interface MultiFileItem {
+  id: string
+  file?: globalThis.File    // new upload
+  existing?: FileValue       // existing server file
+}
+
+function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+
+  const acceptedTypes = (field as unknown as Record<string, unknown>).acceptedTypes as string[] | undefined
+  const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
+
+  const accept = acceptedTypes?.length
+    ? acceptedTypes.map((t) => `.${t}`).join(',')
+    : undefined
+
+  // Parse current value into items
+  const items: MultiFileItem[] = (() => {
+    const raw = value as { items?: MultiFileItem[] } | null
+    if (raw && 'items' in raw && Array.isArray(raw.items)) {
+      return raw.items
+    }
+    // Initial load from server: array of FileValue
+    if (isFileValueArray(value)) {
+      return value.map((fv, i) => ({ id: `existing-${i}`, existing: fv }))
+    }
+    return []
+  })()
+
+  const emitChange = useCallback((newItems: MultiFileItem[]) => {
+    onChange({ items: newItems, __multiple: true })
+  }, [onChange])
+
+  function handleFiles(files: FileList | globalThis.File[]) {
+    const newItems = [...items]
+    for (const file of Array.from(files)) {
+      if (maxSize && file.size > maxSize * 1024) continue
+      newItems.push({ id: `new-${Date.now()}-${Math.random()}`, file })
+    }
+    emitChange(newItems)
+  }
+
+  function handleRemove(id: string) {
+    emitChange(items.filter((it) => it.id !== id))
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files)
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* File list */}
+      {items.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {items.map((item) => {
+            const name = item.file?.name ?? item.existing?.name ?? 'Unknown'
+            return (
+              <div
+                key={item.id}
+                className="flex items-center gap-2 rounded-md border px-3 py-2"
+                style={{
+                  backgroundColor: 'var(--martis-input-bg)',
+                  borderColor: 'var(--martis-border)',
+                }}
+              >
+                <FileIcon size={16} className="martis-text-muted flex-shrink-0" />
+                <span className="flex-1 truncate text-sm martis-text">{name}</span>
+                {item.existing && (
+                  <a
+                    href={item.existing.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 rounded p-1 hover:opacity-70"
+                    style={{ color: 'var(--martis-accent)' }}
+                  >
+                    <DownloadSimple size={14} />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleRemove(item.id)}
+                  className="flex-shrink-0 rounded p-1 hover:bg-red-500/10"
+                >
+                  <Trash size={14} className="text-red-500" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Drop zone / add button */}
+      <div
+        className={`relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
+        style={{
+          backgroundColor: 'var(--martis-input-bg)',
+          borderColor: error ? '#ef4444' : 'var(--martis-border)',
+        }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex w-full items-center gap-2 text-sm martis-text-muted"
+        >
+          {items.length > 0 ? <Plus size={20} /> : <UploadSimple size={20} />}
+          <span>{items.length > 0 ? 'Add more files' : 'Choose files or drag here'}</span>
+        </button>
+
+        <input
+          ref={inputRef}
+          id={field.attribute}
+          name={field.attribute}
+          type="file"
+          accept={accept}
+          multiple
+          disabled={field.readonly}
+          className="sr-only"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFiles(e.target.files)
+              e.target.value = ''
+            }
+          }}
+        />
+      </div>
+
+      {maxSize && (
+        <span className="text-xs martis-text-muted">
+          Max per file: {maxSize >= 1024 ? `${(maxSize / 1024).toFixed(0)} MB` : `${maxSize} KB`}
+        </span>
+      )}
+      {error && <small className="text-red-500">{error}</small>}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Exported input wrapper
+// ---------------------------------------------------------------------------
+
+export function FileFieldInput(props: FieldInputProps) {
+  const multiple = (props.field as unknown as Record<string, unknown>).multiple as boolean | undefined
+  return multiple ? <MultipleFileInput {...props} /> : <SingleFileInput {...props} />
 }

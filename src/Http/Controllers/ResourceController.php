@@ -156,14 +156,7 @@ class ResourceController extends MartisController
             return $validationError;
         }
 
-        foreach ($fields as $field) {
-            $attr = $field->attribute();
-            if ($request->hasFile($attr)) {
-                $field->fill($model, $request->file($attr));
-            } elseif ($request->has($attr)) {
-                $field->fill($model, $request->input($attr));
-            }
-        }
+        $this->fillFields($request, $fields, $model);
 
         $res->beforeSave($model, $request, creating: true);
         $model->save();
@@ -209,14 +202,7 @@ class ResourceController extends MartisController
             return $validationError;
         }
 
-        foreach ($fields as $field) {
-            $attr = $field->attribute();
-            if ($request->hasFile($attr)) {
-                $field->fill($model, $request->file($attr));
-            } elseif ($request->has($attr)) {
-                $field->fill($model, $request->input($attr));
-            }
-        }
+        $this->fillFields($request, $fields, $model);
 
         $res->beforeSave($model, $request, creating: false);
         $model->save();
@@ -359,6 +345,44 @@ class ResourceController extends MartisController
     // -------------------------------------------------------------------------
 
     /**
+     * Fill all fields from request data, handling single and multiple file uploads.
+     *
+     * @param  list<FieldContract>  $fields
+     */
+    private function fillFields(Request $request, array $fields, Model $model): void
+    {
+        foreach ($fields as $field) {
+            $attr = $field->attribute();
+
+            if ($field instanceof File && $field->isMultiple()) {
+                // Multiple file mode: gather new uploads + existing paths to keep
+                $newFiles = [];
+                $rawFiles = $request->file($attr);
+                if (is_array($rawFiles)) {
+                    $newFiles = $rawFiles;
+                }
+
+                $existingPaths = $request->input($attr.'_keep', []);
+                if (! is_array($existingPaths)) {
+                    $existingPaths = [];
+                }
+
+                // Only fill if something was actually submitted for this field
+                if (! empty($newFiles) || $request->has($attr.'_keep') || $request->has($attr)) {
+                    $field->fill($model, [
+                        'files' => $newFiles,
+                        'existing' => $existingPaths,
+                    ]);
+                }
+            } elseif ($request->hasFile($attr)) {
+                $field->fill($model, $request->file($attr));
+            } elseif ($request->has($attr)) {
+                $field->fill($model, $request->input($attr));
+            }
+        }
+    }
+
+    /**
      * Delete stored files for all File/Image fields before model deletion.
      *
      * @param  list<FieldContract>  $fields
@@ -494,6 +518,14 @@ class ResourceController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+
+            // Add item-level validation rules for multiple file fields
+            if (method_exists($field, 'buildItemRules')) {
+                $itemRules = $field->buildItemRules();
+                if (! empty($itemRules)) {
+                    $rules[$field->attribute().'.*'] = $itemRules;
+                }
+            }
         }
 
         if (empty($rules)) {

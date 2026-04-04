@@ -1,6 +1,6 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import { Image as ImageIcon } from '@phosphor-icons/react'
+import { Image as ImageIcon, Plus, Trash } from '@phosphor-icons/react'
 
 interface ImageValue {
   path: string
@@ -13,7 +13,35 @@ function isImageValue(v: unknown): v is ImageValue {
   return v !== null && typeof v === 'object' && 'url' in (v as Record<string, unknown>)
 }
 
-export function ImageFieldDisplay({ value }: FieldDisplayProps) {
+function isImageValueArray(v: unknown): v is ImageValue[] {
+  return Array.isArray(v) && v.every(isImageValue)
+}
+
+// ---------------------------------------------------------------------------
+// Display
+// ---------------------------------------------------------------------------
+
+export function ImageFieldDisplay({ value, field }: FieldDisplayProps) {
+  const multiple = (field as unknown as Record<string, unknown>).multiple as boolean | undefined
+
+  if (multiple && isImageValueArray(value)) {
+    if (value.length === 0) return <span className="martis-text-muted">—</span>
+    return (
+      <div className="flex flex-wrap gap-2">
+        {value.map((img) => (
+          <a key={img.path} href={img.url} target="_blank" rel="noopener noreferrer" className="inline-block">
+            <img
+              src={img.thumbnailUrl ?? img.url}
+              alt={img.name}
+              className="h-16 w-16 rounded border object-cover"
+              style={{ borderColor: 'var(--martis-border)' }}
+            />
+          </a>
+        ))}
+      </div>
+    )
+  }
+
   if (!isImageValue(value)) {
     return <span className="martis-text-muted">—</span>
   }
@@ -30,7 +58,11 @@ export function ImageFieldDisplay({ value }: FieldDisplayProps) {
   )
 }
 
-export function ImageFieldInput({ field, value, onChange, error }: FieldInputProps) {
+// ---------------------------------------------------------------------------
+// Input — Single mode
+// ---------------------------------------------------------------------------
+
+function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
 
@@ -143,4 +175,151 @@ export function ImageFieldInput({ field, value, onChange, error }: FieldInputPro
       {error && <small className="text-red-500">{error}</small>}
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Input — Multiple mode
+// ---------------------------------------------------------------------------
+
+/** Internal representation for each item in the multiple image list. */
+interface MultiImageItem {
+  id: string
+  file?: globalThis.File
+  existing?: ImageValue
+  previewUrl: string
+}
+
+function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+
+  const maxSize = (field as unknown as Record<string, unknown>).maxSize as number | undefined
+
+  // Parse current value into items
+  const items: MultiImageItem[] = useMemo(() => {
+    const raw = value as { items?: MultiImageItem[] } | null
+    if (raw && 'items' in raw && Array.isArray(raw.items)) {
+      return raw.items
+    }
+    if (isImageValueArray(value)) {
+      return value.map((iv, i) => ({
+        id: `existing-${i}`,
+        existing: iv,
+        previewUrl: iv.thumbnailUrl ?? iv.url,
+      }))
+    }
+    return []
+  }, [value])
+
+  const emitChange = useCallback((newItems: MultiImageItem[]) => {
+    onChange({ items: newItems, __multiple: true })
+  }, [onChange])
+
+  function handleFiles(files: FileList | globalThis.File[]) {
+    const newItems = [...items]
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue
+      if (maxSize && file.size > maxSize * 1024) continue
+      newItems.push({
+        id: `new-${Date.now()}-${Math.random()}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })
+    }
+    emitChange(newItems)
+  }
+
+  function handleRemove(id: string) {
+    emitChange(items.filter((it) => it.id !== id))
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files)
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Image grid */}
+      {items.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="group relative h-24 w-24 overflow-hidden rounded-md border"
+              style={{ borderColor: 'var(--martis-border)' }}
+            >
+              <img
+                src={item.previewUrl}
+                alt={item.file?.name ?? item.existing?.name ?? ''}
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => handleRemove(item.id)}
+                className="absolute right-1 top-1 rounded-full bg-black/60 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <Trash size={12} className="text-white" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Drop zone / add button */}
+      <div
+        className={`relative rounded-md border transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
+        style={{
+          backgroundColor: 'var(--martis-input-bg)',
+          borderColor: error ? '#ef4444' : 'var(--martis-border)',
+        }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex w-full flex-col items-center gap-2 px-4 py-4 text-sm martis-text-muted"
+        >
+          {items.length > 0 ? <Plus size={24} /> : <ImageIcon size={28} />}
+          <span>{items.length > 0 ? 'Add more images' : 'Click or drag images here'}</span>
+        </button>
+
+        <input
+          ref={inputRef}
+          id={field.attribute}
+          name={field.attribute}
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={field.readonly}
+          className="sr-only"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFiles(e.target.files)
+              e.target.value = ''
+            }
+          }}
+        />
+      </div>
+
+      {maxSize && (
+        <span className="text-xs martis-text-muted">
+          Max per image: {maxSize >= 1024 ? `${(maxSize / 1024).toFixed(0)} MB` : `${maxSize} KB`}
+        </span>
+      )}
+      {error && <small className="text-red-500">{error}</small>}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Exported input wrapper
+// ---------------------------------------------------------------------------
+
+export function ImageFieldInput(props: FieldInputProps) {
+  const multiple = (props.field as unknown as Record<string, unknown>).multiple as boolean | undefined
+  return multiple ? <MultipleImageInput {...props} /> : <SingleImageInput {...props} />
 }

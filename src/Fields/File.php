@@ -20,6 +20,12 @@ use Illuminate\Support\Facades\Storage;
  *       ->maxSize(10240)   // 10MB in KB
  *       ->acceptedTypes(['pdf', 'doc', 'docx'])
  *       ->nullable()
+ *
+ *   File::make('documents')
+ *       ->multiple()
+ *       ->disk('public')
+ *       ->storagePath('uploads/docs')
+ *       ->maxSize(5120)
  */
 class File extends Field
 {
@@ -31,6 +37,8 @@ class File extends Field
 
     /** @var list<string> */
     protected array $acceptedTypes = [];
+
+    protected bool $multiple = false;
 
     public function type(): string
     {
@@ -88,6 +96,24 @@ class File extends Field
         return $this;
     }
 
+    /**
+     * Enable multiple file uploads.
+     *
+     * When enabled, the model attribute stores a JSON array of paths.
+     * The field resolves to an array of {path, url, name} objects.
+     */
+    public function multiple(bool $value = true): static
+    {
+        $this->multiple = $value;
+
+        return $this;
+    }
+
+    public function isMultiple(): bool
+    {
+        return $this->multiple;
+    }
+
     // -------------------------------------------------------------------------
     // Value lifecycle
     // -------------------------------------------------------------------------
@@ -95,10 +121,13 @@ class File extends Field
     /**
      * Store the uploaded file and update the model attribute.
      *
-     * Accepts:
+     * Single mode accepts:
      *   - UploadedFile  => store on disk, delete old file first
      *   - null / ''     => delete stored file, set attribute to null
      *   - string        => keep as-is (existing path passthrough)
+     *
+     * Multiple mode accepts:
+     *   - array{files: list<UploadedFile>, existing: list<string>}
      */
     public function fill(Model $model, mixed $value): void
     {
@@ -108,6 +137,12 @@ class File extends Field
 
         if ($this->fillCallback !== null) {
             ($this->fillCallback)($model, $value, $this->attribute);
+
+            return;
+        }
+
+        if ($this->multiple) {
+            $this->fillMultiple($model, $value);
 
             return;
         }
@@ -132,12 +167,62 @@ class File extends Field
     }
 
     /**
+     * Fill for multiple mode.
+     */
+    protected function fillMultiple(Model $model, mixed $value): void
+    {
+        $existingPaths = $this->getExistingPaths($model);
+
+        if (! is_array($value) || $value === []) {
+            foreach ($existingPaths as $path) {
+                $this->deletePathFromDisk($path);
+            }
+            $model->setAttribute($this->attribute, json_encode([]));
+
+            return;
+        }
+
+        /** @var array<mixed> $rawFiles */
+        $rawFiles = $value['files'] ?? [];
+        /** @var array<mixed> $rawExisting */
+        $rawExisting = $value['existing'] ?? [];
+
+        /** @var list<string> $keepPaths */
+        $keepPaths = [];
+        foreach ($rawExisting as $p) {
+            if (is_string($p) && $p !== '') {
+                $keepPaths[] = $p;
+            }
+        }
+
+        // Delete files that are no longer kept
+        $removedPaths = array_diff($existingPaths, $keepPaths);
+        foreach ($removedPaths as $path) {
+            $this->deletePathFromDisk($path);
+        }
+
+        // Store new uploads
+        $newPaths = [];
+        foreach ($rawFiles as $file) {
+            if ($file instanceof UploadedFile) {
+                $path = $file->store($this->storagePath, $this->disk);
+                if ($path) {
+                    $newPaths[] = $path;
+                }
+            }
+        }
+
+        $allPaths = array_merge($keepPaths, $newPaths);
+        $model->setAttribute($this->attribute, json_encode($allPaths));
+    }
+
+    /**
      * Resolve the field value for display.
      *
-     * Returns null when no file is stored, otherwise:
-     *   ['path' => '...', 'url' => '...', 'name' => '...']
+     * Single mode returns null or {path, url, name}.
+     * Multiple mode returns array of {path, url, name} objects.
      *
-     * @return array{path: string, url: string, name: string}|null
+     * @return array{path: string, url: string, name: string}|list<array{path: string, url: string, name: string}>|null
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
@@ -145,6 +230,10 @@ class File extends Field
 
         if ($this->resolveCallback !== null) {
             return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr);
+        }
+
+        if ($this->multiple) {
+            return $this->resolveMultiple($model, $attr);
         }
 
         $path = $model->getAttribute($attr);
@@ -164,15 +253,93 @@ class File extends Field
     }
 
     /**
-     * Delete the currently stored file from disk (does NOT update the model attribute).
+     * Resolve for multiple mode.
+     *
+     * @return list<array{path: string, url: string, name: string}>
+     */
+    protected function resolveMultiple(Model $model, string $attr): array
+    {
+        $paths = $this->getExistingPathsFromRaw($model->getAttribute($attr));
+
+        if (empty($paths)) {
+            return [];
+        }
+
+        /** @var Cloud $disk */
+        $disk = Storage::disk($this->disk);
+
+        return array_map(fn (string $path): array => [
+            'path' => $path,
+            'url' => $disk->url($path),
+            'name' => basename($path),
+        ], $paths);
+    }
+
+    /**
+     * Delete the currently stored file(s) from disk (does NOT update the model attribute).
      */
     public function deleteStoredFile(Model $model): void
     {
+        if ($this->multiple) {
+            $paths = $this->getExistingPaths($model);
+            foreach ($paths as $path) {
+                $this->deletePathFromDisk($path);
+            }
+
+            return;
+        }
+
         $path = $model->getAttribute($this->attribute);
 
         if ($path !== null && $path !== '') {
             Storage::disk($this->disk)->delete($path);
         }
+    }
+
+    /**
+     * Delete a single path from disk.
+     */
+    protected function deletePathFromDisk(string $path): void
+    {
+        if ($path !== '') {
+            Storage::disk($this->disk)->delete($path);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return list<string>
+     */
+    protected function getExistingPaths(Model $model): array
+    {
+        return $this->getExistingPathsFromRaw($model->getAttribute($this->attribute));
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function getExistingPathsFromRaw(mixed $raw): array
+    {
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        if (is_array($raw)) {
+            return array_values(array_filter($raw, fn ($p): bool => is_string($p) && $p !== ''));
+        }
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+
+            return is_array($decoded)
+                ? array_values(array_filter($decoded, fn ($p): bool => is_string($p) && $p !== ''))
+                : [];
+        }
+
+        return [];
     }
 
     // -------------------------------------------------------------------------
@@ -184,8 +351,50 @@ class File extends Field
      */
     public function buildRules(): array
     {
+        if ($this->multiple) {
+            $rules = [];
+
+            if ($this->required) {
+                $rules[] = 'required';
+            } elseif ($this->nullable) {
+                $rules[] = 'nullable';
+            } else {
+                $rules[] = 'sometimes';
+            }
+
+            $rules[] = 'array';
+
+            return array_merge($rules, $this->extraRules);
+        }
+
         $rules = parent::buildRules();
         $rules[] = 'file';
+
+        if (! empty($this->acceptedTypes)) {
+            $rules[] = 'mimes:'.implode(',', $this->acceptedTypes);
+        }
+
+        if ($this->maxSize !== null) {
+            $rules[] = 'max:'.$this->maxSize;
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Validation rules for each item in a multiple-file array.
+     *
+     * Only meaningful when multiple() is enabled.
+     *
+     * @return list<string>
+     */
+    public function buildItemRules(): array
+    {
+        if (! $this->multiple) {
+            return [];
+        }
+
+        $rules = ['file'];
 
         if (! empty($this->acceptedTypes)) {
             $rules[] = 'mimes:'.implode(',', $this->acceptedTypes);
@@ -212,6 +421,7 @@ class File extends Field
             'storagePath' => $this->storagePath,
             'maxSize' => $this->maxSize,
             'acceptedTypes' => $this->acceptedTypes,
+            'multiple' => $this->multiple,
         ];
     }
 }

@@ -45,16 +45,37 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T
 }
 
+/** Marker interface for multiple-file field values. */
+interface MultiFileValue {
+  __multiple: true
+  items: Array<{
+    id: string
+    file?: File
+    existing?: { path: string; url: string; name: string; thumbnailUrl?: string }
+    previewUrl?: string
+  }>
+}
+
+function isMultiFileValue(v: unknown): v is MultiFileValue {
+  return v !== null && typeof v === 'object' && '__multiple' in (v as Record<string, unknown>)
+}
+
 /**
  * Check if form values contain any File objects that require multipart upload.
  */
 export function hasFileValues(values: Record<string, unknown>): boolean {
-  return Object.values(values).some((v) => v instanceof File)
+  return Object.values(values).some((v) => {
+    if (v instanceof File) return true
+    if (isMultiFileValue(v)) {
+      return v.items.some((item) => item.file instanceof File)
+    }
+    return false
+  })
 }
 
 /**
  * Build a FormData from key-value pairs for multipart upload.
- * Handles File objects, null (skip), and scalar values.
+ * Handles File objects, null (skip), scalar values, and multiple-file fields.
  */
 function buildFormData(values: Record<string, unknown>, methodOverride?: string): FormData {
   const fd = new FormData()
@@ -64,6 +85,21 @@ function buildFormData(values: Record<string, unknown>, methodOverride?: string)
   Object.entries(values).forEach(([key, val]) => {
     if (val instanceof File) {
       fd.append(key, val)
+    } else if (isMultiFileValue(val)) {
+      // Multiple file field: separate new uploads from existing paths to keep
+      let fileIndex = 0
+      val.items.forEach((item) => {
+        if (item.file instanceof File) {
+          fd.append(`${key}[${fileIndex}]`, item.file)
+          fileIndex++
+        } else if (item.existing) {
+          fd.append(`${key}_keep[]`, item.existing.path)
+        }
+      })
+      // If no items at all, signal empty array
+      if (val.items.length === 0) {
+        fd.append(`${key}_keep`, '')
+      }
     } else if (val === null || val === undefined) {
       // Send empty string so Laravel sees the field (allows clearing)
       fd.append(key, '')
