@@ -15,24 +15,24 @@ class NavigationController extends MartisController
     /**
      * Return navigation groups for the React sidebar.
      *
-     * Retorna a estrutura de navegação usada pelo painel React.
-     * Os recursos são agrupados pela sua propriedade `group()`.
-     * Recursos sem grupo aparecem com `label: null`.
-     * Somente recursos que o utilizador autenticado tem permissão de ver são incluídos.
+     * Returns the navigation structure used by the React panel.
+     * Resources are grouped by their `group()` property.
+     * Resources without a group appear with `label: null`.
+     * Only resources the authenticated user is authorised to view are included.
      *
-     * **Exemplo de resposta:**
+     * **Example response:**
      * ```json
      * [
      *   {
      *     "label": null,
      *     "resources": [
-     *       { "uriKey": "users", "label": "Utilizadores", "icon": "Users", ... }
+     *       { "uriKey": "users", "label": "Users", "icon": "Users", ... }
      *     ]
      *   },
      *   {
-     *     "label": "Configurações",
+     *     "label": "Settings",
      *     "resources": [
-     *       { "uriKey": "settings", "label": "Definições", "icon": "Gear", ... }
+     *       { "uriKey": "settings", "label": "Settings", "icon": "Gear", ... }
      *     ]
      *   }
      * ]

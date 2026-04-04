@@ -10,7 +10,18 @@ use Illuminate\Http\Response;
 
 class AuthController extends MartisController
 {
-    /** Return the currently authenticated user as JSON, or null if not logged in. */
+    /**
+     * Return the currently authenticated user.
+     *
+     * Returns the authenticated user as JSON, or literal `null` when not logged in.
+     * Note: the response is raw JSON `null` (not an empty object `{}`) so the React
+     * frontend can reliably distinguish the unauthenticated state.
+     *
+     * This route is public — it can be called without an active session.
+     *
+     * @response array<string, mixed>
+     * @response null
+     */
     public function user(Request $request): JsonResponse|Response
     {
         /** @var string|null $guardName */
@@ -27,7 +38,17 @@ class AuthController extends MartisController
         return response()->json($user);
     }
 
-    /** Log out the current user, invalidate the session, and regenerate the CSRF token. */
+    /**
+     * Log out the currently authenticated user (API variant).
+     *
+     * Invalidates the current session and regenerates the CSRF token.
+     * For JSON requests returns `{ "message": "Logged out" }`.
+     * For non-JSON requests redirects to the login route.
+     *
+     * This route is public so it works even when the session/CSRF token is stale.
+     *
+     * @response array{message: string}
+     */
     public function logout(Request $request): JsonResponse|RedirectResponse
     {
         /** @var string|null $guardName */
