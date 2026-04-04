@@ -1,63 +1,287 @@
-import * as PhosphorIcons from "@phosphor-icons/react"
 import type { IconProps } from "@phosphor-icons/react"
+import {
+  // Common admin/CRUD icons
+  Database,
+  Article,
+  ArticleNyTimes,
+  Newspaper,
+  NewspaperClipping,
+  Tag,
+  Users,
+  UsersThree,
+  UserCircle,
+  User,
+  Folder,
+  FolderSimple,
+  FolderOpen,
+  Gear,
+  GearSix,
+  ChartBar,
+  ChartLine,
+  ChartPie,
+  ShoppingCart,
+  ShoppingBag,
+  CreditCard,
+  MapPin,
+  FileText,
+  File,
+  FilePdf,
+  FileDoc,
+  FileXls,
+  FileCsv,
+  FileCode,
+  FileZip,
+  Image,
+  Images,
+  Camera,
+  Bell,
+  BellRinging,
+  ChatCircle,
+  ChatText,
+  Envelope,
+  EnvelopeSimple,
+  Globe,
+  GlobeSimple,
+  House,
+  Buildings,
+  Calendar,
+  CalendarBlank,
+  Clock,
+  ClockCountdown,
+  Star,
+  Heart,
+  BookOpen,
+  BookmarkSimple,
+  Lightbulb,
+  Flag,
+  Lock,
+  Key,
+  Shield,
+  ShieldCheck,
+  Eye,
+  Link,
+  Paperclip,
+  Package,
+  Truck,
+  Receipt,
+  CurrencyDollar,
+  Wallet,
+
+  Storefront,
+  Megaphone,
+  PaintBrush,
+  Palette,
+  Code,
+  Terminal,
+  Wrench,
+  Plug,
+  Lightning,
+  Sparkle,
+  Trophy,
+  Medal,
+  Crown,
+  Percent,
+  Hash,
+  At,
+  ListBullets,
+  ListChecks,
+  Table,
+  Rows,
+  Columns,
+  SquaresFour,
+  GridFour,
+  Stack,
+  TreeStructure,
+  Share,
+  Export,
+  Download,
+  Upload,
+  Cloud,
+  Desktop,
+  HardDrives,
+  Cpu,
+  Notebook,
+  Note,
+  NotePencil,
+  PencilSimple,
+  Trash,
+  Plus,
+  Minus,
+  Check,
+  X,
+  Warning,
+  Info,
+  Question,
+  ArrowRight,
+  ArrowLeft,
+  CaretDown,
+  CaretUp,
+  CaretRight,
+  MagnifyingGlass,
+  Funnel,
+  SlidersHorizontal,
+  Sliders,
+} from "@phosphor-icons/react"
 
 /**
- * Aliases for backward compatibility and convenience.
- * Maps short/custom names to their Phosphor PascalCase export names.
+ * Static icon map — maps lowercase/kebab names to Phosphor components.
+ * This approach works reliably with Vite production builds (import * does NOT).
  */
-const aliases: Record<string, string> = {
-  folders: "FolderSimple",
-  chat: "ChatCircle",
-  "chart-bar": "ChartBar",
-  "file-text": "FileText",
-  "shopping-cart": "ShoppingCart",
-  "map-pin": "MapPin",
-  "credit-card": "CreditCard",
+const iconMap: Record<string, React.ComponentType<IconProps>> = {
+  // Resources & data
+  database: Database,
+  article: Article,
+  "article-ny-times": ArticleNyTimes,
+  newspaper: Newspaper,
+  "newspaper-clipping": NewspaperClipping,
+  tag: Tag,
+  // People
+  users: Users,
+  "users-three": UsersThree,
+  "user-circle": UserCircle,
+  user: User,
+  // Files & folders
+  folder: Folder,
+  folders: FolderSimple,
+  "folder-simple": FolderSimple,
+  "folder-open": FolderOpen,
+  file: File,
+  "file-text": FileText,
+  "file-pdf": FilePdf,
+  "file-doc": FileDoc,
+  "file-xls": FileXls,
+  "file-csv": FileCsv,
+  "file-code": FileCode,
+  "file-zip": FileZip,
+  // Media
+  image: Image,
+  images: Images,
+  camera: Camera,
+  // Settings
+  gear: Gear,
+  "gear-six": GearSix,
+  wrench: Wrench,
+  sliders: Sliders,
+  "sliders-horizontal": SlidersHorizontal,
+  // Charts
+  "chart-bar": ChartBar,
+  "chart-line": ChartLine,
+  "chart-pie": ChartPie,
+  // Commerce
+  "shopping-cart": ShoppingCart,
+  "shopping-bag": ShoppingBag,
+  "credit-card": CreditCard,
+  storefront: Storefront,
+  receipt: Receipt,
+  "currency-dollar": CurrencyDollar,
+  wallet: Wallet,
+  package: Package,
+  truck: Truck,
+  percent: Percent,
+  // Communication
+  chat: ChatCircle,
+  "chat-circle": ChatCircle,
+  "chat-text": ChatText,
+  envelope: Envelope,
+  "envelope-simple": EnvelopeSimple,
+  bell: Bell,
+  "bell-ringing": BellRinging,
+  megaphone: Megaphone,
+  // Navigation & location
+  "map-pin": MapPin,
+  globe: Globe,
+  "globe-simple": GlobeSimple,
+  house: House,
+  buildings: Buildings,
+  // Time & date
+  calendar: Calendar,
+  "calendar-blank": CalendarBlank,
+  clock: Clock,
+  "clock-countdown": ClockCountdown,
+  // Engagement
+  star: Star,
+  heart: Heart,
+  trophy: Trophy,
+  medal: Medal,
+  crown: Crown,
+  flag: Flag,
+  sparkle: Sparkle,
+  // Knowledge
+  "book-open": BookOpen,
+  "bookmark-simple": BookmarkSimple,
+  lightbulb: Lightbulb,
+  notebook: Notebook,
+  note: Note,
+  "note-pencil": NotePencil,
+  // Security
+  lock: Lock,
+  key: Key,
+  shield: Shield,
+  "shield-check": ShieldCheck,
+  eye: Eye,
+  // Misc
+  link: Link,
+  paperclip: Paperclip,
+  code: Code,
+  terminal: Terminal,
+  plug: Plug,
+  lightning: Lightning,
+  "paint-brush": PaintBrush,
+  palette: Palette,
+  hash: Hash,
+  at: At,
+  // Layout
+  "list-bullets": ListBullets,
+  "list-checks": ListChecks,
+  table: Table,
+  rows: Rows,
+  columns: Columns,
+  "squares-four": SquaresFour,
+  "grid-four": GridFour,
+  stack: Stack,
+  "tree-structure": TreeStructure,
+  // Actions
+  share: Share,
+  export: Export,
+  download: Download,
+  upload: Upload,
+  "pencil-simple": PencilSimple,
+  trash: Trash,
+  plus: Plus,
+  minus: Minus,
+  check: Check,
+  x: X,
+  funnel: Funnel,
+  "magnifying-glass": MagnifyingGlass,
+  // Cloud & infra
+  cloud: Cloud,
+  server: Desktop,
+  "hard-drives": HardDrives,
+  cpu: Cpu,
+  // Status
+  warning: Warning,
+  info: Info,
+  question: Question,
+  // Arrows
+  "arrow-right": ArrowRight,
+  "arrow-left": ArrowLeft,
+  "caret-down": CaretDown,
+  "caret-up": CaretUp,
+  "caret-right": CaretRight,
 }
 
 /**
- * Converts kebab-case icon names to PascalCase.
- * e.g., "arrow-counter-clockwise" → "ArrowCounterClockwise"
+ * Also map PascalCase names so both `tag` and `Tag` work.
  */
-function kebabToPascal(name: string): string {
-  return name
+for (const [key, val] of Object.entries({ ...iconMap })) {
+  // Add PascalCase variant
+  const pascal = key
     .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
     .join("")
-}
-
-const iconExports = PhosphorIcons as unknown as Record<string, React.ComponentType<IconProps>>
-
-/**
- * Resolves any Phosphor icon by name.
- * Accepts kebab-case ("shopping-cart"), PascalCase ("ShoppingCart"),
- * or lowercase ("database"). Falls back to Database icon.
- */
-function resolveIcon(name: string): React.ComponentType<IconProps> {
-  // 1. Check aliases first
-  const aliased = aliases[name]
-  if (aliased && typeof iconExports[aliased] === "function") {
-    return iconExports[aliased]
+  if (!iconMap[pascal]) {
+    iconMap[pascal] = val
   }
-
-  // 2. Try PascalCase conversion from kebab-case
-  const pascal = kebabToPascal(name)
-  if (typeof iconExports[pascal] === "function") {
-    return iconExports[pascal]
-  }
-
-  // 3. Try direct lookup (user passes PascalCase)
-  if (typeof iconExports[name] === "function") {
-    return iconExports[name]
-  }
-
-  // 4. Try capitalizing first letter only (e.g., "database" → "Database")
-  const capitalized = name.charAt(0).toUpperCase() + name.slice(1)
-  if (typeof iconExports[capitalized] === "function") {
-    return iconExports[capitalized]
-  }
-
-  return PhosphorIcons.Database
 }
 
 interface ResourceIconProps {
@@ -68,6 +292,7 @@ interface ResourceIconProps {
 }
 
 export function ResourceIcon({ iconName, size, className, weight }: ResourceIconProps) {
-  const Icon = resolveIcon(iconName ?? "database")
+  const name = iconName ?? "database"
+  const Icon = iconMap[name] ?? iconMap[name.toLowerCase()] ?? Database
   return <Icon size={size} className={className} weight={weight} />
 }
