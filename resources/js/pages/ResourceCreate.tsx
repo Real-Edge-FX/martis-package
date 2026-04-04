@@ -6,6 +6,8 @@ import type { ResourceSchema } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
+import { ArrowLeft } from '@phosphor-icons/react'
+import { ResourceIcon } from '@/components/ResourceIcon'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -89,20 +91,31 @@ export function ResourceCreatePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm">
         <Link
           to={`/resources/${resource}`}
-          className="text-sm hover:underline"
-          style={{ color: 'var(--martis-accent)' }}
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors no-underline"
+          style={{
+            color: "var(--martis-primary)",
+            backgroundColor: "transparent",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
-          &larr; {schema.label}
+          <ArrowLeft size={14} weight="bold" />
+          <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
+          {schema.label}
         </Link>
-        <span className="martis-text-muted">/</span>
-        <h1 className="text-2xl font-bold martis-text">
+        <span style={{ color: "var(--martis-text-muted)" }}>/</span>
+        <span className="font-semibold" style={{ color: "var(--martis-text)" }}>
           {tAct('create')} {schema.singularLabel}
-        </h1>
-      </div>
+        </span>
+      </nav>
+
+      <h1 className="text-2xl font-bold" style={{ color: "var(--martis-text)" }}>
+        {tAct('create')} {schema.singularLabel}
+      </h1>
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="martis-card-bg rounded-xl border martis-border">
