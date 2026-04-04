@@ -55,7 +55,7 @@ class AuthController extends MartisController
     public function login(Request $request): JsonResponse
     {
         $credentials = $request->validate([
-            'email'    => ['required', 'email'],
+            'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
@@ -68,7 +68,7 @@ class AuthController extends MartisController
         if (! $auth->attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
             return response()->json([
                 'message' => __('auth.failed'),
-                'errors'  => ['email' => [__('auth.failed')]],
+                'errors' => ['email' => [__('auth.failed')]],
             ], 422);
         }
 
