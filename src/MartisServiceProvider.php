@@ -10,6 +10,7 @@ use Martis\Console\InstallCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\ThemeMakeCommand;
 use Martis\Console\UserCommand;
+use Martis\Console\VendorPublishCommand;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Http\Middleware\MartisAuthenticate;
 
@@ -44,6 +45,7 @@ class MartisServiceProvider extends ServiceProvider
                 UserCommand::class,
                 ComponentMakeCommand::class,
                 ThemeMakeCommand::class,
+                VendorPublishCommand::class,
             ]);
 
             $this->publishes([
