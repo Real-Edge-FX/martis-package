@@ -74,13 +74,13 @@ class ThemeMakeCommand extends Command
         $this->newLine();
         $this->components->twoColumnDetail('<fg=green>Done</>');
         $this->newLine();
-        $this->line('  1. Edit the CSS variables in <comment>resources/css/martis/'.$name.'.css</comment>');
-        $this->line('  2. Re-publish: <comment>php artisan martis:theme '.$name.'</comment> (copies to public)');
+        $this->line('  1. Edit the CSS variables in <comment>public/vendor/martis/themes/'.$name.'.css</comment>');
+        $this->line('  2. Changes take effect immediately (plain CSS, no rebuild needed).');
         $this->line('  3. Or change theme in <comment>config/martis.php</comment>:');
         $this->newLine();
         $this->line("     <comment>'theme' => ['name' => '{$name}']</comment>");
         $this->newLine();
-        $this->line('  The theme is loaded automatically — no CSS imports needed.');
+        $this->line('  To revert to default theme: set name to null in config.');
         $this->newLine();
 
         return self::SUCCESS;
