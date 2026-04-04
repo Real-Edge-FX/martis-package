@@ -1079,7 +1079,7 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
 
 /* ── Pagination border uses CSS variables (REA-1140) ──────────── */
 .martis-pagination-wrapper {
-  border-top: 1px solid var(--martis-border);
+  /* no border — clean transition from table to paginator */
 }
 
 /* ── DataTable no-hover variant (REA-1140) ──────────────────────
