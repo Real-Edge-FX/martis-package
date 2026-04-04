@@ -346,6 +346,17 @@ abstract class Resource implements ResourceContract
      *
      * The BeforeSave event is also dispatched for listener-based decoupling.
      */
+    /**
+     * Error display strategy for this resource.
+     *
+     * Return "inline" to show validation errors next to each field,
+     * or "toast" to show them as toast notifications.
+     */
+    public static function errorDisplay(): string
+    {
+        return 'inline';
+    }
+
     public function beforeSave(Model $model, Request $request, bool $creating): void
     {
         BeforeSave::dispatch(static::class, $model, $request, $creating);
