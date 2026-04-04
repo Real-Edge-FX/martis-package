@@ -1,43 +1,56 @@
 import {
   createContext,
   useContext,
-  useState,
+  useRef,
   useCallback,
   type ReactNode,
-} from 'react'
-import type { Toast } from '@/types'
+} from "react"
+import { Toast } from "primereact/toast"
+import { config } from "@/lib/config"
+
+type Severity = "success" | "error" | "warn" | "info"
 
 interface ToastContextValue {
-  toasts: Toast[]
-  addToast: (type: Toast['type'], message: string) => void
-  removeToast: (id: string) => void
+  addToast: (type: "success" | "error" | "warning" | "info", message: string) => void
+  toastRef: React.RefObject<Toast | null>
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
+const severityMap: Record<string, Severity> = {
+  success: "success",
+  error: "error",
+  warning: "warn",
+  info: "info",
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([])
+  const toastRef = useRef<Toast>(null)
 
-  const addToast = useCallback((type: Toast['type'], message: string) => {
-    const id = crypto.randomUUID()
-    setToasts((prev) => [...prev, { id, type, message }])
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000)
-  }, [])
+  const addToast = useCallback(
+    (type: "success" | "error" | "warning" | "info", message: string) => {
+      toastRef.current?.show({
+        severity: severityMap[type] ?? "info",
+        summary: type.charAt(0).toUpperCase() + type.slice(1),
+        detail: message,
+        life: 4000,
+      })
+    },
+    [],
+  )
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+  const position = config.toast?.position ?? "bottom-right"
 
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+    <ToastContext.Provider value={{ addToast, toastRef }}>
       {children}
+      <Toast ref={toastRef} position={position} />
     </ToastContext.Provider>
   )
 }
 
-export function useToast(): ToastContextValue {
+export function useToast() {
   const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast must be used within ToastProvider')
+  if (!ctx) throw new Error("useToast must be used within ToastProvider")
   return ctx
 }
-

@@ -1,28 +1,28 @@
-import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/contexts/ToastContext'
-import { ApiError } from '@/lib/api'
-import { config } from '@/lib/config'
-import { useTranslation } from 'react-i18next'
-import { InputText } from 'primereact/inputtext'
-import { Button } from 'primereact/button'
-import { IconField } from 'primereact/iconfield'
-import { InputIcon } from 'primereact/inputicon'
-import logoSrc from '@images/logo.png'
-import { Envelope, Lock, Eye, EyeSlash } from '@phosphor-icons/react'
+import { useState, type FormEvent } from "react"
+import { Navigate } from "react-router-dom"
+import { useAuth } from "@/contexts/AuthContext"
+import { useToast } from "@/contexts/ToastContext"
+import { ApiError } from "@/lib/api"
+import { config } from "@/lib/config"
+import { useTranslation } from "react-i18next"
+import { InputText } from "primereact/inputtext"
+import { Button } from "primereact/button"
+import { IconField } from "primereact/iconfield"
+import { InputIcon } from "primereact/inputicon"
+import logoSrc from "@images/logo.png"
+import { Envelope, Lock, Eye, EyeSlash, SignIn } from "@phosphor-icons/react"
 
 function getBrand(): string {
-  return config.brand ?? 'Martis'
+  return config.brand ?? "Martis"
 }
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
   const { addToast } = useToast()
-  const { t } = useTranslation('auth')
+  const { t } = useTranslation("auth")
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -37,7 +37,7 @@ export function LoginPage() {
       await login(email, password)
     } catch (err) {
       if (err instanceof ApiError) {
-        addToast('error', err.message || t('error'))
+        addToast("error", err.message || t("error"))
         if (err.status === 422 && err.errors) {
           const flat: Record<string, string> = {}
           Object.entries(err.errors).forEach(([k, v]) => {
@@ -46,7 +46,7 @@ export function LoginPage() {
           setErrors(flat)
         }
       } else {
-        addToast('error', err instanceof Error ? err.message : t('error'))
+        addToast("error", err instanceof Error ? err.message : t("error"))
       }
     } finally {
       setSubmitting(false)
@@ -73,7 +73,7 @@ export function LoginPage() {
           <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-5">
             <div className="flex flex-col gap-2">
               <label htmlFor="email" className="text-sm font-medium martis-text-muted">
-                {t('email')}
+                {t("email")}
               </label>
               <IconField iconPosition="left">
                 <InputIcon><Envelope size={14} /></InputIcon>
@@ -94,14 +94,14 @@ export function LoginPage() {
 
             <div className="flex flex-col gap-2">
               <label htmlFor="password" className="text-sm font-medium martis-text-muted">
-                {t('password')}
+                {t("password")}
               </label>
               <div className="relative">
                 <IconField iconPosition="left">
                   <InputIcon><Lock size={14} /></InputIcon>
                   <InputText
                     id="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -116,7 +116,7 @@ export function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 martis-text-muted hover:opacity-80 focus:outline-none bg-transparent border-0 cursor-pointer p-0"
                   tabIndex={-1}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
@@ -126,10 +126,11 @@ export function LoginPage() {
 
             <Button
               type="submit"
-              label={submitting ? t('signing_in') : t('sign_in')}
-
+              label={submitting ? t("signing_in") : t("sign_in")}
+              icon={submitting ? undefined : <SignIn size={16} weight="bold" />}
               loading={submitting}
               className="w-full"
+              raised
             />
           </form>
         </div>

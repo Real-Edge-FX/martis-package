@@ -100,6 +100,8 @@ return [
     'search' => [
         'enabled' => true,
         'placeholder' => null, // null = use i18n default "Press / to search"
+        'mode' => env('MARTIS_SEARCH_MODE', 'bar'), // bar, icon, disabled
+        'mobileMode' => env('MARTIS_SEARCH_MOBILE_MODE', 'icon'), // bar, icon, disabled
     ],
 
     /*

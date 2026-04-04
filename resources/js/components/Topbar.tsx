@@ -9,27 +9,49 @@ import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
 import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut } from "@phosphor-icons/react"
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false,
+  )
+  useEffect(() => {
+    function onResize() {
+      setIsMobile(window.innerWidth <= breakpoint)
+    }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [breakpoint])
+  return isMobile
+}
+
 export function Topbar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
   const menuRef = useRef<Menu>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   const showThemeToggle = config.userMenu?.showThemeToggle !== false
   const showNotifications = config.userMenu?.showNotifications !== false
-  const searchEnabled = config.search?.enabled !== false
+
+  // Search mode resolution
+  const desktopMode = config.search?.enabled === false ? "disabled" : (config.search?.mode ?? "bar")
+  const mobileMode = config.search?.mobileMode ?? "icon"
+  const searchMode = isMobile ? mobileMode : desktopMode
 
   // Keyboard shortcut: "/" to open search
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!searchEnabled) return
-    if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
-      e.preventDefault()
-      setSearchOpen(true)
-    }
-  }, [searchEnabled])
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (searchMode === "disabled") return
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+        const tag = (e.target as HTMLElement)?.tagName
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    },
+    [searchMode],
+  )
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown)
@@ -40,10 +62,10 @@ export function Topbar() {
     {
       template: () => (
         <div className="px-3 py-2 pointer-events-none">
-          <div className="font-semibold text-sm" style={{ color: 'var(--martis-text)' }}>
+          <div className="font-semibold text-sm" style={{ color: "var(--martis-text)" }}>
             {user?.name ?? user?.email ?? ""}
           </div>
-          <div className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>
+          <div className="text-xs mt-0.5" style={{ color: "var(--martis-text-muted)" }}>
             {user?.email ?? ""}
           </div>
         </div>
@@ -53,10 +75,26 @@ export function Topbar() {
     ...(showThemeToggle
       ? [
           {
-            template: (_item: MenuItem, options: { className: string; onClick: (e: React.SyntheticEvent) => void }) => (
-              <a className={options.className} onClick={(e) => { toggle(); options.onClick(e) }} role="menuitem">
-                {theme === "dark" ? <Sun size={16} className="p-menuitem-icon" /> : <Moon size={16} className="p-menuitem-icon" />}
-                <span className="p-menuitem-text">{theme === "dark" ? t("light_mode") : t("dark_mode")}</span>
+            template: (
+              _item: MenuItem,
+              options: { className: string; onClick: (e: React.SyntheticEvent) => void },
+            ) => (
+              <a
+                className={options.className}
+                onClick={(e) => {
+                  toggle()
+                  options.onClick(e)
+                }}
+                role="menuitem"
+              >
+                {theme === "dark" ? (
+                  <Sun size={16} className="p-menuitem-icon" />
+                ) : (
+                  <Moon size={16} className="p-menuitem-icon" />
+                )}
+                <span className="p-menuitem-text">
+                  {theme === "dark" ? t("light_mode") : t("dark_mode")}
+                </span>
               </a>
             ),
           },
@@ -73,8 +111,18 @@ export function Topbar() {
           } as MenuItem),
     ) ?? []),
     {
-      template: (_item: MenuItem, options: { className: string; onClick: (e: React.SyntheticEvent) => void }) => (
-        <a className={`${options.className} text-red-500`} onClick={(e) => { void logout(); options.onClick(e) }} role="menuitem">
+      template: (
+        _item: MenuItem,
+        options: { className: string; onClick: (e: React.SyntheticEvent) => void },
+      ) => (
+        <a
+          className={`${options.className} text-red-500`}
+          onClick={(e) => {
+            void logout()
+            options.onClick(e)
+          }}
+          role="menuitem"
+        >
           <SignOut size={16} className="p-menuitem-icon" />
           <span className="p-menuitem-text">{t("logout")}</span>
         </a>
@@ -83,32 +131,32 @@ export function Topbar() {
   ]
 
   return (
-    <header
-      className="martis-topbar-bg flex h-14 items-center justify-between border-b martis-border px-5"
-    >
+    <header className="martis-topbar-bg flex h-14 items-center justify-between border-b martis-border px-5">
       <Breadcrumbs />
 
-      {/* Search bar trigger — Nova style */}
-      {searchEnabled && (
+      {/* Search — full bar mode */}
+      {searchMode === "bar" && (
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer border-0"
           style={{
-            backgroundColor: 'var(--martis-search-bg)',
-            border: '1px solid var(--martis-search-border)',
-            color: 'var(--martis-text-muted)',
+            backgroundColor: "var(--martis-search-bg)",
+            border: "1px solid var(--martis-search-border)",
+            color: "var(--martis-text-muted)",
             minWidth: 220,
           }}
         >
           <MagnifyingGlass size={12} />
-          <span>{config.search?.placeholder ?? t("search_placeholder", "Press / to search")}</span>
+          <span>
+            {config.search?.placeholder ?? t("search_placeholder", "Press / to search")}
+          </span>
           <kbd
             className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-mono"
             style={{
-              backgroundColor: 'var(--martis-hover)',
-              border: '1px solid var(--martis-search-border)',
-              color: 'var(--martis-text-muted)',
+              backgroundColor: "var(--martis-hover)",
+              border: "1px solid var(--martis-search-border)",
+              color: "var(--martis-text-muted)",
             }}
           >
             /
@@ -116,14 +164,40 @@ export function Topbar() {
         </button>
       )}
 
+      {/* Search — icon-only mode */}
+      {searchMode === "icon" && (
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
+          style={{
+            backgroundColor: "transparent",
+            color: "var(--martis-text-muted)",
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "transparent")
+          }
+          aria-label="Search"
+        >
+          <MagnifyingGlass size={16} />
+        </button>
+      )}
+
       <div className="flex items-center gap-3">
         {showNotifications && (
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-            style={{ color: 'var(--martis-text-muted)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors border-0 cursor-pointer"
+            style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
             aria-label="Notifications"
           >
             <Bell size={16} />
@@ -134,9 +208,13 @@ export function Topbar() {
         <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
         <div
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer transition-colors"
-          style={{ backgroundColor: 'transparent' }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+          style={{ backgroundColor: "transparent" }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "transparent")
+          }
           onClick={(e) => menuRef.current?.toggle(e)}
           role="button"
           tabIndex={0}
@@ -148,7 +226,7 @@ export function Topbar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
             {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
           </div>
-          <span className="text-sm font-medium martis-text">
+          <span className="hidden sm:inline text-sm font-medium martis-text">
             {user?.name ?? user?.email}
           </span>
           <CaretDown size={12} className="martis-text-muted" />

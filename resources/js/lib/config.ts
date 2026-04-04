@@ -1,5 +1,5 @@
 export interface MartisThemeConfig {
-  default?: 'dark' | 'light'
+  default?: "dark" | "light"
   allowToggle?: boolean
 }
 
@@ -18,6 +18,10 @@ export interface MartisUserMenuConfig {
 export interface MartisSearchConfig {
   enabled?: boolean
   placeholder?: string
+  /** Display mode: "bar" = full search bar, "icon" = icon-only button, "disabled" = hidden */
+  mode?: "bar" | "icon" | "disabled"
+  /** Display mode on mobile viewports (<=768px). Defaults to "icon". */
+  mobileMode?: "bar" | "icon" | "disabled"
 }
 
 export interface MartisDashboardConfig {
@@ -26,7 +30,7 @@ export interface MartisDashboardConfig {
 }
 
 export interface MartisToastConfig {
-  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center' | 'bottom-center'
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "top-center" | "bottom-center"
 }
 
 export interface MartisConfigShape {
@@ -49,4 +53,4 @@ declare global {
 
 export const config: MartisConfigShape = window.MartisConfig ?? {}
 
-export const BASE_PATH = config.basePath ?? '/martis'
+export const BASE_PATH = config.basePath ?? "/martis"
