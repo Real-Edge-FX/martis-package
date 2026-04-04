@@ -47,7 +47,7 @@ export interface Toast {
 // Field & Resource schema types (Bloco 8)
 // -------------------------------------------------------------------------
 
-export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'select'  | 'date'  | 'datetime'  | 'belongs_to'  | 'id'  | 'email'  | 'password'  | 'heading'  | 'hidden'  | 'file'  | 'image'
+export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'select'  | 'date'  | 'datetime'  | 'belongs_to'  | 'id'  | 'email'  | 'password'  | 'heading'  | 'hidden'  | 'file'  | 'image'  | 'key_value'  | 'badge'  | 'status'  | 'multi_select'  | 'tag'
 
 export interface SelectOption {
   value: string | number
@@ -77,6 +77,8 @@ export interface FieldDefinition {
   content?: string | null
   /** Whether the field accepts multiple values (File/Image fields). */
   multiple?: boolean
+  /** Allow access to arbitrary meta properties set via withMeta(). */
+  [key: string]: unknown
 }
 
 export interface ResourceEmbedded {
@@ -103,6 +105,8 @@ export interface ResourceSchema extends ResourceEmbedded {
   fieldsForDetail?: FieldDefinition[]
   fieldsForCreate?: FieldDefinition[]
   fieldsForUpdate?: FieldDefinition[]
+  fieldsForInlineCreate?: FieldDefinition[]
+  fieldsForPreview?: FieldDefinition[]
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
   indexSearchable?: boolean

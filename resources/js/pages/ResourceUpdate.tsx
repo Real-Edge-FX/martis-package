@@ -34,7 +34,7 @@ export function ResourceUpdatePage() {
 
   // Stable reference — recomputed only when schema changes
   const formFields = useMemo(
-    () => schema?.fieldsForUpdate ?? schema?.fields.filter((f) => f.showOnForms) ?? [],
+    () => schema?.fieldsForUpdate ?? [],
     [schema],
   )
 

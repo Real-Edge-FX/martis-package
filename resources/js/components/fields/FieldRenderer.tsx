@@ -17,6 +17,11 @@ import { EmailFieldDisplay, EmailFieldInput } from './EmailField'
 import { PasswordFieldDisplay, PasswordFieldInput } from './PasswordField'
 import { HeadingFieldDisplay, HeadingFieldInput } from './HeadingField'
 import { HiddenFieldDisplay, HiddenFieldInput } from './HiddenField'
+import { KeyValueFieldDisplay, KeyValueFieldInput } from './KeyValueField'
+import { BadgeFieldDisplay, BadgeFieldInput } from './BadgeField'
+import { StatusFieldDisplay, StatusFieldInput } from './StatusField'
+import { MultiSelectFieldDisplay, MultiSelectFieldInput } from './MultiSelectField'
+import { TagFieldDisplay, TagFieldInput } from './TagField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -38,6 +43,11 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   password: PasswordFieldDisplay,
   heading: HeadingFieldDisplay,
   hidden: HiddenFieldDisplay,
+  key_value: KeyValueFieldDisplay,
+  badge: BadgeFieldDisplay,
+  status: StatusFieldDisplay,
+  multi_select: MultiSelectFieldDisplay,
+  tag: TagFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -60,6 +70,11 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   password: PasswordFieldInput,
   heading: HeadingFieldInput,
   hidden: HiddenFieldInput,
+  key_value: KeyValueFieldInput,
+  badge: BadgeFieldInput,
+  status: StatusFieldInput,
+  multi_select: MultiSelectFieldInput,
+  tag: TagFieldInput,
 }
 
 // -------------------------------------------------------------------------

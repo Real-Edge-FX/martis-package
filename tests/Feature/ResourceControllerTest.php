@@ -60,6 +60,33 @@ class SoftPostResource extends Resource
         ];
     }
 }
+class VisibilityTestModel extends Model
+{
+    protected $table = 'martis_test_posts';
+
+    protected $fillable = ['title', 'body'];
+}
+
+class VisibilityTestResource extends Resource
+{
+    public static function model(): string
+    {
+        return VisibilityTestModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('plain'),
+            Text::make('index_only')->onlyOnIndex(),
+            Text::make('detail_only')->onlyOnDetail(),
+            Text::make('form_only')->onlyOnForms(),
+            Text::make('no_forms')->exceptOnForms(),
+            Text::make('hidden_on_create')->hideWhenCreating(),
+            Text::make('hidden_on_update')->hideWhenUpdating(),
+        ];
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Database + registry setup
@@ -109,6 +136,7 @@ beforeEach(function () {
     $registry->flush();
     $registry->register(PostResource::class);
     $registry->register(SoftPostResource::class);
+    $registry->register(VisibilityTestResource::class);
 });
 
 afterEach(function () {
@@ -395,4 +423,83 @@ it('schema route is registered', function () {
         ->toArray();
 
     expect($routeNames)->toContain('martis.api.resources.schema');
+});
+
+// ---------------------------------------------------------------------------
+// Schema endpoint — context-aware field arrays (REA-1106)
+// ---------------------------------------------------------------------------
+
+it('schema returns all 6 contextual field arrays pre-filtered by backend', function () {
+    $response = $this->getJson('/martis/api/resources/post-models/schema');
+    $response->assertStatus(200);
+
+    $data = $response->json('data');
+
+    // All contextual arrays must be present
+    expect($data)->toHaveKey('fieldsForIndex');
+    expect($data)->toHaveKey('fieldsForDetail');
+    expect($data)->toHaveKey('fieldsForCreate');
+    expect($data)->toHaveKey('fieldsForUpdate');
+    expect($data)->toHaveKey('fieldsForInlineCreate');
+    expect($data)->toHaveKey('fieldsForPreview');
+
+    // Each must be an array
+    expect($data['fieldsForIndex'])->toBeArray();
+    expect($data['fieldsForDetail'])->toBeArray();
+    expect($data['fieldsForCreate'])->toBeArray();
+    expect($data['fieldsForUpdate'])->toBeArray();
+    expect($data['fieldsForInlineCreate'])->toBeArray();
+    expect($data['fieldsForPreview'])->toBeArray();
+});
+
+it('schema contextual arrays are pre-filtered — frontend should not need to filter', function () {
+    $response = $this->getJson('/martis/api/resources/visibility-test-models/schema');
+    $response->assertStatus(200);
+
+    $data = $response->json('data');
+
+    // Helper: get attribute names from a contextual array
+    $attrs = fn (string $key) => array_column($data[$key], 'attribute');
+
+    // index_only: should appear ONLY in fieldsForIndex
+    expect($attrs('fieldsForIndex'))->toContain('index_only');
+    expect($attrs('fieldsForDetail'))->not->toContain('index_only');
+    expect($attrs('fieldsForCreate'))->not->toContain('index_only');
+    expect($attrs('fieldsForUpdate'))->not->toContain('index_only');
+
+    // detail_only: should appear ONLY in fieldsForDetail
+    expect($attrs('fieldsForDetail'))->toContain('detail_only');
+    expect($attrs('fieldsForIndex'))->not->toContain('detail_only');
+    expect($attrs('fieldsForCreate'))->not->toContain('detail_only');
+
+    // form_only: should appear in create, update, inline-create; not in index, detail
+    expect($attrs('fieldsForCreate'))->toContain('form_only');
+    expect($attrs('fieldsForUpdate'))->toContain('form_only');
+    expect($attrs('fieldsForInlineCreate'))->toContain('form_only');
+    expect($attrs('fieldsForIndex'))->not->toContain('form_only');
+    expect($attrs('fieldsForDetail'))->not->toContain('form_only');
+
+    // no_forms: should appear in index, detail, preview; not in create, update
+    expect($attrs('fieldsForIndex'))->toContain('no_forms');
+    expect($attrs('fieldsForDetail'))->toContain('no_forms');
+    expect($attrs('fieldsForPreview'))->toContain('no_forms');
+    expect($attrs('fieldsForCreate'))->not->toContain('no_forms');
+    expect($attrs('fieldsForUpdate'))->not->toContain('no_forms');
+
+    // hidden_on_create: should not appear in create or inline-create
+    expect($attrs('fieldsForCreate'))->not->toContain('hidden_on_create');
+    expect($attrs('fieldsForInlineCreate'))->not->toContain('hidden_on_create');
+    expect($attrs('fieldsForUpdate'))->toContain('hidden_on_create');
+
+    // hidden_on_update: should not appear in update
+    expect($attrs('fieldsForUpdate'))->not->toContain('hidden_on_update');
+    expect($attrs('fieldsForCreate'))->toContain('hidden_on_update');
+
+    // plain: should appear everywhere
+    expect($attrs('fieldsForIndex'))->toContain('plain');
+    expect($attrs('fieldsForDetail'))->toContain('plain');
+    expect($attrs('fieldsForCreate'))->toContain('plain');
+    expect($attrs('fieldsForUpdate'))->toContain('plain');
+    expect($attrs('fieldsForInlineCreate'))->toContain('plain');
+    expect($attrs('fieldsForPreview'))->toContain('plain');
 });

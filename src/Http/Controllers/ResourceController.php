@@ -397,7 +397,7 @@ class ResourceController extends MartisController
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
-        /** @phpstan-ignore-next-line */
+        /** @phpstan-ignore staticMethod.notFound */
         $model = $modelClass::withTrashed()->find($id);
 
         if ($model === null) {
@@ -460,6 +460,8 @@ class ResourceController extends MartisController
         $fieldsForDetail = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForDetail($request), FieldContext::DETAIL->value));
         $fieldsForCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForCreate($request), FieldContext::CREATE->value));
         $fieldsForUpdate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE->value));
+        $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE->value));
+        $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW->value));
 
         $data = [
             'uriKey' => $resourceClass::uriKey(),
@@ -479,6 +481,8 @@ class ResourceController extends MartisController
             'fieldsForDetail' => $fieldsForDetail,
             'fieldsForCreate' => $fieldsForCreate,
             'fieldsForUpdate' => $fieldsForUpdate,
+            'fieldsForInlineCreate' => $fieldsForInlineCreate,
+            'fieldsForPreview' => $fieldsForPreview,
             'messages' => [
                 'created' => $resourceClass::createdMessage(),
                 'updated' => $resourceClass::updatedMessage(),
