@@ -7,6 +7,31 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { useTranslation } from 'react-i18next'
 import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown } from '@phosphor-icons/react'
 
+
+/**
+ * Format a cell value for display in the HasMany inline table.
+ * Handles BelongsTo objects ({id, title}), arrays of objects, and primitives.
+ */
+function formatCellValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>
+    return String(obj.title ?? obj._title ?? obj.name ?? obj.label ?? obj.id ?? '')
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === 'object' && item !== null) {
+          const obj = item as Record<string, unknown>
+          return String(obj.title ?? obj._title ?? obj.name ?? obj.label ?? obj.id ?? '')
+        }
+        return String(item)
+      })
+      .join(', ')
+  }
+  return String(value)
+}
+
 /**
  * HasMany field display — renders an inline DataTable of related records
  * on the parent resource detail page. Supports search, sort, pagination,
@@ -227,10 +252,10 @@ export function HasManyFieldDisplay({ field }: FieldDisplayProps) {
                           className="font-medium no-underline"
                           style={{ color: 'var(--martis-primary)' }}
                         >
-                          {String(record[f.attribute] ?? '')}
+                          {formatCellValue(record[f.attribute])}
                         </Link>
                       ) : (
-                        String(record[f.attribute] ?? '')
+                        formatCellValue(record[f.attribute])
                       )}
                     </td>
                   ))}
