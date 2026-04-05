@@ -11,6 +11,8 @@ import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
+import { pageRegistry } from '@/lib/pageRegistry'
+import { resolveIndexLayout } from '@/components/page-layouts'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -125,6 +127,14 @@ export function ResourceIndexPage() {
 
   if (schemaQuery.isError || !schema) {
     return <NotFoundPage />
+  }
+
+  // Page-level override from Resource::overrideIndex()
+  const indexOverride = schema?.overrides?.index
+  const BuiltinIndex = indexOverride?.component ? resolveIndexLayout(indexOverride.component) : null
+  const CustomIndex = BuiltinIndex ?? pageRegistry.resolveIndex(resource)
+  if (CustomIndex) {
+    return <CustomIndex resourceKey={resource!} schema={schema} />
   }
 
   const indexColumns = (schema.fieldsForIndex ?? [])

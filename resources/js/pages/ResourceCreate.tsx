@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { pageRegistry } from '@/lib/pageRegistry'
+import { resolveCreateLayout } from '@/components/page-layouts'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -103,8 +104,14 @@ export function ResourceCreatePage() {
     )
   }
 
-  // Page-level override: if a custom Create page is registered for this resource, render it
-  const CustomCreate = pageRegistry.resolveCreate(resource)
+  // Page-level override: resolve from schema overrides
+  // Priority: 1) Built-in layout (from schema override component key)
+  //           2) Custom user-registered component (from pageRegistry)
+  const createOverride = schema?.overrides?.create
+  const BuiltinCreate = createOverride?.component
+    ? resolveCreateLayout(createOverride.component)
+    : null
+  const CustomCreate = BuiltinCreate ?? pageRegistry.resolveCreate(resource)
   if (CustomCreate) {
     return <CustomCreate resourceKey={resource!} schema={schema} fields={formFields} />
   }

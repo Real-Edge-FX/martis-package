@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
+import { pageRegistry } from '@/lib/pageRegistry'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -137,6 +138,17 @@ export function ResourceUpdatePage() {
 
   if (!record) {
     return <NotFoundPage />
+  }
+
+  // Page-level override from Resource::overrideEdit()
+  // Edit overrides use the same resolution as create overrides via pageRegistry
+  const editOverride = schema?.overrides?.edit
+  if (editOverride?.component) {
+    const CustomEdit = pageRegistry.resolveCreate(resource)
+    if (CustomEdit) {
+      const editFields = schema.fieldsForUpdate ?? schema.fieldsForCreate ?? []
+      return <CustomEdit resourceKey={resource!} schema={schema} fields={editFields} />
+    }
   }
 
   // Back link: go to parent detail when via HasMany, otherwise to record detail

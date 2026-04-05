@@ -684,4 +684,85 @@ abstract class Resource implements ResourceContract
     {
         return $query;
     }
+
+    // -------------------------------------------------------------------------
+    // Page & Component Override System (REA-1171)
+    //
+    // Resources can declare overrides for any page view (create, edit, detail,
+    // index) via dedicated methods. Each method returns either null (use default)
+    // or an array with at least a 'component' key identifying the frontend
+    // component to render, plus optional props passed to that component.
+    //
+    // This mirrors how Field::component() works for field-level overrides:
+    //   - PHP Resource declares the override (component key + props)
+    //   - Schema API exposes it
+    //   - Frontend resolves and renders the specified component
+    //
+    // Override priority: explicit override > default page
+    // -------------------------------------------------------------------------
+
+    /**
+     * Override the Create page for this resource.
+     *
+     * Return null to use the default create form, or an array with:
+     *   - 'component' (string) - the frontend component key to render
+     *   - any additional keys are passed as props to the component
+     *
+     * Example:
+     *   public function overrideCreate(): ?array
+     *   {
+     *       return ['component' => 'sidebar-create', 'width' => 480];
+     *   }
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideCreate(): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Override the Edit page for this resource.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideEdit(): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Override the Detail page for this resource.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideDetail(): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Override the Index page for this resource.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideIndex(): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Collect all page overrides for serialization.
+     *
+     * @return array<string, array<string, mixed>|null>
+     */
+    public function overrides(): array
+    {
+        return [
+            'create' => $this->overrideCreate(),
+            'edit' => $this->overrideEdit(),
+            'detail' => $this->overrideDetail(),
+            'index' => $this->overrideIndex(),
+        ];
+    }
 }

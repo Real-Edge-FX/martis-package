@@ -300,4 +300,43 @@ interface ResourceContract
      * @return array<string, mixed>
      */
     public function toArray(): array;
+
+    // -------------------------------------------------------------------------
+    // Page & Component Override System (REA-1171)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Override the Create page for this resource.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideCreate(): ?array;
+
+    /**
+     * Override the Edit page for this resource.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideEdit(): ?array;
+
+    /**
+     * Override the Detail page for this resource.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideDetail(): ?array;
+
+    /**
+     * Override the Index page for this resource.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function overrideIndex(): ?array;
+
+    /**
+     * Collect all page overrides for serialization.
+     *
+     * @return array<string, array<string, mixed>|null>
+     */
+    public function overrides(): array;
 }

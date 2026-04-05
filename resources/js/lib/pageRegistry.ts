@@ -35,7 +35,14 @@ export interface DetailPageProps {
   recordId: string
 }
 
-type PageType = 'create' | 'index' | 'detail'
+export interface EditPageProps {
+  resourceKey: string
+  schema: ResourceSchema
+  fields: FieldDefinition[]
+  recordId: string
+}
+
+type PageType = 'create' | 'index' | 'detail' | 'edit'
 
 class PageRegistry {
   private readonly pages = new Map<string, ComponentType<never>>()
@@ -69,6 +76,15 @@ class PageRegistry {
   resolveDetail(resourceKey: string | undefined): ComponentType<DetailPageProps> | null {
     if (!resourceKey) return null
     return (this.pages.get(this.key(resourceKey, 'detail')) as ComponentType<DetailPageProps>) ?? null
+  }
+
+  registerEdit(resourceKey: string, component: ComponentType<EditPageProps>): void {
+    this.pages.set(this.key(resourceKey, 'edit'), component as ComponentType<never>)
+  }
+
+  resolveEdit(resourceKey: string | undefined): ComponentType<EditPageProps> | null {
+    if (!resourceKey) return null
+    return (this.pages.get(this.key(resourceKey, 'edit')) as ComponentType<EditPageProps>) ?? null
   }
 
   has(resourceKey: string, pageType: PageType): boolean {
