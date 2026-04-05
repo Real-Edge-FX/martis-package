@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { registry } from '@/lib/registry'
 import { useTranslation } from 'react-i18next'
-import { Dialog } from 'primereact/dialog'
 import { Warning, Trash, ArrowCounterClockwise, X } from '@phosphor-icons/react'
 
 export interface DeleteModalProps {
@@ -22,8 +22,31 @@ function DefaultDeleteModal({
   confirmMessage,
 }: DeleteModalProps) {
   const [loading, setLoading] = useState(false)
+  const [visible, setVisible] = useState(false)
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => setVisible(true))
+    } else {
+      setVisible(false)
+    }
+  }, [open])
+
+  const handleBackdropClose = useCallback(() => {
+    setVisible(false)
+    setTimeout(onCancel, 200)
+  }, [onCancel])
+
+  useEffect(() => {
+    if (!open) return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCancel()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [open, onCancel])
 
   if (!open) return null
 
@@ -36,67 +59,103 @@ function DefaultDeleteModal({
     }
   }
 
-  const header = (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-        <Warning size={20} className="text-red-600 dark:text-red-400" weight="fill" />
+  const content = (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 transition-opacity duration-200"
+        style={{
+          backgroundColor: visible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)',
+        }}
+        onClick={handleBackdropClose}
+      />
+
+      {/* Modal panel */}
+      <div
+        role="dialog"
+        className="relative w-full max-w-md rounded-xl shadow-xl transition-all duration-200"
+        style={{
+          backgroundColor: 'var(--martis-card)',
+          border: '1px solid var(--martis-border)',
+          transform: visible ? 'scale(1)' : 'scale(0.95)',
+          opacity: visible ? 1 : 0,
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between border-b px-6 py-4"
+          style={{ borderColor: 'var(--martis-border)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+              <Warning size={20} className="text-red-600 dark:text-red-400" weight="fill" />
+            </div>
+            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+              {isSoftDelete ? tAct('archive') : tAct('delete')} {resourceLabel}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+            style={{ color: 'var(--martis-text-muted)' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4">
+          <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+            {confirmMessage ?? (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end gap-3 border-t px-6 py-4"
+          style={{
+            borderColor: 'var(--martis-border)',
+            backgroundColor: 'var(--martis-surface)',
+            borderRadius: '0 0 0.75rem 0.75rem',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--martis-input-bg)',
+              borderColor: 'var(--martis-border)',
+              color: 'var(--martis-text)',
+            }}
+          >
+            <X size={14} />
+            {tAct('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleConfirm()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+            style={{
+              backgroundColor: isSoftDelete ? '#f59e0b' : '#dc2626',
+            }}
+          >
+            {isSoftDelete ? <ArrowCounterClockwise size={14} /> : <Trash size={14} />}
+            {loading
+              ? tAct('please_wait')
+              : isSoftDelete
+                ? tAct('archive')
+                : tAct('delete_permanent')}
+          </button>
+        </div>
       </div>
-      <span className="text-lg font-semibold">
-        {isSoftDelete ? tAct('archive') : tAct('delete')} {resourceLabel}
-      </span>
     </div>
   )
 
-  const footer = (
-    <div className="flex justify-end gap-3 pt-2">
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-        style={{
-          backgroundColor: 'var(--martis-input-bg)',
-          borderColor: 'var(--martis-border)',
-          color: 'var(--martis-text)',
-        }}
-      >
-        <X size={14} />
-        {tAct('cancel')}
-      </button>
-      <button
-        type="button"
-        onClick={() => void handleConfirm()}
-        disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-        style={{
-          backgroundColor: isSoftDelete ? '#f59e0b' : '#dc2626',
-        }}
-      >
-        {isSoftDelete ? <ArrowCounterClockwise size={14} /> : <Trash size={14} />}
-        {loading
-          ? tAct('please_wait')
-          : isSoftDelete
-            ? tAct('archive')
-            : tAct('delete_permanent')}
-      </button>
-    </div>
-  )
-
-  return (
-    <Dialog
-      visible={open}
-      onHide={onCancel}
-      header={header}
-      footer={footer}
-      style={{ width: '28rem' }}
-      breakpoints={{ '640px': '90vw' }}
-      modal
-    >
-      <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-        {confirmMessage ?? (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))}
-      </p>
-    </Dialog>
-  )
+  return createPortal(content, document.body)
 }
 
 if (!registry.has('component:DeleteModal')) {

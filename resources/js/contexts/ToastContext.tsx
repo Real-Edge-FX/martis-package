@@ -29,14 +29,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const addToast = useCallback(
     (type: "success" | "error" | "warning" | "info", message: string) => {
+      const life = 5000
       toastRef.current?.show({
         severity: severityMap[type] ?? "info",
         summary: type.charAt(0).toUpperCase() + type.slice(1),
         detail: message,
-        life: 5000,
+        life,
         sticky: false,
         closable: true,
       })
+
+      // Safety-net: force-clear ALL messages after life + 1s in case
+      // PrimeReact's internal timer doesn't fire (CSS transition edge-case).
+      setTimeout(() => {
+        toastRef.current?.clear()
+      }, life + 1000)
     },
     [],
   )
@@ -46,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ addToast, toastRef }}>
       {children}
-      <Toast ref={toastRef} position={position} />
+      <Toast ref={toastRef} position={position} baseZIndex={9999} />
     </ToastContext.Provider>
   )
 }
