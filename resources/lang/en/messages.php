@@ -29,4 +29,6 @@ return [
     'no' => 'No',
     'active' => 'Active',
     'inactive' => 'Inactive',    'country' => 'Country',    'currency' => 'Currency',    'sparkline' => 'Sparkline',    'gravatar' => 'Avatar',    'select_country' => 'Select a country…',    'no_data_available' => 'No data available.',
+    'country_with_flags' => 'With Flags',
+    'country_without_flags' => 'Without Flags',
 ];

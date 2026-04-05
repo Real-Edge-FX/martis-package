@@ -29,4 +29,6 @@ return [
     'no' => 'Não',
     'active' => 'Ativo',
     'inactive' => 'Inativo',    'country' => 'País',    'currency' => 'Moeda',    'sparkline' => 'Sparkline',    'gravatar' => 'Avatar',    'select_country' => 'Selecione um país…',    'no_data_available' => 'Nenhum dado disponível.',
+    'country_with_flags' => 'Com Bandeiras',
+    'country_without_flags' => 'Sem Bandeiras',
 ];
