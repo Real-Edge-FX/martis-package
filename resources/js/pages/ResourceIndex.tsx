@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { PaginatedResponse, ResourceRecord, ResourceSchema } from '@/types'
+import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps } from '@/types'
 import { Table } from '@/components/Table'
 import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
@@ -121,12 +121,55 @@ export function ResourceIndexPage() {
     setPage(1)
   }
 
+  /** Build standardized OverrideProps for any override rendered from this page. */
+  function buildOverrideProps(overrideDef: { component: string; params: Record<string, unknown> }, extra?: Partial<OverrideProps>): OverrideProps {
+    return {
+      schema: schema!,
+      resource: resource!,
+      params: overrideDef.params ?? {},
+      record: null,
+      recordId: null,
+      navigate: (to: string) => navigate(to),
+      onClose: () => {
+        setShowCreateOverride(false)
+      },
+      onCreated: (rec) => {
+        setShowCreateOverride(false)
+        void qc.invalidateQueries({ queryKey: ['resources', resource] })
+        addToast('success', schema!.messages?.created ?? 'Record created successfully.')
+        navigate(`/resources/${resource}/${rec.id}`)
+      },
+      onUpdated: (rec) => {
+        void qc.invalidateQueries({ queryKey: ['resources', resource] })
+        addToast('success', schema!.messages?.updated ?? 'Record updated successfully.')
+        navigate(`/resources/${resource}/${rec.id}`)
+      },
+      onDeleted: () => {
+        void qc.invalidateQueries({ queryKey: ['resources', resource] })
+        addToast('success', schema!.messages?.deleted ?? 'Record deleted successfully.')
+      },
+      onEdit: (id) => { if (id) navigate(`/resources/${resource}/${id}/edit`) },
+      onView: (id) => navigate(`/resources/${resource}/${id}`),
+      addToast,
+      ...extra,
+    }
+  }
+
   if (schemaQuery.isLoading) {
     return <IndexSkeleton />
   }
 
   if (schemaQuery.isError || !schema) {
     return <NotFoundPage />
+  }
+
+  // Check for index override — replaces the entire index page
+  if (schema.overrides?.index) {
+    const OverrideComponent = componentRegistry.resolve(schema.overrides.index.component)
+    if (OverrideComponent) {
+      const C = OverrideComponent as React.ComponentType<OverrideProps>
+      return <C {...buildOverrideProps(schema.overrides.index)} />
+    }
   }
 
   const indexColumns = (schema.fieldsForIndex ?? [])
@@ -243,23 +286,12 @@ export function ResourceIndexPage() {
         />
       )}
 
-      {/* Create override overlay */}
+      {/* Create override overlay — full standardized props */}
       {showCreateOverride && schema.overrides?.create && (() => {
         const OverrideComponent = componentRegistry.resolve(schema.overrides.create.component)
         if (!OverrideComponent) return null
-        const C = OverrideComponent as React.ComponentType<Record<string, unknown>>
-        return (
-          <C
-            schema={schema}
-            resource={resource}
-            params={schema.overrides.create.params}
-            onClose={() => setShowCreateOverride(false)}
-            onCreated={() => {
-              setShowCreateOverride(false)
-              void qc.invalidateQueries({ queryKey: ['resources', resource] })
-            }}
-          />
-        )
+        const C = OverrideComponent as React.ComponentType<OverrideProps>
+        return <C {...buildOverrideProps(schema.overrides.create)} />
       })()}
 
       {/* Delete modal */}

@@ -138,3 +138,47 @@ export interface ResourceRecord {
   [key: string]: unknown
   _resource: ResourceEmbedded
 }
+
+/**
+ * Standard props passed to ALL override components (create/update/detail/index).
+ *
+ * Every override receives the same rich interface so the consumer component
+ * can perform any CRUD or navigation action without knowing which page
+ * context it lives in.
+ */
+export interface OverrideProps {
+  /** The full resource schema. */
+  schema: ResourceSchema
+  /** The resource URI key (e.g. "posts"). */
+  resource: string
+  /** Custom parameters from PHP Override. */
+  params: Record<string, unknown>
+  /** The existing record (populated on detail/update contexts, null on create/index). */
+  record?: ResourceRecord | null
+  /** The record ID (populated on detail/update contexts, null on create/index). */
+  recordId?: string | null
+
+  // Navigation
+  /** React Router navigate function for arbitrary navigation. */
+  navigate: (to: string) => void
+  /** Close the override / navigate back to the resource list. */
+  onClose: () => void
+
+  // CRUD events — all overrides receive all events for maximum flexibility.
+  /** Called after a record is successfully created. */
+  onCreated: (record: { id: string | number }) => void
+  /** Called after a record is successfully updated. */
+  onUpdated: (record: { id: string | number }) => void
+  /** Called after a record is successfully deleted. */
+  onDeleted: () => void
+
+  // View navigation events
+  /** Navigate to the edit page for a record. */
+  onEdit: (id?: string | number) => void
+  /** Navigate to the detail page for a record. */
+  onView: (id: string | number) => void
+
+  // Utilities
+  /** Show a toast notification. */
+  addToast: (type: "success" | "error" | "warning" | "info", message: string) => void
+}

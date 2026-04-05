@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { ResourceSchema } from '@/types'
+import type { ResourceSchema, OverrideProps } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
@@ -106,24 +106,39 @@ export function ResourceCreatePage() {
     )
   }
 
-  // Check for create override
+  // Check for create override — pass full standardized OverrideProps
   if (schema.overrides?.create) {
     const OverrideComponent = componentRegistry.resolve(schema.overrides.create.component)
     if (OverrideComponent) {
-      const C = OverrideComponent as React.ComponentType<Record<string, unknown>>
-      return (
-        <C
-          schema={schema}
-          resource={resource}
-          params={schema.overrides.create.params}
-          onClose={() => navigate(`/resources/${resource}`)}
-          onCreated={(record: { id: string | number }) => {
-            void qc.invalidateQueries({ queryKey: ['resources', resource] })
-            addToast('success', schema.messages?.created ?? 'Record created successfully.')
-            navigate(`/resources/${resource}/${record.id}`)
-          }}
-        />
-      )
+      const C = OverrideComponent as React.ComponentType<OverrideProps>
+      const overrideProps: OverrideProps = {
+        schema,
+        resource: resource!,
+        params: schema.overrides.create.params ?? {},
+        record: null,
+        recordId: null,
+        navigate: (to: string) => navigate(to),
+        onClose: () => navigate(`/resources/${resource}`),
+        onCreated: (rec) => {
+          void qc.invalidateQueries({ queryKey: ['resources', resource] })
+          addToast('success', schema.messages?.created ?? 'Record created successfully.')
+          navigate(`/resources/${resource}/${rec.id}`)
+        },
+        onUpdated: (rec) => {
+          void qc.invalidateQueries({ queryKey: ['resources', resource] })
+          addToast('success', schema.messages?.updated ?? 'Record updated successfully.')
+          navigate(`/resources/${resource}/${rec.id}`)
+        },
+        onDeleted: () => {
+          void qc.invalidateQueries({ queryKey: ['resources', resource] })
+          addToast('success', schema.messages?.deleted ?? 'Record deleted successfully.')
+          navigate(`/resources/${resource}`)
+        },
+        onEdit: (id) => { if (id) navigate(`/resources/${resource}/${id}/edit`) },
+        onView: (id) => navigate(`/resources/${resource}/${id}`),
+        addToast,
+      }
+      return <C {...overrideProps} />
     }
   }
 
