@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\CodeLanguage;
 
 /**
  * Code editor field — provides syntax-highlighted code editing.
@@ -24,43 +25,18 @@ class Code extends Field
 {
     protected bool $isJson = false;
 
-    protected string $language = 'javascript';
-
-    /**
-     * Supported languages matching Nova v5 documentation.
-     *
-     * @var list<string>
-     */
-    protected static array $supportedLanguages = [
-        'dockerfile', 'htmlmixed', 'javascript', 'markdown', 'nginx',
-        'php', 'ruby', 'sass', 'shell', 'sql', 'twig', 'vim',
-        'vue', 'xml', 'yaml-frontmatter', 'yaml',
-    ];
+    protected CodeLanguage $language = CodeLanguage::Javascript;
 
     public function type(): string
     {
         return 'code';
     }
 
-    /**
-     * Override make() to default to hidden on index.
-     * Code fields are not meaningful as table columns.
-     */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
-    /**
-     * Mark this field as storing JSON data.
-     *
-     * When enabled, the value is decoded from JSON for editing
-     * and encoded back to JSON for storage. The Eloquent model
-     * should cast the column appropriately (e.g. 'array', 'json', 'object').
-     *
-     * Note: This does NOT automatically add a 'json' validation rule.
-     * Add ->rules(['json']) explicitly if needed.
-     */
     public function json(): static
     {
         $this->isJson = true;
@@ -68,10 +44,7 @@ class Code extends Field
         return $this;
     }
 
-    /**
-     * Set the syntax highlighting language.
-     */
-    public function language(string $language): static
+    public function language(CodeLanguage $language): static
     {
         $this->language = $language;
 
@@ -83,14 +56,11 @@ class Code extends Field
         return $this->isJson;
     }
 
-    public function getLanguage(): string
+    public function getLanguage(): CodeLanguage
     {
         return $this->language;
     }
 
-    /**
-     * Resolve value: if json mode, pretty-print the value for display/edit.
-     */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $value = parent::resolve($model, $attribute);
@@ -99,7 +69,6 @@ class Code extends Field
             if (is_array($value) || is_object($value)) {
                 return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
-            // Try to decode and re-encode for pretty-printing
             if (is_string($value)) {
                 $decoded = json_decode($value, true);
                 if (json_last_error() === JSON_ERROR_NONE) {
@@ -111,9 +80,6 @@ class Code extends Field
         return $value;
     }
 
-    /**
-     * Fill: if json mode, decode the JSON string before storing.
-     */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {
@@ -145,7 +111,7 @@ class Code extends Field
     {
         return [
             'json' => $this->isJson,
-            'language' => $this->language,
+            'language' => $this->language->value,
         ];
     }
 }

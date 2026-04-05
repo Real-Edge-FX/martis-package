@@ -2,6 +2,9 @@
 
 namespace Martis\Fields;
 
+use Martis\Enums\CurrencyCode;
+use Martis\Enums\CurrencyDisplayMode;
+
 /**
  * Currency field — monetary value input with currency formatting.
  *
@@ -25,14 +28,13 @@ namespace Martis\Fields;
  */
 class Currency extends Number
 {
-    protected string $currencyCode = 'USD';
+    protected CurrencyCode $currencyCode = CurrencyCode::USD;
 
     protected ?string $locale = null;
 
     protected bool $minorUnits = false;
 
-    /** @var 'text'|'badge'|'badge_text' */
-    protected string $displayMode = 'text';
+    protected CurrencyDisplayMode $displayMode = CurrencyDisplayMode::Text;
 
     protected ?string $badgeColor = null;
 
@@ -80,12 +82,12 @@ class Currency extends Number
      * Set the ISO 4217 currency code.
      * Nova-compatible API.
      */
-    public function currency(string $code): static
+    public function currency(CurrencyCode $code): static
     {
-        $this->currencyCode = strtoupper($code);
+        $this->currencyCode = $code;
 
         // Set step based on currency decimals
-        $info = self::$currencies[$this->currencyCode] ?? null;
+        $info = self::$currencies[$this->currencyCode->value] ?? null;
         if ($info !== null) {
             $this->step = $info['decimals'] > 0 ? (float) ('0.'.str_repeat('0', $info['decimals'] - 1).'1') : 1;
         }
@@ -129,7 +131,7 @@ class Currency extends Number
     /**
      * Get the configured currency code.
      */
-    public function getCurrencyCode(): string
+    public function getCurrencyCode(): CurrencyCode
     {
         return $this->currencyCode;
     }
@@ -157,10 +159,8 @@ class Currency extends Number
     /**
      * Set the display mode for currency visualization.
      * Martis extension — not part of Nova API.
-     *
-     * @param  'text'|'badge'|'badge_text'  $mode
      */
-    public function displayMode(string $mode): static
+    public function displayMode(CurrencyDisplayMode $mode): static
     {
         $this->displayMode = $mode;
 
@@ -173,7 +173,7 @@ class Currency extends Number
      */
     public function showBadge(): static
     {
-        $this->displayMode = 'badge';
+        $this->displayMode = CurrencyDisplayMode::Badge;
 
         return $this;
     }
@@ -184,7 +184,7 @@ class Currency extends Number
      */
     public function showText(): static
     {
-        $this->displayMode = 'text';
+        $this->displayMode = CurrencyDisplayMode::Text;
 
         return $this;
     }
@@ -195,7 +195,7 @@ class Currency extends Number
      */
     public function showBadgeText(): static
     {
-        $this->displayMode = 'badge_text';
+        $this->displayMode = CurrencyDisplayMode::BadgeText;
 
         return $this;
     }
@@ -214,7 +214,7 @@ class Currency extends Number
     /**
      * Get display mode.
      */
-    public function getDisplayMode(): string
+    public function getDisplayMode(): CurrencyDisplayMode
     {
         return $this->displayMode;
     }
@@ -234,9 +234,9 @@ class Currency extends Number
      */
     public function getCurrencyInfo(): array
     {
-        return self::$currencies[$this->currencyCode] ?? [
-            'symbol' => $this->currencyCode,
-            'name' => $this->currencyCode,
+        return self::$currencies[$this->currencyCode->value] ?? [
+            'symbol' => $this->currencyCode->value,
+            'name' => $this->currencyCode->value,
             'decimals' => 2,
         ];
     }
@@ -249,13 +249,13 @@ class Currency extends Number
         $info = $this->getCurrencyInfo();
 
         return array_merge(parent::extraAttributes(), array_filter([
-            'currencyCode' => $this->currencyCode,
+            'currencyCode' => $this->currencyCode->value,
             'currencySymbol' => $info['symbol'],
             'currencyName' => $info['name'],
             'currencyDecimals' => $info['decimals'],
             'locale' => $this->locale,
             'minorUnits' => $this->minorUnits ?: null,
-            'displayMode' => $this->displayMode,
+            'displayMode' => $this->displayMode->value,
             'badgeColor' => $this->badgeColor,
         ], fn (mixed $v): bool => $v !== null));
     }

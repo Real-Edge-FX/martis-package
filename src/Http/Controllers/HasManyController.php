@@ -96,7 +96,7 @@ class HasManyController extends MartisController
 
                 return $this->serializeModel(
                     $res,
-                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX->value),
+                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
                     $model,
                 );
             })->all()
@@ -145,7 +145,7 @@ class HasManyController extends MartisController
         ] = $context;
 
         $relatedInstance = new $relatedResourceClass;
-        $fields = Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE->value);
+        $fields = Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE);
 
         $validationError = $this->validateRequest($request, $fields);
         if ($validationError !== null) {
@@ -181,7 +181,7 @@ class HasManyController extends MartisController
         return JsonResponse::make(
             $this->serializeModel(
                 $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL->value),
+                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
                 $relatedModel,
             ),
             meta: ['message' => $relatedResourceClass::createdMessage()],
@@ -217,7 +217,7 @@ class HasManyController extends MartisController
         }
 
         $relatedInstance = new $relatedResourceClass($relatedModel);
-        $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE->value);
+        $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
 
         // Set unique-ignore ID
         foreach ($fields as $field) {
@@ -253,7 +253,7 @@ class HasManyController extends MartisController
         return JsonResponse::make(
             $this->serializeModel(
                 $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL->value),
+                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
                 $relatedModel,
             ),
             meta: ['message' => $relatedResourceClass::updatedMessage()],

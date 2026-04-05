@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\FieldContext;
 use Martis\Fields\Trix;
 
 class TrixTestModel extends Model
@@ -27,10 +28,10 @@ it('Trix::make creates a trix field', function () {
 it('Trix is hidden from index by default', function () {
     $field = Trix::make('bio_html');
 
-    expect($field->isVisibleForContext('index'))->toBeFalse()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------

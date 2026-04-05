@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\AvatarShape;
+use Martis\FieldContext;
 use Martis\Fields\Gravatar;
 
 class GravatarTestModel extends Model
@@ -27,25 +29,25 @@ it('Gravatar::make accepts custom attribute', function () {
 
 it('Gravatar is hidden from forms by default', function () {
     $field = Gravatar::make();
-    expect($field->isVisibleForContext('index'))->toBeTrue()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeFalse()
-        ->and($field->isVisibleForContext('update'))->toBeFalse();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
 });
 
 it('Gravatar defaults to rounded shape', function () {
     $field = Gravatar::make();
-    expect($field->getShape())->toBe('rounded');
+    expect($field->getShape())->toBe(AvatarShape::Rounded);
 });
 
 it('Gravatar squared() sets square shape', function () {
     $field = Gravatar::make()->squared();
-    expect($field->getShape())->toBe('squared');
+    expect($field->getShape())->toBe(AvatarShape::Squared);
 });
 
 it('Gravatar rounded() sets round shape', function () {
     $field = Gravatar::make()->squared()->rounded();
-    expect($field->getShape())->toBe('rounded');
+    expect($field->getShape())->toBe(AvatarShape::Rounded);
 });
 
 it('Gravatar size() sets avatar size', function () {

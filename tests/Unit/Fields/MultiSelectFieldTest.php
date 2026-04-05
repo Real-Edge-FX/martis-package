@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\FieldContext;
 use Martis\Fields\MultiSelect;
 
 // ---------------------------------------------------------------------------
@@ -37,10 +38,10 @@ it('MultiSelect::make accepts custom label', function () {
 it('MultiSelect is visible in all contexts by default', function () {
     $field = MultiSelect::make('labels');
 
-    expect($field->isVisibleForContext('index'))->toBeTrue()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------

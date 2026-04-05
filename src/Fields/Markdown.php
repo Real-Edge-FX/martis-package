@@ -2,6 +2,8 @@
 
 namespace Martis\Fields;
 
+use Martis\Enums\MarkdownPreset;
+
 /**
  * Markdown editor field — WYSIWYG Markdown editing with preview.
  *
@@ -28,7 +30,7 @@ class Markdown extends Field
 {
     protected bool $alwaysShow = false;
 
-    protected string $preset = 'default';
+    protected MarkdownPreset $preset = MarkdownPreset::Default;
 
     protected ?string $withFilesDisk = null;
 
@@ -37,18 +39,11 @@ class Markdown extends Field
         return 'markdown';
     }
 
-    /**
-     * Override make() to default to hidden on index.
-     */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
-    /**
-     * Always show the rendered Markdown content on detail view,
-     * instead of hiding it behind a "Show Content" toggle.
-     */
     public function alwaysShow(): static
     {
         $this->alwaysShow = true;
@@ -56,23 +51,13 @@ class Markdown extends Field
         return $this;
     }
 
-    /**
-     * Set the Markdown rendering preset.
-     *
-     * Built-in presets: 'default' (GFM), 'commonmark', 'zero'.
-     */
-    public function preset(string $preset): static
+    public function preset(MarkdownPreset $preset): static
     {
         $this->preset = $preset;
 
         return $this;
     }
 
-    /**
-     * Enable file uploads in the Markdown editor.
-     *
-     * @param  string  $disk  The filesystem disk to store uploads on.
-     */
     public function withFiles(string $disk = 'public'): static
     {
         $this->withFilesDisk = $disk;
@@ -85,7 +70,7 @@ class Markdown extends Field
         return $this->alwaysShow;
     }
 
-    public function getPreset(): string
+    public function getPreset(): MarkdownPreset
     {
         return $this->preset;
     }
@@ -102,7 +87,7 @@ class Markdown extends Field
     {
         return array_filter([
             'alwaysShow' => $this->alwaysShow,
-            'preset' => $this->preset,
+            'preset' => $this->preset->value,
             'withFiles' => $this->withFilesDisk,
         ], fn ($v) => $v !== null && $v !== false);
     }

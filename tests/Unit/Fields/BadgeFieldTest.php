@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\FieldContext;
 use Martis\Fields\Badge;
 
 // ---------------------------------------------------------------------------
@@ -37,10 +38,10 @@ it('Badge::make accepts custom label', function () {
 it('Badge is hidden from forms by default', function () {
     $field = Badge::make('status');
 
-    expect($field->isVisibleForContext('index'))->toBeTrue()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeFalse()
-        ->and($field->isVisibleForContext('update'))->toBeFalse();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------
@@ -191,6 +192,6 @@ it('Badge respects resolveUsing callback', function () {
 it('Badge can be made visible on forms when explicitly enabled', function () {
     $field = Badge::make('status')->showOnForms();
 
-    expect($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
 });

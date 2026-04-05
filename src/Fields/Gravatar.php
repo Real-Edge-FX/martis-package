@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\AvatarShape;
 
 /**
  * Gravatar field — displays avatar from Gravatar service based on email hash.
@@ -21,8 +22,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Gravatar extends Field
 {
-    /** @var 'rounded'|'squared' */
-    protected string $shape = 'rounded';
+    // Avatar shape: rounded or squared
+    protected AvatarShape $shape = AvatarShape::Rounded;
 
     protected int $size = 40;
 
@@ -47,7 +48,7 @@ class Gravatar extends Field
      */
     public function squared(): static
     {
-        $this->shape = 'squared';
+        $this->shape = AvatarShape::Squared;
 
         return $this;
     }
@@ -58,7 +59,7 @@ class Gravatar extends Field
      */
     public function rounded(): static
     {
-        $this->shape = 'rounded';
+        $this->shape = AvatarShape::Rounded;
 
         return $this;
     }
@@ -76,7 +77,7 @@ class Gravatar extends Field
     /**
      * Get the avatar shape.
      */
-    public function getShape(): string
+    public function getShape(): AvatarShape
     {
         return $this->shape;
     }
@@ -131,7 +132,7 @@ class Gravatar extends Field
     protected function extraAttributes(): array
     {
         return [
-            'shape' => $this->shape,
+            'shape' => $this->shape->value,
             'avatarSize' => $this->size,
         ];
     }

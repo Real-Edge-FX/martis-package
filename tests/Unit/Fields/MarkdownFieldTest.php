@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\MarkdownPreset;
+use Martis\FieldContext;
 use Martis\Fields\Markdown;
 
 class MarkdownTestModel extends Model
@@ -27,10 +29,10 @@ it('Markdown::make creates a markdown field', function () {
 it('Markdown is hidden from index by default', function () {
     $field = Markdown::make('description_md');
 
-    expect($field->isVisibleForContext('index'))->toBeFalse()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -57,22 +59,22 @@ it('Markdown defaults to not always show', function () {
 // ---------------------------------------------------------------------------
 
 it('Markdown preset() sets rendering preset', function () {
-    $field = Markdown::make('description_md')->preset('commonmark');
+    $field = Markdown::make('description_md')->preset(MarkdownPreset::Commonmark);
 
-    expect($field->getPreset())->toBe('commonmark')
+    expect($field->getPreset())->toBe(MarkdownPreset::Commonmark)
         ->and($field->toArray()['preset'])->toBe('commonmark');
 });
 
 it('Markdown defaults to "default" preset', function () {
     $field = Markdown::make('description_md');
 
-    expect($field->getPreset())->toBe('default');
+    expect($field->getPreset())->toBe(MarkdownPreset::Default);
 });
 
 it('Markdown preset("zero") is accepted', function () {
-    $field = Markdown::make('description_md')->preset('zero');
+    $field = Markdown::make('description_md')->preset(MarkdownPreset::Zero);
 
-    expect($field->getPreset())->toBe('zero');
+    expect($field->getPreset())->toBe(MarkdownPreset::Zero);
 });
 
 // ---------------------------------------------------------------------------
@@ -151,7 +153,7 @@ it('Markdown fill() stores null', function () {
 it('Markdown toArray contains required keys', function () {
     $field = Markdown::make('description_md', 'Description')
         ->alwaysShow()
-        ->preset('commonmark')
+        ->preset(MarkdownPreset::Commonmark)
         ->withFiles('public');
 
     $arr = $field->toArray();

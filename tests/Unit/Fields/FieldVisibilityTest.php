@@ -18,7 +18,7 @@ describe('Field visibility by context', function (): void {
         $field = Text::make('title');
 
         foreach (FieldContext::cases() as $ctx) {
-            expect($field->isVisibleForContext($ctx->value))->toBeTrue(
+            expect($field->isVisibleForContext($ctx))->toBeTrue(
                 "Expected field to be visible in {$ctx->value}"
             );
         }
@@ -28,95 +28,95 @@ describe('Field visibility by context', function (): void {
     it('hides a field with hideFromIndex from index only', function (): void {
         $field = Text::make('body')->hideFromIndex();
 
-        expect($field->isVisibleForContext('index'))->toBeFalse();
-        expect($field->isVisibleForContext('detail'))->toBeTrue();
-        expect($field->isVisibleForContext('create'))->toBeTrue();
-        expect($field->isVisibleForContext('update'))->toBeTrue();
-        expect($field->isVisibleForContext('inline-create'))->toBeTrue();
-        expect($field->isVisibleForContext('preview'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeTrue();
     });
 
     // --- Scenario 3: hideFromDetail ---
     it('hides a field with hideFromDetail from detail and preview', function (): void {
         $field = Text::make('internal_notes')->hideFromDetail();
 
-        expect($field->isVisibleForContext('detail'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeFalse();
         // Preview inherits from showOnDetail when showOnPreview is null
-        expect($field->isVisibleForContext('preview'))->toBeFalse();
-        expect($field->isVisibleForContext('index'))->toBeTrue();
-        expect($field->isVisibleForContext('create'))->toBeTrue();
-        expect($field->isVisibleForContext('update'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
     });
 
     // --- Scenario 4: hideWhenCreating ---
     it('hides a field with hideWhenCreating from create and inline-create', function (): void {
         $field = Text::make('slug')->hideWhenCreating();
 
-        expect($field->isVisibleForContext('create'))->toBeFalse();
-        expect($field->isVisibleForContext('inline-create'))->toBeFalse();
-        expect($field->isVisibleForContext('update'))->toBeTrue();
-        expect($field->isVisibleForContext('index'))->toBeTrue();
-        expect($field->isVisibleForContext('detail'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue();
     });
 
     // --- Scenario 5: hideWhenUpdating ---
     it('hides a field with hideWhenUpdating from update only', function (): void {
         $field = Text::make('initial_password')->hideWhenUpdating();
 
-        expect($field->isVisibleForContext('update'))->toBeFalse();
-        expect($field->isVisibleForContext('create'))->toBeTrue();
-        expect($field->isVisibleForContext('inline-create'))->toBeTrue();
-        expect($field->isVisibleForContext('index'))->toBeTrue();
-        expect($field->isVisibleForContext('detail'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue();
     });
 
     // --- Scenario 6: onlyOnIndex ---
     it('shows a field with onlyOnIndex only on index', function (): void {
         $field = Text::make('badge')->onlyOnIndex();
 
-        expect($field->isVisibleForContext('index'))->toBeTrue();
-        expect($field->isVisibleForContext('detail'))->toBeFalse();
-        expect($field->isVisibleForContext('create'))->toBeFalse();
-        expect($field->isVisibleForContext('update'))->toBeFalse();
-        expect($field->isVisibleForContext('inline-create'))->toBeFalse();
-        expect($field->isVisibleForContext('preview'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeFalse();
     });
 
     // --- Scenario 7: onlyOnDetail ---
     it('shows a field with onlyOnDetail only on detail', function (): void {
         $field = Text::make('full_bio')->onlyOnDetail();
 
-        expect($field->isVisibleForContext('detail'))->toBeTrue();
-        expect($field->isVisibleForContext('index'))->toBeFalse();
-        expect($field->isVisibleForContext('create'))->toBeFalse();
-        expect($field->isVisibleForContext('update'))->toBeFalse();
-        expect($field->isVisibleForContext('inline-create'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeFalse();
         // preview inherits from showOnPreview (false), not showOnDetail
-        expect($field->isVisibleForContext('preview'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeFalse();
     });
 
     // --- Scenario 8: onlyOnForms ---
     it('shows a field with onlyOnForms only on create, update, and inline-create', function (): void {
         $field = Text::make('password')->onlyOnForms();
 
-        expect($field->isVisibleForContext('create'))->toBeTrue();
-        expect($field->isVisibleForContext('update'))->toBeTrue();
-        expect($field->isVisibleForContext('inline-create'))->toBeTrue();
-        expect($field->isVisibleForContext('index'))->toBeFalse();
-        expect($field->isVisibleForContext('detail'))->toBeFalse();
-        expect($field->isVisibleForContext('preview'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeFalse();
     });
 
     // --- Scenario 9: exceptOnForms ---
     it('hides a field with exceptOnForms from all form contexts', function (): void {
         $field = Text::make('created_at')->exceptOnForms();
 
-        expect($field->isVisibleForContext('create'))->toBeFalse();
-        expect($field->isVisibleForContext('update'))->toBeFalse();
-        expect($field->isVisibleForContext('inline-create'))->toBeFalse();
-        expect($field->isVisibleForContext('index'))->toBeTrue();
-        expect($field->isVisibleForContext('detail'))->toBeTrue();
-        expect($field->isVisibleForContext('preview'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeTrue();
     });
 
     // --- Scenario 10: fieldsForIndex override + hideFromIndex still applies ---
@@ -126,7 +126,7 @@ describe('Field visibility by context', function (): void {
             Text::make('debug_info')->hideFromIndex(),
         ];
 
-        $filtered = Field::filterForContext($fields, 'index');
+        $filtered = Field::filterForContext($fields, FieldContext::INDEX);
         $attrs = array_map(fn ($f) => $f->attribute(), $filtered);
 
         expect($attrs)->toBe(['title']);
@@ -139,7 +139,7 @@ describe('Field visibility by context', function (): void {
             Text::make('auto_slug')->hideWhenCreating(),
         ];
 
-        $filtered = Field::filterForContext($fields, 'create');
+        $filtered = Field::filterForContext($fields, FieldContext::CREATE);
         $attrs = array_map(fn ($f) => $f->attribute(), $filtered);
 
         expect($attrs)->toBe(['title']);
@@ -152,7 +152,7 @@ describe('Field visibility by context', function (): void {
             Text::make('internal_code')->hideWhenCreating(),
         ];
 
-        $filtered = Field::filterForContext($fields, 'inline-create');
+        $filtered = Field::filterForContext($fields, FieldContext::INLINE_CREATE);
         $attrs = array_map(fn ($f) => $f->attribute(), $filtered);
 
         expect($attrs)->toBe(['name']);
@@ -168,17 +168,17 @@ describe('Field visibility by context', function (): void {
 
         $all = [$indexOnly, $noForms, $noUpdate, $detailOnly, $plain];
 
-        $getAttrs = fn (string $ctx) => array_map(
+        $getAttrs = fn (FieldContext $ctx) => array_map(
             fn ($f) => $f->attribute(),
             Field::filterForContext($all, $ctx)
         );
 
-        expect($getAttrs('index'))->toBe(['badge', 'created_at', 'slug', 'title']);
-        expect($getAttrs('detail'))->toBe(['created_at', 'slug', 'full_bio', 'title']);
-        expect($getAttrs('create'))->toBe(['slug', 'title']);
-        expect($getAttrs('update'))->toBe(['title']);
-        expect($getAttrs('inline-create'))->toBe(['slug', 'title']);
-        expect($getAttrs('preview'))->toBe(['created_at', 'slug', 'title']);
+        expect($getAttrs(FieldContext::INDEX))->toBe(['badge', 'created_at', 'slug', 'title']);
+        expect($getAttrs(FieldContext::DETAIL))->toBe(['created_at', 'slug', 'full_bio', 'title']);
+        expect($getAttrs(FieldContext::CREATE))->toBe(['slug', 'title']);
+        expect($getAttrs(FieldContext::UPDATE))->toBe(['title']);
+        expect($getAttrs(FieldContext::INLINE_CREATE))->toBe(['slug', 'title']);
+        expect($getAttrs(FieldContext::PREVIEW))->toBe(['created_at', 'slug', 'title']);
     });
 
     // --- Scenario 14: Serialized JSON respects context filtering ---
@@ -189,10 +189,10 @@ describe('Field visibility by context', function (): void {
             Text::make('created_at')->exceptOnForms(),
         ];
 
-        $forCreate = Field::filterForContext($fields, 'create');
-        $forUpdate = Field::filterForContext($fields, 'update');
-        $forDetail = Field::filterForContext($fields, 'detail');
-        $forIndex = Field::filterForContext($fields, 'index');
+        $forCreate = Field::filterForContext($fields, FieldContext::CREATE);
+        $forUpdate = Field::filterForContext($fields, FieldContext::UPDATE);
+        $forDetail = Field::filterForContext($fields, FieldContext::DETAIL);
+        $forIndex = Field::filterForContext($fields, FieldContext::INDEX);
 
         expect(count($forCreate))->toBe(1);  // only title
         expect($forCreate[0]->attribute())->toBe('title');
@@ -210,31 +210,31 @@ describe('Field visibility conflict resolution', function (): void {
 
     it('resolves onlyOnIndex + hideFromIndex as hidden (hide wins)', function (): void {
         $field = Text::make('conflict')->onlyOnIndex()->hideFromIndex();
-        expect($field->isVisibleForContext('index'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse();
     });
 
     it('resolves onlyOnForms + exceptOnForms as hidden on forms (last write wins)', function (): void {
         $field = Text::make('conflict')->onlyOnForms()->exceptOnForms();
-        expect($field->isVisibleForContext('create'))->toBeFalse();
-        expect($field->isVisibleForContext('update'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
     });
 
     it('resolves onlyOnDetail + hideFromDetail as hidden (hide wins)', function (): void {
         $field = Text::make('conflict')->onlyOnDetail()->hideFromDetail();
-        expect($field->isVisibleForContext('detail'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeFalse();
     });
 
     it('resolves hideWhenCreating with showOnForms=true correctly', function (): void {
         $field = Text::make('email')->hideWhenCreating();
         // showOnForms is still true (default), but create uses showOnCreate which is false
-        expect($field->isVisibleForContext('create'))->toBeFalse();
-        expect($field->isVisibleForContext('update'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
     });
 
     it('resolves hideWhenUpdating with showOnForms=true correctly', function (): void {
         $field = Text::make('password')->hideWhenUpdating();
-        expect($field->isVisibleForContext('update'))->toBeFalse();
-        expect($field->isVisibleForContext('create'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue();
     });
 });
 
@@ -243,18 +243,18 @@ describe('Preview context visibility', function (): void {
 
     it('preview inherits from showOnDetail by default', function (): void {
         $field = Text::make('notes')->hideFromDetail();
-        expect($field->isVisibleForContext('preview'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeFalse();
     });
 
     it('preview shows fields that are visible on detail', function (): void {
         $field = Text::make('title');
-        expect($field->isVisibleForContext('preview'))->toBeTrue();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeTrue();
     });
 
     it('onlyOnDetail sets showOnPreview=false explicitly', function (): void {
         $field = Text::make('bio')->onlyOnDetail();
         // onlyOnDetail explicitly sets showOnPreview=false
-        expect($field->isVisibleForContext('preview'))->toBeFalse();
+        expect($field->isVisibleForContext(FieldContext::PREVIEW))->toBeFalse();
     });
 });
 

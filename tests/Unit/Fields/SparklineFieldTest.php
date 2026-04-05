@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\ChartType;
+use Martis\FieldContext;
 use Martis\Fields\Sparkline;
 
 class SparklineTestModel extends Model
@@ -23,10 +25,10 @@ it('Sparkline::make creates a sparkline field', function () {
 
 it('Sparkline is hidden from forms by default', function () {
     $field = Sparkline::make('views');
-    expect($field->isVisibleForContext('index'))->toBeTrue()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeFalse()
-        ->and($field->isVisibleForContext('update'))->toBeFalse();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
 });
 
 it('Sparkline data() sets static data', function () {
@@ -55,12 +57,12 @@ it('Sparkline returns empty array for null model value', function () {
 
 it('Sparkline asBarChart() sets bar type', function () {
     $field = Sparkline::make('views')->asBarChart();
-    expect($field->getChartType())->toBe('bar');
+    expect($field->getChartType())->toBe(ChartType::Bar);
 });
 
 it('Sparkline defaults to line chart', function () {
     $field = Sparkline::make('views');
-    expect($field->getChartType())->toBe('line');
+    expect($field->getChartType())->toBe(ChartType::Line);
 });
 
 it('Sparkline height() sets height', function () {

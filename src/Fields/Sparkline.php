@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\ChartType;
 
 /**
  * Sparkline field — inline mini chart for trend visualization.
@@ -23,8 +24,8 @@ class Sparkline extends Field
     /** @var list<int|float>|callable|null */
     protected mixed $chartData = null;
 
-    /** @var 'line'|'bar' */
-    protected string $chartType = 'line';
+    // Chart type: line or bar
+    protected ChartType $chartType = ChartType::Line;
 
     protected int $chartHeight = 30;
 
@@ -66,7 +67,7 @@ class Sparkline extends Field
      */
     public function asBarChart(): static
     {
-        $this->chartType = 'bar';
+        $this->chartType = ChartType::Bar;
 
         return $this;
     }
@@ -76,7 +77,7 @@ class Sparkline extends Field
      */
     public function asLineChart(): static
     {
-        $this->chartType = 'line';
+        $this->chartType = ChartType::Line;
 
         return $this;
     }
@@ -116,7 +117,7 @@ class Sparkline extends Field
     /**
      * Get chart type.
      */
-    public function getChartType(): string
+    public function getChartType(): ChartType
     {
         return $this->chartType;
     }
@@ -205,7 +206,7 @@ class Sparkline extends Field
     protected function extraAttributes(): array
     {
         return array_filter([
-            'chartType' => $this->chartType,
+            'chartType' => $this->chartType->value,
             'chartHeight' => $this->chartHeight,
             'chartWidth' => $this->chartWidth,
             'chartColor' => $this->chartColor,

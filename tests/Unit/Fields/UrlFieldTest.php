@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\FieldContext;
 use Martis\Fields\Url;
 
 class UrlTestModel extends Model
@@ -152,8 +153,8 @@ it('Url supports computed values via resolveUsing', function () {
 it('Url is shown on all contexts by default', function () {
     $field = Url::make('website_url');
 
-    expect($field->isVisibleForContext('index'))->toBeTrue()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
 });

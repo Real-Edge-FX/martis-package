@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Martis\Enums\ModalSize;
 
 /**
  * Tag field — relational tagging via BelongsToMany.
@@ -48,7 +49,7 @@ class Tag extends Field
 
     protected bool $showCreateRelationButton = false;
 
-    protected string $modalSize = '2xl';
+    protected ModalSize $modalSize = ModalSize::TwoExtraLarge;
 
     protected bool $preload = false;
 
@@ -133,7 +134,7 @@ class Tag extends Field
      *
      * Accepts Nova-style sizes: 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl'
      */
-    public function modalSize(string $size): static
+    public function modalSize(ModalSize $size): static
     {
         $this->modalSize = $size;
 
@@ -191,7 +192,7 @@ class Tag extends Field
         return $this->showCreateRelationButton;
     }
 
-    public function getModalSize(): string
+    public function getModalSize(): ModalSize
     {
         return $this->modalSize;
     }
@@ -307,7 +308,7 @@ class Tag extends Field
             'withPreview' => $this->withPreview,
             'displayAsList' => $this->displayAsList,
             'showCreateRelationButton' => $this->showCreateRelationButton,
-            'modalSize' => $this->modalSize,
+            'modalSize' => $this->modalSize->value,
             'preload' => $this->preload,
             'relationSearchable' => $this->relationSearchable,
         ], fn (mixed $v): bool => $v !== null && $v !== false && $v !== '');

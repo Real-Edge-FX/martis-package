@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\ResourceContract;
+use Martis\Enums\ErrorDisplayMode;
+use Martis\Enums\TableSize;
 use Martis\Events\AfterDelete;
 use Martis\Events\AfterSave;
 use Martis\Events\BeforeDelete;
@@ -472,9 +474,9 @@ abstract class Resource implements ResourceContract
      * DataTable size: 'normal', 'small', or 'large'.
      * Controls cell padding and font sizes.
      */
-    public static function tableSize(): string
+    public static function tableSize(): TableSize
     {
-        return 'normal';
+        return TableSize::Normal;
     }
 
     /**
@@ -587,9 +589,9 @@ abstract class Resource implements ResourceContract
      * Return "inline" to show validation errors next to each field,
      * or "toast" to show them as toast notifications.
      */
-    public static function errorDisplay(): string
+    public static function errorDisplay(): ErrorDisplayMode
     {
-        return 'inline';
+        return ErrorDisplayMode::Inline;
     }
 
     /**

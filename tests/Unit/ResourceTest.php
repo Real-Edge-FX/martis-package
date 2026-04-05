@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Martis\Contracts\FieldContract;
+use Martis\FieldContext;
 use Martis\Resource;
 use Martis\Tests\TestCase;
 
@@ -188,7 +189,7 @@ class StubField implements FieldContract
         return $this;
     }
 
-    public function isVisibleForContext(string $context): bool
+    public function isVisibleForContext(FieldContext $context): bool
     {
         return match ($context) {
             index => $this->onIndex,

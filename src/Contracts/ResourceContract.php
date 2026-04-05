@@ -5,6 +5,8 @@ namespace Martis\Contracts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Martis\Enums\ErrorDisplayMode;
+use Martis\Enums\TableSize;
 
 /**
  * Contract for all Martis Resource classes.
@@ -182,7 +184,7 @@ interface ResourceContract
     public static function tableShowGridlines(): bool;
 
     /** Table density: "small", "normal", or "large". */
-    public static function tableSize(): string;
+    public static function tableSize(): TableSize;
 
     /** Whether rows highlight on hover. */
     public static function tableRowHover(): bool;
@@ -262,7 +264,7 @@ interface ResourceContract
     public static function archiveConfirmMessage(): string;
 
     /** Error display mode: "toast", "inline", or "both". */
-    public static function errorDisplay(): string;
+    public static function errorDisplay(): ErrorDisplayMode;
 
     public static function validationMessage(): string;
 

@@ -359,16 +359,15 @@ abstract class Field implements FieldContract
      *
      * {@inheritDoc}
      */
-    public function isVisibleForContext(string $context): bool
+    public function isVisibleForContext(FieldContext $context): bool
     {
         return match ($context) {
-            FieldContext::INDEX->value => $this->showOnIndex,
-            FieldContext::DETAIL->value => $this->showOnDetail,
-            FieldContext::CREATE->value,
-            FieldContext::INLINE_CREATE->value => $this->showOnCreate ?? $this->showOnForms,
-            FieldContext::UPDATE->value => $this->showOnUpdate ?? $this->showOnForms,
-            FieldContext::PREVIEW->value => $this->showOnPreview ?? $this->showOnDetail,
-            default => true,
+            FieldContext::INDEX => $this->showOnIndex,
+            FieldContext::DETAIL => $this->showOnDetail,
+            FieldContext::CREATE,
+            FieldContext::INLINE_CREATE => $this->showOnCreate ?? $this->showOnForms,
+            FieldContext::UPDATE => $this->showOnUpdate ?? $this->showOnForms,
+            FieldContext::PREVIEW => $this->showOnPreview ?? $this->showOnDetail,
         };
     }
 
@@ -381,7 +380,7 @@ abstract class Field implements FieldContract
      * @param  list<FieldContract>  $fields
      * @return list<FieldContract>
      */
-    public static function filterForContext(array $fields, string $context): array
+    public static function filterForContext(array $fields, FieldContext $context): array
     {
         return array_values(array_filter(
             $fields,

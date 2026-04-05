@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\CurrencyCode;
+use Martis\Enums\CurrencyDisplayMode;
 use Martis\Fields\Currency;
 
 class CurrencyTestModel extends Model
@@ -21,17 +23,12 @@ it('Currency::make creates a currency field', function () {
 
 it('Currency defaults to USD', function () {
     $field = Currency::make('price');
-    expect($field->getCurrencyCode())->toBe('USD');
+    expect($field->getCurrencyCode())->toBe(CurrencyCode::USD);
 });
 
 it('Currency currency() sets the code', function () {
-    $field = Currency::make('price')->currency('BRL');
-    expect($field->getCurrencyCode())->toBe('BRL');
-});
-
-it('Currency currency() is case-insensitive', function () {
-    $field = Currency::make('price')->currency('eur');
-    expect($field->getCurrencyCode())->toBe('EUR');
+    $field = Currency::make('price')->currency(CurrencyCode::BRL);
+    expect($field->getCurrencyCode())->toBe(CurrencyCode::BRL);
 });
 
 it('Currency locale() sets locale', function () {
@@ -59,17 +56,17 @@ it('Currency inherits Number min/max/step', function () {
 
 it('Currency displayMode defaults to text', function () {
     $field = Currency::make('price');
-    expect($field->getDisplayMode())->toBe('text');
+    expect($field->getDisplayMode())->toBe(CurrencyDisplayMode::Text);
 });
 
 it('Currency showBadge() sets badge mode', function () {
     $field = Currency::make('price')->showBadge();
-    expect($field->getDisplayMode())->toBe('badge');
+    expect($field->getDisplayMode())->toBe(CurrencyDisplayMode::Badge);
 });
 
 it('Currency showBadgeText() sets badge_text mode', function () {
     $field = Currency::make('price')->showBadgeText();
-    expect($field->getDisplayMode())->toBe('badge_text');
+    expect($field->getDisplayMode())->toBe(CurrencyDisplayMode::BadgeText);
 });
 
 it('Currency badgeColor() sets the color', function () {
@@ -78,18 +75,11 @@ it('Currency badgeColor() sets the color', function () {
 });
 
 it('Currency getCurrencyInfo returns correct info for known currencies', function () {
-    $field = Currency::make('price')->currency('BRL');
+    $field = Currency::make('price')->currency(CurrencyCode::BRL);
     $info = $field->getCurrencyInfo();
     expect($info['symbol'])->toBe('R$')
         ->and($info['name'])->toBe('Real brasileiro')
         ->and($info['decimals'])->toBe(2);
-});
-
-it('Currency getCurrencyInfo returns fallback for unknown currency', function () {
-    $field = Currency::make('price')->currency('XYZ');
-    $info = $field->getCurrencyInfo();
-    expect($info['symbol'])->toBe('XYZ')
-        ->and($info['name'])->toBe('XYZ');
 });
 
 it('Currency resolves value from model', function () {
@@ -106,7 +96,7 @@ it('Currency fills value to model', function () {
 });
 
 it('Currency toArray contains currency attributes', function () {
-    $field = Currency::make('price')->currency('EUR')->showBadgeText()->badgeColor('blue');
+    $field = Currency::make('price')->currency(CurrencyCode::EUR)->showBadgeText()->badgeColor('blue');
     $arr = $field->toArray();
 
     expect($arr)->toHaveKeys(['attribute', 'type', 'currencyCode', 'currencySymbol', 'currencyName', 'displayMode', 'badgeColor'])

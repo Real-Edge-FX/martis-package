@@ -2,6 +2,9 @@
 
 namespace Martis\Fields;
 
+use Martis\Enums\ClickBehavior;
+use Martis\Enums\ToolbarSize;
+
 /**
  * Trix rich-text editor field — HTML-based WYSIWYG editing.
  *
@@ -27,29 +30,22 @@ class Trix extends Field
 
     protected ?string $withFilesDisk = null;
 
-    protected ?string $toolbarSize = null;
+    protected ?ToolbarSize $toolbarSize = null;
 
-    protected string $imageClickBehavior = 'modal';
+    protected ClickBehavior $imageClickBehavior = ClickBehavior::Modal;
 
-    protected string $linkClickBehavior = 'same_page';
+    protected ClickBehavior $linkClickBehavior = ClickBehavior::SamePage;
 
     public function type(): string
     {
         return 'trix';
     }
 
-    /**
-     * Override make() to default to hidden on index.
-     */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
-    /**
-     * Always show the HTML content on detail view,
-     * instead of hiding it behind a "Show Content" toggle.
-     */
     public function alwaysShow(): static
     {
         $this->alwaysShow = true;
@@ -57,11 +53,6 @@ class Trix extends Field
         return $this;
     }
 
-    /**
-     * Enable file uploads in the Trix editor.
-     *
-     * @param  string  $disk  The filesystem disk to store uploads on.
-     */
     public function withFiles(string $disk = 'public'): static
     {
         $this->withFilesDisk = $disk;
@@ -69,36 +60,21 @@ class Trix extends Field
         return $this;
     }
 
-    /**
-     * Set toolbar button size: 'sm', 'md' (default), or 'lg'.
-     *
-     * Usage: Trix::make('content')->toolbarSize('sm')
-     */
-    public function toolbarSize(string $size): static
+    public function toolbarSize(ToolbarSize $size): static
     {
         $this->toolbarSize = $size;
 
         return $this;
     }
 
-    /**
-     * Set image click behavior: 'modal' (default), 'new_tab', or 'same_page'.
-     *
-     * Usage: Trix::make('bio')->imageClickBehavior('new_tab')
-     */
-    public function imageClickBehavior(string $behavior): static
+    public function imageClickBehavior(ClickBehavior $behavior): static
     {
         $this->imageClickBehavior = $behavior;
 
         return $this;
     }
 
-    /**
-     * Set link click behavior: 'same_page' (default), 'new_tab', or 'modal'.
-     *
-     * Usage: Trix::make('bio')->linkClickBehavior('new_tab')
-     */
-    public function linkClickBehavior(string $behavior): static
+    public function linkClickBehavior(ClickBehavior $behavior): static
     {
         $this->linkClickBehavior = $behavior;
 
@@ -123,9 +99,9 @@ class Trix extends Field
         return array_filter([
             'alwaysShow' => $this->alwaysShow,
             'withFiles' => $this->withFilesDisk,
-            'toolbarSize' => $this->toolbarSize,
-            'imageClickBehavior' => $this->imageClickBehavior,
-            'linkClickBehavior' => $this->linkClickBehavior,
+            'toolbarSize' => $this->toolbarSize?->value,
+            'imageClickBehavior' => $this->imageClickBehavior->value,
+            'linkClickBehavior' => $this->linkClickBehavior->value,
         ], fn ($v) => $v !== null && $v !== false);
     }
 }

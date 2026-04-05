@@ -4,6 +4,7 @@ namespace Martis\Contracts;
 
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
+use Martis\FieldContext;
 
 /**
  * Contract for all Martis Field classes.
@@ -148,10 +149,8 @@ interface FieldContract
 
     /**
      * Determine if this field should be visible in the given context.
-     *
-     * @param  string  $context  One of: index, detail, create, update, inline-create, preview
      */
-    public function isVisibleForContext(string $context): bool;
+    public function isVisibleForContext(FieldContext $context): bool;
 
     /** Return whether this field is sortable. */
     public function isSortable(): bool;

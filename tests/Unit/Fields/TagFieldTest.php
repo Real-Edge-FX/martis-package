@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\ModalSize;
+use Martis\FieldContext;
 use Martis\Fields\Tag;
 
 // ---------------------------------------------------------------------------
@@ -41,10 +43,10 @@ it('Tag::make accepts custom label', function () {
 it('Tag is visible in all contexts by default', function () {
     $field = Tag::make('tags');
 
-    expect($field->isVisibleForContext('index'))->toBeTrue()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -93,9 +95,9 @@ it('Tag showCreateRelationButton() enables inline creation', function () {
 });
 
 it('Tag modalSize() sets modal size', function () {
-    $field = Tag::make('tags')->modalSize('7xl');
+    $field = Tag::make('tags')->modalSize(ModalSize::SevenExtraLarge);
 
-    expect($field->getModalSize())->toBe('7xl')
+    expect($field->getModalSize())->toBe(ModalSize::SevenExtraLarge)
         ->and($field->toArray()['modalSize'])->toBe('7xl');
 });
 
@@ -112,7 +114,7 @@ it('Tag defaults are correct', function () {
     expect($field->hasPreview())->toBeFalse()
         ->and($field->isDisplayAsList())->toBeFalse()
         ->and($field->isShowCreateRelationButton())->toBeFalse()
-        ->and($field->getModalSize())->toBe('2xl')
+        ->and($field->getModalSize())->toBe(ModalSize::TwoExtraLarge)
         ->and($field->isPreload())->toBeFalse();
 });
 

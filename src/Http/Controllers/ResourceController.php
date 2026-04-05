@@ -105,7 +105,7 @@ class ResourceController extends MartisController
             collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request): array {
                 $res = new $resourceClass($model);
 
-                return $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX->value), $model);
+                return $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
             })->all()
         );
 
@@ -167,7 +167,7 @@ class ResourceController extends MartisController
         }
 
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL->value), $model),
+            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
         )->toResponse();
     }
 
@@ -206,7 +206,7 @@ class ResourceController extends MartisController
 
         $model = $resourceClass::newModel();
         $res = new $resourceClass($model);
-        $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE->value);
+        $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
 
         $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
@@ -232,7 +232,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL->value), $model),
+            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
             meta: ['message' => $resourceClass::createdMessage()],
         )->toResponse(201);
     }
@@ -277,7 +277,7 @@ class ResourceController extends MartisController
             return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE->value);
+        $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
 
         // Set unique-ignore ID so unique validation skips the current record
         foreach ($fields as $field) {
@@ -311,7 +311,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL->value), $model),
+            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
             meta: ['message' => $resourceClass::updatedMessage()],
         )->toResponse();
     }
@@ -357,7 +357,7 @@ class ResourceController extends MartisController
 
         try {
             $res->beforeDelete($model, $request);
-            $this->deleteUploadedFiles(Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL->value), $model);
+            $this->deleteUploadedFiles(Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model);
             $model->delete();
             $res->afterDelete($model, $request);
         } catch (QueryException $e) {
@@ -424,7 +424,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL->value), $model),
+            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
             meta: ['message' => $resourceClass::restoredMessage()],
         )->toResponse();
     }
@@ -465,12 +465,12 @@ class ResourceController extends MartisController
         $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
 
         // Context-specific field arrays — resolved then filtered by visibility
-        $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX->value));
-        $fieldsForDetail = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForDetail($request), FieldContext::DETAIL->value));
-        $fieldsForCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForCreate($request), FieldContext::CREATE->value));
-        $fieldsForUpdate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE->value));
-        $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE->value));
-        $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW->value));
+        $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
+        $fieldsForDetail = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
+        $fieldsForCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
+        $fieldsForUpdate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
+        $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
+        $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
 
         $data = [
             'uriKey' => $resourceClass::uriKey(),
@@ -501,7 +501,7 @@ class ResourceController extends MartisController
                 'deleteConfirm' => $resourceClass::deleteConfirmMessage(),
                 'archiveConfirm' => $resourceClass::archiveConfirmMessage(),
             ],
-            'errorDisplay' => $resourceClass::errorDisplay(),
+            'errorDisplay' => $resourceClass::errorDisplay()->value,
             'validationMessage' => $resourceClass::validationMessage(),
         ];
 
@@ -645,7 +645,7 @@ class ResourceController extends MartisController
 
                 return $this->serializeModel(
                     $res,
-                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX->value),
+                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
                     $model,
                 );
             })->all()

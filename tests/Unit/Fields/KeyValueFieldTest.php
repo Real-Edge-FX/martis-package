@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\FieldContext;
 use Martis\Fields\KeyValue;
 
 // ---------------------------------------------------------------------------
@@ -37,10 +38,10 @@ it('KeyValue::make accepts custom label', function () {
 it('KeyValue is hidden from index by default', function () {
     $field = KeyValue::make('meta');
 
-    expect($field->isVisibleForContext('index'))->toBeFalse()
-        ->and($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\CodeLanguage;
+use Martis\FieldContext;
 use Martis\Fields\Code;
 
 class CodeTestModel extends Model
@@ -32,10 +34,10 @@ it('Code::make creates a code field', function () {
 it('Code is hidden from index by default', function () {
     $field = Code::make('snippet');
 
-    expect($field->isVisibleForContext('index'))->toBeFalse()
-        ->and($field->isVisibleForContext('detail'))->toBeTrue()
-        ->and($field->isVisibleForContext('create'))->toBeTrue()
-        ->and($field->isVisibleForContext('update'))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeFalse()
+        ->and($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue()
+        ->and($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -61,16 +63,16 @@ it('Code defaults to non-JSON mode', function () {
 // ---------------------------------------------------------------------------
 
 it('Code language() sets syntax highlighting language', function () {
-    $field = Code::make('snippet')->language('php');
+    $field = Code::make('snippet')->language(CodeLanguage::Php);
 
-    expect($field->getLanguage())->toBe('php')
+    expect($field->getLanguage())->toBe(CodeLanguage::Php)
         ->and($field->toArray()['language'])->toBe('php');
 });
 
 it('Code defaults to javascript language', function () {
     $field = Code::make('snippet');
 
-    expect($field->getLanguage())->toBe('javascript');
+    expect($field->getLanguage())->toBe(CodeLanguage::Javascript);
 });
 
 // ---------------------------------------------------------------------------
@@ -169,7 +171,7 @@ it('Code json() fill() stores invalid JSON as-is', function () {
 it('Code toArray contains required keys', function () {
     $field = Code::make('snippet', 'Snippet')
         ->json()
-        ->language('php');
+        ->language(CodeLanguage::Php);
 
     $arr = $field->toArray();
 
