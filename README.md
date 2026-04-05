@@ -134,7 +134,7 @@ DateTime::make(created_at)
 
 Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `hideWhenUpdating()`, `onlyOnIndex()`, `onlyOnDetail()`, `onlyOnForms()`, `exceptOnForms()`.
 
-### 27 Built-in Field Types
+### 31 Built-in Field Types
 
 | Field | Description |
 |-------|-------------|
@@ -163,6 +163,10 @@ Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `h
 | `Color` | Color picker with hex value persistence |
 | `Markdown` | Markdown editor with preview, presets, and file uploads |
 | `Trix` | Rich-text HTML editor (Trix) with file uploads |
+| `Country` | ISO 3166-1 country select with optional emoji flags (Martis extension) |
+| `Currency` | Monetary input with currency formatting, badge/text display modes (Martis extension) |
+| `Sparkline` | Inline SVG mini chart (line/bar) for trend visualization |
+| `Gravatar` | Avatar from Gravatar service based on email hash |
 
 All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `rules()`, `help()`, `withMeta()`, and PrimeReact prop passthrough. `displayAsLink()` is available on `BelongsTo` fields only.
 
