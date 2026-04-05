@@ -1,6 +1,6 @@
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
-import { BASE_PATH, config } from "./config"
+import { API_BASE_URL, config } from "./config"
 
 export function getLocale(): string {
   return config.locale ?? "en"
@@ -17,7 +17,7 @@ export async function initI18n(): Promise<void> {
     let translations: Record<string, Record<string, string>> = {}
 
     try {
-      const res = await fetch(`${BASE_PATH}/api/translations/${locale}`, {
+      const res = await fetch(`${API_BASE_URL}/api/translations/${locale}`, {
         credentials: "same-origin",
         headers: { Accept: "application/json" },
       })

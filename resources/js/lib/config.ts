@@ -46,7 +46,6 @@ export interface MartisLayoutConfig {
 
 export interface MartisConfigShape {
   basePath?: string
-  apiUrl?: string
   locale?: string
   brand?: string
   logo?: string | null
@@ -70,12 +69,8 @@ export const config: MartisConfigShape = window.MartisConfig ?? {}
 export const BASE_PATH = config.basePath ?? "/martis"
 
 /**
- * Absolute API base URL. When apiUrl is set (from APP_URL), API requests use
- * absolute URLs so the app works correctly even when accessed from a different
- * domain (e.g. www.realedgefx.com proxying to martis.realedgefx.com).
+ * API base URL. Uses the current page origin explicitly to guarantee API
+ * requests always target the same server the page was loaded from, regardless
+ * of proxies, caches, or DNS configuration.
  */
-/**
- * API base URL. Always uses relative paths (same-origin) so the app
- * works correctly regardless of access method (IP, domain, or proxy).
- */
-export const API_BASE_URL = BASE_PATH
+export const API_BASE_URL = `${window.location.origin}${BASE_PATH}`

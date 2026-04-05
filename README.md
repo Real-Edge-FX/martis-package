@@ -8,8 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/v/martis/martis?style=flat-square&label=version" alt="Version"></a>
-  <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/dt/martis/martis?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/Real-Edge-FX/martis/releases"><img src="https://img.shields.io/github/v/tag/Real-Edge-FX/martis?style=flat-square&label=version" alt="Version"></a>
   <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.2+">
   <img src="https://img.shields.io/badge/Laravel-11%2B-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel 11+">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19">
