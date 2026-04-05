@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import React, { useMemo } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface SparklineExt {
@@ -76,14 +76,51 @@ export function SparklineFieldDisplay({ field, value }: FieldDisplayProps) {
   return <SparklineChart data={data} ext={ext} />
 }
 
-export function SparklineFieldInput({ field, value }: FieldInputProps) {
-  // Sparkline is display-only — show read-only in forms if visible
+export function SparklineFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const ext = getExt(field as unknown as Record<string, unknown>)
   const data = Array.isArray(value) ? (value as number[]) : []
 
+  const textValue = useMemo(() => {
+    return JSON.stringify(data)
+  }, [data])
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const raw = e.target.value.trim()
+    if (!raw) {
+      onChange([])
+      return
+    }
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        onChange(parsed)
+      }
+    } catch {
+      // invalid JSON - ignore
+    }
+  }
+
   return (
-    <div className="flex items-center py-2">
-      <SparklineChart data={data} ext={ext} />
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center py-1">
+        <SparklineChart data={data} ext={ext} />
+      </div>
+      <textarea
+        name={field.attribute}
+        value={textValue}
+        onChange={handleChange}
+        disabled={field.readonly}
+        rows={2}
+        placeholder="[1, 2, 3, 4, 5]"
+        className="w-full rounded-md text-sm font-mono"
+        style={{
+          backgroundColor: "var(--martis-input-bg)",
+          color: "var(--martis-text)",
+          border: "1px solid var(--martis-border)",
+          padding: "0.5rem 0.75rem",
+        }}
+      />
+      {error && <small className="text-red-500">{error}</small>}
     </div>
   )
 }

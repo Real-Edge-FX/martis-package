@@ -49,6 +49,8 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
     value: c.value,
   }))
 
+  const filterPh = (ext.filterPlaceholder as string | undefined) ?? t('search')
+
   return (
     <div className="flex flex-col gap-1">
       <Dropdown
@@ -62,9 +64,9 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
         placeholder={field.placeholder ?? t('select')}
         showClear={field.nullable || !field.required}
         filter
-        filterPlaceholder={t('search')}
+        filterPlaceholder={filterPh}
         emptyFilterMessage={t('no_results_found')}
-        className="w-full"
+        className="w-full martis-country-dropdown"
       />
       {error && <small className="text-red-500">{error}</small>}
     </div>

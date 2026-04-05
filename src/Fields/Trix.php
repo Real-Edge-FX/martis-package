@@ -31,6 +31,8 @@ class Trix extends Field
 
     protected string $imageClickBehavior = 'modal';
 
+    protected string $linkClickBehavior = 'same_page';
+
     public function type(): string
     {
         return 'trix';
@@ -91,6 +93,18 @@ class Trix extends Field
         return $this;
     }
 
+    /**
+     * Set link click behavior: 'same_page' (default), 'new_tab', or 'modal'.
+     *
+     * Usage: Trix::make('bio')->linkClickBehavior('new_tab')
+     */
+    public function linkClickBehavior(string $behavior): static
+    {
+        $this->linkClickBehavior = $behavior;
+
+        return $this;
+    }
+
     public function isAlwaysShow(): bool
     {
         return $this->alwaysShow;
@@ -111,6 +125,7 @@ class Trix extends Field
             'withFiles' => $this->withFilesDisk,
             'toolbarSize' => $this->toolbarSize,
             'imageClickBehavior' => $this->imageClickBehavior,
+            'linkClickBehavior' => $this->linkClickBehavior,
         ], fn ($v) => $v !== null && $v !== false);
     }
 }

@@ -45,6 +45,7 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
 
   const ext = field as unknown as Record<string, unknown>
   const imageClickBehavior = (ext.imageClickBehavior as string) || 'modal'
+  const linkClickBehavior = (ext.linkClickBehavior as string) || 'same_page'
 
   if (value === null || value === undefined || value === "") {
     return <span className="martis-text-muted">&mdash;</span>
@@ -84,7 +85,7 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
     const el = contentRef.current
     el.addEventListener('click', handleClick)
     return () => el.removeEventListener('click', handleClick)
-  }, [expanded, imageClickBehavior])
+  }, [expanded, imageClickBehavior, linkClickBehavior])
 
   if (!expanded) {
     return (

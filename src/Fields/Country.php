@@ -22,6 +22,8 @@ class Country extends Field
     /** @var list<array{label: string, value: string, flag?: string}> */
     protected array $countries = [];
 
+    protected ?string $filterPlaceholder = null;
+
     public function type(): string
     {
         return 'country';
@@ -45,6 +47,17 @@ class Country extends Field
     public function withoutFlags(): static
     {
         $this->showFlags = false;
+
+        return $this;
+    }
+
+    /**
+     * Set the filter (search) placeholder text.
+     * Allows the user to customize the search placeholder in the dropdown.
+     */
+    public function filterPlaceholder(string $text): static
+    {
+        $this->filterPlaceholder = $text;
 
         return $this;
     }
@@ -297,9 +310,10 @@ class Country extends Field
      */
     protected function extraAttributes(): array
     {
-        return [
+        return array_filter([
             'countries' => self::countryList(),
             'showFlags' => $this->showFlags,
-        ];
+            'filterPlaceholder' => $this->filterPlaceholder,
+        ], fn ($v) => $v !== null);
     }
 }
