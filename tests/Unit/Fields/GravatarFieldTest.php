@@ -87,10 +87,17 @@ it('Gravatar resolves null when email is empty', function () {
     expect($field->resolve($model))->toBeNull();
 });
 
-it('Gravatar fill is a no-op', function () {
+it('Gravatar fill saves value when provided', function () {
     $model = new GravatarTestModel(['email' => 'original@test.com']);
     $field = Gravatar::make();
     $field->fill($model, 'new@test.com');
+    expect($model->getAttribute('email'))->toBe('new@test.com');
+});
+
+it('Gravatar fill does not overwrite when value is null', function () {
+    $model = new GravatarTestModel(['email' => 'original@test.com']);
+    $field = Gravatar::make();
+    $field->fill($model, null);
     expect($model->getAttribute('email'))->toBe('original@test.com');
 });
 

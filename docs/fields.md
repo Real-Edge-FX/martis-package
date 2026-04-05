@@ -804,6 +804,9 @@ Gravatar::make('alt_email')   // Custom email attribute
 | `squared` | `squared(): static` | Display with square edges. | — |
 | `rounded` | `rounded(): static` | Display with rounded (circle) edges. | `'rounded'` |
 | `size` | `size(int $size): static` | Avatar size in pixels. | `40` |
+| `sourceType` | `sourceType(GravatarSourceType $type): static` | Set the source type. See `GravatarSourceType` enum (`Email`, `Url`). | `GravatarSourceType::Email` |
+| `fromEmail` | `fromEmail(): static` | Shorthand: configure as email source (generates Gravatar URL from email hash). | — |
+| `fromUrl` | `fromUrl(): static` | Shorthand: configure as direct URL source (uses raw value as avatar URL). | — |
 
 **Static utility:** `Gravatar::gravatarUrl(string $email, int $size = 40): string`
 
