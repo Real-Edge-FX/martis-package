@@ -97,14 +97,14 @@ describe('FieldDisplay', () => {
     expect(screen.getByText('—')).toBeTruthy()
   })
 
-  it('renders boolean true as Sim', () => {
+  it('renders boolean true as Yes', () => {
     render(<FieldDisplay field={boolField} value={true} />)
-    expect(screen.getByText('Sim')).toBeTruthy()
+    expect(screen.getByText('Yes')).toBeTruthy()
   })
 
-  it('renders boolean false as Não', () => {
+  it('renders boolean false as No', () => {
     render(<FieldDisplay field={boolField} value={false} />)
-    expect(screen.getByText('Não')).toBeTruthy()
+    expect(screen.getByText('No')).toBeTruthy()
   })
 
   it('renders select option label', () => {
