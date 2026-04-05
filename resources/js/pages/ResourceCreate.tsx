@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { pageRegistry } from '@/lib/pageRegistry'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -54,10 +55,8 @@ export function ResourceCreatePage() {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res.meta?.message ?? tMsg('record_created'))
-      // Clear form
       setValues({})
       setErrors({})
-      // Navigate to the newly created record
       if (isViaHasMany && redirectMode === 'parent') {
         navigate(`/resources/${viaResource}/${viaResourceId}`)
       } else {
@@ -71,7 +70,6 @@ export function ResourceCreatePage() {
           setErrors(err.errorsByField())
           addToast('error', err.message || tMsg('validation_errors', 'Please fix the errors below.'))
         } else {
-          // toast mode: show all errors as individual toasts
           for (const e of err.errors) {
             addToast('error', `${e.field}: ${e.message}`)
           }
@@ -103,6 +101,12 @@ export function ResourceCreatePage() {
         {tMsg('error_schema')}
       </div>
     )
+  }
+
+  // Page-level override: if a custom Create page is registered for this resource, render it
+  const CustomCreate = pageRegistry.resolveCreate(resource)
+  if (CustomCreate) {
+    return <CustomCreate resourceKey={resource!} schema={schema} fields={formFields} />
   }
 
   return (

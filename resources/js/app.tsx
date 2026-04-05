@@ -12,10 +12,14 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
 import { ToastContainer } from '@/components/Toast'
 import { registerDefaultFields } from '@/components/fields'
+import { registerDemoOverrides } from '@/components/overrides/registerDemoOverrides'
 import { initI18n } from '@/lib/i18n'
 
 // Register all default field renderers into the global component registry
 registerDefaultFields()
+
+// Register demo overrides (page + component overrides)
+registerDemoOverrides()
 
 function App() {
   return (
