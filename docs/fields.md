@@ -394,6 +394,56 @@ BelongsTo::make('authors', 'Authors')
 
 ---
 
+### HasMany
+
+Inline DataTable for one-to-many relationships on the detail page. Shows related records with search, sort, pagination, and CRUD actions. Data is fetched via dedicated endpoints, not embedded in the parent resource response. Nova v5 parity: detail-only by default.
+
+```php
+// Basic usage — relationship method inferred from name
+HasMany::make('Posts');
+
+// Explicit relationship method
+HasMany::make('Posts', 'posts');
+
+// With explicit related resource class
+HasMany::make('Comments', 'comments', CommentResource::class);
+
+// With configuration
+HasMany::make('Posts', 'posts')
+    ->relatedResource('posts')
+    ->perPage(25)
+    ->perPageOptions([10, 25, 50, 100])
+    ->canCreate(true)
+    ->canUpdate(true)
+    ->canDelete(true)
+    ->relationSearchable(true);
+```
+
+| Method | Signature | Description | Default |
+|--------|-----------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | URI key of the related resource. Auto-inferred from relationship name if not set. | `null` (inferred) |
+| `perPage` | `perPage(int $perPage): static` | Default records per page in the inline listing. | `10` |
+| `perPageOptions` | `perPageOptions(array $options): static` | Available per-page options for the user. | `[5, 10, 25, 50]` |
+| `canCreate` | `canCreate(bool $value = true): static` | Show/hide the "Create" button for related records. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | Show/hide edit actions for related records. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | Show/hide delete actions for related records. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | Enable/disable search in the inline listing. Uses SearchResolver (Scout or DB LIKE). | `true` |
+| `getRelationship` | `getRelationship(): string` | Return the Eloquent relationship method name. | — |
+| `getRelatedResourceKey` | `getRelatedResourceKey(): ?string` | Return the related resource URI key. | — |
+| `validateRelationship` | `validateRelationship(Model $model): void` | Validate the Eloquent relationship exists and is a `hasMany`. Throws `InvalidArgumentException`. | — |
+
+**API endpoints:**
+- `GET /api/resources/{resource}/{id}/has-many/{relationship}` — list with search, sort, pagination
+- `POST /api/resources/{resource}/{id}/has-many/{relationship}` — create (auto-sets foreign key)
+- `PUT /api/resources/{resource}/{id}/has-many/{relationship}/{relatedId}` — update
+- `DELETE /api/resources/{resource}/{id}/has-many/{relationship}/{relatedId}` — delete
+
+**Defaults:** `showOnIndex = false`, `showOnForms = false` (detail-only).
+**Resolve output:** `null` (data fetched via dedicated endpoints).
+**Fill:** No-op (related records managed independently).
+
+---
+
 ### Hidden
 
 Hidden form input. Not visible to users on index or detail.

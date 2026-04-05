@@ -152,6 +152,7 @@ Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `h
 | `File` | File upload with drag & drop and download |
 | `Image` | Image upload with preview and thumbnail |
 | `BelongsTo` | Searchable relationship dropdown with async search |
+| `HasMany` | Inline DataTable for one-to-many relationships (detail-only, CRUD) |
 | `Hidden` | Hidden field (rendered in forms, not visible) |
 | `Heading` | Section heading / visual divider |
 | `Badge` | Colored status badge for index & detail |
