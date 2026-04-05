@@ -60,7 +60,7 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
         disabled={field.readonly}
         invalid={!!error}
         placeholder={field.placeholder ?? t('select')}
-        showClear={field.nullable}
+        showClear={field.nullable || !field.required}
         filter
         filterPlaceholder={t('search')}
         emptyFilterMessage={t('no_results_found')}

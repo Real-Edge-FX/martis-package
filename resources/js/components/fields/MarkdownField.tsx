@@ -110,7 +110,7 @@ export function MarkdownFieldInput({ field, value, onChange, error }: FieldInput
             onChange={(e) => onChange(e.target.value)}
             rows={10}
             placeholder={field.placeholder ?? t('write_markdown_placeholder')}
-            className="w-full p-3 text-sm font-mono resize-y focus:outline-none min-h-[200px]" style={{ backgroundColor: "var(--martis-input-bg)", color: "var(--martis-text)" }}
+            className="w-full p-3 text-sm font-mono resize-y focus:outline-none min-h-[200px]" style={{ backgroundColor: "var(--martis-input-bg)", color: "var(--martis-text)", border: "none" }}
           />
         )}
       </div>

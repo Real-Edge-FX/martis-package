@@ -29,7 +29,7 @@
     @if(config('martis.theme.name'))
         <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . config('martis.theme.name') . '.css') }}">
     @endif
-    @vite(['resources/js/app.tsx'], 'vendor/martis')
+    @vite(['resources/js/app.tsx'], 'martis/build')
 </head>
 <body>
     <div id="martis-root"></div>

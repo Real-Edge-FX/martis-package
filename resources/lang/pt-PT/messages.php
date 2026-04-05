@@ -41,4 +41,6 @@ return [
     'write' => 'Escrever',
     'preview' => 'Pré-visualizar',
     'write_markdown_placeholder' => 'Escreva o seu markdown aqui...',
+    'page_not_found' => 'Página não encontrada.',
+    'back_to_dashboard' => 'Voltar ao Dashboard',
 ];

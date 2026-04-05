@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/Login'
 import { DashboardPage } from '@/pages/Dashboard'
+import { NotFoundPage } from '@/pages/NotFound'
 import { BASE_PATH } from '@/lib/config'
 
 export const router = createBrowserRouter([
@@ -46,10 +47,11 @@ export const router = createBrowserRouter([
           return { element: <ResourceUpdatePage />, handle: { crumb: 'edit' } }
         },
       },
+      {
+        path: '*',
+        element: <NotFoundPage />,
+        handle: { crumb: '404' },
+      },
     ],
-  },
-  {
-    path: '*',
-    element: <LoginPage />,
   },
 ], { basename: BASE_PATH })

@@ -41,4 +41,6 @@ return [
     'write' => 'Write',
     'preview' => 'Preview',
     'write_markdown_placeholder' => 'Write your markdown here...',
+    'page_not_found' => 'Page not found.',
+    'back_to_dashboard' => 'Back to Dashboard',
 ];

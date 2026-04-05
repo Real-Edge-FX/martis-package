@@ -10,6 +10,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { NotFoundPage } from '@/pages/NotFound'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -123,11 +124,7 @@ export function ResourceIndexPage() {
   }
 
   if (schemaQuery.isError || !schema) {
-    return (
-      <div className="rounded-lg border p-6" style={{ borderColor: '#ef4444', backgroundColor: 'var(--martis-surface)', color: '#ef4444' }}>
-        {tMsg('error_schema')}
-      </div>
-    )
+    return <NotFoundPage />
   }
 
   const indexColumns = (schema.fieldsForIndex ?? [])

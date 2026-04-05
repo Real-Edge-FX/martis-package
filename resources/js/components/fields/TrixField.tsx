@@ -1,20 +1,90 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
-import { Eye, EyeSlash } from "@phosphor-icons/react"
+import { Eye, EyeSlash, X } from "@phosphor-icons/react"
 import { BASE_PATH } from "@/lib/config"
 import { useTranslation } from 'react-i18next'
 import "trix/dist/trix.css"
 import "trix"
 
+function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-4 right-4 text-white hover:text-gray-300 z-50"
+        aria-label="Close"
+      >
+        <X size={28} weight="bold" />
+      </button>
+      <img
+        src={src}
+        alt=""
+        className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  )
+}
+
 export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
   const { t } = useTranslation('messages')
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [modalSrc, setModalSrc] = useState<string | null>(null)
+
+  const ext = field as unknown as Record<string, unknown>
+  const imageClickBehavior = (ext.imageClickBehavior as string) || 'modal'
+
   if (value === null || value === undefined || value === "") {
     return <span className="martis-text-muted">&mdash;</span>
   }
 
-  const alwaysShow =
-    ((field as Record<string, unknown>).alwaysShow as boolean) ?? false
+  const alwaysShow = (ext.alwaysShow as boolean) ?? false
   const [expanded, setExpanded] = useState(alwaysShow)
+
+  // Intercept image clicks inside trix content
+  useEffect(() => {
+    if (!expanded || !contentRef.current) return
+
+    function handleClick(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      // Check if clicked element is an image or an anchor wrapping an image
+      let img: HTMLImageElement | null = null
+      if (target.tagName === 'IMG') {
+        img = target as HTMLImageElement
+      } else if (target.tagName === 'A' && target.querySelector('img')) {
+        img = target.querySelector('img')
+      }
+
+      if (!img) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      const src = img.src
+      if (imageClickBehavior === 'modal') {
+        setModalSrc(src)
+      } else if (imageClickBehavior === 'new_tab') {
+        window.open(src, '_blank', 'noopener')
+      }
+      // 'same_page' — default browser behavior (do nothing, let link navigate)
+    }
+
+    const el = contentRef.current
+    el.addEventListener('click', handleClick)
+    return () => el.removeEventListener('click', handleClick)
+  }, [expanded, imageClickBehavior])
 
   if (!expanded) {
     return (
@@ -42,9 +112,12 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
         </button>
       )}
       <div
+        ref={contentRef}
         className="martis-trix-detail prose dark:prose-invert max-w-none text-sm trix-content"
+        style={{ cursor: imageClickBehavior !== 'same_page' ? 'default' : undefined }}
         dangerouslySetInnerHTML={{ __html: String(value) }}
       />
+      {modalSrc && <ImageModal src={modalSrc} onClose={() => setModalSrc(null)} />}
     </div>
   )
 }
