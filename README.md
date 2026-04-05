@@ -162,13 +162,24 @@ Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `h
 | `Code` | Code editor with syntax highlighting and JSON mode |
 | `Color` | Color picker with hex value persistence |
 | `Markdown` | Markdown editor with preview, presets, and file uploads |
-| `Trix` | Rich-text HTML editor (Trix) with file uploads |
+| `Trix` | Rich-text HTML editor (Trix) with file uploads, toolbar size config, auto-protocol links |
 | `Country` | ISO 3166-1 country select with optional emoji flags (Martis extension) |
 | `Currency` | Monetary input with currency formatting, badge/text display modes (Martis extension) |
 | `Sparkline` | Inline SVG mini chart (line/bar) for trend visualization |
 | `Gravatar` | Avatar from Gravatar service based on email hash |
 
-All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `rules()`, `help()`, `withMeta()`, and PrimeReact prop passthrough. `displayAsLink()` is available on `BelongsTo` fields only.
+All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `rules()`, `help()`, `withMeta()`, and PrimeReact prop passthrough.
+
+#### Trix Configuration
+
+```php
+Trix::make('content')
+    ->withFiles('public')     // Enable file/image uploads
+    ->alwaysShow()            // Show content on detail without toggle
+    ->toolbarSize('sm')       // Toolbar button size: 'sm', 'md' (default), 'lg'
+```
+
+Links entered without a protocol (e.g. `www.google.com`) are automatically prefixed with `https://`. `displayAsLink()` is available on `BelongsTo` fields only.
 
 ### Authorization
 
