@@ -12,13 +12,13 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Boolean extends Field
 {
-    protected string $trueLabel = 'Yes';
+    protected ?string $trueLabel = null;
 
-    protected string $falseLabel = 'No';
+    protected ?string $falseLabel = null;
 
     public function type(): string
     {
-        return 'boolean';
+        return "boolean";
     }
 
     /**
@@ -65,8 +65,8 @@ class Boolean extends Field
     protected function extraAttributes(): array
     {
         return [
-            'trueLabel' => $this->trueLabel,
-            'falseLabel' => $this->falseLabel,
+            "trueLabel" => $this->trueLabel ?? __("martis::messages.yes"),
+            "falseLabel" => $this->falseLabel ?? __("martis::messages.no"),
         ];
     }
 }
