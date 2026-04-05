@@ -125,23 +125,14 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      // Use relatable endpoint when source resource context available
+      // Always use relatable endpoint - applies query hooks server-side (REA-1144)
       const endpoint = sourceResource
         ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=30${searchParam}`
-        : `/api/resources/${relatedResource}?per_page=30${searchParam}`
+        : `/api/resources/_/_/relatable/${field.attribute}?per_page=30&related_resource=${relatedResource}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
-      // Fall back to direct resource endpoint
-      try {
-        const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-        const res = await api.get<PaginatedResponse<RelatedRecord>>(
-          `/api/resources/${relatedResource}?per_page=30${searchParam}`,
-        )
-        setOptions(res.data ?? [])
-      } catch {
-        setOptions([])
-      }
+      setOptions([])
     } finally {
       setLoading(false)
     }

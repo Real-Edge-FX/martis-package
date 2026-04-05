@@ -526,39 +526,53 @@ class ResourceController extends MartisController
         string $id,
         string $fieldAttr,
     ): IlluminateJsonResponse {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        // Support context-free relatable calls (resource='_') with related_resource param.
+        // This allows relationship selectors to always use the relatable endpoint,
+        // even without source resource context (e.g. standalone forms). (REA-1144)
+        $hasSourceContext = $resource !== '_';
 
-        if ($error !== null) {
-            return $error;
-        }
-
-        /** @var class-string<resource> $resourceClass */
-        $instance = new $resourceClass;
-
-        if (! $instance->authorizedToViewAny($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
-        }
-
-        // Find the relationship field in the resource fields
-        $fields = $instance->fields($request);
+        /** @var class-string<resource>|null $resourceClass */
+        $resourceClass = null;
         $relationField = null;
-        foreach ($fields as $field) {
-            if ($field->attribute() === $fieldAttr) {
-                $relationField = $field;
-                break;
-            }
-        }
-
-        if ($relationField === null) {
-            return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();
-        }
-
-        // Determine the related resource class
         $relatedUriKey = null;
-        if ($relationField instanceof BelongsTo) {
-            $relatedUriKey = $this->getRelatedResourceKey($relationField);
-        } elseif ($relationField instanceof TagField) {
-            $relatedUriKey = $relationField->getRelatedResource();
+
+        if ($hasSourceContext) {
+            [$resourceClass, $error] = $this->resolveResource($resource);
+
+            if ($error !== null) {
+                return $error;
+            }
+
+            /** @var class-string<resource> $resourceClass */
+            $instance = new $resourceClass;
+
+            if (! $instance->authorizedToViewAny($request)) {
+                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            }
+
+            // Find the relationship field in the resource fields
+            $fields = $instance->fields($request);
+            foreach ($fields as $field) {
+                if ($field->attribute() === $fieldAttr) {
+                    $relationField = $field;
+                    break;
+                }
+            }
+
+            if ($relationField === null) {
+                return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();
+            }
+
+            // Determine the related resource class from the field
+            if ($relationField instanceof BelongsTo) {
+                $relatedUriKey = $this->getRelatedResourceKey($relationField);
+            } elseif ($relationField instanceof TagField) {
+                $relatedUriKey = $relationField->getRelatedResource();
+            }
+        } else {
+            // No source context - resolve related resource from query param
+            $rawRelated = $request->query('related_resource', '');
+            $relatedUriKey = is_string($rawRelated) ? $rawRelated : null;
         }
 
         if ($relatedUriKey === null || ! $this->registry->has($relatedUriKey)) {
@@ -575,13 +589,18 @@ class ResourceController extends MartisController
         $query = $relatedModelClass::query();
 
         // Apply relatable query hooks via central resolver
-        $query = RelationshipQueryResolver::resolve(
-            $resourceClass,
-            $relatedResourceClass,
-            $request,
-            $query,
-            $relationField,
-        );
+        if ($hasSourceContext && $resourceClass !== null) {
+            $query = RelationshipQueryResolver::resolve(
+                $resourceClass,
+                $relatedResourceClass,
+                $request,
+                $query,
+                $relationField,
+            );
+        } else {
+            // No source context - apply only the target's generic relatableQuery
+            $query = $relatedResourceClass::relatableQuery($request, $query);
+        }
 
         // Apply search if provided
         $rawSearch = $request->query('search', '');

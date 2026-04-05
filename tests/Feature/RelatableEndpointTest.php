@@ -366,3 +366,30 @@ test('schema endpoint still works after query hooks addition', function () {
     expect($data['uriKey'])->toBe('integration-authors');
     expect($data['fields'])->toBeArray();
 });
+
+// ---------------------------------------------------------------------------
+// Integration tests — context-free relatable (no source resource)
+// ---------------------------------------------------------------------------
+
+test('relatable endpoint works without source resource using related_resource param', function () {
+    $response = $this->getJson('/martis/api/resources/_/_/relatable/team_id?related_resource=integration-teams');
+
+    $response->assertOk();
+    $data = $response->json('data');
+
+    // Should apply IntegrationTeamResource::relatableQuery (is_active = true)
+    expect($data)->toHaveCount(1);
+    expect($data[0]['name'])->toBe('Active Team');
+});
+
+test('context-free relatable returns 404 for unknown related_resource', function () {
+    $response = $this->getJson('/martis/api/resources/_/_/relatable/field?related_resource=nonexistent');
+
+    $response->assertNotFound();
+});
+
+test('context-free relatable returns 404 when no related_resource param', function () {
+    $response = $this->getJson('/martis/api/resources/_/_/relatable/field');
+
+    $response->assertNotFound();
+});

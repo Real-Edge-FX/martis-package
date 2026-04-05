@@ -123,23 +123,14 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      // Use relatable endpoint when we have resource context (applies query hooks)
+      // Always use relatable endpoint - applies query hooks server-side (REA-1144)
       const endpoint = sourceResource
         ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=20${searchParam}`
-        : `/api/resources/${relatedResource}?per_page=20${searchParam}`
+        : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${relatedResource}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
-      // Fall back to standard resource endpoint if relatable fails
-      try {
-        const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-        const res = await api.get<PaginatedResponse<RelatedRecord>>(
-          `/api/resources/${relatedResource}?per_page=20${searchParam}`
-        )
-        setOptions(res.data ?? [])
-      } catch {
-        setOptions([])
-      }
+      setOptions([])
     } finally {
       setLoading(false)
     }
