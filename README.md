@@ -261,13 +261,13 @@ make ci          # Full CI: lint + typecheck + PHPStan + tests
 
 ## Documentation
 
-Documentation is built into the codebase:
-
-- **Configuration:** See `config/martis.php` for all configurable options
-- **Fields:** See `src/Fields/` for all available field types and their API
-- **Resources:** See `src/Resource.php` and `src/Contracts/ResourceContract.php`
-- **Artisan Commands:** Run `php artisan list martis` for all available commands
-- **API Docs:** Install Scramble for auto-generated OpenAPI docs at `/docs/api`
+- [Installation Guide](docs/installation-guide.md)
+- [Tutorial (PT-BR)](docs/tutorial-pt-br.md)
+- [API Overview](docs/api/overview.md)
+- [Override System](docs/overrides.md)
+- [Fields Reference](docs/fields.md)
+- [Resources Reference](docs/resources.md)
+- [Nova v5 Parity Map](docs/PARITY_MAP.md)
 
 ## License
 
