@@ -63,6 +63,7 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
         showClear={field.nullable}
         filter
         filterPlaceholder={t('search')}
+        emptyFilterMessage={t('no_results_found')}
         className="w-full"
       />
       {error && <small className="text-red-500">{error}</small>}

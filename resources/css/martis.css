@@ -493,6 +493,11 @@ html.dark body {
 html:not(.dark) .p-component {
   color-scheme: light;
 }
+
+html:not(.dark),
+html:not(.dark) body {
+  color-scheme: light;
+}
 html:not(.dark) .p-inputtext {
   background-color: var(--martis-input-bg);
   color: var(--martis-text);
@@ -1289,6 +1294,11 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   color: #ffffff;
   border-radius: 0.25rem;
   padding: 0.375rem 0.75rem;
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  max-height: none !important;
+  white-space: nowrap;
   font-size: 0.75rem;
   height: auto;
   border: none;
@@ -1590,3 +1600,80 @@ input[type="color"]::-webkit-color-swatch {
   height: 2rem;
   max-height: 2rem;
 }
+
+/* == Fix: Trix attachment caption editor — theme-aware (REA-1163 v2) ======
+   The caption editor input inside figure.attachment needs theme colors.
+   ======================================================================= */
+
+.martis-trix-wrapper trix-editor figure.attachment .attachment__caption-editor {
+  color: var(--martis-text-muted);
+  background-color: transparent;
+  border: none;
+  outline: none;
+}
+
+.martis-trix-wrapper trix-editor figure.attachment figcaption {
+  color: var(--martis-text-muted);
+  background-color: var(--martis-surface);
+  border-top: 1px solid var(--martis-border);
+}
+
+html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
+  background-color: #f9fafb;
+}
+
+/* == Fix: Trix dialog link-fields layout — prevent button overflow ========
+   Ensure the link dialog buttons wrap properly and don't overflow.
+   ======================================================================= */
+
+.martis-trix-wrapper trix-toolbar .trix-dialog__link-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+
+/* == Trix toolbar size variants — user-configurable via toolbarSize() =====
+   sm = compact, md = default, lg = large.
+   ======================================================================= */
+
+.martis-trix-toolbar-sm .trix-button {
+  width: 1.5rem !important;
+  max-width: 1.5rem !important;
+  height: 1.5rem !important;
+  max-height: 1.5rem !important;
+  padding: 0.25rem !important;
+}
+
+.martis-trix-toolbar-sm .trix-button::before {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+  max-width: 0.75rem !important;
+  max-height: 0.75rem !important;
+}
+
+.martis-trix-toolbar-lg .trix-button {
+  width: 2.5rem !important;
+  max-width: 2.5rem !important;
+  height: 2.5rem !important;
+  max-height: 2.5rem !important;
+  padding: 0.5rem !important;
+}
+
+.martis-trix-toolbar-lg .trix-button::before {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  max-width: 1.25rem !important;
+  max-height: 1.25rem !important;
+}
+
+/* Dialog buttons inside sized toolbars — always auto width */
+.martis-trix-toolbar-sm .trix-dialog .trix-button,
+.martis-trix-toolbar-lg .trix-dialog .trix-button {
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  max-height: none !important;
+}
+

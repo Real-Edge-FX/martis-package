@@ -27,6 +27,8 @@ class Trix extends Field
 
     protected ?string $withFilesDisk = null;
 
+    protected ?string $toolbarSize = null;
+
     public function type(): string
     {
         return 'trix';
@@ -63,6 +65,18 @@ class Trix extends Field
         return $this;
     }
 
+    /**
+     * Set toolbar button size: 'sm', 'md' (default), or 'lg'.
+     *
+     * Usage: Trix::make('content')->toolbarSize('sm')
+     */
+    public function toolbarSize(string $size): static
+    {
+        $this->toolbarSize = $size;
+
+        return $this;
+    }
+
     public function isAlwaysShow(): bool
     {
         return $this->alwaysShow;
@@ -81,6 +95,7 @@ class Trix extends Field
         return array_filter([
             'alwaysShow' => $this->alwaysShow,
             'withFiles' => $this->withFilesDisk,
+            'toolbarSize' => $this->toolbarSize,
         ], fn ($v) => $v !== null && $v !== false);
     }
 }

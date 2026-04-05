@@ -108,6 +108,27 @@ export function TrixFieldInput({
           inp.setAttribute("type", "text")
           inp.setAttribute("placeholder", "Enter a URL\u2026")
         })
+
+        // Auto-prepend https:// for URLs without a protocol
+        const linkBtn = toolbar.querySelector('.trix-dialog .trix-button[data-trix-method="setAttribute"]')
+        if (linkBtn) {
+          linkBtn.addEventListener("click", () => {
+            const urlInput = toolbar.querySelector('.trix-dialog input[name="href"]') as HTMLInputElement
+              || toolbar.querySelector('.trix-dialog input[type="text"]') as HTMLInputElement
+            if (urlInput && urlInput.value && !/^(https?|mailto|tel|ftp):/i.test(urlInput.value)) {
+              urlInput.value = "https://" + urlInput.value
+            }
+          }, true) // capture phase - runs before Trix reads the value
+        }
+      }
+
+      // Apply toolbar size from field config
+      const toolbarSize = (field as Record<string, unknown>).toolbarSize as string | undefined
+      if (toolbarSize) {
+        const tb = (editor as HTMLElement).previousElementSibling as HTMLElement
+        if (tb) {
+          tb.classList.add("martis-trix-toolbar-" + toolbarSize)
+        }
       }
     })
 
