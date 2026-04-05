@@ -18,7 +18,7 @@ class Boolean extends Field
 
     public function type(): string
     {
-        return "boolean";
+        return 'boolean';
     }
 
     /**
@@ -65,8 +65,8 @@ class Boolean extends Field
     protected function extraAttributes(): array
     {
         return [
-            "trueLabel" => $this->trueLabel ?? __("martis::messages.yes"),
-            "falseLabel" => $this->falseLabel ?? __("martis::messages.no"),
+            'trueLabel' => $this->trueLabel ?? __('martis::messages.yes'),
+            'falseLabel' => $this->falseLabel ?? __('martis::messages.no'),
         ];
     }
 }
