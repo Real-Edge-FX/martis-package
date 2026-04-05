@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Laravel\Scout\Searchable;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\ResourceContract;
 use Martis\Events\AfterDelete;
@@ -624,5 +625,61 @@ abstract class Resource implements ResourceContract
     public function afterDelete(Model $model, Request $request): void
     {
         AfterDelete::dispatch(static::class, $model, $request);
+    }
+
+    // -------------------------------------------------------------------------
+    // Scout integration — Nova v5 parity (REA-1157)
+    //
+    // When the underlying model uses Laravel\Scout\Searchable, the resource
+    // automatically uses Scout for searches. Override usesScout() to disable,
+    // scoutQuery() to customise the Scout builder, and $scoutSearchResults
+    // to limit Scout result count.
+    // -------------------------------------------------------------------------
+
+    /**
+     * Maximum number of results returned by Scout search.
+     *
+     * Nova v5 parity: public static $scoutSearchResults = 200;
+     * Set to null for Scout default behavior.
+     */
+    public static ?int $scoutSearchResults = null;
+
+    /**
+     * Determine whether this resource uses Laravel Scout for searching.
+     *
+     * By default, returns true when the associated model uses the
+     * Laravel\Scout\Searchable trait. Override to return false to
+     * force database search even when the model is Searchable.
+     *
+     * Nova v5 parity: public static function usesScout()
+     */
+    public static function usesScout(): bool
+    {
+        if (! trait_exists(Searchable::class)) {
+            return false;
+        }
+
+        return in_array(
+            Searchable::class,
+            class_uses_recursive(static::model()),
+            true
+        );
+    }
+
+    /**
+     * Customise the Scout builder before executing the search.
+     *
+     * Override this method to add constraints, filters or callbacks
+     * to the Scout builder. Only called when the resource is
+     * effectively using Scout (usesScout() returns true).
+     *
+     * Nova v5 parity: public static function scoutQuery(NovaRequest, ScoutBuilder): ScoutBuilder
+     *
+     * @param  mixed  $query  Scout builder instance
+     * @return mixed Scout builder instance
+     */
+    public static function scoutQuery(Request $request, mixed $query): mixed
+    {
+        return $query;
     }
 }

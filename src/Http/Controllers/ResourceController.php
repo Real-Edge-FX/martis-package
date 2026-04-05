@@ -24,6 +24,7 @@ use Martis\Http\Resources\JsonResponse;
 use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\SearchResolver;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -87,7 +88,9 @@ class ResourceController extends MartisController
         // Apply indexQuery hook — Nova v5 parity (REA-1144)
         $query = $resourceClass::indexQuery($request, $query);
 
-        $this->applySearch($request, $query, $resourceClass);
+        $rawSearch = $request->query('search', '');
+        $search = trim(is_string($rawSearch) ? $rawSearch : '');
+        SearchResolver::apply($request, $query, $resourceClass, $search);
         $this->applySorting($request, $query, $resourceClass);
 
         $perPage = min(
@@ -479,6 +482,7 @@ class ResourceController extends MartisController
             'icon' => $instance->icon(),
             'titleAttribute' => $resourceClass::titleAttribute(),
             'indexSearchable' => $resourceClass::indexSearchable(),
+            'usesScout' => $resourceClass::usesScout(),
             'perPageOptions' => $resourceClass::perPageOptions(),
             'perPage' => $resourceClass::perPage(),
             'searchPlaceholder' => $resourceClass::searchPlaceholder(),
@@ -776,38 +780,6 @@ class ResourceController extends MartisController
 
         /** @phpstan-ignore staticMethod.notFound */
         return $modelClass::find($id);
-    }
-
-    /**
-     * Apply search filter to the query.
-     *
-     * @param  class-string<resource>  $resourceClass
-     * @param  Builder<Model>  $query
-     */
-    private function applySearch(Request $request, Builder $query, string $resourceClass): void
-    {
-        $rawSearch = $request->query('search', '');
-        $search = trim(is_string($rawSearch) ? $rawSearch : '');
-
-        if ($search === '') {
-            return;
-        }
-
-        $instance = new $resourceClass;
-        $searchableFields = array_filter(
-            $instance->fields($request),
-            fn (FieldContract $field): bool => $field->isSearchable(),
-        );
-
-        if (empty($searchableFields)) {
-            return;
-        }
-
-        $query->where(function (Builder $q) use ($searchableFields, $search): void {
-            foreach ($searchableFields as $field) {
-                $q->orWhere($field->attribute(), 'like', "%{$search}%");
-            }
-        });
     }
 
     /**

@@ -13,7 +13,8 @@
         "phpstan/phpstan": "^2.0",
         "laravel/pint": "^1.0",
         "dedoc/scramble": "^0.12",
-        "orchestra/testbench": "^10.11"
+        "orchestra/testbench": "^10.11",
+        "laravel/scout": "^11.1"
     },
     "autoload": {
         "psr-4": {
@@ -38,5 +39,8 @@
         }
     },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "suggest": {
+        "laravel/scout": "Required for Scout search integration (auto-detected when model uses Searchable trait)"
+    }
 }

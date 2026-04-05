@@ -267,6 +267,28 @@ interface ResourceContract
     public static function validationMessage(): string;
 
     // -------------------------------------------------------------------------
+    // Scout integration — Nova v5 parity (REA-1157)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether this resource uses Laravel Scout for searching.
+     *
+     * Returns true when the associated model uses the Searchable trait
+     * and Scout has not been explicitly disabled.
+     */
+    public static function usesScout(): bool;
+
+    /**
+     * Customise the Scout builder before executing the search.
+     *
+     * Only called when the resource is effectively using Scout.
+     *
+     * @param  mixed  $query  Scout builder instance
+     * @return mixed Scout builder instance
+     */
+    public static function scoutQuery(Request $request, mixed $query): mixed;
+
+    // -------------------------------------------------------------------------
     // Serialization
     // -------------------------------------------------------------------------
 

@@ -174,6 +174,35 @@ Integrates with Laravel policies and gates. Per-resource and per-action authoriz
 
 Global search across resources and records. Per-resource search with configurable `indexSearchable()`. Debounced, grouped results with 2+ character threshold.
 
+#### Scout Integration (Nova v5 Parity)
+
+Martis supports [Laravel Scout](https://laravel.com/docs/scout) for full-text search. When a resource's model uses the `Searchable` trait, Martis automatically routes searches through Scout instead of database LIKE queries.
+
+**Automatic detection:** No configuration needed — just add the `Searchable` trait to your model.
+
+**Disable per resource:**
+```php
+public static function usesScout(): bool
+{
+    return false;
+}
+```
+
+**Custom Scout query:**
+```php
+public static function scoutQuery(Request $request, mixed $query): mixed
+{
+    return $query->where('status', 'published');
+}
+```
+
+**Limit Scout results:**
+```php
+public static ?int $scoutSearchResults = 50;
+```
+
+The `SearchResolver` class centralises the decision between Scout and database search. See `src/SearchResolver.php`.
+
 ### Localization
 
 Full i18n support via Laravel lang files. Ships with `pt-BR` and `en`, extensible to any locale.

@@ -23,4 +23,7 @@ return [
     'per_page' => 'Por página',
     'groups' => 'Grupos',
     'active' => 'Ativos',
+    'scout_active' => 'Pesquisa Scout ativa',
+    'scout_disabled' => 'Pesquisa Scout desativada',
+    'scout_search_placeholder' => 'Pesquisar com Scout…',
 ];
