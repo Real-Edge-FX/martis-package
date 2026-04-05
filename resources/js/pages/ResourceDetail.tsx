@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next"
 import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
+import { componentRegistry } from "@/lib/componentRegistry"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -64,6 +65,24 @@ export function ResourceDetailPage() {
 
   if (!record) {
     return <NotFoundPage />
+  }
+
+  // Check for detail override
+  if (schema.overrides?.detail) {
+    const OverrideComponent = componentRegistry.resolve(schema.overrides.detail.component)
+    if (OverrideComponent) {
+      const C = OverrideComponent as React.ComponentType<Record<string, unknown>>
+      return (
+        <C
+          schema={schema}
+          resource={resource}
+          record={record}
+          recordId={id}
+          params={schema.overrides.detail.params}
+          onClose={() => navigate(`/resources/${resource}`)}
+        />
+      )
+    }
   }
 
   const detailFields = schema.fieldsForDetail ?? []

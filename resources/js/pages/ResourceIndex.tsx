@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
+import { componentRegistry } from '@/lib/componentRegistry'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -29,6 +30,7 @@ export function ResourceIndexPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null)
+  const [showCreateOverride, setShowCreateOverride] = useState(false)
 
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
@@ -152,7 +154,13 @@ export function ResourceIndexPage() {
         </div>
         <button
           type="button"
-          onClick={() => navigate(`/resources/${resource}/create`)}
+          onClick={() => {
+            if (schema.overrides?.create) {
+              setShowCreateOverride(true)
+            } else {
+              navigate(`/resources/${resource}/create`)
+            }
+          }}
           className="rounded-lg px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           style={{ backgroundColor: 'var(--martis-accent)' }}
         >
@@ -234,6 +242,25 @@ export function ResourceIndexPage() {
           onPageChange={setPage}
         />
       )}
+
+      {/* Create override overlay */}
+      {showCreateOverride && schema.overrides?.create && (() => {
+        const OverrideComponent = componentRegistry.resolve(schema.overrides.create.component)
+        if (!OverrideComponent) return null
+        const C = OverrideComponent as React.ComponentType<Record<string, unknown>>
+        return (
+          <C
+            schema={schema}
+            resource={resource}
+            params={schema.overrides.create.params}
+            onClose={() => setShowCreateOverride(false)}
+            onCreated={() => {
+              setShowCreateOverride(false)
+              void qc.invalidateQueries({ queryKey: ['resources', resource] })
+            }}
+          />
+        )
+      })()}
 
       {/* Delete modal */}
       <DeleteModal

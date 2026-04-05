@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
 use Martis\Enums\ErrorDisplayMode;
 use Martis\Enums\TableSize;
@@ -562,6 +563,50 @@ abstract class Resource implements ResourceContract
         $msg = __('martis::messages.archive_confirm');
 
         return is_string($msg) ? $msg : 'This record will be archived. You can restore it later.';
+    }
+
+    // -------------------------------------------------------------------------
+    // Page overrides — allows consumer to replace entire pages with custom
+    // React components. Return null (default) to use built-in pages.
+    // -------------------------------------------------------------------------
+
+    /** Override the create page with a custom React component. */
+    public function overrideCreate(): ?OverrideContract
+    {
+        return null;
+    }
+
+    /** Override the update page with a custom React component. */
+    public function overrideUpdate(): ?OverrideContract
+    {
+        return null;
+    }
+
+    /** Override the detail page with a custom React component. */
+    public function overrideDetail(): ?OverrideContract
+    {
+        return null;
+    }
+
+    /** Override the index page with a custom React component. */
+    public function overrideIndex(): ?OverrideContract
+    {
+        return null;
+    }
+
+    /**
+     * Collect all page overrides for the schema API.
+     *
+     * @return array{create: array{component: string, params: array<string, mixed>}|null, update: array{component: string, params: array<string, mixed>}|null, detail: array{component: string, params: array<string, mixed>}|null, index: array{component: string, params: array<string, mixed>}|null}
+     */
+    public function overrides(): array
+    {
+        return [
+            'create' => $this->overrideCreate()?->toArray(),
+            'update' => $this->overrideUpdate()?->toArray(),
+            'detail' => $this->overrideDetail()?->toArray(),
+            'index' => $this->overrideIndex()?->toArray(),
+        ];
     }
 
     /** {@inheritDoc} */

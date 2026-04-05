@@ -513,6 +513,7 @@ class ResourceController extends MartisController
             ],
             'errorDisplay' => $resourceClass::errorDisplay()->value,
             'validationMessage' => $resourceClass::validationMessage(),
+            'overrides' => $instance->overrides(),
         ];
 
         return JsonResponse::make($data)->toResponse();

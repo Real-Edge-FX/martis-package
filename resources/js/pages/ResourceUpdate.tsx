@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
+import { componentRegistry } from '@/lib/componentRegistry'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -137,6 +138,30 @@ export function ResourceUpdatePage() {
 
   if (!record) {
     return <NotFoundPage />
+  }
+
+  // Check for update override
+  if (schema.overrides?.update) {
+    const OverrideComponent = componentRegistry.resolve(schema.overrides.update.component)
+    if (OverrideComponent) {
+      const C = OverrideComponent as React.ComponentType<Record<string, unknown>>
+      return (
+        <C
+          schema={schema}
+          resource={resource}
+          record={record}
+          recordId={id}
+          params={schema.overrides.update.params}
+          onClose={() => navigate(`/resources/${resource}/${id}`)}
+          onUpdated={() => {
+            void qc.invalidateQueries({ queryKey: ['resources', resource] })
+            void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
+            addToast('success', schema.messages?.updated ?? 'Record updated successfully.')
+            navigate(`/resources/${resource}/${id}`)
+          }}
+        />
+      )
+    }
   }
 
   // Back link: go to parent detail when via HasMany, otherwise to record detail

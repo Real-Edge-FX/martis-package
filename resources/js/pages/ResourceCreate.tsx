@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { componentRegistry } from '@/lib/componentRegistry'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -103,6 +104,27 @@ export function ResourceCreatePage() {
         {tMsg('error_schema')}
       </div>
     )
+  }
+
+  // Check for create override
+  if (schema.overrides?.create) {
+    const OverrideComponent = componentRegistry.resolve(schema.overrides.create.component)
+    if (OverrideComponent) {
+      const C = OverrideComponent as React.ComponentType<Record<string, unknown>>
+      return (
+        <C
+          schema={schema}
+          resource={resource}
+          params={schema.overrides.create.params}
+          onClose={() => navigate(`/resources/${resource}`)}
+          onCreated={(record: { id: string | number }) => {
+            void qc.invalidateQueries({ queryKey: ['resources', resource] })
+            addToast('success', schema.messages?.created ?? 'Record created successfully.')
+            navigate(`/resources/${resource}/${record.id}`)
+          }}
+        />
+      )
+    }
   }
 
   return (

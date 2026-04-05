@@ -17,6 +17,16 @@ import { initI18n } from '@/lib/i18n'
 // Register all default field renderers into the global component registry
 registerDefaultFields()
 
+// Load user-defined component overrides (if any)
+try {
+  // @ts-expect-error — @user alias may not exist in all consumer apps
+  import('@user/martis/boot').catch(() => {
+    // No user boot module — that's fine, use only defaults
+  })
+} catch {
+  // Static analysis fallback
+}
+
 function App() {
   return (
     <StrictMode>

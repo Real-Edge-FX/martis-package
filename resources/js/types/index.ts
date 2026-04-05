@@ -100,6 +100,12 @@ export interface ResourceMessages {
   archiveConfirm: string
 }
 
+
+export interface OverrideDefinition {
+  component: string
+  params: Record<string, unknown>
+}
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
@@ -118,6 +124,12 @@ export interface ResourceSchema extends ResourceEmbedded {
   tableShowGridlines?: boolean
   tableSize?: 'normal' | 'small' | 'large'
   tableRowHover?: boolean
+  overrides?: {
+    create?: OverrideDefinition | null
+    update?: OverrideDefinition | null
+    detail?: OverrideDefinition | null
+    index?: OverrideDefinition | null
+  }
 }
 
 export interface ResourceRecord {

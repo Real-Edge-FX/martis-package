@@ -291,6 +291,29 @@ interface ResourceContract
     public static function scoutQuery(Request $request, mixed $query): mixed;
 
     // -------------------------------------------------------------------------
+    // Page overrides
+    // -------------------------------------------------------------------------
+
+    /** Override the create page with a custom React component. */
+    public function overrideCreate(): ?OverrideContract;
+
+    /** Override the update page with a custom React component. */
+    public function overrideUpdate(): ?OverrideContract;
+
+    /** Override the detail page with a custom React component. */
+    public function overrideDetail(): ?OverrideContract;
+
+    /** Override the index page with a custom React component. */
+    public function overrideIndex(): ?OverrideContract;
+
+    /**
+     * Collect all page overrides for the schema API.
+     *
+     * @return array{create: array{component: string, params: array<string, mixed>}|null, update: array{component: string, params: array<string, mixed>}|null, detail: array{component: string, params: array<string, mixed>}|null, index: array{component: string, params: array<string, mixed>}|null}
+     */
+    public function overrides(): array;
+
+    // -------------------------------------------------------------------------
     // Serialization
     // -------------------------------------------------------------------------
 
