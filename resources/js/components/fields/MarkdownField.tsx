@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { marked } from 'marked'
+import { Eye, EyeSlash } from '@phosphor-icons/react'
 
 /**
  * Safely render Markdown to HTML using the configured preset approach.
@@ -38,8 +39,9 @@ export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline text-sm"
+        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
       >
+        <Eye size={16} weight="bold" />
         Show Content
       </button>
     )
@@ -51,9 +53,10 @@ export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 underline mb-2"
+          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mb-2"
         >
-          Hide Content
+          <EyeSlash size={16} weight="bold" />
+          Hide
         </button>
       )}
       <div
