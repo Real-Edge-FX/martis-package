@@ -22,6 +22,7 @@ export function ResourceUpdatePage() {
   const viaResourceId = searchParams.get('viaResourceId')
   const viaRelationship = searchParams.get('viaRelationship')
   const isViaHasMany = !!(viaResource && viaResourceId && viaRelationship)
+  const redirectMode = searchParams.get('redirectMode') ?? 'parent'
 
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
@@ -73,7 +74,7 @@ export function ResourceUpdatePage() {
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
       addToast('success', res.meta?.message ?? tMsg('record_updated'))
       // Navigate back to parent resource detail if editing via HasMany, otherwise to record detail
-      if (isViaHasMany) {
+      if (isViaHasMany && redirectMode === 'parent') {
         void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
         navigate(`/resources/${viaResource}/${viaResourceId}`)
       } else {

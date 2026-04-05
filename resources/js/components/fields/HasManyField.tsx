@@ -6,6 +6,7 @@ import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields'
 import { DeleteModal } from '@/components/DeleteModal'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { useTranslation } from 'react-i18next'
 import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown, CaretUpDown } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
@@ -27,20 +28,26 @@ export function HasManyFieldDisplay({ field, value }: FieldDisplayProps) {
 }
 
 /**
- * Index display — shows a count badge.
+ * Index display — shows a configurable count badge with optional icon.
+ * Configurable via:
+ *   ->badgeColor('#3b82f6')  — custom badge color
+ *   ->badgeIcon('newspaper') — icon next to count
  */
-export function HasManyFieldIndexDisplay({ field: _field, value }: FieldDisplayProps) {
+export function HasManyFieldIndexDisplay({ field, value }: FieldDisplayProps) {
   const count = typeof value === 'number' ? value : 0
+  const badgeColor = field.badgeColor as string | null
+  const badgeIcon = field.badgeIcon as string | null
 
   return (
     <span
-      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
       style={{
-        backgroundColor: 'var(--martis-surface)',
-        color: 'var(--martis-text)',
-        border: '1px solid var(--martis-border)',
+        backgroundColor: badgeColor ? `${badgeColor}15` : 'var(--martis-surface)',
+        color: badgeColor ?? 'var(--martis-text)',
+        border: `1px solid ${badgeColor ? `${badgeColor}40` : 'var(--martis-border)'}`,
       }}
     >
+      {badgeIcon && <ResourceIcon iconName={badgeIcon} size={12} />}
       {count}
     </span>
   )
@@ -49,6 +56,10 @@ export function HasManyFieldIndexDisplay({ field: _field, value }: FieldDisplayP
 /**
  * Detail display — full DataTable with search, sort, pagination, CRUD.
  * Uses PrimeReact DataTable and FieldDisplay for consistent appearance.
+ *
+ * P1: showRelationIcon / showRelationCount control header display
+ * P2: Uses related resource's searchPlaceholder
+ * P5: redirectAfterSave controls navigation after edit/create
  */
 function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const { t: tAct } = useTranslation('actions')
@@ -67,6 +78,9 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
 
   const relationship = field.relationship as string
   const relatedResource = field.relatedResource as string
+  const showRelationIcon = field.showRelationIcon !== false
+  const showRelationCount = field.showRelationCount !== false
+  const redirectAfterSave = (field.redirectAfterSave as string) ?? 'parent'
 
   // Extract parent context from the current URL
   const pathParts = window.location.pathname.split('/')
@@ -81,7 +95,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
   const [deleteTarget, setDeleteTarget] = useState<{ id: string | number; title?: string } | null>(null)
 
-  // Fetch related resource schema for column headers
+  // Fetch related resource schema for column headers, icon and searchPlaceholder
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
     queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`),
@@ -119,9 +133,21 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const schema = schemaQuery.data?.data
   const records = recordsQuery.data?.data ?? []
   const pagination = recordsQuery.data?.meta
+  const totalCount = pagination?.total ?? records.length
 
   const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
   const hasActions = meta?.canUpdate || meta?.canDelete
+
+  // P2: Use related resource's searchPlaceholder if available
+  const searchPlaceholder = (schema as unknown as { searchPlaceholder?: string })?.searchPlaceholder
+    ?? tMsg('search', 'Search...')
+
+  // P1: Related resource icon from schema
+  const relatedIcon = (schema as unknown as { icon?: string })?.icon
+
+  // Build redirect URL params based on redirectAfterSave mode
+  const viaBaseParams = `viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}`
+  const viaParams = `?${viaBaseParams}&redirectMode=${redirectAfterSave}`
 
   function handleSort(attribute: string) {
     if (sort === attribute) {
@@ -144,8 +170,23 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
     <div className="mt-6 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-          {field.label}
+        <h3 className="flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+          {showRelationIcon && relatedIcon && (
+            <ResourceIcon iconName={relatedIcon} size={20} />
+          )}
+          <span>{field.label}</span>
+          {showRelationCount && (
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+              style={{
+                backgroundColor: 'var(--martis-surface)',
+                color: 'var(--martis-text-muted)',
+                border: '1px solid var(--martis-border)',
+              }}
+            >
+              {totalCount}
+            </span>
+          )}
         </h3>
         <div className="flex items-center gap-2">
           {meta?.searchable && (
@@ -159,7 +200,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                 type="text"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                placeholder={tMsg('search', 'Search...')}
+                placeholder={searchPlaceholder}
                 className="has-many-search-input rounded-md border py-1.5 pl-8 pr-3 text-sm"
                 style={{
                   borderColor: 'var(--martis-border)',
@@ -173,7 +214,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             <button
               type="button"
               onClick={() => navigate(
-                `/resources/${relatedResource}/create?viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}`
+                `/resources/${relatedResource}/create${viaParams}`
               )}
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
               style={{ backgroundColor: 'var(--martis-accent)' }}
@@ -241,7 +282,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
               <div className="flex items-center justify-end gap-1">
                 {meta?.canUpdate && (
                   <Link
-                    to={`/resources/${relatedResource}/${row.id}/edit?viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}`}
+                    to={`/resources/${relatedResource}/${row.id}/edit${viaParams}`}
                     className="rounded p-1.5 transition-colors no-underline"
                     style={{ color: 'var(--martis-text-muted)' }}
                     title={tAct('edit', 'Edit')}

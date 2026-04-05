@@ -19,6 +19,7 @@ export function ResourceCreatePage() {
   const viaResourceId = searchParams.get('viaResourceId')
   const viaRelationship = searchParams.get('viaRelationship')
   const isViaHasMany = !!(viaResource && viaResourceId && viaRelationship)
+  const redirectMode = searchParams.get('redirectMode') ?? 'parent'
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
@@ -57,7 +58,7 @@ export function ResourceCreatePage() {
       setValues({})
       setErrors({})
       // Navigate to the newly created record
-      if (isViaHasMany) {
+      if (isViaHasMany && redirectMode === 'parent') {
         navigate(`/resources/${viaResource}/${viaResourceId}`)
       } else {
         navigate(`/resources/${resource}/${res.data.id}`)

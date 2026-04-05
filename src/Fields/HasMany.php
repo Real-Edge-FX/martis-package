@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
+use Martis\Enums\HasManyRedirectMode;
 
 /**
  * HasMany relationship field.
@@ -22,6 +23,9 @@ use Martis\Enums\HasManyIndexDisplay;
  *   HasMany::make('Posts', 'posts')
  *   HasMany::make('Comments', 'comments', CommentResource::class)
  *   HasMany::make('Posts')->showOnIndex()->indexDisplay(HasManyIndexDisplay::Count)
+ *   HasMany::make('Posts')->showRelationIcon(false)->showRelationCount(false)
+ *   HasMany::make('Posts')->badgeColor('#3b82f6')->badgeIcon('newspaper')
+ *   HasMany::make('Posts')->redirectAfterSave(HasManyRedirectMode::Detail)
  *
  * @phpstan-consistent-constructor
  */
@@ -55,6 +59,21 @@ class HasMany extends Field
 
     /** How to display the field on the index page. */
     protected HasManyIndexDisplay $indexDisplayMode = HasManyIndexDisplay::Count;
+
+    /** Whether to show the related resource icon on the section header. */
+    protected bool $showIcon = true;
+
+    /** Whether to show the count of related records on the section header. */
+    protected bool $showCount = true;
+
+    /** Custom badge color for index display (CSS color value). */
+    protected ?string $badgeColorValue = null;
+
+    /** Custom badge icon name (from icon set). */
+    protected ?string $badgeIconValue = null;
+
+    /** Where to redirect after saving a related record. */
+    protected HasManyRedirectMode $redirectMode = HasManyRedirectMode::Parent;
 
     protected function __construct(
         string $attribute,
@@ -170,6 +189,46 @@ class HasMany extends Field
         return $this;
     }
 
+    /** Configure whether to show the related resource icon on the section header. */
+    public function showRelationIcon(bool $value = true): static
+    {
+        $this->showIcon = $value;
+
+        return $this;
+    }
+
+    /** Configure whether to show the count of related records on the section header. */
+    public function showRelationCount(bool $value = true): static
+    {
+        $this->showCount = $value;
+
+        return $this;
+    }
+
+    /** Set a custom badge color for index display. */
+    public function badgeColor(string $color): static
+    {
+        $this->badgeColorValue = $color;
+
+        return $this;
+    }
+
+    /** Set a custom badge icon name for index display. */
+    public function badgeIcon(string $icon): static
+    {
+        $this->badgeIconValue = $icon;
+
+        return $this;
+    }
+
+    /** Configure where to redirect after saving a related record. */
+    public function redirectAfterSave(HasManyRedirectMode $mode): static
+    {
+        $this->redirectMode = $mode;
+
+        return $this;
+    }
+
     /** Return the Eloquent relationship method name. */
     public function getRelationship(): string
     {
@@ -234,6 +293,11 @@ class HasMany extends Field
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
             'indexDisplay' => $this->indexDisplayMode->value,
+            'showRelationIcon' => $this->showIcon,
+            'showRelationCount' => $this->showCount,
+            'badgeColor' => $this->badgeColorValue,
+            'badgeIcon' => $this->badgeIconValue,
+            'redirectAfterSave' => $this->redirectMode->value,
             'hasManyMeta' => [
                 'perPage' => $this->relationPerPage,
                 'perPageOptions' => $this->relationPerPageOptions,
