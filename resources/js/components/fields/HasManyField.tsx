@@ -93,7 +93,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const [perPage, setPerPage] = useState(meta?.perPage ?? 10)
   const [sort, setSort] = useState<string | null>(null)
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string | number; title?: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string | number } | null>(null)
 
   // Fetch related resource schema for column headers, icon and searchPlaceholder
   const schemaQuery = useQuery({
@@ -305,7 +305,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                 {meta?.canDelete && (
                   <button
                     type="button"
-                    onClick={() => setDeleteTarget({ id: row.id as string | number, title: (row._title ?? row.id) as string })}
+                    onClick={() => setDeleteTarget({ id: row.id as string | number })}
                     className="rounded p-1.5 transition-colors"
                     style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                     title={tAct('delete', 'Delete')}
@@ -389,7 +389,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
       {/* Delete confirmation modal */}
       <DeleteModal
         open={deleteTarget !== null}
-        resourceLabel={deleteTarget?.title ? String(deleteTarget.title) : (schema?.singularLabel ?? '')}
+        resourceLabel={schema?.singularLabel ?? ''}
         isSoftDelete={schema?.softDeletes ?? false}
         onConfirm={async () => {
           if (deleteTarget) {

@@ -91,7 +91,6 @@ function DefaultDeleteModal({
       style={{ width: '28rem' }}
       breakpoints={{ '640px': '90vw' }}
       modal
-      appendTo="self"
     >
       <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
         {confirmMessage ?? (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))}

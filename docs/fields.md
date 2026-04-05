@@ -411,6 +411,13 @@ HasMany::make('Comments', 'comments', CommentResource::class);
 // With configuration
 HasMany::make('Posts', 'posts')
     ->relatedResource('posts')
+    ->showOnIndex()                                  // Show on index (hidden by default)
+    ->indexDisplay(HasManyIndexDisplay::Count)        // Display as count badge on index
+    ->showRelationIcon(true)                         // Show related resource icon in header
+    ->showRelationCount(true)                        // Show count badge in section header
+    ->badgeColor('#3b82f6')                          // Custom badge color (CSS value)
+    ->badgeIcon('newspaper')                         // Custom badge icon name
+    ->redirectAfterSave(HasManyRedirectMode::Parent)  // Redirect: ::Parent or ::Detail
     ->perPage(25)
     ->perPageOptions([10, 25, 50, 100])
     ->canCreate(true)
@@ -431,6 +438,13 @@ HasMany::make('Posts', 'posts')
 | `getRelationship` | `getRelationship(): string` | Return the Eloquent relationship method name. | — |
 | `getRelatedResourceKey` | `getRelatedResourceKey(): ?string` | Return the related resource URI key. | — |
 | `validateRelationship` | `validateRelationship(Model $model): void` | Validate the Eloquent relationship exists and is a `hasMany`. Throws `InvalidArgumentException`. | — |
+| `showOnIndex` | `showOnIndex(): static` | Show a count badge on the index page. | `false` |
+| `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | Index display mode. | `Count` |
+| `showRelationIcon` | `showRelationIcon(bool $show = true): static` | Show related resource icon in section header. | `true` |
+| `showRelationCount` | `showRelationCount(bool $show = true): static` | Show count badge in section header. | `true` |
+| `badgeColor` | `badgeColor(string $color): static` | Custom badge color on index page. | `null` |
+| `badgeIcon` | `badgeIcon(string $icon): static` | Custom badge icon on index page. | `null` |
+| `redirectAfterSave` | `redirectAfterSave(HasManyRedirectMode $mode): static` | Navigate after create/edit of related record. | `Parent` |
 
 **API endpoints:**
 - `GET /api/resources/{resource}/{id}/has-many/{relationship}` — list with search, sort, pagination
