@@ -185,6 +185,37 @@ Trix::make('content')
 
 Links entered without a protocol (e.g. `www.google.com`) are automatically prefixed with `https://`. `displayAsLink()` is available on `BelongsTo` fields only.
 
+#### HasMany Configuration
+
+```php
+use Martis\Enums\HasManyIndexDisplay;
+use Martis\Enums\HasManyRedirectMode;
+
+HasMany::make("Posts")
+    ->showOnIndex()                                  // Show on index (hidden by default)
+    ->indexDisplay(HasManyIndexDisplay::Count)        // Display as count badge on index
+    ->showRelationIcon(true)                         // Show related resource icon in header
+    ->showRelationCount(true)                        // Show count badge in section header
+    ->badgeColor("#3b82f6")                          // Custom badge color (CSS value)
+    ->badgeIcon("newspaper")                         // Custom badge icon name
+    ->redirectAfterSave(HasManyRedirectMode::Parent)  // Redirect after save: ::Parent or ::Detail
+    ->perPage(10)                                    // Default rows per page
+    ->perPageOptions([5, 10, 25, 50])                // Per-page selector options
+    ->canCreate(true)                                // Show "Create" button
+    ->canUpdate(true)                                // Show edit actions
+    ->canDelete(true)                                // Show delete actions
+    ->relationSearchable(true)                       // Enable search in inline listing
+```
+
+Signature: `HasMany::make(string $name, ?string $relationship = null, ?string $relatedResourceClass = null)`
+
+- `$name` — Display label (also used to infer the Eloquent relationship method)
+- `$relationship` — Explicit relationship method name (optional)
+- `$relatedResourceClass` — Related resource class for URI key resolution (optional)
+
+HasMany fields are **detail-only by default** (Nova v5 behavior). Use `->showOnIndex()` to display a count badge on the index page. The inline DataTable on the detail page supports pagination, search, sorting, and full CRUD of related records within the parent context.
+
+
 ### Enums (Type-Safe Parameters)
 
 All methods that accept a fixed set of values use PHP 8.1+ backed enums instead of strings. This provides IDE autocomplete, type-safety, and prevents invalid values at compile time.
@@ -202,6 +233,8 @@ All methods that accept a fixed set of values use PHP 8.1+ backed enums instead 
 | `ChartType` | Line, Bar | Sparkline |
 | `TableSize` | Normal, Small, Large | Resource |
 | `ErrorDisplayMode` | Inline, Toast, Both | Resource |
+| `HasManyIndexDisplay` | Count | HasMany |
+| `HasManyRedirectMode` | Parent, Detail | HasMany |
 
 All enums live in the `Martis\Enums` namespace:
 
