@@ -1677,3 +1677,72 @@ html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   max-height: none !important;
 }
 
+/* == Fix: Trix caption font consistency (REA-1163 v3) =====================
+   The caption editor (input) and the display caption must use the same
+   font so text doesn't visually shift between editing and saved state.
+   ======================================================================= */
+
+.martis-trix-wrapper trix-editor figure.attachment figcaption {
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.martis-trix-wrapper trix-editor figure.attachment .attachment__caption-editor {
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.martis-trix-wrapper trix-editor figure.attachment .attachment__caption {
+  font-family: inherit;
+}
+
+.martis-trix-wrapper trix-editor figure.attachment .attachment__name {
+  color: var(--martis-text-muted);
+  font-size: 0.6875rem;
+}
+
+/* == Fix: Trix toolbar buttons — icon centering (REA-1163 v3) =============
+   Default Trix uses float:left + absolute positioning for icons.
+   Override with transform-based centering for pixel-perfect alignment.
+   ======================================================================= */
+
+.martis-trix-wrapper trix-toolbar .trix-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  align-items: stretch;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button-group {
+  display: inline-flex !important;
+  align-items: stretch;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button {
+  float: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button--icon {
+  text-indent: -9999px;
+  overflow: hidden;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button--icon::before {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%);
+  width: 1rem !important;
+  height: 1rem !important;
+  max-width: 1rem !important;
+  max-height: 1rem !important;
+}
