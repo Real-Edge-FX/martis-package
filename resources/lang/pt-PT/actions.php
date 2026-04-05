@@ -21,4 +21,5 @@ return [
     'next' => 'Seguinte',
     'previous' => 'Anterior',
     'run_action' => 'Executar Ação',
+    'actions' => 'Ações',
 ];

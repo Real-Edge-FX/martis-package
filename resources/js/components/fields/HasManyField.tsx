@@ -119,7 +119,7 @@ export function HasManyFieldDisplay({ field }: FieldDisplayProps) {
                 type="text"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                placeholder={tAct('search', 'Search...')}
+                placeholder={tMsg('search', 'Search...')}
                 className="rounded-md border py-1.5 pl-8 pr-3 text-sm"
                 style={{
                   borderColor: 'var(--martis-border)',
@@ -207,7 +207,7 @@ export function HasManyFieldDisplay({ field }: FieldDisplayProps) {
                   className="px-4 py-8 text-center"
                   style={{ color: 'var(--martis-text-muted)' }}
                 >
-                  {tMsg('no_records', 'No records found.')}
+                  {tMsg('no_records_available', 'No records available.')}
                 </td>
               </tr>
             ) : (

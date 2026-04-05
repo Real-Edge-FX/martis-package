@@ -12,4 +12,6 @@ return [
     'archive' => 'Archive',
     'delete_permanent' => 'Delete permanently',
     'please_wait' => 'Please wait…',
+    'actions' => 'Actions',
+    'search' => 'Search',
 ];

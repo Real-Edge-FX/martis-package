@@ -12,4 +12,6 @@ return [
     'archive' => 'Arquivar',
     'delete_permanent' => 'Excluir permanentemente',
     'please_wait' => 'Aguarde…',
+    'actions' => 'Ações',
+    'search' => 'Buscar',
 ];
