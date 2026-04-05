@@ -1,17 +1,17 @@
-import { Link, useMatches } from "react-router-dom"
-import { ChevronRight, Home } from "lucide-react"
-import { useTranslation } from "react-i18next"
+import { Link, useMatches } from 'react-router-dom'
+import { ChevronRight, Home } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface BreadcrumbHandle {
   crumb?: string
 }
 
 export function Breadcrumbs() {
-  const { t } = useTranslation("navigation")
+  const { t } = useTranslation('navigation')
   const matches = useMatches()
   const crumbs = matches.filter(
     (m): m is typeof m & { handle: BreadcrumbHandle } =>
-      typeof (m.handle as BreadcrumbHandle | undefined)?.crumb === "string",
+      typeof (m.handle as BreadcrumbHandle | undefined)?.crumb === 'string',
   )
 
   return (
