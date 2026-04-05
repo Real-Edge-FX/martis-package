@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use WeakMap;
 
 /**
@@ -45,8 +46,11 @@ class DeferredRelationSync
         $deferred = self::$pending[$model] ?? [];
 
         foreach ($deferred as $relationship => $ids) {
+            $camelRelationship = Str::camel($relationship);
             if (method_exists($model, $relationship)) {
                 $model->{$relationship}()->sync($ids);
+            } elseif ($camelRelationship !== $relationship && method_exists($model, $camelRelationship)) {
+                $model->{$camelRelationship}()->sync($ids);
             }
         }
 

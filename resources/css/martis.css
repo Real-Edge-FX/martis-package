@@ -303,6 +303,28 @@ html.dark body {
   border-color: var(--martis-border);
 }
 
+/* PrimeReact Toast CSSTransition classes — required for auto-dismiss */
+.p-toast-message-enter {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+.p-toast-message-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+.p-toast-message-exit {
+  opacity: 1;
+  max-height: 200px;
+}
+.p-toast-message-exit-active {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  margin-bottom: 0;
+  transition: opacity 300ms, max-height 300ms, margin-bottom 300ms;
+}
+
 /* ── Menu popup — Fix text visibility ──────────────────────────── */
 .p-menu {
   background-color: var(--martis-card);

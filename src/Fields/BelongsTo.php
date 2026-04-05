@@ -189,10 +189,15 @@ class BelongsTo extends Field
             return null;
         }
 
-        // Attempt to load the related model via the relationship method
+        // Attempt to load the related model via the relationship method.
+        // Try both snake_case (e.g. current_team) and camelCase (e.g. currentTeam)
+        // since Eloquent conventions use camelCase for relationship methods.
         $related = null;
+        $camelRelationship = Str::camel($this->relationship);
         if (method_exists($model, $this->relationship)) {
             $related = $model->{$this->relationship};
+        } elseif ($camelRelationship !== $this->relationship && method_exists($model, $camelRelationship)) {
+            $related = $model->{$camelRelationship};
         }
 
         return [
@@ -208,11 +213,19 @@ class BelongsTo extends Field
      */
     protected function resolveMultiple(Model $model): array
     {
-        if (! method_exists($model, $this->relationship)) {
+        $camelRelationship = Str::camel($this->relationship);
+        $method = null;
+        if (method_exists($model, $this->relationship)) {
+            $method = $this->relationship;
+        } elseif ($camelRelationship !== $this->relationship && method_exists($model, $camelRelationship)) {
+            $method = $camelRelationship;
+        }
+
+        if ($method === null) {
             return [];
         }
 
-        $related = $model->{$this->relationship};
+        $related = $model->{$method};
 
         if ($related === null) {
             return [];
