@@ -9,6 +9,7 @@ import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
+import { NotFoundPage } from "@/pages/NotFound"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -57,12 +58,12 @@ export function ResourceDetailPage() {
     return <DetailSkeleton />
   }
 
-  if (!schema || !record) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
-        {tMsg("record_not_found")}
-      </div>
-    )
+  if (!schema) {
+    return <NotFoundPage />
+  }
+
+  if (!record) {
+    return <NotFoundPage />
   }
 
   const detailFields = schema.fieldsForDetail ?? []

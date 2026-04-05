@@ -78,6 +78,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | API Throttle
+    |--------------------------------------------------------------------------
+    | Configure rate limiting for the Martis API routes.
+    | Set enabled to false to disable throttling entirely.
+    | max_attempts = maximum requests per decay_minutes window.
+    */
+    'throttle' => [
+        'enabled' => env('MARTIS_THROTTLE_ENABLED', true),
+        'max_attempts' => (int) env('MARTIS_THROTTLE_MAX', 120),
+        'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Theme
     |--------------------------------------------------------------------------
     | Configure the default theme and whether users can toggle between themes.

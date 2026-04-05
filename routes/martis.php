@@ -39,7 +39,7 @@ Route::middleware(config('martis.middleware', ['web']))
                 // API routes
                 Route::prefix('api')
                     ->name('api.')
-                    ->middleware(config('martis.api_middleware', ['throttle:300,1']))
+                    ->middleware(config('martis.throttle.enabled', true) ? 'throttle:' . config('martis.throttle.max_attempts', 120) . ',' . config('martis.throttle.decay_minutes', 1) : [])
                     ->group(function () {
                         Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
 

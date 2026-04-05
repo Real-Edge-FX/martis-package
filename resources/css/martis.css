@@ -1746,3 +1746,27 @@ html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   max-width: 1rem !important;
   max-height: 1rem !important;
 }
+
+/* == Fix: Dropdown empty-message + clear icon — light theme (REA-1166) ====
+   PrimeReact "No results found." text inherits white from dark theme.
+   Clear icon also invisible in light mode.
+   ======================================================================= */
+
+html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
+  color: var(--martis-text-muted) !important;
+  padding: 0.75rem 1rem;
+}
+
+html:not(.dark) .p-dropdown .p-dropdown-clear-icon {
+  color: var(--martis-text-muted) !important;
+}
+
+html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
+  color: var(--martis-text) !important;
+}
+
+/* Ensure clear icon is always visible in both themes */
+.p-dropdown .p-dropdown-clear-icon {
+  display: inline-flex !important;
+  right: 2.5rem;
+}
