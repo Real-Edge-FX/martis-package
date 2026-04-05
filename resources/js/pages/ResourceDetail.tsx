@@ -66,6 +66,8 @@ export function ResourceDetailPage() {
   }
 
   const detailFields = schema.fieldsForDetail ?? []
+  const scalarFields = detailFields.filter((f) => f.type !== 'has_many')
+  const hasManyFields = detailFields.filter((f) => f.type === 'has_many')
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
 
   return (
@@ -151,7 +153,7 @@ export function ResourceDetailPage() {
           className="martis-divide"
           style={{ borderColor: "var(--martis-border)" }}
         >
-          {detailFields.map((field) => (
+          {scalarFields.map((field) => (
             <div
               key={field.attribute}
               className="grid grid-cols-3 gap-4 px-6 py-4"
@@ -167,6 +169,11 @@ export function ResourceDetailPage() {
           ))}
         </dl>
       </div>
+
+      {/* HasMany relationship tables */}
+      {hasManyFields.map((field) => (
+        <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
+      ))}
 
       <DeleteModal
         open={showDelete}

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Martis\Http\Controllers\AttachmentController;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\DashboardController;
+use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ResourceController;
@@ -56,6 +57,16 @@ Route::middleware(config('martis.middleware', ['web']))
                         // Relatable options — Nova v5 parity (REA-1144)
                         Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
                             ->name('resources.relatable');
+
+                        // HasMany relationship CRUD — Nova v5 parity (REA-1109)
+                        Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])
+                            ->name('resources.has-many.index');
+                        Route::post('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'store'])
+                            ->name('resources.has-many.store');
+                        Route::put('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'update'])
+                            ->name('resources.has-many.update');
+                        Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
+                            ->name('resources.has-many.destroy');
 
                         Route::get('/resources/{resource}/{id}', [ResourceController::class, 'show'])
                             ->name('resources.show');

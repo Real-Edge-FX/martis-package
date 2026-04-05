@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { ResourceSchema } from '@/types'
@@ -14,6 +14,11 @@ export function ResourceCreatePage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { addToast } = useToast()
+  const [searchParams] = useSearchParams()
+  const viaResource = searchParams.get('viaResource')
+  const viaResourceId = searchParams.get('viaResourceId')
+  const viaRelationship = searchParams.get('viaRelationship')
+  const isViaHasMany = !!(viaResource && viaResourceId && viaRelationship)
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
@@ -34,6 +39,12 @@ export function ResourceCreatePage() {
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
+      if (isViaHasMany) {
+        return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(
+          `/api/resources/${viaResource}/${viaResourceId}/has-many/${viaRelationship}`,
+          data,
+        )
+      }
       if (hasFileValues(data)) {
         return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>('POST', `/api/resources/${resource}`, data)
       }
@@ -46,7 +57,11 @@ export function ResourceCreatePage() {
       setValues({})
       setErrors({})
       // Navigate to the newly created record
-      navigate(`/resources/${resource}/${res.data.id}`)
+      if (isViaHasMany) {
+        navigate(`/resources/${viaResource}/${viaResourceId}`)
+      } else {
+        navigate(`/resources/${resource}/${res.data.id}`)
+      }
     },
     onError: (err) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {

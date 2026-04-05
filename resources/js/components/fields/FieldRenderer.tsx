@@ -31,6 +31,7 @@ import { CountryFieldDisplay, CountryFieldInput } from './CountryField'
 import { CurrencyFieldDisplay, CurrencyFieldInput } from './CurrencyField'
 import { SparklineFieldDisplay, SparklineFieldInput } from './SparklineField'
 import { GravatarFieldDisplay, GravatarFieldInput } from './GravatarField'
+import { HasManyFieldDisplay, HasManyFieldInput } from './HasManyField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -66,6 +67,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   currency: CurrencyFieldDisplay,
   sparkline: SparklineFieldDisplay,
   gravatar: GravatarFieldDisplay,
+  has_many: HasManyFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -102,6 +104,7 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   currency: CurrencyFieldInput,
   sparkline: SparklineFieldInput,
   gravatar: GravatarFieldInput,
+  has_many: HasManyFieldInput,
 }
 
 // -------------------------------------------------------------------------
