@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Support\Str;
+use Martis\Enums\HasManyIndexDisplay;
 
 /**
  * HasMany relationship field.
@@ -13,14 +14,14 @@ use Illuminate\Support\Str;
  * detail page. Supports listing, pagination, search, sort, and CRUD of
  * related records within the parent context.
  *
- * Nova v5 parity: the field is shown ONLY on the detail page. It does not
- * appear on index, create or update forms — related records are managed via
- * their own dedicated endpoints.
+ * Nova v5 parity: the field is shown ONLY on the detail page by default.
+ * It can optionally be shown on the index page as a count badge.
  *
  * Usage:
  *   HasMany::make('Posts')
  *   HasMany::make('Posts', 'posts')
  *   HasMany::make('Comments', 'comments', CommentResource::class)
+ *   HasMany::make('Posts')->showOnIndex()->indexDisplay(HasManyIndexDisplay::Count)
  *
  * @phpstan-consistent-constructor
  */
@@ -51,6 +52,9 @@ class HasMany extends Field
 
     /** Whether the inline listing supports search. */
     protected bool $relationSearchable = true;
+
+    /** How to display the field on the index page. */
+    protected HasManyIndexDisplay $indexDisplayMode = HasManyIndexDisplay::Count;
 
     protected function __construct(
         string $attribute,
@@ -155,6 +159,17 @@ class HasMany extends Field
         return $this;
     }
 
+    /**
+     * Configure how the field displays on the index page.
+     * Use with ->showOnIndex() to make the field visible on index.
+     */
+    public function indexDisplay(HasManyIndexDisplay $mode): static
+    {
+        $this->indexDisplayMode = $mode;
+
+        return $this;
+    }
+
     /** Return the Eloquent relationship method name. */
     public function getRelationship(): string
     {
@@ -190,11 +205,15 @@ class HasMany extends Field
     }
 
     /**
-     * Resolve returns null — HasMany data is fetched via dedicated endpoints,
-     * not embedded in the parent resource response.
+     * Resolve returns null on detail (data fetched via endpoints).
+     * On index, returns the count of related records.
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
+        if ($this->showOnIndex) {
+            return $model->{$this->relationship}()->count();
+        }
+
         return null;
     }
 
@@ -214,6 +233,7 @@ class HasMany extends Field
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
+            'indexDisplay' => $this->indexDisplayMode->value,
             'hasManyMeta' => [
                 'perPage' => $this->relationPerPage,
                 'perPageOptions' => $this->relationPerPageOptions,

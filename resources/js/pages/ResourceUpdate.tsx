@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { ResourceRecord, ResourceSchema } from '@/types'
@@ -17,6 +17,11 @@ export function ResourceUpdatePage() {
   const { addToast } = useToast()
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const [searchParams] = useSearchParams()
+  const viaResource = searchParams.get('viaResource')
+  const viaResourceId = searchParams.get('viaResourceId')
+  const viaRelationship = searchParams.get('viaRelationship')
+  const isViaHasMany = !!(viaResource && viaResourceId && viaRelationship)
 
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
@@ -49,9 +54,6 @@ export function ResourceUpdatePage() {
       const initial: Record<string, unknown> = {}
       formFields.forEach((field) => {
         const val = record[field.attribute] ?? null
-        // BelongsTo fields return {id, title} from the API — keep the full
-        // object so the dropdown can display the label, and let the
-        // BelongsToFieldInput component extract the ID internally.
         initial[field.attribute] = val
       })
       setValues(initial)
@@ -70,7 +72,13 @@ export function ResourceUpdatePage() {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
       addToast('success', res.meta?.message ?? tMsg('record_updated'))
-      navigate(`/resources/${resource}/${id}`)
+      // Navigate back to parent resource detail if editing via HasMany, otherwise to record detail
+      if (isViaHasMany) {
+        void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
+        navigate(`/resources/${viaResource}/${viaResourceId}`)
+      } else {
+        navigate(`/resources/${resource}/${id}`)
+      }
     },
     onError: (err) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
@@ -130,12 +138,25 @@ export function ResourceUpdatePage() {
     return <NotFoundPage />
   }
 
+  // Back link: go to parent detail when via HasMany, otherwise to record detail
+  const backLink = isViaHasMany
+    ? `/resources/${viaResource}/${viaResourceId}`
+    : `/resources/${resource}/${id}`
+  const backLabel = isViaHasMany
+    ? `← ${viaResource} #${viaResourceId}`
+    : (record._title ? String(record._title) : `${schema.singularLabel} #${id}`)
+
+  // Cancel link: go back to parent if via HasMany
+  const cancelLink = isViaHasMany
+    ? `/resources/${viaResource}/${viaResourceId}`
+    : `/resources/${resource}/${id}`
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <Link
-          to={`/resources/${resource}/${id}`}
+          to={backLink}
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors no-underline"
           style={{
             color: "var(--martis-primary)",
@@ -146,7 +167,7 @@ export function ResourceUpdatePage() {
         >
           <ArrowLeft size={14} weight="bold" />
           <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
-          {record._title ? record._title : `${schema.singularLabel} #${id}`}
+          {backLabel}
         </Link>
         <span style={{ color: "var(--martis-text-muted)" }}>/</span>
         <span className="font-semibold" style={{ color: "var(--martis-text)" }}>
@@ -201,7 +222,7 @@ export function ResourceUpdatePage() {
               backgroundColor: "var(--martis-hover)",
             }}>
             <Link
-              to={`/resources/${resource}/${id}`}
+              to={cancelLink}
               className="rounded-md border px-4 py-2 text-sm font-medium no-underline"
               style={{
                 borderColor: "var(--martis-border)",
