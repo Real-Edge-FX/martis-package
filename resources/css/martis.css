@@ -1251,8 +1251,8 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
-.martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"]:invalid,
-.martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"]:invalid {
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"].martis-invalid,
+.martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"].martis-invalid {
   border-color: #ef4444;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
 }
@@ -1368,4 +1368,50 @@ html:not(.dark) .martis-trix-wrapper trix-toolbar {
 
 html:not(.dark) .martis-trix-wrapper trix-editor {
   background-color: #ffffff;
+}
+
+/* == Trix Detail View — Link Styling ====================================
+   Ensures links in rendered Trix HTML content (detail page) are visible
+   and distinguishable from regular text.
+   ======================================================================= */
+
+.martis-trix-detail a {
+  color: var(--martis-accent, #6366f1);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.martis-trix-detail a:hover {
+  color: var(--martis-accent-hover, #4f46e5);
+}
+
+html:not(.dark) .martis-trix-detail a {
+  color: #4f46e5;
+}
+
+html:not(.dark) .martis-trix-detail a:hover {
+  color: #4338ca;
+}
+
+/* == CodeMirror Dark Mode Fix ===========================================
+   Force CodeMirror container backgrounds to respect the Martis dark theme
+   when no explicit theme extension is loaded.
+   ======================================================================= */
+
+.cm-editor {
+  background-color: var(--martis-input-bg) !important;
+}
+
+.cm-editor .cm-gutters {
+  background-color: var(--martis-surface) !important;
+  border-right-color: var(--martis-border) !important;
+}
+
+html:not(.dark) .cm-editor {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .cm-editor .cm-gutters {
+  background-color: #f9fafb !important;
+  border-right-color: #e5e7eb !important;
 }
