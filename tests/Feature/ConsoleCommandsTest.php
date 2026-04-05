@@ -55,9 +55,9 @@ it('InstallCommand class is registered in the service provider', function () {
 // ---------------------------------------------------------------------------
 
 it('martis:resource generates a Resource class file', function () {
-    $path = app_path('Martis/PostResource.php');
+    $path = app_path('Martis/Resources/PostResource.php');
 
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis'));
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Resources'));
 
     $this->artisan('martis:resource', ['name' => 'Post'])->assertSuccessful();
 
@@ -66,23 +66,23 @@ it('martis:resource generates a Resource class file', function () {
     $contents = file_get_contents($path);
     expect($contents)
         ->toContain('class PostResource extends Resource')
-        ->toContain('namespace App\\Martis')
+        ->toContain('namespace App\\Martis\\Resources')
         ->toContain('return Post::class');
 })->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/PostResource.php'));
+    (new Filesystem)->delete(app_path('Martis/Resources/PostResource.php'));
 });
 
 it('martis:resource does not duplicate the Resource suffix', function () {
-    $path = app_path('Martis/CommentResource.php');
+    $path = app_path('Martis/Resources/CommentResource.php');
 
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis'));
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Resources'));
 
     $this->artisan('martis:resource', ['name' => 'CommentResource'])->assertSuccessful();
 
     expect(file_exists($path))->toBeTrue();
-    expect(file_exists(app_path('Martis/CommentResourceResource.php')))->toBeFalse();
+    expect(file_exists(app_path('Martis/Resources/CommentResourceResource.php')))->toBeFalse();
 })->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/CommentResource.php'));
+    (new Filesystem)->delete(app_path('Martis/Resources/CommentResource.php'));
 });
 
 it('ResourceMakeCommand is registered in the service provider', function () {

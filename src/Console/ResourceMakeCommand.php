@@ -22,7 +22,7 @@ class ResourceMakeCommand extends GeneratorCommand
 
     protected function getDefaultNamespace($rootNamespace): string
     {
-        return $rootNamespace.'\\Martis';
+        return $rootNamespace.'\\Martis\\Resources';
     }
 
     /**
