@@ -1142,6 +1142,21 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   border-right: none !important;
 }
 
+/* ── DataTable loading spinner fix (REA-1109) ────────────────────
+   PrimeReact DataTable loading spinner uses black by default.
+   Override to use --martis-accent for both themes.                 */
+.p-datatable .p-datatable-loading-overlay {
+  background-color: var(--martis-bg);
+  opacity: 0.7;
+}
+.p-datatable .p-datatable-loading-icon,
+.p-datatable .p-datatable-loading-icon svg {
+  color: var(--martis-accent, #6366f1) !important;
+  fill: var(--martis-accent, #6366f1);
+  width: 2rem;
+  height: 2rem;
+}
+
 /* ── DataTable size variants (REA-1140) ──────────────────────────
    .martis-datatable-sm / .martis-datatable-lg for compact/large    */
 .martis-datatable-sm .p-datatable-tbody > tr > td,
