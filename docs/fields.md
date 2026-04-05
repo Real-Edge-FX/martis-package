@@ -49,7 +49,7 @@ Every field type inherits these methods from `Martis\Fields\Field`.
 | `onlyOnForms` | `onlyOnForms(): static` | Visible only on create/update forms. |
 | `exceptOnForms` | `exceptOnForms(): static` | Visible everywhere except forms. |
 
-**Granular visibility resolution:** `showOnCreate` / `showOnUpdate` override `showOnForms` when set. The `isVisibleForContext($context)` method resolves the final visibility per context (`index`, `detail`, `create`, `update`, `inline-create`, `preview`).
+**Granular visibility resolution:** `showOnCreate` / `showOnUpdate` override `showOnForms` when set. The `isVisibleForContext(FieldContext $context)` method resolves the final visibility per context. See `FieldContext` enum.
 
 ### Sortable / Searchable
 
@@ -540,7 +540,7 @@ Tag::make('tags', 'Tags')
     ->withPreview()
     ->displayAsList()
     ->showCreateRelationButton()
-    ->modalSize('3xl')
+    ->modalSize(ModalSize::ThreeExtraLarge)
     ->preload();
 ```
 
@@ -610,16 +610,16 @@ Code editor with syntax highlighting and JSON mode. Hidden from index by default
 
 ```php
 Code::make('config')
-    ->language('json')
+    ->language(CodeLanguage::Javascript)
     ->json();
 
 Code::make('script')
-    ->language('php');
+    ->language(CodeLanguage::Php);
 ```
 
 | Method | Signature | Description | Default |
 |--------|-----------|-------------|---------|
-| `language` | `language(string $language): static` | Set syntax highlighting language. | `'javascript'` |
+| `language` | `language(CodeLanguage $language): static` | Set syntax highlighting language. See `CodeLanguage` enum (16 languages). | `CodeLanguage::Javascript` |
 | `json` | `json(): static` | Enable JSON mode: pretty-prints for editing, decodes on save. | `false` |
 
 **Supported languages:** `dockerfile`, `htmlmixed`, `javascript`, `markdown`, `nginx`, `php`, `ruby`, `sass`, `shell`, `sql`, `twig`, `vim`, `vue`, `xml`, `yaml-frontmatter`, `yaml`.
@@ -671,13 +671,13 @@ Monetary value input with currency formatting. Extends `Number`.
 
 ```php
 Currency::make('price')
-    ->currency('BRL')
+    ->currency(CurrencyCode::BRL)
     ->locale('pt_BR')
     ->asMinorUnits()
     ->min(0);
 
 Currency::make('revenue')
-    ->currency('USD')
+    ->currency(CurrencyCode::USD)
     ->showBadge()
     ->badgeColor('green');
 ```
@@ -686,11 +686,11 @@ Currency::make('revenue')
 
 | Method | Signature | Description | Default |
 |--------|-----------|-------------|---------|
-| `currency` | `currency(string $code): static` | Set ISO 4217 currency code. Auto-adjusts step based on decimals. | `'USD'` |
+| `currency` | `currency(CurrencyCode $code): static` | Set ISO 4217 currency code. See `CurrencyCode` enum (27 currencies). Auto-adjusts step based on decimals. | `CurrencyCode::USD` |
 | `locale` | `locale(string $locale): static` | Override app locale for formatting. | app locale |
 | `asMinorUnits` | `asMinorUnits(): static` | Treat stored value as minor units (cents). | `false` |
 | `asMajorUnits` | `asMajorUnits(): static` | Treat stored value as major units (dollars). | — |
-| `displayMode` | `displayMode(string $mode): static` | Display mode: `'text'`, `'badge'`, `'badge_text'`. Martis extension. | `'text'` |
+| `displayMode` | `displayMode(CurrencyDisplayMode $mode): static` | Display mode. See `CurrencyDisplayMode` enum (`Text`, `Badge`, `BadgeText`). Martis extension. | `CurrencyDisplayMode::Text` |
 | `showBadge` | `showBadge(): static` | Display as badge only. Martis extension. | — |
 | `showText` | `showText(): static` | Display as text only (default). Martis extension. | — |
 | `showBadgeText` | `showBadgeText(): static` | Display as badge + text. Martis extension. | — |
@@ -706,7 +706,7 @@ Markdown editor with live preview and optional file uploads. Hidden from index b
 
 ```php
 Markdown::make('content')
-    ->preset('default')
+    ->preset(MarkdownPreset::Default)
     ->alwaysShow()
     ->withFiles('s3');
 ```
@@ -714,7 +714,7 @@ Markdown::make('content')
 | Method | Signature | Description | Default |
 |--------|-----------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | Show rendered content on detail view instead of behind a toggle. | `false` |
-| `preset` | `preset(string $preset): static` | Markdown rendering preset: `'default'` (GFM), `'commonmark'`, `'zero'`. | `'default'` |
+| `preset` | `preset(MarkdownPreset $preset): static` | Markdown rendering preset. See `MarkdownPreset` enum (`Default`, `Commonmark`, `Zero`). | `MarkdownPreset::Default` |
 | `withFiles` | `withFiles(string $disk = 'public'): static` | Enable file uploads. Disk specifies storage. | disabled |
 
 **Storage:** Raw Markdown (not HTML). Frontend handles rendering.
@@ -731,14 +731,18 @@ Rich-text HTML editor (Trix) with file upload support. Hidden from index by defa
 Trix::make('bio')
     ->alwaysShow()
     ->withFiles('public')
-    ->toolbarSize('sm');
+    ->toolbarSize(ToolbarSize::Small)
+    ->imageClickBehavior(ClickBehavior::Modal)
+    ->linkClickBehavior(ClickBehavior::NewTab);
 ```
 
 | Method | Signature | Description | Default |
 |--------|-----------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | Show HTML content on detail view instead of behind a toggle. | `false` |
 | `withFiles` | `withFiles(string $disk = 'public'): static` | Enable file/image uploads in the editor. | disabled |
-| `toolbarSize` | `toolbarSize(string $size): static` | Toolbar button size: `'sm'`, `'md'`, `'lg'`. | `'md'` |
+| `toolbarSize` | `toolbarSize(ToolbarSize $size): static` | Toolbar button size. See `ToolbarSize` enum (`Small`, `Medium`, `Large`). | `null` |
+| `imageClickBehavior` | `imageClickBehavior(ClickBehavior $behavior): static` | Behavior when clicking images. See `ClickBehavior` enum (`Modal`, `NewTab`, `SamePage`). | `ClickBehavior::Modal` |
+| `linkClickBehavior` | `linkClickBehavior(ClickBehavior $behavior): static` | Behavior when clicking links. See `ClickBehavior` enum. | `ClickBehavior::SamePage` |
 
 **Storage:** Raw HTML.
 
