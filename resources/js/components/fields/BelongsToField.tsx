@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
@@ -111,23 +111,39 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     }
   }, [open])
 
-  // Fetch options from related resource API
+  // Get current resource context for relatable endpoint (REA-1144)
+  const params = useParams<{ resource?: string; id?: string }>()
+  const sourceResource = params.resource
+  const sourceId = params.id ?? '_'
+
+  // Fetch options from relatable endpoint (applies relatableQuery hooks)
   const fetchOptions = useCallback(async (query: string) => {
     if (!relatedResource) return
 
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      const res = await api.get<PaginatedResponse<RelatedRecord>>(
-        `/api/resources/${relatedResource}?per_page=20${searchParam}`
-      )
+      // Use relatable endpoint when we have resource context (applies query hooks)
+      const endpoint = sourceResource
+        ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=20${searchParam}`
+        : `/api/resources/${relatedResource}?per_page=20${searchParam}`
+      const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
-      setOptions([])
+      // Fall back to standard resource endpoint if relatable fails
+      try {
+        const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
+        const res = await api.get<PaginatedResponse<RelatedRecord>>(
+          `/api/resources/${relatedResource}?per_page=20${searchParam}`
+        )
+        setOptions(res.data ?? [])
+      } catch {
+        setOptions([])
+      }
     } finally {
       setLoading(false)
     }
-  }, [relatedResource])
+  }, [relatedResource, sourceResource, sourceId, field.attribute])
 
   // Load initial options when dropdown opens (search uses debounce separately)
   useEffect(() => {

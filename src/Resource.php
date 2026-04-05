@@ -2,6 +2,7 @@
 
 namespace Martis;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
@@ -126,6 +127,45 @@ abstract class Resource implements ResourceContract
     public static function searchPlaceholder(): ?string
     {
         return null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Query hooks — Nova v5 parity (REA-1144)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build a query for the resource index listing.
+     *
+     * Override this method to add tenant scoping, ownership filtering, or any
+     * other structural query constraint for the index (list) view. This is
+     * applied server-side before pagination and does NOT replace policies.
+     *
+     * Nova v5 parity: indexQuery(NovaRequest, Builder): Builder
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        return $query;
+    }
+
+    /**
+     * Build a query for relatable resource options.
+     *
+     * Override this method to filter which records appear in relationship
+     * selectors (BelongsTo dropdowns, Tag pickers, etc.). This is the
+     * generic fallback — for per-relationship customization, define
+     * relatable{PluralModelName}() instead.
+     *
+     * Nova v5 parity: relatableQuery(NovaRequest, Builder): Builder
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function relatableQuery(Request $request, Builder $query): Builder
+    {
+        return $query;
     }
 
     public function title(): string
@@ -260,6 +300,104 @@ abstract class Resource implements ResourceContract
     public function authorizedToDelete(Request $request): bool
     {
         return $this->checkPolicy('delete', $this->model);
+    }
+
+    // -------------------------------------------------------------------------
+    // Relational authorization — Nova v5 parity (REA-1144)
+    //
+    // These methods check Model Policy abilities for relationship operations.
+    // They coexist with relatableQuery / relatable{PluralModelName} hooks:
+    //   - Policy methods = authorization (can the user do this action?)
+    //   - Query hooks = structural filtering (which options are available?)
+    // One does NOT replace the other.
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether the user may attach ANY record of the given model type.
+     *
+     * Nova v5 parity: Policy method `attachAny{Model}`.
+     * If no policy is registered, returns true (permissive default).
+     */
+    public function authorizedToAttachAny(Request $request, string $relatedModelClass): bool
+    {
+        $ability = 'attachAny'.class_basename($relatedModelClass);
+
+        return $this->checkRelationalPolicy($ability, $relatedModelClass);
+    }
+
+    /**
+     * Determine whether the user may attach a specific related model.
+     *
+     * Nova v5 parity: Policy method `attach{Model}`.
+     */
+    public function authorizedToAttach(Request $request, Model $relatedModel): bool
+    {
+        $ability = 'attach'.class_basename($relatedModel);
+
+        return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
+    }
+
+    /**
+     * Determine whether the user may detach a specific related model.
+     *
+     * Nova v5 parity: Policy method `detach{Model}`.
+     */
+    public function authorizedToDetach(Request $request, Model $relatedModel): bool
+    {
+        $ability = 'detach'.class_basename($relatedModel);
+
+        return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
+    }
+
+    /**
+     * Determine whether the user may add a new record of the given model type
+     * (inline creation from a relationship field).
+     *
+     * Nova v5 parity: Policy method `add{Model}`.
+     */
+    public function authorizedToAdd(Request $request, string $relatedModelClass): bool
+    {
+        $ability = 'add'.class_basename($relatedModelClass);
+
+        return $this->checkRelationalPolicy($ability, $relatedModelClass);
+    }
+
+    /**
+     * Check a relational policy ability.
+     *
+     * When no policy exists for the source model, or the policy does not define
+     * the method, returns true (permissive default).
+     *
+     * @param  string  $ability  e.g. "attachTag", "detachUser", "addComment"
+     * @param  class-string<Model>  $relatedModelClass
+     * @param  Model|null  $relatedModel  Specific instance for attach/detach checks
+     */
+    protected function checkRelationalPolicy(
+        string $ability,
+        string $relatedModelClass,
+        ?Model $relatedModel = null,
+    ): bool {
+        $modelClass = static::model();
+
+        $policy = Gate::getPolicyFor($modelClass);
+        if ($policy === null) {
+            return true;
+        }
+
+        // If the policy does not define this specific method, allow by default
+        if (! method_exists($policy, $ability)) {
+            return true;
+        }
+
+        if ($this->model !== null && $relatedModel !== null) {
+            return Gate::allows($ability, [$this->model, $relatedModel]);
+        }
+
+        if ($this->model !== null) {
+            return Gate::allows($ability, [$this->model, $relatedModelClass]);
+        }
+
+        return Gate::allows($ability, $modelClass);
     }
 
     /**

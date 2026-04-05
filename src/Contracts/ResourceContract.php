@@ -2,6 +2,7 @@
 
 namespace Martis\Contracts;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
@@ -122,6 +123,32 @@ interface ResourceContract
     public function fieldsForPreview(Request $request): array;
 
     // -------------------------------------------------------------------------
+    // Query hooks — Nova v5 parity (REA-1144)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build a query for the resource index listing.
+     *
+     * Override to add tenant scoping, ownership filtering, or any structural
+     * query constraint applied server-side before pagination.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function indexQuery(Request $request, Builder $query): Builder;
+
+    /**
+     * Build a query for relatable resource options.
+     *
+     * Override to filter which records appear in relationship selectors.
+     * For per-relationship customization, define relatable{PluralModelName}() instead.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function relatableQuery(Request $request, Builder $query): Builder;
+
+    // -------------------------------------------------------------------------
     // Index configuration
     // -------------------------------------------------------------------------
 
@@ -173,6 +200,34 @@ interface ResourceContract
     public function authorizedToUpdate(Request $request): bool;
 
     public function authorizedToDelete(Request $request): bool;
+
+    // -------------------------------------------------------------------------
+    // Relational authorization — Nova v5 parity (REA-1144)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether the user may attach ANY record of the given type.
+     *
+     * @param  class-string<Model>  $relatedModelClass
+     */
+    public function authorizedToAttachAny(Request $request, string $relatedModelClass): bool;
+
+    /**
+     * Determine whether the user may attach a specific related model.
+     */
+    public function authorizedToAttach(Request $request, Model $relatedModel): bool;
+
+    /**
+     * Determine whether the user may detach a specific related model.
+     */
+    public function authorizedToDetach(Request $request, Model $relatedModel): bool;
+
+    /**
+     * Determine whether the user may add (inline create) a related model.
+     *
+     * @param  class-string<Model>  $relatedModelClass
+     */
+    public function authorizedToAdd(Request $request, string $relatedModelClass): bool;
 
     // -------------------------------------------------------------------------
     // Lifecycle hooks

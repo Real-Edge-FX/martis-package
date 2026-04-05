@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, X, Plus, Check } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
@@ -113,21 +114,38 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
     }
   }, [])
 
+  // Get current resource context for relatable endpoint (REA-1144)
+  const params = useParams<{ resource?: string; id?: string }>()
+  const sourceResource = params.resource
+  const sourceId = params.id ?? '_'
+
   const fetchOptions = useCallback(async (query: string) => {
     if (!relatedResource) return
+
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      const res = await api.get<PaginatedResponse<RelatedRecord>>(
-        `/api/resources/${relatedResource}?per_page=30${searchParam}`,
-      )
+      // Use relatable endpoint when source resource context available
+      const endpoint = sourceResource
+        ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=30${searchParam}`
+        : `/api/resources/${relatedResource}?per_page=30${searchParam}`
+      const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
-      setOptions([])
+      // Fall back to direct resource endpoint
+      try {
+        const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
+        const res = await api.get<PaginatedResponse<RelatedRecord>>(
+          `/api/resources/${relatedResource}?per_page=30${searchParam}`,
+        )
+        setOptions(res.data ?? [])
+      } catch {
+        setOptions([])
+      }
     } finally {
       setLoading(false)
     }
-  }, [relatedResource])
+  }, [relatedResource, sourceResource, sourceId, field.attribute])
 
   // Preload all options on mount if preload=true
   useEffect(() => {

@@ -53,6 +53,10 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->name('resources.index');
                         Route::post('/resources/{resource}', [ResourceController::class, 'store'])
                             ->name('resources.store');
+                        // Relatable options — Nova v5 parity (REA-1144)
+                        Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
+                            ->name('resources.relatable');
+
                         Route::get('/resources/{resource}/{id}', [ResourceController::class, 'show'])
                             ->name('resources.show');
                         Route::put('/resources/{resource}/{id}', [ResourceController::class, 'update'])

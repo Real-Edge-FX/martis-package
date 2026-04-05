@@ -13,12 +13,15 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
 use Martis\FieldContext;
+use Martis\Fields\BelongsTo;
 use Martis\Fields\DeferredRelationSync;
 use Martis\Fields\Field;
 use Martis\Fields\File;
+use Martis\Fields\Tag as TagField;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -80,6 +83,9 @@ class ResourceController extends MartisController
 
         /** @var Builder<Model> $query */
         $query = $modelClass::query();
+
+        // Apply indexQuery hook — Nova v5 parity (REA-1144)
+        $query = $resourceClass::indexQuery($request, $query);
 
         $this->applySearch($request, $query, $resourceClass);
         $this->applySorting($request, $query, $resourceClass);
@@ -499,6 +505,158 @@ class ResourceController extends MartisController
     }
 
     // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // Relatable — GET /api/{resource}/{id}/relatable/{field}
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return filtered options for a relationship field.
+     *
+     * Applies relatable query hooks (relatable{PluralModelName} or relatableQuery)
+     * so that relationship selectors respect server-side filtering.
+     *
+     * Nova v5 parity: relationship option endpoint with query hooks.
+     *
+     * Query params: search, per_page (default 20, max 100).
+     */
+    public function relatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $instance = new $resourceClass;
+
+        if (! $instance->authorizedToViewAny($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        // Find the relationship field in the resource fields
+        $fields = $instance->fields($request);
+        $relationField = null;
+        foreach ($fields as $field) {
+            if ($field->attribute() === $fieldAttr) {
+                $relationField = $field;
+                break;
+            }
+        }
+
+        if ($relationField === null) {
+            return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();
+        }
+
+        // Determine the related resource class
+        $relatedUriKey = null;
+        if ($relationField instanceof BelongsTo) {
+            $relatedUriKey = $this->getRelatedResourceKey($relationField);
+        } elseif ($relationField instanceof TagField) {
+            $relatedUriKey = $relationField->getRelatedResource();
+        }
+
+        if ($relatedUriKey === null || ! $this->registry->has($relatedUriKey)) {
+            return JsonErrorResponse::notFound('Related resource not found.')->toResponse();
+        }
+
+        /** @var class-string<resource> $relatedResourceClass */
+        $relatedResourceClass = $this->registry->get($relatedUriKey);
+
+        /** @var class-string<Model> $relatedModelClass */
+        $relatedModelClass = $relatedResourceClass::model();
+
+        /** @var Builder<Model> $query */
+        $query = $relatedModelClass::query();
+
+        // Apply relatable query hooks via central resolver
+        $query = RelationshipQueryResolver::resolve(
+            $resourceClass,
+            $relatedResourceClass,
+            $request,
+            $query,
+            $relationField,
+        );
+
+        // Apply search if provided
+        $rawSearch = $request->query('search', '');
+        $search = trim(is_string($rawSearch) ? $rawSearch : '');
+
+        if ($search !== '') {
+            $relatedInstance = new $relatedResourceClass;
+            $searchableFields = array_filter(
+                $relatedInstance->fields($request),
+                fn (FieldContract $field): bool => $field->isSearchable(),
+            );
+
+            if (empty($searchableFields)) {
+                $titleAttr = $relatedResourceClass::titleAttribute();
+                if ($titleAttr !== 'id') {
+                    $query->where($titleAttr, 'like', "%{$search}%");
+                }
+            } else {
+                $query->where(function (Builder $q) use ($searchableFields, $search): void {
+                    foreach ($searchableFields as $field) {
+                        $q->orWhere($field->attribute(), 'like', "%{$search}%");
+                    }
+                });
+            }
+        }
+
+        $perPage = min(
+            (int) ($request->query('per_page', '20')),
+            100,
+        );
+
+        $paginator = $query->paginate($perPage);
+
+        /** @var list<array<string, mixed>> $data */
+        $data = array_values(
+            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request): array {
+                $res = new $relatedResourceClass($model);
+
+                return $this->serializeModel(
+                    $res,
+                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX->value),
+                    $model,
+                );
+            })->all()
+        );
+
+        return JsonPaginatedResponse::make(
+            data: $data,
+            paginationMeta: [
+                'current_page' => $paginator->currentPage(),
+                'from' => $paginator->firstItem(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'to' => $paginator->lastItem(),
+                'total' => $paginator->total(),
+            ],
+            links: [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+        )->toResponse();
+    }
+
+    /**
+     * Extract the related resource URI key from a BelongsTo field.
+     */
+    private function getRelatedResourceKey(BelongsTo $field): ?string
+    {
+        $reflection = new \ReflectionProperty($field, 'relatedUriKey');
+
+        return $reflection->getValue($field);
+    }
+
     // Internal helpers
     // -------------------------------------------------------------------------
 
