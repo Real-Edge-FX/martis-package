@@ -256,6 +256,7 @@ Edit `config/martis.php` to configure:
 - Branding (name, logo)
 - Theme (dark/light mode defaults)
 - Authentication guard
+- **API Throttle** — configurable rate limiting (enable/disable, max attempts, decay window)
 
 ## UI & Frontend
 
