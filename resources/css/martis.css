@@ -1437,3 +1437,156 @@ html:not(.dark) .cm-editor .cm-gutters {
   background-color: #f9fafb !important;
   border-right-color: #e5e7eb !important;
 }
+
+
+/* == Bug 2+7: Global text selection — legible in both themes (REA-1163) ====
+   Without explicit selection colors, browser defaults can produce
+   dark-on-dark or light-on-light selection in the wrong theme.
+   ======================================================================= */
+
+::selection {
+  background-color: rgba(99, 102, 241, 0.25);
+  color: var(--martis-text);
+}
+
+html:not(.dark) ::selection {
+  background-color: rgba(99, 102, 241, 0.2);
+  color: #1e293b;
+}
+
+/* Textarea / code editors explicit selection */
+textarea::selection,
+.cm-editor .cm-content ::selection,
+.martis-trix-wrapper trix-editor ::selection {
+  background-color: rgba(99, 102, 241, 0.25);
+  color: var(--martis-text);
+}
+
+html:not(.dark) textarea::selection,
+html:not(.dark) .cm-editor .cm-content ::selection,
+html:not(.dark) .martis-trix-wrapper trix-editor ::selection {
+  background-color: rgba(99, 102, 241, 0.2);
+  color: #1e293b;
+}
+
+/* == Bug 4: Country dropdown — light theme panel background (REA-1163) ====
+   PrimeReact dropdown filter input and overlay inherit from dark theme.
+   Force proper light backgrounds on all dropdown sub-elements.
+   ======================================================================= */
+
+html:not(.dark) .p-dropdown-panel .p-dropdown-header {
+  background-color: var(--martis-surface);
+  border-bottom-color: var(--martis-border);
+}
+
+html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter {
+  background-color: var(--martis-input-bg);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+
+html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter::placeholder {
+  color: var(--martis-text-muted);
+}
+
+html:not(.dark) .p-dropdown .p-dropdown-label {
+  color: var(--martis-text);
+}
+
+html:not(.dark) .p-dropdown .p-dropdown-trigger {
+  color: var(--martis-text-muted);
+}
+
+/* Dropdown overlay — ensure it uses z-index above other elements */
+.p-dropdown-panel {
+  z-index: 1100 !important;
+}
+
+/* == Bug 5: CodeMirror — light theme active line & cursor (REA-1163) ======
+   The dark theme extension sets dark active-line highlight.
+   In light mode ensure visible but subtle active line.
+   ======================================================================= */
+
+html:not(.dark) .cm-editor .cm-activeLine {
+  background-color: rgba(99, 102, 241, 0.06) !important;
+}
+
+html:not(.dark) .cm-editor .cm-activeLineGutter {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+html:not(.dark) .cm-editor .cm-cursor {
+  border-left-color: #1e293b !important;
+}
+
+html:not(.dark) .cm-editor .cm-gutterElement {
+  color: var(--martis-text-muted) !important;
+}
+
+html:not(.dark) .cm-editor .cm-content {
+  color: var(--martis-text) !important;
+}
+
+/* CodeMirror selection in light mode */
+html:not(.dark) .cm-editor .cm-selectionBackground {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+.cm-editor .cm-selectionBackground {
+  background-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* == Bug 6: Color picker popup — light theme (REA-1163) ===================
+   Native color input popup doesn't need CSS, but the container border
+   and text should follow theme variables properly.
+   ======================================================================= */
+
+input[type="color"] {
+  border-color: var(--martis-border);
+  background-color: var(--martis-input-bg);
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--martis-border);
+  border-radius: 2px;
+}
+
+/* == Bug 8: Trix toolbar buttons — constrained sizing (REA-1163) ==========
+   Trix default CSS creates oversized toolbar buttons.
+   Constrain icons and button dimensions for a clean toolbar.
+   ======================================================================= */
+
+.martis-trix-wrapper trix-toolbar .trix-button::before {
+  width: 1rem;
+  height: 1rem;
+  max-width: 1rem;
+  max-height: 1rem;
+  background-size: contain;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button {
+  width: 2rem;
+  max-width: 2rem;
+  height: 2rem;
+  max-height: 2rem;
+  padding: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.martis-trix-wrapper trix-toolbar .trix-button-group {
+  display: inline-flex;
+}
+
+/* Trix file tools button group — also constrain */
+.martis-trix-wrapper trix-toolbar .trix-button-group--file-tools .trix-button {
+  width: 2rem;
+  max-width: 2rem;
+  height: 2rem;
+  max-height: 2rem;
+}

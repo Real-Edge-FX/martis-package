@@ -24,7 +24,7 @@ function isDarkMode(): boolean {
   if (typeof document === "undefined") return true
   const htmlEl = document.documentElement
   // Martis: dark is default (has .dark class or no .light class)
-  return !htmlEl.classList.contains("light") && (htmlEl.classList.contains("dark") || true)
+  return htmlEl.classList.contains("dark")
 }
 
 /**
@@ -86,7 +86,7 @@ export function CodeFieldDisplay({ field, value }: FieldDisplayProps) {
   }, [langExt, dark])
 
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
+    <div className="rounded overflow-hidden" style={{ border: "1px solid var(--martis-border)" }}>
       <CodeMirror
         value={String(value)}
         readOnly
@@ -119,7 +119,7 @@ export function CodeFieldInput({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+      <div className="rounded overflow-hidden" style={{ border: "1px solid var(--martis-border)" }}>
         <CodeMirror
           value={value === null || value === undefined ? "" : String(value)}
           onChange={(val) => onChange(val)}

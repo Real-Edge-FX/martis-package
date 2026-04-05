@@ -18,7 +18,7 @@ function getShowFlags(field: Record<string, unknown>): boolean {
 
 export function CountryFieldDisplay({ field, value }: FieldDisplayProps) {
   if (value === null || value === undefined || value === '') {
-    return <span className="text-gray-400 dark:text-gray-500">—</span>
+    return <span className="martis-text-muted">—</span>
   }
 
   const ext = field as unknown as Record<string, unknown>
@@ -30,7 +30,7 @@ export function CountryFieldDisplay({ field, value }: FieldDisplayProps) {
   const flag = country?.flag ?? ''
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-gray-900 dark:text-white">
+    <span className="inline-flex items-center gap-1.5" style={{ color: "var(--martis-text)" }}>
       {showFlags && flag && <span className="text-base">{flag}</span>}
       <span>{label}</span>
     </span>

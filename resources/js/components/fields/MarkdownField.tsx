@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { marked } from 'marked'
 import { Eye, EyeSlash } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Safely render Markdown to HTML using the configured preset approach.
@@ -25,8 +26,9 @@ function renderMarkdown(content: string, preset: string): string {
 }
 
 export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
+  const { t } = useTranslation('messages')
   if (value === null || value === undefined || value === '') {
-    return <span className="text-gray-400 dark:text-gray-500">—</span>
+    return <span className="martis-text-muted">—</span>
   }
 
   const alwaysShow = (field as Record<string, unknown>).alwaysShow as boolean ?? false
@@ -39,10 +41,10 @@ export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+        className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--martis-accent)" }}
       >
         <Eye size={16} weight="bold" />
-        Show Content
+        {t('show_content')}
       </button>
     )
   }
@@ -53,10 +55,10 @@ export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mb-2"
+          className="inline-flex items-center gap-1.5 text-sm mb-2" style={{ color: "var(--martis-accent)" }}
         >
           <EyeSlash size={16} weight="bold" />
-          Hide
+          {t('hide')}
         </button>
       )}
       <div
@@ -68,6 +70,7 @@ export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
 }
 
 export function MarkdownFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t } = useTranslation('messages')
   const preset = (field as Record<string, unknown>).preset as string ?? 'default'
   const [showPreview, setShowPreview] = useState(false)
   const text = value === null || value === undefined ? '' : String(value)
@@ -75,21 +78,21 @@ export function MarkdownFieldInput({ field, value, onChange, error }: FieldInput
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
-        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+      <div className="rounded overflow-hidden" style={{ border: "1px solid var(--martis-border)" }}>
+        <div className="flex" style={{ borderBottom: "1px solid var(--martis-border)", backgroundColor: "var(--martis-surface-alt)" }}>
           <button
             type="button"
             onClick={() => setShowPreview(false)}
-            className={`px-3 py-1.5 text-xs font-medium ${!showPreview ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
+            className="px-3 py-1.5 text-xs font-medium" style={{ color: !showPreview ? 'var(--martis-accent)' : 'var(--martis-text-muted)', borderBottom: !showPreview ? '2px solid var(--martis-accent)' : 'none' }}
           >
-            Write
+            {t('write')}
           </button>
           <button
             type="button"
             onClick={() => setShowPreview(true)}
-            className={`px-3 py-1.5 text-xs font-medium ${showPreview ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
+            className="px-3 py-1.5 text-xs font-medium" style={{ color: showPreview ? 'var(--martis-accent)' : 'var(--martis-text-muted)', borderBottom: showPreview ? '2px solid var(--martis-accent)' : 'none' }}
           >
-            Preview
+            {t('preview')}
           </button>
         </div>
         {showPreview ? (
@@ -106,8 +109,8 @@ export function MarkdownFieldInput({ field, value, onChange, error }: FieldInput
             disabled={field.readonly}
             onChange={(e) => onChange(e.target.value)}
             rows={10}
-            placeholder={field.placeholder ?? 'Write your markdown here...'}
-            className="w-full p-3 text-sm font-mono bg-white dark:bg-gray-900 text-gray-900 dark:text-white resize-y focus:outline-none min-h-[200px]"
+            placeholder={field.placeholder ?? t('write_markdown_placeholder')}
+            className="w-full p-3 text-sm font-mono resize-y focus:outline-none min-h-[200px]" style={{ backgroundColor: "var(--martis-input-bg)", color: "var(--martis-text)" }}
           />
         )}
       </div>

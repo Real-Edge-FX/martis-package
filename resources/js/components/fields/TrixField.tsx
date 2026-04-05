@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
 import { Eye, EyeSlash } from "@phosphor-icons/react"
 import { BASE_PATH } from "@/lib/config"
+import { useTranslation } from 'react-i18next'
 import "trix/dist/trix.css"
 import "trix"
 
 export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
+  const { t } = useTranslation('messages')
   if (value === null || value === undefined || value === "") {
-    return <span className="text-gray-400 dark:text-gray-500">&mdash;</span>
+    return <span className="martis-text-muted">&mdash;</span>
   }
 
   const alwaysShow =
@@ -19,10 +21,10 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+        className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--martis-accent)" }}
       >
         <Eye size={16} weight="bold" />
-        Show Content
+        {t('show_content')}
       </button>
     )
   }
@@ -33,10 +35,10 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mb-2"
+          className="inline-flex items-center gap-1.5 text-sm mb-2" style={{ color: "var(--martis-accent)" }}
         >
           <EyeSlash size={16} weight="bold" />
-          Hide
+          {t('hide')}
         </button>
       )}
       <div
