@@ -47,7 +47,7 @@ export interface Toast {
 // Field & Resource schema types (Bloco 8)
 // -------------------------------------------------------------------------
 
-export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'select'  | 'date'  | 'datetime'  | 'belongs_to'  | 'id'  | 'email'  | 'password'  | 'heading'  | 'hidden'  | 'file'  | 'image'  | 'key_value'  | 'badge'  | 'status'  | 'multi_select'  | 'tag'  | 'url'  | 'code'  | 'color'  | 'markdown'  | 'trix'
+export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'select'  | 'date'  | 'datetime'  | 'belongs_to'  | 'id'  | 'email'  | 'password'  | 'heading'  | 'hidden'  | 'file'  | 'image'  | 'key_value'  | 'badge'  | 'status'  | 'multi_select'  | 'tag'  | 'url'  | 'code'  | 'color'  | 'markdown'  | 'trix'  | 'country'  | 'currency'  | 'sparkline'  | 'gravatar'
 
 export interface SelectOption {
   value: string | number

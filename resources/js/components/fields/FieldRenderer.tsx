@@ -27,6 +27,10 @@ import { CodeFieldDisplay, CodeFieldInput } from './CodeField'
 import { ColorFieldDisplay, ColorFieldInput } from './ColorField'
 import { MarkdownFieldDisplay, MarkdownFieldInput } from './MarkdownField'
 import { TrixFieldDisplay, TrixFieldInput } from './TrixField'
+import { CountryFieldDisplay, CountryFieldInput } from './CountryField'
+import { CurrencyFieldDisplay, CurrencyFieldInput } from './CurrencyField'
+import { SparklineFieldDisplay, SparklineFieldInput } from './SparklineField'
+import { GravatarFieldDisplay, GravatarFieldInput } from './GravatarField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -58,6 +62,10 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   color: ColorFieldDisplay,
   markdown: MarkdownFieldDisplay,
   trix: TrixFieldDisplay,
+  country: CountryFieldDisplay,
+  currency: CurrencyFieldDisplay,
+  sparkline: SparklineFieldDisplay,
+  gravatar: GravatarFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -90,6 +98,10 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   color: ColorFieldInput,
   markdown: MarkdownFieldInput,
   trix: TrixFieldInput,
+  country: CountryFieldInput,
+  currency: CurrencyFieldInput,
+  sparkline: SparklineFieldInput,
+  gravatar: GravatarFieldInput,
 }
 
 // -------------------------------------------------------------------------

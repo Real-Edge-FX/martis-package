@@ -28,5 +28,5 @@ return [
     'yes' => 'Yes',
     'no' => 'No',
     'active' => 'Active',
-    'inactive' => 'Inactive',
+    'inactive' => 'Inactive',    'country' => 'Country',    'currency' => 'Currency',    'sparkline' => 'Sparkline',    'gravatar' => 'Avatar',    'select_country' => 'Select a country…',    'no_data_available' => 'No data available.',
 ];

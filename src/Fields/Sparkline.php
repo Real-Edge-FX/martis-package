@@ -1,0 +1,207 @@
+<?php
+
+namespace Martis\Fields;
+
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Sparkline field — inline mini chart for trend visualization.
+ *
+ * Paridade com Laravel Nova v5: Sparkline field.
+ * Display-only field (not editable). Shows a small line or bar chart.
+ *
+ * Nova-compatible API:
+ *   - data($data)     — array of numbers, callable, or Trend metric
+ *   - asBarChart()    — render as bar chart (default: line)
+ *   - height($px)     — chart height in pixels
+ *   - width($px)      — chart width in pixels
+ *
+ * Contextos: index (sim), detail (sim), create/update (não — display-only).
+ */
+class Sparkline extends Field
+{
+    /** @var list<int|float>|callable|null */
+    protected mixed $chartData = null;
+
+    /** @var 'line'|'bar' */
+    protected string $chartType = 'line';
+
+    protected int $chartHeight = 30;
+
+    protected ?int $chartWidth = null;
+
+    /** @var string Color for the sparkline */
+    protected string $chartColor = '#6366f1';
+
+    public function type(): string
+    {
+        return 'sparkline';
+    }
+
+    /**
+     * Override make() to default to display-only (hidden from forms).
+     * Sparkline is not an input — it is a read-only visualization.
+     */
+    public static function make(string $attribute, ?string $label = null): static
+    {
+        return parent::make($attribute, $label)->hideFromForms();
+    }
+
+    /**
+     * Set the chart data.
+     * Nova-compatible API.
+     *
+     * @param  list<int|float>|callable  $data
+     */
+    public function data(mixed $data): static
+    {
+        $this->chartData = $data;
+
+        return $this;
+    }
+
+    /**
+     * Render as a bar chart.
+     * Nova-compatible API.
+     */
+    public function asBarChart(): static
+    {
+        $this->chartType = 'bar';
+
+        return $this;
+    }
+
+    /**
+     * Render as a line chart (default).
+     */
+    public function asLineChart(): static
+    {
+        $this->chartType = 'line';
+
+        return $this;
+    }
+
+    /**
+     * Set chart height in pixels.
+     * Nova-compatible API.
+     */
+    public function height(int $px): static
+    {
+        $this->chartHeight = $px;
+
+        return $this;
+    }
+
+    /**
+     * Set chart width in pixels.
+     * Nova-compatible API.
+     */
+    public function width(int $px): static
+    {
+        $this->chartWidth = $px;
+
+        return $this;
+    }
+
+    /**
+     * Set the chart line/bar color.
+     */
+    public function color(string $color): static
+    {
+        $this->chartColor = $color;
+
+        return $this;
+    }
+
+    /**
+     * Get chart type.
+     */
+    public function getChartType(): string
+    {
+        return $this->chartType;
+    }
+
+    /**
+     * Get chart height.
+     */
+    public function getChartHeight(): int
+    {
+        return $this->chartHeight;
+    }
+
+    /**
+     * Get chart width.
+     */
+    public function getChartWidth(): ?int
+    {
+        return $this->chartWidth;
+    }
+
+    /**
+     * Get chart color.
+     */
+    public function getChartColor(): string
+    {
+        return $this->chartColor;
+    }
+
+    /**
+     * Resolve the chart data.
+     * If data is a callable, invoke it with the model.
+     * If data is a static array, return it.
+     * Falls back to model attribute value (expects JSON array or comma-separated).
+     */
+    public function resolve(Model $model, ?string $attribute = null): mixed
+    {
+        if ($this->resolveCallback !== null) {
+            return ($this->resolveCallback)($model->getAttribute($attribute ?? $this->attribute), $model, $attribute ?? $this->attribute);
+        }
+
+        if ($this->chartData !== null) {
+            if (is_callable($this->chartData)) {
+                $result = ($this->chartData)($model);
+
+                return is_array($result) ? $result : [];
+            }
+
+            return $this->chartData;
+        }
+
+        // Fall back to model attribute
+        $raw = $model->getAttribute($attribute ?? $this->attribute);
+
+        if (is_array($raw)) {
+            return $raw;
+        }
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Sparkline is display-only — fill is a no-op.
+     */
+    public function fill(Model $model, mixed $value): void
+    {
+        // Display-only field — no fill
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function extraAttributes(): array
+    {
+        return array_filter([
+            'chartType' => $this->chartType,
+            'chartHeight' => $this->chartHeight,
+            'chartWidth' => $this->chartWidth,
+            'chartColor' => $this->chartColor,
+        ], fn (mixed $v): bool => $v !== null);
+    }
+}
