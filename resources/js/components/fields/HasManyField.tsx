@@ -266,7 +266,17 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
               )
             }
             body={(row: ResourceRecord) => (
-              <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+              f.attribute === "id" ? (
+                <Link
+                  to={`/resources/${relatedResource}/${row.id}`}
+                  className="font-medium no-underline"
+                  style={{ color: "var(--martis-primary)" }}
+                >
+                  <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                </Link>
+              ) : (
+                <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+              )
             )}
             sortable={false}
           />
