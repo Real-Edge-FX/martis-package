@@ -74,6 +74,8 @@ export const BASE_PATH = config.basePath ?? "/martis"
  * absolute URLs so the app works correctly even when accessed from a different
  * domain (e.g. www.realedgefx.com proxying to martis.realedgefx.com).
  */
-export const API_BASE_URL = config.apiUrl
-  ? config.apiUrl.replace(/\/$/, '') + BASE_PATH
-  : BASE_PATH
+/**
+ * API base URL. Always uses relative paths (same-origin) so the app
+ * works correctly regardless of access method (IP, domain, or proxy).
+ */
+export const API_BASE_URL = BASE_PATH

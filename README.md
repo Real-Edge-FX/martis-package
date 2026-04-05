@@ -174,13 +174,46 @@ All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`,
 #### Trix Configuration
 
 ```php
+use Martis\Enums\ToolbarSize;
+use Martis\Enums\ClickBehavior;
+
 Trix::make('content')
-    ->withFiles('public')     // Enable file/image uploads
-    ->alwaysShow()            // Show content on detail without toggle
-    ->toolbarSize('sm')       // Toolbar button size: 'sm', 'md' (default), 'lg'
+    ->withFiles('public')              // Enable file/image uploads
+    ->alwaysShow()                     // Show content on detail without toggle
+    ->toolbarSize(ToolbarSize::Small)  // ToolbarSize::Small, ::Medium (default), ::Large
+    ->imageClickBehavior(ClickBehavior::Modal)  // ClickBehavior::Modal, ::NewTab, ::SamePage
 ```
 
 Links entered without a protocol (e.g. `www.google.com`) are automatically prefixed with `https://`. `displayAsLink()` is available on `BelongsTo` fields only.
+
+### Enums (Type-Safe Parameters)
+
+All methods that accept a fixed set of values use PHP 8.1+ backed enums instead of strings. This provides IDE autocomplete, type-safety, and prevents invalid values at compile time.
+
+| Enum | Cases | Used in |
+|------|-------|---------|
+| `ClickBehavior` | Modal, NewTab, SamePage | Trix |
+| `ToolbarSize` | Small, Medium, Large | Trix |
+| `CodeLanguage` | Php, Javascript, Yaml, + 13 more | Code |
+| `MarkdownPreset` | Default, Commonmark, Zero | Markdown |
+| `CurrencyCode` | USD, EUR, BRL, + 24 more (ISO 4217) | Currency |
+| `CurrencyDisplayMode` | Text, Badge, BadgeText | Currency |
+| `ModalSize` | Small, Medium, Large, ... SevenExtraLarge (10 sizes) | Tag |
+| `AvatarShape` | Rounded, Squared | Gravatar |
+| `ChartType` | Line, Bar | Sparkline |
+| `TableSize` | Normal, Small, Large | Resource |
+| `ErrorDisplayMode` | Inline, Toast, Both | Resource |
+
+All enums live in the `Martis\Enums` namespace:
+
+```php
+use Martis\Enums\CurrencyCode;
+use Martis\Enums\CurrencyDisplayMode;
+
+Currency::make("price")
+    ->currency(CurrencyCode::BRL)
+    ->displayMode(CurrencyDisplayMode::Badge);
+```
 
 ### Authorization
 

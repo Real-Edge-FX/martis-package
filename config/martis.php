@@ -41,6 +41,7 @@ return [
     'brand' => [
         'name' => env('MARTIS_BRAND_NAME', 'Martis'),
         'logo' => null,
+        'favicon' => env('MARTIS_FAVICON', null),
     ],
 
     /*

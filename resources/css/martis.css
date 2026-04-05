@@ -1765,25 +1765,32 @@ html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
   color: var(--martis-text) !important;
 }
 
-/* == REA-1166 v5: Country dropdown — clean fix ===========================
-   Fixes: focus border, clear button alignment, dropdown resize on clear,
-   placeholder visibility, panel gap.
+/* == REA-1166 v6: Country dropdown — complete fix ========================
+   Fixes: focus border, clear button alignment at same level as chevron,
+   no inner border on click, dropdown resize on clear, placeholder config,
+   panel gap.
    ======================================================================= */
 
 /* -- Base: consistent sizing -------------------------------------------- */
 .p-dropdown {
   min-height: 2.625rem !important;
   position: relative !important;
+  display: flex !important;
+  align-items: center !important;
 }
 .p-dropdown .p-dropdown-label {
   padding-right: 4rem !important;
   line-height: 1.5 !important;
   display: flex !important;
   align-items: center !important;
+  min-height: 1.5rem !important;
 }
 
-/* -- Focus: clean single border, no ring/shadow ------------------------- */
-.p-dropdown:not(.p-disabled).p-focus {
+/* -- Focus/active: clean single border, NO inner ring/shadow ------------ */
+.p-dropdown:not(.p-disabled).p-focus,
+.p-dropdown:not(.p-disabled):focus,
+.p-dropdown:not(.p-disabled):focus-within,
+.p-dropdown:not(.p-disabled):active {
   box-shadow: none !important;
   border-color: var(--martis-accent) !important;
   outline: none !important;
@@ -1791,36 +1798,54 @@ html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
 .p-dropdown:not(.p-disabled):hover {
   border-color: var(--martis-accent) !important;
 }
+/* Kill any PrimeReact internal focus ring */
+.p-dropdown .p-hidden-accessible input:focus + .p-dropdown-label,
+.p-dropdown *:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* Remove the inner highlight on mousedown */
+.p-dropdown .p-dropdown-label:active,
+.p-dropdown .p-dropdown-label:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
 
-/* -- Clear icon: fixed position, never causes resize -------------------- */
+/* -- Clear icon: aligned with chevron center, no resize ----------------- */
 .p-dropdown .p-dropdown-clear-icon {
   position: absolute !important;
   right: 2.25rem !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  transform: none !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
   z-index: 2 !important;
-  width: 0.875rem !important;
-  height: 0.875rem !important;
+  width: 1rem !important;
+  height: 100% !important;
   padding: 0 !important;
   border: none !important;
   background: none !important;
   outline: none !important;
   box-shadow: none !important;
 }
-.p-dropdown .p-dropdown-clear-icon:focus {
+.p-dropdown .p-dropdown-clear-icon:focus,
+.p-dropdown .p-dropdown-clear-icon:active {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
 }
 
-/* -- Trigger (chevron): fixed width ------------------------------------- */
+/* -- Trigger (chevron): fixed width, vertically centered ---------------- */
 .p-dropdown .p-dropdown-trigger {
   width: 2rem !important;
   flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* -- Panel: attach flush to trigger, no gap ----------------------------- */

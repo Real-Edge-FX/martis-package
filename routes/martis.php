@@ -21,6 +21,19 @@ Route::middleware(config('martis.middleware', ['web']))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+        // Favicon â public, served from package or configured path
+        Route::get('/favicon.ico', function () {
+            $faviconPath = config('martis.brand.favicon');
+            if ($faviconPath && file_exists(public_path($faviconPath))) {
+                return response()->file(public_path($faviconPath));
+            }
+            $default = public_path('vendor/martis/favicon.ico');
+            if (file_exists($default)) {
+                return response()->file($default);
+            }
+            abort(404);
+        })->name('favicon');
+
         // API auth — public (exempt from CSRF via playground bootstrap/app.php)
         Route::post('/api/auth/login', [AuthController::class, 'login'])
             ->middleware('throttle:5,1')

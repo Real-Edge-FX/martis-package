@@ -166,6 +166,7 @@ abstract class Field implements FieldContract
             'showOnForms' => $this->showOnForms,
             'rules' => $this->buildRules(),
             'component' => $this->componentKey,
+            'placeholder' => $this->placeholder,
         ], $this->extraAttributes(), $this->meta);
     }
 

@@ -6,26 +6,28 @@ use Illuminate\Database\Eloquent\Model;
 use Martis\Enums\AvatarShape;
 
 /**
- * Gravatar field — displays avatar from Gravatar service based on email hash.
+ * Gravatar field — displays avatar from Gravatar service or a direct URL.
  *
  * Paridade com Laravel Nova v5: Gravatar field.
- * Read-only, display-only field. Does NOT map to a writable column.
- * Generates Gravatar URL from the model's email attribute.
+ * Generates Gravatar URL from email or uses a direct avatar URL.
  *
  * Nova-compatible API:
  *   - squared()  — display with square edges
  *   - rounded()  — display with rounded (circle) edges (default)
+ *   - sourceType('email'|'url') — configure input type
  *
  * Default: uses 'email' column, rounded display.
  *
- * Contextos: index (sim), detail (sim), create/update (não — display-only).
+ * Contextos: index (sim), detail (sim), create/update (configurable).
  */
 class Gravatar extends Field
 {
-    // Avatar shape: rounded or squared
     protected AvatarShape $shape = AvatarShape::Rounded;
 
     protected int $size = 40;
+
+    /** Source type: 'email' generates Gravatar URL, 'url' uses direct URL */
+    protected string $sourceType = 'email';
 
     public function type(): string
     {
@@ -44,7 +46,6 @@ class Gravatar extends Field
 
     /**
      * Display avatar with square edges.
-     * Nova-compatible API.
      */
     public function squared(): static
     {
@@ -55,7 +56,6 @@ class Gravatar extends Field
 
     /**
      * Display avatar with rounded (circle) edges.
-     * Nova-compatible API.
      */
     public function rounded(): static
     {
@@ -75,16 +75,36 @@ class Gravatar extends Field
     }
 
     /**
-     * Get the avatar shape.
+     * Set the source type: 'email' (generates Gravatar URL) or 'url' (direct avatar URL).
      */
+    public function sourceType(string $type): static
+    {
+        $this->sourceType = in_array($type, ['email', 'url']) ? $type : 'email';
+
+        return $this;
+    }
+
+    /**
+     * Shorthand: configure as email source (default).
+     */
+    public function fromEmail(): static
+    {
+        return $this->sourceType('email');
+    }
+
+    /**
+     * Shorthand: configure as direct URL source.
+     */
+    public function fromUrl(): static
+    {
+        return $this->sourceType('url');
+    }
+
     public function getShape(): AvatarShape
     {
         return $this->shape;
     }
 
-    /**
-     * Get the avatar size.
-     */
     public function getSize(): int
     {
         return $this->size;
@@ -101,7 +121,9 @@ class Gravatar extends Field
     }
 
     /**
-     * Resolve: returns the Gravatar URL (not the raw email).
+     * Resolve: returns the avatar URL.
+     * For 'email' source, generates Gravatar URL.
+     * For 'url' source, returns the raw value directly.
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
@@ -109,17 +131,22 @@ class Gravatar extends Field
             return ($this->resolveCallback)($model->getAttribute($attribute ?? $this->attribute), $model, $attribute ?? $this->attribute);
         }
 
-        $email = $model->getAttribute($attribute ?? $this->attribute);
+        $value = $model->getAttribute($attribute ?? $this->attribute);
 
-        if ($email === null || $email === '') {
+        if ($value === null || $value === '') {
             return null;
         }
 
-        return self::gravatarUrl($email, $this->size);
+        if ($this->sourceType === 'url') {
+            return $value;
+        }
+
+        return self::gravatarUrl($value, $this->size);
     }
 
     /**
-     * Gravatar is display-only — fill is a no-op.
+     * Gravatar is display-only by default — fill is a no-op.
+     * When shown on forms, fill saves the raw value (email or URL).
      */
     public function fill(Model $model, mixed $value): void
     {
@@ -134,6 +161,7 @@ class Gravatar extends Field
         return [
             'shape' => $this->shape->value,
             'avatarSize' => $this->size,
+            'sourceType' => $this->sourceType,
         ];
     }
 }

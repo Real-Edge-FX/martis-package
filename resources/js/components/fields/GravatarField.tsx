@@ -1,8 +1,9 @@
-import type { FieldDisplayProps, FieldInputProps } from './types'
+import type { FieldDisplayProps, FieldInputProps } from "./types"
 
 interface GravatarExt {
-  shape?: 'rounded' | 'squared'
+  shape?: "rounded" | "squared"
   avatarSize?: number
+  sourceType?: "email" | "url"
 }
 
 function getExt(field: Record<string, unknown>): GravatarExt {
@@ -11,8 +12,8 @@ function getExt(field: Record<string, unknown>): GravatarExt {
 
 function GravatarImage({ url, ext }: { url: string; ext: GravatarExt }) {
   const size = ext.avatarSize ?? 40
-  const shape = ext.shape ?? 'rounded'
-  const borderRadius = shape === 'rounded' ? 'rounded-full' : 'rounded'
+  const shape = ext.shape ?? "rounded"
+  const borderRadius = shape === "rounded" ? "rounded-full" : "rounded"
 
   return (
     <img
@@ -27,8 +28,8 @@ function GravatarImage({ url, ext }: { url: string; ext: GravatarExt }) {
 }
 
 export function GravatarFieldDisplay({ field, value }: FieldDisplayProps) {
-  if (value === null || value === undefined || value === '') {
-    return <span className="text-gray-400 dark:text-gray-500">—</span>
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-gray-400 dark:text-gray-500">\u2014</span>
   }
 
   const ext = getExt(field as unknown as Record<string, unknown>)
@@ -38,9 +39,8 @@ export function GravatarFieldDisplay({ field, value }: FieldDisplayProps) {
 }
 
 export function GravatarFieldInput({ field, value }: FieldInputProps) {
-  // Gravatar is display-only — show read-only in forms if visible
-  if (value === null || value === undefined || value === '') {
-    return <span className="text-gray-400 dark:text-gray-500">—</span>
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-gray-400 dark:text-gray-500">\u2014</span>
   }
 
   const ext = getExt(field as unknown as Record<string, unknown>)
@@ -49,6 +49,9 @@ export function GravatarFieldInput({ field, value }: FieldInputProps) {
   return (
     <div className="flex items-center py-2">
       <GravatarImage url={url} ext={ext} />
+      <span className="ml-3 text-sm martis-text-muted truncate max-w-xs">
+        {ext.sourceType === "url" ? url : url}
+      </span>
     </div>
   )
 }

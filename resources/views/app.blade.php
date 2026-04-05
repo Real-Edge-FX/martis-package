@@ -5,10 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('martis.brand.name', 'Martis') }} Admin</title>
+    @php
+        $faviconPath = config('martis.brand.favicon');
+        $basePath = config('martis.path', 'martis');
+    @endphp
+    @if($faviconPath)
+        <link rel="icon" type="image/x-icon" href="{{ asset($faviconPath) }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset($faviconPath) }}">
+    @else
+        <link rel="icon" type="image/x-icon" href="/{{ $basePath }}/favicon.ico">
+    @endif
     <script>
         window.MartisConfig = {
-            basePath: "/{{ config('martis.path', 'martis') }}",
-            apiUrl: "{{ config('app.url', '') }}",
+            basePath: "/{{ $basePath }}",
             locale: "{{ config('martis.locale', 'en') }}",
             brand: "{{ config('martis.brand.name', 'Martis') }}",
             logo: {!! json_encode(config('martis.brand.logo')) !!},
