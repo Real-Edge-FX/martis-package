@@ -29,6 +29,8 @@ class Trix extends Field
 
     protected ?string $toolbarSize = null;
 
+    protected string $imageClickBehavior = 'modal';
+
     public function type(): string
     {
         return 'trix';
@@ -77,6 +79,18 @@ class Trix extends Field
         return $this;
     }
 
+    /**
+     * Set image click behavior: 'modal' (default), 'new_tab', or 'same_page'.
+     *
+     * Usage: Trix::make('bio')->imageClickBehavior('new_tab')
+     */
+    public function imageClickBehavior(string $behavior): static
+    {
+        $this->imageClickBehavior = $behavior;
+
+        return $this;
+    }
+
     public function isAlwaysShow(): bool
     {
         return $this->alwaysShow;
@@ -96,6 +110,7 @@ class Trix extends Field
             'alwaysShow' => $this->alwaysShow,
             'withFiles' => $this->withFilesDisk,
             'toolbarSize' => $this->toolbarSize,
+            'imageClickBehavior' => $this->imageClickBehavior,
         ], fn ($v) => $v !== null && $v !== false);
     }
 }
