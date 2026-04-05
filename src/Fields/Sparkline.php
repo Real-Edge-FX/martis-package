@@ -185,11 +185,18 @@ class Sparkline extends Field
     }
 
     /**
-     * Sparkline is display-only — fill is a no-op.
+     * Fill the model with sparkline data.
+     * Accepts JSON array of numbers.
      */
     public function fill(Model $model, mixed $value): void
     {
-        // Display-only field — no fill
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $value = $decoded;
+            }
+        }
+        $model->setAttribute($this->attribute, $value);
     }
 
     /**

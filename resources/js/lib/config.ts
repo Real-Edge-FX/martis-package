@@ -46,6 +46,7 @@ export interface MartisLayoutConfig {
 
 export interface MartisConfigShape {
   basePath?: string
+  apiUrl?: string
   locale?: string
   brand?: string
   logo?: string | null
@@ -67,3 +68,12 @@ declare global {
 export const config: MartisConfigShape = window.MartisConfig ?? {}
 
 export const BASE_PATH = config.basePath ?? "/martis"
+
+/**
+ * Absolute API base URL. When apiUrl is set (from APP_URL), API requests use
+ * absolute URLs so the app works correctly even when accessed from a different
+ * domain (e.g. www.realedgefx.com proxying to martis.realedgefx.com).
+ */
+export const API_BASE_URL = config.apiUrl
+  ? config.apiUrl.replace(/\/$/, '') + BASE_PATH
+  : BASE_PATH

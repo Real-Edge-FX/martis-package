@@ -78,11 +78,11 @@ it('Sparkline color() sets chart color', function () {
     expect($field->getChartColor())->toBe('#ff0000');
 });
 
-it('Sparkline fill is a no-op', function () {
+it('Sparkline fill saves data to model', function () {
     $model = new SparklineTestModel;
     $field = Sparkline::make('views_data');
     $field->fill($model, [1, 2, 3]);
-    expect($model->getAttribute('views_data'))->toBeNull();
+    expect($model->getAttribute('views_data'))->toBe([1, 2, 3]);
 });
 
 it('Sparkline toArray contains chart attributes', function () {

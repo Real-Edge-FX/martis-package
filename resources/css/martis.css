@@ -1765,115 +1765,118 @@ html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
   color: var(--martis-text) !important;
 }
 
-/* Ensure clear icon is always visible in both themes */
-.p-dropdown .p-dropdown-clear-icon {
-  display: inline-flex !important;
-  right: 2.5rem;
-}
-
-/* == REA-1166 v4: Country dropdown — comprehensive fix ==================
-   Fixes: white icons, border on focus, clear button resize, match reference.
+/* == REA-1166 v5: Country dropdown — clean fix ===========================
+   Fixes: focus border, clear button alignment, dropdown resize on clear,
+   placeholder visibility, panel gap.
    ======================================================================= */
 
-/* -- Focus ring: subtle accent border only, no box-shadow wrapper ---------- */
+/* -- Base: consistent sizing -------------------------------------------- */
+.p-dropdown {
+  min-height: 2.625rem !important;
+  position: relative !important;
+}
+.p-dropdown .p-dropdown-label {
+  padding-right: 4rem !important;
+  line-height: 1.5 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* -- Focus: clean single border, no ring/shadow ------------------------- */
 .p-dropdown:not(.p-disabled).p-focus {
   box-shadow: none !important;
   border-color: var(--martis-accent) !important;
   outline: none !important;
 }
-.p-dropdown:not(.p-disabled):focus {
-  box-shadow: none !important;
+.p-dropdown:not(.p-disabled):hover {
   border-color: var(--martis-accent) !important;
-  outline: none !important;
 }
 
-/* -- Light theme: trigger icon (chevron) ---------------------------------- */
-html:not(.dark) .p-dropdown .p-dropdown-trigger {
-  color: var(--martis-text-muted) !important;
-}
-html:not(.dark) .p-dropdown .p-dropdown-trigger .p-dropdown-trigger-icon {
-  color: var(--martis-text-muted) !important;
-}
-
-/* -- Light theme: filter search icon inside dropdown panel ---------------- */
-html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter-icon {
-  color: var(--martis-text-muted) !important;
-}
-html:not(.dark) .p-dropdown-panel .p-dropdown-filter-container .p-dropdown-filter-icon {
-  color: var(--martis-text-muted) !important;
-}
-html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-inputicon {
-  color: var(--martis-text-muted) !important;
-}
-
-/* -- Light theme: filter input focus state -------------------------------- */
-html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter:focus {
-  border-color: var(--martis-accent) !important;
-  box-shadow: none !important;
-}
-
-/* -- Clear icon: prevent layout shift when showing/hiding ----------------- */
+/* -- Clear icon: fixed position, never causes resize -------------------- */
 .p-dropdown .p-dropdown-clear-icon {
   position: absolute !important;
-  right: 2.5rem !important;
+  right: 2.25rem !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
-  z-index: 1 !important;
-  width: 1rem !important;
-  height: 1rem !important;
+  z-index: 2 !important;
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.p-dropdown .p-dropdown-clear-icon:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
-/* -- Prevent dropdown from changing size when clear icon appears/disappears - */
-.p-dropdown {
-  min-height: 2.5rem !important;
-}
-.p-dropdown .p-dropdown-label {
-  padding-right: 3.5rem !important;
+/* -- Trigger (chevron): fixed width ------------------------------------- */
+.p-dropdown .p-dropdown-trigger {
+  width: 2rem !important;
+  flex-shrink: 0 !important;
 }
 
-/* -- Light theme: clear icon visibility ----------------------------------- */
-html:not(.dark) .p-dropdown .p-dropdown-clear-icon {
-  color: var(--martis-text-muted) !important;
-}
-html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
-  color: var(--martis-text) !important;
+/* -- Panel: attach flush to trigger, no gap ----------------------------- */
+.p-dropdown-panel {
+  margin-top: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
 }
 
-/* -- Dropdown panel: consistent spacing ----------------------------------- */
+/* -- Panel header: search input styling --------------------------------- */
 .p-dropdown-panel .p-dropdown-header {
   padding: 0.5rem !important;
   border-bottom: 1px solid var(--martis-border) !important;
 }
 .p-dropdown-panel .p-dropdown-header .p-dropdown-filter {
   width: 100% !important;
-  padding: 0.5rem 0.75rem !important;
-  padding-left: 2rem !important;
+  padding: 0.5rem 0.75rem 0.5rem 2rem !important;
 }
 
-/* -- Dropdown items: consistent sizing ------------------------------------ */
+/* -- Items: consistent spacing ------------------------------------------ */
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
   padding: 0.5rem 0.75rem !important;
 }
 
-/* -- Empty message styling ------------------------------------------------ */
+/* -- Empty message ------------------------------------------------------ */
 .p-dropdown-panel .p-dropdown-empty-message {
   padding: 0.75rem 1rem !important;
   text-align: center !important;
   color: var(--martis-text-muted) !important;
 }
 
-/* -- Light theme: dropdown label and placeholder color -------------------- */
+/* -- Light theme overrides ---------------------------------------------- */
+html:not(.dark) .p-dropdown .p-dropdown-trigger {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-dropdown .p-dropdown-trigger .p-dropdown-trigger-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-dropdown .p-dropdown-clear-icon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
+  color: var(--martis-text) !important;
+}
 html:not(.dark) .p-dropdown .p-dropdown-label.p-placeholder {
   color: var(--martis-text-muted) !important;
 }
-
-/* -- Dropdown panel: smooth connection to trigger (no gap) ---------------- */
-.p-dropdown-panel {
-  margin-top: 0 !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
+html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter-icon,
+html:not(.dark) .p-dropdown-panel .p-dropdown-filter-container .p-dropdown-filter-icon,
+html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-inputicon {
+  color: var(--martis-text-muted) !important;
+}
+html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter:focus {
+  border-color: var(--martis-accent) !important;
+  box-shadow: none !important;
+}
+html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
+  color: var(--martis-text-muted) !important;
 }

@@ -8,6 +8,7 @@
     <script>
         window.MartisConfig = {
             basePath: "/{{ config('martis.path', 'martis') }}",
+            apiUrl: "{{ config('app.url', '') }}",
             locale: "{{ config('martis.locale', 'en') }}",
             brand: "{{ config('martis.brand.name', 'Martis') }}",
             logo: {!! json_encode(config('martis.brand.logo')) !!},

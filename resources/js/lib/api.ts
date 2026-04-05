@@ -1,4 +1,4 @@
-import { BASE_PATH } from '@/lib/config'
+import { API_BASE_URL } from "@/lib/config"
 
 export interface ValidationError {
   field: string
@@ -73,7 +73,7 @@ function normalizeErrors(raw: unknown): ValidationError[] | undefined {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const csrfToken = getCsrfToken()
 
-  const res = await fetch(`${BASE_PATH}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     credentials: 'same-origin',
     headers: {
@@ -172,7 +172,7 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
 
   const fd = buildFormData(values, methodOverride)
 
-  const res = await fetch(`${BASE_PATH}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method: actualMethod,
     credentials: 'same-origin',
     headers: {
