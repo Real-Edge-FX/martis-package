@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Martis\Enums\AvatarShape;
+use Martis\Enums\GravatarSourceType;
 
 /**
  * Gravatar field — displays avatar from Gravatar service or a direct URL.
@@ -14,7 +15,9 @@ use Martis\Enums\AvatarShape;
  * Nova-compatible API:
  *   - squared()  — display with square edges
  *   - rounded()  — display with rounded (circle) edges (default)
- *   - sourceType('email'|'url') — configure input type
+ *   - sourceType(GravatarSourceType) — configure input type
+ *   - fromEmail()  — shorthand for sourceType(GravatarSourceType::Email)
+ *   - fromUrl()    — shorthand for sourceType(GravatarSourceType::Url)
  *
  * Default: uses 'email' column, rounded display.
  *
@@ -26,8 +29,7 @@ class Gravatar extends Field
 
     protected int $size = 40;
 
-    /** Source type: 'email' generates Gravatar URL, 'url' uses direct URL */
-    protected string $sourceType = 'email';
+    protected GravatarSourceType $sourceType = GravatarSourceType::Email;
 
     public function type(): string
     {
@@ -75,11 +77,11 @@ class Gravatar extends Field
     }
 
     /**
-     * Set the source type: 'email' (generates Gravatar URL) or 'url' (direct avatar URL).
+     * Set the source type using the GravatarSourceType enum.
      */
-    public function sourceType(string $type): static
+    public function sourceType(GravatarSourceType $type): static
     {
-        $this->sourceType = in_array($type, ['email', 'url']) ? $type : 'email';
+        $this->sourceType = $type;
 
         return $this;
     }
@@ -89,7 +91,7 @@ class Gravatar extends Field
      */
     public function fromEmail(): static
     {
-        return $this->sourceType('email');
+        return $this->sourceType(GravatarSourceType::Email);
     }
 
     /**
@@ -97,7 +99,7 @@ class Gravatar extends Field
      */
     public function fromUrl(): static
     {
-        return $this->sourceType('url');
+        return $this->sourceType(GravatarSourceType::Url);
     }
 
     public function getShape(): AvatarShape
@@ -121,7 +123,7 @@ class Gravatar extends Field
     }
 
     /**
-     * Resolve: returns the avatar URL.
+     * Resolve: returns the avatar URL for display contexts.
      * For 'email' source, generates Gravatar URL.
      * For 'url' source, returns the raw value directly.
      */
@@ -137,7 +139,7 @@ class Gravatar extends Field
             return null;
         }
 
-        if ($this->sourceType === 'url') {
+        if ($this->sourceType === GravatarSourceType::Url) {
             return $value;
         }
 
@@ -145,12 +147,22 @@ class Gravatar extends Field
     }
 
     /**
-     * Gravatar is display-only by default — fill is a no-op.
+     * Resolve the raw value (email or URL) for form contexts.
+     * This returns the unmodified model value so forms show the actual stored data.
+     */
+    public function resolveForForm(Model $model, ?string $attribute = null): mixed
+    {
+        return $model->getAttribute($attribute ?? $this->attribute);
+    }
+
+    /**
      * When shown on forms, fill saves the raw value (email or URL).
      */
     public function fill(Model $model, mixed $value): void
     {
-        // Display-only field — no fill
+        if ($value !== null) {
+            $model->setAttribute($this->attribute, $value);
+        }
     }
 
     /**
@@ -161,7 +173,7 @@ class Gravatar extends Field
         return [
             'shape' => $this->shape->value,
             'avatarSize' => $this->size,
-            'sourceType' => $this->sourceType,
+            'sourceType' => $this->sourceType->value,
         ];
     }
 }

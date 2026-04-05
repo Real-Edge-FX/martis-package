@@ -25,8 +25,8 @@ export function ResourceUpdatePage() {
   })
 
   const recordQuery = useQuery({
-    queryKey: ['resource', resource, id],
-    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}`),
+    queryKey: ['resource', resource, id, 'update'],
+    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}?context=update`),
     enabled: !!resource && !!id,
   })
 

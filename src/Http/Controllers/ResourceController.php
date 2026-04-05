@@ -166,8 +166,18 @@ class ResourceController extends MartisController
             return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
         }
 
+        // Support ?context=update so edit forms get raw attribute values
+        $context = $request->query('context', 'detail');
+        if ($context === 'update') {
+            $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
+        } elseif ($context === 'create') {
+            $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
+        } else {
+            $fields = Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL);
+        }
+
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
+            $this->serializeModel($res, $fields, $model),
         )->toResponse();
     }
 

@@ -1779,7 +1779,7 @@ html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
   align-items: center !important;
 }
 .p-dropdown .p-dropdown-label {
-  padding-right: 4rem !important;
+  padding-right: 0.5rem !important;
   line-height: 1.5 !important;
   display: flex !important;
   align-items: center !important;
@@ -1812,21 +1812,19 @@ html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
   border: none !important;
 }
 
-/* -- Clear icon: aligned with chevron center, no resize ----------------- */
+/* -- Clear icon: inline flex sibling of trigger, vertically centered ----- */
 .p-dropdown .p-dropdown-clear-icon {
-  position: absolute !important;
-  right: 2.25rem !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  transform: none !important;
+  position: static !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  align-self: center !important;
+  flex-shrink: 0 !important;
   cursor: pointer !important;
-  z-index: 2 !important;
   width: 1rem !important;
-  height: 100% !important;
+  height: 1rem !important;
   padding: 0 !important;
+  margin: 0 0.25rem !important;
   border: none !important;
   background: none !important;
   outline: none !important;
