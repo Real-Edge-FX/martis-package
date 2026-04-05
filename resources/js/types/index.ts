@@ -86,7 +86,6 @@ export interface ResourceEmbedded {
   uriKey: string
   label: string
   singularLabel: string
-  subtitle?: string | null
   softDeletes: boolean
   group: string | null
   titleAttribute?: string
@@ -99,19 +98,6 @@ export interface ResourceMessages {
   restored: string
   deleteConfirm: string
   archiveConfirm: string
-}
-
-
-export interface PageOverride {
-  component: string
-  [key: string]: unknown
-}
-
-export interface ResourceOverrides {
-  create?: PageOverride | null
-  edit?: PageOverride | null
-  detail?: PageOverride | null
-  index?: PageOverride | null
 }
 
 export interface ResourceSchema extends ResourceEmbedded {
@@ -132,7 +118,6 @@ export interface ResourceSchema extends ResourceEmbedded {
   tableShowGridlines?: boolean
   tableSize?: 'normal' | 'small' | 'large'
   tableRowHover?: boolean
-  overrides?: ResourceOverrides
 }
 
 export interface ResourceRecord {

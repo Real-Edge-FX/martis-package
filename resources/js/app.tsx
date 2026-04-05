@@ -12,14 +12,10 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
 import { ToastContainer } from '@/components/Toast'
 import { registerDefaultFields } from '@/components/fields'
-import { registerBuiltinFieldOverrides } from '@/components/field-overrides'
 import { initI18n } from '@/lib/i18n'
 
 // Register all default field renderers into the global component registry
 registerDefaultFields()
-
-// Register built-in field override components (status-pills, priority-badge, etc.)
-registerBuiltinFieldOverrides()
 
 function App() {
   return (
