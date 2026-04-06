@@ -191,11 +191,11 @@ export function ResourceIndexPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold martis-text flex items-center gap-2">
-            <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={24} />
+            <ResourceIcon iconName={(schema.icon)} size={24} />
             {schema.label}
           </h1>
-          {(schema as unknown as { subtitle?: string }).subtitle && (
-            <p className="text-sm martis-text-muted mt-1">{(schema as unknown as { subtitle?: string }).subtitle}</p>
+          {schema.subtitle && (
+            <p className="text-sm martis-text-muted mt-1">{schema.subtitle}</p>
           )}
         </div>
         <button

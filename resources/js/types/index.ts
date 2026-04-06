@@ -96,6 +96,8 @@ export interface ResourceEmbedded {
   softDeletes: boolean
   group: string | null
   titleAttribute?: string
+  subtitle?: string | null
+  icon?: string | null
 }
 
 export interface ResourceMessages {

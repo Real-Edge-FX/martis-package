@@ -114,12 +114,14 @@ export function DrawerUpdate(props: OverrideProps) {
 
   const isLoading = !activeRecord || recordQuery.isLoading
   const title = `${tAct('edit')} ${schema.singularLabel}`
-  const subtitle = (params.subtitle as string) ?? (schema as unknown as { subtitle?: string }).subtitle ?? null
+  const subtitle = (params.subtitle as string) ?? schema.subtitle ?? null
+  const icon = params.showIcon ? schema.icon ?? null : null
 
   return (
     <DrawerShell
       title={title}
       subtitle={subtitle}
+      icon={icon}
       width={params.width as string}
       expandedWidth={params.expandedWidth as string}
       allowExpand={params.allowExpand as boolean}

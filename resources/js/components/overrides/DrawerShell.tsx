@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { ResourceIcon } from '@/components/ResourceIcon'
 
 export interface DrawerShellProps {
   /** Title displayed in the header. */
   title: string
   /** Optional subtitle below the title. */
   subtitle?: string | null
+  /** Optional Phosphor icon name to display next to the title. */
+  icon?: string | null
   /** Initial width (default: '520px'). */
   width?: string
   /** Width when expanded (default: '800px'). */
@@ -33,6 +36,7 @@ type DrawerState = 'normal' | 'expanded' | 'fullscreen'
 export function DrawerShell({
   title,
   subtitle,
+  icon,
   width = '520px',
   expandedWidth = '800px',
   allowExpand = true,
@@ -112,16 +116,31 @@ export function DrawerShell({
           className="flex items-center justify-between border-b px-6 py-4"
           style={{ borderColor: 'var(--martis-border)' }}
         >
-          {/* Title + Subtitle */}
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-              {title}
-            </h2>
-            {subtitle && (
-              <p className="mt-0.5 truncate text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-                {subtitle}
-              </p>
+          {/* Icon + Title + Subtitle */}
+          <div className="min-w-0 flex-1 flex items-center gap-3">
+            {icon && (
+              <div
+                className="flex-shrink-0 flex items-center justify-center rounded-lg"
+                style={{
+                  width: 36,
+                  height: 36,
+                  backgroundColor: 'var(--martis-surface)',
+                  color: 'var(--martis-accent)',
+                }}
+              >
+                <ResourceIcon iconName={icon} size={20} />
+              </div>
             )}
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+                {title}
+              </h2>
+              {subtitle && (
+                <p className="mt-0.5 truncate text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+                  {subtitle}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Action buttons */}

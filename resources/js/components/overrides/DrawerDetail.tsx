@@ -47,13 +47,15 @@ export function DrawerDetail(props: OverrideProps) {
   const recordTitle = activeRecord?._title
     ? String(activeRecord._title)
     : `${schema.singularLabel} #${recordId}`
-  const subtitle = (params.subtitle as string) ?? (schema as unknown as { subtitle?: string }).subtitle ?? null
+  const subtitle = (params.subtitle as string) ?? schema.subtitle ?? null
+  const icon = params.showIcon ? schema.icon ?? null : null
 
   return (
     <>
       <DrawerShell
         title={recordTitle}
         subtitle={subtitle}
+        icon={icon}
         width={params.width as string}
         expandedWidth={params.expandedWidth as string}
         allowExpand={params.allowExpand as boolean}

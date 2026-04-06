@@ -19,6 +19,7 @@ export function ResourceDetailPage() {
   const qc = useQueryClient()
   const { addToast } = useToast()
   const [showDelete, setShowDelete] = useState(false)
+  const [showUpdateOverride, setShowUpdateOverride] = useState(false)
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
 
@@ -109,6 +110,15 @@ export function ResourceDetailPage() {
     }
   }
 
+  /** Handle Edit button — open update override drawer if available, else navigate */
+  function handleEdit() {
+    if (schema!.overrides?.update) {
+      setShowUpdateOverride(true)
+    } else {
+      navigate(`/resources/${resource}/${id}/edit`)
+    }
+  }
+
   const detailFields = schema.fieldsForDetail ?? []
   const scalarFields = detailFields.filter((f) => f.type !== 'has_many')
   const hasManyFields = detailFields.filter((f) => f.type === 'has_many')
@@ -129,7 +139,7 @@ export function ResourceDetailPage() {
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
           <ArrowLeft size={14} weight="bold" />
-          <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
+          <ResourceIcon iconName={(schema.icon)} size={14} />
           {schema.label}
         </Link>
         <span style={{ color: "var(--martis-text-muted)" }}>/</span>
@@ -160,9 +170,10 @@ export function ResourceDetailPage() {
               {tAct("restore")}
             </button>
           ) : null}
-          <Link
-            to={`/resources/${resource}/${id}/edit`}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium no-underline transition-colors"
+          <button
+            type="button"
+            onClick={handleEdit}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
               borderColor: "var(--martis-border)",
               backgroundColor: "var(--martis-surface)",
@@ -173,7 +184,7 @@ export function ResourceDetailPage() {
           >
             <PencilSimple size={14} />
             {tAct("edit")}
-          </Link>
+          </button>
           <button
             type="button"
             onClick={() => setShowDelete(true)}
@@ -218,6 +229,46 @@ export function ResourceDetailPage() {
       {hasManyFields.map((field) => (
         <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
       ))}
+
+      {/* Update override overlay (drawer) — shown inline when edit button clicked */}
+      {showUpdateOverride && schema.overrides?.update && (() => {
+        const OverrideComponent = componentRegistry.resolve(schema.overrides.update.component)
+        if (!OverrideComponent) return null
+        const C = OverrideComponent as React.ComponentType<OverrideProps>
+        const updateOverrideProps: OverrideProps = {
+          schema,
+          resource: resource!,
+          params: schema.overrides.update.params ?? {},
+          record,
+          recordId: id ?? null,
+          navigate: (to: string) => navigate(to),
+          onClose: () => setShowUpdateOverride(false),
+          onCreated: (_rec) => {
+            void qc.invalidateQueries({ queryKey: ["resources", resource] })
+            addToast("success", schema.messages?.created ?? "Record created successfully.")
+          },
+          onUpdated: (rec) => {
+            setShowUpdateOverride(false)
+            void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
+            void qc.invalidateQueries({ queryKey: ["resources", resource] })
+            addToast("success", schema.messages?.updated ?? "Record updated successfully.")
+            const target = resolveRedirect(schema.overrides?.update?.redirectAfter, resource!, rec.id)
+            if (target) navigate(target)
+          },
+          onDeleted: () => {
+            void qc.invalidateQueries({ queryKey: ["resources", resource] })
+            addToast("success", schema.messages?.deleted ?? "Record deleted successfully.")
+            navigate(`/resources/${resource}`)
+          },
+          onEdit: (editId) => {
+            const targetId = editId ?? id
+            if (targetId) navigate(`/resources/${resource}/${targetId}/edit`)
+          },
+          onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
+          addToast,
+        }
+        return <C {...updateOverrideProps} />
+      })()}
 
       <DeleteModal
         open={showDelete}

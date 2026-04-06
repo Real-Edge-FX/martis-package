@@ -114,4 +114,12 @@ class DrawerOverride extends Override
 
         return $this;
     }
+
+    /** Show the resource icon next to the title in the header (default: false). */
+    public function showIcon(bool $value = true): static
+    {
+        $this->params['showIcon'] = $value;
+
+        return $this;
+    }
 }
