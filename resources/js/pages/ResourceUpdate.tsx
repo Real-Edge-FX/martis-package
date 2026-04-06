@@ -252,6 +252,7 @@ export function ResourceUpdatePage() {
                     onChange={(v) => handleChange(field.attribute, v)}
                     error={errors[field.attribute]}
                     resourceKey={resource}
+                    context="update"
                   />
                 </div>
               </div>

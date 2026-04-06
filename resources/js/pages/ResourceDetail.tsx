@@ -204,7 +204,7 @@ export function ResourceDetailPage() {
                 {field.label}
               </dt>
               <dd className="col-span-2 text-sm">
-                <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} />
+                <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
               </dd>
             </div>
           ))}

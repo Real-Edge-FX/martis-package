@@ -137,7 +137,7 @@ function DefaultTable({
             )
           }
           body={(row: ResourceRecord) => (
-            <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} />
+            <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} context="index" />
           )}
           sortable={false}
         />

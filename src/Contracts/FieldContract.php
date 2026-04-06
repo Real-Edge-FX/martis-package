@@ -83,6 +83,25 @@ interface FieldContract
     /** Return the custom component key, or null for the default. */
     public function getComponentKey(): ?string;
 
+    // -------------------------------------------------------------------------
+    // Per-context overrides
+    // -------------------------------------------------------------------------
+
+    /** Override the component used to render this field in the create context. */
+    public function overrideCreate(OverrideContract $override): static;
+
+    /** Override the component used to render this field in the update context. */
+    public function overrideUpdate(OverrideContract $override): static;
+
+    /** Override the component used to render this field in the index context. */
+    public function overrideIndex(OverrideContract $override): static;
+
+    /** Override the component used to render this field in the detail context. */
+    public function overrideDetail(OverrideContract $override): static;
+
+    /** Return the override for the given context, or null. */
+    public function getOverrideForContext(FieldContext $context): ?OverrideContract;
+
     /**
      * Merge additional metadata into the field descriptor.
      *

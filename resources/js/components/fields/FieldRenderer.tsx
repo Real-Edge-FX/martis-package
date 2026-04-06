@@ -144,6 +144,7 @@ function getFallbackInput(type: string): ComponentType<FieldInputProps> {
  * Renders a field value in read-only display mode (index / detail).
  *
  * Override resolution (highest to lowest priority):
+ *   0. field.overrides[context] (per-context override from PHP field->overrideIndex/Detail)
  *   1. field.component (explicit key set in PHP via ->component('key'))
  *   2. Per-resource override (componentRegistry.registerResourceFieldDisplay)
  *   3. Global type override (componentRegistry.registerFieldDisplay)
@@ -155,16 +156,22 @@ export function FieldDisplay({
   field,
   value,
   resourceKey,
+  context,
 }: {
   field: FieldDefinition
   value: unknown
   resourceKey?: string
+  context?: 'index' | 'detail'
 }) {
+  // Tier 0: per-context field override (from PHP field->overrideIndex/Detail)
+  const contextOverride = context ? field.overrides?.[context] : undefined
+  const explicitKey = contextOverride?.component ?? field.component
+
   const Component = componentRegistry.resolveDisplay(
     field.type,
     field.attribute,
     resourceKey,
-    field.component,
+    explicitKey,
     getFallbackDisplay(field.type),
   )
   return <Component field={field} value={value} />
@@ -173,7 +180,7 @@ export function FieldDisplay({
 /**
  * Renders a field as an editable input (create / update forms).
  *
- * Override resolution follows the same 4-tier chain as FieldDisplay.
+ * Override resolution follows the same 5-tier chain as FieldDisplay (with context-aware Tier 0).
  *
  * @param resourceKey  The resource URI key — enables per-resource overrides
  */
@@ -183,18 +190,24 @@ export function FieldInput({
   onChange,
   error,
   resourceKey,
+  context,
 }: {
   field: FieldDefinition
   value: unknown
   onChange: (v: unknown) => void
   error?: string
   resourceKey?: string
+  context?: 'create' | 'update'
 }) {
+  // Tier 0: per-context field override (from PHP field->overrideCreate/Update)
+  const contextOverride = context ? field.overrides?.[context] : undefined
+  const explicitKey = contextOverride?.component ?? field.component
+
   const Component = componentRegistry.resolveInput(
     field.type,
     field.attribute,
     resourceKey,
-    field.component,
+    explicitKey,
     getFallbackInput(field.type),
   )
   return <Component field={field} value={value} onChange={onChange} error={error} />

@@ -6,6 +6,7 @@ use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\OverrideContract;
 use Martis\FieldContext;
 
 /**
@@ -79,6 +80,15 @@ abstract class Field implements FieldContract
      * instead of the default "field:display:{type}" / "field:input:{type}" keys.
      */
     protected ?string $componentKey = null;
+
+    /** Per-context component overrides (mirrors Resource-level overrides). */
+    protected ?OverrideContract $overrideForCreate = null;
+
+    protected ?OverrideContract $overrideForUpdate = null;
+
+    protected ?OverrideContract $overrideForIndex = null;
+
+    protected ?OverrideContract $overrideForDetail = null;
 
     protected ?string $placeholder = null;
 
@@ -167,6 +177,12 @@ abstract class Field implements FieldContract
             'rules' => $this->buildRules(),
             'component' => $this->componentKey,
             'placeholder' => $this->placeholder,
+            'overrides' => array_filter([
+                'create' => $this->overrideForCreate?->toArray(),
+                'update' => $this->overrideForUpdate?->toArray(),
+                'index' => $this->overrideForIndex?->toArray(),
+                'detail' => $this->overrideForDetail?->toArray(),
+            ], fn (mixed $v): bool => $v !== null) ?: null,
         ], $this->extraAttributes(), $this->meta);
     }
 
@@ -600,6 +616,63 @@ abstract class Field implements FieldContract
     public function getComponentKey(): ?string
     {
         return $this->componentKey;
+    }
+
+    // -------------------------------------------------------------------------
+    // Per-context field overrides
+    // -------------------------------------------------------------------------
+
+    /**
+     * Override the component used to render this field in the create context.
+     */
+    public function overrideCreate(OverrideContract $override): static
+    {
+        $this->overrideForCreate = $override;
+
+        return $this;
+    }
+
+    /**
+     * Override the component used to render this field in the update context.
+     */
+    public function overrideUpdate(OverrideContract $override): static
+    {
+        $this->overrideForUpdate = $override;
+
+        return $this;
+    }
+
+    /**
+     * Override the component used to render this field in the index context.
+     */
+    public function overrideIndex(OverrideContract $override): static
+    {
+        $this->overrideForIndex = $override;
+
+        return $this;
+    }
+
+    /**
+     * Override the component used to render this field in the detail context.
+     */
+    public function overrideDetail(OverrideContract $override): static
+    {
+        $this->overrideForDetail = $override;
+
+        return $this;
+    }
+
+    /**
+     * Return the override for the given context, or null.
+     */
+    public function getOverrideForContext(FieldContext $context): ?OverrideContract
+    {
+        return match ($context) {
+            FieldContext::CREATE, FieldContext::INLINE_CREATE => $this->overrideForCreate,
+            FieldContext::UPDATE => $this->overrideForUpdate,
+            FieldContext::INDEX => $this->overrideForIndex,
+            FieldContext::DETAIL, FieldContext::PREVIEW => $this->overrideForDetail,
+        };
     }
 
     // -------------------------------------------------------------------------

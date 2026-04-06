@@ -73,6 +73,13 @@ export interface FieldDefinition {
   relatedLabel?: string
   /** Explicit component override key (set via PHP field->component('key')). */
   component?: string | null
+  /** Per-context component overrides (set via PHP field->overrideCreate/Update/Index/Detail). */
+  overrides?: {
+    create?: { component: string; params: Record<string, unknown> } | null
+    update?: { component: string; params: Record<string, unknown> } | null
+    index?: { component: string; params: Record<string, unknown> } | null
+    detail?: { component: string; params: Record<string, unknown> } | null
+  } | null
   placeholder?: string
   /** Content text for heading fields. */
   content?: string | null

@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\OverrideContract;
 use Martis\FieldContext;
 use Martis\Resource;
 use Martis\Tests\TestCase;
@@ -280,6 +281,31 @@ class StubField implements FieldContract
     }
 
     public function getComponentKey(): ?string
+    {
+        return null;
+    }
+
+    public function overrideCreate(OverrideContract $override): static
+    {
+        return $this;
+    }
+
+    public function overrideUpdate(OverrideContract $override): static
+    {
+        return $this;
+    }
+
+    public function overrideIndex(OverrideContract $override): static
+    {
+        return $this;
+    }
+
+    public function overrideDetail(OverrideContract $override): static
+    {
+        return $this;
+    }
+
+    public function getOverrideForContext(FieldContext $context): ?OverrideContract
     {
         return null;
     }
