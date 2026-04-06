@@ -51,7 +51,11 @@ class ComponentMakeCommand extends Command
 
         // Generate component from stub
         $stub = $this->getStub($type);
-        $content = str_replace('{{ class }}', $className, $stub);
+        $content = str_replace(
+            ['{{ class }}', '{{ kebab }}'],
+            [$className, $kebabName],
+            $stub,
+        );
         file_put_contents($componentPath, $content);
 
         // Determine registry key based on type
@@ -65,10 +69,25 @@ class ComponentMakeCommand extends Command
         $this->updateBootFile($bootPath, $className, $registryKey, $type);
 
         $this->info("Component created: {$componentPath}");
-        $this->info("Registered as '{$registryKey}' in {$bootPath}");
-        $this->newLine();
-        $this->line('Usage in PHP (field type):');
-        $this->line("  Text::make('field_name')->component('{$kebabName}')");
+
+        if ($type === 'field') {
+            $this->info("Display registered as '{$registryKey}' in {$bootPath}");
+            $this->info("Input registered as '{$registryKey}-input' in {$bootPath}");
+            $this->newLine();
+            $this->line('Usage in PHP (display — index/detail):');
+            $this->line("  ->overrideIndex(new Override('{$kebabName}'))");
+            $this->line("  ->overrideDetail(new Override('{$kebabName}'))");
+            $this->newLine();
+            $this->line('Usage in PHP (input — create/update):');
+            $this->line("  ->overrideCreate(new Override('{$kebabName}-input'))");
+            $this->line("  ->overrideUpdate(new Override('{$kebabName}-input'))");
+        } else {
+            $this->info("Registered as '{$registryKey}' in {$bootPath}");
+            $this->newLine();
+            $this->line('Usage in PHP (field type):');
+            $this->line("  Text::make('field_name')->component('{$kebabName}')");
+        }
+
         $this->newLine();
         $this->line("Don't forget to rebuild assets: <comment>make build</comment>");
 
@@ -89,16 +108,18 @@ class ComponentMakeCommand extends Command
 
     protected function updateBootFile(string $bootPath, string $className, string $registryKey, string $type): void
     {
-        $importLine = "import { {$className} } from './components/{$className}'";
-
+        // Field type generates Display + Input exports; others generate a single export.
         if ($type === 'field') {
-            $registerLine = "componentRegistry.register('{$registryKey}', {$className})";
-        } elseif ($type === 'layout') {
-            $registerLine = "componentRegistry.register('{$registryKey}', {$className})";
-        } elseif ($type === 'footer') {
-            $registerLine = "componentRegistry.register('{$registryKey}', {$className})";
+            $importLine = "import { {$className}Display, {$className}Input } from './components/{$className}'";
+            $registerLines = [
+                "componentRegistry.register('{$registryKey}', {$className}Display as never)",
+                "componentRegistry.register('{$registryKey}-input', {$className}Input as never)",
+            ];
         } else {
-            $registerLine = "componentRegistry.register('{$registryKey}', {$className})";
+            $importLine = "import { {$className} } from './components/{$className}'";
+            $registerLines = [
+                "componentRegistry.register('{$registryKey}', {$className})",
+            ];
         }
 
         if (file_exists($bootPath)) {
@@ -106,7 +127,6 @@ class ComponentMakeCommand extends Command
 
             // Add import if not already present
             if (! str_contains($content, $importLine)) {
-                // Find last import line and add after it
                 $lines = explode("\n", $content);
                 $lastImportIndex = -1;
                 foreach ($lines as $i => $line) {
@@ -122,9 +142,11 @@ class ComponentMakeCommand extends Command
                 $content = implode("\n", $lines);
             }
 
-            // Add register call if not already present
-            if (! str_contains($content, $registerLine)) {
-                $content .= "\n{$registerLine}\n";
+            // Add register calls if not already present
+            foreach ($registerLines as $registerLine) {
+                if (! str_contains($content, $registerLine)) {
+                    $content .= "\n{$registerLine}\n";
+                }
             }
 
             file_put_contents($bootPath, $content);
@@ -133,7 +155,9 @@ class ComponentMakeCommand extends Command
             $content = "import { componentRegistry } from '@/lib/componentRegistry'\n";
             $content .= $importLine."\n";
             $content .= "\n// Auto-registered by martis:component\n";
-            $content .= $registerLine."\n";
+            foreach ($registerLines as $registerLine) {
+                $content .= $registerLine."\n";
+            }
 
             file_put_contents($bootPath, $content);
         }

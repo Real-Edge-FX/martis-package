@@ -136,8 +136,10 @@ export function ResourceIndexPage() {
       onCreated: (rec) => {
         setShowCreateOverride(false)
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
-        addToast('success', schema!.messages?.created ?? 'Record created successfully.')
-        navigate(`/resources/${resource}/${rec.id}`)
+        addToast('success', schema!.messages?.created ?? 'Record created successfully.', {
+          label: 'View',
+          onClick: () => navigate(`/resources/${resource}/${rec.id}`),
+        })
       },
       onUpdated: (rec) => {
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
