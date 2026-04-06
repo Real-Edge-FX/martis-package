@@ -115,10 +115,20 @@ class DrawerOverride extends Override
         return $this;
     }
 
-    /** Show the resource icon next to the title in the header (default: false). */
-    public function showIcon(bool $value = true): static
+    /**
+     * Show an icon next to the title in the header.
+     *
+     * Pass true to use the resource's own icon, or a Phosphor icon name
+     * (e.g. 'rocket', 'star') to use a custom icon.
+     */
+    public function showIcon(bool|string $value = true): static
     {
-        $this->params['showIcon'] = $value;
+        if (is_string($value)) {
+            $this->params['showIcon'] = true;
+            $this->params['icon'] = $value;
+        } else {
+            $this->params['showIcon'] = $value;
+        }
 
         return $this;
     }
