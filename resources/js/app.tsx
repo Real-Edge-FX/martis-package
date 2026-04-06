@@ -13,9 +13,18 @@ import { router } from '@/router'
 import { ToastContainer } from '@/components/Toast'
 import { registerDefaultFields } from '@/components/fields'
 import { initI18n } from '@/lib/i18n'
+import { componentRegistry } from '@/lib/componentRegistry'
+import { DrawerCreate } from '@/components/overrides/DrawerCreate'
+import { DrawerUpdate } from '@/components/overrides/DrawerUpdate'
+import { DrawerDetail } from '@/components/overrides/DrawerDetail'
 
 // Register all default field renderers into the global component registry
 registerDefaultFields()
+
+// Register built-in override components (drawers, modals, etc.)
+componentRegistry.register('martis:drawer-create', DrawerCreate as never)
+componentRegistry.register('martis:drawer-update', DrawerUpdate as never)
+componentRegistry.register('martis:drawer-detail', DrawerDetail as never)
 
 // Load user-defined component overrides (if any)
 try {

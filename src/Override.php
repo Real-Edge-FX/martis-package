@@ -5,21 +5,21 @@ namespace Martis;
 use Martis\Contracts\OverrideContract;
 
 /**
- * Value object representing a page override.
+ * Generic value object representing a page override.
  *
- * Usage in a Resource:
+ * Use this class for custom (non-core) override components.
+ * For core components, use the typed subclasses:
+ *   - DrawerOverride — sidebar/drawer form
+ *   - ModalOverride  — centered dialog (future)
+ *
+ * Usage:
  *
  *     public function overrideCreate(): ?OverrideContract
  *     {
- *         return (new Override('my-sidebar-form'))
- *             ->width('480px')
- *             ->redirectAfter(RedirectAfter::INDEX);
+ *         return (new Override('my-custom-component', [
+ *             'showTimeline' => true,
+ *         ]))->redirectAfter(RedirectAfter::INDEX);
  *     }
- *
- * Custom URL with placeholders:
- *
- *     return (new Override('my-component'))
- *         ->redirectAfter('/resources/{resource}/{id}/preview');
  */
 class Override implements OverrideContract
 {
@@ -64,17 +64,7 @@ class Override implements OverrideContract
         return $this->redirectAfterValue;
     }
 
-    /**
-     * Convenience setter for the width param (common for sidebar overrides).
-     */
-    public function width(string $width): static
-    {
-        $this->params['width'] = $width;
-
-        return $this;
-    }
-
-    /** {@inheritDoc} */
+    /** @return array{component: string, params: array<string, mixed>, redirectAfter: string|null} */
     public function toArray(): array
     {
         return [
