@@ -12,6 +12,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { resolveRedirect } from '@/lib/resolveRedirect'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -122,7 +123,7 @@ export function ResourceIndexPage() {
   }
 
   /** Build standardized OverrideProps for any override rendered from this page. */
-  function buildOverrideProps(overrideDef: { component: string; params: Record<string, unknown> }, extra?: Partial<OverrideProps>): OverrideProps {
+  function buildOverrideProps(overrideDef: { component: string; params: Record<string, unknown>; redirectAfter?: string | null }, extra?: Partial<OverrideProps>): OverrideProps {
     return {
       schema: schema!,
       resource: resource!,
@@ -137,12 +138,14 @@ export function ResourceIndexPage() {
         setShowCreateOverride(false)
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
         addToast('success', schema!.messages?.created ?? 'Record created successfully.')
-        navigate(`/resources/${resource}/${rec.id}`)
+        const target = resolveRedirect(overrideDef.redirectAfter, resource!, rec.id)
+        if (target) navigate(target)
       },
       onUpdated: (rec) => {
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
         addToast('success', schema!.messages?.updated ?? 'Record updated successfully.')
-        navigate(`/resources/${resource}/${rec.id}`)
+        const target = resolveRedirect(overrideDef.redirectAfter, resource!, rec.id)
+        if (target) navigate(target)
       },
       onDeleted: () => {
         void qc.invalidateQueries({ queryKey: ['resources', resource] })

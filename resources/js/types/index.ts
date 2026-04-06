@@ -111,6 +111,7 @@ export interface ResourceMessages {
 export interface OverrideDefinition {
   component: string
   params: Record<string, unknown>
+  redirectAfter?: string | null
 }
 
 export interface ResourceSchema extends ResourceEmbedded {

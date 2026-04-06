@@ -11,6 +11,7 @@ import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise } from "@phosphor
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
 import { componentRegistry } from "@/lib/componentRegistry"
+import { resolveRedirect } from "@/lib/resolveRedirect"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -83,12 +84,14 @@ export function ResourceDetailPage() {
         onCreated: (rec) => {
           void qc.invalidateQueries({ queryKey: ["resources", resource] })
           addToast("success", schema.messages?.created ?? "Record created successfully.")
-          navigate(`/resources/${resource}/${rec.id}`)
+          const target = resolveRedirect(schema.overrides?.detail?.redirectAfter, resource!, rec.id)
+          if (target) navigate(target)
         },
         onUpdated: (rec) => {
           void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
           addToast("success", schema.messages?.updated ?? "Record updated successfully.")
-          navigate(`/resources/${resource}/${rec.id}`)
+          const target = resolveRedirect(schema.overrides?.detail?.redirectAfter, resource!, rec.id)
+          if (target) navigate(target)
         },
         onDeleted: () => {
           void qc.invalidateQueries({ queryKey: ["resources", resource] })

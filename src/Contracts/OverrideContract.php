@@ -25,9 +25,17 @@ interface OverrideContract
     public function params(): array;
 
     /**
+     * Where to redirect after a successful action (create/update).
+     *
+     * Returns a RedirectAfter enum value string or a custom URL with
+     * placeholders ({id}, {resource}). Returns null for default behavior.
+     */
+    public function getRedirectAfter(): ?string;
+
+    /**
      * Serialize to a plain array for the JSON API.
      *
-     * @return array{component: string, params: array<string, mixed>}
+     * @return array{component: string, params: array<string, mixed>, redirectAfter: string|null}
      */
     public function toArray(): array;
 }
