@@ -187,5 +187,5 @@ export interface OverrideProps {
 
   // Utilities
   /** Show a toast notification. */
-  addToast: (type: "success" | "error" | "warning" | "info", message: string, action?: { label: string; onClick: () => void }) => void
+  addToast: (type: "success" | "error" | "warning" | "info", message: string) => void
 }

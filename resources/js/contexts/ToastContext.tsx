@@ -10,13 +10,8 @@ import { config } from "@/lib/config"
 
 type Severity = "success" | "error" | "warn" | "info"
 
-export interface ToastAction {
-  label: string
-  onClick: () => void
-}
-
 interface ToastContextValue {
-  addToast: (type: "success" | "error" | "warning" | "info", message: string, action?: ToastAction) => void
+  addToast: (type: "success" | "error" | "warning" | "info", message: string) => void
   toastRef: React.RefObject<Toast | null>
 }
 
@@ -33,27 +28,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const toastRef = useRef<Toast>(null)
 
   const addToast = useCallback(
-    (type: "success" | "error" | "warning" | "info", message: string, action?: ToastAction) => {
-      const life = action ? 8000 : 5000
+    (type: "success" | "error" | "warning" | "info", message: string) => {
+      const life = 5000
       toastRef.current?.show({
         severity: severityMap[type] ?? "info",
         summary: type.charAt(0).toUpperCase() + type.slice(1),
-        detail: action ? (
-          <div className="flex items-center gap-3">
-            <span className="flex-1">{message}</span>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); action.onClick() }}
-              className="shrink-0 rounded-md px-3 py-1 text-xs font-semibold transition-colors"
-              style={{
-                backgroundColor: 'var(--martis-accent)',
-                color: '#fff',
-              }}
-            >
-              {action.label}
-            </button>
-          </div>
-        ) : message,
+        detail: message,
         life,
         sticky: false,
         closable: true,
