@@ -16,6 +16,10 @@ use Illuminate\Support\Str;
  *
  * Files are stored on the configured disk under `martis-attachments/`.
  * Returns the public URL for embedding in the editor content.
+ *
+ * Allowed MIME types and disks are configurable via `config('martis.attachments')`.
+ * To allow additional file types, update `martis.attachments.allowed_mimes` in
+ * your published config or set the MARTIS_ATTACHMENT_MIMES env variable.
  */
 class AttachmentController extends MartisController
 {
@@ -24,15 +28,31 @@ class AttachmentController extends MartisController
      */
     public function upload(Request $request): JsonResponse
     {
+        /** @var list<string> $allowedMimes */
+        $allowedMimes = config('martis.attachments.allowed_mimes', [
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+            'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+            'txt', 'csv', 'zip', 'mp4', 'mp3',
+        ]);
+
+        /** @var int $maxSize */
+        $maxSize = (int) config('martis.attachments.max_size', 10240);
+
+        $mimeRule = ! empty($allowedMimes) ? 'mimes:'.implode(',', $allowedMimes) : null;
+        $rules = array_filter([
+            'required', 'file', 'max:'.$maxSize, $mimeRule,
+        ]);
+
         $request->validate([
-            'file' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,txt,csv,zip'],
+            'file' => $rules,
         ]);
 
         /** @var UploadedFile $file */
         $file = $request->file('file');
 
         // Whitelist allowed storage disks to prevent writes to unexpected locations
-        $allowedDisks = ['public', 'local'];
+        /** @var list<string> $allowedDisks */
+        $allowedDisks = config('martis.attachments.allowed_disks', ['public', 'local']);
         $requestedDisk = $request->input('disk', 'public');
         $disk = in_array($requestedDisk, $allowedDisks, true) ? $requestedDisk : 'public';
 

@@ -216,4 +216,18 @@ return [
     | Override per-resource via the $policy static property on the Resource class.
     */
     'policy_namespace' => 'App\\Martis\\Policies',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Attachments
+    |--------------------------------------------------------------------------
+    | Configure allowed MIME types and disks for Trix/Markdown file uploads.
+    | Add or remove extensions to control what can be uploaded inline.
+    | Allowed disks restricts which storage disks the upload endpoint accepts.
+    |*/
+    'attachments' => [
+        'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
+        'allowed_disks' => ['public', 'local'],
+        'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
+    ],
 ];

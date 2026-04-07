@@ -424,6 +424,78 @@ Policies support a before() method that runs before any specific ability check. 
 
 Use php artisan martis:make-policy PolicyName --model=ModelName to generate a complete policy stub.
 
+### Disabling Specific Action Buttons
+
+To hide a specific button (Edit, Delete, Replicate, etc.) from the UI and enforce it on the backend, override the corresponding `authorizedTo*()` method directly in your Resource class:
+
+```php
+class PostResource extends Resource
+{
+    // Remove the Replicate button entirely
+    public function authorizedToReplicate(Request $request): bool
+    {
+        return false;
+    }
+
+    // Remove Force Delete (even for soft-deleted records)
+    public function authorizedToForceDelete(Request $request): bool
+    {
+        return false;
+    }
+
+    // Remove the Edit button
+    public function authorizedToUpdate(Request $request): bool
+    {
+        return false;
+    }
+
+    // Remove the Delete button
+    public function authorizedToDelete(Request $request): bool
+    {
+        return false;
+    }
+
+    // Remove the Create button from the index page
+    public function authorizedToCreate(Request $request): bool
+    {
+        return false;
+    }
+}
+```
+
+This approach is **enforced on both frontend AND backend** — the button is hidden and the API rejects the request with 403.
+
+For conditional logic (e.g., only admins can delete), use a Policy instead of hardcoding false.
+
+Available methods: `authorizedToView`, `authorizedToCreate`, `authorizedToUpdate`, `authorizedToDelete`, `authorizedToReplicate`, `authorizedToRestore`, `authorizedToForceDelete`, `authorizedToRunAction`, `authorizedToRunDestructiveAction`.
+
+### Attachment Uploads (Trix / Markdown)
+
+The `AttachmentController` handles file uploads from Trix and Markdown rich text editors. Allowed MIME types, storage disks, and max size are configurable via `config/martis.php`:
+
+```php
+// config/martis.php
+'attachments' => [
+    'allowed_mimes' => explode(',' , env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
+    'allowed_disks' => ['public', 'local'],
+    'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240), // KB
+],
+```
+
+To allow additional file types (e.g., `.ai`, `.psd`), either:
+1. Set the `MARTIS_ATTACHMENT_MIMES` env variable with a comma-separated list
+2. Or publish and edit `config/martis.php` directly
+
+Uploads are stored under `martis-attachments/` on the selected disk.
+
+For field-specific MIME restrictions (on File/Image fields in forms), use the `acceptedTypes()` method on the field:
+
+```php
+File::make('document')
+    ->acceptedTypes(['pdf', 'doc', 'docx'])
+    ->maxSize(5120);
+```
+
 ## CRUD Override System
 
 Resources can override how create/update/detail views are rendered using drawer overrides:
