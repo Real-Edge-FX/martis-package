@@ -6,22 +6,19 @@ import { FieldInput } from '@/components/fields'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 
-/** Group consecutive halfWidth fields into paired rows for 2-column layout. */
-function groupFieldRows<T extends { attribute: string; halfWidth?: boolean }>(fields: T[]): (T | T[])[] {
-  const rows: (T | T[])[] = []
-  let i = 0
-  while (i < fields.length) {
-    if (fields[i].halfWidth && i + 1 < fields.length && fields[i + 1].halfWidth) {
-      rows.push([fields[i], fields[i + 1]])
-      i += 2
-    } else {
-      rows.push(fields[i])
-      i++
-    }
-  }
-  return rows
+
+
+/** Resolve the effective column span for a field, with backward compat for halfWidth. */
+function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null; halfWidth?: boolean }): { base: number; md?: number; lg?: number } {
+  const base = field.colSpan ?? (field.halfWidth ? 6 : 12)
+  return { base, md: field.colSpanMd ?? undefined, lg: field.colSpanLg ?? undefined }
 }
 
+/** Build inline gridColumn style with responsive media handled via CSS custom properties. */
+function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null; halfWidth?: boolean }): React.CSSProperties {
+  const span = resolveColSpan(field)
+  return { gridColumn: `span ${span.base} / span ${span.base}` } as React.CSSProperties
+}
 
 /**
  * Built-in drawer override for the CREATE context.
@@ -135,52 +132,27 @@ export function DrawerCreate(props: OverrideProps) {
         </>
       }
     >
-      <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
-        {groupFieldRows(formFields).map((row, idx) =>
-          Array.isArray(row) ? (
-            <div key={idx} className="grid grid-cols-2 gap-4">
-              {row.map((field) => (
-                <div key={field.attribute}>
-                  <label
-                    htmlFor={field.attribute}
-                    className="mb-1.5 block text-sm font-medium"
-                    style={{ color: 'var(--martis-text-muted)' }}
-                  >
-                    {field.label}
-                    {field.required && <span className="ml-1 text-red-500">*</span>}
-                  </label>
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    context="create"
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div key={row.attribute}>
+      <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="p-6 grid grid-cols-12 gap-4">
+        {formFields.map((field) => (
+            <div key={field.attribute} style={colSpanStyle(field)}>
               <label
-                htmlFor={row.attribute}
+                htmlFor={field.attribute}
                 className="mb-1.5 block text-sm font-medium"
                 style={{ color: 'var(--martis-text-muted)' }}
               >
-                {row.label}
-                {row.required && <span className="ml-1 text-red-500">*</span>}
+                {field.label}
+                {field.required && <span className="ml-1 text-red-500">*</span>}
               </label>
               <FieldInput
-                field={row}
-                value={values[row.attribute] ?? null}
-                onChange={(v) => handleChange(row.attribute, v)}
-                error={errors[row.attribute]}
+                field={field}
+                value={values[field.attribute] ?? null}
+                onChange={(v) => handleChange(field.attribute, v)}
+                error={errors[field.attribute]}
                 resourceKey={resource}
                 context="create"
               />
             </div>
-          )
-        )}
+          ))}
       </form>
     </DrawerShell>
   )

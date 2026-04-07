@@ -8,22 +8,19 @@ import { useTranslation } from 'react-i18next'
 import { PencilSimple, Trash } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 
-/** Group consecutive halfWidth fields into paired rows for 2-column layout. */
-function groupFieldRows<T extends { attribute: string; halfWidth?: boolean }>(fields: T[]): (T | T[])[] {
-  const rows: (T | T[])[] = []
-  let i = 0
-  while (i < fields.length) {
-    if (fields[i].halfWidth && i + 1 < fields.length && fields[i + 1].halfWidth) {
-      rows.push([fields[i], fields[i + 1]])
-      i += 2
-    } else {
-      rows.push(fields[i])
-      i++
-    }
-  }
-  return rows
+
+
+/** Resolve the effective column span for a field, with backward compat for halfWidth. */
+function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null; halfWidth?: boolean }): { base: number; md?: number; lg?: number } {
+  const base = field.colSpan ?? (field.halfWidth ? 6 : 12)
+  return { base, md: field.colSpanMd ?? undefined, lg: field.colSpanLg ?? undefined }
 }
 
+/** Build inline gridColumn style. */
+function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null; halfWidth?: boolean }): React.CSSProperties {
+  const span = resolveColSpan(field)
+  return { gridColumn: `span ${span.base} / span ${span.base}` } as React.CSSProperties
+}
 
 /**
  * Built-in drawer override for the DETAIL context.
@@ -113,48 +110,29 @@ export function DrawerDetail(props: OverrideProps) {
             />
           </div>
         ) : (
-          <dl className="divide-y" style={{ borderColor: 'var(--martis-border)' }}>
-            {groupFieldRows(detailFields).map((row, idx) =>
-              Array.isArray(row) ? (
-                <div key={idx} className="grid grid-cols-2 gap-0 divide-x" style={{ borderColor: 'var(--martis-border)' }}>
-                  {row.map((field) => (
-                    <div key={field.attribute} className="px-6 py-4" style={{ borderColor: 'var(--martis-border)' }}>
-                      <dt
-                        className="mb-1 text-xs font-medium uppercase tracking-wider"
-                        style={{ color: 'var(--martis-text-muted)' }}
-                      >
-                        {field.label}
-                      </dt>
-                      <dd className="text-sm" style={{ color: 'var(--martis-text)' }}>
-                        <FieldDisplay
-                          field={field}
-                          value={activeRecord![field.attribute]}
-                          resourceKey={resource}
-                          context="detail"
-                        />
-                      </dd>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div key={row.attribute} className="px-6 py-4">
-                  <dt
-                    className="mb-1 text-xs font-medium uppercase tracking-wider"
-                    style={{ color: 'var(--martis-text-muted)' }}
-                  >
-                    {row.label}
-                  </dt>
-                  <dd className="text-sm" style={{ color: 'var(--martis-text)' }}>
-                    <FieldDisplay
-                      field={row}
-                      value={activeRecord![row.attribute]}
-                      resourceKey={resource}
-                      context="detail"
-                    />
-                  </dd>
-                </div>
-              )
-            )}
+          <dl className="grid grid-cols-12 gap-0" style={{ borderColor: 'var(--martis-border)' }}>
+            {detailFields.map((field) => (
+              <div
+                key={field.attribute}
+                className="border-b px-6 py-4"
+                style={{ ...colSpanStyle(field), borderColor: 'var(--martis-border)' }}
+              >
+                <dt
+                  className="mb-1 text-xs font-medium uppercase tracking-wider"
+                  style={{ color: 'var(--martis-text-muted)' }}
+                >
+                  {field.label}
+                </dt>
+                <dd className="text-sm" style={{ color: 'var(--martis-text)' }}>
+                  <FieldDisplay
+                    field={field}
+                    value={activeRecord![field.attribute]}
+                    resourceKey={resource}
+                    context="detail"
+                  />
+                </dd>
+              </div>
+            ))}
           </dl>
         )}
       </DrawerShell>

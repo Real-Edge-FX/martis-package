@@ -177,6 +177,9 @@ abstract class Field implements FieldContract
             'rules' => $this->buildRules(),
             'component' => $this->componentKey,
             'placeholder' => $this->placeholder,
+            'colSpan' => $this->colSpan,
+            'colSpanMd' => $this->colSpanMd,
+            'colSpanLg' => $this->colSpanLg,
             'overrides' => array_filter([
                 'create' => $this->overrideForCreate?->toArray(),
                 'update' => $this->overrideForUpdate?->toArray(),
@@ -678,6 +681,43 @@ abstract class Field implements FieldContract
     // -------------------------------------------------------------------------
     // Extension point — Track C hook
     // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // Grid layout — colSpan
+    // -------------------------------------------------------------------------
+
+    /** Column span in a 12-column grid (1-12, default: 12 = full width). */
+    protected int $colSpan = 12;
+
+    /** Column span from the md breakpoint (>= 768px). Null = inherit colSpan. */
+    protected ?int $colSpanMd = null;
+
+    /** Column span from the lg breakpoint (>= 1024px). Null = inherit colSpanMd or colSpan. */
+    protected ?int $colSpanLg = null;
+
+    /** {@inheritDoc} */
+    public function colSpan(int $cols): static
+    {
+        $this->colSpan = max(1, min(12, $cols));
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function colSpanMd(int $cols): static
+    {
+        $this->colSpanMd = max(1, min(12, $cols));
+
+        return $this;
+    }
+
+    /** {@inheritDoc} */
+    public function colSpanLg(int $cols): static
+    {
+        $this->colSpanLg = max(1, min(12, $cols));
+
+        return $this;
+    }
 
     // -------------------------------------------------------------------------
     // Arbitrary metadata — withMeta()

@@ -110,6 +110,31 @@ interface FieldContract
     public function withMeta(array $meta): static;
 
     // -------------------------------------------------------------------------
+    // Grid layout
+    // -------------------------------------------------------------------------
+
+    /**
+     * Set the column span in a 12-column grid layout (1-12, default: 12).
+     *
+     * Use 6 for half-width, 4 for one-third, etc.
+     */
+    public function colSpan(int $cols): static;
+
+    /**
+     * Set the column span from the md breakpoint (>= 768px).
+     *
+     * Null = inherit from colSpan.
+     */
+    public function colSpanMd(int $cols): static;
+
+    /**
+     * Set the column span from the lg breakpoint (>= 1024px).
+     *
+     * Null = inherit from colSpanMd, then colSpan.
+     */
+    public function colSpanLg(int $cols): static;
+
+    // -------------------------------------------------------------------------
     // Visibility
     // -------------------------------------------------------------------------
 

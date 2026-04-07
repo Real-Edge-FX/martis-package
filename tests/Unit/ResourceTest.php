@@ -315,6 +315,21 @@ class StubField implements FieldContract
     {
         return $this;
     }
+
+    public function colSpan(int $cols): static
+    {
+        return $this;
+    }
+
+    public function colSpanMd(int $cols): static
+    {
+        return $this;
+    }
+
+    public function colSpanLg(int $cols): static
+    {
+        return $this;
+    }
 }
 
 class SimpleResource extends Resource

@@ -120,30 +120,33 @@ export function DrawerShell({
           style={{ borderColor: 'var(--martis-border)' }}
         >
           {/* Icon + Title + Subtitle */}
-          <div className="min-w-0 flex-1 flex items-start gap-3">
-            {icon && (
-              <div
-                className="flex-shrink-0 flex items-center justify-center rounded-lg mt-0.5"
-                style={{
-                  width: 36,
-                  height: 36,
-                  backgroundColor: iconColor ? `${iconColor}18` : 'var(--martis-surface)',
-                  color: iconColor || 'var(--martis-accent)',
-                }}
-              >
-                <ResourceIcon iconName={icon} size={20} />
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3">
+              {icon && (
+                <div
+                  className="flex-shrink-0 flex items-center justify-center rounded-lg"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    backgroundColor: iconColor ? `${iconColor}18` : 'var(--martis-surface)',
+                    color: iconColor || 'var(--martis-accent)',
+                  }}
+                >
+                  <ResourceIcon iconName={icon} size={20} />
+                </div>
+              )}
+              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
                 {title}
               </h2>
-              {subtitle && (
-                <p className="mt-0.5 truncate text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-                  {subtitle}
-                </p>
-              )}
             </div>
+            {subtitle && (
+              <p
+                className="mt-0.5 truncate text-sm"
+                style={{ color: 'var(--martis-text-muted)', marginLeft: icon ? 'calc(36px + 0.75rem)' : undefined }}
+              >
+                {subtitle}
+              </p>
+            )}
           </div>
 
           {/* Action buttons */}
