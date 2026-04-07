@@ -47,6 +47,7 @@ export function InlineCreateModal({
   const { t: tMsg } = useTranslation("messages")
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Fetch inline create schema
   const schemaQuery = useQuery({
@@ -84,10 +85,12 @@ export function InlineCreateModal({
     onError: (err) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         setErrors(err.errorsByField())
-        // Don't show toast for validation errors — inline errors are sufficient
+        setFormError(null)
       } else if (err instanceof ApiError) {
+        setFormError(err.message || tMsg("error_create"))
         addToast("error", err.message || tMsg("error_create"))
       } else {
+        setFormError(tMsg("error_create"))
         addToast("error", tMsg("error_create"))
       }
     },
@@ -102,6 +105,7 @@ export function InlineCreateModal({
     e.preventDefault()
     e.stopPropagation()
     setErrors({})
+    setFormError(null)
     createMutation.mutate(values)
   }
 
@@ -110,6 +114,7 @@ export function InlineCreateModal({
     if (open) {
       setValues({})
       setErrors({})
+      setFormError(null)
     }
   }, [open])
 
@@ -206,6 +211,18 @@ export function InlineCreateModal({
             </div>
           ) : schema ? (
             <form id="inline-create-form" onSubmit={handleSubmit} noValidate>
+              {formError && (
+                <div
+                  className="mb-4 rounded-lg border px-4 py-3 text-sm"
+                  style={{
+                    backgroundColor: "rgba(239, 68, 68, 0.1)",
+                    borderColor: "rgba(239, 68, 68, 0.3)",
+                    color: "rgb(239, 68, 68)",
+                  }}
+                >
+                  {formError}
+                </div>
+              )}
               <div
                 className="divide-y"
                 style={{ borderColor: "var(--martis-border)" }}
