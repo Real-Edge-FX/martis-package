@@ -973,6 +973,21 @@ class ResourceController extends MartisController
             default => 'A database error occurred. Please check your input and try again.',
         };
 
+        // Unique constraint violations are validation errors — return 422 with field mapping
+        if ($code === '1062') {
+            $field = null;
+            $errorDetail = $e->errorInfo[2] ?? '';
+            // MySQL: "Duplicate entry 'val' for key 'table.table_column_unique'"
+            if (preg_match("/for key '(?:[^.]+\.)?(?:\w+_)?(\w+)_unique'/", $errorDetail, $m)) {
+                $field = $m[1];
+            }
+            if ($field) {
+                return JsonErrorResponse::validation([$field => [$message]], $message)->toResponse();
+            }
+
+            return JsonErrorResponse::validation([], $message)->toResponse();
+        }
+
         return JsonErrorResponse::serverError($message)->toResponse();
     }
 

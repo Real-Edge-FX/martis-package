@@ -299,7 +299,7 @@ html.dark body {
 
 /* ── Toast ─────────────────────────────────────────────────────── */
 .p-toast {
-  z-index: 9999 !important;
+  z-index: 99999 !important;
 }
 .p-toast .p-toast-message {
   background-color: var(--martis-surface);
