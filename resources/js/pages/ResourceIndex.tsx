@@ -283,7 +283,7 @@ export function ResourceIndexPage() {
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
         onToggleAll={handleToggleAll}
-        onClickRow={(row) => navigate(`/resources/${resource}/${row.id}`)}
+        onClickRow={(row) => { if (row._authorization?.authorizedToView !== false) navigate(`/resources/${resource}/${row.id}`) }}
         resourceKey={resource}
         selectable={false}
         tableConfig={{

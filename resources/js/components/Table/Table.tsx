@@ -104,6 +104,7 @@ function DefaultTable({
       }}
       onRowClick={(e) => onClickRow?.(e.data as ResourceRecord)}
       rowClassName={(row: ResourceRecord) =>
+        (row._authorization?.authorizedToView === false ? "cursor-default opacity-70 " : "") +
         ("deleted_at" in row && row["deleted_at"] !== null ? "opacity-60 " : "") +
         selectable && selectedIds.has(row.id) ? 'bg-indigo-50 dark:bg-indigo-950/20' : ''
       }

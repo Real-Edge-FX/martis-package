@@ -16,6 +16,7 @@ return [
     'archived' => 'Arquivado',
     'archive_confirm' => 'Este registro será arquivado e poderá ser restaurado depois.',
     'delete_confirm' => 'Esta ação é permanente e não pode ser desfeita. Tem certeza?',
+    'restore_confirm' => 'Este registro será restaurado e ficará ativo novamente. Continuar?',
     'validation_failed' => 'Os dados fornecidos são inválidos.',
     'no_results_found' => 'Nenhum resultado encontrado.',
     'no_options' => 'Nenhuma opção disponível.',

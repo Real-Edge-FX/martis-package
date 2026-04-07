@@ -20,6 +20,8 @@ export function ResourceDetailPage() {
   const { addToast } = useToast()
   const [showDelete, setShowDelete] = useState(false)
   const [showUpdateOverride, setShowUpdateOverride] = useState(false)
+  const [showForceDelete, setShowForceDelete] = useState(false)
+  const [showRestore, setShowRestore] = useState(false)
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
 
@@ -189,8 +191,8 @@ export function ResourceDetailPage() {
           {isDeleted && schema.softDeletes && canRestore ? (
             <button
               type="button"
-              onClick={() => restoreMutation.mutate()}
-              disabled={restoreMutation.isPending}
+              onClick={() => setShowRestore(true)}
+              
               className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
             >
               <ArrowCounterClockwise size={14} />
@@ -245,8 +247,8 @@ export function ResourceDetailPage() {
           {isDeleted && schema.softDeletes && canForceDelete && (
           <button
             type="button"
-            onClick={() => forceDeleteMutation.mutate()}
-            disabled={forceDeleteMutation.isPending}
+            onClick={() => setShowForceDelete(true)}
+            
             className="inline-flex items-center gap-1.5 rounded-md bg-red-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-900"
           >
             <TrashSimple size={14} />
@@ -339,6 +341,39 @@ export function ResourceDetailPage() {
         onCancel={() => setShowDelete(false)}
         confirmMessage={schema.softDeletes ? schema.messages?.archiveConfirm : schema.messages?.deleteConfirm}
       />
+<DeleteModal
+        open={showForceDelete}
+        resourceLabel={schema.singularLabel}
+        isSoftDelete={false}
+        onConfirm={async () => { await forceDeleteMutation.mutateAsync() }}
+        onCancel={() => setShowForceDelete(false)}
+      />
+
+      {showRestore && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowRestore(false)} />
+          <div role="dialog" className="relative w-full max-w-md rounded-xl shadow-xl" style={{ backgroundColor: "var(--martis-card)", border: "1px solid var(--martis-border)" }}>
+            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "var(--martis-border)" }}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                  <ArrowCounterClockwise size={20} className="text-amber-600 dark:text-amber-400" />
+                </div>
+                <span className="text-lg font-semibold" style={{ color: "var(--martis-text)" }}>{tAct("restore")} {schema.singularLabel}</span>
+              </div>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm" style={{ color: "var(--martis-text-muted)" }}>{tMsg("restore_confirm")}</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: "var(--martis-border)", backgroundColor: "var(--martis-surface)", borderRadius: "0 0 0.75rem 0.75rem" }}>
+              <button type="button" onClick={() => setShowRestore(false)} className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium" style={{ backgroundColor: "var(--martis-input-bg)", borderColor: "var(--martis-border)", color: "var(--martis-text)" }}>{tAct("cancel")}</button>
+              <button type="button" onClick={async () => { await restoreMutation.mutateAsync(); setShowRestore(false) }} disabled={restoreMutation.isPending} className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50">
+                <ArrowCounterClockwise size={14} />
+                {restoreMutation.isPending ? tAct("please_wait") : tAct("restore")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
