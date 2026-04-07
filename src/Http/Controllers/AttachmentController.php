@@ -25,12 +25,16 @@ class AttachmentController extends MartisController
     public function upload(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'max:10240'],
+            'file' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,txt,csv,zip'],
         ]);
 
         /** @var UploadedFile $file */
         $file = $request->file('file');
-        $disk = $request->input('disk', 'public');
+
+        // Whitelist allowed storage disks to prevent writes to unexpected locations
+        $allowedDisks = ['public', 'local'];
+        $requestedDisk = $request->input('disk', 'public');
+        $disk = in_array($requestedDisk, $allowedDisks, true) ? $requestedDisk : 'public';
 
         $filename = Str::random(40).'.'.$file->getClientOriginalExtension();
         $path = (string) $file->storeAs('martis-attachments', $filename, $disk);

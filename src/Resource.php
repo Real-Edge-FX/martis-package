@@ -586,7 +586,7 @@ abstract class Resource implements ResourceContract
 
         // Honour the before() callback (Laravel convention)
         if (method_exists($policy, 'before')) {
-            $beforeResult = $policy->before($user, $ability, $this->model);
+            $beforeResult = $policy->before($user, $ability);
             if ($beforeResult !== null) {
                 return (bool) $beforeResult;
             }
@@ -638,7 +638,7 @@ abstract class Resource implements ResourceContract
 
         // Honour the before() callback (Laravel convention)
         if (method_exists($policy, 'before')) {
-            $beforeResult = $policy->before($user, $ability, $model);
+            $beforeResult = $policy->before($user, $ability);
             if ($beforeResult !== null) {
                 return (bool) $beforeResult;
             }

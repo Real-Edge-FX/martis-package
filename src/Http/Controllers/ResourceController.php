@@ -712,6 +712,14 @@ class ResourceController extends MartisController
             $relatedUriKey = is_string($rawRelated) ? $rawRelated : null;
         }
 
+        // Auth check: ensure user can viewAny the related resource (F-2 fix)
+        if ($relatedUriKey !== null && $this->registry->has($relatedUriKey)) {
+            $relatedCheck = new ($this->registry->get($relatedUriKey));
+            if (! $relatedCheck->authorizedToViewAny($request)) {
+                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            }
+        }
+
         if ($relatedUriKey === null || ! $this->registry->has($relatedUriKey)) {
             return JsonErrorResponse::notFound('Related resource not found.')->toResponse();
         }
