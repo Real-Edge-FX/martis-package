@@ -55,6 +55,7 @@ function DefaultTable({
   tableConfig,
 }: TableProps) {
   const { t } = useTranslation('resources')
+  const { t: tMsg } = useTranslation('messages')
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
   const selectedRows = rows.filter((r) => selectedIds.has(r.id))
 
@@ -103,6 +104,7 @@ function DefaultTable({
       }}
       onRowClick={(e) => onClickRow?.(e.data as ResourceRecord)}
       rowClassName={(row: ResourceRecord) =>
+        ("deleted_at" in row && row["deleted_at"] !== null ? "opacity-60 " : "") +
         selectable && selectedIds.has(row.id) ? 'bg-indigo-50 dark:bg-indigo-950/20' : ''
       }
       emptyMessage={
@@ -115,6 +117,17 @@ function DefaultTable({
     >
       {selectable && (
         <Column selectionMode="multiple" headerStyle={{ width: '2.5rem' }} />
+      )}
+      {rows.some((r) => "deleted_at" in r && r["deleted_at"] !== null) && (
+        <Column
+          header=""
+          body={(row: ResourceRecord) => (
+            "deleted_at" in row && row["deleted_at"] !== null
+              ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">{tMsg("archived")}</span>
+              : null
+          )}
+          style={{ width: "5rem" }}
+        />
       )}
       {columns.map(({ field }) => (
         <Column

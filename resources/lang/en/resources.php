@@ -26,4 +26,8 @@ return [
     'scout_active' => 'Scout search active',
     'scout_disabled' => 'Scout search disabled',
     'scout_search_placeholder' => 'Search with Scout…',
+    'trashed_filter' => 'Show',
+    'trashed_active' => 'Active',
+    'trashed_with' => 'With archived',
+    'trashed_only' => 'Only archived',
 ];

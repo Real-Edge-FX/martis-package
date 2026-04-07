@@ -64,6 +64,7 @@ class ResourceController extends MartisController
     #[QueryParameter('per_page', description: 'Number of records per page. Maximum: 100. Default defined by the Resource (usually 15).', required: false, type: 'integer', example: 15)]
     #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default: "asc".', required: false, type: 'string', example: 'asc')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string', example: 'with')]
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);
@@ -84,6 +85,21 @@ class ResourceController extends MartisController
 
         /** @var Builder<Model> $query */
         $query = $modelClass::query();
+
+        // Soft-delete filter — Nova v5 parity (REA-1115)
+        // ?trashed=with  → include soft-deleted alongside active records
+        // ?trashed=only  → show only soft-deleted (trashed) records
+        // default        → active records only (standard Eloquent behavior)
+        if ($resourceClass::softDeletes()) {
+            $trashed = $request->query('trashed', '');
+            if ($trashed === 'with') {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query = $modelClass::withTrashed();
+            } elseif ($trashed === 'only') {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query = $modelClass::onlyTrashed();
+            }
+        }
 
         // Apply indexQuery hook — Nova v5 parity (REA-1144)
         $query = $resourceClass::indexQuery($request, $query);

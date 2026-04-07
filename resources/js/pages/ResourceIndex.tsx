@@ -32,6 +32,7 @@ export function ResourceIndexPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null)
   const [showCreateOverride, setShowCreateOverride] = useState(false)
+  const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
 
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
@@ -57,13 +58,14 @@ export function ResourceIndexPage() {
 
   // Index data
   const indexQuery = useQuery({
-    queryKey: ['resources', resource, page, debouncedSearch, sortBy, sortDir, effectivePerPage],
+    queryKey: ['resources', resource, page, debouncedSearch, sortBy, sortDir, effectivePerPage, trashedFilter],
     queryFn: () => {
       const params = new URLSearchParams({
         page: String(page),
         per_page: String(effectivePerPage),
       })
       if (debouncedSearch) params.set('search', debouncedSearch)
+      if (trashedFilter) params.set('trashed', trashedFilter)
       if (sortBy) {
         params.set('sort', sortBy)
         params.set('direction', sortDir)
@@ -251,6 +253,20 @@ export function ResourceIndexPage() {
             ))}
           </select>
         </div>
+
+        {schema.softDeletes && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <select
+              value={trashedFilter}
+              onChange={(e) => { setTrashedFilter(e.target.value as "" | "with" | "only"); setPage(1) }}
+              className="martis-perpage-select"
+            >
+              <option value="">{t("trashed_active")}</option>
+              <option value="with">{t("trashed_with")}</option>
+              <option value="only">{t("trashed_only")}</option>
+            </select>
+          </div>
+        )}
 
         {indexQuery.isFetching && (
           <span className="text-xs martis-text-muted">{tMsg('loading')}</span>

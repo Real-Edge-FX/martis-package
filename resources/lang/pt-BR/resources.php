@@ -26,4 +26,8 @@ return [
     'scout_active' => 'Busca Scout ativa',
     'scout_disabled' => 'Busca Scout desativada',
     'scout_search_placeholder' => 'Buscar com Scout…',
+    'trashed_filter' => 'Exibir',
+    'trashed_active' => 'Ativos',
+    'trashed_with' => 'Com arquivados',
+    'trashed_only' => 'Somente arquivados',
 ];
