@@ -1,164 +1,382 @@
-# API Overview
+# Martis API — Overview
 
-Martis exposes a JSON API for the React frontend. All endpoints are prefixed with the configured admin path (default: `/martis`).
+Martis provides a REST API for all CRUD operations, resource metadata, and configuration. The API is automatically documented via Scramble (OpenAPI/Swagger).
+
+## Access
+
+| Item | Value |
+|------|-------|
+| Swagger UI | `http://martis.realedgefx.com/docs/api` |
+| Base URL | `/martis/api` |
+| Format | JSON |
+| Auth | Sanctum Bearer token (configurable guard via `MARTIS_GUARD`) |
 
 ## Authentication
 
 ### Login
 
-```
-POST /martis/api/auth/login
+```http
+POST /martis/login
 Content-Type: application/json
 
-{ "email": "admin@example.com", "password": "secret" }
+{
+  "email": "admin@martis.local",
+  "password": "password"
+}
 ```
 
-Returns the authenticated user on success, 401 on failure. Rate-limited to 5 attempts per minute.
+Response:
 
-### Logout
-
+```json
+{
+  "token": "1|abc123..."
+}
 ```
-POST /martis/api/auth/logout
+
+### Using the Token
+
+Include the token in all subsequent requests:
+
+```http
+Authorization: Bearer 1|abc123...
 ```
 
-### Current User
+### Check Current User
 
-```
+```http
 GET /martis/api/auth/user
 ```
 
-Returns the authenticated user or `null`.
+### Logout
 
-## Navigation
-
-```
-GET /martis/api/navigation
+```http
+POST /martis/api/auth/logout
 ```
 
-Returns the navigation tree with all registered resources, grouped by `group()`.
+## Resource Endpoints
 
-## Translations
+### List Available Resources
 
-```
-GET /martis/api/translations/{locale}
-```
-
-Returns all translation strings for the given locale (e.g. `en-US`, `pt-BR`).
-
-## Resource CRUD
-
-All resource endpoints follow the pattern `/martis/api/resources/{resource}` where `{resource}` is the resource URI key (e.g. `posts`, `users`).
-
-### Schema
-
-```
-GET /martis/api/resources/{resource}/schema
+```http
+GET /martis/api/resources
 ```
 
-Returns the resource metadata and pre-filtered field arrays for each context (index, detail, create, update). The frontend consumes this directly without additional filtering.
+Returns all registered resources with their labels, icons, groups, and URI keys.
+
+```json
+[
+  {
+    "uriKey": "users",
+    "label": "Users",
+    "singularLabel": "User",
+    "icon": "users",
+    "group": null
+  },
+  {
+    "uriKey": "posts",
+    "label": "Posts",
+    "singularLabel": "Post",
+    "icon": "newspaper",
+    "group": "Content"
+  }
+]
+```
+
+### Index (List Records)
+
+```http
+GET /martis/api/{resource}
+```
+
+**Query Parameters:**
+
+| Parameter | Example | Description |
+|-----------|---------|-------------|
+| `search` | `?search=john` | Full-text search across `searchable()` fields |
+| `sort` | `?sort=name` | Sort column |
+| `direction` | `?direction=desc` | Sort direction: `asc` (default) or `desc` |
+| `per_page` | `?per_page=25` | Records per page |
+| `page` | `?page=2` | Page number |
+| `trashed` | `?trashed=only` | `only` or `with` for soft-deleted records |
 
 **Response:**
 
 ```json
 {
-  "uriKey": "posts",
-  "label": "Posts",
-  "singularLabel": "Post",
-  "fields": {
-    "index": [...],
-    "detail": [...],
-    "create": [...],
-    "update": [...]
+  "data": [
+    {
+      "id": 1,
+      "name": "Admin User",
+      "email": "admin@martis.local",
+      "_title": "Admin User",
+      "_resource": {
+        "uriKey": "users",
+        "label": "Users"
+      }
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "last_page": 3,
+    "per_page": 15,
+    "total": 42,
+    "from": 1,
+    "to": 15
   },
-  "authorization": {
-    "viewAny": true,
-    "create": true
-  },
-  "config": {
-    "searchable": true,
-    "perPage": 25,
-    "perPageOptions": [15, 25, 50],
-    "softDeletes": false,
-    "tableStriped": true
+  "links": {
+    "first": "...",
+    "last": "...",
+    "prev": null,
+    "next": "..."
   }
 }
 ```
 
-### Index (List)
+### Create Record
 
-```
-GET /martis/api/resources/{resource}
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `page` | integer | Page number (default: 1) |
-| `per_page` | integer | Items per page (default: resource config) |
-| `sort` | string | Sort field (e.g. `title`) |
-| `direction` | string | Sort direction: `asc` or `desc` |
-| `search` | string | Full-text search query |
-
-### Create
-
-```
-POST /martis/api/resources/{resource}
+```http
+POST /martis/api/{resource}
 Content-Type: application/json
 
-{ "title": "My Post", "body": "Content..." }
+{
+  "name": "New User",
+  "email": "new@example.com",
+  "password": "secret123"
+}
 ```
 
-Returns the created resource with a success message.
+For file uploads, use `multipart/form-data`:
 
-### Show
+```http
+POST /martis/api/{resource}
+Content-Type: multipart/form-data
 
+name=New Post
+title=Hello World
+cover_image=@/path/to/image.jpg
 ```
-GET /martis/api/resources/{resource}/{id}
+
+### Show Record (Detail)
+
+```http
+GET /martis/api/{resource}/{id}
 ```
 
-Returns a single resource record with detail fields resolved.
+### Update Record
 
-### Update
-
-```
-PUT /martis/api/resources/{resource}/{id}
+```http
+PUT /martis/api/{resource}/{id}
 Content-Type: application/json
 
-{ "title": "Updated Title" }
+{
+  "name": "Updated Name"
+}
 ```
 
-### Delete
+### Delete Record
 
-```
-DELETE /martis/api/resources/{resource}/{id}
-```
-
-### Restore (Soft Deletes)
-
-```
-PUT /martis/api/resources/{resource}/{id}/restore
+```http
+DELETE /martis/api/{resource}/{id}
 ```
 
-Only available when the resource has `softDeletes()` enabled.
+For soft-delete models, this archives the record. Use the restore endpoint to unarchive.
 
-## Middleware
+### Restore Soft-Deleted Record
 
-All protected routes use the `martis.auth` middleware. Public routes (login, logout, translations, auth check) are accessible without authentication.
+```http
+GET /martis/api/{resource}/{id}/restore
+```
 
-Protected API routes are additionally rate-limited to 60 requests per minute by default (configurable via `martis.api_middleware`).
+## Schema Endpoint
+
+Returns the field structure and metadata for a resource.
+
+```http
+GET /martis/api/{resource}/schema
+```
+
+**Response:**
+
+```json
+{
+  "resource": "posts",
+  "label": "Posts",
+  "singularLabel": "Post",
+  "titleAttribute": "title",
+  "icon": "newspaper",
+  "group": "Content",
+  "perPageOptions": [15, 25, 50],
+  "defaultPerPage": 15,
+  "indexSearchable": true,
+  "tableStriped": false,
+  "tableShowGridlines": false,
+  "tableSize": "normal",
+  "tableRowHover": true,
+  "errorDisplay": "inline",
+  "overrides": {
+    "create": null,
+    "update": null,
+    "detail": null,
+    "index": null
+  },
+  "fields": [
+    {
+      "attribute": "title",
+      "label": "Title",
+      "type": "text",
+      "component": null,
+      "sortable": true,
+      "searchable": true,
+      "nullable": false,
+      "required": true,
+      "readonly": false,
+      "showOnIndex": true,
+      "showOnDetail": true,
+      "showOnForms": true,
+      "rules": [],
+      "placeholder": null,
+      "colSpan": 12,
+      "colSpanMd": null,
+      "colSpanLg": null,
+      "overrides": null
+    }
+  ],
+  "fieldsForIndex": [...],
+  "fieldsForDetail": [...],
+  "fieldsForCreate": [...],
+  "fieldsForUpdate": [...]
+}
+```
+
+## Relationship Endpoints
+
+### BelongsTo Options (Relatable)
+
+Returns available options for a BelongsTo relationship dropdown.
+
+```http
+GET /martis/api/{resource}/{id}/relatable/{field}
+GET /martis/api/{resource}/{id}/relatable/{field}?search=term
+```
+
+**Response:**
+
+```json
+{
+  "options": [
+    { "id": 1, "title": "Admin User" },
+    { "id": 2, "title": "Regular User" }
+  ]
+}
+```
+
+The results are filtered by the resource's `relatableQuery()` method if defined.
+
+### HasMany Records
+
+Returns related records for a HasMany relationship.
+
+```http
+GET /martis/api/{resource}/{parentId}/has-many/{relationship}
+```
+
+Supports the same query parameters as the index endpoint (search, sort, direction, per_page, page).
+
+## Translation Endpoint
+
+Returns translated strings for a given locale. This endpoint is **public** (no authentication required).
+
+```http
+GET /martis/api/translations/{locale}
+```
+
+**Available locales:** `en`, `pt-BR`, `pt-PT`
+
+**Response:**
+
+```json
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create"
+  },
+  "messages": {
+    "created": "Record created successfully.",
+    "updated": "Record updated.",
+    "deleted": "Record deleted.",
+    "delete_confirm": "Are you sure you want to delete this record?"
+  },
+  "navigation": {
+    "dashboard": "Dashboard"
+  }
+}
+```
 
 ## Error Responses
 
-Validation errors return HTTP 422:
+### Validation Error (422)
 
 ```json
 {
   "message": "The given data was invalid.",
   "errors": {
-    "title": ["The title field is required."]
+    "title": ["The title field is required."],
+    "email": ["The email field must be a valid email address."]
   }
 }
 ```
 
-Authorization failures return HTTP 403. Unauthenticated requests return HTTP 401.
+### Unauthorized (401)
+
+```json
+{
+  "message": "Unauthenticated."
+}
+```
+
+### Not Found (404)
+
+```json
+{
+  "message": "Resource not found."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "message": "This action is unauthorized."
+}
+```
+
+## Navigation Endpoint
+
+Returns the sidebar navigation structure with resource groups.
+
+```http
+GET /martis/api/navigation
+```
+
+**Response:**
+
+```json
+[
+  {
+    "label": null,
+    "resources": [
+      { "uriKey": "users", "label": "Users", "icon": "users" }
+    ]
+  },
+  {
+    "label": "Content",
+    "resources": [
+      { "uriKey": "posts", "label": "Posts", "icon": "newspaper" },
+      { "uriKey": "categories", "label": "Categories", "icon": "folder" }
+    ]
+  }
+]
+```

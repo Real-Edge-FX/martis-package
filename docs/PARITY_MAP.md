@@ -1,146 +1,167 @@
-# Nova v5 Parity Map
+# Parity Map — Martis vs Laravel Nova v5
 
-Feature parity comparison between Martis and Laravel Nova v5.
-
-> **Mandate:** 1:1 functional parity with Laravel Nova is the minimum requirement.
-> **Differentiator:** Architectural superiority in customization.
+> Last updated: 2026-04-07
+> Coverage: Track B Foundation (Blocks 1-10) + Extended Fields + HasMany
 
 ## Legend
 
 | Status | Meaning |
 |--------|---------|
-| ✅ | Implemented |
-| 🔨 | In progress |
-| 📋 | Planned |
-| ➖ | Not applicable / by design |
+| DONE | Implemented and tested |
+| PARTIAL | Partially implemented |
+| TODO | Not yet implemented |
 
-## Resources & CRUD
+---
 
-| Feature | Nova v5 | Martis | Notes |
-|---------|---------|--------|-------|
-| Resource auto-discovery | ✅ | ✅ | `app/Martis/` auto-discovered |
-| Index / List | ✅ | ✅ | Paginated with sorting and search |
-| Detail / Show | ✅ | ✅ | |
-| Create form | ✅ | ✅ | |
-| Update form | ✅ | ✅ | |
-| Delete | ✅ | ✅ | |
-| Soft delete / Restore | ✅ | ✅ | |
-| Context-aware fields | ✅ | ✅ | 6 contexts: index, detail, create, update, inline-create, preview |
-| Lifecycle hooks | ✅ | ✅ | beforeSave, afterSave, beforeDelete, afterDelete |
-| Event dispatching | ✅ | ✅ | Decoupled event listeners |
-| Validation rules | ✅ | ✅ | Per-field Laravel rules |
-| Custom messages | ✅ | ✅ | All CRUD messages overridable |
+## Core Features
 
-## Fields
+| Feature | Nova v5 | Martis | Status | Notes |
+|---------|---------|--------|--------|-------|
+| Resource System | Resources with Model binding | Resource class + model() | DONE | Block 3 |
+| Resource Discovery | Auto-discovery | ResourceDiscovery + ServiceProvider | DONE | Block 3 |
+| Resource Hooks | beforeSave/afterSave etc | Event dispatching hooks | DONE | Block 3 |
+| Resource Groups | Sidebar grouping | group() method | DONE | REA-1140 |
+| Resource Subtitle | Description line | subtitle() static method | DONE | REA-1140 |
+| Resource Title | Dynamic record title | titleAttribute() | DONE | REA-1140 |
+| Resource Icons | Sidebar icons | icon() + Phosphor Icons | DONE | REA-1140 |
+| Custom Messages | CRUD notification messages | createdMessage() etc | DONE | REA-1140 |
+| Contracts/Interfaces | — | FieldContract, ResourceContract | DONE | Extensibility |
 
-| Field Type | Nova v5 | Martis | Notes |
-|------------|---------|--------|-------|
-| Text | ✅ | ✅ | |
-| Textarea | ✅ | ✅ | |
-| Number | ✅ | ✅ | min/max/step |
-| Boolean | ✅ | ✅ | Toggle switch |
-| Select | ✅ | ✅ | |
-| MultiSelect | ✅ | ✅ | Chips display |
-| Date | ✅ | ✅ | |
-| DateTime | ✅ | ✅ | |
-| Email | ✅ | ✅ | |
-| Password | ✅ | ✅ | Visibility toggle |
-| File | ✅ | ✅ | Drag & drop, download |
-| Image | ✅ | ✅ | Preview, thumbnail |
-| BelongsTo | ✅ | ✅ | Async search, displayAsLink |
-| Hidden | ✅ | ✅ | |
-| Heading | ✅ | ✅ | Section divider |
-| Badge | ✅ | ✅ | Colored status |
-| Status | ✅ | ✅ | Loading/success/failed |
-| Tag | ✅ | ✅ | |
-| KeyValue | ✅ | ✅ | Key-value editor |
-| Url | ✅ | ✅ | Clickable links |
-| Code | ✅ | ✅ | Syntax highlighting |
-| Color | ✅ | ✅ | Color picker |
-| Markdown | ✅ | ✅ | Preview + file upload |
-| Trix | ✅ | ✅ | Rich-text editor |
-| Id | ✅ | ✅ | |
-| HasMany | ✅ | 📋 | Relationship management |
-| HasOne | ✅ | 📋 | |
-| BelongsToMany | ✅ | 📋 | |
-| MorphTo | ✅ | 📋 | |
-| MorphMany | ✅ | 📋 | |
+---
 
-## Field Features
+## Fields (31 Types)
 
-| Feature | Nova v5 | Martis | Notes |
-|---------|---------|--------|-------|
-| Sortable | ✅ | ✅ | |
-| Searchable | ✅ | ✅ | |
-| Required/Nullable | ✅ | ✅ | |
-| Placeholder | ✅ | ✅ | |
-| Readonly | ✅ | ✅ | |
-| Help text | ✅ | ✅ | |
-| Visibility flags | ✅ | ✅ | hideFromIndex, onlyOnForms, etc. |
-| Custom components | ✅ | ✅ | 4-tier resolution system |
-| resolveUsing | ✅ | ✅ | |
-| fillUsing | ✅ | ✅ | |
-| displayUsing | ✅ | ✅ | |
-| Computed fields | ✅ | 📋 | |
-| Conditional fields | ✅ | 📋 | dependsOn |
+| Field | Nova v5 | Martis | Status | Notes |
+|-------|---------|--------|--------|-------|
+| Text | Text field | Text::make() | DONE | Block 4 |
+| Textarea | Textarea | Textarea::make() + rows() | DONE | Block 4 |
+| Number | Number field | Number::make() + min/max/step | DONE | Block 4 |
+| Boolean | Boolean/Toggle | Boolean::make() + trueLabel/falseLabel | DONE | Block 4 |
+| Select | Select dropdown | Select::make() + options() | DONE | Block 4 |
+| Date | Date picker | Date::make() | DONE | Block 4 |
+| DateTime | Date + time picker | DateTime::make() | DONE | REA-1140 |
+| BelongsTo | Belongs To | BelongsTo::make() + relatable endpoint | DONE | Block 4+8 |
+| HasMany | Has Many | HasMany::make() + inline CRUD | DONE | Inline DataTable |
+| Email | Email field | Email::make() + format validation | DONE | REA-1140 |
+| Password | Password field | Password::make() + masked | DONE | REA-1140 |
+| ID | ID display | Id::make() | DONE | REA-1140 |
+| Hidden | Hidden field | Hidden::make() | DONE | REA-1140 |
+| Heading | Section divider | Heading::make() + content() | DONE | REA-1140 |
+| File | File upload | File::make() + disk/path/types/maxSize | DONE | REA-1140 |
+| Image | Image upload | Image::make() + thumbnail/disk | DONE | REA-1140 |
+| Badge | Badge display | Badge::make() + colors | DONE | Extended |
+| Status | Status badge | Status::make() + colors | DONE | Extended |
+| Code | Code editor | Code::make() | DONE | Extended |
+| Color | Color picker | Color::make() | DONE | Extended |
+| Country | Country selector | Country::make() | DONE | Extended |
+| Currency | Currency display | Currency::make() + symbol | DONE | Extended |
+| Gravatar | Gravatar avatar | Gravatar::make() | DONE | Extended |
+| KeyValue | Key-value pairs | KeyValue::make() | DONE | Extended |
+| Markdown | Markdown editor | Markdown::make() | DONE | Extended |
+| MultiSelect | Multi-select dropdown | MultiSelect::make() | DONE | Extended |
+| Sparkline | Mini chart | Sparkline::make() | DONE | Extended |
+| Tag | Tag input | Tag::make() | DONE | Extended |
+| Trix | Rich text editor | Trix::make() | DONE | Extended |
+| Url | URL with validation | Url::make() | DONE | Extended |
+| Field Visibility | showOnIndex/hideFromIndex | All 4 contexts supported | DONE | Block 4 |
+| Field Validation | Built-in validation | required/nullable/rules() | DONE | Block 4 |
+| Field Sorting | Sortable columns | sortable() | DONE | Block 4 |
+| Field Search | Searchable fields | searchable() | DONE | Block 4 |
+| Field Component Override | Custom component key | ->component('key') | DONE | Block 9 |
+| Field Unique Validation | Unique validation | ->unique(['table','col'],'msg') | DONE | REA-1140 |
+| Column Span | Grid layout | colSpan/colSpanMd/colSpanLg | DONE | Extended |
+| Placeholder | Input placeholder | placeholder() | DONE | Extended |
 
-## Authorization
+---
 
-| Feature | Nova v5 | Martis | Notes |
-|---------|---------|--------|-------|
-| Policy integration | ✅ | ✅ | |
-| Per-resource auth | ✅ | ✅ | viewAny, view, create, update, delete |
-| Per-action auth | ✅ | ✅ | |
-| Gate checks | ✅ | ✅ | |
+## API and CRUD
 
-## UI & Navigation
+| Feature | Nova v5 | Martis | Status | Notes |
+|---------|---------|--------|--------|-------|
+| Pagination | Auto pagination | JSON paginated response | DONE | Block 5 |
+| Sorting (API) | Sort by column | ?sort=col&direction=asc/desc | DONE | Block 5 |
+| Search (API) | Global search | ?search=term | DONE | Block 5 |
+| API Schema | Field metadata | /schema endpoint | DONE | Block 5 |
+| Authentication | Admin login | Sanctum session-based auth | DONE | Block 6 |
+| Soft Deletes | Restore archived | SoftDeletes detection + restore | DONE | Block 8 |
+| BelongsTo Options | Relationship dropdown | /relatable/{field} endpoint | DONE | Block 4+8 |
+| HasMany API | Related records | /has-many/{relationship} endpoint | DONE | HasMany |
+| Validation Errors | Inline/toast | errorDisplay() configurable | DONE | Extended |
+| File Upload | Multipart form | FormData with file detection | DONE | REA-1140 |
 
-| Feature | Nova v5 | Martis | Notes |
-|---------|---------|--------|-------|
-| Sidebar navigation | ✅ | ✅ | |
-| Resource grouping | ✅ | ✅ | via group() |
-| Global search | ✅ | ✅ | Debounced, grouped results |
-| Dark mode | ✅ | ✅ | Toggle + persistent preference |
-| Breadcrumbs | ✅ | ✅ | |
-| Toast notifications | ✅ | ✅ | Configurable position |
-| Dashboard | ✅ | ✅ | Metrics + resource cards |
-| Custom dashboards | ✅ | 📋 | Widgets / custom cards |
+---
 
-## Customization
+## Frontend
 
-| Feature | Nova v5 | Martis | Notes |
-|---------|---------|--------|-------|
-| Custom fields | ✅ | ✅ | `martis:field` artisan command |
-| Custom components | ➖ | ✅ | `martis:component` artisan command |
-| Custom themes | ✅ | ✅ | `martis:theme` artisan command |
-| Component overrides | ✅ | ✅ | 4-tier resolution (superior to Nova) |
-| Layout presets | ➖ | ✅ | sidebar, topnav, minimal, custom |
+| Feature | Nova v5 | Martis | Status | Notes |
+|---------|---------|--------|--------|-------|
+| React SPA | — | React 18 + Router + Query + Vite | DONE | Block 7 |
+| Index Page | List with table | ResourceIndex.tsx | DONE | Block 8 |
+| Detail Page | Show record | ResourceDetail.tsx + HasMany inline | DONE | Block 8 |
+| Create Form | Create record | ResourceCreate.tsx | DONE | Block 8 |
+| Edit Form | Update record | ResourceUpdate.tsx | DONE | Block 8 |
+| Delete | Hard/soft delete | Delete + DeleteModal + restore | DONE | Block 8 |
+| Override System | Custom components | 4-tier componentRegistry | DONE | Block 9 |
+| Drawer Overrides | — | DrawerCreate/Update/Detail | DONE | Block 9 |
+| Layout Overrides | — | layoutRegistry + 3 presets | DONE | Block 9 |
+| i18n | Multiple languages | react-i18next + API translations | DONE | REA-1094 |
+| Dark/Light Theme | — | ThemeContext + CSS variables | DONE | Full support |
+| Phosphor Icons | — | 1,512 icons via icon() | DONE | REA-1140 |
+| File/Image Display | — | Upload preview + thumbnail | DONE | REA-1140 |
+| Global Search | — | GlobalSearch component | DONE | Top bar |
+| Toast Notifications | — | ToastContext + PrimeReact Toast | DONE | Extended |
+| Responsive Grid | — | colSpan/colSpanMd/colSpanLg | DONE | Extended |
+| Code Splitting | — | React.lazy() per page | DONE | Performance |
 
-## Localization
+---
 
-| Feature | Nova v5 | Martis | Notes |
-|---------|---------|--------|-------|
-| i18n support | ✅ | ✅ | Laravel lang files |
-| Built-in locales | ✅ | ✅ | en-US, pt-BR |
-| Custom locales | ✅ | ✅ | Publish and extend |
+## Quality and Infrastructure
 
-## CLI / Artisan
+| Feature | Notes | Status |
+|---------|-------|--------|
+| CI via Makefile | make ci: lint + typecheck + test | DONE |
+| PHP Tests (Pest) | 180+ tests | DONE |
+| TypeScript Tests (Vitest) | 43 tests | DONE |
+| E2E Tests (Playwright) | 13 tests covering main flows | DONE |
+| PHPStan Level 8 | Static analysis | DONE |
+| ESLint | TypeScript linting | DONE |
+| Laravel Pint | PHP formatting | DONE |
+| GitHub Actions CI/CD | Self-hosted runner | DONE |
+| Post-merge Deploy Hook | Auto build after merge | DONE |
+| API Docs (Scramble) | Swagger at /docs/api | DONE |
+| Pre-push Hook | Blocks push if CI fails | DONE |
+| Artisan Commands | martis:component scaffold | DONE |
 
-| Command | Nova v5 | Martis | Notes |
-|---------|---------|--------|-------|
-| Install | ✅ | ✅ | `martis:install` |
-| Make resource | ✅ | ✅ | `martis:resource` |
-| Make field | ✅ | ✅ | `martis:field` (PHP + React) |
-| Make component | ➖ | ✅ | `martis:component` |
-| Make theme | ➖ | ✅ | `martis:theme` |
-| Create user | ✅ | ✅ | `martis:user` |
-| Publish assets | ✅ | ✅ | `martis:vendor-publish` |
+---
 
-## Testing
+## Not Yet Implemented (Post Track B)
 
-| Feature | Nova v5 | Martis |
-|---------|---------|--------|
-| PHP tests | ✅ | ✅ (Pest) |
-| JS tests | ➖ | ✅ (Vitest) |
-| Static analysis | ➖ | ✅ (PHPStan Level 8) |
-| CI pipeline | ✅ | ✅ (`make ci`) |
+| Feature | Nova v5 | Status | Priority |
+|---------|---------|--------|----------|
+| Actions | Batch actions on records | TODO | High |
+| Filters | Column filters | TODO | High |
+| Lenses | Custom filtered views | TODO | Medium |
+| Metrics | Dashboard metric cards | TODO | High |
+| Impersonation | Admin impersonation | TODO | Low |
+| Notifications | In-app notifications | TODO | Medium |
+| Panels/Tabs | Field grouping in tabs | TODO | Medium |
+| Custom Tools | Sidebar tools/pages | TODO | Medium |
+| ManyToMany | Pivot relationships | TODO | High |
+| BelongsToMany | Pivot with sync | TODO | High |
+| MorphTo/MorphMany | Polymorphic relations | TODO | Low |
+| Repeater | Dynamic field groups | TODO | Low |
+
+---
+
+## Coverage Summary
+
+- **31 field types** implemented (15 core + 16 extended)
+- **Full CRUD** — Index + Detail + Create + Edit + Delete with soft-delete support
+- **HasMany** — Inline DataTable on detail page with search, sort, pagination, CRUD
+- **Auth** — Login/logout + Sanctum session
+- **Override System v1** — 4-tier component resolution + drawer overrides + layout overrides
+- **i18n** — EN + PT-BR + PT-PT with dynamic loading
+- **File/Image Upload** — Disk config, thumbnails, drag-drop, type/size validation
+- **Icons** — 1,512 Phosphor Icons
+- **Test Coverage** — 180+ PHP + 43 TS + 13 E2E = **236+ tests**
+- **CI** — make ci PASS, GitHub Actions self-hosted runner
