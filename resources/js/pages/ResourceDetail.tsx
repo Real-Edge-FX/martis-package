@@ -49,6 +49,7 @@ export function ResourceDetailPage() {
     mutationFn: () => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
+      void qc.invalidateQueries({ queryKey: ["resources"] })
       addToast("success", res?.meta?.message ?? tMsg("record_restored"))
     },
     onError: () => addToast("error", tMsg("error_restore")),
@@ -231,7 +232,7 @@ export function ResourceDetailPage() {
             {tAct("replicate")}
           </button>
           )}
-          {canDelete && (
+          {!isDeleted && canDelete && (
           <button
             type="button"
             onClick={() => setShowDelete(true)}
@@ -309,6 +310,7 @@ export function ResourceDetailPage() {
           onUpdated: (rec) => {
             setShowUpdateOverride(false)
             void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
+      void qc.invalidateQueries({ queryKey: ["resources"] })
             void qc.invalidateQueries({ queryKey: ["resources", resource] })
             addToast("success", schema.messages?.updated ?? "Record updated successfully.")
             const target = resolveRedirect(schema.overrides?.update?.redirectAfter, resource!, rec.id)
