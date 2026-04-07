@@ -656,7 +656,16 @@ class ResourceController extends MartisController
 
         // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
         $fields = Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
-        $fieldData = array_map(fn (FieldContract $f): array => $f->toArray(), $fields);
+
+        // Strip showCreateRelationButton from BelongsTo fields to prevent nesting (max 1 level deep)
+        $fieldData = array_map(function (FieldContract $f): array {
+            $arr = $f->toArray();
+            if (($arr['type'] ?? '') === 'belongs_to') {
+                $arr['showCreateRelationButton'] = false;
+            }
+
+            return $arr;
+        }, $fields);
 
         return JsonResponse::make([
             'fields' => $fieldData,
