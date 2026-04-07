@@ -358,13 +358,71 @@ The search bar on the index page queries all searchable fields using a `LIKE %te
 
 ## Authorization
 
-Martis integrates with Laravel's authorization system. Define policies for your models and Martis will respect them:
+Martis implements full **Nova v5 parity** for authorization with dedicated resource policies, auto-discovery, and comprehensive ability checking.
 
-- `viewAny` — Controls access to the index page
-- `view` — Controls access to the detail page
-- `create` — Controls the create button and form
-- `update` — Controls the edit button and form
-- `delete` — Controls the delete button
+### Policy Resolution Chain
+
+When checking authorization, Martis resolves the policy in this order:
+
+1. **Explicit $policy property** on the Resource class
+2. **Auto-discovery** by convention: {policy_namespace}\{ResourceBaseName}Policy
+3. **Laravel Gate** policy registered for the model class
+4. **No policy found** → permissive defaults (all allowed)
+
+The policy namespace defaults to App\Martis\Policies and can be configured via config(martis.policy_namespace).
+
+### Resource Abilities
+
+| Ability | Controls | Default (no method) |
+|---------|----------|-------------------|
+| viewAny | Navigation + index access | allowed |
+| view | Detail page access | forbidden |
+| create | Create button + form | forbidden |
+| update | Edit button + form | forbidden |
+| replicate | Replicate button | fallback to create AND update |
+| delete | Delete/archive button | forbidden |
+| restore | Restore soft-deleted record | forbidden |
+| forceDelete | Permanently delete soft-deleted record | forbidden |
+
+### Action Abilities
+
+| Ability | Controls | Default (no method) |
+|---------|----------|-------------------|
+| runAction | Normal (non-destructive) actions | fallback to update |
+| runDestructiveAction | Destructive actions | fallback to delete |
+
+### Relationship Abilities
+
+| Ability | Controls | Default (no method) |
+|---------|----------|-------------------|
+| add{Model} | Inline create related record | allowed |
+| attach{Model} | Attach specific related record | allowed |
+| attachAny{Model} | Show attach button | allowed |
+| detach{Model} | Detach related record | allowed |
+
+### Authorization Metadata
+
+Every API response includes _authorization metadata per record with boolean flags: authorizedToView, authorizedToUpdate, authorizedToDelete, authorizedToReplicate, authorizedToRunAction, authorizedToRunDestructiveAction, authorizedToRestore, authorizedToForceDelete.
+
+Schema responses include collection-level authorization: authorizedToViewAny, authorizedToCreate.
+
+The frontend uses this metadata to conditionally show/hide action buttons.
+
+### Disabling Authorization
+
+Set authorizable() to false on a resource to skip all policy checks.
+
+### Field-Level Authorization
+
+Fields support canSee(callable) and canSeeWhen(ability) for visibility control.
+
+### before() Callback
+
+Policies support a before() method that runs before any specific ability check. Return true to allow, false to deny, or null to fall through to the specific method.
+
+### Generating Policies
+
+Use php artisan martis:make-policy PolicyName --model=ModelName to generate a complete policy stub.
 
 ## CRUD Override System
 

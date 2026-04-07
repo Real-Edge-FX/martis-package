@@ -198,6 +198,7 @@ export function ResourceIndexPage() {
             <p className="text-sm martis-text-muted mt-1">{schema.subtitle}</p>
           )}
         </div>
+        {schema.authorization?.authorizedToCreate !== false && (
         <button
           type="button"
           onClick={() => {
@@ -212,6 +213,7 @@ export function ResourceIndexPage() {
         >
           + {tAct('create')} {schema.singularLabel}
         </button>
+        )}
       </div>
 
       {/* Search + Per Page controls */}

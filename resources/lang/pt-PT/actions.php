@@ -11,6 +11,7 @@ return [
     'restore' => 'Restaurar',
     'archive' => 'Arquivar',
     'delete_permanent' => 'Apagar permanentemente',
+    'replicate' => 'Replicar',
     'please_wait' => 'Por favor aguarde…',
     'search' => 'Pesquisar',
     'filter' => 'Filtrar',

@@ -122,6 +122,22 @@ export interface OverrideDefinition {
   redirectAfter?: string | null
 }
 
+export interface AuthorizationMetadata {
+  authorizedToView: boolean
+  authorizedToUpdate: boolean
+  authorizedToDelete: boolean
+  authorizedToReplicate: boolean
+  authorizedToRunAction: boolean
+  authorizedToRunDestructiveAction: boolean
+  authorizedToRestore?: boolean
+  authorizedToForceDelete?: boolean
+}
+
+export interface CollectionAuthorizationMetadata {
+  authorizedToViewAny: boolean
+  authorizedToCreate: boolean
+}
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
@@ -140,6 +156,7 @@ export interface ResourceSchema extends ResourceEmbedded {
   tableShowGridlines?: boolean
   tableSize?: 'normal' | 'small' | 'large'
   tableRowHover?: boolean
+  authorization?: CollectionAuthorizationMetadata
   overrides?: {
     create?: OverrideDefinition | null
     update?: OverrideDefinition | null
@@ -151,6 +168,7 @@ export interface ResourceSchema extends ResourceEmbedded {
 export interface ResourceRecord {
   id: number | string
   _title?: string
+  _authorization?: AuthorizationMetadata
   [key: string]: unknown
   _resource: ResourceEmbedded
 }

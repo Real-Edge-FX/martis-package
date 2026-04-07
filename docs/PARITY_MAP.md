@@ -165,3 +165,35 @@
 - **Icons** — 1,512 Phosphor Icons
 - **Test Coverage** — 180+ PHP + 43 TS + 13 E2E = **236+ tests**
 - **CI** — make ci PASS, GitHub Actions self-hosted runner
+
+---
+
+## Authorization (Nova v5 Parity — REA-1115)
+
+| Feature | Nova v5 | Martis | Status | Notes |
+|---------|---------|--------|--------|-------|
+| Policy Resolution | Gate + model policy | Explicit + auto-discovery + Gate | DONE | 4-level chain |
+| Resource Policy | static $policy | static $policy property | DONE | REA-1115 |
+| Auto-Discovery | Convention-based | {namespace}\{Resource}Policy | DONE | REA-1115 |
+| viewAny | Policy method | authorizedToViewAny() | DONE | Nav + index |
+| view | Policy method | authorizedToView() | DONE | Detail page |
+| create | Policy method | authorizedToCreate() | DONE | Create button |
+| update | Policy method | authorizedToUpdate() | DONE | Edit button |
+| delete | Policy method | authorizedToDelete() | DONE | Delete button |
+| restore | Policy method | authorizedToRestore() | DONE | Soft deletes |
+| forceDelete | Policy method | authorizedToForceDelete() | DONE | Permanent delete |
+| replicate | Policy method | authorizedToReplicate() | DONE | Duplicate record |
+| runAction | Policy method | authorizedToRunAction() | DONE | Normal actions |
+| runDestructiveAction | Policy method | authorizedToRunDestructiveAction() | DONE | Destructive actions |
+| add{Model} | Relationship policy | authorizedToAdd() | DONE | Inline create |
+| attach{Model} | Relationship policy | authorizedToAttach() | DONE | Attach related |
+| attachAny{Model} | Relationship policy | authorizedToAttachAny() | DONE | Attach button |
+| detach{Model} | Relationship policy | authorizedToDetach() | DONE | Detach related |
+| authorizable() | Disable auth per resource | authorizable() | DONE | REA-1115 |
+| Field canSee | Field visibility callback | canSee() + canSeeWhen() | DONE | REA-1115 |
+| before() callback | Pre-check in policy | before() support | DONE | REA-1115 |
+| Auth Metadata | _authorization in responses | authorizationMetadata() | DONE | REA-1115 |
+| Frontend Enforcement | Button visibility | _authorization consumed | DONE | REA-1115 |
+| Policy Defaults | Missing method behavior | Nova v5 compatible matrix | DONE | REA-1115 |
+| Policy Generator | make:policy | martis:make-policy | DONE | Custom stub |
+

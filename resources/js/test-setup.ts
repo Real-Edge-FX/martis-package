@@ -18,6 +18,7 @@ i18n.use(initReactI18next).init({
         restore: 'Restore',
         archive: 'Archive',
         delete_permanent: 'Delete permanently',
+        replicate: 'Replicate',
         please_wait: 'Please wait…',
       },
       messages: {

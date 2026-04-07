@@ -11,6 +11,7 @@ return [
     'restore' => 'Restore',
     'archive' => 'Archive',
     'delete_permanent' => 'Delete permanently',
+    'replicate' => 'Replicate',
     'please_wait' => 'Please wait…',
     'actions' => 'Actions',
     'search' => 'Search',

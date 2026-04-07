@@ -7,7 +7,7 @@ import { FieldDisplay } from "@/components/fields"
 import { DeleteModal } from "@/components/DeleteModal"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise } from "@phosphor-icons/react"
+import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise, Copy, TrashSimple } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
 import { componentRegistry } from "@/lib/componentRegistry"
@@ -52,6 +52,26 @@ export function ResourceDetailPage() {
       addToast("success", res?.meta?.message ?? tMsg("record_restored"))
     },
     onError: () => addToast("error", tMsg("error_restore")),
+  })
+
+  const replicateMutation = useMutation({
+    mutationFn: () => api.post<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}/replicate`),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ["resources"] })
+      addToast("success", res?.data?._title ? `Replicated: ${res.data._title}` : tMsg("record_created"))
+      if (res?.data?.id) navigate(`/resources/${resource}/${res.data.id}`)
+    },
+    onError: () => addToast("error", tMsg("error_create")),
+  })
+
+  const forceDeleteMutation = useMutation({
+    mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ["resources"] })
+      addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
+      navigate(`/resources/${resource}`)
+    },
+    onError: () => addToast("error", tMsg("error_delete")),
   })
 
   const schema = schemaQuery.data?.data
@@ -123,6 +143,12 @@ export function ResourceDetailPage() {
   const scalarFields = detailFields.filter((f) => f.type !== 'has_many')
   const hasManyFields = detailFields.filter((f) => f.type === 'has_many')
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
+  const auth = record._authorization
+  const canUpdate = auth?.authorizedToUpdate !== false
+  const canDelete = auth?.authorizedToDelete !== false
+  const canRestore = auth?.authorizedToRestore !== false
+  const canForceDelete = auth?.authorizedToForceDelete !== false
+  const canReplicate = auth?.authorizedToReplicate !== false
 
   return (
     <div className="space-y-6">
@@ -159,7 +185,7 @@ export function ResourceDetailPage() {
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </h1>
         <div className="flex items-center gap-2">
-          {isDeleted && schema.softDeletes ? (
+          {isDeleted && schema.softDeletes && canRestore ? (
             <button
               type="button"
               onClick={() => restoreMutation.mutate()}
@@ -170,6 +196,7 @@ export function ResourceDetailPage() {
               {tAct("restore")}
             </button>
           ) : null}
+          {canUpdate && (
           <button
             type="button"
             onClick={handleEdit}
@@ -185,6 +212,26 @@ export function ResourceDetailPage() {
             <PencilSimple size={14} />
             {tAct("edit")}
           </button>
+          )}
+          {!isDeleted && canReplicate && (
+          <button
+            type="button"
+            onClick={() => replicateMutation.mutate()}
+            disabled={replicateMutation.isPending}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              borderColor: "var(--martis-border)",
+              backgroundColor: "var(--martis-surface)",
+              color: "var(--martis-text)",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
+          >
+            <Copy size={14} />
+            {tAct("replicate")}
+          </button>
+          )}
+          {canDelete && (
           <button
             type="button"
             onClick={() => setShowDelete(true)}
@@ -193,6 +240,18 @@ export function ResourceDetailPage() {
             <Trash size={14} />
             {tAct("delete")}
           </button>
+          )}
+          {isDeleted && schema.softDeletes && canForceDelete && (
+          <button
+            type="button"
+            onClick={() => forceDeleteMutation.mutate()}
+            disabled={forceDeleteMutation.isPending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-red-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-900"
+          >
+            <TrashSimple size={14} />
+            {tAct("delete_permanent")}
+          </button>
+          )}
         </div>
       </div>
 
