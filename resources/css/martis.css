@@ -564,6 +564,26 @@ html:not(.dark) .p-menu .p-menu-separator {
   border-color: var(--martis-border);
 }
 
+/* Light theme — InputSwitch (toggle) */
+html:not(.dark) .p-inputswitch .p-inputswitch-slider {
+  background: #d1d5db;
+}
+html:not(.dark) .p-inputswitch .p-inputswitch-slider:before {
+  background: #ffffff;
+}
+html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider {
+  background: #6366f1;
+}
+html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider:before {
+  background: #ffffff;
+}
+html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover) .p-inputswitch-slider {
+  background: #b7bcc5;
+}
+html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover).p-highlight .p-inputswitch-slider {
+  background: #4f46e5;
+}
+
 /* Light theme — Dialog/Modal */
 html:not(.dark) .p-dialog {
   background-color: var(--martis-surface);
