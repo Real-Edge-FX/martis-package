@@ -84,6 +84,16 @@ Route::middleware(config('martis.middleware', ['web']))
                         // Force delete (permanent deletion of soft-deleted records) — REA-1115
                         Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])
                             ->name('resources.force-delete');
+                        // Replicate fields (pre-fill data for create form) — REA-1130
+                        Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
+                            ->name('resources.replicate-fields');
+                        // Inline create schema — REA-1130
+                        Route::get('/resources/{resource}/inline-create-schema', [ResourceController::class, 'inlineCreateSchema'])
+                            ->name('resources.inline-create-schema');
+                        // Inline create store — REA-1130
+                        Route::post('/resources/{resource}/inline-create', [ResourceController::class, 'inlineCreateStore'])
+                            ->name('resources.inline-create-store');
+
                         // Replicate (duplicate a record) — REA-1115
                         Route::post('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicate'])
                             ->name('resources.replicate');

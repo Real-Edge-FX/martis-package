@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
@@ -22,6 +22,8 @@ export function ResourceCreatePage() {
   const viaRelationship = searchParams.get('viaRelationship')
   const isViaHasMany = !!(viaResource && viaResourceId && viaRelationship)
   const redirectMode = searchParams.get('redirectMode') ?? 'parent'
+  const fromResourceId = searchParams.get('fromResourceId')
+  const isReplicate = !!fromResourceId
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
@@ -31,6 +33,15 @@ export function ResourceCreatePage() {
     enabled: !!resource,
   })
 
+  // Fetch pre-fill data when replicating (Nova v5 parity — REA-1130)
+  const replicateQuery = useQuery({
+    queryKey: ['replicate', resource, fromResourceId],
+    queryFn: () => api.get<{ data: { values: Record<string, unknown>; fromResourceId: string | number } }>(
+      `/api/resources/${resource}/${fromResourceId}/replicate`
+    ),
+    enabled: !!resource && isReplicate,
+  })
+
   const schema = schemaQuery.data?.data
   const formFields = useMemo(
     () => schema?.fieldsForCreate ?? [],
@@ -38,7 +49,16 @@ export function ResourceCreatePage() {
   )
 
   const [values, setValues] = useState<Record<string, unknown>>({})
+  const [replicateApplied, setReplicateApplied] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Pre-fill form with replicated values when data loads
+  useEffect(() => {
+    if (isReplicate && replicateQuery.data?.data?.values && !replicateApplied) {
+      setValues(replicateQuery.data.data.values)
+      setReplicateApplied(true)
+    }
+  }, [isReplicate, replicateQuery.data, replicateApplied])
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -48,10 +68,11 @@ export function ResourceCreatePage() {
           data,
         )
       }
-      if (hasFileValues(data)) {
-        return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>('POST', `/api/resources/${resource}`, data)
+      const payload = isReplicate ? { ...data, fromResourceId } : data
+      if (hasFileValues(payload)) {
+        return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>('POST', `/api/resources/${resource}`, payload)
       }
-      return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(`/api/resources/${resource}`, data)
+      return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(`/api/resources/${resource}`, payload)
     },
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
@@ -97,7 +118,7 @@ export function ResourceCreatePage() {
     createMutation.mutate(values)
   }
 
-  if (schemaQuery.isLoading) return <FormSkeleton />
+  if (schemaQuery.isLoading || (isReplicate && replicateQuery.isLoading)) return <FormSkeleton />
 
   if (!schema) {
     return (

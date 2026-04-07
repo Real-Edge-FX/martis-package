@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Martis\Enums\ModalSize;
 
 /**
  * BelongsTo relationship field.
@@ -49,6 +50,18 @@ class BelongsTo extends Field
      * Defaults to true — set to false via ->displayAsLink(false).
      */
     protected bool $displayAsLink = true;
+
+    /**
+     * Whether to show the inline create button for this relationship.
+     * When true, a "+" button appears next to the dropdown.
+     */
+    protected bool|\Closure $showCreateRelationButton = false;
+
+    /**
+     * Modal size for the inline create dialog.
+     * Defaults to 2xl (Nova v5 parity).
+     */
+    protected ModalSize $modalSize = ModalSize::TwoExtraLarge;
 
     /**
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
@@ -308,6 +321,66 @@ class BelongsTo extends Field
         }
 
         return [];
+    }
+
+    /**
+     * Enable the inline create button for this relationship field.
+     * Optionally accepts a closure for conditional display.
+     *
+     * Nova v5 parity: showCreateRelationButton() / showCreateRelationButton(fn ($request) => ...)
+     */
+    public function showCreateRelationButton(bool|\Closure $callback = true): static
+    {
+        $this->showCreateRelationButton = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Explicitly hide the inline create button.
+     *
+     * Nova v5 parity: hideCreateRelationButton()
+     */
+    public function hideCreateRelationButton(): static
+    {
+        $this->showCreateRelationButton = false;
+
+        return $this;
+    }
+
+    /**
+     * Set the modal size for inline creation.
+     *
+     * Nova v5 parity: modalSize("sm" | "md" | "lg" | "xl" | "2xl" | ... | "7xl")
+     */
+    public function modalSize(ModalSize|string $size): static
+    {
+        if (is_string($size)) {
+            $size = ModalSize::from($size);
+        }
+        $this->modalSize = $size;
+
+        return $this;
+    }
+
+    /**
+     * Whether the create relation button should be shown.
+     */
+    public function isShowCreateRelationButton(): bool
+    {
+        if ($this->showCreateRelationButton instanceof \Closure) {
+            return (bool) ($this->showCreateRelationButton)(request());
+        }
+
+        return $this->showCreateRelationButton;
+    }
+
+    /**
+     * Get the configured modal size.
+     */
+    public function getModalSize(): ModalSize
+    {
+        return $this->modalSize;
     }
 
     /**

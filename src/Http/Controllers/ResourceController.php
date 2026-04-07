@@ -573,6 +573,162 @@ class ResourceController extends MartisController
         )->toResponse(201);
     }
 
+    /**
+     * Get replicated field values for pre-filling the create form.
+     *
+     * Returns the field values from a replicated model WITHOUT saving to the database.
+     * Used by the frontend to pre-populate the create form when replicating a resource.
+     * Nova v5 parity: the user passes through an editable form before saving.
+     *
+     * @param  string  $resource  Resource URI key
+     * @param  int|string  $id  Record ID to replicate
+     */
+    public function replicateFields(Request $request, string $resource, int|string $id): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $model = $this->findModel($resourceClass, $id);
+
+        if ($model === null) {
+            return JsonErrorResponse::notFound()->toResponse();
+        }
+
+        $res = new $resourceClass($model);
+
+        if (! $res->authorizedToReplicate($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        // Create in-memory replica using Eloquent replicate() — does NOT save to DB
+        $replica = $model->replicate();
+
+        // Resolve fields for create context and extract current values from the replica
+        $resReplica = new $resourceClass($replica);
+        $fields = Field::filterForContext($resReplica->fieldsForCreate($request), FieldContext::CREATE);
+        $values = [];
+        foreach ($fields as $field) {
+            // Skip file fields — files cannot be replicated (Nova v5 limitation)
+            if ($field instanceof File) {
+                continue;
+            }
+            $resolved = $field->resolve($replica);
+            $values[$field->attribute()] = $resolved;
+        }
+
+        return JsonResponse::make([
+            'values' => $values,
+            'fromResourceId' => $id,
+        ])->toResponse();
+    }
+
+    // -------------------------------------------------------------------------
+    // Inline Create — GET /api/{resource}/inline-create-schema, POST /api/{resource}/inline-create
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the field schema for inline creation of a resource.
+     *
+     * Used when creating a related record inline from a relationship field (e.g. BelongsTo).
+     * Returns fieldsForInlineCreate if defined, otherwise falls back to fieldsForCreate.
+     * Nova v5 parity: inline create only supports one level of depth.
+     *
+     * @param  string  $resource  Resource URI key
+     */
+    public function inlineCreateSchema(Request $request, string $resource): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $instance = new $resourceClass;
+
+        if (! $instance->authorizedToCreate($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
+        $fields = Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
+        $fieldData = array_map(fn (FieldContract $f): array => $f->toArray(), $fields);
+
+        return JsonResponse::make([
+            'fields' => $fieldData,
+            'singularLabel' => $resourceClass::singularLabel(),
+            'label' => $resourceClass::label(),
+        ])->toResponse();
+    }
+
+    /**
+     * Store a new resource record created via inline create modal.
+     *
+     * Same as store() but uses fieldsForInlineCreate context for field resolution.
+     * Returns the new record in a format suitable for immediate selection in the
+     * originating relationship field.
+     *
+     * @param  string  $resource  Resource URI key
+     */
+    public function inlineCreateStore(Request $request, string $resource): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $instance = new $resourceClass;
+
+        if (! $instance->authorizedToCreate($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        // Block nested inline create (Nova v5: only one level deep)
+        if ($request->header('X-Martis-Inline-Create-Depth', '0') !== '0') {
+            return JsonErrorResponse::validation([], 'Inline create only supports one level of depth.')->toResponse();
+        }
+
+        $model = $resourceClass::newModel();
+        $res = new $resourceClass($model);
+        $fields = Field::filterForContext($res->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
+
+        $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
+        if ($validationError !== null) {
+            return $validationError;
+        }
+
+        $this->fillFields($request, $fields, $model);
+
+        try {
+            $res->beforeSave($model, $request, creating: true);
+            $model->save();
+            $res->afterSave($model, $request, creating: true);
+            $this->syncDeferredRelations($model);
+        } catch (QueryException $e) {
+            Log::error('Martis: database error on inline create', [
+                'resource' => $resource,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->handleDatabaseError($e);
+        }
+
+        // Determine the title attribute for the newly created record
+        $titleAttr = $resourceClass::titleAttribute();
+        $title = $model->getAttribute($titleAttr);
+
+        return JsonResponse::make([
+            'id' => $model->getKey(),
+            'title' => $title,
+        ], meta: ['message' => $resourceClass::createdMessage()])->toResponse(201);
+    }
+
     // -------------------------------------------------------------------------
     // Schema — GET /api/{resource}/schema
     // -------------------------------------------------------------------------

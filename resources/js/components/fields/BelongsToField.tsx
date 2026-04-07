@@ -4,7 +4,9 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
-import { CaretDown, MagnifyingGlass, X, Check } from '@phosphor-icons/react'
+import { CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
+import { InlineCreateModal } from '@/components/InlineCreateModal'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface BelongsToValue {
   id: number | string
@@ -63,6 +65,9 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
   const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
   const isNullable = (field as unknown as Record<string, unknown>).nullable as boolean | undefined
+  const showCreateRelationButton = (field as unknown as Record<string, unknown>).showCreateRelationButton === true
+  const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
+  const canShowCreateButton = showCreateRelationButton && !!relatedResource
 
   // Extract current ID from value (handles both plain ID and {id, title} objects)
   const currentId = useMemo(() => {
@@ -80,6 +85,8 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
   const [search, setSearch] = useState('')
   const [options, setOptions] = useState<RelatedRecord[]>([])
   const [loading, setLoading] = useState(false)
+  const [showInlineCreate, setShowInlineCreate] = useState(false)
+  const qc = useQueryClient()
   const [selectedLabel, setSelectedLabel] = useState<string | null>(currentTitle)
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -181,6 +188,13 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
 
 
 
+  function handleInlineCreated(record: { id: string | number; title: string | null }) {
+    onChange(record.id)
+    setSelectedLabel(record.title ?? String(record.id))
+    setShowInlineCreate(false)
+    void qc.invalidateQueries({ queryKey: ["relatable"] })
+  }
+
   function handleSelect(record: RelatedRecord) {
     const label = getOptionLabel(record)
     onChange(record.id)
@@ -224,13 +238,15 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Trigger button */}
+      {/* Trigger button + inline create button */}
+      <div className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => !field.readonly && setOpen(!open)}
         disabled={field.readonly}
         className="martis-belongs-to-trigger"
         style={{
+          flex: 1,
           borderColor: error ? '#ef4444' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
           opacity: field.readonly ? 0.6 : 1,
           cursor: field.readonly ? 'not-allowed' : 'pointer',
@@ -263,6 +279,27 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
           style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }}
         />
       </button>
+      {canShowCreateButton && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
+          className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors"
+          style={{
+            borderColor: 'var(--martis-border)',
+            backgroundColor: 'var(--martis-surface)',
+            color: 'var(--martis-primary)',
+            height: '38px',
+            width: '38px',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
+          title="Create new"
+        >
+          <Plus size={16} weight="bold" />
+        </button>
+      )}
+      </div>
 
       {/* Dropdown panel */}
       {open && (
@@ -312,6 +349,16 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
       )}
 
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+
+      {canShowCreateButton && relatedResource && (
+        <InlineCreateModal
+          relatedResource={relatedResource}
+          open={showInlineCreate}
+          onClose={() => setShowInlineCreate(false)}
+          onCreated={handleInlineCreated}
+          modalSize={fieldModalSize}
+        />
+      )}
     </div>
   )
 }

@@ -57,15 +57,10 @@ export function ResourceDetailPage() {
     onError: () => addToast("error", tMsg("error_restore")),
   })
 
-  const replicateMutation = useMutation({
-    mutationFn: () => api.post<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}/replicate`),
-    onSuccess: (res) => {
-      void qc.invalidateQueries({ queryKey: ["resources"] })
-      addToast("success", res?.data?._title ? `Replicated: ${res.data._title}` : tMsg("record_created"))
-      if (res?.data?.id) navigate(`/resources/${resource}/${res.data.id}`)
-    },
-    onError: () => addToast("error", tMsg("error_create")),
-  })
+  /** Navigate to create form with pre-filled data from this record (Nova v5 replicate flow) */
+  function handleReplicate() {
+    navigate(`/resources/${resource}/create?fromResourceId=${id}`)
+  }
 
   const forceDeleteMutation = useMutation({
     mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
@@ -219,8 +214,7 @@ export function ResourceDetailPage() {
           {!isDeleted && canReplicate && (
           <button
             type="button"
-            onClick={() => replicateMutation.mutate()}
-            disabled={replicateMutation.isPending}
+            onClick={handleReplicate}
             className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
               borderColor: "var(--martis-border)",
