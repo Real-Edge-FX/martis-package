@@ -6,6 +6,8 @@ import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps }
 import { Table } from '@/components/Table'
 import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
+import { ActionModal, ActionDropdown } from '@/components/Actions'
+import type { ActionMeta } from '@/components/Actions'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass } from '@phosphor-icons/react'
@@ -33,6 +35,7 @@ export function ResourceIndexPage() {
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null)
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
+  const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
 
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
@@ -78,6 +81,18 @@ export function ResourceIndexPage() {
     placeholderData: (prev) => prev,
   })
 
+  // Fetch actions for this resource
+  const actionsQuery = useQuery({
+    queryKey: ['resource-actions', resource],
+    queryFn: () => api.get<{ actions: ActionMeta[] }>(`/api/resources/${resource}/actions`),
+    enabled: !!resource,
+  })
+
+  const allActions = actionsQuery.data?.actions ?? []
+  const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
+  const standaloneActions = allActions.filter((a) => a.standalone)
+  const hasActions = indexActions.length > 0 || standaloneActions.length > 0
+
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
     onSuccess: (res) => {
@@ -122,6 +137,16 @@ export function ResourceIndexPage() {
   function handlePerPageChange(value: number) {
     setPerPage(value)
     setPage(1)
+  }
+
+  function handleActionSelect(action: ActionMeta) {
+    setActiveAction(action)
+  }
+
+  function handleActionSuccess() {
+    void qc.invalidateQueries({ queryKey: ['resources', resource] })
+    setSelectedIds(new Set())
+    setActiveAction(null)
   }
 
   /** Build standardized OverrideProps for any override rendered from this page. */
@@ -186,6 +211,7 @@ export function ResourceIndexPage() {
   const perPageOptions = schema.perPageOptions ?? [10, 25, 50, 100]
   const showSearch = schema.indexSearchable !== false
   const searchPlaceholder = schema.searchPlaceholder || t('search', { label: schema.label.toLowerCase() })
+  const selectable = hasActions
 
   return (
     <div className="space-y-4">
@@ -200,23 +226,60 @@ export function ResourceIndexPage() {
             <p className="text-sm martis-text-muted mt-1">{schema.subtitle}</p>
           )}
         </div>
-        {schema.authorization?.authorizedToCreate !== false && (
-        <button
-          type="button"
-          onClick={() => {
-            if (schema.overrides?.create) {
-              setShowCreateOverride(true)
-            } else {
-              navigate(`/resources/${resource}/create`)
-            }
-          }}
-          className="rounded-lg px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          style={{ backgroundColor: 'var(--martis-accent)' }}
-        >
-          + {tAct('create')} {schema.singularLabel}
-        </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Standalone actions (no selection needed) */}
+          {standaloneActions.length > 0 && (
+            <ActionDropdown
+              actions={standaloneActions}
+              onSelect={handleActionSelect}
+            />
+          )}
+          {schema.authorization?.authorizedToCreate !== false && (
+          <button
+            type="button"
+            onClick={() => {
+              if (schema.overrides?.create) {
+                setShowCreateOverride(true)
+              } else {
+                navigate(`/resources/${resource}/create`)
+              }
+            }}
+            className="rounded-lg px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            style={{ backgroundColor: 'var(--martis-accent)' }}
+          >
+            + {tAct('create')} {schema.singularLabel}
+          </button>
+          )}
+        </div>
       </div>
+
+      {/* Bulk action bar — shown when items are selected */}
+      {selectedIds.size > 0 && indexActions.length > 0 && (
+        <div
+          className="flex items-center gap-3 rounded-lg border px-4 py-2"
+          style={{
+            backgroundColor: 'var(--martis-surface)',
+            borderColor: 'var(--martis-accent)',
+          }}
+        >
+          <span className="text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
+            {tAct('selected_count', { count: selectedIds.size })}
+          </span>
+          <ActionDropdown
+            actions={indexActions}
+            onSelect={handleActionSelect}
+            label={tAct('bulk_actions')}
+          />
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-xs"
+            style={{ color: 'var(--martis-text-muted)' }}
+          >
+            {tAct('cancel')}
+          </button>
+        </div>
+      )}
 
       {/* Search + Per Page controls */}
       <div className="flex items-center gap-3">
@@ -273,7 +336,7 @@ export function ResourceIndexPage() {
         )}
       </div>
 
-      {/* Table — checkboxes hidden until bulk actions are implemented */}
+      {/* Table */}
       <Table
         columns={indexColumns}
         rows={rows}
@@ -285,7 +348,7 @@ export function ResourceIndexPage() {
         onToggleAll={handleToggleAll}
         onClickRow={(row) => { if (row._authorization?.authorizedToView !== false) navigate(`/resources/${resource}/${row.id}`) }}
         resourceKey={resource}
-        selectable={false}
+        selectable={selectable}
         tableConfig={{
           striped: schema.tableStriped,
           showGridlines: schema.tableShowGridlines,
@@ -325,6 +388,16 @@ export function ResourceIndexPage() {
         }}
         onCancel={() => setDeleteTarget(null)}
         confirmMessage={isSoftDelete ? schema.messages?.archiveConfirm : schema.messages?.deleteConfirm}
+      />
+
+      {/* Action execution modal */}
+      <ActionModal
+        resource={resource!}
+        action={activeAction}
+        selectedIds={activeAction?.standalone ? [] : Array.from(selectedIds)}
+        visible={activeAction !== null}
+        onHide={() => setActiveAction(null)}
+        onSuccess={handleActionSuccess}
       />
     </div>
   )

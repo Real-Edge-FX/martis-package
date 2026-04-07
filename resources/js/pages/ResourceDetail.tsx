@@ -5,6 +5,8 @@ import { api } from "@/lib/api"
 import type { ResourceRecord, ResourceSchema, OverrideProps } from "@/types"
 import { FieldDisplay } from "@/components/fields"
 import { DeleteModal } from "@/components/DeleteModal"
+import { ActionModal, ActionDropdown } from "@/components/Actions"
+import type { ActionMeta } from "@/components/Actions"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise, Copy, TrashSimple } from "@phosphor-icons/react"
@@ -22,6 +24,7 @@ export function ResourceDetailPage() {
   const [showUpdateOverride, setShowUpdateOverride] = useState(false)
   const [showForceDelete, setShowForceDelete] = useState(false)
   const [showRestore, setShowRestore] = useState(false)
+  const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
 
@@ -36,6 +39,16 @@ export function ResourceDetailPage() {
     queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}`),
     enabled: !!resource && !!id,
   })
+
+  // Fetch actions for this resource
+  const actionsQuery = useQuery({
+    queryKey: ["resource-actions", resource],
+    queryFn: () => api.get<{ actions: ActionMeta[] }>(`/api/resources/${resource}/actions`),
+    enabled: !!resource,
+  })
+
+  const allActions = actionsQuery.data?.actions ?? []
+  const detailActions = allActions.filter((a) => a.showOnDetail)
 
   const deleteMutation = useMutation({
     mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
@@ -71,6 +84,12 @@ export function ResourceDetailPage() {
     },
     onError: () => addToast("error", tMsg("error_delete")),
   })
+
+  function handleActionSuccess() {
+    void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
+    void qc.invalidateQueries({ queryKey: ["resources", resource] })
+    setActiveAction(null)
+  }
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
@@ -183,6 +202,13 @@ export function ResourceDetailPage() {
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </h1>
         <div className="flex items-center gap-2">
+          {/* Resource actions dropdown */}
+          {detailActions.length > 0 && (
+            <ActionDropdown
+              actions={detailActions}
+              onSelect={(action) => setActiveAction(action)}
+            />
+          )}
           {isDeleted && schema.softDeletes && canRestore ? (
             <button
               type="button"
@@ -368,6 +394,16 @@ export function ResourceDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Action execution modal */}
+      <ActionModal
+        resource={resource!}
+        action={activeAction}
+        selectedIds={id ? [id] : []}
+        visible={activeAction !== null}
+        onHide={() => setActiveAction(null)}
+        onSuccess={handleActionSuccess}
+      />
     </div>
   )
 }
