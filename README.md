@@ -320,9 +320,8 @@ For resources with soft deletes:
 
 **Resource Replication (Nova v5 parity):**
 - `GET /api/resources/{resource}/{id}/replicate` — Returns pre-filled field values for the create form (File fields excluded)
-- `POST /api/resources/{resource}/{id}/replicate` — Creates an instant copy of an existing record (legacy behavior)
 
-The frontend "Replicate" button navigates to the create form with `?fromResourceId={id}`, which fetches pre-fill data via GET and lets the user modify before saving.
+The frontend "Replicate" button navigates to the create form with `?fromResourceId={id}`, which fetches pre-fill data via GET and lets the user modify before saving. The legacy POST replicate (instant clone) has been removed.
 
 #### Inline Create Endpoints
 

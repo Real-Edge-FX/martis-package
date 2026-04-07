@@ -1219,3 +1219,61 @@ public function fieldsForInlineCreate(Request $request): array
 
 Falls back to `fieldsForCreate()` if not overridden.
 
+
+### MorphTo
+
+Polymorphic relationship field — a model can belong to multiple different model types via a single relationship. Nova v5 parity.
+
+**Two-step selection:** The frontend renders a type dropdown first, then a record search for the selected type.
+
+```php
+use Martis\Fields\MorphTo;
+
+MorphTo::make('commentable', 'Commentable')
+    ->types([PostResource::class, UserResource::class])
+    ->titleAttribute('name')
+    ->showCreateRelationButton()
+    ->modalSize('lg')
+    ->nullable();
+```
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `types(array $resourceClasses)` | Allowed resource types for this polymorphic relationship |
+| `titleAttribute(string $attr)` | Attribute used for display label (default: `name`) |
+| `showCreateRelationButton()` | Show inline create button (supports closure) |
+| `hideCreateRelationButton()` | Hide inline create button |
+| `modalSize(ModalSize\|string $size)` | Modal size for inline create (`sm` to `7xl`, default `2xl`) |
+| `relationSearchable(bool $value)` | Enable/disable dropdown search (default: `true`) |
+| `nullable()` | Make the relationship optional |
+
+#### Resolve Format
+
+```json
+{
+  "type": "App\\Models\\Post",
+  "id": 42,
+  "title": "Post Title",
+  "resourceType": "posts"
+}
+```
+
+#### Fill Format
+
+The frontend sends:
+```json
+{ "resourceType": "posts", "id": 42 }
+```
+
+The backend resolves the model class from the resource URI key and sets both `commentable_type` and `commentable_id` columns.
+
+#### Inline Create
+
+MorphTo supports inline create per selected type. The create button appears after selecting a type. Only one level of nesting is supported (Nova v5 parity).
+
+#### Difference from Nova
+
+- Nova resolves morphable types via `$morphTypes` array on the field. Martis uses `types()` with Resource classes.
+- Martis resolves the model class from the resource's `newModel()` method instead of requiring explicit morph maps (though morph maps are also supported).
