@@ -397,6 +397,8 @@ class BelongsTo extends Field
             'relationSearchable' => $this->relationSearchable,
             'multiple' => $this->multiple ?: null,
             'displayAsLink' => $this->displayAsLink,
+            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
+            'modalSize' => $this->getModalSize()->value,
         ], fn (mixed $v): bool => $v !== null);
     }
 }

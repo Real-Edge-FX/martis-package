@@ -317,7 +317,28 @@ Every API response includes authorization metadata so the frontend can show/hide
 
 For resources with soft deletes:
 - `DELETE /api/resources/{resource}/{id}/force` — Permanently deletes a soft-deleted record
-- `POST /api/resources/{resource}/{id}/replicate` — Creates a copy of an existing record
+
+**Resource Replication (Nova v5 parity):**
+- `GET /api/resources/{resource}/{id}/replicate` — Returns pre-filled field values for the create form (File fields excluded)
+- `POST /api/resources/{resource}/{id}/replicate` — Creates an instant copy of an existing record (legacy behavior)
+
+The frontend "Replicate" button navigates to the create form with `?fromResourceId={id}`, which fetches pre-fill data via GET and lets the user modify before saving.
+
+#### Inline Create Endpoints
+
+BelongsTo fields can show a "+" button to create related records inline via modal:
+- `GET /api/resources/{resource}/inline-create-schema` — Returns fields for inline create form
+- `POST /api/resources/{resource}/inline-create` — Creates record and returns `{id, title}` for immediate selection
+
+Nesting is limited to 1 level (blocked via `X-Martis-Inline-Create-Depth` header).
+
+```php
+// Enable inline create on a BelongsTo field
+BelongsTo::make('category_id', 'Category')
+    ->relatedResource('categories')
+    ->showCreateRelationButton()
+    ->modalSize('lg')
+```
 
 ### Search
 

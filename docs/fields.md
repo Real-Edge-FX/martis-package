@@ -645,6 +645,14 @@ BelongsTo::make('categories', 'Categories')
     ->multiple()
 ```
 
+```php
+// Inline create — show "+" button to create related record in a modal
+BelongsTo::make('category_id', 'Category')
+    ->relatedResource('categories')
+    ->showCreateRelationButton()
+    ->modalSize('lg')
+```
+
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
@@ -653,12 +661,15 @@ BelongsTo::make('categories', 'Categories')
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. | `true` |
 | `multiple` | `multiple(bool $value = true): static` | `$this` | Enable many-to-many mode (pivot sync). | `false` |
 | `displayAsLink` | `displayAsLink(bool $value = true): static` | `$this` | Render as clickable link on index/detail. | `true` |
+| `showCreateRelationButton` | `showCreateRelationButton(bool|\Closure $callback = true): static` | `$this` | Show "+" button to create related record inline via modal. | `false` |
+| `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
+| `modalSize` | `modalSize(ModalSize|string $size): static` | `$this` | Set the inline create modal size (`sm`, `md`, `lg`, `xl`, `2xl`–`7xl`). | `'2xl'` |
 
 **Overrides:**
 - `resolve()` returns `{id, title}` (single) or `[{id, title}, ...]` (multiple).
 - `fill()` sets FK (single) or registers deferred pivot sync (multiple) via `DeferredRelationSync`.
 
-**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`
+**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`
 
 ---
 
@@ -1121,3 +1132,90 @@ When rendering a field, the React frontend resolves the component in this order:
 4. **Default component** — built-in Martis component for the type
 
 See [Override System](overrides.md) for details.
+
+---
+
+## Resource Replication
+
+Martis supports Nova v5-compatible resource replication. When a user clicks "Replicate" on a detail page, they are redirected to the create form with pre-filled field values from the source record. The record is **not** saved until the user submits the form.
+
+### How It Works
+
+1. User clicks "Replicate" on `ResourceDetail`
+2. Frontend navigates to `/resources/{resource}/create?fromResourceId={id}`
+3. `ResourceCreate` fetches pre-fill data from `GET /api/resources/{resource}/{id}/replicate`
+4. Form is pre-filled with source record values (File fields excluded)
+5. User can modify values and submit to create the new record
+
+### API Endpoint
+
+```
+GET /api/resources/{resource}/{id}/replicate
+```
+
+**Response:**
+```json
+{
+  "values": { "name": "Copy of ...", "description": "..." },
+  "fromResourceId": 42
+}
+```
+
+### Customization
+
+Override `fieldsForCreate()` on your resource to control which fields appear in the replicate form. File fields are automatically excluded from replication (consistent with Nova v5 behavior).
+
+---
+
+## Inline Create
+
+BelongsTo fields can display a "+" button that opens a modal for creating a related record inline, without leaving the current form. This is controlled by `showCreateRelationButton()` on the BelongsTo field.
+
+### How It Works
+
+1. BelongsTo field renders with a "+" button when `showCreateRelationButton()` is enabled
+2. Clicking "+" opens a modal with the related resource's inline create fields
+3. The related resource defines `fieldsForInlineCreate()` for a reduced field set
+4. On submit, the new record is created and automatically selected in the BelongsTo dropdown
+5. Nesting is limited to 1 level (no inline create inside an inline create)
+
+### API Endpoints
+
+```
+GET  /api/resources/{resource}/inline-create-schema
+POST /api/resources/{resource}/inline-create
+```
+
+**Schema response:**
+```json
+{
+  "fields": [
+    { "attribute": "name", "label": "Name", "type": "text" }
+  ]
+}
+```
+
+**Store request/response:**
+```json
+// Request
+{ "name": "New Category" }
+
+// Response
+{ "id": 5, "title": "New Category" }
+```
+
+### Resource Configuration
+
+```php
+// In your resource class
+public function fieldsForInlineCreate(Request $request): array
+{
+    return [
+        Text::make('name', 'Name')->required(),
+        Textarea::make('description', 'Description'),
+    ];
+}
+```
+
+Falls back to `fieldsForCreate()` if not overridden.
+
