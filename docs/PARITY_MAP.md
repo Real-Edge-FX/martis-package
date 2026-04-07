@@ -138,7 +138,7 @@
 
 | Feature | Nova v5 | Status | Priority |
 |---------|---------|--------|----------|
-| Actions | Batch actions on records | TODO | High |
+| Actions | Batch actions on records | DONE | REA-1102: Full Nova v5 parity + dry-run, closure actions |
 | Filters | Column filters | TODO | High |
 | Lenses | Custom filtered views | TODO | Medium |
 | Metrics | Dashboard metric cards | TODO | High |

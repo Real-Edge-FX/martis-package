@@ -15,6 +15,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 - **Internationalization** — Built-in i18n with dynamic translation loading (EN, PT-BR, PT-PT)
 - **Dark/Light Theme** — Full theme support with automatic persistence
 - **Installable via Composer** — `composer require martis/martis`
+- **Actions System** — Bulk, inline, standalone, queued, and destructive actions with full confirmation flow
 - **Artisan Commands** — Scaffold resources and custom components from the CLI
 - **Auto-Discovery** — Resources are registered automatically, no manual configuration needed
 - **API-First** — Full REST API with automatic Swagger documentation via Scramble
@@ -48,6 +49,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 5 | **[Fields Reference](fields.md)** | All 31 field types — configuration options, visibility flags, validation rules, relationship fields (BelongsTo, HasMany), enums, PrimeReact prop passthrough |
 | 6 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
 | 7 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
+| 8 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
 
 ### Architecture & Design
 
@@ -77,6 +79,7 @@ docs/
 ├── fields.md ....................... Fields reference (31 types)
 ├── overrides.md .................... Override system
 ├── components.md ................... Built-in UI components
+├── actions.md ...................... Actions system
 ├── PARITY_MAP.md ................... Nova v5 parity tracker
 ├── api/
 │   └── overview.md ................. REST API reference

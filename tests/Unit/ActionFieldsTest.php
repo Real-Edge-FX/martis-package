@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Illuminate\Support\Collection;
 use Martis\Actions\ActionFields;
 use PHPUnit\Framework\TestCase;
 
@@ -44,7 +45,7 @@ class ActionFieldsTest extends TestCase
     {
         $fields = ActionFields::fromRequest(['x' => 'y']);
         $collection = $fields->toCollection();
-        $this->assertInstanceOf(\Illuminate\Support\Collection::class, $collection);
+        $this->assertInstanceOf(Collection::class, $collection);
         $this->assertEquals('y', $collection->get('x'));
     }
 }

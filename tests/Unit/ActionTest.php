@@ -2,21 +2,21 @@
 
 namespace Tests\Unit;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\DestructiveAction;
-use Martis\Enums\ActionExecutionMode;
 use Martis\Enums\ModalSize;
 use PHPUnit\Framework\TestCase;
-use Illuminate\Support\Collection;
-use Illuminate\Http\Request;
 
 class ActionTest extends TestCase
 {
     public function test_action_has_default_name(): void
     {
-        $action = new class extends Action {
+        $action = new class extends Action
+        {
             public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
             {
                 return ActionResponse::message('Done');
@@ -162,14 +162,14 @@ class ActionTest extends TestCase
     public function test_can_see_callback(): void
     {
         $action = TestableAction::make()->canSee(fn () => false);
-        $request = new Request();
+        $request = new Request;
         $this->assertFalse($action->authorizedToSee($request));
     }
 
     public function test_can_see_default_true(): void
     {
         $action = TestableAction::make();
-        $request = new Request();
+        $request = new Request;
         $this->assertTrue($action->authorizedToSee($request));
     }
 
