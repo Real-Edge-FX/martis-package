@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Martis\Http\Controllers\ActionController;
 use Martis\Http\Controllers\AttachmentController;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\DashboardController;
@@ -87,6 +88,16 @@ Route::middleware(config('martis.middleware', ['web']))
                         // Replicate fields (pre-fill data for create form) — REA-1130
                         Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
                             ->name('resources.replicate');
+                        // Action routes — Nova v5 parity (REA-1102)
+                        Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
+                            ->name('resources.actions.index');
+                        Route::get('/resources/{resource}/actions/{action}/fields', [ActionController::class, 'fields'])
+                            ->name('resources.actions.fields');
+                        Route::post('/resources/{resource}/actions/{action}', [ActionController::class, 'execute'])
+                            ->name('resources.actions.execute');
+                        Route::post('/resources/{resource}/{id}/actions/{action}', [ActionController::class, 'executeSingle'])
+                            ->name('resources.actions.execute-single');
+
                         // Inline create schema — REA-1130
                         Route::get('/resources/{resource}/inline-create-schema', [ResourceController::class, 'inlineCreateSchema'])
                             ->name('resources.inline-create-schema');

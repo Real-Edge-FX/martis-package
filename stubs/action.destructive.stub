@@ -1,0 +1,37 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Actions\DestructiveAction;
+use Martis\Contracts\FieldContract;
+
+class {{ class }} extends DestructiveAction
+{
+    /**
+     * Execute the action on the given models.
+     *
+     * @param  Collection<int, \Illuminate\Database\Eloquent\Model>  $models
+     */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|DestructiveAction|null
+    {
+        foreach ($models as $model) {
+            //
+        }
+
+        return ActionResponse::danger('Records have been permanently affected.');
+    }
+
+    /**
+     * Define the fields for this action's confirmation modal.
+     *
+     * @return list<FieldContract>
+     */
+    public function fields(Request $request): array
+    {
+        return [];
+    }
+}

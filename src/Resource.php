@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
+use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
@@ -1019,6 +1020,20 @@ abstract class Resource implements ResourceContract
     public function afterDelete(Model $model, Request $request): void
     {
         AfterDelete::dispatch(static::class, $model, $request);
+    }
+
+    // -------------------------------------------------------------------------
+    // Actions — Nova v5 parity (REA-1102)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the actions available for this resource.
+     *
+     * @return list<ActionContract>
+     */
+    public function actions(Request $request): array
+    {
+        return [];
     }
 
     // -------------------------------------------------------------------------
