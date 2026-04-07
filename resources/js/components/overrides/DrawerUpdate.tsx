@@ -8,14 +8,14 @@ import { DrawerShell } from './DrawerShell'
 
 
 
-/** Resolve the effective column span for a field, with backward compat for halfWidth. */
-function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null; halfWidth?: boolean }): { base: number; md?: number; lg?: number } {
-  const base = field.colSpan ?? (field.halfWidth ? 6 : 12)
+/** Resolve the effective column span for a field. */
+function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): { base: number; md?: number; lg?: number } {
+  const base = field.colSpan ?? 12
   return { base, md: field.colSpanMd ?? undefined, lg: field.colSpanLg ?? undefined }
 }
 
 /** Build inline gridColumn style. */
-function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null; halfWidth?: boolean }): React.CSSProperties {
+function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): React.CSSProperties {
   const span = resolveColSpan(field)
   return { gridColumn: `span ${span.base} / span ${span.base}` } as React.CSSProperties
 }

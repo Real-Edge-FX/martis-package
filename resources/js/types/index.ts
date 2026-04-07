@@ -91,8 +91,6 @@ export interface FieldDefinition {
   colSpanMd?: number | null
   /** Column span from lg breakpoint (>= 1024px). */
   colSpanLg?: number | null
-  /** @deprecated Use colSpan(6) instead. Backward compat. */
-  halfWidth?: boolean
   /** Allow access to arbitrary meta properties set via withMeta(). */
   [key: string]: unknown
 }
