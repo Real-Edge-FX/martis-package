@@ -935,6 +935,12 @@ class ResourceController extends MartisController
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
+        // Include soft-deleted records so detail pages work for archived records
+        if ($resourceClass::softDeletes()) {
+            /** @phpstan-ignore-next-line — guarded by softDeletes() check */
+            return $modelClass::withTrashed()->find($id);
+        }
+
         /** @phpstan-ignore staticMethod.notFound */
         return $modelClass::find($id);
     }
@@ -1068,6 +1074,11 @@ class ResourceController extends MartisController
         $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();
         $data['_authorization'] = $resource->authorizationMetadata(request());
+
+        // Include deleted_at for soft-delete resources so the frontend can show Archived badge
+        if ($resource::softDeletes() && $model->getAttribute('deleted_at') !== null) {
+            $data['deleted_at'] = $model->getAttribute('deleted_at');
+        }
 
         return $data;
     }
