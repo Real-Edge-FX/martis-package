@@ -84,7 +84,7 @@ export function InlineCreateModal({
     onError: (err) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         setErrors(err.errorsByField())
-        addToast("error", err.message || tMsg("validation_errors", "Please fix the errors below."))
+        // Don't show toast for validation errors — inline errors are sufficient
       } else if (err instanceof ApiError) {
         addToast("error", err.message || tMsg("error_create"))
       } else {
@@ -100,6 +100,7 @@ export function InlineCreateModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    e.stopPropagation()
     setErrors({})
     createMutation.mutate(values)
   }
@@ -136,6 +137,7 @@ export function InlineCreateModal({
     <div
       style={{ position: "fixed", inset: 0, zIndex: 9999 }}
       className="flex items-center justify-center"
+      onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation() }}
     >
       {/* Backdrop */}
       <div

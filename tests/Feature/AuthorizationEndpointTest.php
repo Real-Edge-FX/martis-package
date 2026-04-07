@@ -228,24 +228,24 @@ it('denies force delete when policy forbids', function () {
 
 // ── Replicate Endpoint ──────────────────────────────────────────
 
-it('replicates a record when authorized', function () {
+it('returns replicate fields when authorized', function () {
     $uriKey = AuthzOpenItemResource::uriKey();
     $item = AuthzOpenModel::create(['title' => 'Replicate Me']);
 
-    $response = $this->postJson("/martis/api/resources/{$uriKey}/{$item->id}/replicate");
+    $response = $this->getJson("/martis/api/resources/{$uriKey}/{$item->id}/replicate");
 
-    $response->assertStatus(201);
-    expect(AuthzOpenModel::count())->toBe(2);
+    $response->assertStatus(200);
+    $response->assertJsonStructure(['data' => ['values', 'fromResourceId']]);
+    expect((int) $response->json('data.fromResourceId'))->toBe($item->id);
 });
 
-it('denies replicate when policy forbids', function () {
+it('denies replicate fields when policy forbids', function () {
     $uriKey = AuthzLockedItemResource::uriKey();
     $item = AuthzLockedModel::create(['title' => 'Cannot Replicate']);
 
-    $response = $this->postJson("/martis/api/resources/{$uriKey}/{$item->id}/replicate");
+    $response = $this->getJson("/martis/api/resources/{$uriKey}/{$item->id}/replicate");
 
     $response->assertStatus(404);
-    expect(AuthzLockedModel::count())->toBe(1);
 });
 
 // ── Authorization Metadata in Responses ─────────────────────────

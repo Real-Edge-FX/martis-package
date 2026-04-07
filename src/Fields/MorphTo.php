@@ -1,0 +1,348 @@
+<?php
+
+namespace Martis\Fields;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Str;
+use Martis\Enums\ModalSize;
+use Martis\Resource;
+
+/**
+ * MorphTo polymorphic relationship field.
+ *
+ * Resolves a polymorphic belongsTo relationship where a model can belong to
+ * multiple different model types via a single relationship. The frontend
+ * renders a two-step selection: first pick the resource type, then pick
+ * the specific record from that type.
+ *
+ * Nova v5 parity:
+ *   - types() specifies which resource classes can be associated
+ *   - showCreateRelationButton() enables inline create
+ *   - modalSize() configures the inline create modal
+ *   - nullable() makes the relationship optional
+ *   - Only one level of inline create depth is supported
+ *
+ * Usage:
+ *   MorphTo::make('Commentable')
+ *       ->types([PostResource::class, VideoResource::class])
+ *       ->showCreateRelationButton()
+ *       ->modalSize(ModalSize::Large)
+ *
+ * @phpstan-consistent-constructor
+ */
+class MorphTo extends Field
+{
+    /** Eloquent relationship method name. */
+    protected string $relationship;
+
+    /** The morph type column (e.g. commentable_type). */
+    protected string $morphTypeColumn;
+
+    /** The morph id column (e.g. commentable_id). */
+    protected string $morphIdColumn;
+
+    /**
+     * Allowed resource classes for this polymorphic relationship.
+     *
+     * @var list<class-string<resource>>
+     */
+    protected array $morphTypes = [];
+
+    /** Title attribute used for displaying selected record. */
+    protected string $titleAttribute = 'name';
+
+    /** Whether to show the inline create button. */
+    protected bool|\Closure $showCreateRelationButton = false;
+
+    /** Modal size for inline creation. */
+    protected ModalSize $modalSize = ModalSize::TwoExtraLarge;
+
+    /** Whether the dropdown should support text search. */
+    protected bool $relationSearchable = true;
+
+    protected function __construct(
+        string $attribute,
+        string $label,
+        string $relationship = '',
+    ) {
+        parent::__construct($attribute, $label);
+        $this->relationship = $relationship ?: $attribute;
+        $this->morphTypeColumn = "{$this->relationship}_type";
+        $this->morphIdColumn = "{$this->relationship}_id";
+    }
+
+    /**
+     * Create a MorphTo field.
+     *
+     * @param  string  $relationship  Eloquent relationship method name
+     * @param  string|null  $label  Human-readable label
+     */
+    public static function make(string $relationship, ?string $label = null): static
+    {
+        $label = $label ?? Str::title(str_replace('_', ' ', $relationship));
+
+        return new static($relationship, $label, $relationship);
+    }
+
+    public function type(): string
+    {
+        return 'morph_to';
+    }
+
+    /**
+     * Set the allowed resource types for this polymorphic relationship.
+     *
+     * @param  list<class-string<resource>>  $types
+     */
+    public function types(array $types): static
+    {
+        $this->morphTypes = $types;
+
+        return $this;
+    }
+
+    /**
+     * Customize the title attribute used for display.
+     */
+    public function titleAttribute(string $attribute): static
+    {
+        $this->titleAttribute = $attribute;
+
+        return $this;
+    }
+
+    /**
+     * Configure whether the dropdown supports text search.
+     */
+    public function relationSearchable(bool $value = true): static
+    {
+        $this->relationSearchable = $value;
+
+        return $this;
+    }
+
+    /**
+     * Enable the inline create button for this relationship field.
+     *
+     * Nova v5 parity: showCreateRelationButton() / showCreateRelationButton(fn ($request) => ...)
+     */
+    public function showCreateRelationButton(bool|\Closure $callback = true): static
+    {
+        $this->showCreateRelationButton = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Explicitly hide the inline create button.
+     */
+    public function hideCreateRelationButton(): static
+    {
+        $this->showCreateRelationButton = false;
+
+        return $this;
+    }
+
+    /**
+     * Set the modal size for inline creation.
+     */
+    public function modalSize(ModalSize|string $size): static
+    {
+        if (is_string($size)) {
+            $size = ModalSize::from($size);
+        }
+        $this->modalSize = $size;
+
+        return $this;
+    }
+
+    /**
+     * Whether the create relation button should be shown.
+     */
+    public function isShowCreateRelationButton(): bool
+    {
+        if ($this->showCreateRelationButton instanceof \Closure) {
+            return (bool) ($this->showCreateRelationButton)(request());
+        }
+
+        return $this->showCreateRelationButton;
+    }
+
+    /**
+     * Resolve the morph type and morph id columns.
+     *
+     * Returns: ['type' => 'App\Models\Post', 'id' => 42, 'title' => 'Post Title', 'resourceType' => 'posts']
+     * or null if the relationship is empty.
+     */
+    public function resolve(Model $model, ?string $attribute = null): mixed
+    {
+        if ($this->resolveCallback !== null) {
+            return ($this->resolveCallback)($model, $this->morphTypeColumn, $this->morphIdColumn);
+        }
+
+        $morphType = $model->getAttribute($this->morphTypeColumn);
+        $morphId = $model->getAttribute($this->morphIdColumn);
+
+        if ($morphType === null || $morphId === null) {
+            return null;
+        }
+
+        // Load the related model
+        $camelRelationship = Str::camel($this->relationship);
+        $related = null;
+        if (method_exists($model, $this->relationship)) {
+            $related = $model->{$this->relationship};
+        } elseif ($camelRelationship !== $this->relationship && method_exists($model, $camelRelationship)) {
+            $related = $model->{$camelRelationship};
+        }
+
+        // Resolve the resource URI key for the morph type
+        $resourceType = $this->resolveResourceUriKey($morphType);
+
+        return [
+            'type' => $morphType,
+            'id' => $morphId,
+            'title' => $related?->getAttribute($this->titleAttribute),
+            'resourceType' => $resourceType,
+        ];
+    }
+
+    /**
+     * Fill the morph type and morph id columns on the model.
+     */
+    public function fill(Model $model, mixed $value): void
+    {
+        if ($this->readonly) {
+            return;
+        }
+
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $value, $this->morphTypeColumn, $this->morphIdColumn);
+
+            return;
+        }
+
+        if ($value === null || $value === '') {
+            if ($this->nullable) {
+                $model->setAttribute($this->morphTypeColumn, null);
+                $model->setAttribute($this->morphIdColumn, null);
+            }
+
+            return;
+        }
+
+        // Value should be {type: 'App\Models\Post', id: 42} or {resourceType: 'posts', id: 42}
+        if (is_array($value)) {
+            $morphType = $value['type'] ?? null;
+            $morphId = $value['id'] ?? null;
+
+            // If resourceType provided instead of full class, resolve it
+            if ($morphType === null && isset($value['resourceType'])) {
+                $morphType = $this->resolveModelClass($value['resourceType']);
+            }
+
+            if ($morphType !== null && $morphId !== null) {
+                $model->setAttribute($this->morphTypeColumn, $morphType);
+                $model->setAttribute($this->morphIdColumn, $morphId);
+            }
+        }
+    }
+
+    /**
+     * Resolve a morph type string to a resource URI key.
+     */
+    protected function resolveResourceUriKey(string $morphType): ?string
+    {
+        foreach ($this->morphTypes as $resourceClass) {
+            /** @var class-string<resource> $resourceClass */
+            $modelClass = $resourceClass::$model ?? null;
+            if ($modelClass === null) {
+                // Try to infer from the resource
+                try {
+                    $model = $resourceClass::newModel();
+                    $modelClass = get_class($model);
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
+
+            if ($modelClass === $morphType || ltrim($modelClass, '\\') === ltrim($morphType, '\\')) {
+                return $resourceClass::uriKey();
+            }
+        }
+
+        // Fallback: try morph map
+        $morphMap = Relation::morphMap();
+        foreach ($morphMap as $alias => $class) {
+            if ($class === $morphType || ltrim($class, '\\') === ltrim($morphType, '\\')) {
+                // Find the resource for this alias
+                foreach ($this->morphTypes as $resourceClass) {
+                    try {
+                        $model = $resourceClass::newModel();
+                        if (get_class($model) === $class || ltrim(get_class($model), '\\') === ltrim($class, '\\')) {
+                            return $resourceClass::uriKey();
+                        }
+                    } catch (\Throwable) {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve a resource URI key to a model class name.
+     */
+    protected function resolveModelClass(string $resourceUriKey): ?string
+    {
+        foreach ($this->morphTypes as $resourceClass) {
+            if ($resourceClass::uriKey() === $resourceUriKey) {
+                try {
+                    return get_class($resourceClass::newModel());
+                } catch (\Throwable) {
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the type options for the frontend dropdown.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    protected function buildTypeOptions(): array
+    {
+        $options = [];
+        foreach ($this->morphTypes as $resourceClass) {
+            $options[] = [
+                'value' => $resourceClass::uriKey(),
+                'label' => $resourceClass::singularLabel(),
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function extraAttributes(): array
+    {
+        return [
+            'relationship' => $this->relationship,
+            'morphTypeColumn' => $this->morphTypeColumn,
+            'morphIdColumn' => $this->morphIdColumn,
+            'titleAttribute' => $this->titleAttribute,
+            'morphTypes' => $this->buildTypeOptions(),
+            'relationSearchable' => $this->relationSearchable,
+            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
+            'modalSize' => $this->modalSize->value,
+        ];
+    }
+}

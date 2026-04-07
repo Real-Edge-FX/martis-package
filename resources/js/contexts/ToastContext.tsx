@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ addToast, toastRef }}>
       {children}
-      <Toast ref={toastRef} position={position} baseZIndex={9999} />
+      <Toast ref={toastRef} position={position} baseZIndex={10001} />
     </ToastContext.Provider>
   )
 }

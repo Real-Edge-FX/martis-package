@@ -17,6 +17,7 @@ use Martis\Fields\BelongsTo;
 use Martis\Fields\DeferredRelationSync;
 use Martis\Fields\Field;
 use Martis\Fields\File;
+use Martis\Fields\MorphTo;
 use Martis\Fields\Tag as TagField;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
@@ -518,61 +519,6 @@ class ResourceController extends MartisController
         );
     }
 
-    // -------------------------------------------------------------------------
-    // Replicate — POST /api/{resource}/{id}/replicate
-    // -------------------------------------------------------------------------
-
-    /**
-     * Create a copy of an existing resource record.
-     *
-     * Replicates the model (copies attributes, clears primary key and timestamps),
-     * then returns the newly created record.
-     *
-     * @param  string  $resource  Resource URI key
-     * @param  int|string  $id  Primary key of the record to replicate
-     */
-    public function replicate(Request $request, string $resource, int|string $id): IlluminateJsonResponse
-    {
-        [$resourceClass, $error] = $this->resolveResource($resource);
-
-        if ($error !== null) {
-            return $error;
-        }
-
-        /** @var class-string<resource> $resourceClass */
-        $model = $this->findModel($resourceClass, $id);
-
-        if ($model === null) {
-            return JsonErrorResponse::notFound()->toResponse();
-        }
-
-        $res = new $resourceClass($model);
-
-        if (! $res->authorizedToReplicate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
-        }
-
-        try {
-            $replica = $model->replicate();
-            $replica->save();
-        } catch (QueryException $e) {
-            Log::error('Martis: database error on replicate', [
-                'resource' => $resource,
-                'id' => $id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->handleDatabaseError($e);
-        }
-
-        $resReplica = new $resourceClass($replica);
-
-        return JsonResponse::make(
-            $this->serializeModel($resReplica, Field::filterForContext($resReplica->fieldsForDetail($request), FieldContext::DETAIL), $replica),
-            meta: ['message' => $resourceClass::replicatedMessage()],
-        )->toResponse(201);
-    }
-
     /**
      * Get replicated field values for pre-filling the create form.
      *
@@ -660,7 +606,7 @@ class ResourceController extends MartisController
         // Strip showCreateRelationButton from BelongsTo fields to prevent nesting (max 1 level deep)
         $fieldData = array_map(function (FieldContract $f): array {
             $arr = $f->toArray();
-            if (($arr['type'] ?? '') === 'belongs_to') {
+            if (($arr['type'] ?? '') === 'belongs_to' || ($arr['type'] ?? '') === 'morph_to') {
                 $arr['showCreateRelationButton'] = false;
             }
 
@@ -884,6 +830,10 @@ class ResourceController extends MartisController
             // Determine the related resource class from the field
             if ($relationField instanceof BelongsTo) {
                 $relatedUriKey = $this->getRelatedResourceKey($relationField);
+            } elseif ($relationField instanceof MorphTo) {
+                // MorphTo: resolve from related_resource query param (type-specific)
+                $rawRelated = $request->query('related_resource', '');
+                $relatedUriKey = is_string($rawRelated) ? $rawRelated : null;
             } elseif ($relationField instanceof TagField) {
                 $relatedUriKey = $relationField->getRelatedResource();
             }

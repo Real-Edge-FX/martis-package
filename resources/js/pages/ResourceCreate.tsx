@@ -228,7 +228,7 @@ export function ResourceCreatePage() {
 
           <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
             <Link
-              to={`/resources/${resource}`}
+              to={isViaHasMany ? `/resources/${viaResource}/${viaResourceId}` : `/resources/${resource}`}
               className="rounded-md border px-4 py-2 text-sm font-medium martis-text-muted martis-border"
               style={{ backgroundColor: 'var(--martis-input-bg)', borderColor: 'var(--martis-border)' }}
             >
