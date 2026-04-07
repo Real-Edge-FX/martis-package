@@ -36,6 +36,29 @@ abstract class Resource implements ResourceContract
      */
     protected ?Model $model;
 
+    /**
+     * The policy class to use for authorization on this resource.
+     *
+     * Set this property on a concrete resource to override auto-discovery
+     * and the model's registered policy. When null, the resolution chain
+     * falls through to auto-discovery and then the model policy.
+     *
+     * Nova v5 parity: public static $policy.
+     *
+     * @var class-string|null
+     */
+    public static ?string $policy = null;
+
+    /**
+     * Cached resolved policies by resource class.
+     *
+     * false = resolution ran but no policy found.
+     * object = resolved policy instance.
+     *
+     * @var array<class-string, object|false>
+     */
+    private static array $resolvedPolicies = [];
+
     public function __construct(?Model $model = null)
     {
         $this->model = $model;
@@ -263,7 +286,91 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Authorization
+    // Authorization — Policy resolution (Nova v5 parity, REA-1115)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether authorization checks are enabled for this resource.
+     *
+     * Return false to skip all policy checks and allow all operations.
+     * Nova v5 parity: public static function authorizable().
+     */
+    public static function authorizable(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Resolve the policy instance for this resource.
+     *
+     * Resolution order (Nova v5 parity):
+     *   1. Explicit $policy property on the Resource class
+     *   2. Auto-discovery: {policy_namespace}\{ResourceBaseName without 'Resource' suffix}Policy
+     *   3. Laravel Gate policy registered for the model class
+     *   4. null → no policy, permissive defaults apply
+     *
+     * Results are cached per resource class for the duration of the request.
+     *
+     * @return object|null The policy instance, or null if none found
+     */
+    public static function resolvePolicy(): ?object
+    {
+        $key = static::class;
+
+        if (array_key_exists($key, self::$resolvedPolicies)) {
+            $cached = self::$resolvedPolicies[$key];
+
+            return $cached === false ? null : $cached;
+        }
+
+        // 1. Explicit $policy on the resource
+        if (static::$policy !== null && class_exists(static::$policy)) {
+            $policy = app(static::$policy);
+            self::$resolvedPolicies[$key] = $policy;
+
+            return $policy;
+        }
+
+        // 2. Auto-discovery by convention
+        $namespace = (string) config('martis.policy_namespace', 'App\\Martis\\Policies');
+        $resourceBaseName = class_basename(static::class);
+        // Remove 'Resource' suffix: UserResource → User
+        $baseName = preg_replace('/Resource$/', '', $resourceBaseName);
+        $policyClass = $namespace.'\\'.$baseName.'Policy';
+
+        if (class_exists($policyClass)) {
+            $policy = app($policyClass);
+            self::$resolvedPolicies[$key] = $policy;
+
+            return $policy;
+        }
+
+        // 3. Laravel Gate policy for the model
+        $modelPolicy = Gate::getPolicyFor(static::model());
+        if ($modelPolicy !== null) {
+            self::$resolvedPolicies[$key] = $modelPolicy;
+
+            return $modelPolicy;
+        }
+
+        // 4. No policy found
+        self::$resolvedPolicies[$key] = false;
+
+        return null;
+    }
+
+    /**
+     * Flush the resolved policy cache.
+     *
+     * Useful in tests to reset state between test cases.
+     */
+    public static function flushPolicyCache(): void
+    {
+        self::$resolvedPolicies = [];
+    }
+
+    // -------------------------------------------------------------------------
+    // Authorization — Resource abilities
     // -------------------------------------------------------------------------
 
     /**
@@ -304,6 +411,82 @@ abstract class Resource implements ResourceContract
     public function authorizedToDelete(Request $request): bool
     {
         return $this->checkPolicy('delete', $this->model);
+    }
+
+    /**
+     * Determine whether the current user may restore this soft-deleted resource.
+     *
+     * Nova v5 parity: checks 'restore' policy method.
+     * Default when missing: forbidden.
+     */
+    public function authorizedToRestore(Request $request): bool
+    {
+        return $this->checkPolicy('restore', $this->model);
+    }
+
+    /**
+     * Determine whether the current user may force-delete this resource.
+     *
+     * Nova v5 parity: checks 'forceDelete' policy method.
+     * Default when missing: forbidden.
+     */
+    public function authorizedToForceDelete(Request $request): bool
+    {
+        return $this->checkPolicy('forceDelete', $this->model);
+    }
+
+    /**
+     * Determine whether the current user may replicate this resource.
+     *
+     * Nova v5 parity: checks 'replicate' policy method.
+     * Fallback when missing: must pass BOTH create AND update.
+     */
+    public function authorizedToReplicate(Request $request): bool
+    {
+        $policy = static::resolvePolicy();
+
+        if ($policy !== null && method_exists($policy, 'replicate')) {
+            return $this->checkPolicy('replicate', $this->model);
+        }
+
+        // Fallback: must pass both create AND update
+        return $this->authorizedToCreate($request) && $this->authorizedToUpdate($request);
+    }
+
+    /**
+     * Determine whether the current user may run a normal action on this resource.
+     *
+     * Nova v5 parity: checks 'runAction' policy method.
+     * Fallback when missing: delegates to authorizedToUpdate().
+     */
+    public function authorizedToRunAction(Request $request): bool
+    {
+        $policy = static::resolvePolicy();
+
+        if ($policy !== null && method_exists($policy, 'runAction')) {
+            return $this->checkPolicy('runAction', $this->model);
+        }
+
+        // Fallback to update
+        return $this->authorizedToUpdate($request);
+    }
+
+    /**
+     * Determine whether the current user may run a destructive action on this resource.
+     *
+     * Nova v5 parity: checks 'runDestructiveAction' policy method.
+     * Fallback when missing: delegates to authorizedToDelete().
+     */
+    public function authorizedToRunDestructiveAction(Request $request): bool
+    {
+        $policy = static::resolvePolicy();
+
+        if ($policy !== null && method_exists($policy, 'runDestructiveAction')) {
+            return $this->checkPolicy('runDestructiveAction', $this->model);
+        }
+
+        // Fallback to delete
+        return $this->authorizedToDelete($request);
     }
 
     // -------------------------------------------------------------------------
@@ -366,11 +549,16 @@ abstract class Resource implements ResourceContract
         return $this->checkRelationalPolicy($ability, $relatedModelClass);
     }
 
+    // -------------------------------------------------------------------------
+    // Authorization — Core policy checking (REA-1115)
+    // -------------------------------------------------------------------------
+
     /**
      * Check a relational policy ability.
      *
-     * When no policy exists for the source model, or the policy does not define
-     * the method, returns true (permissive default).
+     * Uses the resolved policy (resource-specific → auto-discovered → model).
+     * When no policy exists, or the policy does not define the method,
+     * returns true (permissive default for relationship abilities).
      *
      * @param  string  $ability  e.g. "attachTag", "detachUser", "addComment"
      * @param  class-string<Model>  $relatedModelClass
@@ -381,11 +569,27 @@ abstract class Resource implements ResourceContract
         string $relatedModelClass,
         ?Model $relatedModel = null,
     ): bool {
-        $modelClass = static::model();
+        if (! static::authorizable()) {
+            return true;
+        }
 
-        $policy = Gate::getPolicyFor($modelClass);
+        $policy = static::resolvePolicy();
+
         if ($policy === null) {
             return true;
+        }
+
+        $user = request()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        // Honour the before() callback (Laravel convention)
+        if (method_exists($policy, 'before')) {
+            $beforeResult = $policy->before($user, $ability, $this->model);
+            if ($beforeResult !== null) {
+                return (bool) $beforeResult;
+            }
         }
 
         // If the policy does not define this specific method, allow by default
@@ -394,39 +598,137 @@ abstract class Resource implements ResourceContract
         }
 
         if ($this->model !== null && $relatedModel !== null) {
-            return Gate::allows($ability, [$this->model, $relatedModel]);
+            return (bool) $policy->{$ability}($user, $this->model, $relatedModel);
         }
 
         if ($this->model !== null) {
-            return Gate::allows($ability, [$this->model, $relatedModelClass]);
+            return (bool) $policy->{$ability}($user, $this->model);
         }
 
-        return Gate::allows($ability, $modelClass);
+        return (bool) $policy->{$ability}($user);
     }
 
     /**
      * Check a policy ability for the resource's model.
      *
-     * When no policy is registered for the model, returns true (permissive
-     * default) so resources work out-of-the-box without requiring policies.
-     * Once a policy is registered, it is the sole source of truth.
+     * Uses the resolved policy (resource-specific → auto-discovered → model).
+     * When no policy is registered, returns true (permissive default).
+     * When a policy exists but the method is missing, applies the Nova v5
+     * defaults matrix (see defaultForMissingAbility).
      *
-     * @param  string  $ability  Policy method name (viewAny, view, create, update, delete)
+     * @param  string  $ability  Policy method name (viewAny, view, create, update, delete, restore, forceDelete)
      * @param  Model|null  $model  The model instance (null for collection-level checks)
      */
     protected function checkPolicy(string $ability, ?Model $model): bool
     {
-        $modelClass = static::model();
-
-        if (Gate::getPolicyFor($modelClass) === null) {
+        if (! static::authorizable()) {
             return true;
         }
 
-        if ($model !== null) {
-            return Gate::allows($ability, $model);
+        $policy = static::resolvePolicy();
+
+        if ($policy === null) {
+            return true;
         }
 
-        return Gate::allows($ability, $modelClass);
+        $user = request()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        // Honour the before() callback (Laravel convention)
+        if (method_exists($policy, 'before')) {
+            $beforeResult = $policy->before($user, $ability, $model);
+            if ($beforeResult !== null) {
+                return (bool) $beforeResult;
+            }
+        }
+
+        if (! method_exists($policy, $ability)) {
+            return $this->defaultForMissingAbility($ability);
+        }
+
+        if ($model !== null) {
+            return (bool) $policy->{$ability}($user, $model);
+        }
+
+        return (bool) $policy->{$ability}($user);
+    }
+
+    /**
+     * Default permission when a policy exists but does not define a method.
+     *
+     * Nova v5 parity defaults:
+     *   viewAny              → allowed
+     *   view                 → forbidden
+     *   create               → forbidden
+     *   update               → forbidden
+     *   delete               → forbidden
+     *   restore              → forbidden
+     *   forceDelete          → forbidden
+     *   add{Model}           → allowed
+     *   attach{Model}        → allowed
+     *   attachAny{Model}     → allowed
+     *   detach{Model}        → allowed
+     *   runAction            → (handled by authorizedToRunAction fallback)
+     *   runDestructiveAction → (handled by authorizedToRunDestructiveAction fallback)
+     */
+    protected function defaultForMissingAbility(string $ability): bool
+    {
+        // viewAny is the only non-relational ability that defaults to allowed
+        if ($ability === 'viewAny') {
+            return true;
+        }
+
+        // Relationship abilities default to allowed
+        if (str_starts_with($ability, 'add')
+            || str_starts_with($ability, 'attach')
+            || str_starts_with($ability, 'detach')) {
+            return true;
+        }
+
+        // Everything else: forbidden
+        return false;
+    }
+
+    /**
+     * Return authorization metadata for this resource instance.
+     *
+     * Consumed by the frontend to show/hide action buttons and links.
+     * Always derived from the backend policy — never trust frontend-only checks.
+     *
+     * @return array<string, bool>
+     */
+    public function authorizationMetadata(Request $request): array
+    {
+        $meta = [
+            'authorizedToView' => $this->authorizedToView($request),
+            'authorizedToUpdate' => $this->authorizedToUpdate($request),
+            'authorizedToDelete' => $this->authorizedToDelete($request),
+            'authorizedToReplicate' => $this->authorizedToReplicate($request),
+            'authorizedToRunAction' => $this->authorizedToRunAction($request),
+            'authorizedToRunDestructiveAction' => $this->authorizedToRunDestructiveAction($request),
+        ];
+
+        if (static::softDeletes()) {
+            $meta['authorizedToRestore'] = $this->authorizedToRestore($request);
+            $meta['authorizedToForceDelete'] = $this->authorizedToForceDelete($request);
+        }
+
+        return $meta;
+    }
+
+    /**
+     * Return collection-level authorization metadata for schema responses.
+     *
+     * @return array<string, bool>
+     */
+    public function collectionAuthorizationMetadata(Request $request): array
+    {
+        return [
+            'authorizedToViewAny' => $this->authorizedToViewAny($request),
+            'authorizedToCreate' => $this->authorizedToCreate($request),
+        ];
     }
 
     // -------------------------------------------------------------------------
@@ -546,6 +848,26 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Message shown after a record is force-deleted.
+     */
+    public static function forceDeletedMessage(): string
+    {
+        $msg = __('martis::messages.record_force_deleted');
+
+        return is_string($msg) ? $msg : 'Record permanently deleted.';
+    }
+
+    /**
+     * Message shown after a record is replicated.
+     */
+    public static function replicatedMessage(): string
+    {
+        $msg = __('martis::messages.record_replicated');
+
+        return is_string($msg) ? $msg : 'Record duplicated successfully.';
+    }
+
+    /**
      * Confirmation message shown before deleting a record.
      */
     public static function deleteConfirmMessage(): string
@@ -563,6 +885,16 @@ abstract class Resource implements ResourceContract
         $msg = __('martis::messages.archive_confirm');
 
         return is_string($msg) ? $msg : 'This record will be archived. You can restore it later.';
+    }
+
+    /**
+     * Confirmation message shown before force-deleting a record.
+     */
+    public static function forceDeleteConfirmMessage(): string
+    {
+        $msg = __('martis::messages.force_delete_confirm');
+
+        return is_string($msg) ? $msg : 'This will permanently delete the record. It cannot be recovered. Are you sure?';
     }
 
     // -------------------------------------------------------------------------

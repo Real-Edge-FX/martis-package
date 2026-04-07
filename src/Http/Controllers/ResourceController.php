@@ -425,7 +425,7 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
-        if (! $res->authorizedToUpdate($request)) {
+        if (! $res->authorizedToRestore($request)) {
             return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
         }
 
@@ -437,6 +437,124 @@ class ResourceController extends MartisController
             $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
             meta: ['message' => $resourceClass::restoredMessage()],
         )->toResponse();
+    }
+
+    // -------------------------------------------------------------------------
+    // Force Delete — DELETE /api/{resource}/{id}/force
+    // -------------------------------------------------------------------------
+
+    /**
+     * Permanently delete a soft-deleted resource record.
+     *
+     * Only available for resources whose model uses `SoftDeletes`.
+     * Unlike destroy(), this bypasses the trash and removes the record permanently.
+     *
+     * @param  string  $resource  Resource URI key
+     * @param  int|string  $id  Primary key of the record
+     */
+    public function forceDelete(Request $request, string $resource, int|string $id): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        if (! $resourceClass::softDeletes()) {
+            return JsonErrorResponse::notFound('This resource does not support soft deletes.')->toResponse();
+        }
+
+        /** @var class-string<Model> $modelClass */
+        $modelClass = $resourceClass::model();
+
+        /** @phpstan-ignore staticMethod.notFound */
+        $model = $modelClass::withTrashed()->find($id);
+
+        if ($model === null) {
+            return JsonErrorResponse::notFound()->toResponse();
+        }
+
+        $res = new $resourceClass($model);
+
+        if (! $res->authorizedToForceDelete($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        try {
+            $res->beforeDelete($model, $request);
+            $this->deleteUploadedFiles(Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model);
+            $model->forceDelete();
+            $res->afterDelete($model, $request);
+        } catch (QueryException $e) {
+            Log::error('Martis: database error on forceDelete', [
+                'resource' => $resource,
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->handleDatabaseError($e);
+        }
+
+        return new IlluminateJsonResponse(
+            ['data' => [], 'meta' => ['message' => $resourceClass::forceDeletedMessage()], 'links' => []],
+            200,
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Replicate — POST /api/{resource}/{id}/replicate
+    // -------------------------------------------------------------------------
+
+    /**
+     * Create a copy of an existing resource record.
+     *
+     * Replicates the model (copies attributes, clears primary key and timestamps),
+     * then returns the newly created record.
+     *
+     * @param  string  $resource  Resource URI key
+     * @param  int|string  $id  Primary key of the record to replicate
+     */
+    public function replicate(Request $request, string $resource, int|string $id): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $model = $this->findModel($resourceClass, $id);
+
+        if ($model === null) {
+            return JsonErrorResponse::notFound()->toResponse();
+        }
+
+        $res = new $resourceClass($model);
+
+        if (! $res->authorizedToReplicate($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        try {
+            $replica = $model->replicate();
+            $replica->save();
+        } catch (QueryException $e) {
+            Log::error('Martis: database error on replicate', [
+                'resource' => $resource,
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->handleDatabaseError($e);
+        }
+
+        $resReplica = new $resourceClass($replica);
+
+        return JsonResponse::make(
+            $this->serializeModel($resReplica, Field::filterForContext($resReplica->fieldsForDetail($request), FieldContext::DETAIL), $replica),
+            meta: ['message' => $resourceClass::replicatedMessage()],
+        )->toResponse(201);
     }
 
     // -------------------------------------------------------------------------
@@ -488,6 +606,7 @@ class ResourceController extends MartisController
             'singularLabel' => $resourceClass::singularLabel(),
             'subtitle' => $resourceClass::subtitle(),
             'softDeletes' => $resourceClass::softDeletes(),
+            'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
             'titleAttribute' => $resourceClass::titleAttribute(),
@@ -508,8 +627,11 @@ class ResourceController extends MartisController
                 'updated' => $resourceClass::updatedMessage(),
                 'deleted' => $resourceClass::deletedMessage(),
                 'restored' => $resourceClass::restoredMessage(),
+                'forceDeleted' => $resourceClass::forceDeletedMessage(),
+                'replicated' => $resourceClass::replicatedMessage(),
                 'deleteConfirm' => $resourceClass::deleteConfirmMessage(),
                 'archiveConfirm' => $resourceClass::archiveConfirmMessage(),
+                'forceDeleteConfirm' => $resourceClass::forceDeleteConfirmMessage(),
             ],
             'errorDisplay' => $resourceClass::errorDisplay()->value,
             'validationMessage' => $resourceClass::validationMessage(),
@@ -921,6 +1043,7 @@ class ResourceController extends MartisController
 
         $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();
+        $data['_authorization'] = $resource->authorizationMetadata(request());
 
         return $data;
     }

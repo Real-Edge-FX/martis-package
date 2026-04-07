@@ -207,4 +207,13 @@ return [
     | Where auto-discovery looks for Martis resource classes in the app.
     */
     'resources_path' => app_path('Martis'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Policy Namespace
+    |--------------------------------------------------------------------------
+    | Namespace for auto-discovery of Martis resource policies.
+    | Override per-resource via the $policy static property on the Resource class.
+    */
+    'policy_namespace' => 'App\\Martis\\Policies',
 ];

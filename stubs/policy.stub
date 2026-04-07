@@ -1,0 +1,157 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Models\User;
+use {{ modelImport }};
+
+/**
+ * Martis resource policy for {{ model }}.
+ *
+ * This policy controls authorization for the corresponding Martis resource.
+ * Each method returns true to allow or false to deny the action.
+ *
+ * Methods that are removed from this class will trigger the Martis defaults:
+ *   viewAny              → allowed
+ *   view/create/update/delete/restore/forceDelete → forbidden
+ *   replicate            → fallback to create AND update
+ *   runAction            → fallback to update
+ *   runDestructiveAction → fallback to delete
+ *   relationship methods → allowed
+ *
+ * @see https://nova.laravel.com/docs/resources/authorization.html
+ */
+class {{ class }}
+{
+    // -------------------------------------------------------------------------
+    // Resource abilities
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether the user can view any records.
+     * Controls visibility in navigation and index access.
+     */
+    public function viewAny(User $user): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can view a specific record.
+     */
+    public function view(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can create new records.
+     */
+    public function create(User $user): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can update a specific record.
+     */
+    public function update(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can replicate (duplicate) a record.
+     * If removed, falls back to create AND update.
+     */
+    public function replicate(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can delete (soft-delete or hard-delete) a record.
+     */
+    public function delete(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can restore a soft-deleted record.
+     */
+    public function restore(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can permanently delete a record.
+     */
+    public function forceDelete(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // Action abilities
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether the user can run a normal (non-destructive) action.
+     * If removed, falls back to the update ability.
+     */
+    public function runAction(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can run a destructive action.
+     * If removed, falls back to the delete ability.
+     */
+    public function runDestructiveAction(User $user, {{ model }} $model): bool
+    {
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // Relationship abilities
+    //
+    // Rename {Model} to the actual related model name (e.g. addComment).
+    // If removed, relationship operations default to allowed.
+    // -------------------------------------------------------------------------
+
+    // /**
+    //  * Determine whether the user can add (inline create) a related {Model}.
+    //  */
+    // public function add{Model}(User $user, {{ model }} $parent): bool
+    // {
+    //     return true;
+    // }
+
+    // /**
+    //  * Determine whether the user can attach a specific related {Model}.
+    //  */
+    // public function attach{Model}(User $user, {{ model }} $parent, $related): bool
+    // {
+    //     return true;
+    // }
+
+    // /**
+    //  * Determine whether the user can attach ANY {Model} record.
+    //  * Controls visibility of the "Attach" button.
+    //  */
+    // public function attachAny{Model}(User $user, {{ model }} $parent): bool
+    // {
+    //     return true;
+    // }
+
+    // /**
+    //  * Determine whether the user can detach a specific related {Model}.
+    //  */
+    // public function detach{Model}(User $user, {{ model }} $parent, $related): bool
+    // {
+    //     return true;
+    // }
+}

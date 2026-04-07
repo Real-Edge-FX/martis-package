@@ -10,7 +10,9 @@ use Martis\FieldContext;
 use Martis\Resource;
 use Martis\Tests\TestCase;
 
-uses(TestCase::class);
+uses(TestCase::class)->afterEach(function () {
+    Resource::flushPolicyCache();
+});
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -329,6 +331,21 @@ class StubField implements FieldContract
     public function colSpanLg(int $cols): static
     {
         return $this;
+    }
+
+    public function canSee(callable $callback): static
+    {
+        return $this;
+    }
+
+    public function canSeeWhen(string $ability, mixed ...$arguments): static
+    {
+        return $this;
+    }
+
+    public function isAuthorizedToSee(Request $request): bool
+    {
+        return true;
     }
 }
 

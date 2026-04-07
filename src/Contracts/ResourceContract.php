@@ -190,8 +190,21 @@ interface ResourceContract
     public static function tableRowHover(): bool;
 
     // -------------------------------------------------------------------------
-    // Authorization
+    // Authorization — Nova v5 parity (REA-1115)
     // -------------------------------------------------------------------------
+
+    /** Whether authorization checks are enabled for this resource. */
+    public static function authorizable(): bool;
+
+    /**
+     * Resolve the policy instance for this resource.
+     *
+     * @return object|null The policy instance, or null if none found
+     */
+    public static function resolvePolicy(): ?object;
+
+    /** Flush the resolved policy cache (for testing). */
+    public static function flushPolicyCache(): void;
 
     public function authorizedToViewAny(Request $request): bool;
 
@@ -202,6 +215,21 @@ interface ResourceContract
     public function authorizedToUpdate(Request $request): bool;
 
     public function authorizedToDelete(Request $request): bool;
+
+    /** Whether the user may restore this soft-deleted resource. */
+    public function authorizedToRestore(Request $request): bool;
+
+    /** Whether the user may permanently delete this resource. */
+    public function authorizedToForceDelete(Request $request): bool;
+
+    /** Whether the user may replicate (duplicate) this resource. */
+    public function authorizedToReplicate(Request $request): bool;
+
+    /** Whether the user may run a normal action on this resource. */
+    public function authorizedToRunAction(Request $request): bool;
+
+    /** Whether the user may run a destructive action on this resource. */
+    public function authorizedToRunDestructiveAction(Request $request): bool;
 
     // -------------------------------------------------------------------------
     // Relational authorization — Nova v5 parity (REA-1144)
@@ -231,6 +259,20 @@ interface ResourceContract
      */
     public function authorizedToAdd(Request $request, string $relatedModelClass): bool;
 
+    /**
+     * Return per-record authorization metadata for the frontend.
+     *
+     * @return array<string, bool>
+     */
+    public function authorizationMetadata(Request $request): array;
+
+    /**
+     * Return collection-level authorization metadata for schema responses.
+     *
+     * @return array<string, bool>
+     */
+    public function collectionAuthorizationMetadata(Request $request): array;
+
     // -------------------------------------------------------------------------
     // Lifecycle hooks
     // -------------------------------------------------------------------------
@@ -259,9 +301,15 @@ interface ResourceContract
 
     public static function restoredMessage(): string;
 
+    public static function forceDeletedMessage(): string;
+
+    public static function replicatedMessage(): string;
+
     public static function deleteConfirmMessage(): string;
 
     public static function archiveConfirmMessage(): string;
+
+    public static function forceDeleteConfirmMessage(): string;
 
     /** Error display mode: "toast", "inline", or "both". */
     public static function errorDisplay(): ErrorDisplayMode;

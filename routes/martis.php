@@ -81,6 +81,13 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
                             ->name('resources.has-many.destroy');
 
+                        // Force delete (permanent deletion of soft-deleted records) — REA-1115
+                        Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])
+                            ->name('resources.force-delete');
+                        // Replicate (duplicate a record) — REA-1115
+                        Route::post('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicate'])
+                            ->name('resources.replicate');
+
                         Route::get('/resources/{resource}/{id}', [ResourceController::class, 'show'])
                             ->name('resources.show');
                         Route::put('/resources/{resource}/{id}', [ResourceController::class, 'update'])

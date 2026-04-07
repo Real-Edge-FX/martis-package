@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\OverrideContract;
@@ -48,6 +49,12 @@ abstract class Field implements FieldContract
     protected bool $sortable = false;
 
     protected bool $searchable = false;
+
+    /**
+     * Callback that determines whether this field is visible to the current user.
+     * Nova v5 parity: canSee(callable).
+     */
+    protected ?\Closure $canSeeCallback = null;
 
     /** @var callable|null */
     protected mixed $resolveCallback = null;
@@ -400,11 +407,30 @@ abstract class Field implements FieldContract
      * @param  list<FieldContract>  $fields
      * @return list<FieldContract>
      */
-    public static function filterForContext(array $fields, FieldContext $context): array
+    public static function filterForContext(array $fields, FieldContext $context, ?Request $request = null): array
     {
+        if ($request === null) {
+            try {
+                $request = request();
+            } catch (\Throwable) {
+                // No request available (e.g. unit tests without HTTP context)
+            }
+        }
+
         return array_values(array_filter(
             $fields,
-            fn (FieldContract $f): bool => $f->isVisibleForContext($context),
+            function (FieldContract $f) use ($context, $request): bool {
+                if (! $f->isVisibleForContext($context)) {
+                    return false;
+                }
+
+                // Check field-level authorization (canSee) — skip when no request available
+                if ($request !== null && $f instanceof self && ! $f->isAuthorizedToSee($request)) {
+                    return false;
+                }
+
+                return true;
+            },
         ));
     }
 
@@ -424,6 +450,65 @@ abstract class Field implements FieldContract
     public function isShownOnForms(): bool
     {
         return $this->showOnForms;
+    }
+
+    // -------------------------------------------------------------------------
+    // Authorization — field-level visibility (Nova v5 parity, REA-1115)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Set a callback that determines whether this field is visible.
+     *
+     * The callback receives the current Request and should return a boolean.
+     * When the callback returns false, the field is excluded from the response.
+     *
+     * Nova v5 parity: canSee(callable).
+     *
+     * @param  callable(Request): bool  $callback
+     */
+    public function canSee(callable $callback): static
+    {
+        $this->canSeeCallback = $callback(...);
+
+        return $this;
+    }
+
+    /**
+     * Shorthand for canSee() that checks a policy ability.
+     *
+     * Equivalent to: canSee(fn($request) => $request->user()?->can($ability, $arguments))
+     *
+     * Nova v5 parity: canSeeWhen(string $ability, ...$arguments).
+     *
+     * @param  string  $ability  The policy ability to check
+     * @param  mixed  ...$arguments  Arguments passed to the Gate check
+     */
+    public function canSeeWhen(string $ability, mixed ...$arguments): static
+    {
+        $this->canSeeCallback = function (Request $request) use ($ability, $arguments): bool {
+            $user = $request->user();
+            if ($user === null) {
+                return false;
+            }
+
+            return $user->can($ability, $arguments ?: []);
+        };
+
+        return $this;
+    }
+
+    /**
+     * Determine whether this field is authorized to be seen by the current user.
+     *
+     * Returns true if no canSee callback is set (default: visible to all).
+     */
+    public function isAuthorizedToSee(Request $request): bool
+    {
+        if ($this->canSeeCallback === null) {
+            return true;
+        }
+
+        return (bool) ($this->canSeeCallback)($request);
     }
 
     // -------------------------------------------------------------------------

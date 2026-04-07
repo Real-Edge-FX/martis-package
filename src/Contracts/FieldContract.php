@@ -4,6 +4,7 @@ namespace Martis\Contracts;
 
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Martis\FieldContext;
 
 /**
@@ -201,6 +202,27 @@ interface FieldContract
 
     /** Return whether this field is searchable. */
     public function isSearchable(): bool;
+
+    // -------------------------------------------------------------------------
+    // Authorization — field-level visibility (Nova v5 parity, REA-1115)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Set a callback that determines whether this field is visible.
+     *
+     * @param  callable(Request): bool  $callback
+     */
+    public function canSee(callable $callback): static;
+
+    /**
+     * Shorthand: check a policy ability to determine field visibility.
+     */
+    public function canSeeWhen(string $ability, mixed ...$arguments): static;
+
+    /**
+     * Determine whether this field is authorized to be seen by the current user.
+     */
+    public function isAuthorizedToSee(Request $request): bool;
 
     // -------------------------------------------------------------------------
     // Validation

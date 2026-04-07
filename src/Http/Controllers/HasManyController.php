@@ -140,9 +140,18 @@ class HasManyController extends MartisController
 
         [
             'parentModel' => $parentModel,
+            'parentResourceClass' => $resourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
         ] = $context;
+
+        // Check parent resource authorizedToAdd for this related model class
+        $parentInstance = new $resourceClass($parentModel);
+        /** @var class-string<Model> $relatedModelClass */
+        $relatedModelClass = $relatedResourceClass::model();
+        if (! $parentInstance->authorizedToAdd($request, $relatedModelClass)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
 
         $relatedInstance = new $relatedResourceClass;
         $fields = Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE);
@@ -217,6 +226,11 @@ class HasManyController extends MartisController
         }
 
         $relatedInstance = new $relatedResourceClass($relatedModel);
+
+        if (! $relatedInstance->authorizedToUpdate($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
         $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
 
         // Set unique-ignore ID
@@ -421,6 +435,7 @@ class HasManyController extends MartisController
             'softDeletes' => $resource::softDeletes(),
             'group' => $resource->group(),
         ];
+        $data['_authorization'] = $resource->authorizationMetadata(request());
 
         foreach ($fields as $field) {
             $data[$field->attribute()] = $field->resolve($model);
