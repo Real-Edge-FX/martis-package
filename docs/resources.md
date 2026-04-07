@@ -345,6 +345,27 @@ If your Eloquent model uses the `SoftDeletes` trait, Martis automatically:
 
 No additional configuration is needed — Martis detects `SoftDeletes` automatically.
 
+### Restricting Trashed Visibility by Role
+
+By default, all users see the trashed filter dropdown when a resource uses soft deletes. Override `canViewTrashed()` to restrict this by role:
+
+```php
+public static function canViewTrashed(): bool
+{
+    return auth()->user()?->isAdmin() ?? false;
+}
+```
+
+When `canViewTrashed()` returns false:
+
+- The trashed filter dropdown is hidden on the index page
+- The backend ignores `?trashed=` query parameters
+- The schema reports `softDeletes: false` for that user
+
+Note: `findModel()` and `serializeModel()` remain ungated so that users with `restore` or `forceDelete` permissions can still act on trashed records via direct URL.
+
+**Nova v5 comparison:** Nova always shows the SoftDeletes filter for all users. `canViewTrashed()` goes beyond Nova, giving per-resource role-based control.
+
 ## Search
 
 Resources support global search when fields are marked as `searchable()`:
