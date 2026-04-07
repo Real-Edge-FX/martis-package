@@ -285,6 +285,21 @@ abstract class Resource implements ResourceContract
         );
     }
 
+    /**
+     * Determine whether the current user can view trashed (soft-deleted) records.
+     *
+     * When false, the trashed filter dropdown is hidden and the backend
+     * ignores ?trashed= query parameters. Override in concrete resources
+     * to restrict visibility by role (e.g. admin-only).
+     *
+     * Nova v5 parity note: Nova shows the SoftDeletes filter for all users
+     * by default. This method goes beyond Nova, giving per-resource control.
+     */
+    public static function canViewTrashed(): bool
+    {
+        return true;
+    }
+
     // -------------------------------------------------------------------------
     // Authorization — Policy resolution (Nova v5 parity, REA-1115)
     // -------------------------------------------------------------------------
@@ -950,7 +965,7 @@ abstract class Resource implements ResourceContract
             'singularLabel' => static::singularLabel(),
             'subtitle' => static::subtitle(),
             'titleAttribute' => static::titleAttribute(),
-            'softDeletes' => static::softDeletes(),
+            'softDeletes' => static::softDeletes() && static::canViewTrashed(),
             'group' => $this->group(),
             'icon' => $this->icon(),
         ];

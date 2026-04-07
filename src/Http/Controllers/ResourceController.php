@@ -90,7 +90,7 @@ class ResourceController extends MartisController
         // ?trashed=with  → include soft-deleted alongside active records
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
-        if ($resourceClass::softDeletes()) {
+        if ($resourceClass::softDeletes() && $resourceClass::canViewTrashed()) {
             $trashed = $request->query('trashed', '');
             if ($trashed === 'with') {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
@@ -621,7 +621,7 @@ class ResourceController extends MartisController
             'label' => $resourceClass::label(),
             'singularLabel' => $resourceClass::singularLabel(),
             'subtitle' => $resourceClass::subtitle(),
-            'softDeletes' => $resourceClass::softDeletes(),
+            'softDeletes' => $resourceClass::softDeletes() && $resourceClass::canViewTrashed(),
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
