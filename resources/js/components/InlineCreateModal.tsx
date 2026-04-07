@@ -84,12 +84,33 @@ export function InlineCreateModal({
     },
     onError: (err) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
-        setErrors(err.errorsByField())
+        const byField = err.errorsByField()
+        // Get visible field attributes from schema
+        const visibleFields = new Set(
+          schemaQuery.data?.data?.fields?.map((f) => f.attribute) ?? [],
+        )
+        // Separate mapped (visible) vs unmapped (invisible field) errors
+        const mapped: Record<string, string> = {}
+        const unmapped: string[] = []
+        for (const [field, msg] of Object.entries(byField)) {
+          if (visibleFields.has(field)) {
+            mapped[field] = msg
+          } else {
+            unmapped.push(msg)
+          }
+        }
+        // Show unmapped field errors as a general message
+        if (unmapped.length > 0) {
+          mapped._general = unmapped.join(". ")
+        }
+        setErrors(mapped)
+        addToast("error", err.message || tMsg("error_create"))
       } else if (err instanceof ApiError) {
-        // Show server error as a general field error (displayed below last field)
         setErrors({ _general: err.message || tMsg("error_create") })
+        addToast("error", err.message || tMsg("error_create"))
       } else {
         setErrors({ _general: tMsg("error_create") })
+        addToast("error", tMsg("error_create"))
       }
     },
   })
