@@ -249,7 +249,75 @@ Currency::make("price")
 
 ### Authorization
 
-Integrates with Laravel policies and gates. Per-resource and per-action authorization out of the box.
+Full policy-based authorization with Laravel Nova v5 parity. Define policies per resource to control every operation at the resource, action, relationship, and field level.
+
+#### Policy Resolution
+
+Martis resolves policies using a four-step chain (first match wins):
+
+1. **Explicit `$policy`** — Set `public static ?string $policy` on your Resource class
+2. **Auto-discovery** — Looks for `{PolicyNamespace}\{ResourceBaseName}Policy` (configurable via `martis.policy_namespace`)
+3. **Laravel Gate** — Falls back to `Gate::getPolicyFor(Model::class)`
+4. **Permissive** — If no policy is found, all operations are allowed
+
+```php
+class PostResource extends Resource
+{
+    public static ?string $policy = PostPolicy::class;
+    // ...
+}
+```
+
+#### Policy Abilities
+
+| Ability | Default (when method missing) | Description |
+|---------|------------------------------|-------------|
+| `viewAny` | Allowed | Can the user access the resource listing? |
+| `view` | **Denied** | Can the user view a specific record? |
+| `create` | **Denied** | Can the user create a new record? |
+| `update` | **Denied** | Can the user update a record? |
+| `delete` | **Denied** | Can the user delete a record? |
+| `restore` | **Denied** | Can the user restore a soft-deleted record? |
+| `forceDelete` | **Denied** | Can the user permanently delete a record? |
+| `replicate` | Fallback: `create` AND `update` | Can the user duplicate a record? |
+| `runAction` | Fallback: `update` | Can the user run a normal action? |
+| `runDestructiveAction` | Fallback: `delete` | Can the user run a destructive action? |
+| `add{Model}` | Allowed | Can the user add a related model inline? |
+| `attach{Model}` | Allowed | Can the user attach a related model? |
+| `detach{Model}` | Allowed | Can the user detach a related model? |
+
+#### Generating Policies
+
+```bash
+php artisan martis:make-policy PostPolicy --model=Post --resource=PostResource
+```
+
+The generated policy includes all abilities with sensible defaults.
+
+#### Field-Level Authorization
+
+Control field visibility per-user using `canSee()` or `canSeeWhen()`:
+
+```php
+Text::make('salary')
+    ->canSee(fn (Request $request) => $request->user()->isAdmin()),
+
+Text::make('ssn')
+    ->canSeeWhen('viewSensitiveData', $this->model),
+```
+
+#### Authorization Metadata
+
+Every API response includes authorization metadata so the frontend can show/hide UI elements:
+
+- **Per-record:** `_authorization` object with `authorizedToView`, `authorizedToUpdate`, `authorizedToDelete`, `authorizedToReplicate`, etc.
+- **Collection-level:** `authorization` object in `/schema` with `authorizedToCreate`, `authorizedToViewAny`
+
+#### ForceDelete & Replicate Endpoints
+
+For resources with soft deletes:
+- `DELETE /api/resources/{resource}/{id}/force` — Permanently deletes a soft-deleted record
+- `POST /api/resources/{resource}/{id}/replicate` — Creates a copy of an existing record
 
 ### Search
 
@@ -306,6 +374,7 @@ composer require dedoc/scramble --dev
 | `martis:component` | Generate a React component with auto-registration |
 | `martis:theme` | Scaffold a custom theme (dark + light mode) |
 | `martis:user` | Create a new admin user |
+| `martis:make-policy` | Generate an authorization policy for a resource |
 | `martis:vendor-publish` | Publish package files (config, assets, views, lang) |
 
 ## Configuration
