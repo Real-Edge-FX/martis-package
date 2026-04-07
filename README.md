@@ -372,13 +372,40 @@ make ci          # Full CI: lint + typecheck + PHPStan + tests
 
 ## Documentation
 
-- [Installation Guide](docs/installation-guide.md)
-- [Tutorial (PT-BR)](docs/tutorial-pt-br.md)
-- [API Overview](docs/api/overview.md)
-- [Override System](docs/overrides.md)
-- [Fields Reference](docs/fields.md)
-- [Resources Reference](docs/resources.md)
-- [Nova v5 Parity Map](docs/PARITY_MAP.md)
+Full documentation lives in the [`docs/`](docs/) directory. Each guide is standalone and cross-linked.
+
+### Getting Started
+
+| Document | Description |
+|----------|-------------|
+| [Installation Guide](docs/installation-guide.md) | Step-by-step setup: Composer, assets, config, first resource |
+| [Quick Start](docs/setup/quickstart.md) | Development workflow, dev server, hot reload, first CRUD |
+| [Tutorial (PT-BR)](docs/tutorial-pt-br.md) | Guided walkthrough in Brazilian Portuguese |
+| [Troubleshooting](docs/setup/troubleshooting.md) | Common issues, error messages, and solutions |
+
+### Core Concepts
+
+| Document | Description |
+|----------|-------------|
+| [Resources](docs/resources.md) | Resource classes, model binding, lifecycle hooks, authorization, search, pagination, soft deletes |
+| [Fields Reference](docs/fields.md) | All 31 field types — configuration, visibility flags, validation, relationships, enums |
+| [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer without forking |
+| [Built-in Components](docs/components.md) | Every UI component shipped in the frontend: DataTable, forms, modals, search, navigation |
+
+### Architecture & API
+
+| Document | Description |
+|----------|-------------|
+| [Technology Stack](docs/architecture/stack.md) | PHP, Laravel, React, PrimeReact, Tailwind, Vite, testing tools |
+| [Architectural Decisions](docs/architecture/decisions.md) | 15 ADRs: why Inertia, why PrimeReact, why contracts, and other design choices |
+| [REST API Overview](docs/api/overview.md) | All endpoints, request/response formats, authentication, error handling |
+
+### Project Status
+
+| Document | Description |
+|----------|-------------|
+| [Nova v5 Parity Map](docs/PARITY_MAP.md) | Feature-by-feature tracker: what is done, in progress, and planned vs Laravel Nova v5 |
+| [Documentation Index](docs/README.md) | Full documentation hub with quick links and project overview |
 
 ## License
 

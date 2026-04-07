@@ -28,32 +28,67 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 3. Every component is prepared for override
 4. Contracts enforce extensibility at every layer
 
-## Documentation Index
+---
+
+## Documentation Menu
 
 ### Getting Started
 
-- [Installation Guide](installation-guide.md) — Add Martis to your Laravel application
-- [Quick Start](setup/quickstart.md) — Development workflow and first steps
-- [Troubleshooting](setup/troubleshooting.md) — Common issues and solutions
+| # | Document | What You Will Learn |
+|---|----------|---------------------|
+| 1 | **[Installation Guide](installation-guide.md)** | Add Martis to an existing Laravel app — Composer install, asset publishing, config, database setup, creating your first resource |
+| 2 | **[Quick Start](setup/quickstart.md)** | Development workflow — running the dev server, hot reload, building assets, deploying to production |
+| 3 | **[Troubleshooting](setup/troubleshooting.md)** | Common errors and solutions — asset 404s, migration issues, permission problems, build failures |
 
 ### Core Concepts
 
-- [Resources](resources.md) — Define admin panels for your Eloquent models
-- [Fields Reference](fields.md) — All 31 field types with configuration options
-- [Override System](overrides.md) — Customize components, layouts, and behaviors
-- [Built-in Components](components.md) — UI components available in the frontend
+| # | Document | What You Will Learn |
+|---|----------|---------------------|
+| 4 | **[Resources](resources.md)** | Resource classes — model binding, field definitions, context-aware resolution, lifecycle hooks, authorization, search configuration, pagination, soft deletes, table customization |
+| 5 | **[Fields Reference](fields.md)** | All 31 field types — configuration options, visibility flags, validation rules, relationship fields (BelongsTo, HasMany), enums, PrimeReact prop passthrough |
+| 6 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
+| 7 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
 
-### Architecture
+### Architecture & Design
 
-- [Technology Stack](architecture/stack.md) — Languages, frameworks, and infrastructure
-- [Architectural Decisions](architecture/decisions.md) — ADRs explaining design choices
-- [API Overview](api/overview.md) — REST API endpoints and response formats
+| # | Document | What You Will Learn |
+|---|----------|---------------------|
+| 8 | **[Technology Stack](architecture/stack.md)** | Full stack breakdown — PHP 8.2+, Laravel 11/12, React 19, PrimeReact, Tailwind CSS, Vite, Inertia.js, Pest, Vitest, PHPStan |
+| 9 | **[Architectural Decisions](architecture/decisions.md)** | 15 ADRs — why Inertia over SPA, why PrimeReact over Headless UI, contract-first design, backend-driven field resolution, and other key decisions |
+| 10 | **[REST API Overview](api/overview.md)** | All backend endpoints — resource CRUD, schema, search, file upload, relationship endpoints, authentication, request/response formats, error handling |
 
-### Status
+### Project Status
 
-- [Parity Map](PARITY_MAP.md) — Feature parity tracker vs Laravel Nova v5
+| # | Document | What You Will Learn |
+|---|----------|---------------------|
+| 11 | **[Nova v5 Parity Map](PARITY_MAP.md)** | Feature-by-feature comparison with Laravel Nova v5 — what is done, in progress, and planned |
 
-## Quick Links
+---
+
+## Quick Reference
+
+### Folder Structure
+
+```
+docs/
+├── README.md ........................ You are here — documentation hub
+├── installation-guide.md ........... Installation & setup
+├── resources.md .................... Resources reference
+├── fields.md ....................... Fields reference (31 types)
+├── overrides.md .................... Override system
+├── components.md ................... Built-in UI components
+├── PARITY_MAP.md ................... Nova v5 parity tracker
+├── api/
+│   └── overview.md ................. REST API reference
+├── architecture/
+│   ├── stack.md .................... Technology stack
+│   └── decisions.md ................ Architectural Decision Records
+└── setup/
+    ├── quickstart.md ............... Development workflow
+    └── troubleshooting.md .......... Common issues & fixes
+```
+
+### Quick Links
 
 | Link | Description |
 |------|-------------|
@@ -61,6 +96,20 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | API Docs (Swagger) | `http://martis.realedgefx.com/docs/api` |
 | Telescope (Debug) | `http://martis.realedgefx.com/telescope` |
 | Dev Credentials | `admin@martis.local` / `password` |
+
+### Artisan Commands
+
+| Command | Description |
+|---------|-------------|
+| `martis:install` | Install the Martis admin panel |
+| `martis:resource` | Create a new resource class |
+| `martis:field` | Create a custom field (PHP + React TSX) |
+| `martis:component` | Generate a React component with auto-registration |
+| `martis:theme` | Scaffold a custom theme (dark + light mode) |
+| `martis:user` | Create a new admin user |
+| `martis:vendor-publish` | Publish package files (config, assets, views, lang) |
+
+---
 
 ## Playground Resources
 
