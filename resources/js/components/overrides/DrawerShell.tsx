@@ -9,6 +9,8 @@ export interface DrawerShellProps {
   subtitle?: string | null
   /** Optional Phosphor icon name to display next to the title. */
   icon?: string | null
+  /** Optional icon color (CSS color value). Defaults to accent color. */
+  iconColor?: string | null
   /** Initial width (default: '520px'). */
   width?: string
   /** Width when expanded (default: '800px'). */
@@ -37,6 +39,7 @@ export function DrawerShell({
   title,
   subtitle,
   icon,
+  iconColor,
   width = '520px',
   expandedWidth = '800px',
   allowExpand = true,
@@ -117,15 +120,15 @@ export function DrawerShell({
           style={{ borderColor: 'var(--martis-border)' }}
         >
           {/* Icon + Title + Subtitle */}
-          <div className="min-w-0 flex-1 flex items-center gap-3">
+          <div className="min-w-0 flex-1 flex items-start gap-3">
             {icon && (
               <div
-                className="flex-shrink-0 flex items-center justify-center rounded-lg"
+                className="flex-shrink-0 flex items-center justify-center rounded-lg mt-0.5"
                 style={{
                   width: 36,
                   height: 36,
-                  backgroundColor: 'var(--martis-surface)',
-                  color: 'var(--martis-accent)',
+                  backgroundColor: iconColor ? `${iconColor}18` : 'var(--martis-surface)',
+                  color: iconColor || 'var(--martis-accent)',
                 }}
               >
                 <ResourceIcon iconName={icon} size={20} />

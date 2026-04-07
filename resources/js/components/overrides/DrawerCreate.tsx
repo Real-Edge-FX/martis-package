@@ -93,12 +93,14 @@ export function DrawerCreate(props: OverrideProps) {
   const title = `${tAct('create')} ${schema.singularLabel}`
   const subtitle = (params.subtitle as string) ?? schema.subtitle ?? null
   const icon = params.showIcon ? (params.icon as string) || schema.icon || null : null
+  const iconColor = (params.iconColor as string) || null
 
   return (
     <DrawerShell
       title={title}
       subtitle={subtitle}
       icon={icon}
+      iconColor={iconColor}
       width={params.width as string}
       expandedWidth={params.expandedWidth as string}
       allowExpand={params.allowExpand as boolean}

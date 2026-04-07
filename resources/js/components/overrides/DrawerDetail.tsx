@@ -66,6 +66,7 @@ export function DrawerDetail(props: OverrideProps) {
     : `${schema.singularLabel} #${recordId}`
   const subtitle = (params.subtitle as string) ?? schema.subtitle ?? null
   const icon = params.showIcon ? (params.icon as string) || schema.icon || null : null
+  const iconColor = (params.iconColor as string) || null
 
   return (
     <>
@@ -73,6 +74,7 @@ export function DrawerDetail(props: OverrideProps) {
         title={recordTitle}
         subtitle={subtitle}
         icon={icon}
+      iconColor={iconColor}
         width={params.width as string}
         expandedWidth={params.expandedWidth as string}
         allowExpand={params.allowExpand as boolean}

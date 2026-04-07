@@ -132,4 +132,12 @@ class DrawerOverride extends Override
 
         return $this;
     }
+
+    /** Set a custom color for the icon badge (any CSS color value). */
+    public function iconColor(string $color): static
+    {
+        $this->params['iconColor'] = $color;
+
+        return $this;
+    }
 }
