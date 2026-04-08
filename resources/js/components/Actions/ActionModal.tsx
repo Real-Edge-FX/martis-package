@@ -145,11 +145,13 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
             mapped[fieldKey] = e.message
           }
         }
-        setFieldErrors(mapped)
-        // Don't show generic toast when we have field-level errors
-        if (Object.keys(mapped).length > 0) return
+        if (Object.keys(mapped).length > 0) {
+          setFieldErrors(mapped)
+          // Don't show generic toast when we have field-level errors
+          return
+        }
       }
-      addToast('error', err.message ?? t('action_failed'))
+      addToast('error', (err instanceof ApiError ? err.message : err.message) ?? t('action_failed'))
     },
   })
 
@@ -272,9 +274,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                     error={fieldErrors[field.attribute]}
                     context="create"
                   />
-                  {fieldErrors[field.attribute] && (
-                    <p className="mt-1 text-xs text-red-500">{fieldErrors[field.attribute]}</p>
-                  )}
                 </div>
               ))}
             </div>

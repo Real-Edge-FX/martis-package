@@ -1988,3 +1988,78 @@ html:not(.dark) .p-tooltip .p-tooltip-text {
   min-width: 2rem;
   min-height: 2rem;
 }
+
+/* ── Sidebar scrollbar: show only on hover (Problem 9) ──────────── */
+.martis-sidebar-bg nav {
+  scrollbar-width: none; /* Firefox */
+}
+.martis-sidebar-bg nav::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+.martis-sidebar-bg nav::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+.martis-sidebar-bg:hover nav {
+  scrollbar-width: thin; /* Firefox — show on hover */
+  scrollbar-color: var(--martis-border) transparent;
+}
+.martis-sidebar-bg:hover nav::-webkit-scrollbar-thumb {
+  background: var(--martis-border);
+}
+
+/* ── PrimeReact native checkbox dark theme fix (Problem 7) ──────── */
+.p-checkbox .p-checkbox-box .p-checkbox-icon {
+  color: #ffffff !important;
+}
+.p-datatable .p-checkbox .p-checkbox-box.p-highlight {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
+.p-datatable .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
+  color: #ffffff !important;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
+  color: #ffffff !important;
+}
+/* Ensure header checkbox in DataTable is visible */
+.p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
+  background-color: var(--martis-surface);
+  border-color: var(--martis-border);
+}
+
+/* ── Selected row highlight (Problem 4/7) ───────────────────────── */
+.p-datatable .p-datatable-tbody > tr.p-highlight {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+  color: var(--martis-text) !important;
+}
+html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+  color: var(--martis-text) !important;
+}
+.martis-row-selected {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* ── PrimeReact Tooltip theming ─────────────────────────────────── */
+.p-tooltip .p-tooltip-text {
+  background-color: var(--martis-sidebar) !important;
+  color: var(--martis-text) !important;
+  border: 1px solid var(--martis-border) !important;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.p-tooltip .p-tooltip-arrow {
+  border-top-color: var(--martis-sidebar) !important;
+}
+html:not(.dark) .p-tooltip .p-tooltip-text {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+html:not(.dark) .p-tooltip .p-tooltip-arrow {
+  border-top-color: #1e293b !important;
+}

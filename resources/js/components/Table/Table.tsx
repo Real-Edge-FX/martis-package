@@ -3,11 +3,10 @@ import { registry } from "@/lib/registry"
 import type { FieldDefinition, ResourceRecord } from "@/types"
 import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields"
-import { DataTable, type DataTableSortEvent } from "primereact/datatable"
+import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { Checkbox } from "primereact/checkbox"
 import { Tooltip } from "primereact/tooltip"
-import { CaretUp, CaretDown, CaretUpDown, Lightning, Warning, DotsThreeVertical } from "@phosphor-icons/react"
+import { CaretUp, CaretDown, CaretUpDown, Lightning, Warning, DotsThreeVertical, CaretRight } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
@@ -46,7 +45,150 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
     : <CaretDown size={14} className="text-indigo-600" />
 }
 
-/** Grouped inline action menu — renders as a 3-dot button with dropdown */
+/* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
+
+interface InlineGroupNode {
+  label: string
+  children: Array<ActionMeta | InlineGroupNode>
+}
+
+function isInlineGroup(item: ActionMeta | InlineGroupNode): item is InlineGroupNode {
+  return "label" in item && "children" in item && !("uriKey" in item)
+}
+
+function buildInlineGroupTree(actions: ActionMeta[]): Array<ActionMeta | InlineGroupNode> {
+  const ungrouped: ActionMeta[] = []
+  const groupMap = new Map<string, ActionMeta[]>()
+
+  for (const action of actions) {
+    if (!action.group) {
+      ungrouped.push(action)
+    } else {
+      const existing = groupMap.get(action.group) ?? []
+      existing.push(action)
+      groupMap.set(action.group, existing)
+    }
+  }
+
+  const result: Array<ActionMeta | InlineGroupNode> = [...ungrouped]
+  const topGroups = new Map<string, InlineGroupNode>()
+
+  for (const [key, items] of groupMap.entries()) {
+    const parts = key.split(".")
+    if (parts.length === 1) {
+      if (!topGroups.has(parts[0])) {
+        topGroups.set(parts[0], { label: parts[0], children: [] })
+      }
+      topGroups.get(parts[0])!.children.push(...items)
+    } else {
+      const topKey = parts[0]
+      const subLabel = parts.slice(1).join(".")
+      if (!topGroups.has(topKey)) {
+        topGroups.set(topKey, { label: topKey, children: [] })
+      }
+      const top = topGroups.get(topKey)!
+      let sub = top.children.find(
+        (c): c is InlineGroupNode => isInlineGroup(c) && c.label === subLabel,
+      )
+      if (!sub) {
+        sub = { label: subLabel, children: [] }
+        top.children.push(sub)
+      }
+      sub.children.push(...items)
+    }
+  }
+
+  for (const group of topGroups.values()) {
+    result.push(group)
+  }
+  return result
+}
+
+function InlineSubMenu({
+  group,
+  parentRect,
+  onAction,
+  row,
+  canRunAction,
+  canRunDestructive,
+}: {
+  group: InlineGroupNode
+  parentRect: DOMRect | null
+  onAction: (action: ActionMeta, row: ResourceRecord) => void
+  row: ResourceRecord
+  canRunAction: boolean
+  canRunDestructive: boolean
+}) {
+  const [openChild, setOpenChild] = useState<string | null>(null)
+  const [childRects, setChildRects] = useState<Map<string, DOMRect>>(new Map())
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearCloseTimer() {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
+  }
+  function startCloseTimer(key: string) {
+    closeTimer.current = setTimeout(() => { if (openChild === key) setOpenChild(null) }, 180)
+  }
+
+  if (!parentRect) return null
+
+  const menuWidth = 220
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  let left = parentRect.right + 2
+  let top = parentRect.top
+  if (left + menuWidth > vw) left = parentRect.left - menuWidth - 2
+  if (left < 0) { left = Math.max(4, vw - menuWidth - 4); top = parentRect.bottom + 4 }
+  if (top + 200 > vh) top = Math.max(4, vh - 200)
+
+  return createPortal(
+    <div
+      data-action-submenu="true"
+      className="rounded-lg border shadow-lg py-1"
+      style={{ position: "fixed", top, left, minWidth: 200, maxWidth: "calc(100vw - 16px)", zIndex: 9992, backgroundColor: "var(--martis-card)", borderColor: "var(--martis-border)" }}
+      onMouseEnter={clearCloseTimer}
+    >
+      {group.children.map((child, idx) => {
+        if (isInlineGroup(child)) {
+          const key = `isub-${child.label}-${idx}`
+          return (
+            <div
+              key={key}
+              className="relative"
+              onMouseEnter={(e) => { clearCloseTimer(); setOpenChild(key); setChildRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())) }}
+              onMouseLeave={() => startCloseTimer(key)}
+              onClick={(e) => { e.stopPropagation(); setChildRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())); setOpenChild(p => p === key ? null : key) }}
+            >
+              <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer" style={{ color: "var(--martis-text)" }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
+              >
+                <span className="font-medium">{child.label}</span>
+                <CaretRight size={12} />
+              </div>
+              {openChild === key && <InlineSubMenu group={child} parentRect={childRects.get(key) ?? null} onAction={onAction} row={row} canRunAction={canRunAction} canRunDestructive={canRunDestructive} />}
+            </div>
+          )
+        }
+        const isDisabled = child.destructive ? !canRunDestructive : !canRunAction
+        return (
+          <button key={child.uriKey} type="button" disabled={isDisabled}
+            onClick={e => { e.stopPropagation(); if (!isDisabled) onAction(child, row) }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: isDisabled ? "var(--martis-text-muted)" : child.destructive ? "#dc2626" : "var(--martis-text)" }}
+            onMouseEnter={e => { if (!isDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
+          >
+            {child.icon ? <ResourceIcon iconName={child.icon} size={16} /> : child.destructive ? <Warning size={16} weight="fill" /> : <Lightning size={16} />}
+            <span>{child.name}</span>
+          </button>
+        )
+      })}
+    </div>,
+    document.body,
+  )
+}
+
 function InlineActionMenu({
   actions,
   row,
@@ -59,47 +201,42 @@ function InlineActionMenu({
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
+  const [groupRects, setGroupRects] = useState<Map<string, DOMRect>>(new Map())
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearCloseTimer() {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
+  }
 
   useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        btnRef.current && !btnRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false)
-      }
+      const target = e.target as HTMLElement
+      if (menuRef.current?.contains(target)) return
+      if (btnRef.current?.contains(target)) return
+      if (target.closest("[data-action-submenu]")) return
+      setOpen(false)
     }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false)
-    }
+    function handleKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false) }
     document.addEventListener("mousedown", handleClick)
     document.addEventListener("keydown", handleKey)
-    return () => {
-      document.removeEventListener("mousedown", handleClick)
-      document.removeEventListener("keydown", handleKey)
-    }
+    return () => { document.removeEventListener("mousedown", handleClick); document.removeEventListener("keydown", handleKey) }
   }, [open])
 
   const rect = btnRef.current?.getBoundingClientRect()
-
   const canRunAction = row._authorization?.authorizedToRunAction !== false
   const canRunDestructive = row._authorization?.authorizedToRunDestructiveAction !== false
+  const tree = buildInlineGroupTree(actions)
 
   return (
     <>
       <button
         ref={btnRef}
         type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen(!open)
-        }}
+        onClick={e => { e.stopPropagation(); setOpen(!open) }}
         className="martis-action-btn inline-flex items-center justify-center rounded p-1.5 transition-colors hover:opacity-80"
-        style={{
-          color: "var(--martis-text-muted)",
-          backgroundColor: open ? "var(--martis-hover)" : "transparent",
-        }}
+        style={{ color: "var(--martis-text-muted)", backgroundColor: open ? "var(--martis-hover)" : "transparent" }}
         data-pr-tooltip="Actions"
         data-pr-position="top"
       >
@@ -109,51 +246,42 @@ function InlineActionMenu({
         <div
           ref={menuRef}
           className="rounded-lg border shadow-lg py-1"
-          style={{
-            position: "fixed",
-            top: rect.bottom + 4,
-            left: Math.min(rect.left, window.innerWidth - 220),
-            minWidth: 180,
-            zIndex: 9990,
-            backgroundColor: "var(--martis-card)",
-            borderColor: "var(--martis-border)",
-          }}
+          style={{ position: "fixed", top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 220), minWidth: 180, zIndex: 9991, backgroundColor: "var(--martis-card)", borderColor: "var(--martis-border)" }}
         >
-          {actions.map((action) => {
-            const isDisabled = action.destructive ? !canRunDestructive : !canRunAction
+          {tree.map((item, idx) => {
+            if (isInlineGroup(item)) {
+              const key = `igrp-${item.label}-${idx}`
+              return (
+                <div
+                  key={key}
+                  data-action-submenu="true"
+                  className="relative"
+                  onMouseEnter={e => { clearCloseTimer(); setOpenGroup(key); setGroupRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())) }}
+                  onMouseLeave={() => { closeTimer.current = setTimeout(() => setOpenGroup(prev => prev === key ? null : prev), 180) }}
+                  onClick={e => { e.stopPropagation(); setGroupRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())); setOpenGroup(p => p === key ? null : key) }}
+                >
+                  <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer" style={{ color: "var(--martis-text)" }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
+                  >
+                    <span className="font-medium">{item.label}</span>
+                    <CaretRight size={12} />
+                  </div>
+                  {openGroup === key && <InlineSubMenu group={item} parentRect={groupRects.get(key) ?? null} onAction={(a, r) => { setOpen(false); onAction(a, r) }} row={row} canRunAction={canRunAction} canRunDestructive={canRunDestructive} />}
+                </div>
+              )
+            }
+            const isDisabled = item.destructive ? !canRunDestructive : !canRunAction
             return (
-              <button
-                key={action.uriKey}
-                type="button"
-                disabled={isDisabled}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (!isDisabled) {
-                    setOpen(false)
-                    onAction(action, row)
-                  }
-                }}
+              <button key={item.uriKey} type="button" disabled={isDisabled}
+                onClick={e => { e.stopPropagation(); if (!isDisabled) { setOpen(false); onAction(item, row) } }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  color: isDisabled
-                    ? "var(--martis-text-muted)"
-                    : action.destructive
-                      ? "#dc2626"
-                      : "var(--martis-text)",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isDisabled) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--martis-hover)"
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"
-                }}
+                style={{ color: isDisabled ? "var(--martis-text-muted)" : item.destructive ? "#dc2626" : "var(--martis-text)" }}
+                onMouseEnter={e => { if (!isDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
               >
-                {action.icon
-                  ? <ResourceIcon iconName={action.icon} size={16} />
-                  : action.destructive
-                    ? <Warning size={16} weight="fill" />
-                    : <Lightning size={16} />}
-                <span>{action.name}</span>
+                {item.icon ? <ResourceIcon iconName={item.icon} size={16} /> : item.destructive ? <Warning size={16} weight="fill" /> : <Lightning size={16} />}
+                <span>{item.name}</span>
               </button>
             )
           })}
@@ -164,6 +292,8 @@ function InlineActionMenu({
   )
 }
 
+/* ── Main Table Component ──────────────────────────────────────────── */
+
 function DefaultTable({
   columns,
   rows,
@@ -172,7 +302,7 @@ function DefaultTable({
   onSort,
   selectedIds,
   onToggleSelect,
-  onToggleAll,
+  onToggleAll: _onToggleAll,
   onClickRow,
   resourceKey,
   selectable = false,
@@ -182,7 +312,6 @@ function DefaultTable({
 }: TableProps) {
   const { t } = useTranslation("resources")
   const { t: tMsg } = useTranslation("messages")
-  const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
 
   const sortOrder = sortDir === "asc" ? 1 : -1
 
@@ -201,15 +330,30 @@ function DefaultTable({
     !rowHover && "martis-datatable-no-hover",
   ].filter(Boolean).join(" ")
 
-  const ungroupedInline = inlineActions.filter((a) => !a.group)
-  const groupedInline = inlineActions.filter((a) => !!a.group)
+  // Convert selectedIds Set to array of row objects for PrimeReact native selection
+  const selectedRows = rows.filter(r => selectedIds.has(r.id))
+
+  function handleSelectionChange(e: DataTableSelectionMultipleChangeEvent<ResourceRecord[]>) {
+    const newSelection = e.value as ResourceRecord[]
+    const newIds = new Set(newSelection.map(r => r.id))
+    // Sync with parent — compute diff
+    const currentIds = new Set(selectedIds)
+    // Find toggled items
+    for (const id of newIds) {
+      if (!currentIds.has(id)) onToggleSelect(id)
+    }
+    for (const id of currentIds) {
+      if (!newIds.has(id)) onToggleSelect(id)
+    }
+  }
+
+  const ungroupedInline = inlineActions.filter(a => !a.group)
+  const groupedInline = inlineActions.filter(a => !!a.group)
   const hasGroupedInline = groupedInline.length > 0
 
   const canRunForRow = useCallback(
     (row: ResourceRecord, action: ActionMeta): boolean => {
-      if (action.destructive) {
-        return row._authorization?.authorizedToRunDestructiveAction !== false
-      }
+      if (action.destructive) return row._authorization?.authorizedToRunDestructiveAction !== false
       return row._authorization?.authorizedToRunAction !== false
     },
     [],
@@ -227,12 +371,12 @@ function DefaultTable({
         onSort={(e: DataTableSortEvent) => {
           if (e.sortField) onSort(String(e.sortField))
         }}
-        onRowClick={(e) => onClickRow?.(e.data as ResourceRecord)}
+        onRowClick={e => onClickRow?.(e.data as ResourceRecord)}
         rowClassName={(row: ResourceRecord) => {
           const classes: string[] = []
           if (row._authorization?.authorizedToView === false) classes.push("cursor-default opacity-70")
           if ("deleted_at" in row && row["deleted_at"] !== null) classes.push("opacity-60")
-          if (selectable && selectedIds.has(row.id)) classes.push("bg-indigo-50 dark:bg-indigo-950/20")
+          if (selectable && selectedIds.has(row.id)) classes.push("martis-row-selected")
           return classes.join(" ")
         }}
         emptyMessage={
@@ -242,28 +386,14 @@ function DefaultTable({
         }
         className={classNames}
         tableClassName="min-w-full"
+        selection={selectable ? selectedRows : []}
+        onSelectionChange={selectable ? handleSelectionChange : undefined as never}
+        selectionMode={selectable ? "checkbox" : null}
       >
         {selectable && (
-          <Column
-            header={
-              <Checkbox
-                checked={allSelected}
-                onChange={() => onToggleAll()}
-                className="martis-table-checkbox"
-              />
-            }
-            body={(row: ResourceRecord) => (
-              <Checkbox
-                checked={selectedIds.has(row.id)}
-                onChange={() => onToggleSelect(row.id)}
-                onClick={(e) => e.stopPropagation()}
-                className="martis-table-checkbox"
-              />
-            )}
-            headerStyle={{ width: "2.5rem" }}
-          />
+          <Column selectionMode="multiple" headerStyle={{ width: "3rem" }} />
         )}
-        {rows.some((r) => "deleted_at" in r && r["deleted_at"] !== null) && (
+        {rows.some(r => "deleted_at" in r && r["deleted_at"] !== null) && (
           <Column
             header=""
             body={(row: ResourceRecord) =>
@@ -282,8 +412,7 @@ function DefaultTable({
             field={field.attribute}
             header={
               field.sortable ? (
-                <button
-                  type="button"
+                <button type="button"
                   className="flex items-center gap-1 font-medium uppercase tracking-wider text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
                   onClick={() => onSort(field.attribute)}
                 >
@@ -306,44 +435,24 @@ function DefaultTable({
           <Column
             header=""
             body={(row: ResourceRecord) => (
-              <div
-                className="flex items-center justify-end gap-1"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {ungroupedInline.map((action) => {
+              <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                {ungroupedInline.map(action => {
                   const isDisabled = !canRunForRow(row, action)
                   return (
                     <button
                       key={action.uriKey}
                       type="button"
                       disabled={isDisabled}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!isDisabled) onInlineAction?.(action, row)
-                      }}
+                      onClick={e => { e.stopPropagation(); if (!isDisabled) onInlineAction?.(action, row) }}
                       className="martis-action-btn inline-flex items-center justify-center rounded p-1.5 transition-colors hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{
-                        color: isDisabled
-                          ? "var(--martis-text-muted)"
-                          : action.destructive
-                            ? "#dc2626"
-                            : "var(--martis-accent)",
-                        backgroundColor: isDisabled
-                          ? "transparent"
-                          : action.destructive
-                            ? "rgba(220,38,38,0.08)"
-                            : "rgba(99,102,241,0.08)",
+                        color: isDisabled ? "var(--martis-text-muted)" : action.destructive ? "#dc2626" : "var(--martis-accent)",
+                        backgroundColor: isDisabled ? "transparent" : action.destructive ? "rgba(220,38,38,0.08)" : "rgba(99,102,241,0.08)",
                       }}
                       data-pr-tooltip={action.name}
                       data-pr-position="top"
                     >
-                      {action.icon ? (
-                        <ResourceIcon iconName={action.icon} size={18} />
-                      ) : action.destructive ? (
-                        <Warning size={18} weight="fill" />
-                      ) : (
-                        <Lightning size={18} />
-                      )}
+                      {action.icon ? <ResourceIcon iconName={action.icon} size={18} /> : action.destructive ? <Warning size={18} weight="fill" /> : <Lightning size={18} />}
                     </button>
                   )
                 })}

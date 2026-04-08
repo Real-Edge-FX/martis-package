@@ -761,6 +761,7 @@ class ResourceController extends MartisController
                 'forceDeleteConfirm' => $resourceClass::forceDeleteConfirmMessage(),
             ],
             'errorDisplay' => $resourceClass::errorDisplay()->value,
+            'actionsMenuLabel' => $resourceClass::actionsMenuLabel(),
             'validationMessage' => $resourceClass::validationMessage(),
             'overrides' => $instance->overrides(),
         ];

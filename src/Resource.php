@@ -807,6 +807,15 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
+    /**
+     * Customize the label for the actions menu in the resource index.
+     * Override this to change "Actions" to a custom label.
+     */
+    public static function actionsMenuLabel(): ?string
+    {
+        return null;
+    }
+
     /** {@inheritDoc} */
     public function group(): ?string
     {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -36,6 +36,10 @@ export function ResourceIndexPage() {
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
+  // Track whether the current action was triggered inline (single row)
+  const inlineActionRef = useRef(false)
+  // Store previous selection to restore if inline action is cancelled
+  const prevSelectionRef = useRef<Set<string | number>>(new Set())
 
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
@@ -127,7 +131,7 @@ export function ResourceIndexPage() {
 
   function handleToggleAll() {
     const rows = indexQuery.data?.data ?? []
-    const allSelected = rows.every((r) => selectedIds.has(r.id))
+    const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
     if (allSelected) {
       setSelectedIds(new Set())
     } else {
@@ -141,18 +145,32 @@ export function ResourceIndexPage() {
   }
 
   function handleActionSelect(action: ActionMeta) {
+    inlineActionRef.current = false
     setActiveAction(action)
   }
 
   function handleInlineAction(action: ActionMeta, row: { id: string | number }) {
+    // Save current selection so we can restore on cancel
+    prevSelectionRef.current = new Set(selectedIds)
+    inlineActionRef.current = true
     setSelectedIds(new Set([row.id]))
     setActiveAction(action)
+  }
+
+  function handleActionHide() {
+    // If this was an inline action, restore previous selection
+    if (inlineActionRef.current) {
+      setSelectedIds(prevSelectionRef.current)
+      inlineActionRef.current = false
+    }
+    setActiveAction(null)
   }
 
   function handleActionSuccess() {
     void qc.invalidateQueries({ queryKey: ['resources', resource] })
     setSelectedIds(new Set())
     setActiveAction(null)
+    inlineActionRef.current = false
   }
 
   /** Build standardized OverrideProps for any override rendered from this page. */
@@ -259,8 +277,8 @@ export function ResourceIndexPage() {
         </div>
       </div>
 
-      {/* Bulk action bar — shown when items are selected */}
-      {selectedIds.size > 0 && indexActions.length > 0 && (
+      {/* Bulk action bar — shown when items are selected (not for inline action temp selection) */}
+      {selectedIds.size > 0 && !inlineActionRef.current && indexActions.length > 0 && (
         <div
           className="flex items-center gap-3 rounded-lg border px-4 py-2"
           style={{
@@ -404,7 +422,7 @@ export function ResourceIndexPage() {
         action={activeAction}
         selectedIds={activeAction?.standalone ? [] : Array.from(selectedIds)}
         visible={activeAction !== null}
-        onHide={() => setActiveAction(null)}
+        onHide={handleActionHide}
         onSuccess={handleActionSuccess}
       />
     </div>

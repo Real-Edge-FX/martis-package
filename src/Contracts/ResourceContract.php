@@ -189,6 +189,11 @@ interface ResourceContract
     /** Whether rows highlight on hover. */
     public static function tableRowHover(): bool;
 
+    /**
+     * Customize the label for the actions menu in the resource index.
+     */
+    public static function actionsMenuLabel(): ?string;
+
     // -------------------------------------------------------------------------
     // Authorization — Nova v5 parity (REA-1115)
     // -------------------------------------------------------------------------

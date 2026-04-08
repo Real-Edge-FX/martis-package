@@ -108,15 +108,27 @@ function SubMenu({
   onSelect,
   parentRect,
   disabledActions,
+  onMouseEnterMenu,
+  onMouseLeaveMenu,
 }: {
   group: ActionGroup
   onSelect: (action: ActionMeta) => void
   parentRect: DOMRect | null
   disabledActions?: Set<string>
+  onMouseEnterMenu?: () => void
+  onMouseLeaveMenu?: () => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [openChild, setOpenChild] = useState<string | null>(null)
   const [childRects, setChildRects] = useState<Map<string, DOMRect>>(new Map())
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearTimer() {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
+  }
+  function startCloseChildTimer(key: string) {
+    closeTimer.current = setTimeout(() => { setOpenChild(prev => prev === key ? null : prev) }, 180)
+  }
 
   if (!parentRect) return null
 
@@ -137,6 +149,8 @@ function SubMenu({
         backgroundColor: "var(--martis-card)",
         borderColor: "var(--martis-border)",
       }}
+      onMouseEnter={() => { clearTimer(); onMouseEnterMenu?.() }}
+      onMouseLeave={() => onMouseLeaveMenu?.()}
     >
       <div className="py-1">
         {group.children.map((child, idx) => {
@@ -147,11 +161,12 @@ function SubMenu({
                 key={key}
                 className="relative"
                 onMouseEnter={(e) => {
+                  clearTimer()
                   setOpenChild(key)
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                   setChildRects((prev) => new Map(prev).set(key, rect))
                 }}
-                onMouseLeave={() => setOpenChild(null)}
+                onMouseLeave={() => startCloseChildTimer(key)}
                 onClick={(e) => {
                   e.stopPropagation()
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -178,6 +193,8 @@ function SubMenu({
                     onSelect={onSelect}
                     parentRect={childRects.get(key) ?? null}
                     disabledActions={disabledActions}
+                    onMouseEnterMenu={clearTimer}
+                    onMouseLeaveMenu={() => startCloseChildTimer(key)}
                   />
                 )}
               </div>
@@ -232,6 +249,14 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
   })
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [groupRects, setGroupRects] = useState<Map<string, DOMRect>>(new Map())
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearTimer() {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
+  }
+  function startCloseGroupTimer(key: string) {
+    closeTimer.current = setTimeout(() => { setOpenGroup(prev => prev === key ? null : prev) }, 180)
+  }
 
   const tree = useMemo(() => buildGroupTree(actions), [actions])
 
@@ -323,11 +348,12 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
                       data-action-submenu="true"
                       className="relative"
                       onMouseEnter={(e) => {
+                        clearTimer()
                         setOpenGroup(key)
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                         setGroupRects((prev) => new Map(prev).set(key, rect))
                       }}
-                      onMouseLeave={() => setOpenGroup(null)}
+                      onMouseLeave={() => startCloseGroupTimer(key)}
                       onClick={(e) => {
                         e.stopPropagation()
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -355,6 +381,8 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
                           onSelect={handleSelect}
                           parentRect={groupRects.get(key) ?? null}
                           disabledActions={disabledActions}
+                          onMouseEnterMenu={clearTimer}
+                          onMouseLeaveMenu={() => startCloseGroupTimer(key)}
                         />
                       )}
                     </div>
