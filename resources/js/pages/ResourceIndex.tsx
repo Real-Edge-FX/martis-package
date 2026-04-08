@@ -91,7 +91,7 @@ export function ResourceIndexPage() {
   const allActions = actionsQuery.data?.actions ?? []
   const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
   const standaloneActions = allActions.filter((a) => a.standalone)
-  const hasActions = indexActions.length > 0 || standaloneActions.length > 0
+  const hasActions = indexActions.length > 0
 
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
