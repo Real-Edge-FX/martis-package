@@ -478,6 +478,7 @@ Full documentation lives in the [`docs/`](docs/) directory. Each guide is standa
 |----------|-------------|
 | [Resources](docs/resources.md) | Resource classes, model binding, lifecycle hooks, authorization, search, pagination, soft deletes |
 | [Fields Reference](docs/fields.md) | All 31 field types — configuration, visibility flags, validation, relationships, enums |
+| [Actions](docs/actions.md) | Complete Actions system — inline, bulk, destructive, queued, pivot, authorization, action fields, confirmation dialogs |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer without forking |
 | [Built-in Components](docs/components.md) | Every UI component shipped in the frontend: DataTable, forms, modals, search, navigation |
 
@@ -493,7 +494,7 @@ Full documentation lives in the [`docs/`](docs/) directory. Each guide is standa
 
 | Document | Description |
 |----------|-------------|
-| [Nova v5 Parity Map](docs/PARITY_MAP.md) | Feature-by-feature tracker: what is done, in progress, and planned vs Laravel Nova v5 |
+| [Nova v5 Parity Map](docs/PARITY_MAP.md) | Feature-by-feature tracker: what is done, in progress, and planned vs Laravel Nova v5 | + Actions System + Martis Differentials
 | [Documentation Index](docs/README.md) | Full documentation hub with quick links and project overview |
 
 ## License

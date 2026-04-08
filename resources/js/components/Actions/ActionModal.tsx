@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
-import { ApiError } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import type { FieldDefinition } from '@/types'
 import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
@@ -33,6 +32,8 @@ export interface ActionMeta {
   customComponent: string | null
   customComponentProps: Record<string, unknown>
   logEvents: boolean
+  isPivotAction: boolean
+  pivotLabel: string | null
 }
 
 interface ActionModalProps {
@@ -50,11 +51,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [animVisible, setAnimVisible] = useState(false)
+  const autoExecuted = useRef(false)
 
-  // Animation
   useEffect(() => {
     if (visible) {
       requestAnimationFrame(() => setAnimVisible(true))
+      autoExecuted.current = false
     } else {
       setAnimVisible(false)
     }
@@ -65,7 +67,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     setTimeout(onHide, 200)
   }, [onHide])
 
-  // Escape key
   useEffect(() => {
     if (!visible) return
     function handleKey(e: KeyboardEvent) {
@@ -75,7 +76,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     return () => document.removeEventListener('keydown', handleKey)
   }, [visible, onHide])
 
-  // Fetch action fields
   const fieldsQuery = useQuery({
     queryKey: ['action-fields', resource, action?.uriKey],
     queryFn: () =>
@@ -87,13 +87,11 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
 
   const fields = fieldsQuery.data?.data?.fields ?? []
 
-  // Reset values when action changes
   useEffect(() => {
     setFieldValues({})
     setFieldErrors({})
   }, [action?.uriKey, visible])
 
-  // Execute action mutation
   const executeMutation = useMutation({
     mutationFn: (params: { dryRun?: boolean }) =>
       api.post<{ data: { type: string; data: Record<string, unknown> } }>(
@@ -137,9 +135,19 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       onHide()
       onSuccess()
     },
-    onError: (err: ApiError) => {
-      if (err instanceof ApiError && err.errors) {
-        setFieldErrors(err.errorsByField())
+    onError: (err: Error) => {
+      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
+        // Map field errors from "fields.subject" -> "subject" format
+        const mapped: Record<string, string> = {}
+        for (const e of err.errors) {
+          const fieldKey = e.field.replace(/^fields\./, '')
+          if (!mapped[fieldKey]) {
+            mapped[fieldKey] = e.message
+          }
+        }
+        setFieldErrors(mapped)
+        // Don't show generic toast when we have field-level errors
+        if (Object.keys(mapped).length > 0) return
       }
       addToast('error', err.message ?? t('action_failed'))
     },
@@ -150,11 +158,14 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const hasFields = fields.length > 0
   const needsConfirmation = action.withConfirmation || hasFields
 
-  // Auto-execute if no confirmation or fields needed
-  if (!needsConfirmation && !executeMutation.isPending && !executeMutation.isSuccess) {
-    executeMutation.mutate({})
+  // Auto-execute if no confirmation or fields needed (only once)
+  if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
+    autoExecuted.current = true
+    setTimeout(() => executeMutation.mutate({}), 0)
     return null
   }
+
+  if (!needsConfirmation) return null
 
   const modalWidth =
     action.modalSize === 'fullscreen' ? '100vw' :
@@ -172,7 +183,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const confirmButton = action.confirmButtonText ?? (action.destructive ? t('confirm_destructive') : t('run_action'))
   const cancelButton = action.cancelButtonText ?? t('cancel')
 
-  /** Render the action icon — uses Phosphor ResourceIcon if set, falls back to Lightning/Warning. */
   function renderActionIcon() {
     if (action!.icon) {
       return <ResourceIcon iconName={action!.icon} size={20} weight="fill" />
@@ -185,7 +195,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
 
   const content = (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 transition-opacity duration-200"
         style={{
@@ -194,10 +203,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         onClick={handleBackdropClose}
       />
 
-      {/* Modal panel */}
       <div
         role="dialog"
-        className="relative w-full rounded-xl shadow-xl transition-all duration-200"
+        className="relative w-full rounded-xl shadow-xl transition-all duration-200 mx-4"
         style={{
           backgroundColor: 'var(--martis-card)',
           border: action.destructive ? '1px solid rgba(220,38,38,0.4)' : '1px solid var(--martis-border)',
@@ -207,7 +215,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           opacity: animVisible ? 1 : 0,
         }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between border-b px-6 py-4"
           style={{
@@ -241,7 +248,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           </button>
         </div>
 
-        {/* Body */}
         <div className="px-6 py-4">
           {action.confirmText && (
             <p className="mb-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
@@ -259,7 +265,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                   </label>
                   <FieldInput
                     field={field}
-                    value={fieldValues[field.attribute] ?? ''} 
+                    value={fieldValues[field.attribute] ?? ''}
                     onChange={(val: unknown) =>
                       setFieldValues((prev) => ({ ...prev, [field.attribute]: val }))
                     }
@@ -267,7 +273,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                     context="create"
                   />
                   {fieldErrors[field.attribute] && (
-                    <p className="mt-1 text-sm text-red-500">{fieldErrors[field.attribute]}</p>
+                    <p className="mt-1 text-xs text-red-500">{fieldErrors[field.attribute]}</p>
                   )}
                 </div>
               ))}
@@ -275,7 +281,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           )}
         </div>
 
-        {/* Footer */}
         <div
           className="flex items-center justify-end gap-3 border-t px-6 py-4"
           style={{

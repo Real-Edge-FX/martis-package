@@ -1954,3 +1954,37 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
 .p-overlaypanel {
   z-index: 10000 !important;
 }
+
+/* ── PrimeReact Tooltip styling (REA-1102) ── */
+.p-tooltip {
+  z-index: 99999 !important;
+}
+.p-tooltip .p-tooltip-text {
+  font-size: 0.75rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  white-space: nowrap;
+  max-width: 300px;
+}
+.dark .p-tooltip .p-tooltip-text {
+  background-color: #374151;
+  color: #f3f4f6;
+}
+html:not(.dark) .p-tooltip .p-tooltip-text {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+/* ── Fix: Custom checkbox in table — independent of PrimeReact DataTable selection (REA-1102) ── */
+.martis-table-checkbox .p-checkbox-box {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  border-radius: 0.25rem !important;
+  cursor: pointer !important;
+}
+
+/* ── Fix: Inline action icons — larger hit target (REA-1102) ── */
+.martis-action-btn {
+  min-width: 2rem;
+  min-height: 2rem;
+}

@@ -538,6 +538,43 @@ class Action implements ActionContract
 
     // -------------------------------------------------------------------------
     // Serialization
+
+    // -------------------------------------------------------------------------
+    // Pivot action support (Nova v5 parity)
+    // -------------------------------------------------------------------------
+
+    /** Whether this action is a pivot action (runs on BelongsToMany pivot table). */
+    protected bool $isPivotAction = false;
+
+    /** Custom label for the pivot section. */
+    protected ?string $pivotLabel = null;
+
+    /** Mark this action as a pivot action. */
+    public function pivotAction(): static
+    {
+        $this->isPivotAction = true;
+        return $this;
+    }
+
+    /** Whether this action is a pivot action. */
+    public function isPivotAction(): bool
+    {
+        return $this->isPivotAction;
+    }
+
+    /** Set a custom label for the pivot section. */
+    public function referToPivotAs(string $label): static
+    {
+        $this->pivotLabel = $label;
+        return $this;
+    }
+
+    /** Get the pivot section label. */
+    public function getPivotLabel(): ?string
+    {
+        return $this->pivotLabel;
+    }
+
     // -------------------------------------------------------------------------
 
     /** {@inheritDoc} */
@@ -565,6 +602,8 @@ class Action implements ActionContract
             'customComponent' => $this->customComponent,
             'customComponentProps' => $this->customComponentProps,
             'logEvents' => $this->shouldLogEvents(),
+            'isPivotAction' => $this->isPivotAction,
+            'pivotLabel' => $this->pivotLabel,
         ];
     }
 }

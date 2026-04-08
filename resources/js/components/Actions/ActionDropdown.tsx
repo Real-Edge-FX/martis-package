@@ -10,15 +10,14 @@ interface ActionDropdownProps {
   onSelect: (action: ActionMeta) => void
   disabled?: boolean
   label?: string
+  disabledActions?: Set<string>
 }
 
-/** A flat action item or a group header that contains children. */
 interface ActionGroup {
   label: string
   children: Array<ActionMeta | ActionGroup>
 }
 
-/** Build a nested tree from flat actions using dot-notation groups. */
 function buildGroupTree(actions: ActionMeta[]): Array<ActionMeta | ActionGroup> {
   const ungrouped: ActionMeta[] = []
   const groupMap = new Map<string, ActionMeta[]>()
@@ -34,29 +33,24 @@ function buildGroupTree(actions: ActionMeta[]): Array<ActionMeta | ActionGroup> 
   }
 
   const result: Array<ActionMeta | ActionGroup> = [...ungrouped]
-
-  // Build nested groups from dot-notation keys
   const topGroups = new Map<string, ActionGroup>()
 
   for (const [key, items] of groupMap.entries()) {
     const parts = key.split(".")
     if (parts.length === 1) {
-      // Single-level group
       if (!topGroups.has(parts[0])) {
         topGroups.set(parts[0], { label: parts[0], children: [] })
       }
       topGroups.get(parts[0])!.children.push(...items)
     } else {
-      // Multi-level: first part is top group, rest is submenu label
       const topKey = parts[0]
       const subLabel = parts.slice(1).join(".")
       if (!topGroups.has(topKey)) {
         topGroups.set(topKey, { label: topKey, children: [] })
       }
       const top = topGroups.get(topKey)!
-      // Find or create sub-group
       let sub = top.children.find(
-        (c): c is ActionGroup => "label" in c && c.label === subLabel
+        (c): c is ActionGroup => "label" in c && c.label === subLabel,
       )
       if (!sub) {
         sub = { label: subLabel, children: [] }
@@ -77,7 +71,7 @@ function isGroup(item: ActionMeta | ActionGroup): item is ActionGroup {
   return "label" in item && "children" in item && !("uriKey" in item)
 }
 
-function ActionIcon({ action, size = 14 }: { action: ActionMeta; size?: number }) {
+function ActionIcon({ action, size = 16 }: { action: ActionMeta; size?: number }) {
   if (action.icon) {
     return <ResourceIcon iconName={action.icon} size={size} />
   }
@@ -87,15 +81,38 @@ function ActionIcon({ action, size = 14 }: { action: ActionMeta; size?: number }
   return <Lightning size={size} />
 }
 
-/** Submenu that opens on hover to the right of the parent item. */
+function computeSubMenuPos(parentRect: DOMRect): { top: number; left: number } {
+  const menuWidth = 220
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+
+  let left = parentRect.right + 2
+  let top = parentRect.top
+
+  if (left + menuWidth > vw) {
+    left = parentRect.left - menuWidth - 2
+  }
+  if (left < 0) {
+    left = Math.max(4, vw - menuWidth - 4)
+    top = parentRect.bottom + 4
+  }
+  if (top + 200 > vh) {
+    top = Math.max(4, vh - 200)
+  }
+
+  return { top, left }
+}
+
 function SubMenu({
   group,
   onSelect,
   parentRect,
+  disabledActions,
 }: {
   group: ActionGroup
   onSelect: (action: ActionMeta) => void
   parentRect: DOMRect | null
+  disabledActions?: Set<string>
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [openChild, setOpenChild] = useState<string | null>(null)
@@ -103,15 +120,19 @@ function SubMenu({
 
   if (!parentRect) return null
 
+  const pos = computeSubMenuPos(parentRect)
+
   return createPortal(
     <div
       ref={menuRef}
+      data-action-submenu="true"
       className="rounded-lg border shadow-lg"
       style={{
         position: "fixed",
-        top: parentRect.top,
-        left: parentRect.right + 2,
+        top: pos.top,
+        left: pos.left,
         minWidth: 200,
+        maxWidth: "calc(100vw - 16px)",
         zIndex: 9981,
         backgroundColor: "var(--martis-card)",
         borderColor: "var(--martis-border)",
@@ -131,12 +152,22 @@ function SubMenu({
                   setChildRects((prev) => new Map(prev).set(key, rect))
                 }}
                 onMouseLeave={() => setOpenChild(null)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  setChildRects((prev) => new Map(prev).set(key, rect))
+                  setOpenChild((prev) => (prev === key ? null : key))
+                }}
               >
                 <div
-                  className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-sm transition-colors cursor-default"
+                  className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-sm transition-colors cursor-pointer"
                   style={{ color: "var(--martis-text)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.backgroundColor = "var(--martis-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")
+                  }
                 >
                   <span className="font-medium">{child.label}</span>
                   <CaretRight size={12} />
@@ -146,20 +177,37 @@ function SubMenu({
                     group={child}
                     onSelect={onSelect}
                     parentRect={childRects.get(key) ?? null}
+                    disabledActions={disabledActions}
                   />
                 )}
               </div>
             )
           }
+          const isDisabled = disabledActions?.has(child.uriKey) ?? false
           return (
             <button
               key={child.uriKey}
               type="button"
-              onClick={() => onSelect(child)}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors"
-              style={{ color: child.destructive ? "#dc2626" : "var(--martis-text)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              disabled={isDisabled}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!isDisabled) onSelect(child)
+              }}
+              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                color: isDisabled
+                  ? "var(--martis-text-muted)"
+                  : child.destructive
+                    ? "#dc2626"
+                    : "var(--martis-text)",
+              }}
+              onMouseEnter={(e) => {
+                if (!isDisabled)
+                  (e.currentTarget as HTMLElement).style.backgroundColor = "var(--martis-hover)"
+              }}
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")
+              }
             >
               <ActionIcon action={child} />
               {child.name}
@@ -172,12 +220,16 @@ function SubMenu({
   )
 }
 
-export function ActionDropdown({ actions, onSelect, disabled, label }: ActionDropdownProps) {
+export function ActionDropdown({ actions, onSelect, disabled, label, disabledActions }: ActionDropdownProps) {
   const { t } = useTranslation("actions")
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 })
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  })
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [groupRects, setGroupRects] = useState<Map<string, DOMRect>>(new Map())
 
@@ -186,10 +238,13 @@ export function ActionDropdown({ actions, onSelect, disabled, label }: ActionDro
   const updatePosition = useCallback(() => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
+      const menuWidth = Math.max(rect.width, 220)
+      const vw = window.innerWidth
+
       setMenuPos({
         top: rect.bottom + 4,
-        left: rect.left,
-        width: Math.max(rect.width, 220),
+        left: Math.min(rect.left, vw - menuWidth - 8),
+        width: menuWidth,
       })
     }
   }, [])
@@ -198,15 +253,11 @@ export function ActionDropdown({ actions, onSelect, disabled, label }: ActionDro
     if (!open) return
     updatePosition()
     function handleClick(e: MouseEvent) {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        btnRef.current && !btnRef.current.contains(e.target as Node)
-      ) {
-        // Also skip if click is inside a portal submenu
-        const target = e.target as HTMLElement
-        if (target.closest("[data-action-submenu]")) return
-        setOpen(false)
-      }
+      const target = e.target as HTMLElement
+      if (menuRef.current && menuRef.current.contains(target)) return
+      if (btnRef.current && btnRef.current.contains(target)) return
+      if (target.closest("[data-action-submenu]")) return
+      setOpen(false)
     }
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false)
@@ -246,76 +297,105 @@ export function ActionDropdown({ actions, onSelect, disabled, label }: ActionDro
         <CaretDown size={12} />
       </button>
 
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          className="rounded-lg border shadow-lg"
-          style={{
-            position: "fixed",
-            top: menuPos.top,
-            left: menuPos.left,
-            minWidth: menuPos.width,
-            zIndex: 9980,
-            backgroundColor: "var(--martis-card)",
-            borderColor: "var(--martis-border)",
-          }}
-        >
-          <div className="py-1">
-            {tree.map((item, idx) => {
-              if (isGroup(item)) {
-                const key = `grp-${item.label}-${idx}`
-                return (
-                  <div
-                    key={key}
-                    data-action-submenu="true"
-                    className="relative"
-                    onMouseEnter={(e) => {
-                      setOpenGroup(key)
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                      setGroupRects((prev) => new Map(prev).set(key, rect))
-                    }}
-                    onMouseLeave={() => setOpenGroup(null)}
-                  >
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="rounded-lg border shadow-lg"
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              minWidth: menuPos.width,
+              maxWidth: "calc(100vw - 16px)",
+              zIndex: 9980,
+              backgroundColor: "var(--martis-card)",
+              borderColor: "var(--martis-border)",
+            }}
+          >
+            <div className="py-1">
+              {tree.map((item, idx) => {
+                if (isGroup(item)) {
+                  const key = `grp-${item.label}-${idx}`
+                  return (
                     <div
-                      className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-sm transition-colors cursor-default"
-                      style={{ color: "var(--martis-text)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      key={key}
+                      data-action-submenu="true"
+                      className="relative"
+                      onMouseEnter={(e) => {
+                        setOpenGroup(key)
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setGroupRects((prev) => new Map(prev).set(key, rect))
+                      }}
+                      onMouseLeave={() => setOpenGroup(null)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setGroupRects((prev) => new Map(prev).set(key, rect))
+                        setOpenGroup((prev) => (prev === key ? null : key))
+                      }}
                     >
-                      <span className="font-medium">{item.label}</span>
-                      <CaretRight size={12} />
+                      <div
+                        className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-sm transition-colors cursor-pointer"
+                        style={{ color: "var(--martis-text)" }}
+                        onMouseEnter={(e) =>
+                          ((e.currentTarget as HTMLElement).style.backgroundColor =
+                            "var(--martis-hover)")
+                        }
+                        onMouseLeave={(e) =>
+                          ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")
+                        }
+                      >
+                        <span className="font-medium">{item.label}</span>
+                        <CaretRight size={12} />
+                      </div>
+                      {openGroup === key && (
+                        <SubMenu
+                          group={item}
+                          onSelect={handleSelect}
+                          parentRect={groupRects.get(key) ?? null}
+                          disabledActions={disabledActions}
+                        />
+                      )}
                     </div>
-                    {openGroup === key && (
-                      <SubMenu
-                        group={item}
-                        onSelect={handleSelect}
-                        parentRect={groupRects.get(key) ?? null}
-                      />
-                    )}
-                  </div>
-                )
-              }
+                  )
+                }
 
-              // Separator before first group if there are ungrouped items before it
-              return (
-                <button
-                  key={item.uriKey}
-                  type="button"
-                  onClick={() => handleSelect(item)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors"
-                  style={{ color: item.destructive ? "#dc2626" : "var(--martis-text)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                >
-                  <ActionIcon action={item} />
-                  {item.name}
-                </button>
-              )
-            })}
-          </div>
-        </div>,
-        document.body,
-      )}
+                const isDisabled = disabledActions?.has(item.uriKey) ?? false
+                return (
+                  <button
+                    key={item.uriKey}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!isDisabled) handleSelect(item)
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      color: isDisabled
+                        ? "var(--martis-text-muted)"
+                        : item.destructive
+                          ? "#dc2626"
+                          : "var(--martis-text)",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isDisabled)
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "var(--martis-hover)"
+                    }}
+                    onMouseLeave={(e) =>
+                      ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")
+                    }
+                  >
+                    <ActionIcon action={item} />
+                    {item.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   )
 }

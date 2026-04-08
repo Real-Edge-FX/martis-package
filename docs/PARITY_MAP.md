@@ -138,7 +138,7 @@
 
 | Feature | Nova v5 | Status | Priority |
 |---------|---------|--------|----------|
-| Actions | Batch actions on records | DONE | REA-1102: Full Nova v5 parity + dry-run, closure actions |
+| Actions | Batch actions on records | DONE | REA-1102: Full system + icons, groups, tooltips, pivot, disabled states |
 | Filters | Column filters | TODO | High |
 | Lenses | Custom filtered views | TODO | Medium |
 | Metrics | Dashboard metric cards | TODO | High |
@@ -146,8 +146,8 @@
 | Notifications | In-app notifications | TODO | Medium |
 | Panels/Tabs | Field grouping in tabs | TODO | Medium |
 | Custom Tools | Sidebar tools/pages | TODO | Medium |
-| ManyToMany | Pivot relationships | TODO | High |
-| BelongsToMany | Pivot with sync | TODO | High |
+| ManyToMany | Pivot relationships | PARTIAL | High |
+| BelongsToMany | Pivot with sync | PARTIAL | High |
 | MorphTo/MorphMany | Polymorphic relations | TODO | Low |
 | Repeater | Dynamic field groups | TODO | Low |
 
@@ -197,3 +197,99 @@
 | Policy Defaults | Missing method behavior | Nova v5 compatible matrix | DONE | REA-1115 |
 | Policy Generator | make:policy | martis:make-policy | DONE | Custom stub |
 
+
+---
+
+## Actions System (Nova v5 Parity — REA-1102)
+
+| Feature | Nova v5 | Martis | Status | Notes |
+|---------|---------|--------|--------|-------|
+| Action Base Class | Action | Action::make() | DONE | Full parity |
+| DestructiveAction | DestructiveAction | DestructiveAction::make() | DONE | Red UI + confirm |
+| handle() Contract | ActionFields + Collection | Same contract | DONE | REA-1102 |
+| Action Fields | fields(Request) | Same contract + Field reuse | DONE | REA-1102 |
+| ActionResponse | message/danger/redirect/visit | Full parity + emit/modal | DONE | REA-1102 |
+| Action Registration | actions(Request) | Same contract | DONE | REA-1102 |
+| canSee | Visibility callback | canSee(Closure) | DONE | REA-1102 |
+| canRun | Per-model authorization | canRun(Closure) | DONE | REA-1102 |
+| Policy Fallback | runAction/runDestructiveAction | 4-level chain | DONE | REA-1102 |
+| showOnIndex | Index visibility | showOnIndex() | DONE | REA-1102 |
+| showOnDetail | Detail visibility | showOnDetail() | DONE | REA-1102 |
+| showInline | Per-row buttons | showInline() | DONE | REA-1102 |
+| onlyOnIndex | Index only | onlyOnIndex() | DONE | REA-1102 |
+| onlyOnDetail | Detail only | onlyOnDetail() | DONE | REA-1102 |
+| onlyInline | Inline only | onlyInline() | DONE | REA-1102 |
+| exceptOnIndex | Hide from index | exceptOnIndex() | DONE | REA-1102 |
+| exceptOnDetail | Hide from detail | exceptOnDetail() | DONE | REA-1102 |
+| exceptInline | Hide from inline | exceptInline() | DONE | REA-1102 |
+| standalone() | No models required | standalone() | DONE | REA-1102 |
+| sole() | Exactly one model | sole() | DONE | REA-1102 |
+| Closure Actions | Action::using() | Action::using(name, fn) | DONE | REA-1102 |
+| Queued Actions | ShouldQueue | ShouldQueue trait | DONE | REA-1102 |
+| Queue Customization | connection/queue | Property-based config | DONE | REA-1102 |
+| Action Log | action_events table | DB logging + withoutActionEvents | DONE | REA-1102 |
+| markAsFinished | Queued status | markAsFinished($model) | DONE | REA-1102 |
+| markAsFailed | Queued error | markAsFailed($model, $e) | DONE | REA-1102 |
+| Confirm Text | confirmText() | confirmText() | DONE | REA-1102 |
+| Confirm Button | confirmButtonText() | confirmButtonText() | DONE | REA-1102 |
+| Cancel Button | cancelButtonText() | cancelButtonText() | DONE | REA-1102 |
+| Without Confirm | withoutConfirmation() | withoutConfirmation() | DONE | REA-1102 |
+| Modal Sizes | sm/md/lg/.../fullscreen | ModalSize enum + fullscreen | DONE | REA-1102 |
+| Pivot Actions | pivotAction() | pivotAction() + referToPivotAs() | DONE | REA-1102 |
+| then() Callback | Post-process callback | then(Closure) | DONE | REA-1102 |
+| Action Icons | — | icon('phosphor-name') | DONE | Martis extension |
+| Action Groups | — | group('name') + dot-notation | DONE | Martis extension |
+| Artisan Command | nova:action | martis:action (--destructive) | DONE | REA-1102 |
+| Inline Multi-select | Bulk select | Checkbox column | DONE | REA-1102 |
+| Disabled Actions | — | Visual disabled state for canRun | DONE | Martis extension |
+| PrimeReact Tooltips | — | Tooltip on all action buttons | DONE | Martis extension |
+
+---
+
+## Martis Differentials vs Nova v5
+
+> Features unique to Martis that do NOT exist in Laravel Nova v5.
+> These are marked as **Martis extensions** and are fully configurable per-action/per-resource.
+
+### Built-in Components
+
+| Component | Description | Status |
+|-----------|-------------|--------|
+| Drawer Overrides | Create/Update/Detail as slide-out drawers instead of full pages | DONE |
+| Layout Registry | 3 layout presets (default, topnav, minimal) with hot-swap | DONE |
+| 4-Tier Component Override | Global → Resource → Field → Instance override resolution | DONE |
+| PrimeReact Tooltip System | Tooltips on action buttons, fields, and UI elements | DONE |
+| Custom Action Components | Actions can render custom React components inside modals | DONE |
+
+### Action System Extensions
+
+| Feature | Description | Nova v5 | Martis |
+|---------|-------------|---------|--------|
+| Action Icons | Phosphor icon per action via icon() | Not available | `->icon('trash')` |
+| Action Groups | Menu organisation with dot-notation | Not available | `->group('Export.CSV')` |
+| Disabled Action State | Actions shown as disabled when canRun fails | Hidden entirely | Visible but greyed out |
+| Dry-Run Preview | Optional preview mode before execution | Not available | `->withDryRun()` |
+| Custom Component | Render custom React inside action modal | Not available | `->component('key', props)` |
+| Inline Action Tooltips | PrimeReact tooltips on icon-only buttons | Not available | Automatic |
+| Mobile-Aware Dropdowns | Viewport-bounded dropdown positioning | Not guaranteed | Auto-repositioning |
+
+### Field System Extensions
+
+| Feature | Description | Nova v5 | Martis |
+|---------|-------------|---------|--------|
+| 16 Extended Field Types | Badge, Status, Code, Color, Country, Currency, etc. | Separate packages | Built-in |
+| Column Span Grid | colSpan/colSpanMd/colSpanLg for form layout | Separate plugin | Built-in |
+| Component Key Override | Any field renders custom React component | Limited | `->component('key')` |
+| Inline Create for BelongsTo | Create related record from dropdown | Modal only | Drawer + Modal |
+| Rich Text Display | Custom component for HTML content | Trix only | Trix + Markdown + custom |
+
+### Architecture Extensions
+
+| Feature | Description | Nova v5 | Martis |
+|---------|-------------|---------|--------|
+| React 19 Frontend | Modern React with hooks, Suspense, concurrent | Vue 3 (Inertia) | React 19 + Router + Query |
+| Open Source | MIT License | Proprietary ($199+/yr) | MIT License |
+| 1,512 Phosphor Icons | Full icon library built-in | Heroicons subset | Phosphor Icons |
+| Vite HMR | Hot module reload for development | Mix/Vite | Vite with HMR |
+| Scramble API Docs | Auto-generated Swagger docs | — | Built-in |
+| Self-Hosted CI/CD | GitHub Actions on local runner | — | Built-in |
