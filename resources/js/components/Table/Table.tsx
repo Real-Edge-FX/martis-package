@@ -1,5 +1,6 @@
 import { registry } from '@/lib/registry'
 import type { FieldDefinition, ResourceRecord } from '@/types'
+import type { ActionMeta } from '@/components/Actions'
 import { FieldDisplay } from '@/components/fields'
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
@@ -24,6 +25,10 @@ export interface TableProps {
   resourceKey?: string
   /** Whether to show row selection checkboxes (default: false) */
   selectable?: boolean
+  /** Inline actions rendered per-row */
+  inlineActions?: ActionMeta[]
+  /** Callback when an inline action is triggered on a row */
+  onInlineAction?: (action: ActionMeta, row: ResourceRecord) => void
   /** DataTable configuration from Resource schema */
   tableConfig?: {
     striped?: boolean
@@ -52,6 +57,8 @@ function DefaultTable({
   onClickRow,
   resourceKey,
   selectable = false,
+  inlineActions = [],
+  onInlineAction,
   tableConfig,
 }: TableProps) {
   const { t } = useTranslation('resources')
@@ -156,6 +163,34 @@ function DefaultTable({
           sortable={false}
         />
       ))}
+      {inlineActions.length > 0 && (
+        <Column
+          header=""
+          body={(row: ResourceRecord) => (
+            <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+              {inlineActions.map((action) => (
+                <button
+                  key={action.uriKey}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onInlineAction?.(action, row)
+                  }}
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors hover:opacity-80"
+                  style={{
+                    color: action.destructive ? '#dc2626' : 'var(--martis-accent)',
+                    backgroundColor: action.destructive ? 'rgba(220,38,38,0.08)' : 'rgba(99,102,241,0.08)',
+                  }}
+                  title={action.name}
+                >
+                  {action.name}
+                </button>
+              ))}
+            </div>
+          )}
+          style={{ width: 'auto', textAlign: 'right' }}
+        />
+      )}
     </DataTable>
   )
 }

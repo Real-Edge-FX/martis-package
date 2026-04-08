@@ -76,13 +76,13 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const fieldsQuery = useQuery({
     queryKey: ['action-fields', resource, action?.uriKey],
     queryFn: () =>
-      api.get<{ fields: FieldDefinition[] }>(
+      api.get<{ data: { fields: FieldDefinition[] } }>(
         `/api/resources/${resource}/actions/${action!.uriKey}/fields`,
       ),
     enabled: visible && !!action,
   })
 
-  const fields = fieldsQuery.data?.fields ?? []
+  const fields = fieldsQuery.data?.data?.fields ?? []
 
   // Reset values when action changes
   useEffect(() => {
@@ -93,7 +93,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   // Execute action mutation
   const executeMutation = useMutation({
     mutationFn: (params: { dryRun?: boolean }) =>
-      api.post<{ response: { type: string; data: Record<string, unknown> } }>(
+      api.post<{ data: { type: string; data: Record<string, unknown> } }>(
         `/api/resources/${resource}/actions/${action!.uriKey}`,
         {
           resources: selectedIds,
@@ -102,7 +102,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         },
       ),
     onSuccess: (res) => {
-      const responseData = res?.response
+      const responseData = res?.data
       if (responseData) {
         const data = responseData.data
 

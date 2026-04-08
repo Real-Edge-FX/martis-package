@@ -43,11 +43,11 @@ export function ResourceDetailPage() {
   // Fetch actions for this resource
   const actionsQuery = useQuery({
     queryKey: ["resource-actions", resource],
-    queryFn: () => api.get<{ actions: ActionMeta[] }>(`/api/resources/${resource}/actions`),
+    queryFn: () => api.get<{ data: { actions: ActionMeta[] } }>(`/api/resources/${resource}/actions`),
     enabled: !!resource,
   })
 
-  const allActions = actionsQuery.data?.actions ?? []
+  const allActions = actionsQuery.data?.data?.actions ?? []
   const detailActions = allActions.filter((a) => a.showOnDetail)
 
   const deleteMutation = useMutation({

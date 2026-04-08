@@ -84,12 +84,13 @@ export function ResourceIndexPage() {
   // Fetch actions for this resource
   const actionsQuery = useQuery({
     queryKey: ['resource-actions', resource],
-    queryFn: () => api.get<{ actions: ActionMeta[] }>(`/api/resources/${resource}/actions`),
+    queryFn: () => api.get<{ data: { actions: ActionMeta[] } }>(`/api/resources/${resource}/actions`),
     enabled: !!resource,
   })
 
-  const allActions = actionsQuery.data?.actions ?? []
+  const allActions = actionsQuery.data?.data?.actions ?? []
   const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
+  const inlineActions = allActions.filter((a) => a.showInline)
   const standaloneActions = allActions.filter((a) => a.standalone)
   const hasActions = indexActions.length > 0
 
@@ -140,6 +141,11 @@ export function ResourceIndexPage() {
   }
 
   function handleActionSelect(action: ActionMeta) {
+    setActiveAction(action)
+  }
+
+  function handleInlineAction(action: ActionMeta, row: { id: string | number }) {
+    setSelectedIds(new Set([row.id]))
     setActiveAction(action)
   }
 
@@ -349,6 +355,8 @@ export function ResourceIndexPage() {
         onClickRow={(row) => { if (row._authorization?.authorizedToView !== false) navigate(`/resources/${resource}/${row.id}`) }}
         resourceKey={resource}
         selectable={selectable}
+        inlineActions={inlineActions}
+        onInlineAction={handleInlineAction}
         tableConfig={{
           striped: schema.tableStriped,
           showGridlines: schema.tableShowGridlines,
