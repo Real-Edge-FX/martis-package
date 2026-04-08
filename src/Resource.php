@@ -816,6 +816,16 @@ abstract class Resource implements ResourceContract
         return null;
     }
 
+    /**
+     * The custom label for the bulk actions dropdown.
+     *
+     * Override this to change "Bulk Actions" to a custom label.
+     */
+    public static function bulkActionsMenuLabel(): ?string
+    {
+        return null;
+    }
+
     /** {@inheritDoc} */
     public function group(): ?string
     {

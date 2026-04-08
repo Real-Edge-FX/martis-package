@@ -25,6 +25,7 @@ export interface TableProps {
   selectedIds: Set<string | number>
   onToggleSelect: (id: string | number) => void
   onToggleAll: () => void
+  onSetSelection?: (ids: Set<string | number>) => void
   onClickRow?: (row: ResourceRecord) => void
   resourceKey?: string
   selectable?: boolean
@@ -155,9 +156,9 @@ function InlineSubMenu({
             <div
               key={key}
               className="relative"
-              onMouseEnter={(e) => { clearCloseTimer(); setOpenChild(key); setChildRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())) }}
+              onMouseEnter={(e) => { clearCloseTimer(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setOpenChild(key); setChildRects(prev => new Map(prev).set(key, rect)) }}
               onMouseLeave={() => startCloseTimer(key)}
-              onClick={(e) => { e.stopPropagation(); setChildRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())); setOpenChild(p => p === key ? null : key) }}
+              onClick={(e) => { e.stopPropagation(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setChildRects(prev => new Map(prev).set(key, rect)); setOpenChild(p => p === key ? null : key) }}
             >
               <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer" style={{ color: "var(--martis-text)" }}
                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
@@ -256,9 +257,9 @@ function InlineActionMenu({
                   key={key}
                   data-action-submenu="true"
                   className="relative"
-                  onMouseEnter={e => { clearCloseTimer(); setOpenGroup(key); setGroupRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())) }}
+                  onMouseEnter={e => { clearCloseTimer(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setOpenGroup(key); setGroupRects(prev => new Map(prev).set(key, rect)) }}
                   onMouseLeave={() => { closeTimer.current = setTimeout(() => setOpenGroup(prev => prev === key ? null : prev), 180) }}
-                  onClick={e => { e.stopPropagation(); setGroupRects(prev => new Map(prev).set(key, (e.currentTarget as HTMLElement).getBoundingClientRect())); setOpenGroup(p => p === key ? null : key) }}
+                  onClick={e => { e.stopPropagation(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setGroupRects(prev => new Map(prev).set(key, rect)); setOpenGroup(p => p === key ? null : key) }}
                 >
                   <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer" style={{ color: "var(--martis-text)" }}
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
@@ -303,6 +304,7 @@ function DefaultTable({
   selectedIds,
   onToggleSelect,
   onToggleAll: _onToggleAll,
+  onSetSelection,
   onClickRow,
   resourceKey,
   selectable = false,
@@ -336,14 +338,18 @@ function DefaultTable({
   function handleSelectionChange(e: DataTableSelectionMultipleChangeEvent<ResourceRecord[]>) {
     const newSelection = e.value as ResourceRecord[]
     const newIds = new Set(newSelection.map(r => r.id))
-    // Sync with parent — compute diff
-    const currentIds = new Set(selectedIds)
-    // Find toggled items
-    for (const id of newIds) {
-      if (!currentIds.has(id)) onToggleSelect(id)
-    }
-    for (const id of currentIds) {
-      if (!newIds.has(id)) onToggleSelect(id)
+    // Direct set — avoids stale-closure issues with toggle-based approach
+    if (onSetSelection) {
+      onSetSelection(newIds)
+    } else {
+      // Fallback: compute diff
+      const currentIds = new Set(selectedIds)
+      for (const id of newIds) {
+        if (!currentIds.has(id)) onToggleSelect(id)
+      }
+      for (const id of currentIds) {
+        if (!newIds.has(id)) onToggleSelect(id)
+      }
     }
   }
 
@@ -361,7 +367,7 @@ function DefaultTable({
 
   return (
     <>
-      <Tooltip target=".martis-action-btn" position="top" showDelay={400} />
+      <Tooltip target=".martis-action-btn" position="top" showDelay={400} key={`tooltip-${rows.length}-${rows.map(r => r.id).join(",")}`} />
       <DataTable
         value={rows}
         dataKey="id"

@@ -166,6 +166,10 @@ export function ResourceIndexPage() {
     setActiveAction(null)
   }
 
+  function handleSetSelection(ids: Set<string | number>) {
+    setSelectedIds(ids)
+  }
+
   function handleActionSuccess() {
     void qc.invalidateQueries({ queryKey: ['resources', resource] })
     setSelectedIds(new Set())
@@ -256,6 +260,7 @@ export function ResourceIndexPage() {
             <ActionDropdown
               actions={standaloneActions}
               onSelect={handleActionSelect}
+              label={schema.actionsMenuLabel ?? undefined}
             />
           )}
           {schema.authorization?.authorizedToCreate !== false && (
@@ -292,7 +297,7 @@ export function ResourceIndexPage() {
           <ActionDropdown
             actions={indexActions}
             onSelect={handleActionSelect}
-            label={tAct('bulk_actions')}
+            label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
           />
           <button
             type="button"
@@ -370,6 +375,7 @@ export function ResourceIndexPage() {
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
         onToggleAll={handleToggleAll}
+        onSetSelection={handleSetSelection}
         onClickRow={(row) => { if (row._authorization?.authorizedToView !== false) navigate(`/resources/${resource}/${row.id}`) }}
         resourceKey={resource}
         selectable={selectable}

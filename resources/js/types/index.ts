@@ -148,6 +148,8 @@ export interface ResourceSchema extends ResourceEmbedded {
   fieldsForPreview?: FieldDefinition[]
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
+  actionsMenuLabel?: string | null
+  bulkActionsMenuLabel?: string | null
   indexSearchable?: boolean
   perPageOptions?: number[]
   perPage?: number

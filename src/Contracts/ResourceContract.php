@@ -194,6 +194,11 @@ interface ResourceContract
      */
     public static function actionsMenuLabel(): ?string;
 
+    /**
+     * Customize the label for the bulk actions menu in the resource index.
+     */
+    public static function bulkActionsMenuLabel(): ?string;
+
     // -------------------------------------------------------------------------
     // Authorization — Nova v5 parity (REA-1115)
     // -------------------------------------------------------------------------

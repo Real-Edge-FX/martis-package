@@ -762,6 +762,7 @@ class ResourceController extends MartisController
             ],
             'errorDisplay' => $resourceClass::errorDisplay()->value,
             'actionsMenuLabel' => $resourceClass::actionsMenuLabel(),
+            'bulkActionsMenuLabel' => $resourceClass::bulkActionsMenuLabel(),
             'validationMessage' => $resourceClass::validationMessage(),
             'overrides' => $instance->overrides(),
         ];

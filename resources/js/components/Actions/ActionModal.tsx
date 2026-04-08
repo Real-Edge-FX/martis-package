@@ -147,7 +147,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         }
         if (Object.keys(mapped).length > 0) {
           setFieldErrors(mapped)
-          // Don't show generic toast when we have field-level errors
+          addToast('error', err.message || t('action_failed'))
           return
         }
       }
