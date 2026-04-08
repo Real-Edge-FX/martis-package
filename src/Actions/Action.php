@@ -553,6 +553,7 @@ class Action implements ActionContract
     public function pivotAction(): static
     {
         $this->isPivotAction = true;
+
         return $this;
     }
 
@@ -566,6 +567,7 @@ class Action implements ActionContract
     public function referToPivotAs(string $label): static
     {
         $this->pivotLabel = $label;
+
         return $this;
     }
 
