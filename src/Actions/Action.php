@@ -27,6 +27,13 @@ class Action implements ActionContract
     public ?string $name = null;
 
     /** Disable action event logging on this action. */
+
+    /** Phosphor icon name (e.g. "trash", "envelope", "arrow-right"). */
+    protected ?string $icon = null;
+
+    /** Action group for menu organisation. Supports dot-notation for submenus (e.g. "Export.CSV"). */
+    protected ?string $group = null;
+
     public bool $withoutActionEvents = false;
 
     // -------------------------------------------------------------------------
@@ -495,6 +502,41 @@ class Action implements ActionContract
     }
 
     // -------------------------------------------------------------------------
+    // Icon & Group
+    // -------------------------------------------------------------------------
+
+    /** Set the Phosphor icon name for this action (e.g. "trash", "envelope"). */
+    public function icon(string $icon): static
+    {
+        $this->icon = $icon;
+
+        return $this;
+    }
+
+    /** Get the icon name. */
+    public function getIcon(): ?string
+    {
+        return $this->icon;
+    }
+
+    /**
+     * Set the menu group for this action.
+     * Use dot-notation for submenus: "Export.CSV", "Notifications.Email".
+     */
+    public function group(string $group): static
+    {
+        $this->group = $group;
+
+        return $this;
+    }
+
+    /** Get the group name. */
+    public function getGroup(): ?string
+    {
+        return $this->group;
+    }
+
+    // -------------------------------------------------------------------------
     // Serialization
     // -------------------------------------------------------------------------
 
@@ -504,6 +546,8 @@ class Action implements ActionContract
         return [
             'uriKey' => $this->uriKey(),
             'name' => $this->name(),
+            'icon' => $this->icon,
+            'group' => $this->group,
             'destructive' => $this->isDestructive(),
             'showOnIndex' => $this->showOnIndex,
             'showOnDetail' => $this->showOnDetail,

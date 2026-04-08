@@ -8,11 +8,14 @@ import { FieldInput } from '@/components/fields'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { registry } from '@/lib/registry'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { Lightning, Warning, X } from '@phosphor-icons/react'
 
 export interface ActionMeta {
   uriKey: string
   name: string
+  icon: string | null
+  group: string | null
   destructive: boolean
   showOnIndex: boolean
   showOnDetail: boolean
@@ -169,6 +172,17 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const confirmButton = action.confirmButtonText ?? (action.destructive ? t('confirm_destructive') : t('run_action'))
   const cancelButton = action.cancelButtonText ?? t('cancel')
 
+  /** Render the action icon — uses Phosphor ResourceIcon if set, falls back to Lightning/Warning. */
+  function renderActionIcon() {
+    if (action!.icon) {
+      return <ResourceIcon iconName={action!.icon} size={20} weight="fill" />
+    }
+    if (action!.destructive) {
+      return <Warning size={20} className="text-red-600 dark:text-red-400" weight="fill" />
+    }
+    return <Lightning size={20} className="text-indigo-600 dark:text-indigo-400" weight="fill" />
+  }
+
   const content = (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
       {/* Backdrop */}
@@ -204,12 +218,10 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                 backgroundColor: action.destructive
                   ? 'rgba(220,38,38,0.1)'
                   : 'rgba(99,102,241,0.1)',
+                color: action.destructive ? '#dc2626' : '#6366f1',
               }}
             >
-              {action.destructive
-                ? <Warning size={20} className="text-red-600 dark:text-red-400" weight="fill" />
-                : <Lightning size={20} className="text-indigo-600 dark:text-indigo-400" weight="fill" />
-              }
+              {renderActionIcon()}
             </div>
             <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
               {action.name}
@@ -243,7 +255,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                   </label>
                   <FieldInput
                     field={field}
-                    value={fieldValues[field.attribute] ?? ''}
+                    value={fieldValues[field.attribute] ?? ''} 
                     onChange={(val: unknown) =>
                       setFieldValues((prev) => ({ ...prev, [field.attribute]: val }))
                     }

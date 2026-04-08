@@ -4,7 +4,8 @@ import type { ActionMeta } from '@/components/Actions'
 import { FieldDisplay } from '@/components/fields'
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
-import { CaretUp, CaretDown, CaretUpDown } from '@phosphor-icons/react'
+import { CaretUp, CaretDown, CaretUpDown, Lightning, Warning } from '@phosphor-icons/react'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { useTranslation } from 'react-i18next'
 
 export interface TableColumn {
@@ -183,6 +184,12 @@ function DefaultTable({
                   }}
                   title={action.name}
                 >
+                  {action.icon
+                    ? <ResourceIcon iconName={action.icon} size={12} />
+                    : action.destructive
+                      ? <Warning size={12} weight="fill" />
+                      : <Lightning size={12} />
+                  }
                   {action.name}
                 </button>
               ))}

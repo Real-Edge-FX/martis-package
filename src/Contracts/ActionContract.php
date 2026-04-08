@@ -165,6 +165,22 @@ interface ActionContract
     public function shouldLogEvents(): bool;
 
     // -------------------------------------------------------------------------
+    // Icon & Group
+    // -------------------------------------------------------------------------
+
+    /** Set the Phosphor icon name for this action. */
+    public function icon(string $icon): static;
+
+    /** Get the icon name. */
+    public function getIcon(): ?string;
+
+    /** Set the menu group for this action (dot-notation for submenus). */
+    public function group(string $group): static;
+
+    /** Get the group name. */
+    public function getGroup(): ?string;
+
+    // -------------------------------------------------------------------------
     // Serialization
     // -------------------------------------------------------------------------
 
