@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Martis\Actions\Action;
@@ -186,7 +187,7 @@ class ActionTest extends TestCase
         $json = $action->jsonSerialize();
 
         $expectedKeys = [
-            'uriKey', 'name', 'destructive', 'showOnIndex', 'showOnDetail',
+            'uriKey', 'name', 'icon', 'group', 'destructive', 'showOnIndex', 'showOnDetail',
             'showInline', 'executionMode', 'standalone', 'sole', 'queued',
             'withConfirmation', 'confirmText', 'confirmButtonText',
             'cancelButtonText', 'modalSize', 'supportsDryRun',
@@ -220,6 +221,95 @@ class ActionTest extends TestCase
     {
         $action = TestableAction::make();
         $this->assertEquals('Testable Action', $action->name());
+    }
+
+    // -------------------------------------------------------------------------
+    // Authorization tests (REA-1102)
+    // -------------------------------------------------------------------------
+
+    public function test_can_run_callback_grants(): void
+    {
+        $action = TestableAction::make()->canRun(fn () => true);
+        $request = new Request;
+        $model = new class extends Model {};
+        $this->assertTrue($action->authorizedToRun($request, $model));
+    }
+
+    public function test_can_run_callback_denies(): void
+    {
+        $action = TestableAction::make()->canRun(fn () => false);
+        $request = new Request;
+        $model = new class extends Model {};
+        $this->assertFalse($action->authorizedToRun($request, $model));
+    }
+
+    public function test_can_run_default_true(): void
+    {
+        $action = TestableAction::make();
+        $request = new Request;
+        $model = new class extends Model {};
+        $this->assertTrue($action->authorizedToRun($request, $model));
+    }
+
+    public function test_can_run_receives_model(): void
+    {
+        $model = new class extends Model
+        {
+            public $status = 'draft';
+        };
+        $action = TestableAction::make()->canRun(fn ($r, $m) => $m->status === 'draft');
+        $request = new Request;
+        $this->assertTrue($action->authorizedToRun($request, $model));
+
+        $model2 = new class extends Model
+        {
+            public $status = 'published';
+        };
+        $this->assertFalse($action->authorizedToRun($request, $model2));
+    }
+
+    public function test_can_see_and_can_run_independent(): void
+    {
+        $action = TestableAction::make()
+            ->canSee(fn () => true)
+            ->canRun(fn () => false);
+        $request = new Request;
+        $model = new class extends Model {};
+        $this->assertTrue($action->authorizedToSee($request));
+        $this->assertFalse($action->authorizedToRun($request, $model));
+    }
+
+    // -------------------------------------------------------------------------
+    // Icon and group serialization tests (REA-1102)
+    // -------------------------------------------------------------------------
+
+    public function test_icon_serialization(): void
+    {
+        $action = TestableAction::make()->icon('rocket-launch');
+        $json = $action->jsonSerialize();
+        $this->assertEquals('rocket-launch', $json['icon']);
+    }
+
+    public function test_group_serialization(): void
+    {
+        $action = TestableAction::make()->group('Export');
+        $json = $action->jsonSerialize();
+        $this->assertEquals('Export', $json['group']);
+    }
+
+    public function test_icon_and_group_default_null(): void
+    {
+        $action = TestableAction::make();
+        $json = $action->jsonSerialize();
+        $this->assertNull($json['icon']);
+        $this->assertNull($json['group']);
+    }
+
+    public function test_nested_group_serialization(): void
+    {
+        $action = TestableAction::make()->group('Notifications.Email');
+        $json = $action->jsonSerialize();
+        $this->assertEquals('Notifications.Email', $json['group']);
     }
 }
 
