@@ -1920,3 +1920,37 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter:focus {
 html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   color: var(--martis-text-muted) !important;
 }
+
+
+/* ── Fix: Dark theme checkbox — brighter highlight for visibility (REA-1102) ── */
+.dark .p-checkbox .p-checkbox-box {
+  background-color: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.3);
+}
+.dark .p-checkbox .p-checkbox-box.p-highlight {
+  background-color: #6366f1 !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
+}
+.dark .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
+.dark .p-checkbox .p-checkbox-box.p-highlight svg,
+.dark .p-checkbox .p-checkbox-box.p-highlight .p-icon {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+.dark .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
+  border: 2px solid rgba(255,255,255,0.4);
+}
+.dark .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight {
+  background-color: #6366f1 !important;
+  border-color: #6366f1 !important;
+}
+
+/* ── Fix: PrimeReact overlay panels z-index above action modals (REA-1102) ── */
+.p-dropdown-panel,
+.p-multiselect-panel,
+.p-autocomplete-panel,
+.p-calendar-panel,
+.p-overlaypanel {
+  z-index: 10000 !important;
+}

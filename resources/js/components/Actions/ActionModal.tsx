@@ -200,7 +200,8 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         className="relative w-full rounded-xl shadow-xl transition-all duration-200"
         style={{
           backgroundColor: 'var(--martis-card)',
-          border: '1px solid var(--martis-border)',
+          border: action.destructive ? '1px solid rgba(220,38,38,0.4)' : '1px solid var(--martis-border)',
+          borderTop: action.destructive ? '3px solid #dc2626' : undefined,
           maxWidth: modalWidth,
           transform: animVisible ? 'scale(1)' : 'scale(0.95)',
           opacity: animVisible ? 1 : 0,
@@ -209,7 +210,10 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         {/* Header */}
         <div
           className="flex items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
+          style={{
+            borderColor: action.destructive ? 'rgba(220,38,38,0.2)' : 'var(--martis-border)',
+            backgroundColor: action.destructive ? 'rgba(220,38,38,0.05)' : undefined,
+          }}
         >
           <div className="flex items-center gap-3">
             <div
