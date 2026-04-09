@@ -6,7 +6,8 @@ use Illuminate\Console\Command;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'martis:install';
+    protected $signature = 'martis:install
+                            {--force : Overwrite existing assets}';
 
     protected $description = 'Install the Martis admin panel';
 
@@ -17,11 +18,14 @@ class InstallCommand extends Command
         $this->createDirectories();
         $this->publishConfig();
         $this->publishAssets();
+        $this->publishMigrations();
+        $this->publishTranslations();
 
         $this->newLine();
         $this->components->info('Martis installed successfully.');
         $this->newLine();
         $this->line('  Next steps:');
+        $this->line('  - Run <fg=cyan>php artisan migrate</> to create the action_events table.');
         $this->line('  - Run <fg=cyan>php artisan martis:user</> to create an admin account.');
 
         /** @var string $panelUrl */
@@ -59,13 +63,16 @@ class InstallCommand extends Command
 
     protected function publishConfig(): void
     {
-        if (file_exists(config_path('martis.php'))) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> config', 'already published');
+        if (file_exists(config_path('martis.php')) && ! $this->option('force')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> config', 'already published (use --force to overwrite)');
 
             return;
         }
 
-        $this->callSilent('vendor:publish', ['--tag' => 'martis-config']);
+        $this->callSilent('vendor:publish', [
+            '--tag' => 'martis-config',
+            '--force' => (bool) $this->option('force'),
+        ]);
         $this->components->twoColumnDetail('<fg=green>Published</> config', 'config/martis.php');
     }
 
@@ -73,5 +80,40 @@ class InstallCommand extends Command
     {
         $this->callSilent('vendor:publish', ['--tag' => 'martis-assets', '--force' => true]);
         $this->components->twoColumnDetail('<fg=green>Published</> assets', 'public/vendor/martis');
+    }
+
+    protected function publishMigrations(): void
+    {
+        $migrationPattern = database_path('migrations/*_create_action_events_table.php');
+        $existing = glob($migrationPattern);
+
+        if ($existing !== false && count($existing) > 0 && ! $this->option('force')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> migrations', 'already published (use --force to overwrite)');
+
+            return;
+        }
+
+        $this->callSilent('vendor:publish', [
+            '--tag' => 'martis-migrations',
+            '--force' => (bool) $this->option('force'),
+        ]);
+        $this->components->twoColumnDetail('<fg=green>Published</> migrations', 'database/migrations');
+    }
+
+    protected function publishTranslations(): void
+    {
+        $langPath = $this->laravel->langPath('vendor/martis');
+
+        if (is_dir($langPath) && ! $this->option('force')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> translations', 'already published (use --force to overwrite)');
+
+            return;
+        }
+
+        $this->callSilent('vendor:publish', [
+            '--tag' => 'martis-lang',
+            '--force' => (bool) $this->option('force'),
+        ]);
+        $this->components->twoColumnDetail('<fg=green>Published</> translations', 'lang/vendor/martis');
     }
 }

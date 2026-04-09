@@ -13,7 +13,43 @@ Add Martis to any existing Laravel application as a Composer package.
 | MySQL | 8.0+ |
 | Redis | 7+ (optional, for cache/queue) |
 
-## Step 1: Install via Composer
+## Quick Install
+
+The fastest way to get started is the `martis:install` Artisan command. It handles everything in one step:
+
+```bash
+composer require martis/martis
+php artisan martis:install
+```
+
+This command performs the following steps automatically:
+
+1. **Creates the directory structure** — `app/Martis/` with subdirectories for Resources, Fields, Actions, Filters, Lenses, Dashboards, and Metrics.
+2. **Publishes the config file** — `config/martis.php` with all customizable settings.
+3. **Publishes frontend assets** — compiled React app to `public/vendor/martis/`.
+4. **Publishes database migrations** — `create_action_events_table` migration to `database/migrations/`.
+5. **Runs migrations** — prompts you to run `php artisan migrate` (creates the `action_events` table for the audit log).
+6. **Publishes translation files** — `en`, `pt-BR`, `pt-PT` to `lang/vendor/martis/`.
+
+After installation, create an admin user and visit the panel:
+
+```bash
+php artisan martis:user
+# Visit http://your-app.test/martis
+```
+
+### Install Options
+
+| Flag | Effect |
+|------|--------|
+| `--force` | Overwrite previously published config, migrations, and translations |
+| `--no-interaction` | Skip all confirmation prompts (auto-confirms migration run) |
+
+## Manual Install (Step by Step)
+
+If you prefer granular control, you can run each publish step individually.
+
+### Step 1: Install via Composer
 
 ```bash
 composer require martis/martis
@@ -21,7 +57,7 @@ composer require martis/martis
 
 Martis registers its service provider automatically via Laravel's package discovery.
 
-## Step 2: Publish Configuration
+### Step 2: Publish Configuration
 
 ```bash
 php artisan vendor:publish --tag=martis-config
@@ -45,7 +81,7 @@ This creates `config/martis.php` where you can customize:
 - `footer` — Footer configuration
 - `search` — Search bar configuration
 
-## Step 3: Publish Frontend Assets
+### Step 3: Publish Frontend Assets
 
 ```bash
 php artisan vendor:publish --tag=martis-assets --force
@@ -53,7 +89,16 @@ php artisan vendor:publish --tag=martis-assets --force
 
 This copies the compiled React application to `public/vendor/martis/`.
 
-## Step 4: Publish Translations (Optional)
+### Step 4: Publish and Run Migrations
+
+```bash
+php artisan vendor:publish --tag=martis-migrations
+php artisan migrate
+```
+
+This publishes the `create_action_events_table` migration and creates the `action_events` table used by the action audit log.
+
+### Step 5: Publish Translations (Optional)
 
 ```bash
 php artisan vendor:publish --tag=martis-translations
@@ -61,13 +106,7 @@ php artisan vendor:publish --tag=martis-translations
 
 Copies language files to `lang/vendor/martis/` for customization. Available locales: `en`, `pt-BR`, `pt-PT`.
 
-## Step 5: Create Your First Resource
-
-Create the resources directory:
-
-```bash
-mkdir -p app/Martis
-```
+### Step 6: Create Your First Resource
 
 Create a resource file, e.g. `app/Martis/UserResource.php`:
 
@@ -120,7 +159,7 @@ class UserResource extends Resource
 
 Resources are **auto-discovered** — no manual registration needed. Martis scans the paths defined in `config/martis.php`.
 
-## Step 6: Access the Admin Panel
+### Step 7: Access the Admin Panel
 
 Navigate to `http://your-app.test/martis` and log in with any user from your application.
 
@@ -152,14 +191,21 @@ componentRegistry.register('my-component', MyComponent)
 your-laravel-app/
 ├── app/
 │   └── Martis/                    # Your resource definitions
-│       ├── UserResource.php
-│       ├── PostResource.php
-│       └── ...
+│       ├── Resources/
+│       ├── Fields/
+│       ├── Actions/
+│       ├── Filters/
+│       ├── Lenses/
+│       ├── Dashboards/
+│       └── Metrics/
 ├── config/
 │   └── martis.php                 # Published configuration
+├── database/
+│   └── migrations/
+│       └── *_create_action_events_table.php  # Action audit log
 ├── lang/
 │   └── vendor/
-│       └── martis/                # Published translations (optional)
+│       └── martis/                # Published translations
 │           ├── en/
 │           ├── pt-BR/
 │           └── pt-PT/
@@ -182,6 +228,25 @@ When upgrading Martis, always re-publish the frontend assets:
 composer update martis/martis
 php artisan vendor:publish --tag=martis-assets --force
 ```
+
+Or use the install command with `--force`:
+
+```bash
+php artisan martis:install --force
+```
+
+## Available Artisan Commands
+
+| Command | Description |
+|---------|-------------|
+| `martis:install` | Full installation (directories, config, assets, migrations, translations) |
+| `martis:user` | Create an admin user |
+| `martis:resource` | Scaffold a new resource class |
+| `martis:field` | Scaffold a custom field class |
+| `martis:action` | Scaffold an action class |
+| `martis:component` | Scaffold a custom React component |
+| `martis:policy` | Scaffold an authorization policy |
+| `martis:theme` | Scaffold a custom theme |
 
 ## Next Steps
 
