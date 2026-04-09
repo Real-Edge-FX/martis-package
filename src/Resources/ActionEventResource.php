@@ -121,11 +121,13 @@ class ActionEventResource extends Resource
 
             Textarea::make('original', 'Original')
                 ->hideFromIndex()
-                ->nullable(),
+                ->nullable()
+                ->displayUsing(fn ($value) => is_array($value) ? json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : (string) ($value ?? '')),
 
             Textarea::make('changes', 'Changes')
                 ->hideFromIndex()
-                ->nullable(),
+                ->nullable()
+                ->displayUsing(fn ($value) => is_array($value) ? json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : (string) ($value ?? '')),
 
             DateTime::make('created_at', 'Executed At')
                 ->sortable()
