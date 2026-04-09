@@ -146,8 +146,8 @@
 | Notifications | In-app notifications | TODO | Medium |
 | Panels/Tabs | Field grouping in tabs | TODO | Medium |
 | Custom Tools | Sidebar tools/pages | TODO | Medium |
-| ManyToMany | Pivot relationships | PARTIAL | High |
-| BelongsToMany | Pivot with sync | PARTIAL | High |
+| ManyToMany | Pivot relationships | DONE | REA-1194 |
+| BelongsToMany | Pivot with sync | DONE | REA-1194 |
 | MorphTo/MorphMany | Polymorphic relations | TODO | Low |
 | Repeater | Dynamic field groups | TODO | Low |
 

@@ -43,5 +43,6 @@ return [
     'preview' => 'Pré-visualizar',
     'write_markdown_placeholder' => 'Escreva seu markdown aqui...',
     'page_not_found' => 'Página não encontrada.',
+    'detach_confirm' => 'Este registro será desvinculado do relacionamento. Nenhum dado será excluído. Continuar?',
     'back_to_dashboard' => 'Voltar ao Dashboard',
 ];

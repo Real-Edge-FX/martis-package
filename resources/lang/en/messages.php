@@ -43,5 +43,6 @@ return [
     'preview' => 'Preview',
     'write_markdown_placeholder' => 'Write your markdown here...',
     'page_not_found' => 'Page not found.',
+    'detach_confirm' => 'This record will be detached from the relationship. No data will be deleted. Continue?',
     'back_to_dashboard' => 'Back to Dashboard',
 ];

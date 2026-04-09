@@ -43,5 +43,6 @@ return [
     'preview' => 'Pré-visualizar',
     'write_markdown_placeholder' => 'Escreva o seu markdown aqui...',
     'page_not_found' => 'Página não encontrada.',
+    'detach_confirm' => 'Este registo será desassociado do relacionamento. Nenhum dado será eliminado. Continuar?',
     'back_to_dashboard' => 'Voltar ao Dashboard',
 ];

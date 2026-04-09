@@ -32,6 +32,7 @@ import { CurrencyFieldDisplay, CurrencyFieldInput } from './CurrencyField'
 import { SparklineFieldDisplay, SparklineFieldInput } from './SparklineField'
 import { GravatarFieldDisplay, GravatarFieldInput } from './GravatarField'
 import { HasManyFieldDisplay, HasManyFieldInput } from './HasManyField'
+import { BelongsToManyFieldDisplay, BelongsToManyFieldInput } from './BelongsToManyField'
 import { MorphToFieldDisplay, MorphToFieldInput } from './MorphToField'
 
 // -------------------------------------------------------------------------
@@ -69,6 +70,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   sparkline: SparklineFieldDisplay,
   gravatar: GravatarFieldDisplay,
   has_many: HasManyFieldDisplay,
+  belongs_to_many: BelongsToManyFieldDisplay,
   morph_to: MorphToFieldDisplay,
 }
 
@@ -107,6 +109,7 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   sparkline: SparklineFieldInput,
   gravatar: GravatarFieldInput,
   has_many: HasManyFieldInput,
+  belongs_to_many: BelongsToManyFieldInput,
   morph_to: MorphToFieldInput,
 }
 
