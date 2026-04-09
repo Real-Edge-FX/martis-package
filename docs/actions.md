@@ -571,7 +571,7 @@ php artisan migrate
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | `bigint` | Auto-increment primary key |
-| `batch_id` | `uuid` | Groups records from a single bulk execution |
+| `batch_id` | `uuid` | Groups per-model records from a single bulk execution |
 | `user_id` | `int\|null` | ID of the user who triggered the action |
 | `name` | `string` | Action display name (e.g. "Publish Posts") |
 | `actionable_type` | `string\|null` | Polymorphic model class (e.g. `App\Models\Post`) |
@@ -583,10 +583,12 @@ php artisan migrate
 | `fields` | `json` | Submitted action field values |
 | `status` | `string` | `completed`, `failed`, or `queued` |
 | `exception` | `text` | Error message on failure (empty string on success) |
-| `original` | `json` | Snapshot of model state before action |
-| `changes` | `json` | Snapshot of model state after action |
+| `original` | `json` | Changed attributes with their values **before** the action (diff only) |
+| `changes` | `json` | Changed attributes with their new values **after** the action (diff only) |
 | `created_at` | `timestamp` | When the action was executed |
 | `updated_at` | `timestamp` | Last update time |
+
+> **Per-model logging:** Bulk actions create one event per model, all sharing the same `batch_id`. The `original` and `changes` columns capture only the attributes that actually changed — not the full model snapshot.
 
 ### ActionEvent Model
 
@@ -599,7 +601,7 @@ use Martis\Models\ActionEvent;
 $events = ActionEvent::query()->latest()->paginate(25);
 
 // Filter by action name
-$publishes = ActionEvent::query()->forAction(Publish Posts)->get();
+$publishes = ActionEvent::query()->forAction('Publish Posts')->get();
 
 // Filter by user
 $myActions = ActionEvent::query()->forUser(auth()->id())->get();
@@ -619,7 +621,7 @@ $event->target;        // The target model (polymorphic)
 | Scope | Usage | Description |
 |-------|-------|-------------|
 | `forBatch(string $batchId)` | `->forBatch($uuid)` | Filter by batch UUID |
-| `forAction(string $name)` | `->forAction(Publish Posts)` | Filter by action name |
+| `forAction(string $name)` | `->forAction('Publish Posts')` | Filter by action name |
 | `forUser(int\|string $userId)` | `->forUser(1)` | Filter by user ID |
 
 ### Actionable Trait
