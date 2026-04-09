@@ -2065,42 +2065,24 @@ html:not(.dark) .p-tooltip .p-tooltip-arrow {
   border-top-color: #1e293b !important;
 }
 
-/* ── Fix: Toast border color matches severity icon (REA-1102 Problem 6) ── */
+/* ── Fix: Toast left border matches severity icon color exactly (REA-1183) ── */
+/* Icon colors from lara-dark-indigo theme: success=#6ee7b7, error=#fca5a5, warn=#fde047, info=#93c5fd */
+/* Only left border gets severity color; other borders remain at 0 per theme design. */
 .p-toast .p-toast-message.p-toast-message-success {
-  border: 1px solid #22c55e !important;
-  border-left: 4px solid #22c55e !important;
+  border-left: 4px solid #6ee7b7 !important;
 }
 .p-toast .p-toast-message.p-toast-message-error {
-  border: 1px solid #ef4444 !important;
-  border-left: 4px solid #ef4444 !important;
+  border-left: 4px solid #fca5a5 !important;
 }
 .p-toast .p-toast-message.p-toast-message-warn {
-  border: 1px solid #f59e0b !important;
-  border-left: 4px solid #f59e0b !important;
+  border-left: 4px solid #fde047 !important;
 }
 .p-toast .p-toast-message.p-toast-message-info {
-  border: 1px solid #3b82f6 !important;
-  border-left: 4px solid #3b82f6 !important;
+  border-left: 4px solid #93c5fd !important;
 }
 html:not(.dark) .p-toast .p-toast-message {
   background-color: #ffffff;
   color: #1e293b;
-}
-html:not(.dark) .p-toast .p-toast-message.p-toast-message-success {
-  border: 1px solid #22c55e !important;
-  border-left: 4px solid #22c55e !important;
-}
-html:not(.dark) .p-toast .p-toast-message.p-toast-message-error {
-  border: 1px solid #ef4444 !important;
-  border-left: 4px solid #ef4444 !important;
-}
-html:not(.dark) .p-toast .p-toast-message.p-toast-message-warn {
-  border: 1px solid #f59e0b !important;
-  border-left: 4px solid #f59e0b !important;
-}
-html:not(.dark) .p-toast .p-toast-message.p-toast-message-info {
-  border: 1px solid #3b82f6 !important;
-  border-left: 4px solid #3b82f6 !important;
 }
 
 /* ── Fix: Light theme checkbox visibility (REA-1102 Problem 7) ────── */
