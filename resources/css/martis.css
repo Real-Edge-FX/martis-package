@@ -1941,7 +1941,8 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
 .dark .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
   border: 2px solid rgba(255,255,255,0.4);
 }
-.dark .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight {
+/* Correct: p-highlight is on root .p-checkbox, not .p-checkbox-box (REA-1182) */
+.dark .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
   background-color: #6366f1 !important;
   border-color: #6366f1 !important;
 }
@@ -2129,20 +2130,20 @@ html:not(.dark) .p-checkbox-checked .p-checkbox-box svg {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
-/* DataTable specific checkbox — light theme */
+/* DataTable specific checkbox — light theme (REA-1182)
+   NOTE: In PrimeReact v10, p-highlight is added to .p-checkbox (root), NOT .p-checkbox-box
+   Correct selector: .p-checkbox.p-highlight .p-checkbox-box (not .p-checkbox-box.p-highlight) */
 html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
   background-color: #ffffff !important;
   border: 2px solid #94a3b8 !important;
 }
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight,
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-checked {
+/* Correct: target box via highlighted ROOT .p-checkbox — specificity (0,6,1) beats reset (0,5,1) */
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
   background-color: var(--martis-accent) !important;
   border-color: var(--martis-accent) !important;
 }
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-checked .p-checkbox-icon,
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight svg,
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-checked svg {
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box svg {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
@@ -2151,8 +2152,13 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
   background-color: #ffffff !important;
   border: 2px solid #94a3b8 !important;
 }
-html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box.p-highlight,
-html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box.p-checked {
+/* Correct: target header select-all checkbox via highlighted ROOT */
+html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box {
   background-color: var(--martis-accent) !important;
   border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
+html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box svg {
+  color: #ffffff !important;
+  fill: #ffffff !important;
 }
