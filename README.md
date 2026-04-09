@@ -151,7 +151,8 @@ Available flags: `hideFromIndex()`, , `hideFromDetail()`, `hideWhenCreating()`, 
 | `File` | File upload with drag & drop and download |
 | `Image` | Image upload with preview and thumbnail |
 | `BelongsTo` | Searchable relationship dropdown with async search |
-| `HasMany` | Inline DataTable for one-to-many relationships (detail-only, , CRUD) |
+| `HasMany` | Inline DataTable for one-to-many relationships (detail-only, CRUD) |
+| `BelongsToMany` | Many-to-many pivot relationship with attach/detach, pivot fields, and search |
 | `Hidden` | Hidden field (rendered in forms, , not visible) |
 | `Heading` | Section heading / visual divider |
 | `Badge` | Colored status badge for index & detail |
@@ -214,6 +215,18 @@ Signature: `HasMany::make(string $name, , ?string $relationship = null, ?string 
 - `$relatedResourceClass` — Related resource class for URI key resolution (optional)
 
 HasMany fields are **detail-only by default** (Nova v5 behavior). Use `->showOnIndex()` to display a count badge on the index page. The inline DataTable on the detail page supports pagination, , search, sorting, and full CRUD of related records within the parent context.
+
+
+#### BelongsToMany Configuration
+
+
+
+Signature: 
+
+-  — Display label (relationship method name inferred from label if omitted)
+-  — Eloquent relationship method name on the parent model
+
+BelongsToMany fields are **detail-only by default** (Nova v5 behavior). On the index page, a count badge is displayed. The detail panel includes a searchable DataTable with pagination, attach/detach buttons, and pivot field columns.
 
 
 ### Enums (Type-Safe Parameters)
