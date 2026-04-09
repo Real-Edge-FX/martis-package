@@ -555,34 +555,79 @@ class PostResource extends Resource
 
 ## Action Events (Audit Log)
 
-Every action execution is logged to `action_events` automatically. Publish the migration to create the table:
+Every action execution is logged to the `action_events` table automatically. Martis ships with a built-in **ActionEvent model**, a publishable **migration**, an **Actionable trait** for querying history, and a **built-in Resource** for browsing the audit log in the admin panel.
+
+### Setup
+
+Publish and run the migration to create the `action_events` table:
 
 ```bash
 php artisan vendor:publish --tag=martis-migrations
 php artisan migrate
 ```
 
-Each record contains:
+### Table Schema
 
-| Column | Description |
-|--------|-------------|
-| `batch_id` | UUID grouping bulk executions |
-| `user_id` | Who triggered the action |
-| `name` | Action display name |
-| `actionable_type` / `actionable_id` | Target model |
-| `fields` | JSON of submitted field values |
-| `status` | `completed`, `failed`, or `queued` |
-| `exception` | Error message on failure |
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | `bigint` | Auto-increment primary key |
+| `batch_id` | `uuid` | Groups records from a single bulk execution |
+| `user_id` | `int\|null` | ID of the user who triggered the action |
+| `name` | `string` | Action display name (e.g. "Publish Posts") |
+| `actionable_type` | `string\|null` | Polymorphic model class (e.g. `App\Models\Post`) |
+| `actionable_id` | `int\|null` | ID of the target model |
+| `target_type` | `string\|null` | Target model class (for pivot actions) |
+| `target_id` | `int\|null` | Target model ID |
+| `model_type` | `string\|null` | Source model class |
+| `model_id` | `int\|null` | Source model ID |
+| `fields` | `json` | Submitted action field values |
+| `status` | `string` | `completed`, `failed`, or `queued` |
+| `exception` | `text` | Error message on failure (empty string on success) |
+| `original` | `json` | Snapshot of model state before action |
+| `changes` | `json` | Snapshot of model state after action |
+| `created_at` | `timestamp` | When the action was executed |
+| `updated_at` | `timestamp` | Last update time |
 
-Disable logging for a specific action:
+### ActionEvent Model
+
+The `Martis\Models\ActionEvent` Eloquent model provides typed access to the audit log:
 
 ```php
-PublishPosts::make()->withoutActionEvents()
+use Martis\Models\ActionEvent;
+
+// Query all events
+$events = ActionEvent::query()->latest()->paginate(25);
+
+// Filter by action name
+$publishes = ActionEvent::query()->forAction(Publish Posts)->get();
+
+// Filter by user
+$myActions = ActionEvent::query()->forUser(auth()->id())->get();
+
+// Filter by batch (all records from a single execution)
+$batch = ActionEvent::query()->forBatch($batchId)->get();
+
+// Access relationships
+$event = ActionEvent::find(1);
+$event->user;          // The User model who triggered it
+$event->actionable;    // The model the action ran on (polymorphic)
+$event->target;        // The target model (polymorphic)
 ```
 
-Query action history via the `Actionable` trait:
+#### Available Scopes
+
+| Scope | Usage | Description |
+|-------|-------|-------------|
+| `forBatch(string $batchId)` | `->forBatch($uuid)` | Filter by batch UUID |
+| `forAction(string $name)` | `->forAction(Publish Posts)` | Filter by action name |
+| `forUser(int\|string $userId)` | `->forUser(1)` | Filter by user ID |
+
+### Actionable Trait
+
+Add the `Actionable` trait to any Eloquent model to query its action history:
 
 ```php
+use Illuminate\Database\Eloquent\Model;
 use Martis\Concerns\Actionable;
 
 class Post extends Model
@@ -590,9 +635,85 @@ class Post extends Model
     use Actionable;
 }
 
-// Latest 10 actions run on a specific post
-$post->actions()->latest()->limit(10)->get();
+// Query action history for a specific post
+$post = Post::find(1);
+
+// All actions run on this post (newest first)
+$post->actions()->latest()->get();
+
+// Count publish actions
+$post->actions()->where(name, Publish Posts)->count();
+
+// Get failed actions
+$post->actions()->where(status, failed)->get();
 ```
+
+### Built-in ActionEvent Resource
+
+Martis automatically registers an `ActionEventResource` in the admin panel, providing a read-only interface for browsing the audit log. This resource:
+
+- Appears in the sidebar as **"Action Events"** with a clipboard icon
+- Is **read-only** (no create, update, or delete)
+- Sorts by `created_at DESC` by default
+- Shows: Action name, User ID, Model type, Status, Executed At
+
+#### Hide from Navigation
+
+To hide the ActionEvent resource from the sidebar, set the config option:
+
+```php
+// config/martis.php
+action_events => [
+    enabled => true,
+    resource => false,    // Hide from sidebar
+],
+```
+
+Or set the environment variable:
+
+```env
+MARTIS_ACTION_EVENTS_RESOURCE=false
+```
+
+### Disabling Action Logging
+
+#### Globally
+
+Disable all action event logging via configuration:
+
+```php
+// config/martis.php
+action_events => [
+    enabled => false,     // No events recorded at all
+    resource => true,
+],
+```
+
+Or via environment variable:
+
+```env
+MARTIS_ACTION_EVENTS_ENABLED=false
+```
+
+When disabled globally, no `action_events` rows are created regardless of per-action settings.
+
+#### Per Action
+
+Disable logging for a specific action using `withoutActionEvents()`:
+
+```php
+PublishPosts::make()->withoutActionEvents()
+```
+
+This is useful for high-frequency or low-value actions that would clutter the audit log.
+
+#### Summary
+
+| Method | Scope | Effect |
+|--------|-------|--------|
+| `config(martis.action_events.enabled, true)` | Global | Disables all action logging |
+| `->withoutActionEvents()` | Per action | Disables logging for one action |
+| `config(martis.action_events.resource, true)` | Global | Hides ActionEvent from sidebar |
 
 ---
 

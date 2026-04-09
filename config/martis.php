@@ -230,4 +230,19 @@ return [
         'allowed_disks' => ['public', 'local'],
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
     ],
+    /*
+    |--------------------------------------------------------------------------
+    | Action Events (Audit Log)
+    |--------------------------------------------------------------------------
+    | Configure the built-in action event logging system.
+    |
+    | enabled  - When false, no action events are recorded to the database.
+    |            Individual actions can still opt out via withoutActionEvents().
+    | resource - When true, the ActionEvent resource is registered in the admin
+    |            panel sidebar so users can browse the audit log.
+    */
+    'action_events' => [
+        'enabled' => (bool) env('MARTIS_ACTION_EVENTS_ENABLED', true),
+        'resource' => (bool) env('MARTIS_ACTION_EVENTS_RESOURCE', true),
+    ],
 ];

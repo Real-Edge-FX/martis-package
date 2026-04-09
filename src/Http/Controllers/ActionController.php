@@ -199,7 +199,7 @@ class ActionController extends MartisController
                 $result = $actionInstance->handle($fields, $models);
             }
 
-            if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents()) {
+            if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
                 $this->logActionEvent($actionInstance, $models, $request, 'completed');
             }
 
@@ -225,7 +225,7 @@ class ActionController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents()) {
+            if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
                 $this->logActionEvent($actionInstance, $models, $request, 'failed', $e->getMessage());
             }
 
@@ -362,7 +362,7 @@ class ActionController extends MartisController
 
         dispatch($job);
 
-        if ($action->shouldLogEvents()) {
+        if ($action->shouldLogEvents() && config('martis.action_events.enabled', true)) {
             $this->logActionEvent($action, $models, $request, 'queued');
         }
 
