@@ -273,6 +273,12 @@ public function actions(Request $request): array
 
 For heavy operations (sending emails, generating reports, processing large datasets), implement `ShouldQueue` on the action class. The action dispatches as a real Laravel job and returns immediately to the user with a "queued" toast.
 
+**When to use queued actions:**
+- Converting 200 records to PDF — synchronous would block the HTTP response for minutes
+- Sending bulk emails — external API calls add up quickly
+- Processing large datasets — CSV/Excel exports of thousands of records
+- Any operation that takes more than a few seconds per record
+
 ### Defining a Queued Action
 
 ```php
@@ -332,6 +338,79 @@ public function actions(Request $request): array
             ->confirmText('This will send an email to all selected subscribers.'),
     ];
 }
+```
+
+### Real-World Example: Convert Records to PDF
+
+If you need to convert 200 records to PDF, this is a **queued action**:
+
+```php
+<?php
+
+namespace App\Martis\Actions;
+
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Fields\Select;
+use Martis\Fields\Text;
+
+class GenerateReportPdf extends Action implements ShouldQueue
+{
+    public ?string $name = 'Generate PDF Report';
+
+    public string $connection = 'redis';
+    public string $queue = 'default';
+
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        $paperSize = $fields->paper_size ?? 'a4';
+        $title = $fields->report_title ?? 'Report';
+
+        foreach ($models as $model) {
+            // Use any PDF library (DomPDF, Snappy, Browsershot, etc.)
+            // Pdf::loadView('reports.record', ['record' => $model])
+            //     ->setPaper($paperSize)
+            //     ->save(storage_path("app/reports/{$model->getKey()}.pdf"));
+        }
+
+        return ActionResponse::message(
+            $models->count() . ' PDF report(s) generated successfully.'
+        );
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('report_title', 'Report Title')
+                ->default('Monthly Report')
+                ->nullable(),
+            Select::make('paper_size', 'Paper Size')
+                ->options(['A4' => 'a4', 'Letter' => 'letter', 'Legal' => 'legal'])
+                ->default('a4'),
+        ];
+    }
+}
+```
+
+**What happens when the user selects 200 records and runs this action:**
+
+1. HTTP request arrives at `ActionController::execute()`
+2. Controller detects `ShouldQueue` interface on the action class
+3. An `ExecuteAction` job is dispatched to the queue
+4. 200 `ActionEvent` records are created with `status = "queued"` (all sharing the same `batch_id`)
+5. HTTP response returns immediately: `"Action has been queued for processing."`
+6. The queue worker picks up the job and calls `handle()` with all 200 models
+7. After processing, `ActionEvent` records update to `status = "completed"` (or `"failed"`)
+
+**Testing locally:**
+
+```bash
+php artisan queue:work          # Run the worker continuously
+php artisan queue:work --once   # Process a single job and exit
 ```
 
 ### Behavior
@@ -589,6 +668,32 @@ php artisan migrate
 | `updated_at` | `timestamp` | Last update time |
 
 > **Per-model logging:** Bulk actions create one event per model, all sharing the same `batch_id`. The `original` and `changes` columns capture only the attributes that actually changed — not the full model snapshot.
+
+### Understanding batch_id
+
+The `batch_id` is a UUID generated **for every action execution**, not just for queued/batch actions. It serves as a **grouping identifier** that links all `ActionEvent` records created from a single action run.
+
+**Why does every action have a batch_id?**
+
+When a user selects 5 posts and runs "Publish Posts", Martis creates **5 separate `ActionEvent` records** — one per model. All 5 records share the same `batch_id` UUID, allowing you to:
+
+- Query all models affected by a single execution: `ActionEvent::forBatch($uuid)->get()`
+- Count how many records were processed in one run
+- Reconstruct the full audit trail of a bulk operation
+
+The name "batch" refers to **"a batch of models processed in one execution"**, not to "batch processing" or "queued actions". Even a single-record inline action gets a `batch_id` — it just happens to be the only record with that UUID.
+
+| Scenario | Records selected | ActionEvent rows | batch_id |
+|----------|-----------------|------------------|----------|
+| Inline action on 1 record | 1 | 1 | Single UUID |
+| Bulk action on 5 records | 5 | 5 | Same UUID shared by all 5 |
+| Standalone action (no records) | 0 | 1 (null model fields) | Single UUID |
+| Queued action on 10 records | 10 | 10 (status=`queued`) | Same UUID shared by all 10 |
+
+**Important distinction:**
+- `batch_id` = grouping UUID for audit log (present on ALL actions)
+- Queued action = action that implements `ShouldQueue` and runs in the background
+- These are independent concepts. A queued action also uses `batch_id` for the same grouping purpose.
 
 ### ActionEvent Model
 
