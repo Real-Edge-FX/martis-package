@@ -167,6 +167,15 @@ interface ResourceContract
     /** Return the default number of items per page. */
     public static function perPage(): int;
 
+    /** Return the default sort column for the index listing, or null for no default. */
+    public static function defaultSort(): ?string;
+
+    /** Return the default sort direction for the index listing ('asc' or 'desc'). */
+    public static function defaultSortDirection(): string;
+
+    /** Determine whether this resource should appear in the navigation menu. */
+    public static function displayInNavigation(): bool;
+
     /** Return a custom search placeholder, or null for the i18n default. */
     public static function searchPlaceholder(): ?string;
 

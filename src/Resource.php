@@ -151,6 +151,28 @@ abstract class Resource implements ResourceContract
         return 25;
     }
 
+    /**
+     * Return the default sort column for the index listing.
+     *
+     * Override in concrete resources to sort by a specific column on load.
+     *
+     * Nova v5 parity: public static $defaultSort.
+     */
+    public static function defaultSort(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Return the default sort direction for the index listing.
+     *
+     * Nova v5 parity: public static $defaultSortDirection.
+     */
+    public static function defaultSortDirection(): string
+    {
+        return 'asc';
+    }
+
     /** {@inheritDoc} */
     public static function searchPlaceholder(): ?string
     {
@@ -830,6 +852,22 @@ abstract class Resource implements ResourceContract
     public function group(): ?string
     {
         return null;
+    }
+
+    /**
+     * Determine whether this resource should appear in the navigation menu.
+     *
+     * Override in concrete resources to hide them from the sidebar:
+     *   public static function displayInNavigation(): bool
+     *   {
+     *       return false;
+     *   }
+     *
+     * Nova v5 parity: public static $displayInNavigation.
+     */
+    public static function displayInNavigation(): bool
+    {
+        return true;
     }
 
     // -------------------------------------------------------------------------

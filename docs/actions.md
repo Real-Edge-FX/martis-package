@@ -350,10 +350,10 @@ Fields let you collect user input inside the confirmation modal before the actio
 
 ```php
 use Illuminate\Http\Request;
+use Martis\Fields\Boolean;
 use Martis\Fields\Select;
 use Martis\Fields\Text;
 use Martis\Fields\Textarea;
-use Martis\Fields\Toggle;
 
 public function fields(Request $request): array
 {
@@ -372,7 +372,7 @@ public function fields(Request $request): array
 
         Textarea::make('message', 'Message'),
 
-        Toggle::make('notify', 'Notify users')->default(false),
+        Boolean::make('notify', 'Notify users')->default(false),
     ];
 }
 ```
@@ -555,7 +555,14 @@ class PostResource extends Resource
 
 ## Action Events (Audit Log)
 
-Every action execution is logged to `action_events` automatically. Each record contains:
+Every action execution is logged to `action_events` automatically. Publish the migration to create the table:
+
+```bash
+php artisan vendor:publish --tag=martis-migrations
+php artisan migrate
+```
+
+Each record contains:
 
 | Column | Description |
 |--------|-------------|
@@ -576,7 +583,7 @@ PublishPosts::make()->withoutActionEvents()
 Query action history via the `Actionable` trait:
 
 ```php
-use Martis\Actions\Actionable;
+use Martis\Concerns\Actionable;
 
 class Post extends Model
 {

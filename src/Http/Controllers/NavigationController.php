@@ -48,6 +48,10 @@ class NavigationController extends MartisController
         foreach ($this->registry->list() as $resourceClass) {
             $instance = new $resourceClass;
 
+            if (! $resourceClass::displayInNavigation()) {
+                continue;
+            }
+
             if (! $instance->authorizedToViewAny($request)) {
                 continue;
             }

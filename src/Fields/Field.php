@@ -99,6 +99,12 @@ abstract class Field implements FieldContract
 
     protected ?string $placeholder = null;
 
+    protected ?string $helpText = null;
+
+    protected mixed $defaultValue = null;
+
+    protected bool $hasDefault = false;
+
     protected function __construct(
         protected readonly string $attribute,
         protected readonly string $label,
@@ -228,6 +234,27 @@ abstract class Field implements FieldContract
     public function placeholder(string $text): static
     {
         $this->placeholder = $text;
+
+        return $this;
+    }
+
+    /**
+     * Set help text displayed below the field input.
+     */
+    public function help(string $text): static
+    {
+        $this->helpText = $text;
+
+        return $this;
+    }
+
+    /**
+     * Set a default value for the field on create forms.
+     */
+    public function default(mixed $value): static
+    {
+        $this->defaultValue = $value;
+        $this->hasDefault = true;
 
         return $this;
     }

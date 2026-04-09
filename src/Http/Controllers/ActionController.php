@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -18,6 +17,7 @@ use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -383,7 +383,7 @@ class ActionController extends MartisController
             /** @var Model|null $firstModel */
             $firstModel = $models->first();
 
-            DB::table('action_events')->insert([
+            ActionEvent::create([
                 'batch_id' => (string) Str::uuid(),
                 'user_id' => $request->user()?->getAuthIdentifier(),
                 'name' => $action->name(),
@@ -393,13 +393,11 @@ class ActionController extends MartisController
                 'target_id' => $models->count() === 1 ? $firstModel?->getKey() : null,
                 'model_type' => $firstModel !== null ? get_class($firstModel) : null,
                 'model_id' => $models->count() === 1 ? $firstModel?->getKey() : null,
-                'fields' => json_encode($request->input('fields', [])),
+                'fields' => $request->input('fields', []),
                 'status' => $status,
                 'exception' => $exception ?? '',
                 'original' => '{}',
                 'changes' => '{}',
-                'created_at' => now(),
-                'updated_at' => now(),
             ]);
         } catch (\Throwable $e) {
             Log::warning('Failed to log action event', ['error' => $e->getMessage()]);

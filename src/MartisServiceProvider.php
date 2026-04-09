@@ -69,6 +69,10 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../resources/lang' => $this->app->langPath('vendor/martis'),
             ], 'martis-lang');
+
+            $this->publishes([
+                __DIR__.'/../database/migrations/create_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_action_events_table.php'),
+            ], 'martis-migrations');
         }
     }
 

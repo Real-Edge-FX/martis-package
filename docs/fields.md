@@ -136,6 +136,8 @@ Text::make('first_name', 'First Name') // explicit label
 | `readonly` | `readonly(): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. |
 | `required` | `required(): static` | `$this` | Require a non-null value (adds `required` validation rule). |
 | `placeholder` | `placeholder(string $text): static` | `$this` | Set placeholder text for the input. |
+| `help` | `help(string $text): static` | `$this` | Set help text displayed below the field input. |
+| `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. |
 
 ### Visibility
 

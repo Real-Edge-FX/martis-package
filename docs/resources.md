@@ -139,6 +139,19 @@ public function group(): ?string
 }
 ```
 
+### displayInNavigation()
+
+Controls whether the resource appears in the navigation menu. Override to `false` to hide a resource from the sidebar while keeping it accessible via direct URL.
+
+```php
+public static function displayInNavigation(): bool
+{
+    return false; // Hidden from sidebar, still accessible via URL
+}
+```
+
+Use this for internal resources (e.g., `ActionEventResource`) that should not clutter the main navigation.
+
 ### perPageOptions()
 
 Configures the "per page" dropdown on the index page.
@@ -150,28 +163,28 @@ public function perPageOptions(): array
 }
 ```
 
-### defaultPerPage()
+### perPage()
 
-Sets the initial number of records shown per page.
+Sets the default number of records shown per page. Defaults to the first value in `perPageOptions()`.
 
 ```php
-public function defaultPerPage(): int
+public static function perPage(): int
 {
-    return 25; // default: 15
+    return 25; // default: first item of perPageOptions()
 }
 ```
 
 ### defaultSort() / defaultSortDirection()
 
-Sets the initial sort column and direction on the index page.
+Sets the initial sort column and direction on the index page. Returns `null` (default) for no default sorting.
 
 ```php
-public function defaultSort(): string
+public static function defaultSort(): ?string
 {
     return 'created_at';
 }
 
-public function defaultSortDirection(): string
+public static function defaultSortDirection(): string
 {
     return 'desc'; // 'asc' or 'desc'
 }
@@ -186,54 +199,31 @@ Configure the appearance of the index table.
 ```php
 public function tableStriped(): bool      { return true; }      // Alternating row colors
 public function tableShowGridlines(): bool { return false; }     // Cell borders
-public function tableSize(): string        { return 'normal'; }  // 'small', 'normal', 'large'
+public static function tableSize(): TableSize { return TableSize::Normal; } // Small, Normal, Large
 public function tableRowHover(): bool      { return true; }      // Highlight on hover
 ```
 
 ## Validation
 
-### validationRules()
-
-Define validation rules applied during create and update operations.
+Validation in Martis is **field-level** — each field declares its own rules using `rules()`, `required()`, `nullable()`, and `unique()`. The `ResourceController` automatically collects and validates all field rules on create and update.
 
 ```php
-public function validationRules(Request $request): array
-{
-    return [
-        'title' => ['required', 'string', 'max:255'],
-        'email' => ['required', 'email', 'unique:users,email'],
-    ];
-}
+// Validation is set on each field directly:
+Text::make('title')->required()->rules(['string', 'max:255']),
+Email::make('email')->required()->unique(['users', 'email'], 'This email is already in use.'),
+Password::make('password')->required()->rules(['min:8']),
 ```
 
-### creationValidationRules() / updateValidationRules()
-
-Override validation rules for specific operations:
-
-```php
-public function creationValidationRules(Request $request): array
-{
-    return [
-        'password' => ['required', 'min:8'],
-    ];
-}
-
-public function updateValidationRules(Request $request): array
-{
-    return [
-        'password' => ['nullable', 'min:8'],
-    ];
-}
-```
+See the [Fields Reference](fields.md) for all validation methods available on fields.
 
 ### errorDisplay()
 
 Controls how validation errors are shown in the frontend.
 
 ```php
-public function errorDisplay(): string
+public static function errorDisplay(): ErrorDisplayMode
 {
-    return 'inline'; // 'inline' (under each field) or 'toast' (notification popup)
+    return ErrorDisplayMode::Inline; // Inline, Toast, or Both
 }
 ```
 
@@ -563,9 +553,9 @@ class PostResource extends Resource
     public static function subtitle(): ?string { return 'Blog posts and articles'; }
     public function icon(): string { return 'newspaper'; }
     public function group(): ?string { return 'Content'; }
-    public function perPageOptions(): array { return [10, 25, 50]; }
-    public function defaultSort(): string { return 'created_at'; }
-    public function defaultSortDirection(): string { return 'desc'; }
+    public static function perPageOptions(): array { return [10, 25, 50]; }
+    public static function defaultSort(): ?string { return 'created_at'; }
+    public static function defaultSortDirection(): string { return 'desc'; }
 
     public function fields(Request $request): array
     {

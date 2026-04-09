@@ -9,10 +9,10 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
+use Martis\Models\ActionEvent;
 
 /**
  * Job for executing queued actions.
@@ -79,15 +79,13 @@ class ExecuteAction implements ShouldQueue
     private function updateActionStatus(string $status, ?string $exception = null): void
     {
         try {
-            DB::table('action_events')
-                ->where('name', (new $this->actionClass)->name())
+            ActionEvent::where('name', (new $this->actionClass)->name())
                 ->where('status', 'queued')
                 ->orderByDesc('created_at')
                 ->limit(1)
                 ->update([
                     'status' => $status,
                     'exception' => $exception ?? '',
-                    'updated_at' => now(),
                 ]);
         } catch (\Throwable $e) {
             Log::warning('Failed to update action event status', ['error' => $e->getMessage()]);
