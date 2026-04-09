@@ -174,6 +174,18 @@ interface ActionContract
     /** Get the icon name. */
     public function getIcon(): ?string;
 
+    /** Hide the icon entirely — the menu item shows label only. */
+    public function withoutIcon(): static;
+
+    /** Whether an icon should be rendered for this action. */
+    public function isShowingIcon(): bool;
+
+    /** Set a CSS color for the icon (e.g. "#dc2626", "var(--martis-danger)"). */
+    public function iconColor(string $color): static;
+
+    /** Get the icon color. */
+    public function getIconColor(): ?string;
+
     /** Set the menu group for this action (dot-notation for submenus). */
     public function group(string $group): static;
 

@@ -495,6 +495,27 @@ SendNewsletterToSubscribers::make()->icon('envelope')
 ApproveComment::make()->icon('check-circle')
 ```
 
+### Hiding the icon
+
+Use `withoutIcon()` to show the label only — no icon is rendered anywhere.
+
+```php
+// Menu item shows text only, no icon
+Action::using('Export CSV', fn ($f, $m) => ...)->withoutIcon()
+```
+
+### Icon color
+
+Use `iconColor()` to apply a custom CSS color to the icon. Accepts any valid CSS color value, including `var()` references.
+
+```php
+// Red icon for dangerous operations
+DeleteSelectedPosts::make()->icon('trash')->iconColor('#dc2626')
+
+// Custom color using a theme variable
+ApproveComment::make()->icon('check-circle')->iconColor('var(--martis-success)')
+```
+
 ---
 
 ## Menu Grouping

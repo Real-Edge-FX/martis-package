@@ -15,6 +15,8 @@ export interface ActionMeta {
   uriKey: string
   name: string
   icon: string | null
+  showIcon: boolean
+  iconColor: string | null
   group: string | null
   destructive: boolean
   showOnIndex: boolean

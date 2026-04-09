@@ -72,13 +72,15 @@ function isGroup(item: ActionMeta | ActionGroup): item is ActionGroup {
 }
 
 function ActionIcon({ action, size = 16 }: { action: ActionMeta; size?: number }) {
+  if (!action.showIcon) return null
+  const color = action.iconColor ?? undefined
   if (action.icon) {
-    return <ResourceIcon iconName={action.icon} size={size} />
+    return <ResourceIcon iconName={action.icon} size={size} color={color} />
   }
   if (action.destructive) {
-    return <Warning size={size} weight="fill" />
+    return <Warning size={size} weight="fill" color={color} />
   }
-  return <Lightning size={size} />
+  return <Lightning size={size} color={color} />
 }
 
 function computeSubMenuPos(parentRect: DOMRect): { top: number; left: number } {

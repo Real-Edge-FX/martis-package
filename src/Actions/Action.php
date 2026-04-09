@@ -31,6 +31,12 @@ class Action implements ActionContract
     /** Phosphor icon name (e.g. "trash", "envelope", "arrow-right"). */
     protected ?string $icon = null;
 
+    /** Whether to show an icon on this action. When false, no icon is rendered. */
+    protected bool $showIcon = true;
+
+    /** CSS color for the icon (e.g. "#dc2626", "var(--martis-accent)"). */
+    protected ?string $iconColor = null;
+
     /** Action group for menu organisation. Supports dot-notation for submenus (e.g. "Export.CSV"). */
     protected ?string $group = null;
 
@@ -526,6 +532,34 @@ class Action implements ActionContract
         return $this->icon;
     }
 
+    /** Hide the icon entirely — the menu item shows label only. */
+    public function withoutIcon(): static
+    {
+        $this->showIcon = false;
+
+        return $this;
+    }
+
+    /** Whether an icon should be rendered for this action. */
+    public function isShowingIcon(): bool
+    {
+        return $this->showIcon;
+    }
+
+    /** Set a CSS color for the icon (e.g. "#dc2626", "var(--martis-danger)"). */
+    public function iconColor(string $color): static
+    {
+        $this->iconColor = $color;
+
+        return $this;
+    }
+
+    /** Get the icon color. */
+    public function getIconColor(): ?string
+    {
+        return $this->iconColor;
+    }
+
     /**
      * Set the menu group for this action.
      * Use dot-notation for submenus: "Export.CSV", "Notifications.Email".
@@ -593,6 +627,8 @@ class Action implements ActionContract
             'uriKey' => $this->uriKey(),
             'name' => $this->name(),
             'icon' => $this->icon,
+            'showIcon' => $this->showIcon,
+            'iconColor' => $this->iconColor,
             'group' => $this->group,
             'destructive' => $this->isDestructive(),
             'showOnIndex' => $this->showOnIndex,

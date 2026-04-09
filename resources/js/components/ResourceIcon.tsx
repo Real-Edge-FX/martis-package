@@ -83,9 +83,10 @@ interface ResourceIconProps {
   size?: number
   className?: string
   weight?: IconProps["weight"]
+  color?: string
 }
 
-export function ResourceIcon({ iconName, size, className, weight }: ResourceIconProps) {
+export function ResourceIcon({ iconName, size, className, weight, color }: ResourceIconProps) {
   const Icon = resolveIcon(iconName ?? "database")
-  return <Icon size={size} className={className} weight={weight} />
+  return <Icon size={size} className={className} weight={weight} color={color} />
 }

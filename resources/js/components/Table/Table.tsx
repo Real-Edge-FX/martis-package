@@ -181,7 +181,7 @@ function InlineSubMenu({
             onMouseEnter={e => { if (!isDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
           >
-            {child.icon ? <ResourceIcon iconName={child.icon} size={16} /> : child.destructive ? <Warning size={16} weight="fill" /> : <Lightning size={16} />}
+            {child.showIcon !== false && (child.icon ? <ResourceIcon iconName={child.icon} size={16} color={child.iconColor ?? undefined} /> : child.destructive ? <Warning size={16} weight="fill" color={child.iconColor ?? undefined} /> : <Lightning size={16} color={child.iconColor ?? undefined} />)}
             <span>{child.name}</span>
           </button>
         )
@@ -284,7 +284,7 @@ function InlineActionMenu({
                 onMouseEnter={e => { if (!isItemDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
               >
-                {item.icon ? <ResourceIcon iconName={item.icon} size={16} /> : item.destructive ? <Warning size={16} weight="fill" /> : <Lightning size={16} />}
+                {item.showIcon !== false && (item.icon ? <ResourceIcon iconName={item.icon} size={16} color={item.iconColor ?? undefined} /> : item.destructive ? <Warning size={16} weight="fill" color={item.iconColor ?? undefined} /> : <Lightning size={16} color={item.iconColor ?? undefined} />)}
                 <span>{item.name}</span>
               </button>
             )
@@ -467,7 +467,7 @@ function DefaultTable({
                       data-pr-tooltip={action.name}
                       data-pr-position="top"
                     >
-                      {action.icon ? <ResourceIcon iconName={action.icon} size={18} /> : action.destructive ? <Warning size={18} weight="fill" /> : <Lightning size={18} />}
+                      {action.showIcon !== false && (action.icon ? <ResourceIcon iconName={action.icon} size={18} color={action.iconColor ?? undefined} /> : action.destructive ? <Warning size={18} weight="fill" color={action.iconColor ?? undefined} /> : <Lightning size={18} color={action.iconColor ?? undefined} />)}
                     </button>
                   )
                 })}

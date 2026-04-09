@@ -187,7 +187,7 @@ class ActionTest extends TestCase
         $json = $action->jsonSerialize();
 
         $expectedKeys = [
-            'uriKey', 'name', 'icon', 'group', 'destructive', 'showOnIndex', 'showOnDetail',
+            'uriKey', 'name', 'icon', 'showIcon', 'iconColor', 'group', 'destructive', 'showOnIndex', 'showOnDetail',
             'showInline', 'executionMode', 'standalone', 'sole', 'queued',
             'withConfirmation', 'confirmText', 'confirmButtonText',
             'cancelButtonText', 'modalSize', 'supportsDryRun',
@@ -310,6 +310,74 @@ class ActionTest extends TestCase
         $action = TestableAction::make()->group('Notifications.Email');
         $json = $action->jsonSerialize();
         $this->assertEquals('Notifications.Email', $json['group']);
+    }
+
+    // -------------------------------------------------------------------------
+    // withoutIcon and iconColor tests
+    // -------------------------------------------------------------------------
+
+    public function test_show_icon_default_true(): void
+    {
+        $action = TestableAction::make();
+        $json = $action->jsonSerialize();
+        $this->assertTrue($json['showIcon']);
+        $this->assertNull($json['iconColor']);
+    }
+
+    public function test_without_icon_serialization(): void
+    {
+        $action = TestableAction::make()->withoutIcon();
+        $json = $action->jsonSerialize();
+        $this->assertFalse($json['showIcon']);
+    }
+
+    public function test_without_icon_does_not_affect_icon_name(): void
+    {
+        $action = TestableAction::make()->icon('trash')->withoutIcon();
+        $json = $action->jsonSerialize();
+        $this->assertEquals('trash', $json['icon']);
+        $this->assertFalse($json['showIcon']);
+    }
+
+    public function test_icon_color_serialization(): void
+    {
+        $action = TestableAction::make()->iconColor('#dc2626');
+        $json = $action->jsonSerialize();
+        $this->assertEquals('#dc2626', $json['iconColor']);
+    }
+
+    public function test_icon_color_with_css_variable(): void
+    {
+        $action = TestableAction::make()->iconColor('var(--martis-danger)');
+        $json = $action->jsonSerialize();
+        $this->assertEquals('var(--martis-danger)', $json['iconColor']);
+    }
+
+    public function test_without_icon_and_icon_color_combined(): void
+    {
+        $action = TestableAction::make()->icon('trash')->iconColor('#dc2626')->withoutIcon();
+        $json = $action->jsonSerialize();
+        $this->assertFalse($json['showIcon']);
+        $this->assertEquals('#dc2626', $json['iconColor']);
+        $this->assertEquals('trash', $json['icon']);
+    }
+
+    public function test_is_showing_icon_method(): void
+    {
+        $action = TestableAction::make();
+        $this->assertTrue($action->isShowingIcon());
+
+        $action->withoutIcon();
+        $this->assertFalse($action->isShowingIcon());
+    }
+
+    public function test_get_icon_color_method(): void
+    {
+        $action = TestableAction::make();
+        $this->assertNull($action->getIconColor());
+
+        $action->iconColor('#ff0000');
+        $this->assertEquals('#ff0000', $action->getIconColor());
     }
 }
 

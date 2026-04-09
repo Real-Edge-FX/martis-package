@@ -9,6 +9,8 @@ interface ActionMeta {
   uriKey: string
   name: string
   icon: string | null
+  showIcon: boolean
+  iconColor: string | null
   group: string | null
   destructive: boolean
   showOnIndex: boolean
@@ -34,6 +36,8 @@ function makeAction(overrides: Partial<ActionMeta> = {}): ActionMeta {
     uriKey: 'test-action',
     name: 'Test Action',
     icon: null,
+    showIcon: true,
+    iconColor: null,
     group: null,
     destructive: false,
     showOnIndex: true,
@@ -304,5 +308,64 @@ describe('Action confirmation customization', () => {
   it('supports modal size', () => {
     expect(makeAction({ modalSize: 'lg' }).modalSize).toBe('lg')
     expect(makeAction({ modalSize: 'fullscreen' }).modalSize).toBe('fullscreen')
+  })
+})
+
+
+// ---------------------------------------------------------------------------
+// Custom component action metadata
+// ---------------------------------------------------------------------------
+
+describe("Custom component action", () => {
+  it("carries customComponent key and props", () => {
+    const action = makeAction({
+      customComponent: "demo-custom-action",
+      customComponentProps: { greeting: "Pick an option:", options: ["A", "B", "C"] },
+    })
+    expect(action.customComponent).toBe("demo-custom-action")
+    expect(action.customComponentProps).toEqual({
+      greeting: "Pick an option:",
+      options: ["A", "B", "C"],
+    })
+  })
+
+  it("defaults to null customComponent", () => {
+    const action = makeAction()
+    expect(action.customComponent).toBeNull()
+    expect(action.customComponentProps).toEqual({})
+  })
+
+  it("custom component inline action has showInline true", () => {
+    const action = makeAction({
+      customComponent: "demo-custom-action",
+      customComponentProps: { greeting: "Select:", options: ["Approve", "Review", "Reject"] },
+      showInline: true,
+    })
+    expect(action.showInline).toBe(true)
+    expect(action.customComponent).toBe("demo-custom-action")
+  })
+
+  it("needsConfirmation is true when customComponent is set even if withConfirmation is false", () => {
+    // Mirror the ActionModal needsConfirmation logic:
+    // const needsConfirmation = action.withConfirmation || hasFields || !!action.customComponent
+    const action = makeAction({
+      withConfirmation: false,
+      customComponent: "demo-custom-action",
+      customComponentProps: {},
+    })
+    const hasFields = false
+    const needsConfirmation = action.withConfirmation || hasFields || !!action.customComponent
+    expect(needsConfirmation).toBe(true)
+  })
+
+  it("needsConfirmation is false when all three conditions are false", () => {
+    const action = makeAction({
+      withConfirmation: false,
+      customComponent: null,
+      customComponentProps: {},
+    })
+    const hasFields = false
+    const needsConfirmation = action.withConfirmation || hasFields || !!action.customComponent
+    expect(needsConfirmation).toBe(false)
   })
 })
