@@ -287,7 +287,7 @@ export function ResourceIndexPage() {
       </div>
 
       {/* Bulk action bar — shown when items are selected (not for inline action temp selection) */}
-      {selectedIds.size > 0 && !inlineActionRef.current && indexActions.length > 0 && (() => {
+      {selectedIds.size > 0 && indexActions.length > 0 && (() => {
         // Compute disabled actions: action is disabled if ALL selected rows canRun=false (REA-1102)
         const selectedRows = rows.filter(r => selectedIds.has(r.id))
         const bulkDisabledActions = new Set<string>()
