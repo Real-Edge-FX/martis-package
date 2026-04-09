@@ -1,6 +1,6 @@
 # Actions
 
-> Last updated: 2026-04-09 (REA-1184 — Actions documentation overhaul)
+> Last updated: 2026-04-09
 
 ## Overview
 

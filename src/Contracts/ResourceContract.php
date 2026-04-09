@@ -125,7 +125,7 @@ interface ResourceContract
     public function fieldsForPreview(Request $request): array;
 
     // -------------------------------------------------------------------------
-    // Query hooks — Nova v5 parity (REA-1144)
+    // Query hooks — Nova v5 parity
     // -------------------------------------------------------------------------
 
     /**
@@ -209,7 +209,7 @@ interface ResourceContract
     public static function bulkActionsMenuLabel(): ?string;
 
     // -------------------------------------------------------------------------
-    // Authorization — Nova v5 parity (REA-1115)
+    // Authorization — Nova v5 parity
     // -------------------------------------------------------------------------
 
     /** Whether authorization checks are enabled for this resource. */
@@ -251,7 +251,7 @@ interface ResourceContract
     public function authorizedToRunDestructiveAction(Request $request): bool;
 
     // -------------------------------------------------------------------------
-    // Relational authorization — Nova v5 parity (REA-1144)
+    // Relational authorization — Nova v5 parity
     // -------------------------------------------------------------------------
 
     /**
@@ -336,7 +336,7 @@ interface ResourceContract
     public static function validationMessage(): string;
 
     // -------------------------------------------------------------------------
-    // Scout integration — Nova v5 parity (REA-1157)
+    // Scout integration — Nova v5 parity
     // -------------------------------------------------------------------------
 
     /**

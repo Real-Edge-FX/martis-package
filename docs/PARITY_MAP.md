@@ -20,11 +20,11 @@
 | Resource System | Resources with Model binding | Resource class + model() | DONE | Block 3 |
 | Resource Discovery | Auto-discovery | ResourceDiscovery + ServiceProvider | DONE | Block 3 |
 | Resource Hooks | beforeSave/afterSave etc | Event dispatching hooks | DONE | Block 3 |
-| Resource Groups | Sidebar grouping | group() method | DONE | REA-1140 |
-| Resource Subtitle | Description line | subtitle() static method | DONE | REA-1140 |
-| Resource Title | Dynamic record title | titleAttribute() | DONE | REA-1140 |
-| Resource Icons | Sidebar icons | icon() + Phosphor Icons | DONE | REA-1140 |
-| Custom Messages | CRUD notification messages | createdMessage() etc | DONE | REA-1140 |
+| Resource Groups | Sidebar grouping | group() method | DONE | — |
+| Resource Subtitle | Description line | subtitle() static method | DONE | — |
+| Resource Title | Dynamic record title | titleAttribute() | DONE | — |
+| Resource Icons | Sidebar icons | icon() + Phosphor Icons | DONE | — |
+| Custom Messages | CRUD notification messages | createdMessage() etc | DONE | — |
 | Contracts/Interfaces | — | FieldContract, ResourceContract | DONE | Extensibility |
 
 ---
@@ -39,16 +39,16 @@
 | Boolean | Boolean/Toggle | Boolean::make() + trueLabel/falseLabel | DONE | Block 4 |
 | Select | Select dropdown | Select::make() + options() | DONE | Block 4 |
 | Date | Date picker | Date::make() | DONE | Block 4 |
-| DateTime | Date + time picker | DateTime::make() | DONE | REA-1140 |
+| DateTime | Date + time picker | DateTime::make() | DONE | — |
 | BelongsTo | Belongs To | BelongsTo::make() + relatable endpoint | DONE | Block 4+8 |
 | HasMany | Has Many | HasMany::make() + inline CRUD | DONE | Inline DataTable |
-| Email | Email field | Email::make() + format validation | DONE | REA-1140 |
-| Password | Password field | Password::make() + masked | DONE | REA-1140 |
-| ID | ID display | Id::make() | DONE | REA-1140 |
-| Hidden | Hidden field | Hidden::make() | DONE | REA-1140 |
-| Heading | Section divider | Heading::make() + content() | DONE | REA-1140 |
-| File | File upload | File::make() + disk/path/types/maxSize | DONE | REA-1140 |
-| Image | Image upload | Image::make() + thumbnail/disk | DONE | REA-1140 |
+| Email | Email field | Email::make() + format validation | DONE | — |
+| Password | Password field | Password::make() + masked | DONE | — |
+| ID | ID display | Id::make() | DONE | — |
+| Hidden | Hidden field | Hidden::make() | DONE | — |
+| Heading | Section divider | Heading::make() + content() | DONE | — |
+| File | File upload | File::make() + disk/path/types/maxSize | DONE | — |
+| Image | Image upload | Image::make() + thumbnail/disk | DONE | — |
 | Badge | Badge display | Badge::make() + colors | DONE | Extended |
 | Status | Status badge | Status::make() + colors | DONE | Extended |
 | Code | Code editor | Code::make() | DONE | Extended |
@@ -68,7 +68,7 @@
 | Field Sorting | Sortable columns | sortable() | DONE | Block 4 |
 | Field Search | Searchable fields | searchable() | DONE | Block 4 |
 | Field Component Override | Custom component key | ->component('key') | DONE | Block 9 |
-| Field Unique Validation | Unique validation | ->unique(['table','col'],'msg') | DONE | REA-1140 |
+| Field Unique Validation | Unique validation | ->unique(['table','col'],'msg') | DONE | — |
 | Column Span | Grid layout | colSpan/colSpanMd/colSpanLg | DONE | Extended |
 | Placeholder | Input placeholder | placeholder() | DONE | Extended |
 
@@ -87,7 +87,7 @@
 | BelongsTo Options | Relationship dropdown | /relatable/{field} endpoint | DONE | Block 4+8 |
 | HasMany API | Related records | /has-many/{relationship} endpoint | DONE | HasMany |
 | Validation Errors | Inline/toast | errorDisplay() configurable | DONE | Extended |
-| File Upload | Multipart form | FormData with file detection | DONE | REA-1140 |
+| File Upload | Multipart form | FormData with file detection | DONE | — |
 
 ---
 
@@ -104,10 +104,10 @@
 | Override System | Custom components | 4-tier componentRegistry | DONE | Block 9 |
 | Drawer Overrides | — | DrawerCreate/Update/Detail | DONE | Block 9 |
 | Layout Overrides | — | layoutRegistry + 3 presets | DONE | Block 9 |
-| i18n | Multiple languages | react-i18next + API translations | DONE | REA-1094 |
+| i18n | Multiple languages | react-i18next + API translations | DONE | — |
 | Dark/Light Theme | — | ThemeContext + CSS variables | DONE | Full support |
-| Phosphor Icons | — | 1,512 icons via icon() | DONE | REA-1140 |
-| File/Image Display | — | Upload preview + thumbnail | DONE | REA-1140 |
+| Phosphor Icons | — | 1,512 icons via icon() | DONE | — |
+| File/Image Display | — | Upload preview + thumbnail | DONE | — |
 | Global Search | — | GlobalSearch component | DONE | Top bar |
 | Toast Notifications | — | ToastContext + PrimeReact Toast | DONE | Extended |
 | Responsive Grid | — | colSpan/colSpanMd/colSpanLg | DONE | Extended |
@@ -138,7 +138,7 @@
 
 | Feature | Nova v5 | Status | Priority |
 |---------|---------|--------|----------|
-| Actions | Batch actions on records | DONE | REA-1102: Full system + icons, groups, tooltips, pivot, disabled states |
+| Actions | Batch actions on records | DONE |: Full system + icons, groups, tooltips, pivot, disabled states |
 | Filters | Column filters | TODO | High |
 | Lenses | Custom filtered views | TODO | Medium |
 | Metrics | Dashboard metric cards | TODO | High |
@@ -168,13 +168,13 @@
 
 ---
 
-## Authorization (Nova v5 Parity — REA-1115)
+## Authorization (Nova v5 Parity —)
 
 | Feature | Nova v5 | Martis | Status | Notes |
 |---------|---------|--------|--------|-------|
 | Policy Resolution | Gate + model policy | Explicit + auto-discovery + Gate | DONE | 4-level chain |
-| Resource Policy | static $policy | static $policy property | DONE | REA-1115 |
-| Auto-Discovery | Convention-based | {namespace}\{Resource}Policy | DONE | REA-1115 |
+| Resource Policy | static $policy | static $policy property | DONE | — |
+| Auto-Discovery | Convention-based | {namespace}\{Resource}Policy | DONE | — |
 | viewAny | Policy method | authorizedToViewAny() | DONE | Nav + index |
 | view | Policy method | authorizedToView() | DONE | Detail page |
 | create | Policy method | authorizedToCreate() | DONE | Create button |
@@ -189,58 +189,58 @@
 | attach{Model} | Relationship policy | authorizedToAttach() | DONE | Attach related |
 | attachAny{Model} | Relationship policy | authorizedToAttachAny() | DONE | Attach button |
 | detach{Model} | Relationship policy | authorizedToDetach() | DONE | Detach related |
-| authorizable() | Disable auth per resource | authorizable() | DONE | REA-1115 |
-| Field canSee | Field visibility callback | canSee() + canSeeWhen() | DONE | REA-1115 |
-| before() callback | Pre-check in policy | before() support | DONE | REA-1115 |
-| Auth Metadata | _authorization in responses | authorizationMetadata() | DONE | REA-1115 |
-| Frontend Enforcement | Button visibility | _authorization consumed | DONE | REA-1115 |
-| Policy Defaults | Missing method behavior | Nova v5 compatible matrix | DONE | REA-1115 |
+| authorizable() | Disable auth per resource | authorizable() | DONE | — |
+| Field canSee | Field visibility callback | canSee() + canSeeWhen() | DONE | — |
+| before() callback | Pre-check in policy | before() support | DONE | — |
+| Auth Metadata | _authorization in responses | authorizationMetadata() | DONE | — |
+| Frontend Enforcement | Button visibility | _authorization consumed | DONE | — |
+| Policy Defaults | Missing method behavior | Nova v5 compatible matrix | DONE | — |
 | Policy Generator | make:policy | martis:make-policy | DONE | Custom stub |
 
 
 ---
 
-## Actions System (Nova v5 Parity — REA-1102)
+## Actions System (Nova v5 Parity —)
 
 | Feature | Nova v5 | Martis | Status | Notes |
 |---------|---------|--------|--------|-------|
 | Action Base Class | Action | Action::make() | DONE | Full parity |
 | DestructiveAction | DestructiveAction | DestructiveAction::make() | DONE | Red UI + confirm |
-| handle() Contract | ActionFields + Collection | Same contract | DONE | REA-1102 |
-| Action Fields | fields(Request) | Same contract + Field reuse | DONE | REA-1102 |
-| ActionResponse | message/danger/redirect/visit | Full parity + emit/modal | DONE | REA-1102 |
-| Action Registration | actions(Request) | Same contract | DONE | REA-1102 |
-| canSee | Visibility callback | canSee(Closure) | DONE | REA-1102 |
-| canRun | Per-model authorization | canRun(Closure) | DONE | REA-1102 |
-| Policy Fallback | runAction/runDestructiveAction | 4-level chain | DONE | REA-1102 |
-| showOnIndex | Index visibility | showOnIndex() | DONE | REA-1102 |
-| showOnDetail | Detail visibility | showOnDetail() | DONE | REA-1102 |
-| showInline | Per-row buttons | showInline() | DONE | REA-1102 |
-| onlyOnIndex | Index only | onlyOnIndex() | DONE | REA-1102 |
-| onlyOnDetail | Detail only | onlyOnDetail() | DONE | REA-1102 |
-| onlyInline | Inline only | onlyInline() | DONE | REA-1102 |
-| exceptOnIndex | Hide from index | exceptOnIndex() | DONE | REA-1102 |
-| exceptOnDetail | Hide from detail | exceptOnDetail() | DONE | REA-1102 |
-| exceptInline | Hide from inline | exceptInline() | DONE | REA-1102 |
-| standalone() | No models required | standalone() | DONE | REA-1102 |
-| sole() | Exactly one model | sole() | DONE | REA-1102 |
-| Closure Actions | Action::using() | Action::using(name, fn) | DONE | REA-1102 |
-| Queued Actions | ShouldQueue | ShouldQueue trait | DONE | REA-1102 |
-| Queue Customization | connection/queue | Property-based config | DONE | REA-1102 |
-| Action Log | action_events table | DB logging + withoutActionEvents | DONE | REA-1102 |
-| markAsFinished | Queued status | markAsFinished($model) | DONE | REA-1102 |
-| markAsFailed | Queued error | markAsFailed($model, $e) | DONE | REA-1102 |
-| Confirm Text | confirmText() | confirmText() | DONE | REA-1102 |
-| Confirm Button | confirmButtonText() | confirmButtonText() | DONE | REA-1102 |
-| Cancel Button | cancelButtonText() | cancelButtonText() | DONE | REA-1102 |
-| Without Confirm | withoutConfirmation() | withoutConfirmation() | DONE | REA-1102 |
-| Modal Sizes | sm/md/lg/.../fullscreen | ModalSize enum + fullscreen | DONE | REA-1102 |
-| Pivot Actions | pivotAction() | pivotAction() + referToPivotAs() | DONE | REA-1102 |
-| then() Callback | Post-process callback | then(Closure) | DONE | REA-1102 |
+| handle() Contract | ActionFields + Collection | Same contract | DONE | — |
+| Action Fields | fields(Request) | Same contract + Field reuse | DONE | — |
+| ActionResponse | message/danger/redirect/visit | Full parity + emit/modal | DONE | — |
+| Action Registration | actions(Request) | Same contract | DONE | — |
+| canSee | Visibility callback | canSee(Closure) | DONE | — |
+| canRun | Per-model authorization | canRun(Closure) | DONE | — |
+| Policy Fallback | runAction/runDestructiveAction | 4-level chain | DONE | — |
+| showOnIndex | Index visibility | showOnIndex() | DONE | — |
+| showOnDetail | Detail visibility | showOnDetail() | DONE | — |
+| showInline | Per-row buttons | showInline() | DONE | — |
+| onlyOnIndex | Index only | onlyOnIndex() | DONE | — |
+| onlyOnDetail | Detail only | onlyOnDetail() | DONE | — |
+| onlyInline | Inline only | onlyInline() | DONE | — |
+| exceptOnIndex | Hide from index | exceptOnIndex() | DONE | — |
+| exceptOnDetail | Hide from detail | exceptOnDetail() | DONE | — |
+| exceptInline | Hide from inline | exceptInline() | DONE | — |
+| standalone() | No models required | standalone() | DONE | — |
+| sole() | Exactly one model | sole() | DONE | — |
+| Closure Actions | Action::using() | Action::using(name, fn) | DONE | — |
+| Queued Actions | ShouldQueue | ShouldQueue trait | DONE | — |
+| Queue Customization | connection/queue | Property-based config | DONE | — |
+| Action Log | action_events table | DB logging + withoutActionEvents | DONE | — |
+| markAsFinished | Queued status | markAsFinished($model) | DONE | — |
+| markAsFailed | Queued error | markAsFailed($model, $e) | DONE | — |
+| Confirm Text | confirmText() | confirmText() | DONE | — |
+| Confirm Button | confirmButtonText() | confirmButtonText() | DONE | — |
+| Cancel Button | cancelButtonText() | cancelButtonText() | DONE | — |
+| Without Confirm | withoutConfirmation() | withoutConfirmation() | DONE | — |
+| Modal Sizes | sm/md/lg/.../fullscreen | ModalSize enum + fullscreen | DONE | — |
+| Pivot Actions | pivotAction() | pivotAction() + referToPivotAs() | DONE | — |
+| then() Callback | Post-process callback | then(Closure) | DONE | — |
 | Action Icons | — | icon('phosphor-name') | DONE | Martis extension |
 | Action Groups | — | group('name') + dot-notation | DONE | Martis extension |
-| Artisan Command | nova:action | martis:action (--destructive) | DONE | REA-1102 |
-| Inline Multi-select | Bulk select | Checkbox column | DONE | REA-1102 |
+| Artisan Command | nova:action | martis:action (--destructive) | DONE | — |
+| Inline Multi-select | Bulk select | Checkbox column | DONE | — |
 | Disabled Actions | — | Visual disabled state for canRun | DONE | Martis extension |
 | PrimeReact Tooltips | — | Tooltip on all action buttons | DONE | Martis extension |
 

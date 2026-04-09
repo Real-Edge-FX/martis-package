@@ -204,7 +204,7 @@ interface FieldContract
     public function isSearchable(): bool;
 
     // -------------------------------------------------------------------------
-    // Authorization — field-level visibility (Nova v5 parity, REA-1115)
+    // Authorization — field-level visibility (Nova v5 parity)
     // -------------------------------------------------------------------------
 
     /**

@@ -224,7 +224,7 @@ class ActionTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // Authorization tests (REA-1102)
+    // Authorization tests
     // -------------------------------------------------------------------------
 
     public function test_can_run_callback_grants(): void
@@ -280,7 +280,7 @@ class ActionTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // Icon and group serialization tests (REA-1102)
+    // Icon and group serialization tests
     // -------------------------------------------------------------------------
 
     public function test_icon_serialization(): void

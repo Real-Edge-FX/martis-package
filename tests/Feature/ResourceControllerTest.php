@@ -426,7 +426,7 @@ it('schema route is registered', function () {
 });
 
 // ---------------------------------------------------------------------------
-// Schema endpoint — context-aware field arrays (REA-1106)
+// Schema endpoint — context-aware field arrays
 // ---------------------------------------------------------------------------
 
 it('schema returns all 6 contextual field arrays pre-filtered by backend', function () {

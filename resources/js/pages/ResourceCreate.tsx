@@ -33,7 +33,7 @@ export function ResourceCreatePage() {
     enabled: !!resource,
   })
 
-  // Fetch pre-fill data when replicating (Nova v5 parity — REA-1130)
+  // Fetch pre-fill data when replicating (Nova v5 parity)
   const replicateQuery = useQuery({
     queryKey: ['replicate', resource, fromResourceId],
     queryFn: () => api.get<{ data: { values: Record<string, unknown>; fromResourceId: string | number } }>(

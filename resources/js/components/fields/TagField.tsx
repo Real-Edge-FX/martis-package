@@ -114,7 +114,7 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
     }
   }, [])
 
-  // Get current resource context for relatable endpoint (REA-1144)
+  // Get current resource context for relatable endpoint
   const params = useParams<{ resource?: string; id?: string }>()
   const sourceResource = params.resource
   const sourceId = params.id ?? '_'
@@ -125,7 +125,7 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      // Always use relatable endpoint - applies query hooks server-side (REA-1144)
+      // Always use relatable endpoint - applies query hooks server-side
       const endpoint = sourceResource
         ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=30${searchParam}`
         : `/api/resources/_/_/relatable/${field.attribute}?per_page=30&related_resource=${relatedResource}${searchParam}`

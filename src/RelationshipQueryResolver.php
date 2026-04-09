@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
 
 /**
- * Central resolver for relatable query hooks — Nova v5 parity (REA-1144).
+ * Central resolver for relatable query hooks — Nova v5 parity.
  *
  * Given a source resource, a target (related) resource, and optionally a Field,
  * this resolver determines which query hook to call:

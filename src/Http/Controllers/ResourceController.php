@@ -88,7 +88,7 @@ class ResourceController extends MartisController
         /** @var Builder<Model> $query */
         $query = $modelClass::query();
 
-        // Soft-delete filter — Nova v5 parity (REA-1115)
+        // Soft-delete filter — Nova v5 parity
         // ?trashed=with  → include soft-deleted alongside active records
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
@@ -103,7 +103,7 @@ class ResourceController extends MartisController
             }
         }
 
-        // Apply indexQuery hook — Nova v5 parity (REA-1144)
+        // Apply indexQuery hook — Nova v5 parity
         $query = $resourceClass::indexQuery($request, $query);
 
         $rawSearch = $request->query('search', '');
@@ -118,7 +118,7 @@ class ResourceController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
-        // Resolve actions once for per-row canRun authorization (REA-1102)
+        // Resolve actions once for per-row canRun authorization
         $actionsForAuth = $instance->actions($request);
         $actionsWithCanRun = array_filter($actionsForAuth, fn (ActionContract $a) => $a->authorizedToSee($request));
 
@@ -129,7 +129,7 @@ class ResourceController extends MartisController
 
                 $serialized = $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
 
-                // Per-action canRun authorization map (REA-1102)
+                // Per-action canRun authorization map
                 $actionAuth = [];
                 foreach ($actionsWithCanRun as $action) {
                     $actionAuth[$action->uriKey()] = $action->authorizedToRun($request, $model);
@@ -808,7 +808,7 @@ class ResourceController extends MartisController
     ): IlluminateJsonResponse {
         // Support context-free relatable calls (resource='_') with related_resource param.
         // This allows relationship selectors to always use the relatable endpoint,
-        // even without source resource context (e.g. standalone forms). (REA-1144)
+        // even without source resource context (e.g. standalone forms).
         $hasSourceContext = $resource !== '_';
 
         /** @var class-string<resource>|null $resourceClass */

@@ -7,7 +7,7 @@ use Martis\Fields\Field;
 use Martis\Fields\Text;
 
 /**
- * Tests for context-aware field visibility filtering (REA-1106).
+ * Tests for context-aware field visibility filtering.
  *
  * Covers all 14 mandatory scenarios from the spec plus conflict resolution.
  */

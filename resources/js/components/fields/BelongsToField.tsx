@@ -118,7 +118,7 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     }
   }, [open])
 
-  // Get current resource context for relatable endpoint (REA-1144)
+  // Get current resource context for relatable endpoint
   const params = useParams<{ resource?: string; id?: string }>()
   const sourceResource = params.resource
   const sourceId = params.id ?? '_'
@@ -130,7 +130,7 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      // Always use relatable endpoint - applies query hooks server-side (REA-1144)
+      // Always use relatable endpoint - applies query hooks server-side
       const endpoint = sourceResource
         ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=20${searchParam}`
         : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${relatedResource}${searchParam}`

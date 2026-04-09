@@ -180,7 +180,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Query hooks — Nova v5 parity (REA-1144)
+    // Query hooks — Nova v5 parity
     // -------------------------------------------------------------------------
 
     /**
@@ -324,7 +324,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Authorization — Policy resolution (Nova v5 parity, REA-1115)
+    // Authorization — Policy resolution (Nova v5 parity)
     // -------------------------------------------------------------------------
 
     /**
@@ -528,7 +528,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Relational authorization — Nova v5 parity (REA-1144)
+    // Relational authorization — Nova v5 parity
     //
     // These methods check Model Policy abilities for relationship operations.
     // They coexist with relatableQuery / relatable{PluralModelName} hooks:
@@ -588,7 +588,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Authorization — Core policy checking (REA-1115)
+    // Authorization — Core policy checking
     // -------------------------------------------------------------------------
 
     /**
@@ -790,7 +790,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // DataTable display configuration — configurable per resource (REA-1140)
+    // DataTable display configuration — configurable per resource
     // -------------------------------------------------------------------------
 
     /**
@@ -1080,7 +1080,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Actions — Nova v5 parity (REA-1102)
+    // Actions — Nova v5 parity
     // -------------------------------------------------------------------------
 
     /**
@@ -1094,7 +1094,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Scout integration — Nova v5 parity (REA-1157)
+    // Scout integration — Nova v5 parity
     //
     // When the underlying model uses Laravel\Scout\Searchable, the resource
     // automatically uses Scout for searches. Override usesScout() to disable,

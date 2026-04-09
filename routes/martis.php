@@ -68,11 +68,11 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->name('resources.index');
                         Route::post('/resources/{resource}', [ResourceController::class, 'store'])
                             ->name('resources.store');
-                        // Relatable options — Nova v5 parity (REA-1144)
+                        // Relatable options — Nova v5 parity
                         Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
                             ->name('resources.relatable');
 
-                        // HasMany relationship CRUD — Nova v5 parity (REA-1109)
+                        // HasMany relationship CRUD — Nova v5 parity
                         Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])
                             ->name('resources.has-many.index');
                         Route::post('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'store'])
@@ -82,13 +82,13 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
                             ->name('resources.has-many.destroy');
 
-                        // Force delete (permanent deletion of soft-deleted records) — REA-1115
+                        // Force delete (permanent deletion of soft-deleted records)
                         Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])
                             ->name('resources.force-delete');
-                        // Replicate fields (pre-fill data for create form) — REA-1130
+                        // Replicate fields (pre-fill data for create form)
                         Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
                             ->name('resources.replicate');
-                        // Action routes — Nova v5 parity (REA-1102)
+                        // Action routes — Nova v5 parity
                         Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
                             ->name('resources.actions.index');
                         Route::get('/resources/{resource}/actions/{action}/fields', [ActionController::class, 'fields'])
@@ -98,10 +98,10 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::post('/resources/{resource}/{id}/actions/{action}', [ActionController::class, 'executeSingle'])
                             ->name('resources.actions.execute-single');
 
-                        // Inline create schema — REA-1130
+                        // Inline create schema
                         Route::get('/resources/{resource}/inline-create-schema', [ResourceController::class, 'inlineCreateSchema'])
                             ->name('resources.inline-create-schema');
-                        // Inline create store — REA-1130
+                        // Inline create store
                         Route::post('/resources/{resource}/inline-create', [ResourceController::class, 'inlineCreateStore'])
                             ->name('resources.inline-create-store');
 

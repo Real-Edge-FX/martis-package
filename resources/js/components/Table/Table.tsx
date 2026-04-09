@@ -227,7 +227,7 @@ function InlineActionMenu({
   }, [open])
 
   const rect = btnRef.current?.getBoundingClientRect()
-  // Per-action canRun helper for inline grouped actions (REA-1102)
+  // Per-action canRun helper for inline grouped actions
   const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
   const canRunAction = row._authorization?.authorizedToRunAction !== false
   const canRunDestructive = row._authorization?.authorizedToRunDestructiveAction !== false
@@ -362,7 +362,7 @@ function DefaultTable({
 
   const canRunForRow = useCallback(
     (row: ResourceRecord, action: ActionMeta): boolean => {
-      // Per-action canRun from backend (REA-1102)
+      // Per-action canRun from backend
       const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
       if (perAction && action.uriKey in perAction) {
         return perAction[action.uriKey]

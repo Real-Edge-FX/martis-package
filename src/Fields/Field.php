@@ -480,7 +480,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Authorization — field-level visibility (Nova v5 parity, REA-1115)
+    // Authorization — field-level visibility (Nova v5 parity)
     // -------------------------------------------------------------------------
 
     /**

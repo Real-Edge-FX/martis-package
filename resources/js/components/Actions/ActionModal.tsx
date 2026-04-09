@@ -258,7 +258,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
             </p>
           )}
 
-          {/* Custom component rendering (Martis extension — REA-1102) */}
+          {/* Custom component rendering (Martis extension) */}
           {action.customComponent && (() => {
             const CustomComp = componentRegistry.resolve(action.customComponent)
             if (CustomComp) {

@@ -38,7 +38,7 @@ it('ResourceContract declares all context-aware field resolution methods', funct
         ->and($methods)->toContain('fieldsForUpdate')
         ->and($methods)->toContain('fieldsForInlineCreate')
         ->and($methods)->toContain('fieldsForPreview');
-    // fieldsForForms must NOT exist — it was removed in REA-1106
+    // fieldsForForms must NOT exist — it was removed in
     expect($methods)->not->toContain('fieldsForForms');
 });
 
