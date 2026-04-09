@@ -28,12 +28,12 @@ This command performs the following steps automatically:
 2. **Publishes the config file** — `config/martis.php` with all customizable settings.
 3. **Publishes frontend assets** — compiled React app to `public/vendor/martis/`.
 4. **Publishes database migrations** — `create_action_events_table` migration to `database/migrations/`.
-5. **Runs migrations** — prompts you to run `php artisan migrate` (creates the `action_events` table for the audit log).
-6. **Publishes translation files** — `en`, `pt-BR`, `pt-PT` to `lang/vendor/martis/`.
+5. **Publishes translation files** — `en`, `pt-BR`, `pt-PT` to `lang/vendor/martis/`.
 
-After installation, create an admin user and visit the panel:
+After installation, run migrations and create an admin user:
 
 ```bash
+php artisan migrate
 php artisan martis:user
 # Visit http://your-app.test/martis
 ```
@@ -43,8 +43,6 @@ php artisan martis:user
 | Flag | Effect |
 |------|--------|
 | `--force` | Overwrite previously published config, migrations, and translations |
-| `--no-interaction` | Skip all confirmation prompts (auto-confirms migration run) |
-
 ## Manual Install (Step by Step)
 
 If you prefer granular control, you can run each publish step individually.
