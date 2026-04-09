@@ -20,12 +20,12 @@ class InstallCommand extends Command
         $this->publishAssets();
         $this->publishMigrations();
         $this->publishTranslations();
+        $this->runMigrations();
 
         $this->newLine();
         $this->components->info('Martis installed successfully.');
         $this->newLine();
         $this->line('  Next steps:');
-        $this->line('  - Run <fg=cyan>php artisan migrate</> to create the action_events table.');
         $this->line('  - Run <fg=cyan>php artisan martis:user</> to create an admin account.');
 
         /** @var string $panelUrl */
@@ -115,5 +115,11 @@ class InstallCommand extends Command
             '--force' => (bool) $this->option('force'),
         ]);
         $this->components->twoColumnDetail('<fg=green>Published</> translations', 'lang/vendor/martis');
+    }
+
+    protected function runMigrations(): void
+    {
+        $this->call('migrate');
+        $this->components->twoColumnDetail('<fg=green>Executed</> migrations', 'action_events table created');
     }
 }

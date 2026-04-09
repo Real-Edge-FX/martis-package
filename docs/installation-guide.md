@@ -29,11 +29,11 @@ This command performs the following steps automatically:
 3. **Publishes frontend assets** — compiled React app to `public/vendor/martis/`.
 4. **Publishes database migrations** — `create_action_events_table` migration to `database/migrations/`.
 5. **Publishes translation files** — `en`, `pt-BR`, `pt-PT` to `lang/vendor/martis/`.
+6. **Runs database migrations** — creates the `action_events` table automatically.
 
-After installation, run migrations and create an admin user:
+After installation, create an admin user:
 
 ```bash
-php artisan migrate
 php artisan martis:user
 # Visit http://your-app.test/martis
 ```
@@ -237,7 +237,7 @@ php artisan martis:install --force
 
 | Command | Description |
 |---------|-------------|
-| `martis:install` | Full installation (directories, config, assets, migrations, translations) |
+| `martis:install` | Full installation (directories, config, assets, migrations, translations, auto-migrate) |
 | `martis:user` | Create an admin user |
 | `martis:resource` | Scaffold a new resource class |
 | `martis:field` | Scaffold a custom field class |

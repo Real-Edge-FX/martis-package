@@ -721,6 +721,101 @@ Tag::make('tags', 'Tags')
 
 ---
 
+
+### BelongsToMany
+
+**Type identifier:** `belongs_to_many`
+**Extends:** `Field`
+**File:** `src/Fields/BelongsToMany.php`
+
+Full many-to-many pivot relationship field with Nova v5 parity. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, sort, and pagination. On the index page, shows a count badge.
+
+> **Detail-only by default** — BelongsToMany is hidden from index and forms automatically. Use `->showOnIndex()` to display the count badge.
+
+```php
+// Minimal usage
+BelongsToMany::make('Tags')
+    ->relatedResource('tags')
+
+// Full Nova v5 parity
+BelongsToMany::make('Tags', 'tags', TagResource::class)
+    ->searchable()
+    ->collapsable()
+    ->collapsedByDefault()
+    ->allowDuplicateRelations()
+    ->showCreateRelationButton()
+    ->modalSize('3xl')
+    ->withSubtitles()
+    ->dontReorderAttachables()
+    ->relatableQueryUsing(fn ($request, $query) => $query->where('active', true))
+    ->fields(fn () => [
+        Text::make('notes', 'Notes')->nullable(),
+        Date::make('expires_at', 'Expires At')->nullable(),
+    ])
+    ->actions(fn () => [
+        // Pivot actions defined here
+    ])
+    ->perPage(15)
+    ->canAttach(true)
+    ->canDetach(true)
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource. | inferred from relationship |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
+| `fields` | `fields(Closure(): list<Field>): static` | `$this` | Define pivot fields (stored on the pivot table). | `null` |
+| `actions` | `actions(Closure(): list<mixed>): static` | `$this` | Define pivot actions for attached records. | `null` |
+| `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
+| `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
+| `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start the panel collapsed. Implies `collapsable`. | `false` |
+| `allowDuplicateRelations` | `allowDuplicateRelations(bool $value = true): static` | `$this` | Allow attaching the same record multiple times. | `false` |
+| `showCreateRelationButton` | `showCreateRelationButton(bool\|Closure $callback = true): static` | `$this` | Show inline create button in attach modal. | `false` |
+| `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
+| `modalSize` | `modalSize(ModalSize\|string $size): static` | `$this` | Attach modal size (`sm`, `md`, `lg`, `xl`, `2xl`–`7xl`). | `'2xl'` |
+| `relatableQueryUsing` | `relatableQueryUsing(Closure $fn): static` | `$this` | Filter the query for attachable records. | `null` |
+| `dontReorderAttachables` | `dontReorderAttachables(bool $value = true): static` | `$this` | Disable auto-sort of attachables (keep DB order). | `false` |
+| `withSubtitles` | `withSubtitles(bool $value = true): static` | `$this` | Show subtitles in the attach modal search results. | `false` |
+| `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+
+#### API Endpoints
+
+| Method | Path | Action |
+|--------|------|--------|
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}` | List attached records (paginated) |
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/attachable` | List records available to attach |
+| `POST` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/attach` | Attach a record (with optional pivot data) |
+| `DELETE` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/detach` | Detach a record |
+| `PUT` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot` | Update pivot fields |
+
+#### Authorization
+
+Override `authorizedToAttach()` or `authorizedToDetach()` on your Resource to restrict operations:
+
+```php
+public function authorizedToAttach(Request $request, Model $related): bool
+{
+    return $request->user()?->isAdmin() ?? false;
+}
+
+public function authorizedToDetach(Request $request, Model $related): bool
+{
+    return $request->user()?->isAdmin() ?? false;
+}
+```
+
+If these methods are not defined, the field falls back to `authorizedToUpdate()`.
+
+**Overrides:**
+- `resolve()` returns `null` on the detail page (data is loaded via API endpoints), or the count (integer) when shown on index.
+- `fill()` is a no-op — attach/detach is handled exclusively via the dedicated API endpoints.
+
+**Extra attributes:** `relationship`, `relatedResource`, `titleAttribute`, `searchable`, `collapsable`, `collapsedByDefault`, `allowDuplicateRelations`, `showCreateRelationButton`, `modalSize`, `withSubtitles`, `dontReorderAttachables`, `pivotFields`, `belongsToManyMeta`
+
+---
+
 ### File
 
 **Type identifier:** `file`
