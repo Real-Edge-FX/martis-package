@@ -26,4 +26,7 @@ return [
     'selected_count' => ':count selected',
     'bulk_actions' => 'Bulk Actions',
     'inline_action' => 'Run',
+    'attach' => 'Attach',
+    'detach' => 'Detach',
+    'attach_related' => 'Attach Record',
 ];

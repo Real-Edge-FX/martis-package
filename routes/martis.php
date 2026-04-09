@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Martis\Http\Controllers\ActionController;
 use Martis\Http\Controllers\AttachmentController;
 use Martis\Http\Controllers\AuthController;
+use Martis\Http\Controllers\BelongsToManyController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\LoginController;
@@ -81,6 +82,18 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->name('resources.has-many.update');
                         Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
                             ->name('resources.has-many.destroy');
+
+                        // BelongsToMany relationship — Nova v5 parity
+                        Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}', [BelongsToManyController::class, 'index'])
+                            ->name('resources.belongs-to-many.index');
+                        Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/attachable', [BelongsToManyController::class, 'attachableIndex'])
+                            ->name('resources.belongs-to-many.attachable');
+                        Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/attach', [BelongsToManyController::class, 'attach'])
+                            ->name('resources.belongs-to-many.attach');
+                        Route::delete('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/detach', [BelongsToManyController::class, 'detach'])
+                            ->name('resources.belongs-to-many.detach');
+                        Route::put('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot', [BelongsToManyController::class, 'updatePivot'])
+                            ->name('resources.belongs-to-many.pivot');
 
                         // Force delete (permanent deletion of soft-deleted records)
                         Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])

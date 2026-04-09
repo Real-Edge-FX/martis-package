@@ -26,4 +26,7 @@ return [
     'selected_count' => ':count selecionados',
     'bulk_actions' => 'Ações em Lote',
     'inline_action' => 'Executar',
+    'attach' => 'Vincular',
+    'detach' => 'Desvincular',
+    'attach_related' => 'Vincular Registro',
 ];

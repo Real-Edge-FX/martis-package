@@ -49,6 +49,8 @@ export interface Toast {
 
 export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'select'  | 'date'  | 'datetime'  | 'belongs_to'  | 'id'  | 'email'  | 'password'  | 'heading'  | 'hidden'  | 'file'  | 'image'  | 'key_value'  | 'badge'  | 'status'  | 'multi_select'  | 'tag'  | 'url'  | 'code'  | 'color'  | 'markdown'  | 'trix'  | 'country'  | 'currency'  | 'sparkline'  | 'gravatar'
   | 'has_many'
+  | 'belongs_to_many'
+  | 'morph_to'
 
 export interface SelectOption {
   value: string | number
