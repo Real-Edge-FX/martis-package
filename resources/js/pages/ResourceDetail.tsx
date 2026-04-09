@@ -14,6 +14,7 @@ import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
+import { MartisLoader } from "@/components/Loader"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -95,7 +96,11 @@ export function ResourceDetailPage() {
   const record = recordQuery.data?.data
 
   if (schemaQuery.isLoading || recordQuery.isLoading) {
-    return <DetailSkeleton />
+    return (
+      <div className="flex items-center justify-center py-20">
+        <MartisLoader loading size="lg" />
+      </div>
+    )
   }
 
   if (!schema) {
@@ -408,18 +413,4 @@ export function ResourceDetailPage() {
   )
 }
 
-function DetailSkeleton() {
-  return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-8 w-64 rounded bg-gray-200 dark:bg-gray-800" />
-      <div className="rounded-xl border" style={{ borderColor: "var(--martis-border)" }}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-3 gap-4 border-b px-6 py-4" style={{ borderColor: "var(--martis-border)" }}>
-            <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="col-span-2 h-4 rounded bg-gray-200 dark:bg-gray-700" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+

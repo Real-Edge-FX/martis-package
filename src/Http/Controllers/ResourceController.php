@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
@@ -117,12 +118,25 @@ class ResourceController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
+        // Resolve actions once for per-row canRun authorization (REA-1102)
+        $actionsForAuth = $instance->actions($request);
+        $actionsWithCanRun = array_filter($actionsForAuth, fn (ActionContract $a) => $a->authorizedToSee($request));
+
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request): array {
+            collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request, $actionsWithCanRun): array {
                 $res = new $resourceClass($model);
 
-                return $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
+                $serialized = $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
+
+                // Per-action canRun authorization map (REA-1102)
+                $actionAuth = [];
+                foreach ($actionsWithCanRun as $action) {
+                    $actionAuth[$action->uriKey()] = $action->authorizedToRun($request, $model);
+                }
+                $serialized['_actionAuthorization'] = $actionAuth;
+
+                return $serialized;
             })->all()
         );
 

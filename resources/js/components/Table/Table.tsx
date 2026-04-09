@@ -171,7 +171,8 @@ function InlineSubMenu({
             </div>
           )
         }
-        const isDisabled = child.destructive ? !canRunDestructive : !canRunAction
+        const childPerAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+        const isDisabled = childPerAction && child.uriKey in childPerAction ? !childPerAction[child.uriKey] : (child.destructive ? !canRunDestructive : !canRunAction)
         return (
           <button key={child.uriKey} type="button" disabled={isDisabled}
             onClick={e => { e.stopPropagation(); if (!isDisabled) onAction(child, row) }}
@@ -226,6 +227,8 @@ function InlineActionMenu({
   }, [open])
 
   const rect = btnRef.current?.getBoundingClientRect()
+  // Per-action canRun helper for inline grouped actions (REA-1102)
+  const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
   const canRunAction = row._authorization?.authorizedToRunAction !== false
   const canRunDestructive = row._authorization?.authorizedToRunDestructiveAction !== false
   const tree = buildInlineGroupTree(actions)
@@ -272,13 +275,13 @@ function InlineActionMenu({
                 </div>
               )
             }
-            const isDisabled = item.destructive ? !canRunDestructive : !canRunAction
+            const isItemDisabled = perAction && item.uriKey in perAction ? !perAction[item.uriKey] : (item.destructive ? !canRunDestructive : !canRunAction)
             return (
-              <button key={item.uriKey} type="button" disabled={isDisabled}
-                onClick={e => { e.stopPropagation(); if (!isDisabled) { setOpen(false); onAction(item, row) } }}
+              <button key={item.uriKey} type="button" disabled={isItemDisabled}
+                onClick={e => { e.stopPropagation(); if (!isItemDisabled) { setOpen(false); onAction(item, row) } }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: isDisabled ? "var(--martis-text-muted)" : item.destructive ? "#dc2626" : "var(--martis-text)" }}
-                onMouseEnter={e => { if (!isDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
+                style={{ color: isItemDisabled ? "var(--martis-text-muted)" : item.destructive ? "#dc2626" : "var(--martis-text)" }}
+                onMouseEnter={e => { if (!isItemDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
               >
                 {item.icon ? <ResourceIcon iconName={item.icon} size={16} /> : item.destructive ? <Warning size={16} weight="fill" /> : <Lightning size={16} />}
@@ -359,6 +362,12 @@ function DefaultTable({
 
   const canRunForRow = useCallback(
     (row: ResourceRecord, action: ActionMeta): boolean => {
+      // Per-action canRun from backend (REA-1102)
+      const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+      if (perAction && action.uriKey in perAction) {
+        return perAction[action.uriKey]
+      }
+      // Fallback to resource-level authorization
       if (action.destructive) return row._authorization?.authorizedToRunDestructiveAction !== false
       return row._authorization?.authorizedToRunAction !== false
     },

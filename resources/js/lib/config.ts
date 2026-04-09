@@ -39,6 +39,31 @@ export interface MartisFooterConfig {
   text?: string | null
 }
 
+export interface MartisLoaderConfig {
+  /** Custom loading message. Default: translation key 'messages:loading' */
+  message?: string
+  /** Phosphor icon name to use instead of spinner */
+  icon?: string
+  /** URL to logo image to use instead of spinner */
+  logo?: string
+  /** CSS color for the spinner. Default: var(--martis-accent) */
+  spinnerColor?: string
+  /** Overlay background opacity (0-1). Default: 0.6 */
+  overlayOpacity?: number
+  /** CSS color for overlay background. Default: var(--martis-bg) */
+  overlayColor?: string
+  /** Disable loaders globally */
+  disabled?: boolean
+  /** Disable loader on specific contexts */
+  disableOn?: {
+    table?: boolean
+    fields?: boolean
+    search?: boolean
+    components?: boolean
+    detail?: boolean
+  }
+}
+
 export interface MartisLayoutConfig {
   /** Layout preset: "sidebar" (default), "topnav", "minimal", "custom" */
   preset?: "sidebar" | "topnav" | "minimal" | "custom"
@@ -56,6 +81,7 @@ export interface MartisConfigShape {
   toast?: MartisToastConfig
   footer?: MartisFooterConfig
   layout?: MartisLayoutConfig
+  loader?: MartisLoaderConfig
 }
 
 declare global {

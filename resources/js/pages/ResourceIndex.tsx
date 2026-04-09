@@ -14,6 +14,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { MartisLoader } from '@/components/Loader'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 
 export function ResourceIndexPage() {
@@ -214,7 +215,11 @@ export function ResourceIndexPage() {
   }
 
   if (schemaQuery.isLoading) {
-    return <IndexSkeleton />
+    return (
+      <div className="flex items-center justify-center py-20">
+        <MartisLoader loading size="lg" />
+      </div>
+    )
   }
 
   if (schemaQuery.isError || !schema) {
@@ -283,7 +288,19 @@ export function ResourceIndexPage() {
       </div>
 
       {/* Bulk action bar — shown when items are selected (not for inline action temp selection) */}
-      {selectedIds.size > 0 && !inlineActionRef.current && indexActions.length > 0 && (
+      {selectedIds.size > 0 && !inlineActionRef.current && indexActions.length > 0 && (() => {
+        // Compute disabled actions: action is disabled if ALL selected rows canRun=false (REA-1102)
+        const selectedRows = rows.filter(r => selectedIds.has(r.id))
+        const bulkDisabledActions = new Set<string>()
+        for (const action of indexActions) {
+          const allDisabled = selectedRows.length > 0 && selectedRows.every(row => {
+            const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+            if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
+            return false
+          })
+          if (allDisabled) bulkDisabledActions.add(action.uriKey)
+        }
+        return (
         <div
           className="flex items-center gap-3 rounded-lg border px-4 py-2"
           style={{
@@ -298,6 +315,7 @@ export function ResourceIndexPage() {
             actions={indexActions}
             onSelect={handleActionSelect}
             label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
+            disabledActions={bulkDisabledActions}
           />
           <button
             type="button"
@@ -308,7 +326,8 @@ export function ResourceIndexPage() {
             {tAct('cancel')}
           </button>
         </div>
-      )}
+        )
+      })()}
 
       {/* Search + Per Page controls */}
       <div className="flex items-center gap-3">
@@ -361,11 +380,12 @@ export function ResourceIndexPage() {
         )}
 
         {indexQuery.isFetching && (
-          <span className="text-xs martis-text-muted">{tMsg('loading')}</span>
+          <MartisLoader loading size="sm" />
         )}
       </div>
 
       {/* Table */}
+      <MartisLoader loading={indexQuery.isFetching && !indexQuery.isPlaceholderData} overlay>
       <Table
         columns={indexColumns}
         rows={rows}
@@ -388,6 +408,7 @@ export function ResourceIndexPage() {
           rowHover: schema.tableRowHover,
         }}
       />
+      </MartisLoader>
 
       {/* Pagination */}
       {meta && (
@@ -435,19 +456,4 @@ export function ResourceIndexPage() {
   )
 }
 
-function IndexSkeleton() {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
-      <div className="h-10 w-full rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
-      <div className="rounded-lg border martis-border">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex gap-4 border-b px-4 py-3" style={{ borderColor: 'var(--martis-border)' }}>
-            <div className="h-4 flex-1 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
-            <div className="h-4 w-32 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+

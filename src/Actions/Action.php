@@ -126,6 +126,13 @@ class Action implements ActionContract
     /** {@inheritDoc} */
     public function uriKey(): string
     {
+        // For closure-based actions (Action::using()), derive uriKey from the name
+        // to avoid all closure actions sharing the generic "action" key.
+        // Named subclasses keep their class-based uriKey for backwards compatibility.
+        if ($this->closureHandler !== null && $this->name !== null) {
+            return Str::kebab($this->name);
+        }
+
         return Str::kebab(class_basename(static::class));
     }
 

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { registry } from '@/lib/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { Lightning, Warning, X } from '@phosphor-icons/react'
+import { componentRegistry } from '@/lib/componentRegistry'
 
 export interface ActionMeta {
   uriKey: string
@@ -256,6 +257,25 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
               {action.confirmText}
             </p>
           )}
+
+          {/* Custom component rendering (Martis extension — REA-1102) */}
+          {action.customComponent && (() => {
+            const CustomComp = componentRegistry.resolve(action.customComponent)
+            if (CustomComp) {
+              const C = CustomComp as React.ComponentType<Record<string, unknown>>
+              return (
+                <div className="mb-4">
+                  <C
+                    {...(action.customComponentProps ?? {})}
+                    onFieldsChange={(fields: Record<string, unknown>) =>
+                      setFieldValues((prev) => ({ ...prev, ...fields }))
+                    }
+                  />
+                </div>
+              )
+            }
+            return null
+          })()}
 
           {hasFields && (
             <div className="space-y-4">

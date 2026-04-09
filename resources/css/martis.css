@@ -2063,3 +2063,96 @@ html:not(.dark) .p-tooltip .p-tooltip-text {
 html:not(.dark) .p-tooltip .p-tooltip-arrow {
   border-top-color: #1e293b !important;
 }
+
+/* ── Fix: Toast border color matches severity icon (REA-1102 Problem 6) ── */
+.p-toast .p-toast-message.p-toast-message-success {
+  border: 1px solid #22c55e !important;
+  border-left: 4px solid #22c55e !important;
+}
+.p-toast .p-toast-message.p-toast-message-error {
+  border: 1px solid #ef4444 !important;
+  border-left: 4px solid #ef4444 !important;
+}
+.p-toast .p-toast-message.p-toast-message-warn {
+  border: 1px solid #f59e0b !important;
+  border-left: 4px solid #f59e0b !important;
+}
+.p-toast .p-toast-message.p-toast-message-info {
+  border: 1px solid #3b82f6 !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+html:not(.dark) .p-toast .p-toast-message {
+  background-color: #ffffff;
+  color: #1e293b;
+}
+html:not(.dark) .p-toast .p-toast-message.p-toast-message-success {
+  border: 1px solid #22c55e !important;
+  border-left: 4px solid #22c55e !important;
+}
+html:not(.dark) .p-toast .p-toast-message.p-toast-message-error {
+  border: 1px solid #ef4444 !important;
+  border-left: 4px solid #ef4444 !important;
+}
+html:not(.dark) .p-toast .p-toast-message.p-toast-message-warn {
+  border: 1px solid #f59e0b !important;
+  border-left: 4px solid #f59e0b !important;
+}
+html:not(.dark) .p-toast .p-toast-message.p-toast-message-info {
+  border: 1px solid #3b82f6 !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+/* ── Fix: Light theme checkbox visibility (REA-1102 Problem 7) ────── */
+html:not(.dark) .p-checkbox .p-checkbox-box {
+  background-color: #ffffff !important;
+  border: 2px solid #94a3b8 !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box:hover {
+  border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-checked,
+html:not(.dark) .p-checkbox.p-highlight .p-checkbox-box,
+html:not(.dark) .p-checkbox-checked .p-checkbox-box {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-checked .p-checkbox-icon,
+html:not(.dark) .p-checkbox .p-checkbox-box.p-checked svg,
+html:not(.dark) .p-checkbox-checked .p-checkbox-box .p-checkbox-icon,
+html:not(.dark) .p-checkbox-checked .p-checkbox-box svg {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+/* DataTable specific checkbox — light theme */
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
+  background-color: #ffffff !important;
+  border: 2px solid #94a3b8 !important;
+}
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight,
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-checked {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-checked .p-checkbox-icon,
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-highlight svg,
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box.p-checked svg {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+/* Header checkbox in DataTable — light theme */
+html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
+  background-color: #ffffff !important;
+  border: 2px solid #94a3b8 !important;
+}
+html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box.p-highlight,
+html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box.p-checked {
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
+}
