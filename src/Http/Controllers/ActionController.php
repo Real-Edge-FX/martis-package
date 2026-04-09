@@ -188,9 +188,12 @@ class ActionController extends MartisController
             return JsonResponse::make(['preview' => $preview])->toResponse();
         }
 
+        // Capture model snapshots before action execution
+        $snapshots = $models->mapWithKeys(fn (Model $m) => [$m->getKey() => $m->getAttributes()]);
+
         try {
             if ($actionInstance instanceof Action && $actionInstance->isQueued()) {
-                return $this->dispatchQueuedAction($actionInstance, $fields, $models, $request, $instance);
+                return $this->dispatchQueuedAction($actionInstance, $fields, $models, $request, $instance, $snapshots);
             }
 
             if ($actionInstance instanceof Action && $actionInstance->getClosureHandler() !== null) {
@@ -199,8 +202,11 @@ class ActionController extends MartisController
                 $result = $actionInstance->handle($fields, $models);
             }
 
+            // Refresh models to capture post-execution state
+            $models->each(fn (Model $m) => $m->exists && $m->refresh());
+
             if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-                $this->logActionEvent($actionInstance, $models, $request, 'completed');
+                $this->logActionEvent($actionInstance, $models, $request, 'completed', null, $snapshots);
             }
 
             if ($actionInstance instanceof Action) {
@@ -226,7 +232,7 @@ class ActionController extends MartisController
             ]);
 
             if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-                $this->logActionEvent($actionInstance, $models, $request, 'failed', $e->getMessage());
+                $this->logActionEvent($actionInstance, $models, $request, 'failed', $e->getMessage(), $snapshots);
             }
 
             return JsonErrorResponse::serverError('Action failed: '.$e->getMessage())->toResponse();
@@ -332,8 +338,9 @@ class ActionController extends MartisController
      * Dispatch a queued action as a Laravel job.
      *
      * @param  Collection<int, Model>  $models
+     * @param  Collection<int|string, array<string, mixed>>  $snapshots
      */
-    private function dispatchQueuedAction(Action $action, ActionFields $fields, Collection $models, Request $request, Resource $resource): IlluminateJsonResponse
+    private function dispatchQueuedAction(Action $action, ActionFields $fields, Collection $models, Request $request, Resource $resource, Collection $snapshots): IlluminateJsonResponse
     {
         /** @var Model|null $firstModel */
         $firstModel = $models->first();
@@ -363,7 +370,7 @@ class ActionController extends MartisController
         dispatch($job);
 
         if ($action->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-            $this->logActionEvent($action, $models, $request, 'queued');
+            $this->logActionEvent($action, $models, $request, 'queued', null, $snapshots);
         }
 
         return JsonResponse::make([
@@ -373,32 +380,76 @@ class ActionController extends MartisController
     }
 
     /**
-     * Log an action event to the database.
+     * Log action events to the database.
+     *
+     * Creates one event per model in the collection, capturing the
+     * before/after attribute diff in the original/changes columns.
      *
      * @param  Collection<int, Model>  $models
+     * @param  Collection<int|string, array<string, mixed>>|null  $snapshots  Model attributes captured before action execution
      */
-    private function logActionEvent(Action $action, Collection $models, Request $request, string $status, ?string $exception = null): void
+    private function logActionEvent(Action $action, Collection $models, Request $request, string $status, ?string $exception = null, ?Collection $snapshots = null): void
     {
         try {
-            /** @var Model|null $firstModel */
-            $firstModel = $models->first();
+            $batchId = (string) Str::uuid();
+            $userId = $request->user()?->getAuthIdentifier();
+            $fieldData = $request->input('fields', []);
 
-            ActionEvent::create([
-                'batch_id' => (string) Str::uuid(),
-                'user_id' => $request->user()?->getAuthIdentifier(),
-                'name' => $action->name(),
-                'actionable_type' => $firstModel !== null ? get_class($firstModel) : null,
-                'actionable_id' => $models->count() === 1 ? $firstModel?->getKey() : null,
-                'target_type' => $firstModel !== null ? get_class($firstModel) : null,
-                'target_id' => $models->count() === 1 ? $firstModel?->getKey() : null,
-                'model_type' => $firstModel !== null ? get_class($firstModel) : null,
-                'model_id' => $models->count() === 1 ? $firstModel?->getKey() : null,
-                'fields' => $request->input('fields', []),
-                'status' => $status,
-                'exception' => $exception ?? '',
-                'original' => '{}',
-                'changes' => '{}',
-            ]);
+            if ($models->isEmpty()) {
+                // Standalone action — no models to diff
+                ActionEvent::create([
+                    'batch_id' => $batchId,
+                    'user_id' => $userId,
+                    'name' => $action->name(),
+                    'actionable_type' => null,
+                    'actionable_id' => null,
+                    'target_type' => null,
+                    'target_id' => null,
+                    'model_type' => null,
+                    'model_id' => null,
+                    'fields' => $fieldData,
+                    'status' => $status,
+                    'exception' => $exception ?? '',
+                    'original' => [],
+                    'changes' => [],
+                ]);
+
+                return;
+            }
+
+            foreach ($models as $model) {
+                $key = $model->getKey();
+                $originalAttrs = $snapshots?->get($key) ?? [];
+                $currentAttrs = $model->getAttributes();
+
+                // Compute diff: only attributes that actually changed
+                $originalDiff = [];
+                $changesDiff = [];
+
+                foreach ($currentAttrs as $attr => $value) {
+                    if (array_key_exists($attr, $originalAttrs) && $originalAttrs[$attr] != $value) {
+                        $originalDiff[$attr] = $originalAttrs[$attr];
+                        $changesDiff[$attr] = $value;
+                    }
+                }
+
+                ActionEvent::create([
+                    'batch_id' => $batchId,
+                    'user_id' => $userId,
+                    'name' => $action->name(),
+                    'actionable_type' => get_class($model),
+                    'actionable_id' => $key,
+                    'target_type' => get_class($model),
+                    'target_id' => $key,
+                    'model_type' => get_class($model),
+                    'model_id' => $key,
+                    'fields' => $fieldData,
+                    'status' => $status,
+                    'exception' => $exception ?? '',
+                    'original' => $originalDiff,
+                    'changes' => $changesDiff,
+                ]);
+            }
         } catch (\Throwable $e) {
             Log::warning('Failed to log action event', ['error' => $e->getMessage()]);
         }

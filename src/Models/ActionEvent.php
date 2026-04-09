@@ -28,11 +28,11 @@ use Illuminate\Support\Carbon;
  * @property int|null $target_id
  * @property string|null $model_type
  * @property int|null $model_id
- * @property string $fields
+ * @property array<string, mixed> $fields
  * @property string $status
  * @property string $exception
- * @property string $original
- * @property string $changes
+ * @property array<string, mixed> $original
+ * @property array<string, mixed> $changes
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -53,6 +53,8 @@ class ActionEvent extends Model
     {
         return [
             'fields' => 'array',
+            'original' => 'array',
+            'changes' => 'array',
         ];
     }
 
