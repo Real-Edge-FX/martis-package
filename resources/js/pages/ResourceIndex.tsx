@@ -39,8 +39,8 @@ export function ResourceIndexPage() {
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   // Track whether the current action was triggered inline (single row)
   const inlineActionRef = useRef(false)
-  // Store previous selection to restore if inline action is cancelled
-  const prevSelectionRef = useRef<Set<string | number>>(new Set())
+  // Track which row IDs the inline action targets (separate from visual selection)
+  const [inlineActionRowIds, setInlineActionRowIds] = useState<(string | number)[]>([])
 
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
@@ -151,18 +151,16 @@ export function ResourceIndexPage() {
   }
 
   function handleInlineAction(action: ActionMeta, row: { id: string | number }) {
-    // Save current selection so we can restore on cancel
-    prevSelectionRef.current = new Set(selectedIds)
+    // Track the target row separately — do NOT modify selectedIds to avoid toggling checkboxes
     inlineActionRef.current = true
-    setSelectedIds(new Set([row.id]))
+    setInlineActionRowIds([row.id])
     setActiveAction(action)
   }
 
   function handleActionHide() {
-    // If this was an inline action, restore previous selection
     if (inlineActionRef.current) {
-      setSelectedIds(prevSelectionRef.current)
       inlineActionRef.current = false
+      setInlineActionRowIds([])
     }
     setActiveAction(null)
   }
@@ -176,6 +174,7 @@ export function ResourceIndexPage() {
     setSelectedIds(new Set())
     setActiveAction(null)
     inlineActionRef.current = false
+    setInlineActionRowIds([])
   }
 
   /** Build standardized OverrideProps for any override rendered from this page. */
@@ -447,7 +446,7 @@ export function ResourceIndexPage() {
       <ActionModal
         resource={resource!}
         action={activeAction}
-        selectedIds={activeAction?.standalone ? [] : Array.from(selectedIds)}
+        selectedIds={activeAction?.standalone ? [] : inlineActionRowIds.length > 0 ? inlineActionRowIds : Array.from(selectedIds)}
         visible={activeAction !== null}
         onHide={handleActionHide}
         onSuccess={handleActionSuccess}
