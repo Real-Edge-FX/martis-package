@@ -40,18 +40,23 @@ export function ResourceIndexPage() {
   const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
   // Track whether the current action was triggered inline (single row)
   const inlineActionRef = useRef(false)
+  // Timer ref for debounced search (to cancel on resource change)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>()
   // Track which row IDs the inline action targets (separate from visual selection)
   const [inlineActionRowIds, setInlineActionRowIds] = useState<(string | number)[]>([])
 
-  // Reset selection when navigating between resources
+  // Reset selection and search when navigating between resources
   useEffect(() => {
     setSelectedIds(new Set())
+    setSearch('')
+    setDebouncedSearch('')
+    clearTimeout(searchTimerRef.current)
   }, [resource])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
-    clearTimeout((handleSearchChange as { timer?: ReturnType<typeof setTimeout> }).timer)
-    ;(handleSearchChange as { timer?: ReturnType<typeof setTimeout> }).timer = setTimeout(() => {
+    clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
       setDebouncedSearch(value)
       setPage(1)
     }, 300)
