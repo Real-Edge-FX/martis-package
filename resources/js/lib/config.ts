@@ -69,6 +69,27 @@ export interface MartisLayoutConfig {
   preset?: "sidebar" | "topnav" | "minimal" | "custom"
 }
 
+export interface MartisProfileMenuConfig {
+  enabled?: boolean
+  label?: string
+  icon?: string
+}
+
+export interface MartisProfileAvatarConfig {
+  enabled?: boolean
+  maxSize?: number
+}
+
+export interface MartisProfileTwoFactorConfig {
+  enabled?: boolean
+}
+
+export interface MartisProfileConfig {
+  menu?: MartisProfileMenuConfig
+  avatar?: MartisProfileAvatarConfig
+  two_factor?: MartisProfileTwoFactorConfig
+}
+
 export interface MartisConfigShape {
   basePath?: string
   locale?: string
@@ -82,6 +103,7 @@ export interface MartisConfigShape {
   footer?: MartisFooterConfig
   layout?: MartisLayoutConfig
   loader?: MartisLoaderConfig
+  profile?: MartisProfileConfig
 }
 
 declare global {

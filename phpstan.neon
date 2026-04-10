@@ -6,3 +6,6 @@ parameters:
         -
             identifier: trait.unused
             path: src/Concerns/Actionable.php
+        -
+            identifier: property.notFound
+            path: src/Profile/TwoFactorService.php

@@ -245,4 +245,48 @@ return [
         'enabled' => (bool) env('MARTIS_ACTION_EVENTS_ENABLED', true),
         'resource' => (bool) env('MARTIS_ACTION_EVENTS_RESOURCE', true),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Profile
+    |--------------------------------------------------------------------------
+    | Configure the user profile page (accessible via the user menu).
+    |
+    | enabled        - Set false to disable the profile page entirely.
+    | resource       - FQCN of a custom ProfileResource class (null = default).
+    | menu.label     - Label shown in the user dropdown menu.
+    | menu.icon      - Phosphor icon name for the menu item.
+    | avatar.enabled - Show/hide the avatar upload section.
+    | avatar.disk    - Filesystem disk to store uploaded avatars.
+    | avatar.path    - Sub-directory within the disk.
+    | avatar.max_size_kb - Maximum upload size in kilobytes.
+    | avatar.column  - Column on the users table that stores the avatar path.
+    | avatar.url_resolver - Optional callable to generate the public URL.
+    | two_factor.enabled  - Show/hide the 2FA section.
+    | two_factor.recovery_codes - Number of one-time recovery codes generated.
+    | sections       - Array of section keys to render (customize order/visibility).
+    |                  Supported: 'account', 'password', 'avatar', 'security'
+    */
+    'profile' => [
+        'enabled' => env('MARTIS_PROFILE_ENABLED', true),
+        'resource' => null,
+        'menu' => [
+            'label' => null, // null = use i18n default
+            'icon' => 'user',
+        ],
+        'avatar' => [
+            'enabled' => env('MARTIS_AVATAR_ENABLED', true),
+            'disk' => env('MARTIS_AVATAR_DISK', 'public'),
+            'path' => env('MARTIS_AVATAR_PATH', 'avatars'),
+            'max_size_kb' => (int) env('MARTIS_AVATAR_MAX_SIZE', 2048),
+            'column' => env('MARTIS_AVATAR_COLUMN', 'profile_picture'),
+            'url_resolver' => null,
+        ],
+        'two_factor' => [
+            'enabled' => env('MARTIS_2FA_ENABLED', true),
+            'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
+        ],
+        'sections' => ['account', 'password', 'avatar', 'security'],
+    ],
+
 ];

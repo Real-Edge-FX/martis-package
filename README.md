@@ -631,6 +631,62 @@ Full documentation lives in the [`docs/`](docs/) directory. Each guide is standa
 | [Nova v5 Parity Map](docs/PARITY_MAP.md) | Feature-by-feature tracker: what is done, , in progress, and planned vs Laravel Nova v5 | + Actions System + Martis Differentials
 | [Documentation Index](docs/README.md) | Full documentation hub with quick links and project overview |
 
+---
+
+## User Profile
+
+Martis includes a built-in user profile system with a configurable page, avatar support, and two-factor authentication (2FA).
+
+### Profile Page
+
+The profile page is accessible at  and renders the following sections (all configurable):
+
+- **Account Information** — Edit name and email
+- **Change Password** — Update password with confirmation
+- **Profile Picture** — Upload, preview, and remove avatar (conditional)
+- **Two-Factor Authentication** — Enable/disable 2FA via TOTP wizard (conditional)
+
+### User Menu Integration
+
+A Profile entry is automatically added to the user dropdown menu:
+
+
+
+### Feature Flags
+
+Each profile sub-feature can be toggled independently:
+
+
+
+### Two-Factor Authentication
+
+When enabled, users can set up TOTP-based 2FA via a guided wizard:
+
+1. Scan the QR code with an authenticator app (Google Authenticator, Authy, etc.)
+2. Enter the 6-digit verification code
+3. Save the recovery codes in a safe place
+
+On subsequent logins, users with 2FA enabled are redirected to a challenge screen before accessing the dashboard.
+
+### API Endpoints (backend required — REA-1209)
+
+| Method | Path | Description |
+|--------|------|-------------|
+|  |  | Get current user profile data |
+|  |  | Update name and email |
+|  |  | Change password |
+|  |  | Upload avatar (multipart/form-data) |
+|  |  | Remove avatar |
+|  |  | Initialize 2FA setup (returns QR code SVG + secret) |
+|  |  | Confirm OTP and get recovery codes |
+|  |  | Disable 2FA |
+|  |  | Submit 2FA challenge during login |
+
+### i18n
+
+All profile text is fully translatable via the  namespace (EN, PT-BR, PT-PT included).
+
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

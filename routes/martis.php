@@ -9,8 +9,10 @@ use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\NavigationController;
+use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\TranslationsController;
+use Martis\Http\Controllers\TwoFactorController;
 
 Route::middleware(config('martis.middleware', ['web']))
     ->prefix(config('martis.path', 'admin'))
@@ -23,7 +25,7 @@ Route::middleware(config('martis.middleware', ['web']))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-        // Favicon â public, served from package or configured path
+        // Favicon — public, served from package or configured path
         Route::get('/favicon.ico', function () {
             $faviconPath = config('martis.brand.favicon');
             if ($faviconPath && file_exists(public_path($faviconPath))) {
@@ -61,6 +63,27 @@ Route::middleware(config('martis.middleware', ['web']))
                         // Attachment upload (Trix / Markdown file uploads)
                         Route::post('/attachments/upload', [AttachmentController::class, 'upload'])
                             ->name('attachments.upload');
+
+                        // ──────────────────────────────────────────────────────
+                        // Profile routes
+                        // ──────────────────────────────────────────────────────
+                        Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+                        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+                        Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
+
+                        // Avatar
+                        Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
+                        Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
+
+                        // 2FA setup (within profile)
+                        Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
+                        Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
+                        Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
+
+                        // 2FA challenge (complete login when 2FA is pending)
+                        Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
+                            ->middleware('throttle:5,1')
+                            ->name('2fa.challenge');
 
                         // Resource CRUD
                         Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])

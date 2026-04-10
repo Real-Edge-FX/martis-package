@@ -3,12 +3,17 @@ import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/Login'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
+import { TwoFactorChallengePage } from '@/pages/TwoFactorChallenge'
 import { BASE_PATH } from '@/lib/config'
 
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/2fa/challenge',
+    element: <TwoFactorChallengePage />,
   },
   {
     path: '/',
@@ -18,6 +23,13 @@ export const router = createBrowserRouter([
         index: true,
         element: <DashboardPage />,
         handle: { crumb: 'dashboard' },
+      },
+      {
+        path: 'profile',
+        lazy: async () => {
+          const { ProfilePage } = await import('@/pages/Profile')
+          return { element: <ProfilePage />, handle: { crumb: 'profile' } }
+        },
       },
       {
         path: 'resources/:resource',

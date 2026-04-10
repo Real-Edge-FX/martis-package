@@ -1,8 +1,9 @@
 import { useState, useEffect, type FormEvent } from "react"
-import { Navigate } from "react-router-dom"
+import { Navigate, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
 import { ApiError } from "@/lib/api"
+import { TwoFactorRequiredError } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { useTranslation } from "react-i18next"
 import { InputText } from "primereact/inputtext"
@@ -18,6 +19,7 @@ function getBrand(): string {
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth()
+  const navigate = useNavigate()
   const { addToast } = useToast()
   const { t } = useTranslation("auth")
 
@@ -48,6 +50,10 @@ export function LoginPage() {
     try {
       await login(email, password)
     } catch (err) {
+      if (err instanceof TwoFactorRequiredError) {
+        navigate('/2fa/challenge', { replace: true })
+        return
+      }
       if (err instanceof ApiError) {
         addToast("error", err.message || t("error"))
         if (err.status === 422 && err.errors) {

@@ -10,6 +10,13 @@ import { api } from '@/lib/api'
 import { BASE_PATH } from '@/lib/config'
 import type { User } from '@/types'
 
+export class TwoFactorRequiredError extends Error {
+  constructor() {
+    super('two_factor_required')
+    this.name = 'TwoFactorRequiredError'
+  }
+}
+
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
@@ -32,8 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    const u = await api.post<User>('/login', { email, password })
-    setUser(u)
+    const res = await api.post<User & { two_factor_required?: boolean }>('/login', { email, password })
+    if (res && typeof res === 'object' && res.two_factor_required) {
+      // Backend signals that 2FA challenge is required before full session
+      throw new TwoFactorRequiredError()
+    }
+    setUser(res)
   }, [])
 
   const logout = useCallback(async () => {
@@ -58,4 +69,3 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
 }
-

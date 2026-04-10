@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class InstallCommand extends Command
 {
@@ -20,6 +21,7 @@ class InstallCommand extends Command
         $this->publishAssets();
         $this->publishMigrations();
         $this->publishTranslations();
+        $this->setupProfilePictures();
         $this->runMigrations();
 
         $this->newLine();
@@ -115,6 +117,74 @@ class InstallCommand extends Command
             '--force' => (bool) $this->option('force'),
         ]);
         $this->components->twoColumnDetail('<fg=green>Published</> translations', 'lang/vendor/martis');
+    }
+
+    /**
+     * Interactive setup for profile pictures.
+     *
+     * Asks whether the user wants to enable profile pictures, checks if the
+     * required column already exists, and optionally generates a migration.
+     */
+    protected function setupProfilePictures(): void
+    {
+        if (app()->runningUnitTests() || ! $this->input->isInteractive()) {
+            return;
+        }
+
+        if (! $this->confirm('Enable profile pictures (avatar upload)?', true)) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> profile pictures', 'disabled');
+
+            return;
+        }
+
+        $columnExists = $this->confirm('Does a profile picture column already exist on the users table?', false);
+
+        if ($columnExists) {
+            $column = $this->ask('Enter the existing column name', 'profile_picture');
+        } else {
+            $column = $this->ask('Enter the column name to create (snake_case)', 'profile_picture');
+            $this->generateAvatarMigration((string) $column);
+        }
+
+        $column = $this->sanitizeColumnName((string) $column);
+
+        $this->components->twoColumnDetail('<fg=green>Profile pictures</>', "column: {$column}");
+        $this->line("  Tip: set <fg=cyan>MARTIS_AVATAR_COLUMN={$column}</> in your .env file.");
+    }
+
+    /**
+     * Generate a migration for adding the profile picture column.
+     */
+    protected function generateAvatarMigration(string $column): void
+    {
+        $column = $this->sanitizeColumnName($column);
+        $stubPath = __DIR__.'/../../stubs/add_profile_picture_column.php.stub';
+
+        if (! file_exists($stubPath)) {
+            $this->components->warn('Migration stub not found. Skipping migration generation.');
+
+            return;
+        }
+
+        $stub = (string) file_get_contents($stubPath);
+        $stub = str_replace('{{ column }}', $column, $stub);
+
+        $filename = date('Y_m_d_His').'_add_profile_picture_column.php';
+        $target = database_path("migrations/{$filename}");
+
+        file_put_contents($target, $stub);
+        $this->components->twoColumnDetail('<fg=green>Created</> migration', "database/migrations/{$filename}");
+    }
+
+    /**
+     * Sanitize a column name to snake_case alphanumeric + underscores.
+     */
+    protected function sanitizeColumnName(string $name): string
+    {
+        $name = Str::snake($name);
+        $name = (string) preg_replace('/[^a-z0-9_]/', '', $name);
+
+        return $name ?: 'profile_picture';
     }
 
     protected function runMigrations(): void

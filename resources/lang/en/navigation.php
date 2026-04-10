@@ -16,4 +16,5 @@ return [
     'create' => 'Create',
     'edit' => 'Edit',
     'index' => 'Index',
+    'profile' => 'Profile',
 ];

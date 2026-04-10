@@ -7,14 +7,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Profile\TwoFactorService;
 
 class AuthController extends MartisController
 {
     /**
      * Return the currently authenticated user.
      *
-     * Returns the authenticated user as JSON, or literal `null` when not logged in.
-     * Note: the response is raw JSON `null` (not an empty object `{}`) so the React
+     * Returns the authenticated user as JSON, or literal  when not logged in.
+     * Note: the response is raw JSON  (not an empty object ) so the React
      * frontend can reliably distinguish the unauthenticated state.
      *
      * This route is public — it can be called without an active session.
@@ -42,7 +43,8 @@ class AuthController extends MartisController
      * Log in with email and password and start a session.
      *
      * Authenticates the user via the configured guard and starts a Laravel session.
-     * Subsequent requests from the same browser will be authenticated via the session cookie.
+     * When 2FA is enabled on the account, returns a  flag
+     * instead of the user object — the frontend must complete the challenge.
      *
      * This route is exempt from CSRF verification so it can be called from the Swagger playground.
      *
@@ -74,14 +76,25 @@ class AuthController extends MartisController
 
         $request->session()->regenerate();
 
-        return response()->json($auth->user());
+        // Check if 2FA is active — reset the challenge flag on new login
+        $user = $auth->user();
+        if ($user && app(TwoFactorService::class)->isEnabled($user)) {
+            $request->session()->put('martis_two_factor_passed', false);
+
+            return response()->json([
+                'two_factor_required' => true,
+                'message' => 'Two-factor authentication required.',
+            ]);
+        }
+
+        return response()->json($user);
     }
 
     /**
      * Log out the currently authenticated user (API variant).
      *
      * Invalidates the current session and regenerates the CSRF token.
-     * For JSON requests returns `{ message: Logged out }`.
+     * For JSON requests returns .
      * For non-JSON requests redirects to the login route.
      *
      * This route is public so it works even when the session/CSRF token is stale.

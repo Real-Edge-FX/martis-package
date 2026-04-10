@@ -14,7 +14,9 @@ use Martis\Console\ThemeMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Discovery\ResourceDiscovery;
+use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 
 class MartisServiceProvider extends ServiceProvider
@@ -30,6 +32,8 @@ class MartisServiceProvider extends ServiceProvider
         $this->app->singleton(ResourceRegistry::class, function (): ResourceRegistry {
             return new ResourceRegistry;
         });
+
+        $this->app->singleton(TwoFactorService::class);
     }
 
     /** Boot package services: routes, views, translations, assets, and console commands. */
@@ -76,6 +80,17 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../database/migrations/create_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_action_events_table.php'),
             ], 'martis-migrations');
+
+            // Profile: 2FA columns migration stub
+            $this->publishes([
+                __DIR__.'/../stubs/add_two_factor_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_two_factor_columns.php'),
+            ], 'martis-2fa-migration');
+
+            // Profile: profile picture column migration stub
+            // (published dynamically by InstallCommand based on user-chosen column name)
+            $this->publishes([
+                __DIR__.'/../stubs/add_profile_picture_column.php.stub' => database_path('migrations/'.date('Y_m_d').'_000003_add_profile_picture_column.php'),
+            ], 'martis-avatar-migration');
         }
     }
 
@@ -94,6 +109,7 @@ class MartisServiceProvider extends ServiceProvider
         /** @var Router $router */
         $router = $this->app->make('router');
         $router->aliasMiddleware('martis.auth', MartisAuthenticate::class);
+        $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
     }
 
     /**

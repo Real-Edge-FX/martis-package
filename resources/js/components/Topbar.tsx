@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react"
+import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTheme } from "@/contexts/ThemeContext"
 import { config } from "@/lib/config"
@@ -7,7 +8,7 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut } from "@phosphor-icons/react"
+import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut, UserCircle } from "@phosphor-icons/react"
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(
@@ -27,12 +28,14 @@ export function Topbar() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
+  const navigate = useNavigate()
   const menuRef = useRef<Menu>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const isMobile = useIsMobile()
 
   const showThemeToggle = config.userMenu?.showThemeToggle !== false
   const showNotifications = config.userMenu?.showNotifications !== false
+  const showProfile = config.profile?.menu?.enabled !== false
 
   // Search mode resolution
   const desktopMode = config.search?.enabled === false ? "disabled" : (config.search?.mode ?? "bar")
@@ -110,6 +113,31 @@ export function Topbar() {
             url: item.url,
           } as MenuItem),
     ) ?? []),
+    ...(showProfile
+      ? [
+          {
+            template: (
+              _item: MenuItem,
+              options: { className: string; onClick: (e: React.SyntheticEvent) => void },
+            ) => (
+              <a
+                className={options.className}
+                onClick={(e) => {
+                  navigate('/profile')
+                  options.onClick(e)
+                }}
+                role="menuitem"
+              >
+                <UserCircle size={16} className="p-menuitem-icon" />
+                <span className="p-menuitem-text">
+                  {config.profile?.menu?.label ?? t("profile", "Profile")}
+                </span>
+              </a>
+            ),
+          } as MenuItem,
+          { separator: true } as MenuItem,
+        ]
+      : []),
     {
       template: (
         _item: MenuItem,
