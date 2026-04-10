@@ -123,4 +123,48 @@ class MorphToFieldTest extends TestCase
         $arr = $field->toArray();
         $this->assertTrue($arr['nullable']);
     }
+
+    public function test_with_subtitles_defaults_to_false(): void
+    {
+        $field = MorphTo::make('commentable');
+        $arr = $field->toArray();
+        $this->assertFalse($arr['withSubtitles']);
+    }
+
+    public function test_with_subtitles_can_be_enabled(): void
+    {
+        $field = MorphTo::make('commentable')->withSubtitles();
+        $arr = $field->toArray();
+        $this->assertTrue($arr['withSubtitles']);
+        $this->assertSame('subtitle', $arr['subtitleAttribute']);
+    }
+
+    public function test_subtitle_attribute_enables_with_subtitles(): void
+    {
+        $field = MorphTo::make('commentable')->subtitleAttribute('excerpt');
+        $arr = $field->toArray();
+        $this->assertTrue($arr['withSubtitles']);
+        $this->assertSame('excerpt', $arr['subtitleAttribute']);
+    }
+
+    public function test_peekable_defaults_to_true(): void
+    {
+        $field = MorphTo::make('commentable');
+        $arr = $field->toArray();
+        $this->assertTrue($arr['peekable']);
+    }
+
+    public function test_no_peeking_disables_peek(): void
+    {
+        $field = MorphTo::make('commentable')->noPeeking();
+        $arr = $field->toArray();
+        $this->assertFalse($arr['peekable']);
+    }
+
+    public function test_peekable_explicit_false(): void
+    {
+        $field = MorphTo::make('commentable')->peekable(false);
+        $arr = $field->toArray();
+        $this->assertFalse($arr['peekable']);
+    }
 }

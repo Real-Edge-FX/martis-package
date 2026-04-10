@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
-import { CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
+import { ArrowSquareOut, CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -31,16 +31,29 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
     const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
 
     const displayAsLink = (field as unknown as Record<string, unknown>).displayAsLink !== false
+    const peekable = (field as unknown as Record<string, unknown>).peekable !== false
 
     if (relatedResource && displayAsLink) {
       return (
-        <Link
-          to={`/resources/${relatedResource}/${value.id}`}
-          className="text-sm hover:underline"
-          style={{ color: 'var(--martis-accent)' }}
-        >
-          {label}
-        </Link>
+        <span className="inline-flex items-center gap-1">
+          <Link
+            to={`/resources/${relatedResource}/${value.id}`}
+            className="text-sm hover:underline"
+            style={{ color: 'var(--martis-accent)' }}
+          >
+            {label}
+          </Link>
+          {peekable && (
+            <Link
+              to={`/resources/${relatedResource}/${value.id}`}
+              title="Preview"
+              style={{ color: 'var(--martis-text-muted)' }}
+              className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity"
+            >
+              <ArrowSquareOut size={13} weight="regular" />
+            </Link>
+          )}
+        </span>
       )
     }
 
@@ -68,6 +81,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const showCreateRelationButton = (field as unknown as Record<string, unknown>).showCreateRelationButton === true
   const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
   const canShowCreateButton = showCreateRelationButton && !!relatedResource
+  const withSubtitles = (field as unknown as Record<string, unknown>).withSubtitles === true
+  const subtitleAttribute = ((field as unknown as Record<string, unknown>).subtitleAttribute as string) || 'subtitle'
 
   // Extract current ID from value (handles both plain ID and {id, title} objects)
   const currentId = useMemo(() => {
@@ -177,18 +192,14 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     return `#${record.id}`
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
+  function getOptionSubtitle(record: RelatedRecord): string | null {
+    if (!withSubtitles) return null
+    const sub = record[subtitleAttribute]
+    if (sub !== undefined && sub !== null && sub !== '') {
+      return String(sub)
+    }
+    return null
+  }
 
   function handleInlineCreated(record: { id: string | number; title: string | null }) {
     onChange(record.id)
@@ -330,6 +341,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
             ) : (
               options.map((record) => {
                 const label = getOptionLabel(record)
+                const subtitle = getOptionSubtitle(record)
                 const isSelected = currentId !== null && String(record.id) === String(currentId)
                 return (
                   <button
@@ -338,9 +350,19 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
                     onClick={() => handleSelect(record)}
                     className={`martis-belongs-to-option ${isSelected ? 'martis-belongs-to-option--selected' : ''}`}
                   >
-                    <span className="martis-belongs-to-option-label">{label}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="martis-belongs-to-option-label block">{label}</span>
+                      {subtitle && (
+                        <span
+                          className="block text-xs truncate"
+                          style={{ color: 'var(--martis-text-muted)' }}
+                        >
+                          {subtitle}
+                        </span>
+                      )}
+                    </span>
                     {isSelected && (
-                      <Check size={14} weight="bold" style={{ color: 'var(--martis-accent)' }} />
+                      <Check size={14} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
                     )}
                   </button>
                 )

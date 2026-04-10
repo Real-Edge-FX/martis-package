@@ -61,6 +61,24 @@ class MorphTo extends Field
     /** Whether the dropdown should support text search. */
     protected bool $relationSearchable = true;
 
+    /**
+     * Whether to show subtitle text under each dropdown option.
+     * Nova v5 parity: ->withSubtitles()
+     */
+    protected bool $withSubtitles = false;
+
+    /**
+     * The attribute on the related model used as the subtitle text.
+     * Defaults to "subtitle".
+     */
+    protected string $subtitleAttribute = 'subtitle';
+
+    /**
+     * Whether the peek/preview button is shown for the related record.
+     * Defaults to true (Nova v5 parity).
+     */
+    protected bool $peekable = true;
+
     protected function __construct(
         string $attribute,
         string $label,
@@ -153,6 +171,58 @@ class MorphTo extends Field
             $size = ModalSize::from($size);
         }
         $this->modalSize = $size;
+
+        return $this;
+    }
+
+    /**
+     * Show subtitle text under each dropdown option.
+     *
+     * The subtitle is read from the related model's $subtitleAttribute (default: "subtitle").
+     * Nova v5 parity: ->withSubtitles()
+     */
+    public function withSubtitles(bool $value = true): static
+    {
+        $this->withSubtitles = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set the subtitle attribute on the related model.
+     * Implicitly enables withSubtitles.
+     *
+     * Usage: ->subtitleAttribute('description')
+     */
+    public function subtitleAttribute(string $attribute): static
+    {
+        $this->subtitleAttribute = $attribute;
+        $this->withSubtitles = true;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable the peek/preview button on the display component.
+     * Defaults to true — pass false or call noPeeking() to disable.
+     *
+     * Nova v5 parity: ->peekable()
+     */
+    public function peekable(bool $value = true): static
+    {
+        $this->peekable = $value;
+
+        return $this;
+    }
+
+    /**
+     * Disable the peek/preview button for this relationship.
+     *
+     * Nova v5 parity: ->noPeeking()
+     */
+    public function noPeeking(): static
+    {
+        $this->peekable = false;
 
         return $this;
     }
@@ -343,6 +413,9 @@ class MorphTo extends Field
             'relationSearchable' => $this->relationSearchable,
             'showCreateRelationButton' => $this->isShowCreateRelationButton(),
             'modalSize' => $this->modalSize->value,
+            'withSubtitles' => $this->withSubtitles,
+            'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
+            'peekable' => $this->peekable,
         ];
     }
 }

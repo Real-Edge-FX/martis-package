@@ -2,7 +2,9 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 
@@ -62,6 +64,42 @@ class BelongsTo extends Field
      * Defaults to 2xl (Nova v5 parity).
      */
     protected ModalSize $modalSize = ModalSize::TwoExtraLarge;
+
+    /**
+     * Whether to show subtitle text under each dropdown option.
+     * Nova v5 parity: ->withSubtitles()
+     */
+    protected bool $withSubtitles = false;
+
+    /**
+     * The attribute on the related model used as the subtitle text.
+     * Defaults to "subtitle".
+     */
+    protected string $subtitleAttribute = 'subtitle';
+
+    /**
+     * Whether the peek/preview button is shown for the related record.
+     * Defaults to true (Nova v5 parity).
+     */
+    protected bool $peekable = true;
+
+    /**
+     * Whether soft-deleted records should be excluded from relatable options.
+     * Nova v5 parity: ->withoutTrashed()
+     */
+    protected bool $withoutTrashed = false;
+
+    /**
+     * Whether to disable auto-reordering of associatables.
+     * Nova v5 parity: ->dontReorderAssociatables()
+     */
+    protected bool $dontReorderAssociatables = false;
+
+    /**
+     * Closure to customize the relatable query for this field.
+     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => ...)
+     */
+    protected ?\Closure $relatableQueryClosure = null;
 
     /**
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
@@ -364,6 +402,123 @@ class BelongsTo extends Field
     }
 
     /**
+     * Show subtitle text under each dropdown option.
+     *
+     * The subtitle is read from the related model's $subtitleAttribute (default: "subtitle").
+     * Nova v5 parity: ->withSubtitles()
+     */
+    public function withSubtitles(bool $value = true): static
+    {
+        $this->withSubtitles = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set the subtitle attribute on the related model.
+     * Implicitly enables withSubtitles.
+     *
+     * Usage: ->subtitleAttribute('description')
+     */
+    public function subtitleAttribute(string $attribute): static
+    {
+        $this->subtitleAttribute = $attribute;
+        $this->withSubtitles = true;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable the peek/preview button on the display component.
+     * Defaults to true — pass false or call noPeeking() to disable.
+     *
+     * Nova v5 parity: ->peekable()
+     */
+    public function peekable(bool $value = true): static
+    {
+        $this->peekable = $value;
+
+        return $this;
+    }
+
+    /**
+     * Disable the peek/preview button for this relationship.
+     *
+     * Nova v5 parity: ->noPeeking()
+     */
+    public function noPeeking(): static
+    {
+        $this->peekable = false;
+
+        return $this;
+    }
+
+    /**
+     * Exclude soft-deleted records from the relatable options list.
+     *
+     * Nova v5 parity: ->withoutTrashed()
+     */
+    public function withoutTrashed(): static
+    {
+        $this->withoutTrashed = true;
+
+        return $this;
+    }
+
+    /**
+     * Disable auto-reordering of relatable options (keep DB/query order).
+     *
+     * Nova v5 parity: ->dontReorderAssociatables()
+     */
+    public function dontReorderAssociatables(): static
+    {
+        $this->dontReorderAssociatables = true;
+
+        return $this;
+    }
+
+    /**
+     * Customize the relatable options query using a closure.
+     *
+     * The closure receives ($request, $query) and should modify the Builder in-place
+     * or return a new Builder.
+     *
+     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => $query->where('active', 1))
+     *
+     * @param  \Closure(Request, Builder<Model>): void  $closure
+     */
+    public function relatableQueryUsing(\Closure $closure): static
+    {
+        $this->relatableQueryClosure = $closure;
+
+        return $this;
+    }
+
+    /**
+     * Get the relatableQueryUsing closure (used by RelationshipQueryResolver).
+     */
+    public function getRelatableQueryClosure(): ?\Closure
+    {
+        return $this->relatableQueryClosure;
+    }
+
+    /**
+     * Whether soft-deleted records should be excluded.
+     */
+    public function isWithoutTrashed(): bool
+    {
+        return $this->withoutTrashed;
+    }
+
+    /**
+     * Whether auto-reordering of associatables is disabled.
+     */
+    public function isDontReorderAssociatables(): bool
+    {
+        return $this->dontReorderAssociatables;
+    }
+
+    /**
      * Whether the create relation button should be shown.
      */
     public function isShowCreateRelationButton(): bool
@@ -399,6 +554,11 @@ class BelongsTo extends Field
             'displayAsLink' => $this->displayAsLink,
             'showCreateRelationButton' => $this->isShowCreateRelationButton(),
             'modalSize' => $this->getModalSize()->value,
+            'withSubtitles' => $this->withSubtitles ?: null,
+            'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
+            'peekable' => $this->peekable,
+            'withoutTrashed' => $this->withoutTrashed ?: null,
+            'dontReorderAssociatables' => $this->dontReorderAssociatables ?: null,
         ], fn (mixed $v): bool => $v !== null);
     }
 }
