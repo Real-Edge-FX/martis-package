@@ -141,13 +141,13 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
   const pivotActionsQuery = useQuery({
     queryKey: ['pivot-actions', parentResource, parentId, relationship],
     queryFn: () =>
-      api.get<{ actions: ActionMeta[] }>(
+      api.get<{ data: { actions: ActionMeta[] } }>(
         `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`
       ),
     enabled: !!parentResource && !!parentId && !!relationship && !collapsed,
   })
 
-  const pivotActions = pivotActionsQuery.data?.actions ?? []
+  const pivotActions = pivotActionsQuery.data?.data?.actions ?? []
   const hasPivotActions = pivotActions.length > 0
 
   // Close pivot dropdown when clicking outside
