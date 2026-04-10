@@ -383,3 +383,43 @@ Martis uses CSS custom properties for theming. Override these variables to custo
 ```
 
 Light theme variables are set via `html:not(.dark)` selector and automatically applied when theme is toggled.
+
+## Loading Indicator
+
+### MartisLoader
+
+The built-in loading indicator used across all resource pages, the profile page, and action drawers.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `loading` | `boolean` | `true` | Controls visibility |
+| `message` | `string \| null` | config or i18n | Text shown next to spinner |
+| `overlay` | `boolean` | `false` | Covers child content with a semi-transparent overlay |
+| `disabled` | `boolean` | `false` | Hides this instance regardless of state |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | Spinner and text size |
+| `children` | `ReactNode` | — | Content to wrap in overlay mode |
+
+**Usage:**
+
+```tsx
+import { MartisLoader } from '@martis/martis/components/Loader'
+
+// Simple spinner
+<MartisLoader loading={isLoading} />
+
+// Overlay mode — wraps content with a semi-transparent loading state
+<MartisLoader loading={isFetching} overlay>
+  <DataTable rows={rows} />
+</MartisLoader>
+```
+
+**Configuration:** All visual options (message, icon, logo, colors, opacity) are controlled via `config/martis.php` under the `loader` key. See the [Loader documentation](loader.md) for the full configuration reference and customization guide.
+
+**Custom loader component:** Replace the built-in loader entirely via the component registry:
+
+```typescript
+import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+componentRegistry.register('loader', MyCustomLoader)
+```

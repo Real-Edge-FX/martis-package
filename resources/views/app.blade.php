@@ -27,7 +27,8 @@
             dashboard: {!! json_encode(config('martis.dashboard', ['showMetrics' => true, 'showResourceCards' => true])) !!},
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
-            layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!}
+            layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
+            loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!}
         };
         // Apply saved theme before first paint to prevent flash
         (function() {

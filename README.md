@@ -616,6 +616,7 @@ Edit `config/martis.php` to configure:
 - **Responsive DataTable** — striped rows, rounded corners, hover effects
 - **Breadcrumbs** — contextual navigation with resource icons
 - **Toast Notifications** — success, error, and info feedback on all operations
+- **Loader** — configurable loading indicator with spinner, icon, or logo; overlay mode for table refetch; fully replaceable via component registry
 - **Global Search** — search resources and records from the top bar
 
 ## Extensibility
