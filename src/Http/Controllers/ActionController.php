@@ -15,6 +15,8 @@ use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\BelongsToMany as BelongsToManyField;
+use Martis\Fields\Field as MartisField;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Models\ActionEvent;
@@ -453,5 +455,183 @@ class ActionController extends MartisController
         } catch (\Throwable $e) {
             Log::warning('Failed to log action event', ['error' => $e->getMessage()]);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Pivot action routes (BelongsToMany context)
+    // -------------------------------------------------------------------------
+
+    /**
+     * List pivot actions for a BelongsToMany relationship.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions
+     */
+    public function pivotIndex(Request $request, string $resource, string|int $id, string $relationship): IlluminateJsonResponse
+    {
+        $resourceClass = $this->resolveResource($resource);
+        if ($resourceClass === null) {
+            return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
+        }
+
+        $instance = new $resourceClass;
+        $allActions = $this->resolveActions($instance, $request);
+
+        $context = $request->query('context', 'detail');
+        if (! is_string($context)) {
+            $context = 'detail';
+        }
+
+        $pivotActions = array_values(array_filter($allActions, function (ActionContract $action) use ($context) {
+            if (! ($action instanceof Action) || ! $action->isPivotAction()) {
+                return false;
+            }
+
+            return match ($context) {
+                'index' => $action->isShownOnIndex(),
+                'detail' => $action->isShownOnDetail(),
+                'inline' => $action->isShownInline(),
+                default => true,
+            };
+        }));
+
+        /** @var array<string, mixed> $data */
+        $data = ['actions' => array_map(fn (ActionContract $a) => $a->jsonSerialize(), $pivotActions)];
+
+        return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * Execute a pivot action on selected related records.
+     *
+     * POST /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}
+     * Body: { "resources": [1, 2, 3], "fields": { "priority": "high" } }
+     *
+     * Related models are loaded through the parent relationship so each model
+     * carries its pivot (e.g. $tag->pivot->priority).
+     */
+    public function executePivot(
+        Request $request,
+        string $resource,
+        string|int $id,
+        string $relationship,
+        string $action,
+    ): IlluminateJsonResponse {
+        $resourceClass = $this->resolveResource($resource);
+        if ($resourceClass === null) {
+            return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
+        }
+
+        $modelClass = $resourceClass::model();
+        $parentModel = $modelClass::find($id);
+        if ($parentModel === null) {
+            return JsonErrorResponse::notFound("Parent record [{$id}] not found.")->toResponse();
+        }
+
+        if (! method_exists($parentModel, $relationship)) {
+            return JsonErrorResponse::notFound("Relationship [{$relationship}] not found on resource.")->toResponse();
+        }
+
+        $instance = new $resourceClass;
+        $actionInstance = $this->findAction($instance, $action, $request);
+        if ($actionInstance === null) {
+            return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
+        }
+
+        if (! ($actionInstance instanceof Action) || ! $actionInstance->isPivotAction()) {
+            return JsonErrorResponse::notFound("Action [{$action}] is not a pivot action.")->toResponse();
+        }
+
+        if (! $actionInstance->authorizedToSee($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        // Resolve pivot columns from the BelongsToMany field definition
+        $parentInstance = new $resourceClass($parentModel);
+        $pivotColumns = $this->resolvePivotColumns($parentInstance, $request, $relationship);
+
+        /** @var list<int|string> $relatedIds */
+        $relatedIds = $request->input('resources', []);
+
+        if (empty($relatedIds) && ! $actionInstance->isStandalone()) {
+            return JsonErrorResponse::validation(
+                ['resources' => ['At least one related record must be selected.']],
+            )->toResponse();
+        }
+
+        // Load related models via the relationship so pivot data is included
+        $relation = $parentModel->{$relationship}();
+        if (! empty($pivotColumns)) {
+            $relation->withPivot($pivotColumns);
+        }
+
+        /** @var Collection<int, Model> $models */
+        $models = $relation->whereIn($relation->getRelated()->getKeyName(), $relatedIds)->get();
+
+        if ($actionInstance->isSole() && $models->count() !== 1) {
+            return JsonErrorResponse::validation(
+                ['resources' => ['This action requires exactly one selected resource.']],
+            )->toResponse();
+        }
+
+        $actionFields = $actionInstance->fields($request);
+        if (! empty($actionFields)) {
+            $rules = $this->buildFieldValidationRules($actionFields);
+            /** @var array<string, mixed> $fieldData */
+            $fieldData = $request->input('fields', []);
+            $validator = Validator::make($fieldData, $rules);
+            if ($validator->fails()) {
+                return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
+            }
+        }
+
+        /** @var array<string, mixed> $rawFields */
+        $rawFields = $request->input('fields', []);
+        $fields = ActionFields::fromRequest($rawFields);
+
+        try {
+            if ($actionInstance->getClosureHandler() !== null) {
+                $result = ($actionInstance->getClosureHandler())($fields, $models);
+            } else {
+                $result = $actionInstance->handle($fields, $models);
+            }
+
+            if ($result instanceof ActionResponse) {
+                return JsonResponse::make($result->jsonSerialize())->toResponse();
+            }
+
+            return JsonResponse::make([
+                'type' => 'message',
+                'data' => ['message' => 'Pivot action executed successfully.'],
+            ])->toResponse();
+        } catch (\Throwable $e) {
+            Log::error('Pivot action execution failed', [
+                'action' => $action,
+                'resource' => $resource,
+                'relationship' => $relationship,
+                'error' => $e->getMessage(),
+            ]);
+
+            return JsonErrorResponse::serverError('Pivot action failed: '.$e->getMessage())->toResponse();
+        }
+    }
+
+    /**
+     * Resolve pivot column names from the BelongsToMany field definition on a resource.
+     *
+     * @return list<string>
+     */
+    private function resolvePivotColumns(Resource $parentInstance, Request $request, string $relationship): array
+    {
+        $fields = $parentInstance->fieldsForDetail($request);
+        foreach ($fields as $field) {
+            if ($field instanceof BelongsToManyField && $field->getRelationship() === $relationship) {
+                return array_values(array_map(
+                    fn (MartisField $f): string => $f->attribute(),
+                    array_filter($field->getPivotFields(), fn ($f): bool => $f instanceof MartisField),
+                ));
+            }
+        }
+
+        return [];
     }
 }

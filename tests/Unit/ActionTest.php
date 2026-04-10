@@ -379,6 +379,47 @@ class ActionTest extends TestCase
         $action->iconColor('#ff0000');
         $this->assertEquals('#ff0000', $action->getIconColor());
     }
+
+    // -------------------------------------------------------------------------
+    // Pivot action tests
+    // -------------------------------------------------------------------------
+
+    public function test_is_pivot_action_false_by_default(): void
+    {
+        $action = TestableAction::make();
+        $json = $action->jsonSerialize();
+        $this->assertFalse($json['isPivotAction']);
+        $this->assertNull($json['pivotLabel']);
+    }
+
+    public function test_pivot_action_flag(): void
+    {
+        $action = TestableAction::make()->pivotAction();
+        $json = $action->jsonSerialize();
+        $this->assertTrue($json['isPivotAction']);
+    }
+
+    public function test_refer_to_pivot_as(): void
+    {
+        $action = TestableAction::make()->pivotAction()->referToPivotAs('Tag Actions');
+        $json = $action->jsonSerialize();
+        $this->assertTrue($json['isPivotAction']);
+        $this->assertEquals('Tag Actions', $json['pivotLabel']);
+    }
+
+    public function test_get_pivot_label_default_null(): void
+    {
+        $action = TestableAction::make();
+        $this->assertNull($action->getPivotLabel());
+    }
+
+    public function test_is_pivot_action_method(): void
+    {
+        $action = TestableAction::make();
+        $this->assertFalse($action->isPivotAction());
+        $action->pivotAction();
+        $this->assertTrue($action->isPivotAction());
+    }
 }
 
 class TestableAction extends Action

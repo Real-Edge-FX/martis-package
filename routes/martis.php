@@ -94,6 +94,11 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->name('resources.belongs-to-many.detach');
                         Route::put('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot', [BelongsToManyController::class, 'updatePivot'])
                             ->name('resources.belongs-to-many.pivot');
+                        // Pivot action execution — Nova v5 parity
+                        Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions', [ActionController::class, 'pivotIndex'])
+                            ->name('resources.belongs-to-many.actions.index');
+                        Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
+                            ->name('resources.belongs-to-many.actions.execute');
 
                         // Force delete (permanent deletion of soft-deleted records)
                         Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])

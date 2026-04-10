@@ -193,6 +193,26 @@ interface ActionContract
     public function getGroup(): ?string;
 
     // -------------------------------------------------------------------------
+    // Pivot action support (Nova v5 parity)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Mark this action as a pivot action (runs on BelongsToMany pivot context).
+     * Pivot actions receive related models loaded via the parent relationship,
+     * so each model has access to `$model->pivot` with pivot column data.
+     */
+    public function pivotAction(): static;
+
+    /** Whether this action is a pivot action. */
+    public function isPivotAction(): bool;
+
+    /** Set a custom label for the pivot section header. */
+    public function referToPivotAs(string $label): static;
+
+    /** Get the pivot section label. */
+    public function getPivotLabel(): ?string;
+
+    // -------------------------------------------------------------------------
     // Serialization
     // -------------------------------------------------------------------------
 
