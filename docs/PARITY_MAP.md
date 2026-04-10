@@ -236,7 +236,7 @@
 | Without Confirm | withoutConfirmation() | withoutConfirmation() | DONE | — |
 | Modal Sizes | sm/md/lg/.../fullscreen | ModalSize enum + fullscreen | DONE | — |
 | Pivot Actions | pivotAction() | pivotAction() + referToPivotAs() | DONE | — |
-| then() Callback | Post-process callback | then(Closure) | DONE | — |
+| then() Callback | Post-process callback | then(Closure) | DONE | See [Post-processing with then()] in actions.md |
 | Action Icons | — | icon('phosphor-name') | DONE | Martis extension |
 | Action Groups | — | group('name') + dot-notation | DONE | Martis extension |
 | Artisan Command | nova:action | martis:action (--destructive) | DONE | — |

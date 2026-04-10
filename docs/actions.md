@@ -1,6 +1,6 @@
 # Actions
 
-> Last updated: 2026-04-09
+> Last updated: 2026-04-10
 
 ## Overview
 
@@ -469,6 +469,153 @@ public function handle(ActionFields $fields, Collection $models): ActionResponse
 
 ---
 
+
+---
+
+## Post-processing with then()
+
+The `then()` callback runs **after `handle()` completes** on a synchronous (non-queued) action. Use it to run code that should happen outside the action itself: sending notifications, invalidating caches, triggering follow-up jobs, or recording external audit entries beyond the built-in `action_events` log.
+
+### Signature
+
+```php
+->then(Closure $callback): static
+```
+
+The closure receives a `Collection` wrapping the value returned by `handle()`:
+
+```php
+->then(function (Illuminate\Support\Collection $responses) {
+    // $responses->first() is the ActionResponse (or null) returned by handle()
+})
+```
+
+### Concrete example — notify after bulk publish
+
+```php
+<?php
+
+namespace App\Martis\Actions;
+
+use App\Models\User;
+use App\Notifications\PostsPublishedNotification;
+use Illuminate\Support\Collection;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+
+class PublishPosts extends Action
+{
+    public ?string $name = 'Publish Posts';
+
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        foreach ($models as $post) {
+            $post->update(['status' => 'published', 'published_at' => now()]);
+        }
+
+        return ActionResponse::message("{$models->count()} post(s) published.");
+    }
+}
+```
+
+Register the action with a `then()` callback on the resource:
+
+```php
+public function actions(Request $request): array
+{
+    return [
+        PublishPosts::make()
+            ->then(function (Collection $responses) {
+                // Notify the site admin after the bulk publish
+                $admin = User::where('role', 'admin')->first();
+                $admin?->notify(new PostsPublishedNotification);
+
+                // Or: invalidate a cache tag
+                \Cache::tags(['posts'])->flush();
+            }),
+    ];
+}
+```
+
+### When then() runs vs. when it does NOT
+
+| Scenario | `then()` called? |
+|----------|:----------------:|
+| Synchronous action — `handle()` succeeds | ✅ Yes |
+| Synchronous action — `handle()` throws an exception | ❌ No |
+| Queued action (implements `ShouldQueue`) | ❌ No — skipped for queued actions |
+| Standalone action (no models) | ✅ Yes |
+
+> **Queued actions:** `then()` is not called for queued actions because the HTTP response returns before `handle()` runs. For post-processing on queued actions, put the logic inside `handle()` itself or listen to the `JobProcessed` event.
+
+### How to test
+
+**Unit test — trigger the callback manually:**
+
+```php
+use App\Martis\Actions\PublishPosts;
+use App\Models\Post;
+use Illuminate\Support\Collection;
+use Martis\Actions\ActionFields;
+
+it('calls the then callback after publish', function () {
+    $notified = false;
+    $post = Post::factory()->create(['status' => 'draft']);
+
+    $action = PublishPosts::make()
+        ->then(function (Collection $responses) use (&$notified) {
+            $notified = true;
+        });
+
+    $models = collect([$post]);
+    $fields = new ActionFields([]);
+
+    // Run handle()
+    $result = $action->handle($fields, $models);
+
+    // Invoke the callback exactly as ActionController does
+    $cb = $action->getThenCallback();
+    $cb(collect([$result]));
+
+    expect($notified)->toBeTrue();
+    expect($post->fresh()->status)->toBe('published');
+});
+```
+
+**Feature/HTTP test — verify the callback fires via the full request cycle:**
+
+```php
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
+
+it('flushes cache after bulk publish', function () {
+    Cache::shouldReceive('tags')->with(['posts'])->andReturnSelf();
+    Cache::shouldReceive('flush')->once();
+
+    $user  = User::factory()->admin()->create();
+    $posts = Post::factory()->count(3)->create(['status' => 'draft']);
+
+    $this->actingAs($user)
+        ->postJson('/martis/api/resources/posts/actions/publish-posts', [
+            'resources' => $posts->pluck('id')->all(),
+            'fields'    => [],
+        ])
+        ->assertOk();
+});
+```
+
+Run the tests:
+
+```bash
+php artisan test --filter PublishPosts   # filter by class name
+php artisan test                         # full suite
+```
+
+
+
 ## Confirmation Modal
 
 ```php
@@ -652,6 +799,130 @@ class PostResource extends Resource
 | `ActionResponse::modal($component, $props)` | Opens a custom modal |
 
 ---
+
+
+---
+
+## Full Execution Flow
+
+This section traces exactly what happens from the moment the user clicks "Run Action" to the moment the response is shown — including how the audit log is populated.
+
+### Step-by-step: synchronous action (non-queued)
+
+```
+User clicks "Run Action" in the browser
+         │
+         ▼
+POST /martis/api/resources/{resource}/actions/{action}
+     Body: { "resources": [1, 2, 3], "fields": { ... } }
+         │
+         ▼
+ActionController::execute()
+  1. Resolve resource class from URI key
+  2. Find action by URI key (uriKey())
+  3. Check canSee() — 403 if unauthorized
+  4. Load Eloquent models by the IDs in "resources"
+  5. Check canRun() per model — 403 if any unauthorized
+  6. Validate fields against action->fields() rules
+  7. Capture model attribute snapshots (state BEFORE execution)
+         │
+         ▼
+  8. Call action->handle($fields, $models)
+         │
+         ▼
+  9. Refresh each model (reload from DB to capture changes)
+ 10. Call logActionEvent() — insert ActionEvent rows:
+     - One row per model, all sharing the same batch_id UUID
+     - status = "completed"
+     - original = changed attributes with values BEFORE
+     - changes  = changed attributes with values AFTER
+         │
+         ▼
+ 11. Call then() callback (if registered)
+         │
+         ▼
+ 12. Return ActionResponse as JSON to the browser
+     → UI shows toast / redirects / etc.
+```
+
+### Step-by-step: queued action (implements ShouldQueue)
+
+```
+Same steps 1-7 as above
+         │
+         ▼
+  8. Dispatch ExecuteAction job to the queue
+  9. Call logActionEvent() — insert ActionEvent rows with status = "queued"
+         │
+         ▼
+ 10. Return immediately: "Action has been queued for processing."
+     (then() is NOT called for queued actions)
+
+--- later, in the queue worker ---
+
+ExecuteAction::handle()
+  1. Re-instantiate the action from its class name
+  2. Re-load models from DB by stored IDs
+  3. Capture model snapshots
+  4. Call action->handle($fields, $models)
+  5. Refresh models
+  6. Update ActionEvent rows — status = "completed" or "failed"
+```
+
+### What lands in action_events
+
+Every action execution writes one `ActionEvent` row per model. Example for "Publish Posts" on posts [1, 2, 3]:
+
+```
+id  batch_id (UUID)          user_id  name           actionable_type  id  status     original                  changes
+─   ───────────────────────  ───────  ─────────────  ───────────────  ──  ─────────  ────────────────────────  ──────────────────────────
+1   550e8400-…-446655440000  7        Publish Posts  App\Models\Post  1   completed  {"status":"draft"}        {"status":"published"}
+2   550e8400-…-446655440000  7        Publish Posts  App\Models\Post  2   completed  {"status":"draft"}        {"status":"published"}
+3   550e8400-…-446655440000  7        Publish Posts  App\Models\Post  3   completed  {"status":"draft"}        {"status":"published","published_at":"2026-04-10T12:00:00"}
+```
+
+Key points:
+- All 3 rows share the same `batch_id` — they came from one action run
+- `original` and `changes` store **only the diff** — unchanged attributes are not stored
+- `fields` holds the values the user submitted in the action modal
+- For standalone actions, `actionable_type/id` are `null` (no model targeted)
+
+### Querying the audit log
+
+```php
+use Martis\Models\ActionEvent;
+
+// All events for a specific batch (one action run)
+ActionEvent::forBatch($batchId)->get();
+
+// All "Publish Posts" executions, newest first
+ActionEvent::forAction("Publish Posts")->latest()->paginate(25);
+
+// What did user #7 do today?
+ActionEvent::forUser(7)->whereDate("created_at", today())->get();
+
+// Failed actions in the last 7 days
+ActionEvent::where("status", "failed")
+    ->where("created_at", ">=", now()->subDays(7))
+    ->get();
+
+// History for a specific post (Post model uses the Actionable trait)
+$post = Post::find(1);
+$post->actions()->latest()->get();
+```
+
+### Error handling in the log
+
+If `handle()` throws an exception:
+
+1. The exception is caught in `ActionController`
+2. An `ActionEvent` row is written with `status = "failed"` and the exception message in the `exception` column
+3. `then()` is **not** called
+4. The HTTP response returns HTTP 500 with the error message
+5. The UI shows a red error toast
+
+For queued actions, if `handle()` throws inside the job, Laravel retries/fails the job normally and updates the `ActionEvent` row to `status = "failed"`.
+
 
 ## Action Events (Audit Log)
 
