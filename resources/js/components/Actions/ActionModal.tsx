@@ -161,7 +161,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   if (!visible || !action) return null
 
   const hasFields = fields.length > 0
-  const needsConfirmation = action.withConfirmation || hasFields
+  const needsConfirmation = action.withConfirmation || hasFields || !!action.customComponent
 
   // Auto-execute if no confirmation or fields needed (only once)
   if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
