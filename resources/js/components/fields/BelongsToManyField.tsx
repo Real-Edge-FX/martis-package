@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -504,8 +504,22 @@ function DetachConfirmModal({
 }
 
 // -------------------------------------------------------------------------
-// Attach modal — search + select + optional pivot fields
+// Attach modal — multi-select + debounced search + optional pivot fields
 // -------------------------------------------------------------------------
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    timeoutRef.current = setTimeout(() => setDebouncedValue(value), delay)
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
 
 function AttachModal({
   parentResource,
@@ -528,15 +542,16 @@ function AttachModal({
   const { t: tMsg } = useTranslation('messages')
 
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<AttachableRecord | null>(null)
+  const debouncedSearch = useDebounce(search, 300)
+  const [selected, setSelected] = useState<AttachableRecord[]>([])
   const [pivotValues, setPivotValues] = useState<Record<string, unknown>>({})
   const [error, setError] = useState<string | null>(null)
 
   const attachableQuery = useQuery({
-    queryKey: ['btm-attachable', parentResource, parentId, relationship, search],
+    queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch],
     queryFn: () => {
-      const params = new URLSearchParams({ per_page: '20' })
-      if (search) params.set('search', search)
+      const params = new URLSearchParams({ per_page: '50' })
+      if (debouncedSearch) params.set('search', debouncedSearch)
       return api.get<PaginatedResponse<AttachableRecord>>(
         `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`
       )
@@ -559,12 +574,42 @@ function AttachModal({
 
   const records = attachableQuery.data?.data ?? []
 
-  function handleAttach() {
-    if (!selected) return
-    setError(null)
-    const payload: Record<string, unknown> = { related_id: selected.id, ...pivotValues }
-    void attachMutation.mutateAsync(payload)
+  const selectedIds = new Set(selected.map((s) => s.id))
+
+  function toggleRecord(rec: AttachableRecord) {
+    setSelected((prev) => {
+      const exists = prev.some((s) => s.id === rec.id)
+      if (exists) return prev.filter((s) => s.id !== rec.id)
+      return [...prev, rec]
+    })
   }
+
+  function toggleAll() {
+    if (records.every((r) => selectedIds.has(r.id))) {
+      // Deselect all visible
+      setSelected((prev) => prev.filter((s) => !records.some((r) => r.id === s.id)))
+    } else {
+      // Select all visible that aren't already selected
+      setSelected((prev) => {
+        const newItems = records.filter((r) => !prev.some((s) => s.id === r.id))
+        return [...prev, ...newItems]
+      })
+    }
+  }
+
+  function handleAttach() {
+    if (selected.length === 0) return
+    setError(null)
+    if (selected.length === 1) {
+      const payload: Record<string, unknown> = { related_id: selected[0].id, ...pivotValues }
+      void attachMutation.mutateAsync(payload)
+    } else {
+      const payload: Record<string, unknown> = { related_ids: selected.map((s) => s.id), ...pivotValues }
+      void attachMutation.mutateAsync(payload)
+    }
+  }
+
+  const allVisibleSelected = records.length > 0 && records.every((r) => selectedIds.has(r.id))
 
   return (
     <div
@@ -584,9 +629,22 @@ function AttachModal({
           className="flex shrink-0 items-center justify-between border-b px-6 py-4"
           style={{ borderColor: 'var(--martis-border)' }}
         >
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-            {tAct('attach_related', 'Attach Record')}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+              {tAct('attach_related', 'Attach Record')}
+            </h3>
+            {selected.length > 0 && (
+              <span
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                style={{
+                  backgroundColor: 'var(--martis-accent)',
+                  color: '#fff',
+                }}
+              >
+                {selected.length}
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -633,30 +691,64 @@ function AttachModal({
             </p>
           ) : (
             <div className="space-y-1">
-              {records.map((rec) => (
-                <button
-                  key={rec.id}
-                  type="button"
-                  onClick={() => setSelected(rec)}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors"
+              {/* Select all toggle */}
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium uppercase tracking-wider transition-colors"
+                style={{
+                  color: 'var(--martis-text-muted)',
+                  cursor: 'pointer',
+                  background: 'none',
+                  border: 'none',
+                }}
+              >
+                <span
+                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
                   style={{
-                    backgroundColor: selected?.id === rec.id ? 'var(--martis-accent)' : 'transparent',
-                    color: selected?.id === rec.id ? '#fff' : 'var(--martis-text)',
-                    border: '1px solid',
-                    borderColor: selected?.id === rec.id ? 'var(--martis-accent)' : 'transparent',
-                    cursor: 'pointer',
+                    borderColor: allVisibleSelected ? 'var(--martis-accent)' : 'var(--martis-border)',
+                    backgroundColor: allVisibleSelected ? 'var(--martis-accent)' : 'transparent',
                   }}
                 >
-                  <span>{rec._title ?? String(rec.id)}</span>
-                  {selected?.id === rec.id && <Check size={14} />}
-                </button>
-              ))}
+                  {allVisibleSelected && <Check size={10} weight="bold" color="#fff" />}
+                </span>
+                {tAct('select_all', 'Select all')}
+              </button>
+
+              {records.map((rec) => {
+                const isSelected = selectedIds.has(rec.id)
+                return (
+                  <button
+                    key={rec.id}
+                    type="button"
+                    onClick={() => toggleRecord(rec)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors"
+                    style={{
+                      backgroundColor: isSelected ? 'color-mix(in srgb, var(--martis-accent) 12%, transparent)' : 'transparent',
+                      color: 'var(--martis-text)',
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span
+                      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                      style={{
+                        borderColor: isSelected ? 'var(--martis-accent)' : 'var(--martis-border)',
+                        backgroundColor: isSelected ? 'var(--martis-accent)' : 'transparent',
+                      }}
+                    >
+                      {isSelected && <Check size={10} weight="bold" color="#fff" />}
+                    </span>
+                    <span className="truncate">{rec._title ?? String(rec.id)}</span>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
 
         {/* Pivot fields (if any) */}
-        {pivotFields.length > 0 && selected && (
+        {pivotFields.length > 0 && selected.length > 0 && (
           <div
             className="shrink-0 space-y-4 border-t px-6 py-4"
             style={{ borderColor: 'var(--martis-border)' }}
@@ -705,13 +797,17 @@ function AttachModal({
           </button>
           <button
             type="button"
-            disabled={!selected || attachMutation.isPending}
+            disabled={selected.length === 0 || attachMutation.isPending}
             onClick={handleAttach}
             className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
             <LinkSimple size={14} />
-            {attachMutation.isPending ? tAct('please_wait', 'Please wait…') : tAct('attach', 'Attach')}
+            {attachMutation.isPending
+              ? tAct('please_wait', 'Please wait…')
+              : selected.length > 1
+                ? `${tAct('attach', 'Attach')} (${selected.length})`
+                : tAct('attach', 'Attach')}
           </button>
         </div>
       </div>
