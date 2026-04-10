@@ -69,6 +69,8 @@ return [
     '2fa_recovery_placeholder' => 'Código de recuperação',
     '2fa_otp_placeholder' => 'Código de 6 dígitos',
     '2fa_challenge_failed' => 'Código inválido. Tente novamente.',
+    '2fa_cancel' => 'Cancelar',
+    '2fa_session_expired' => 'Sessão expirada. Faça login novamente.',
 
     'profile' => 'Perfil',
 ];

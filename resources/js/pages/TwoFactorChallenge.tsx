@@ -1,12 +1,14 @@
-import { useState, useRef, type FormEvent } from 'react'
+import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
 import { InputText } from 'primereact/inputtext'
 import { Button } from 'primereact/button'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
-import { config } from '@/lib/config'
+import { config, BASE_PATH } from '@/lib/config'
 import logoSrc from '@images/logo.png'
+
+/** After this many milliseconds of inactivity, expire the challenge session. */
+const CHALLENGE_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
 function getBrand(): string {
   return config.brand ?? 'Martis'
@@ -15,14 +17,35 @@ function getBrand(): string {
 export function TwoFactorChallengePage() {
   const { t } = useTranslation('profile')
   const { addToast } = useToast()
-  const navigate = useNavigate()
   const [useRecovery, setUseRecovery] = useState(false)
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const brand = getBrand()
+
+  // Auto-expire the challenge session after CHALLENGE_TIMEOUT_MS
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void handleCancel(true)
+    }, CHALLENGE_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [])
+
+  async function handleCancel(expired = false) {
+    setCancelling(true)
+    try {
+      await api.post('/api/auth/logout')
+    } catch {
+      // ignore
+    }
+    if (expired) {
+      addToast('info', t('2fa_session_expired'))
+    }
+    window.location.href = BASE_PATH + '/login'
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -33,14 +56,15 @@ export function TwoFactorChallengePage() {
         code,
         use_recovery_code: useRecovery,
       })
-      navigate('/', { replace: true })
+      // Full page reload so AuthContext re-fetches the authenticated user
+      // (React Router navigation would reuse the stale user=null state)
+      window.location.href = BASE_PATH + '/'
     } catch (err) {
       if (err instanceof ApiError) {
         setError(t('2fa_challenge_failed'))
       } else {
         addToast('error', t('error'))
       }
-    } finally {
       setSubmitting(false)
     }
   }
@@ -104,9 +128,22 @@ export function TwoFactorChallengePage() {
               type="submit"
               label={submitting ? t('2fa_challenge_submitting') : t('2fa_challenge_submit')}
               loading={submitting}
+              disabled={cancelling}
               className="w-full"
               raised
               style={{ padding: '0.875rem 1.5rem', fontSize: '1rem', fontWeight: 700 }}
+            />
+
+            <Button
+              type="button"
+              label={t('2fa_cancel')}
+              loading={cancelling}
+              disabled={submitting}
+              severity="secondary"
+              text
+              className="w-full"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              onClick={() => void handleCancel()}
             />
           </form>
 
