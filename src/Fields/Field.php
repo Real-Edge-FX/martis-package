@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
 use Martis\FieldContext;
 
@@ -442,8 +443,8 @@ abstract class Field implements FieldContract
      * This is the central filtering entry point. All controller methods
      * and the schema endpoint call this after resolving the raw field set.
      *
-     * @param  list<FieldContract>  $fields
-     * @return list<FieldContract>
+     * @param  list<FieldContract|LayoutContract>  $fields
+     * @return list<FieldContract|LayoutContract>
      */
     public static function filterForContext(array $fields, FieldContext $context, ?Request $request = null): array
     {
@@ -455,21 +456,57 @@ abstract class Field implements FieldContract
             }
         }
 
-        return array_values(array_filter(
-            $fields,
-            function (FieldContract $f) use ($context, $request): bool {
-                if (! $f->isVisibleForContext($context)) {
-                    return false;
-                }
+        $result = [];
 
-                // Check field-level authorization (canSee) — skip when no request available
-                if ($request !== null && $f instanceof self && ! $f->isAuthorizedToSee($request)) {
-                    return false;
+        foreach ($fields as $item) {
+            if ($item instanceof LayoutContract) {
+                // Delegate context filtering to layout containers (Panel, TabGroup, etc.)
+                $filtered = $item->filterForContext($context);
+                if ($filtered !== null) {
+                    $result[] = $filtered;
                 }
+                continue;
+            }
 
-                return true;
-            },
-        ));
+            /** @var FieldContract $item */
+            if (! $item->isVisibleForContext($context)) {
+                continue;
+            }
+
+            // Check field-level authorization (canSee) — skip when no request available
+            if ($request !== null && $item instanceof self && ! $item->isAuthorizedToSee($request)) {
+                continue;
+            }
+
+            $result[] = $item;
+        }
+
+        return array_values($result);
+    }
+
+    /**
+     * Flatten a mixed array of fields and layout containers into a flat list of FieldContract items.
+     *
+     * Used for validation and model filling, where layout structure is irrelevant.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<FieldContract>
+     */
+    public static function flattenLayoutFields(array $items): array
+    {
+        $fields = [];
+
+        foreach ($items as $item) {
+            if ($item instanceof LayoutContract) {
+                foreach ($item->flattenFields() as $f) {
+                    $fields[] = $f;
+                }
+            } else {
+                $fields[] = $item;
+            }
+        }
+
+        return $fields;
     }
 
     /** {@inheritDoc} */
