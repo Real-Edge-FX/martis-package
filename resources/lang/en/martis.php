@@ -13,4 +13,7 @@ return [
     'save' => 'Save',
     'cancel' => 'Cancel',
     'confirm' => 'Confirm',
+    'profile' => 'Profile',
+    'settings' => 'Settings',
+    'logout' => 'Logout',
 ];
