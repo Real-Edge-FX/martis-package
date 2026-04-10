@@ -137,6 +137,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
       ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
+      void qc.invalidateQueries({ queryKey: ['btm-attachable', parentResource, parentId, relationship] })
       setDetachTarget(null)
     },
   })
@@ -167,9 +168,9 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
 
   return (
     <div className="mt-6 space-y-3">
-      {/* Header — title left, attach button right */}
-      <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+      {/* Header — all controls on one line: title + search + per-page + attach */}
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="flex items-center gap-2 text-lg font-semibold flex-shrink-0" style={{ color: 'var(--martis-text)' }}>
           {collapsable && (
             <button
               type="button"
@@ -193,11 +194,45 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             {totalCount}
           </span>
         </h3>
+        {!collapsed && searchable && (
+          <div className="relative flex-1 min-w-[120px]">
+            <MagnifyingGlass
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 martis-text-muted"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              placeholder={tMsg('search', 'Search…')}
+              className="btm-search-input block w-full rounded-md border py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-1"
+              style={{
+                borderColor: 'var(--martis-border)',
+                backgroundColor: 'var(--martis-input-bg)',
+                color: 'var(--martis-text)',
+              }}
+            />
+          </div>
+        )}
+        {!collapsed && meta?.perPageOptions && meta.perPageOptions.length > 1 && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
+            <select
+              value={perPage}
+              onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+              className="martis-perpage-select"
+            >
+              {meta.perPageOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {!collapsed && meta?.canAttach && (
           <button
             type="button"
             onClick={() => setShowAttachModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white flex-shrink-0"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
             <Plus size={14} weight="bold" />
@@ -205,46 +240,6 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
           </button>
         )}
       </div>
-
-      {/* Search + Per Page controls — same layout as ResourceIndex */}
-      {!collapsed && (searchable || (meta?.perPageOptions && meta.perPageOptions.length > 1)) && (
-        <div className="flex items-center gap-3">
-          {searchable && (
-            <div className="relative flex-1">
-              <MagnifyingGlass
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 martis-text-muted"
-              />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                placeholder={tMsg('search', 'Search…')}
-                className="btm-search-input block w-full rounded-md border py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-1"
-                style={{
-                  borderColor: 'var(--martis-border)',
-                  backgroundColor: 'var(--martis-input-bg)',
-                  color: 'var(--martis-text)',
-                }}
-              />
-            </div>
-          )}
-          {meta?.perPageOptions && meta.perPageOptions.length > 1 && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
-              <select
-                value={perPage}
-                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                className="martis-perpage-select"
-              >
-                {meta.perPageOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* DataTable */}
       {!collapsed && (

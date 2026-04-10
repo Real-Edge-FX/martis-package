@@ -31,7 +31,7 @@ function DefaultPagination({
 
   return (
     <div className="martis-pagination-wrapper">
-      <div className="flex items-center justify-between px-4 py-1">
+      <div className="flex items-center justify-between py-1">
         <span className="text-sm martis-text-muted">
           {from !== null && to !== null ? (
             <>
