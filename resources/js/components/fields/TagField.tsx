@@ -80,7 +80,7 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
 // Input — relational tag selector
 // ---------------------------------------------------------------------------
 
-export function TagFieldInput({ field, value, onChange, error }: FieldInputProps) {
+export function TagFieldInput({ field, value, onChange, error, resourceKey, recordId }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const relatedResource = (field as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as Record<string, unknown>).titleAttribute as string | undefined
@@ -116,8 +116,8 @@ export function TagFieldInput({ field, value, onChange, error }: FieldInputProps
 
   // Get current resource context for relatable endpoint
   const params = useParams<{ resource?: string; id?: string }>()
-  const sourceResource = params.resource
-  const sourceId = params.id ?? '_'
+  const sourceResource = resourceKey ?? params.resource
+  const sourceId = recordId != null ? String(recordId) : (params.id ?? '_')
 
   const fetchOptions = useCallback(async (query: string) => {
     if (!relatedResource) return
