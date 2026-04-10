@@ -18,4 +18,11 @@ return [
     'index' => 'Listagem',
     'profile' => 'Perfil',
     'open_sidebar' => 'Abrir menu',
+    'search_resources' => 'Pesquisar recursos...',
+    'no_results' => 'Nenhum resultado encontrado.',
+    'navigate' => 'navegar',
+    'select' => 'selecionar',
+    'close' => 'fechar',
+    'section_resources' => 'Recursos',
+    'searching' => 'Pesquisando...',
 ];

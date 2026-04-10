@@ -1148,4 +1148,40 @@ abstract class Resource implements ResourceContract
     {
         return $query;
     }
+
+    // -------------------------------------------------------------------------
+    // Global Search — Nova v5 parity
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether this resource is included in global search (Cmd+K).
+     *
+     * Return false to exclude this resource from the Cmd+K global search modal.
+     * Defaults to true so all resources participate unless explicitly opted out.
+     *
+     * Nova v5 parity: public static $globallySearchable = true;
+     */
+    public static function globallySearchable(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Return a per-record subtitle for global search results.
+     *
+     * Override to return a meaningful secondary string shown below the record
+     * title in the Cmd+K search modal.
+     *
+     * Nova v5 parity: public function subtitle()
+     *
+     * Example:
+     *   public function searchSubtitle(Model $model): ?string
+     *   {
+     *       return $model->email;
+     *   }
+     */
+    public function searchSubtitle(Model $model): ?string
+    {
+        return null;
+    }
 }

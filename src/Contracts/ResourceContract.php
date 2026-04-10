@@ -358,6 +358,28 @@ interface ResourceContract
     public static function scoutQuery(Request $request, mixed $query): mixed;
 
     // -------------------------------------------------------------------------
+    // Global Search — Nova v5 parity
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether this resource is included in global search (Cmd+K).
+     *
+     * Return false to exclude this resource from the global search modal.
+     * Defaults to true for all resources.
+     */
+    public static function globallySearchable(): bool;
+
+    /**
+     * Return a per-record subtitle for global search results.
+     *
+     * Override to return a meaningful secondary string shown below the record
+     * title in the Cmd+K search modal.
+     *
+     * Example: return $model->email; // for a User resource
+     */
+    public function searchSubtitle(Model $model): ?string;
+
+    // -------------------------------------------------------------------------
     // Page overrides
     // -------------------------------------------------------------------------
 

@@ -15,6 +15,7 @@ use Martis\Http\Controllers\MorphToManyController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
+use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
 
@@ -81,6 +82,9 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->middleware($throttle)
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+
+                                // Global Search — Nova v5 parity
+                                Route::get('/search', [SearchController::class, 'search'])->name('search');
 
                                 // Attachment upload (Trix / Markdown file uploads)
                                 Route::post('/attachments/upload', [AttachmentController::class, 'upload'])

@@ -407,7 +407,59 @@ BelongsTo::make('category_id', 'Category')
 
 ### Search
 
-Global search across resources and records. Per-resource search with configurable `indexSearchable()`. Debounced, grouped results with 2+ character threshold.
+#### Global Search (Cmd+K / Ctrl+K) — Nova v5 Parity
+
+Open the global search modal with **Cmd+K** (Mac) or **Ctrl+K** (Windows/Linux). It searches across all registered resources and returns grouped, debounced results with subtitle support.
+
+**Endpoint:** `GET /api/search?q=term`
+
+Results grouped by resource:
+
+```json
+{
+  "results": [
+    {
+      "resource": "users",
+      "label": "Users",
+      "items": [
+        { "id": 1, "title": "John Doe", "subtitle": "john@example.com", "url": "/resources/users/1" }
+      ]
+    }
+  ]
+}
+```
+
+**Opt out a resource from global search:**
+
+```php
+public static function globallySearchable(): bool
+{
+    return false; // excludes this resource from Cmd+K results
+}
+```
+
+**Add a per-record subtitle:**
+
+```php
+use Illuminate\Database\Eloquent\Model;
+
+public function searchSubtitle(Model $model): ?string
+{
+    return $model->email; // shown below the record title in search results
+}
+```
+
+**UX features:**
+- Arrow keys ↑↓ navigate results; Enter selects; Esc closes
+- Results grouped by resource with section labels
+- Subtitle shown below each result title (secondary text, muted)
+- Loading spinner while fetching
+- Minimum 2 characters, 300ms debounce
+- Maximum 5 results per resource
+
+#### Index Search
+
+Per-resource search bar within the index listing. Configurable via `indexSearchable()`. Debounced, grouped results with 2+ character threshold.
 
 #### Scout Integration (Nova v5 Parity)
 
