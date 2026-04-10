@@ -99,4 +99,22 @@ class ActionResponseTest extends TestCase
         $this->assertEquals('posts', $data['data']['resource']);
         $this->assertEquals('abc-123', $data['data']['recordId']);
     }
+
+    public function test_open_update_response_with_int_id(): void
+    {
+        $response = ActionResponse::openUpdate('posts', 42);
+        $data = $response->jsonSerialize();
+        $this->assertEquals('openUpdate', $data['type']);
+        $this->assertEquals('posts', $data['data']['resource']);
+        $this->assertEquals(42, $data['data']['recordId']);
+    }
+
+    public function test_open_update_response_with_string_id(): void
+    {
+        $response = ActionResponse::openUpdate('posts', 'abc-123');
+        $data = $response->jsonSerialize();
+        $this->assertEquals('openUpdate', $data['type']);
+        $this->assertEquals('posts', $data['data']['resource']);
+        $this->assertEquals('abc-123', $data['data']['recordId']);
+    }
 }

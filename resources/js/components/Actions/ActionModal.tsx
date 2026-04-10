@@ -39,9 +39,33 @@ export interface ActionMeta {
   pivotLabel: string | null
 }
 
+/**
+ * Props injected into custom action components when they take full control.
+ * The component receives everything it needs to manage its own UI and lifecycle.
+ */
+export interface CustomActionComponentProps {
+  /** The action metadata */
+  action: ActionMeta
+  /** The resource key (e.g. 'posts') */
+  resource: string
+  /** Selected record IDs */
+  selectedIds: Array<string | number>
+  /** Custom props defined via .component('key', props) in PHP */
+  componentProps: Record<string, unknown>
+  /** Update field values that will be sent when executing the action */
+  onFieldsChange: (fields: Record<string, unknown>) => void
+  /** Execute the action with current field values */
+  onExecute: (extraFields?: Record<string, unknown>) => void
+  /** Close/dismiss the action UI */
+  onClose: () => void
+  /** Whether the action is currently executing */
+  isExecuting: boolean
+}
+
 interface ActionModalProps {
   onOpenCreate?: (resource: string) => void
   onOpenDetail?: (resource: string, recordId: string | number) => void
+  onOpenUpdate?: (resource: string, recordId: string | number) => void
   resource: string
   action: ActionMeta | null
   selectedIds: Array<string | number>
@@ -50,7 +74,7 @@ interface ActionModalProps {
   onSuccess: () => void
 }
 
-function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail }: ActionModalProps) {
+function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate }: ActionModalProps) {
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
@@ -98,12 +122,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   }, [action?.uriKey, visible])
 
   const executeMutation = useMutation({
-    mutationFn: (params: { dryRun?: boolean }) =>
+    mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown> }) =>
       api.post<{ data: { type: string; data: Record<string, unknown> } }>(
         `/api/resources/${resource}/actions/${action!.uriKey}`,
         {
           resources: selectedIds,
-          fields: fieldValues,
+          fields: { ...fieldValues, ...(params.extraFields ?? {}) },
           dryRun: params.dryRun ?? false,
         },
       ),
@@ -142,6 +166,13 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
               return
             }
             break
+          case 'openUpdate':
+            if (data?.resource && data?.recordId != null) {
+              onHide()
+              onOpenUpdate?.(data.resource as string, data.recordId as string | number)
+              return
+            }
+            break
           case 'download':
             if (data?.url) window.location.href = data.url as string
             break
@@ -156,7 +187,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     },
     onError: (err: Error) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
-        // Map field errors from "fields.subject" -> "subject" format
         const mapped: Record<string, string> = {}
         for (const e of err.errors) {
           const fieldKey = e.field.replace(/^fields\./, '')
@@ -176,8 +206,36 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
 
   if (!visible || !action) return null
 
+  // -----------------------------------------------------------------------
+  // Custom component: full control mode — no modal wrapper at all.
+  // The custom component manages its own UI, layout, and lifecycle.
+  // -----------------------------------------------------------------------
+  if (action.customComponent) {
+    const CustomComp = componentRegistry.resolve(action.customComponent)
+    if (CustomComp) {
+      const C = CustomComp as React.ComponentType<CustomActionComponentProps>
+      const customProps: CustomActionComponentProps = {
+        action,
+        resource,
+        selectedIds,
+        componentProps: action.customComponentProps ?? {},
+        onFieldsChange: (newFields) => setFieldValues((prev) => ({ ...prev, ...newFields })),
+        onExecute: (extraFields) => executeMutation.mutate({ extraFields }),
+        onClose: onHide,
+        isExecuting: executeMutation.isPending,
+      }
+      return createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }}>
+          <C {...customProps} />
+        </div>,
+        document.body,
+      )
+    }
+    return null
+  }
+
   const hasFields = fields.length > 0
-  const needsConfirmation = action.withConfirmation || hasFields || !!action.customComponent
+  const needsConfirmation = action.withConfirmation || hasFields
 
   // Auto-execute if no confirmation or fields needed (only once)
   if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
@@ -275,25 +333,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
               {action.confirmText}
             </p>
           )}
-
-          {/* Custom component rendering (Martis extension) */}
-          {action.customComponent && (() => {
-            const CustomComp = componentRegistry.resolve(action.customComponent)
-            if (CustomComp) {
-              const C = CustomComp as React.ComponentType<Record<string, unknown>>
-              return (
-                <div className="mb-4">
-                  <C
-                    {...(action.customComponentProps ?? {})}
-                    onFieldsChange={(fields: Record<string, unknown>) =>
-                      setFieldValues((prev) => ({ ...prev, ...fields }))
-                    }
-                  />
-                </div>
-              )
-            }
-            return null
-          })()}
 
           {hasFields && (
             <div className="space-y-4">

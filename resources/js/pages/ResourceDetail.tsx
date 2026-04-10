@@ -26,7 +26,7 @@ export function ResourceDetailPage() {
   const [showForceDelete, setShowForceDelete] = useState(false)
   const [showRestore, setShowRestore] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
-  const [actionDrawer, setActionDrawer] = useState<{ type: "create" | "detail"; resource: string; recordId?: string | number } | null>(null)
+  const [actionDrawer, setActionDrawer] = useState<{ type: "create" | "detail" | "update"; resource: string; recordId?: string | number } | null>(null)
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
 
@@ -411,6 +411,7 @@ export function ResourceDetailPage() {
         onSuccess={handleActionSuccess}
         onOpenCreate={(res) => setActionDrawer({ type: "create", resource: res })}
         onOpenDetail={(res, rid) => setActionDrawer({ type: "detail", resource: res, recordId: rid })}
+        onOpenUpdate={(res, rid) => setActionDrawer({ type: "update", resource: res, recordId: rid })}
       />
 
       {actionDrawer && (

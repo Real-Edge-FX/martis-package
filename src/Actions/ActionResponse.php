@@ -102,6 +102,17 @@ class ActionResponse implements \JsonSerializable
         return new self(ActionResponseType::OpenDetail, ['resource' => $resourceName, 'recordId' => $recordId]);
     }
 
+    /**
+     * Opens the update drawer for the given resource record.
+     *
+     * Example:
+     *   return ActionResponse::openUpdate('posts' , $model->id);
+     */
+    public static function openUpdate(string $resourceName, string|int $recordId): self
+    {
+        return new self(ActionResponseType::OpenUpdate, ['resource' => $resourceName, 'recordId' => $recordId]);
+    }
+
     public function type(): ActionResponseType
     {
         return $this->type;

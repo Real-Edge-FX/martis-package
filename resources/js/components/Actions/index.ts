@@ -1,4 +1,4 @@
 export { ActionModal } from './ActionModal'
 export { ActionDropdown } from './ActionDropdown'
-export type { ActionMeta } from './ActionModal'
+export type { ActionMeta, CustomActionComponentProps } from './ActionModal'
 export { ActionDrawer } from './ActionDrawer'

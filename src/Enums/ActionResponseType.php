@@ -14,4 +14,5 @@ enum ActionResponseType: string
     case Modal = 'modal';
     case OpenCreate = 'openCreate';
     case OpenDetail = 'openDetail';
+    case OpenUpdate = 'openUpdate';
 }

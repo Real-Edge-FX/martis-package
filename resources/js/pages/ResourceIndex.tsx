@@ -37,7 +37,7 @@ export function ResourceIndexPage() {
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
-  const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail'; resource: string; recordId?: string | number } | null>(null)
+  const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
   // Track whether the current action was triggered inline (single row)
   const inlineActionRef = useRef(false)
   // Track which row IDs the inline action targets (separate from visual selection)
@@ -457,6 +457,7 @@ export function ResourceIndexPage() {
         onSuccess={handleActionSuccess}
         onOpenCreate={(res) => setActionDrawer({ type: "create", resource: res })}
         onOpenDetail={(res, rid) => setActionDrawer({ type: "detail", resource: res, recordId: rid })}
+        onOpenUpdate={(res, rid) => setActionDrawer({ type: "update", resource: res, recordId: rid })}
       />
 
       {actionDrawer && (

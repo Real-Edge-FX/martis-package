@@ -7,7 +7,7 @@ import type { OverrideProps, ResourceSchema } from "@/types"
 import { MartisLoader } from "@/components/Loader"
 
 interface ActionDrawerProps {
-  type: "create" | "detail"
+  type: "create" | "detail" | "update"
   resource: string
   recordId?: string | number
   onClose: () => void
@@ -15,10 +15,8 @@ interface ActionDrawerProps {
 }
 
 /**
- * Renders a create or detail drawer for any resource, triggered by an ActionResponse.
- *
- * Fetches the target resource schema, then renders the registered
- * "martis:drawer-create" or "martis:drawer-detail" component.
+ * Renders a create, detail, or update drawer for any resource,
+ * triggered by an ActionResponse (openCreate / openDetail / openUpdate).
  */
 export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: ActionDrawerProps) {
   const { addToast } = useToast()
@@ -37,7 +35,11 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: A
   const schema = schemaQuery.data?.data
   if (!schema) return null
 
-  const componentKey = type === "create" ? "martis:drawer-create" : "martis:drawer-detail"
+  const componentKey =
+    type === "create" ? "martis:drawer-create" :
+    type === "update" ? "martis:drawer-update" :
+    "martis:drawer-detail"
+
   const DrawerComponent = componentRegistry.resolve(componentKey)
   if (!DrawerComponent) return null
 
@@ -59,6 +61,7 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: A
     },
     onUpdated: () => {
       void qc.invalidateQueries({ queryKey: ["resources", resource] })
+      addToast("success", schema.messages?.updated ?? "Record updated successfully.")
       onSuccess()
       onClose()
     },
