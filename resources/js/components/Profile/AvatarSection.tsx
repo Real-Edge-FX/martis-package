@@ -133,7 +133,7 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
                 }}
                 className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
                 style={{
-                  backgroundColor: 'var(--martis-input-bg)',
+                  backgroundColor: 'var(--martis-surface-alt)',
                   borderColor: 'var(--martis-border)',
                   color: 'var(--martis-text)',
                 }}
@@ -160,7 +160,7 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
               onClick={() => void handleRemove()}
               className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--martis-input-bg)',
+                backgroundColor: 'var(--martis-surface-alt)',
                 borderColor: '#dc2626',
                 color: '#dc2626',
               }}

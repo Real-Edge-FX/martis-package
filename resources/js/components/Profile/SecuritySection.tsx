@@ -101,7 +101,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                 onClick={() => void handleViewRecoveryCodes()}
                 className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
                 style={{
-                  backgroundColor: 'var(--martis-input-bg)',
+                  backgroundColor: 'var(--martis-surface-alt)',
                   borderColor: 'var(--martis-border)',
                   color: 'var(--martis-text)',
                 }}
@@ -114,7 +114,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                 onClick={() => setDisableConfirmOpen(true)}
                 className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
                 style={{
-                  backgroundColor: 'var(--martis-input-bg)',
+                  backgroundColor: 'var(--martis-surface-alt)',
                   borderColor: '#dc2626',
                   color: '#dc2626',
                 }}
@@ -167,7 +167,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               onClick={() => setDisableConfirmOpen(false)}
               className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--martis-input-bg)',
+                backgroundColor: 'var(--martis-surface-alt)',
                 borderColor: 'var(--martis-border)',
                 color: 'var(--martis-text)',
               }}
@@ -225,7 +225,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               onClick={() => void handleCopyCodes()}
               className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
               style={{
-                backgroundColor: 'var(--martis-input-bg)',
+                backgroundColor: 'var(--martis-surface-alt)',
                 borderColor: 'var(--martis-border)',
                 color: 'var(--martis-text)',
               }}
