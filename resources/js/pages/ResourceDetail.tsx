@@ -302,7 +302,7 @@ export function ResourceDetailPage() {
               className="flex items-start gap-4 px-6 py-4"
               style={{ borderColor: "var(--martis-border)" }}
             >
-              <dt className="shrink-0 text-sm font-medium" style={{ color: "var(--martis-text-muted)", width: "auto", maxWidth: "16rem" }}>
+              <dt className="shrink-0 text-sm font-medium" style={{ color: "var(--martis-text-muted)", minWidth: "12rem", maxWidth: "16rem" }}>
                 {field.label}
               </dt>
               <dd className="min-w-0 flex-1 text-sm">
