@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
@@ -136,9 +137,11 @@ beforeEach(function () {
         ],
     ]);
 
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::dropIfExists('pivot_test_pivot');
     Schema::dropIfExists('pivot_test_children');
     Schema::dropIfExists('pivot_test_parents');
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
     Schema::create('pivot_test_parents', function ($table) {
         $table->id();
@@ -167,9 +170,11 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::dropIfExists('pivot_test_pivot');
     Schema::dropIfExists('pivot_test_children');
     Schema::dropIfExists('pivot_test_parents');
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 });
 
 // ── Tests ───────────────────────────────────────────────────────────────────
