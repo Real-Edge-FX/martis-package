@@ -223,3 +223,36 @@ export interface OverrideProps {
   /** Show a toast notification. */
   addToast: (type: "success" | "error" | "warning" | "info", message: string) => void
 }
+
+// -------------------------------------------------------------------------
+// Panel & Tab layout types
+// -------------------------------------------------------------------------
+
+export interface PanelDefinition {
+  /** Discriminant — always 'panel' */
+  type: 'panel'
+  /** Panel heading displayed in the header bar */
+  title: string
+  /** Fields rendered inside the panel */
+  fields: FieldDefinition[]
+  /** Whether the panel can be collapsed by the user */
+  collapsible: boolean
+  /** Whether the panel starts in a collapsed state */
+  collapsedByDefault: boolean
+  /** Maximum number of fields shown before Show more toggle. null = show all */
+  limit: number | null
+}
+
+export interface TabDefinition {
+  /** Tab label shown in the navigation bar */
+  title: string
+  /** Fields (and nested panels) rendered in this tab's content area */
+  fields: (FieldDefinition | PanelDefinition)[]
+}
+
+export interface TabGroupDefinition {
+  /** Discriminant — always 'tabs' */
+  type: 'tabs'
+  /** Array of tabs displayed in the tab bar */
+  tabs: TabDefinition[]
+}
