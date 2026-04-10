@@ -7,6 +7,7 @@ use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\BelongsToManyController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\HasManyController;
+use Martis\Http\Controllers\HasOneController;
 use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ProfileController;
@@ -119,6 +120,16 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.has-many.update');
                                 Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
                                     ->name('resources.has-many.destroy');
+
+                                // HasOne relationship — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/has-one/{relationship}', [HasOneController::class, 'show'])
+                                    ->name('resources.has-one.show');
+                                Route::post('/resources/{resource}/{id}/has-one/{relationship}', [HasOneController::class, 'store'])
+                                    ->name('resources.has-one.store');
+                                Route::put('/resources/{resource}/{id}/has-one/{relationship}', [HasOneController::class, 'update'])
+                                    ->name('resources.has-one.update');
+                                Route::delete('/resources/{resource}/{id}/has-one/{relationship}', [HasOneController::class, 'destroy'])
+                                    ->name('resources.has-one.destroy');
 
                                 // BelongsToMany relationship — Nova v5 parity
                                 Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}', [BelongsToManyController::class, 'index'])

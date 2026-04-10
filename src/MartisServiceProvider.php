@@ -2,6 +2,7 @@
 
 namespace Martis;
 
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Martis\Console\ActionMakeCommand;
@@ -14,6 +15,7 @@ use Martis\Console\ThemeMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Discovery\ResourceDiscovery;
+use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Profile\TwoFactorService;
@@ -40,6 +42,7 @@ class MartisServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerMiddlewareAlias();
+        $this->registerExceptionHandling();
         $this->discoverResources();
 
         $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
@@ -91,6 +94,15 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../stubs/add_profile_picture_column.php.stub' => database_path('migrations/'.date('Y_m_d').'_000003_add_profile_picture_column.php'),
             ], 'martis-avatar-migration');
+        }
+    }
+
+    protected function registerExceptionHandling(): void
+    {
+        if ($this->app->bound(ExceptionHandler::class)) {
+            MartisExceptionHandler::register(
+                $this->app->make(ExceptionHandler::class)
+            );
         }
     }
 

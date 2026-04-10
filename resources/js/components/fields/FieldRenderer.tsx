@@ -34,6 +34,7 @@ import { GravatarFieldDisplay, GravatarFieldInput } from './GravatarField'
 import { HasManyFieldDisplay, HasManyFieldInput } from './HasManyField'
 import { BelongsToManyFieldDisplay, BelongsToManyFieldInput } from './BelongsToManyField'
 import { MorphToFieldDisplay, MorphToFieldInput } from './MorphToField'
+import { HasOneFieldDisplay, HasOneFieldInput } from './HasOneField'
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -72,6 +73,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   has_many: HasManyFieldDisplay,
   belongs_to_many: BelongsToManyFieldDisplay,
   morph_to: MorphToFieldDisplay,
+  has_one: HasOneFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -111,6 +113,7 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   has_many: HasManyFieldInput,
   belongs_to_many: BelongsToManyFieldInput,
   morph_to: MorphToFieldInput,
+  has_one: HasOneFieldInput,
 }
 
 // -------------------------------------------------------------------------
