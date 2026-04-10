@@ -352,6 +352,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
       {/* DataTable */}
       {!collapsed && (
         <>
+          <div className="overflow-x-auto">
           <DataTable
             value={records}
             loading={recordsQuery.isLoading}
@@ -472,6 +473,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
               />
             )}
           </DataTable>
+          </div>
 
           {/* Pagination — identical to ResourceIndex */}
           {pagination && (

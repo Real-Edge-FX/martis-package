@@ -352,6 +352,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
       {/* DataTable */}
       {!collapsed && (
         <>
+          <div className="overflow-x-auto">
           <DataTable
             value={records}
             loading={recordsQuery.isLoading}
@@ -472,6 +473,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
               />
             )}
           </DataTable>
+          </div>
 
           {/* Pagination — identical to ResourceIndex */}
           {pagination && (
