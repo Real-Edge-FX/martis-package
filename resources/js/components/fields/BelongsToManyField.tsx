@@ -701,7 +701,7 @@ function AttachModal({
 
         {/* Pagination — identical to ResourceIndex */}
         {pagination && (
-          <div className="shrink-0" style={{ borderTop: '1px solid var(--martis-border)' }}>
+          <div className="shrink-0">
             <Pagination
               currentPage={pagination.current_page}
               lastPage={pagination.last_page}
