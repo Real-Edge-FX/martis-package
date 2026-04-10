@@ -151,6 +151,7 @@ Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `h
 | `File` | File upload with drag & drop and download |
 | `Image` | Image upload with preview and thumbnail |
 | `BelongsTo` | Searchable relationship dropdown with async search |
+| `HasOne` | Inline panel for one-to-one relationships (detail-only, create/edit/delete) |
 | `HasMany` | Inline DataTable for one-to-many relationships (detail-only, CRUD) |
 | `BelongsToMany` | Many-to-many pivot relationship with attach/detach, pivot fields, and search |
 | `Hidden` | Hidden field (rendered in forms, not visible) |
@@ -214,6 +215,30 @@ Signature: `HasMany::make(string $name, ?string $relationship = null, ?string $r
 - `$name` — Display label (also used to infer the Eloquent relationship method)
 - `$relationship` — Explicit relationship method name (optional)
 - `$relatedResourceClass` — Related resource class for URI key resolution (optional)
+
+
+#### HasOne Configuration
+
+```php
+use Martis\Fields\HasOne;
+
+HasOne::make('Profile')                     // label + relationship inferred
+HasOne::make('Profile', 'profile')          // explicit relationship method
+HasOne::make('SEO Meta', 'postMeta')        // custom label + relationship
+    ->relatedResource('post-metas')         // explicit related resource URI key
+    ->canCreate(false)                      // hide 'Create' button when no record exists
+    ->canUpdate(false)                      // hide 'Edit' button
+    ->canDelete(false)                      // hide 'Delete' button
+```
+
+Signature: `HasOne::make(string $name, ?string $relationship = null, ?string $relatedResourceClass = null)`
+
+**HasOne** fields are **detail-only by default** (Nova v5 behavior). When a related record exists, it displays a card showing the related model's fields with optional Edit and Delete actions. When no related record exists, an empty state is shown with an optional Create button. The related resource is managed via a separate REST controller:
+
+- `GET /api/resources/{resource}/{id}/has-one/{relationship}` — fetch related record (or null)
+- `POST /api/resources/{resource}/{id}/has-one/{relationship}` — create related record
+- `PUT /api/resources/{resource}/{id}/has-one/{relationship}` — update related record
+- `DELETE /api/resources/{resource}/{id}/has-one/{relationship}` — delete related record
 
 HasMany fields are **detail-only by default** (Nova v5 behavior). Use `->showOnIndex()` to display a count badge on the index page. The inline DataTable on the detail page supports pagination, search, sorting, and full CRUD of related records within the parent context.
 
@@ -423,6 +448,83 @@ composer require dedoc/scramble --dev
 ```
 
 ## Artisan Commands
+
+## Error Handling
+
+### Backend Exceptions
+
+Martis provides a set of typed exceptions for structured error handling. These are automatically converted to JSON API responses when thrown from resources, actions, or controllers.
+
+| Exception | HTTP Status | Use Case |
+|-----------|-------------|----------|
+| `MartisException` | 500 | Base class for all Martis errors |
+| `ValidationException` | 422 | Input validation failures with per-field errors |
+| `AuthorizationException` | 403 | Unauthorized access attempts |
+| `ResourceNotFoundException` | 404 | Record or resource not found |
+
+```php
+use Martis\Exceptions\ValidationException;
+use Martis\Exceptions\AuthorizationException;
+use Martis\Exceptions\ResourceNotFoundException;
+
+// In an Action — per-field validation errors:
+throw ValidationException::fromFieldErrors([
+    'title' => ['The title must be at least 5 characters.'],
+    'slug'  => ['The slug is already taken.'],
+]);
+
+// Single-field shorthand:
+throw ValidationException::forField('slug', 'Slug is already taken.', 'unique');
+
+// Authorization:
+throw AuthorizationException::forAction('delete', 'post');
+
+// Not found:
+throw ResourceNotFoundException::forRecord('posts', $id);
+```
+
+### Frontend — React Event Bus
+
+The Martis Event Bus enables decoupled communication between components without prop drilling.
+
+```tsx
+import { useEventBus } from '@/lib/useEventBus'
+
+const { on, emit } = useEventBus()
+
+// Subscribe (auto-cleaned up on unmount):
+useEffect(() => {
+  return on('martis:record-created', ({ resourceKey, id }) => {
+    console.log('New record', id, 'in', resourceKey)
+  })
+}, [on])
+
+// Emit:
+emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+```
+
+Built-in events: `martis:record-created`, `martis:record-updated`, `martis:record-deleted`, `martis:record-restored`, `martis:action-executed`, `martis:refresh-index`
+
+### Frontend — useError Hook
+
+Centralised error state management for forms and page components.
+
+```tsx
+import { useError } from '@/lib/useError'
+
+const { errors, setError, clearErrors, hasErrors } = useError()
+
+try {
+  await api.post('/api/posts', data)
+} catch (err) {
+  setError(err) // Handles ApiError, Error, or string
+}
+
+// In JSX:
+{errors.message && <p className="text-destructive">{errors.message}</p>}
+{errors.fieldErrors.title && <p className="text-destructive">{errors.fieldErrors.title}</p>}
+```
+
 
 | Command | Description |
 |---------|-------------|
@@ -636,7 +738,7 @@ Full documentation lives in the [`docs/`](docs/) directory. Each guide is standa
 |----------|-------------|
 | [Resources](docs/resources.md) | Resource classes, model binding, lifecycle hooks, authorization, search, pagination, soft deletes |
 | [Fields Reference](docs/fields.md) | All 32 field types — configuration, visibility flags, validation, relationships, enums |
-| [Relationships](docs/relationships.md) | BelongsTo, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo |
+| [Relationships](docs/relationships.md) | BelongsTo, HasOne, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo |
 | [Actions](docs/actions.md) | Complete Actions system — inline, bulk, destructive, queued, pivot, authorization, action fields, audit log |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer without forking |
 | [Built-in Components](docs/components.md) | Every UI component shipped in the frontend: DataTable, forms, modals, search, navigation |
