@@ -112,63 +112,66 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
         </div>
 
         <div className="flex flex-col gap-3">
-          {preview ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={uploading}
-                onClick={() => void handleUpload()}
-                className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: 'var(--martis-accent)' }}
-              >
-                <Camera size={14} />
-                {uploading ? t('avatar_uploading') : t('avatar_upload')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPreview(null)
-                  setPendingFile(null)
-                  if (fileInputRef.current) fileInputRef.current.value = ''
-                }}
-                className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
-                style={{
-                  backgroundColor: 'var(--martis-surface-alt)',
-                  borderColor: 'var(--martis-border)',
-                  color: 'var(--martis-text)',
-                }}
-              >
-                {t('avatar_change')}
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
-            >
-              <Camera size={14} />
-              {avatarUrl ? t('avatar_change') : t('avatar_upload')}
-            </button>
-          )}
-
-          {avatarUrl && !preview && (
-            <button
-              type="button"
-              disabled={removing}
-              onClick={() => void handleRemove()}
-              className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-              style={{
-                backgroundColor: 'var(--martis-surface-alt)',
-                borderColor: '#dc2626',
-                color: '#dc2626',
-              }}
-            >
-              <Trash size={14} />
-              {removing ? t('avatar_uploading') : t('avatar_remove')}
-            </button>
-          )}
+          <div className="flex gap-2">
+            {preview ? (
+              <>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => void handleUpload()}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--martis-accent)' }}
+                >
+                  <Camera size={14} />
+                  {uploading ? t('avatar_uploading') : t('avatar_upload')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreview(null)
+                    setPendingFile(null)
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
+                  style={{
+                    backgroundColor: 'var(--martis-surface-alt)',
+                    borderColor: 'var(--martis-border)',
+                    color: 'var(--martis-text)',
+                  }}
+                >
+                  {t('avatar_change')}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
+                  style={{ backgroundColor: 'var(--martis-accent)' }}
+                >
+                  <Camera size={14} />
+                  {avatarUrl ? t('avatar_change') : t('avatar_upload')}
+                </button>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    disabled={removing}
+                    onClick={() => void handleRemove()}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                    style={{
+                      backgroundColor: 'var(--martis-surface-alt)',
+                      borderColor: '#dc2626',
+                      color: '#dc2626',
+                    }}
+                  >
+                    <Trash size={14} />
+                    {removing ? t('avatar_uploading') : t('avatar_remove')}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
 
           <input
             ref={fileInputRef}

@@ -2,6 +2,7 @@
 
 return [
     'title' => 'O Meu Perfil',
+    'subtitle' => 'Gira as configurações da sua conta e segurança.',
     'account' => 'Informações da Conta',
     'password' => 'Alterar Palavra-passe',
     'security' => 'Autenticação de Dois Fatores',

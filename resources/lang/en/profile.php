@@ -2,6 +2,7 @@
 
 return [
     'title' => 'My Profile',
+    'subtitle' => 'Manage your account settings and security.',
     'account' => 'Account Information',
     'password' => 'Change Password',
     'security' => 'Two-Factor Authentication',

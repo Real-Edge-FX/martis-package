@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { UserCircle } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
@@ -56,12 +57,14 @@ export function ProfilePage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold martis-text selection:bg-primary/20 selection:text-foreground">
+        <h1 className="text-2xl font-bold martis-text flex items-center gap-2 selection:bg-primary/20 selection:text-foreground">
+          <UserCircle size={28} className="martis-text-muted flex-shrink-0" />
           {t('title')}
         </h1>
+        <p className="text-sm martis-text-muted mt-1">{t('subtitle')}</p>
       </div>
 
-      <div className="space-y-6 max-w-2xl">
+      <div className="space-y-6">
         {profile && (
           <>
             {avatarEnabled && (
