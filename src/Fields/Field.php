@@ -465,6 +465,7 @@ abstract class Field implements FieldContract
                 if ($filtered !== null) {
                     $result[] = $filtered;
                 }
+
                 continue;
             }
 
