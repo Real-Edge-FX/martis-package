@@ -167,7 +167,7 @@ class InstallCommand extends Command
         }
 
         $stub = (string) file_get_contents($stubPath);
-        $stub = str_replace('{{ column }}', $column, $stub);
+        $stub = str_replace('profile_picture', $column, $stub);
 
         $filename = date('Y_m_d_His').'_add_profile_picture_column.php';
         $target = database_path("migrations/{$filename}");
