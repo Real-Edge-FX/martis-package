@@ -428,14 +428,15 @@ function DefaultTable({
             header={
               field.sortable ? (
                 <button type="button"
-                  className="flex items-center gap-1 font-medium uppercase tracking-wider text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                  className="flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
+                  style={{ color: "var(--martis-table-header-text)" }}
                   onClick={() => onSort(field.attribute)}
                 >
                   {field.label}
                   <SortIcon active={sortBy === field.attribute} dir={sortDir} />
                 </button>
               ) : (
-                <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--martis-table-header-text)" }}>
                   {field.label}
                 </span>
               )

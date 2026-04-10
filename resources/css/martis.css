@@ -43,6 +43,9 @@
   --martis-row-hover: rgba(51, 65, 85, 0.5);
 
   --martis-surface-alt: #283548;
+  --martis-table-header-bg: rgba(99, 102, 241, 0.1);
+  --martis-table-header-text: #c7d2fe;
+  --martis-table-header-border: rgba(99, 102, 241, 0.35);
 
   /* Badge colors */
   --martis-badge-info-bg: rgba(99, 102, 241, 0.15);
@@ -80,6 +83,9 @@ html:not(.dark) {
   --martis-row-hover: rgba(241, 245, 249, 1);
 
   --martis-surface-alt: #f1f5f9;
+  --martis-table-header-bg: rgba(99, 102, 241, 0.06);
+  --martis-table-header-text: #3730a3;
+  --martis-table-header-border: rgba(99, 102, 241, 0.25);
 
   /* Badge colors */
   --martis-badge-info-bg: #dbeafe;
@@ -136,8 +142,8 @@ html.dark body {
   background: transparent;
 }
 .p-datatable .p-datatable-thead > tr > th {
-  background-color: var(--martis-sidebar);
-  color: var(--martis-text-muted);
+  background-color: var(--martis-table-header-bg);
+  color: var(--martis-table-header-text);
   border-color: var(--martis-border);
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -553,8 +559,8 @@ html:not(.dark) .p-button.p-button-text {
   color: var(--martis-text-muted);
 }
 html:not(.dark) .p-datatable .p-datatable-thead > tr > th {
-  background-color: var(--martis-surface);
-  color: var(--martis-text-muted);
+  background-color: var(--martis-table-header-bg);
+  color: var(--martis-table-header-text);
   border-color: var(--martis-border);
 }
 html:not(.dark) .p-datatable .p-datatable-tbody > tr {
@@ -964,12 +970,12 @@ html:not(.dark) .martis-dropzone {
 .martis-datatable thead th {
   padding: 0.75rem 1rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--martis-text-muted);
-  background-color: var(--martis-surface);
-  border-bottom: 1px solid var(--martis-border);
+  letter-spacing: 0.06em;
+  color: var(--martis-table-header-text);
+  background-color: var(--martis-table-header-bg);
+  border-bottom: 2px solid var(--martis-table-header-border);
   text-align: left;
   white-space: nowrap;
 }
@@ -1057,11 +1063,12 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   fill: #ffffff !important;
 }
 
-/* ── Fix: Table header and separator improvements (REA-1140) ────── */
-/* Dark theme — header row gets distinct background + thick bottom border */
+/* ── Fix: Table header and separator improvements (REA-1140 + REA-1223) ─── */
+/* Dark theme — header row gets accent-tinted background + colored border */
 .martis-datatable thead th {
-  background-color: rgba(17, 24, 39, 0.8) !important;
-  border-bottom: 2px solid var(--martis-accent) !important;
+  background-color: var(--martis-table-header-bg) !important;
+  color: var(--martis-table-header-text) !important;
+  border-bottom: 2px solid var(--martis-table-header-border) !important;
   padding: 0.875rem 1rem !important;
 }
 
@@ -1070,11 +1077,11 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   border-bottom: 1px solid rgba(51, 65, 85, 0.4) !important;
 }
 
-/* Light theme — header with subtle background and accent bottom border */
+/* Light theme — header with accent-tinted background */
 html:not(.dark) .martis-datatable thead th {
-  background-color: #f1f5f9 !important;
-  color: #475569 !important;
-  border-bottom: 2px solid var(--martis-accent) !important;
+  background-color: var(--martis-table-header-bg) !important;
+  color: var(--martis-table-header-text) !important;
+  border-bottom: 2px solid var(--martis-table-header-border) !important;
 }
 
 /* Light theme — subtle but visible separators */
@@ -1084,8 +1091,9 @@ html:not(.dark) .martis-datatable tbody tr {
 
 /* PrimeReact DataTable header overrides for both themes */
 .martis-datatable .p-datatable-thead > tr > th {
-  background-color: rgba(17, 24, 39, 0.8) !important;
-  border-bottom: 2px solid var(--martis-accent) !important;
+  background-color: var(--martis-table-header-bg) !important;
+  color: var(--martis-table-header-text) !important;
+  border-bottom: 2px solid var(--martis-table-header-border) !important;
   padding: 0.875rem 1rem !important;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1093,8 +1101,8 @@ html:not(.dark) .martis-datatable tbody tr {
   letter-spacing: 0.06em;
 }
 html:not(.dark) .martis-datatable .p-datatable-thead > tr > th {
-  background-color: #f1f5f9 !important;
-  color: #475569 !important;
+  background-color: var(--martis-table-header-bg) !important;
+  color: var(--martis-table-header-text) !important;
 }
 
 /* PrimeReact DataTable row border overrides */
