@@ -8,23 +8,14 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut, UserCircle } from "@phosphor-icons/react"
+import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut, UserCircle, List } from "@phosphor-icons/react"
+import { useIsMobile } from "@/hooks/useIsMobile"
 
-function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false,
-  )
-  useEffect(() => {
-    function onResize() {
-      setIsMobile(window.innerWidth <= breakpoint)
-    }
-    window.addEventListener("resize", onResize)
-    return () => window.removeEventListener("resize", onResize)
-  }, [breakpoint])
-  return isMobile
+interface TopbarProps {
+  onToggleSidebar?: () => void
 }
 
-export function Topbar() {
+export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
@@ -160,7 +151,23 @@ export function Topbar() {
 
   return (
     <header className="martis-topbar-bg flex h-14 items-center justify-between border-b martis-border px-5">
-      <Breadcrumbs />
+      <div className="flex items-center gap-3">
+        {/* Hamburger — only on mobile when sidebar is managed externally */}
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
+            style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+            aria-label={t("open_sidebar", "Menu")}
+          >
+            <List size={20} />
+          </button>
+        )}
+        <Breadcrumbs />
+      </div>
 
       {/* Search — full bar mode */}
       {searchMode === "bar" && (

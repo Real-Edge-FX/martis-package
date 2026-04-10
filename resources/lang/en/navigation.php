@@ -17,4 +17,5 @@ return [
     'edit' => 'Edit',
     'index' => 'Index',
     'profile' => 'Profile',
+    'open_sidebar' => 'Open menu',
 ];

@@ -187,6 +187,8 @@ abstract class Field implements FieldContract
             'showOnIndex' => $this->showOnIndex,
             'showOnDetail' => $this->showOnDetail,
             'showOnForms' => $this->showOnForms,
+            'showOnCreate' => $this->showOnCreate,
+            'showOnUpdate' => $this->showOnUpdate,
             'rules' => $this->buildRules(),
             'component' => $this->componentKey,
             'placeholder' => $this->placeholder,

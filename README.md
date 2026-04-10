@@ -170,6 +170,9 @@ Available flags: `hideFromIndex()`, `hideFromDetail()`, `hideWhenCreating()`, `h
 | `Sparkline` | Inline SVG mini chart (line/bar) for trend visualization |
 | `Gravatar` | Avatar from Gravatar service based on email hash |
 | `MorphTo` | Polymorphic relationship selector with type + ID resolution |
+| `MorphOne` | Inline panel for polymorphic one-to-one relationships (detail-only) |
+| `MorphMany` | Inline DataTable for polymorphic one-to-many relationships (detail-only, CRUD) |
+| `MorphToMany` | Polymorphic many-to-many with attach/detach, pivot fields, and search |
 
 All fields support: `placeholder()`, `sortable()`, `searchable()`, `required()`, `nullable()`, `readonly()`, `rules()`, `help()`, `default()`, `withMeta()`, and PrimeReact prop passthrough.
 
@@ -738,7 +741,7 @@ Full documentation lives in the [`docs/`](docs/) directory. Each guide is standa
 |----------|-------------|
 | [Resources](docs/resources.md) | Resource classes, model binding, lifecycle hooks, authorization, search, pagination, soft deletes |
 | [Fields Reference](docs/fields.md) | All 32 field types — configuration, visibility flags, validation, relationships, enums |
-| [Relationships](docs/relationships.md) | BelongsTo, HasOne, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo |
+| [Relationships](docs/relationships.md) | BelongsTo, HasOne, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo, MorphOne, MorphMany, MorphToMany |
 | [Actions](docs/actions.md) | Complete Actions system — inline, bulk, destructive, queued, pivot, authorization, action fields, audit log |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer without forking |
 | [Built-in Components](docs/components.md) | Every UI component shipped in the frontend: DataTable, forms, modals, search, navigation |

@@ -9,6 +9,9 @@ use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
 use Martis\Http\Controllers\LoginController;
+use Martis\Http\Controllers\MorphManyController;
+use Martis\Http\Controllers\MorphOneController;
+use Martis\Http\Controllers\MorphToManyController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
@@ -147,6 +150,38 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.belongs-to-many.actions.index');
                                 Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
                                     ->name('resources.belongs-to-many.actions.execute');
+
+                                // MorphToMany polymorphic relationship — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}', [MorphToManyController::class, 'index'])
+                                    ->name('resources.morph-to-many.index');
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/attachable', [MorphToManyController::class, 'attachableIndex'])
+                                    ->name('resources.morph-to-many.attachable');
+                                Route::post('/resources/{resource}/{id}/morph-to-many/{relationship}/attach', [MorphToManyController::class, 'attach'])
+                                    ->name('resources.morph-to-many.attach');
+                                Route::delete('/resources/{resource}/{id}/morph-to-many/{relationship}/{relatedId}/detach', [MorphToManyController::class, 'detach'])
+                                    ->name('resources.morph-to-many.detach');
+                                Route::put('/resources/{resource}/{id}/morph-to-many/{relationship}/{relatedId}/pivot', [MorphToManyController::class, 'updatePivot'])
+                                    ->name('resources.morph-to-many.pivot');
+
+                                // MorphMany polymorphic one-to-many — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'index'])
+                                    ->name('resources.morph-many.index');
+                                Route::post('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'store'])
+                                    ->name('resources.morph-many.store');
+                                Route::put('/resources/{resource}/{id}/morph-many/{relationship}/{relatedId}', [MorphManyController::class, 'update'])
+                                    ->name('resources.morph-many.update');
+                                Route::delete('/resources/{resource}/{id}/morph-many/{relationship}/{relatedId}', [MorphManyController::class, 'destroy'])
+                                    ->name('resources.morph-many.destroy');
+
+                                // MorphOne polymorphic one-to-one — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'show'])
+                                    ->name('resources.morph-one.show');
+                                Route::post('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'store'])
+                                    ->name('resources.morph-one.store');
+                                Route::put('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'update'])
+                                    ->name('resources.morph-one.update');
+                                Route::delete('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'destroy'])
+                                    ->name('resources.morph-one.destroy');
 
                                 // Force delete (permanent deletion of soft-deleted records)
                                 Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])
