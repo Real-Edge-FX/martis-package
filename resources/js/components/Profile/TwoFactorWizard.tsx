@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Dialog } from 'primereact/dialog'
-import { Button } from 'primereact/button'
 import { InputText } from 'primereact/inputtext'
 import { Copy, Check } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
@@ -140,13 +139,15 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
       ) : null}
 
       <div className="flex justify-end">
-        <Button
+        <button
           type="button"
-          label={t('2fa_next')}
-          onClick={() => setStep('verify')}
           disabled={!setupData}
-          raised
-        />
+          onClick={() => setStep('verify')}
+          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: 'var(--martis-accent)' }}
+        >
+          {t('2fa_next')}
+        </button>
       </div>
     </div>
   )
@@ -179,19 +180,23 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
       </div>
 
       <div className="flex justify-between">
-        <Button
+        <button
           type="button"
-          label={t('2fa_scan_qr')}
-          text
           onClick={() => setStep('setup')}
-        />
-        <Button
+          className="text-sm font-medium transition-colors hover:opacity-70"
+          style={{ color: 'var(--martis-accent)' }}
+        >
+          {t('2fa_scan_qr')}
+        </button>
+        <button
           type="button"
-          label={verifying ? t('2fa_verifying') : t('2fa_verify')}
-          loading={verifying}
+          disabled={verifying}
           onClick={() => void handleVerify()}
-          raised
-        />
+          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: 'var(--martis-accent)' }}
+        >
+          {verifying ? t('2fa_verifying') : t('2fa_verify')}
+        </button>
       </div>
     </div>
   )
@@ -214,19 +219,27 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
       </div>
 
       <div className="flex justify-between">
-        <Button
+        <button
           type="button"
-          icon={copied ? <Check size={16} /> : <Copy size={16} />}
-          label={copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
-          outlined
           onClick={() => void handleCopyCodes()}
-        />
-        <Button
+          className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
+          style={{
+            backgroundColor: 'var(--martis-input-bg)',
+            borderColor: 'var(--martis-border)',
+            color: 'var(--martis-text)',
+          }}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
+        </button>
+        <button
           type="button"
-          label={t('2fa_done')}
           onClick={handleDone}
-          raised
-        />
+          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+          style={{ backgroundColor: 'var(--martis-accent)' }}
+        >
+          {t('2fa_done')}
+        </button>
       </div>
     </div>
   )

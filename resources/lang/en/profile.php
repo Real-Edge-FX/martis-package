@@ -70,6 +70,9 @@ return [
     '2fa_otp_placeholder' => '6-digit code',
     '2fa_challenge_failed' => 'Invalid code. Please try again.',
     '2fa_cancel' => 'Cancel',
+    '2fa_disable_confirm_title' => 'Disable Two-Factor Authentication',
+    '2fa_disable_confirm_body' => 'Are you sure you want to disable two-factor authentication? Your account will be less secure.',
+    '2fa_disable_confirm' => 'Yes, disable',
     '2fa_session_expired' => 'Session expired. Please log in again.',
 
     'profile' => 'Profile',

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from 'primereact/button'
 import { Camera, Trash } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
@@ -115,49 +114,60 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
         <div className="flex flex-col gap-3">
           {preview ? (
             <div className="flex gap-2">
-              <Button
+              <button
                 type="button"
-                label={uploading ? t('avatar_uploading') : t('avatar_upload')}
-                icon={<Camera size={16} />}
-                loading={uploading}
+                disabled={uploading}
                 onClick={() => void handleUpload()}
-                raised
-                size="small"
-              />
-              <Button
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: 'var(--martis-accent)' }}
+              >
+                <Camera size={14} />
+                {uploading ? t('avatar_uploading') : t('avatar_upload')}
+              </button>
+              <button
                 type="button"
-                label={t('avatar_change')}
-                outlined
-                size="small"
                 onClick={() => {
                   setPreview(null)
                   setPendingFile(null)
                   if (fileInputRef.current) fileInputRef.current.value = ''
                 }}
-              />
+                className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
+                style={{
+                  backgroundColor: 'var(--martis-input-bg)',
+                  borderColor: 'var(--martis-border)',
+                  color: 'var(--martis-text)',
+                }}
+              >
+                {t('avatar_change')}
+              </button>
             </div>
           ) : (
-            <Button
+            <button
               type="button"
-              label={avatarUrl ? t('avatar_change') : t('avatar_upload')}
-              icon={<Camera size={16} />}
               onClick={() => fileInputRef.current?.click()}
-              raised
-              size="small"
-            />
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
+              style={{ backgroundColor: 'var(--martis-accent)' }}
+            >
+              <Camera size={14} />
+              {avatarUrl ? t('avatar_change') : t('avatar_upload')}
+            </button>
           )}
 
           {avatarUrl && !preview && (
-            <Button
+            <button
               type="button"
-              label={removing ? t('avatar_uploading') : t('avatar_remove')}
-              icon={<Trash size={16} />}
-              severity="danger"
-              outlined
-              size="small"
-              loading={removing}
+              disabled={removing}
               onClick={() => void handleRemove()}
-            />
+              className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+              style={{
+                backgroundColor: 'var(--martis-input-bg)',
+                borderColor: '#dc2626',
+                color: '#dc2626',
+              }}
+            >
+              <Trash size={14} />
+              {removing ? t('avatar_uploading') : t('avatar_remove')}
+            </button>
           )}
 
           <input

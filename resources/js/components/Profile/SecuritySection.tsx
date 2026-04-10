@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from 'primereact/button'
 import { Badge } from 'primereact/badge'
 import { Dialog } from 'primereact/dialog'
-import { ShieldCheck, ShieldSlash, Copy, Check, ArrowsClockwise } from '@phosphor-icons/react'
+import { ShieldCheck, ShieldSlash, Copy, Check, ArrowsClockwise, Warning, X, Trash } from '@phosphor-icons/react'
 import { TwoFactorWizard } from './TwoFactorWizard'
 import { api } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
@@ -18,6 +17,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
   const { addToast } = useToast()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [disabling, setDisabling] = useState(false)
+  const [disableConfirmOpen, setDisableConfirmOpen] = useState(false)
   const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [regenerating, setRegenerating] = useState(false)
@@ -33,6 +33,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
       addToast('error', t('error'))
     } finally {
       setDisabling(false)
+      setDisableConfirmOpen(false)
     }
   }
 
@@ -94,34 +95,44 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
         <div className="flex items-center gap-2 flex-wrap">
           {twoFactorEnabled ? (
             <>
-              <Button
+              <button
                 type="button"
-                label={regenerating ? t('2fa_regenerating') : t('2fa_view_recovery')}
-                icon={<ArrowsClockwise size={16} />}
-                outlined
-                loading={regenerating}
+                disabled={regenerating}
                 onClick={() => void handleViewRecoveryCodes()}
-                size="small"
-              />
-              <Button
+                className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--martis-input-bg)',
+                  borderColor: 'var(--martis-border)',
+                  color: 'var(--martis-text)',
+                }}
+              >
+                <ArrowsClockwise size={14} />
+                {regenerating ? t('2fa_regenerating') : t('2fa_view_recovery')}
+              </button>
+              <button
                 type="button"
-                label={disabling ? t('saving') : t('2fa_disable')}
-                severity="danger"
-                outlined
-                loading={disabling}
-                onClick={() => void handleDisable()}
-                size="small"
-              />
+                onClick={() => setDisableConfirmOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--martis-input-bg)',
+                  borderColor: '#dc2626',
+                  color: '#dc2626',
+                }}
+              >
+                <ShieldSlash size={14} />
+                {t('2fa_disable')}
+              </button>
             </>
           ) : (
-            <Button
+            <button
               type="button"
-              label={t('2fa_enable')}
-              icon={<ShieldCheck size={16} />}
-              raised
               onClick={() => setWizardOpen(true)}
-              size="small"
-            />
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
+              style={{ backgroundColor: 'var(--martis-accent)' }}
+            >
+              <ShieldCheck size={14} />
+              {t('2fa_enable')}
+            </button>
           )}
         </div>
       </div>
@@ -131,6 +142,56 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
         onClose={() => setWizardOpen(false)}
         onEnabled={() => onUpdate(true)}
       />
+
+      {/* Confirm Disable 2FA Dialog */}
+      <Dialog
+        visible={disableConfirmOpen}
+        onHide={() => setDisableConfirmOpen(false)}
+        header={
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+              <Warning size={18} className="text-red-600 dark:text-red-400" weight="fill" />
+            </div>
+            <span>{t('2fa_disable_confirm_title')}</span>
+          </div>
+        }
+        style={{ width: '420px' }}
+        modal
+        draggable={false}
+        resizable={false}
+        footer={
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              disabled={disabling}
+              onClick={() => setDisableConfirmOpen(false)}
+              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+              style={{
+                backgroundColor: 'var(--martis-input-bg)',
+                borderColor: 'var(--martis-border)',
+                color: 'var(--martis-text)',
+              }}
+            >
+              <X size={14} />
+              {t('2fa_cancel')}
+            </button>
+            <button
+              type="button"
+              disabled={disabling}
+              onClick={() => void handleDisable()}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: '#dc2626' }}
+            >
+              <Trash size={14} />
+              {disabling ? t('saving') : t('2fa_disable_confirm')}
+            </button>
+          </div>
+        }
+      >
+        <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+          {t('2fa_disable_confirm_body')}
+        </p>
+      </Dialog>
 
       {/* Recovery Codes Dialog */}
       <Dialog
@@ -159,19 +220,27 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
           </div>
 
           <div className="flex justify-between">
-            <Button
+            <button
               type="button"
-              icon={copied ? <Check size={16} /> : <Copy size={16} />}
-              label={copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
-              outlined
               onClick={() => void handleCopyCodes()}
-            />
-            <Button
+              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--martis-input-bg)',
+                borderColor: 'var(--martis-border)',
+                color: 'var(--martis-text)',
+              }}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
+            </button>
+            <button
               type="button"
-              label={t('2fa_done')}
               onClick={() => setRecoveryOpen(false)}
-              raised
-            />
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+              style={{ backgroundColor: 'var(--martis-accent)' }}
+            >
+              {t('2fa_done')}
+            </button>
           </div>
         </div>
       </Dialog>

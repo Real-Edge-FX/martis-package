@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { InputText } from 'primereact/inputtext'
-import { Button } from 'primereact/button'
 import { IconField } from 'primereact/iconfield'
 import { InputIcon } from 'primereact/inputicon'
 import { Lock } from '@phosphor-icons/react'
@@ -120,12 +119,14 @@ export function PasswordSection() {
           {errors.confirm_password && <small className="p-error">{errors.confirm_password}</small>}
         </div>
 
-        <Button
+        <button
           type="submit"
-          label={saving ? t('updating_password') : t('update_password')}
-          loading={saving}
-          raised
-        />
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: 'var(--martis-accent)' }}
+        >
+          {saving ? t('updating_password') : t('update_password')}
+        </button>
       </form>
     </section>
   )
