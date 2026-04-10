@@ -121,12 +121,12 @@ describe('BelongsToManyField — index display (count badge)', () => {
 // -------------------------------------------------------------------------
 
 describe('BelongsToManyField — detail panel', () => {
-  it('does not render the Attach button in detail view (read-only)', () => {
-    // BelongsToManyFieldDisplay is always read-only — attach/detach only in edit forms
+  it('renders the Attach button in detail view when canAttach is true', () => {
+    // BelongsToManyFieldDisplay is interactive — attach/detach/pivot actions work on the detail page
     render(
       <FieldDisplay field={belongsToManyField} value={null} />
     )
-    expect(screen.queryByText('Attach')).toBeNull()
+    expect(screen.queryByText('Attach')).toBeTruthy()
   })
 
   it('renders the field label', () => {
