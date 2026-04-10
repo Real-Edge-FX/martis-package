@@ -163,84 +163,74 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
   }
 
   return (
-    <div className="mt-6 w-full">
-      {/* Header — title, collapse toggle, icon, count */}
-      <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-        {collapsable && (
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="rounded p-0.5 transition-colors"
-            style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-          >
-            {collapsed ? <CaretDown size={16} /> : <CaretUp size={16} />}
-          </button>
-        )}
-        <LinkSimple size={18} style={{ color: 'var(--martis-accent)' }} />
-        <span>{field.label}</span>
-        <span
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-          style={{
-            backgroundColor: 'var(--martis-surface)',
-            color: 'var(--martis-text-muted)',
-            border: '1px solid var(--martis-border)',
-          }}
-        >
-          {totalCount}
-        </span>
-      </h3>
-
-      {/* Collapsible content — card container with toolbar + table + pagination */}
-      {!collapsed && (
-        <div
-          className="overflow-hidden rounded-xl border"
-          style={{
-            borderColor: 'var(--martis-border)',
-            backgroundColor: 'var(--martis-card)',
-          }}
-        >
-          {/* Toolbar — search + attach button, inside the card */}
-          {(searchable || meta?.canAttach) && (
-            <div
-              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
-              style={{ borderBottom: '1px solid var(--martis-border)' }}
+    <div className="mt-6 space-y-3">
+      {/* Header — same layout as HasMany: title left, search+attach right */}
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+          {collapsable && (
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              className="rounded p-0.5 transition-colors"
+              style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              {searchable ? (
-                <div className="relative" style={{ minWidth: '150px', flex: '1 1 auto' }}>
-                  <MagnifyingGlass
-                    size={14}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2"
-                    style={{ color: 'var(--martis-text-muted)' }}
-                  />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                    placeholder={tMsg('search', 'Search…')}
-                    className="btm-search-input w-full rounded-md border py-1.5 pl-8 pr-3 text-sm"
-                    style={{
-                      borderColor: 'var(--martis-border)',
-                      backgroundColor: 'var(--martis-input-bg)',
-                      color: 'var(--martis-text)',
-                    }}
-                  />
-                </div>
-              ) : <div />}
-              {meta?.canAttach && (
-                <button
-                  type="button"
-                  onClick={() => setShowAttachModal(true)}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
-                  style={{ backgroundColor: 'var(--martis-accent)' }}
-                >
-                  <Plus size={14} weight="bold" />
-                  {tAct('attach', 'Attach')}
-                </button>
-              )}
-            </div>
+              {collapsed ? <CaretDown size={16} /> : <CaretUp size={16} />}
+            </button>
           )}
+          <LinkSimple size={18} style={{ color: 'var(--martis-accent)' }} />
+          <span>{field.label}</span>
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{
+              backgroundColor: 'var(--martis-surface)',
+              color: 'var(--martis-text-muted)',
+              border: '1px solid var(--martis-border)',
+            }}
+          >
+            {totalCount}
+          </span>
+        </h3>
+        {!collapsed && (searchable || meta?.canAttach) && (
+          <div className="flex items-center gap-2">
+            {searchable && (
+              <div className="relative">
+                <MagnifyingGlass
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--martis-text-muted)' }}
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                  placeholder={tMsg('search', 'Search…')}
+                  className="btm-search-input rounded-md border py-1.5 pl-8 pr-3 text-sm"
+                  style={{
+                    borderColor: 'var(--martis-border)',
+                    backgroundColor: 'var(--martis-input-bg)',
+                    color: 'var(--martis-text)',
+                  }}
+                />
+              </div>
+            )}
+            {meta?.canAttach && (
+              <button
+                type="button"
+                onClick={() => setShowAttachModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
+                style={{ backgroundColor: 'var(--martis-accent)' }}
+              >
+                <Plus size={14} weight="bold" />
+                {tAct('attach', 'Attach')}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
-          {/* DataTable */}
+      {/* DataTable — same structure as HasMany, no card wrapper */}
+      {!collapsed && (
+        <>
           <DataTable
             value={records}
             loading={recordsQuery.isLoading}
@@ -256,7 +246,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
                 {tMsg('no_records_available', 'No records available.')}
               </div>
             }
-            className="w-full martis-datatable martis-datatable-striped btm-panel-datatable"
+            className="w-full martis-datatable martis-datatable-striped"
             tableClassName="min-w-full"
           >
             {indexFields.map((f) => (
@@ -359,7 +349,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
           {/* Pagination */}
           {pagination && pagination.last_page > 1 && (
             <div
-              className="flex items-center justify-between px-4 py-3"
+              className="flex items-center justify-between rounded-b-xl px-4 py-3"
               style={{
                 borderTop: '1px solid var(--martis-border)',
                 backgroundColor: 'var(--martis-surface)',
@@ -417,7 +407,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Detach confirmation */}

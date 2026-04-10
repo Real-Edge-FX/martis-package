@@ -2145,18 +2145,4 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   fill: #ffffff !important;
 }
 
-/* ── BelongsToMany panel — DataTable nested inside card container ── */
-/* The outer card already provides border, radius, and background. */
-/* Removing DataTable's own styles prevents the thin line above the table. */
-.btm-panel-datatable {
-  border: none !important;
-  background-color: transparent !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
-}
 
-/* Ensure no gap between toolbar and first thead row */
-.btm-panel-datatable .p-datatable-wrapper {
-  margin-top: 0 !important;
-  padding-top: 0 !important;
-}
