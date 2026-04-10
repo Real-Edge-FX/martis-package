@@ -185,3 +185,4 @@ If a release needs to be invalidated:
 | v0.1.0-alpha | Initial | Core CRUD, basic field types, auth |
 | v0.2.0-alpha | 2026-04-05 | BelongsToMany, Actions system, Scout search, query hooks |
 | v0.3.0-alpha | 2026-04-10 | Profile & 2FA, HasOne field, Error Handling, Pivot Actions |
+| v0.3.1-alpha | 2026-04-10 | i18n sync: missing keys in EN and PT-BR |
