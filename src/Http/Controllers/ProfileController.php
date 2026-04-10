@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\Rules\Password;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
 use Martis\Profile\ProfileResource;
@@ -61,7 +62,7 @@ class ProfileController extends MartisController
 
         $request->validate([
             'current_password' => ['required', 'string', 'current_password'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
         ]);
 
         assert($user instanceof Model);

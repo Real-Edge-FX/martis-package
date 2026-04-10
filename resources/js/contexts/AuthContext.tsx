@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post<User & { two_factor_required?: boolean }>('/login', { email, password })
+    const res = await api.post<User & { two_factor_required?: boolean }>('/api/auth/login', { email, password })
     if (res && typeof res === 'object' && res.two_factor_required) {
       // Backend signals that 2FA challenge is required before full session
       throw new TwoFactorRequiredError()

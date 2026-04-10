@@ -105,14 +105,14 @@ it('validates required fields on profile update', function () {
 // POST /api/profile/password
 // ──────────────────────────────────────────────────────────────────────────────
 it('changes password with valid current password', function () {
-    $user = makeTestUser(['password' => bcrypt('oldpassword123')]);
+    $user = makeTestUser(['password' => bcrypt('OldPassword123')]);
     loginTestUser($user);
     $prefix = config('martis.path', 'martis');
 
     $response = $this->postJson("/{$prefix}/api/profile/password", [
-        'current_password' => 'oldpassword123',
-        'password' => 'newpassword456',
-        'password_confirmation' => 'newpassword456',
+        'current_password' => 'OldPassword123',
+        'password' => 'NewPassword456',
+        'password_confirmation' => 'NewPassword456',
     ]);
 
     $response->assertOk()->assertJsonFragment(['message' => __('martis::profile.password_updated')]);
