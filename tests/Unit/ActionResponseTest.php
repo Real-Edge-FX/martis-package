@@ -73,4 +73,30 @@ class ActionResponseTest extends TestCase
         $this->assertEquals('ConfirmDialog', $data['data']['component']);
         $this->assertEquals(['title' => 'Done'], $data['data']['data']);
     }
+
+    public function test_open_create_response(): void
+    {
+        $response = ActionResponse::openCreate('posts');
+        $data = $response->jsonSerialize();
+        $this->assertEquals('openCreate', $data['type']);
+        $this->assertEquals('posts', $data['data']['resource']);
+    }
+
+    public function test_open_detail_response_with_int_id(): void
+    {
+        $response = ActionResponse::openDetail('posts', 42);
+        $data = $response->jsonSerialize();
+        $this->assertEquals('openDetail', $data['type']);
+        $this->assertEquals('posts', $data['data']['resource']);
+        $this->assertEquals(42, $data['data']['recordId']);
+    }
+
+    public function test_open_detail_response_with_string_id(): void
+    {
+        $response = ActionResponse::openDetail('posts', 'abc-123');
+        $data = $response->jsonSerialize();
+        $this->assertEquals('openDetail', $data['type']);
+        $this->assertEquals('posts', $data['data']['resource']);
+        $this->assertEquals('abc-123', $data['data']['recordId']);
+    }
 }

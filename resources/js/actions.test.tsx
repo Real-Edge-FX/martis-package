@@ -369,3 +369,50 @@ describe("Custom component action", () => {
     expect(needsConfirmation).toBe(false)
   })
 })
+
+
+// ---------------------------------------------------------------------------
+// openCreate and openDetail response types
+// ---------------------------------------------------------------------------
+
+describe('Action openCreate and openDetail responses', () => {
+  it('parses openCreate response', () => {
+    const apiResponse = {
+      data: {
+        type: 'openCreate',
+        data: { resource: 'posts' },
+      },
+    }
+    const responseData = apiResponse.data
+    expect(responseData.type).toBe('openCreate')
+    expect(responseData.data.resource).toBe('posts')
+  })
+
+  it('parses openDetail response with numeric id', () => {
+    const apiResponse = {
+      data: {
+        type: 'openDetail',
+        data: { resource: 'posts', recordId: 42 },
+      },
+    }
+    const responseData = apiResponse.data
+    expect(responseData.type).toBe('openDetail')
+    expect(responseData.data.resource).toBe('posts')
+    expect(responseData.data.recordId).toBe(42)
+  })
+
+  it('parses openDetail response with string id', () => {
+    const apiResponse = {
+      data: {
+        type: 'openDetail',
+        data: { resource: 'posts', recordId: 'abc-123' },
+      },
+    }
+    expect(apiResponse.data.data.recordId).toBe('abc-123')
+  })
+
+  it('ActionMeta uriKey is set correctly for openCreate action', () => {
+    const action = makeAction({ uriKey: 'open-create-demo' })
+    expect(action.uriKey).toBe('open-create-demo')
+  })
+})

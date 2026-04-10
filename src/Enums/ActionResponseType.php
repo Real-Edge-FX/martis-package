@@ -12,4 +12,6 @@ enum ActionResponseType: string
     case Download = 'download';
     case Emit = 'emit';
     case Modal = 'modal';
+    case OpenCreate = 'openCreate';
+    case OpenDetail = 'openDetail';
 }

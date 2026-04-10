@@ -40,6 +40,8 @@ export interface ActionMeta {
 }
 
 interface ActionModalProps {
+  onOpenCreate?: (resource: string) => void
+  onOpenDetail?: (resource: string, recordId: string | number) => void
   resource: string
   action: ActionMeta | null
   selectedIds: Array<string | number>
@@ -48,7 +50,7 @@ interface ActionModalProps {
   onSuccess: () => void
 }
 
-function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess }: ActionModalProps) {
+function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail }: ActionModalProps) {
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
@@ -125,6 +127,20 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
             return
           case 'openInNewTab':
             if (data?.url) window.open(data.url as string, '_blank')
+            break
+          case 'openCreate':
+            if (data?.resource) {
+              onHide()
+              onOpenCreate?.(data.resource as string)
+              return
+            }
+            break
+          case 'openDetail':
+            if (data?.resource && data?.recordId != null) {
+              onHide()
+              onOpenDetail?.(data.resource as string, data.recordId as string | number)
+              return
+            }
             break
           case 'download':
             if (data?.url) window.location.href = data.url as string

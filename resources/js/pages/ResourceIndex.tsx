@@ -6,7 +6,7 @@ import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps }
 import { Table } from '@/components/Table'
 import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
-import { ActionModal, ActionDropdown } from '@/components/Actions'
+import { ActionModal, ActionDropdown, ActionDrawer } from '@/components/Actions'
 import type { ActionMeta } from '@/components/Actions'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
@@ -37,6 +37,7 @@ export function ResourceIndexPage() {
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
+  const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail'; resource: string; recordId?: string | number } | null>(null)
   // Track whether the current action was triggered inline (single row)
   const inlineActionRef = useRef(false)
   // Track which row IDs the inline action targets (separate from visual selection)
@@ -450,7 +451,22 @@ export function ResourceIndexPage() {
         visible={activeAction !== null}
         onHide={handleActionHide}
         onSuccess={handleActionSuccess}
+        onOpenCreate={(res) => setActionDrawer({ type: "create", resource: res })}
+        onOpenDetail={(res, rid) => setActionDrawer({ type: "detail", resource: res, recordId: rid })}
       />
+
+      {actionDrawer && (
+        <ActionDrawer
+          type={actionDrawer.type}
+          resource={actionDrawer.resource}
+          recordId={actionDrawer.recordId}
+          onClose={() => setActionDrawer(null)}
+          onSuccess={() => {
+            void qc.invalidateQueries({ queryKey: ["resources", resource] })
+            setActionDrawer(null)
+          }}
+        />
+      )}
     </div>
   )
 }

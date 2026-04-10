@@ -8,7 +8,7 @@ use Martis\Enums\ActionResponseType;
  * Represents the response returned by an action after execution.
  *
  * Nova v5 parity: ActionResponse with message, danger, redirect, visit,
- * openInNewTab, download, emit, and modal support.
+ * openInNewTab, download, emit, modal, openCreate, and openDetail support.
  */
 class ActionResponse implements \JsonSerializable
 {
@@ -78,6 +78,28 @@ class ActionResponse implements \JsonSerializable
     public static function modal(string $componentName, array $data = []): self
     {
         return new self(ActionResponseType::Modal, ['component' => $componentName, 'data' => $data]);
+    }
+
+    /**
+     * Opens the create drawer for the given resource.
+     *
+     * Example:
+     *   return ActionResponse::openCreate('posts');
+     */
+    public static function openCreate(string $resourceName): self
+    {
+        return new self(ActionResponseType::OpenCreate, ['resource' => $resourceName]);
+    }
+
+    /**
+     * Opens the detail drawer for the given resource record.
+     *
+     * Example:
+     *   return ActionResponse::openDetail('posts', $model->id);
+     */
+    public static function openDetail(string $resourceName, string|int $recordId): self
+    {
+        return new self(ActionResponseType::OpenDetail, ['resource' => $resourceName, 'recordId' => $recordId]);
     }
 
     public function type(): ActionResponseType

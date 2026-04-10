@@ -5,7 +5,7 @@ import { api } from "@/lib/api"
 import type { ResourceRecord, ResourceSchema, OverrideProps } from "@/types"
 import { FieldDisplay } from "@/components/fields"
 import { DeleteModal } from "@/components/DeleteModal"
-import { ActionModal, ActionDropdown } from "@/components/Actions"
+import { ActionModal, ActionDropdown, ActionDrawer } from "@/components/Actions"
 import type { ActionMeta } from "@/components/Actions"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
@@ -26,6 +26,7 @@ export function ResourceDetailPage() {
   const [showForceDelete, setShowForceDelete] = useState(false)
   const [showRestore, setShowRestore] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
+  const [actionDrawer, setActionDrawer] = useState<{ type: "create" | "detail"; resource: string; recordId?: string | number } | null>(null)
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
 
@@ -408,7 +409,22 @@ export function ResourceDetailPage() {
         visible={activeAction !== null}
         onHide={() => setActiveAction(null)}
         onSuccess={handleActionSuccess}
+        onOpenCreate={(res) => setActionDrawer({ type: "create", resource: res })}
+        onOpenDetail={(res, rid) => setActionDrawer({ type: "detail", resource: res, recordId: rid })}
       />
+
+      {actionDrawer && (
+        <ActionDrawer
+          type={actionDrawer.type}
+          resource={actionDrawer.resource}
+          recordId={actionDrawer.recordId}
+          onClose={() => setActionDrawer(null)}
+          onSuccess={() => {
+            void qc.invalidateQueries({ queryKey: ["resources", resource] })
+            setActionDrawer(null)
+          }}
+        />
+      )}
     </div>
   )
 }
