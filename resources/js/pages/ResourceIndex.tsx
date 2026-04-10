@@ -107,6 +107,13 @@ export function ResourceIndexPage() {
   const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
   const inlineActions = allActions.filter((a) => a.showInline)
   const standaloneActions = allActions.filter((a) => a.standalone)
+  const standaloneDisabledActions = new Set<string>(
+    standaloneActions
+      .filter(a => a.destructive
+        ? schema?.authorization?.authorizedToRunDestructiveAction === false
+        : schema?.authorization?.authorizedToRunAction === false)
+      .map(a => a.uriKey)
+  )
   const hasActions = indexActions.length > 0
 
   const deleteMutation = useMutation({
@@ -275,6 +282,7 @@ export function ResourceIndexPage() {
               actions={standaloneActions}
               onSelect={handleActionSelect}
               label={schema.actionsMenuLabel ?? undefined}
+              disabledActions={standaloneDisabledActions}
             />
           )}
           {schema.authorization?.authorizedToCreate !== false && (

@@ -459,7 +459,7 @@ function DefaultTable({
                       type="button"
                       disabled={isDisabled}
                       onClick={e => { e.stopPropagation(); if (!isDisabled) onInlineAction?.(action, row) }}
-                      className="martis-action-btn inline-flex items-center justify-center rounded p-1.5 transition-colors hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="martis-action-btn inline-flex items-center justify-center rounded p-1.5 transition-colors hover:opacity-80 disabled:opacity-30 disabled:cursor-default"
                       style={{
                         color: isDisabled ? "var(--martis-text-muted)" : action.destructive ? "#dc2626" : "var(--martis-accent)",
                         backgroundColor: isDisabled ? "transparent" : action.destructive ? "rgba(220,38,38,0.08)" : "rgba(99,102,241,0.08)",

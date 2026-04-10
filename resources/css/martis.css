@@ -2169,3 +2169,25 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 }
 
 
+
+/* ── Table horizontal scrollbar — visible on hover (REA-1188) ───── */
+/* Permite scroll horizontal quando a tabela excede a largura do viewport */
+.martis-datatable .p-datatable-wrapper {
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox: oculto por defeito */
+}
+.martis-datatable:hover .p-datatable-wrapper {
+  scrollbar-width: thin; /* Firefox: visivel no hover */
+  scrollbar-color: var(--martis-border) transparent;
+}
+.martis-datatable .p-datatable-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.martis-datatable .p-datatable-wrapper::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+.martis-datatable:hover .p-datatable-wrapper::-webkit-scrollbar-thumb {
+  background-color: var(--martis-border);
+}

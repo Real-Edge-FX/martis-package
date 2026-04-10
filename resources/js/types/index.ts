@@ -138,6 +138,8 @@ export interface AuthorizationMetadata {
 export interface CollectionAuthorizationMetadata {
   authorizedToViewAny: boolean
   authorizedToCreate: boolean
+  authorizedToRunAction?: boolean
+  authorizedToRunDestructiveAction?: boolean
 }
 
 export interface ResourceSchema extends ResourceEmbedded {
