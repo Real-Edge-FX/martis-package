@@ -20,7 +20,8 @@ export function ResourceCreatePage() {
   const viaResource = searchParams.get('viaResource')
   const viaResourceId = searchParams.get('viaResourceId')
   const viaRelationship = searchParams.get('viaRelationship')
-  const isViaHasMany = !!(viaResource && viaResourceId && viaRelationship)
+  const viaRelationshipType = searchParams.get('viaRelationshipType') ?? 'has-many'
+  const isViaRelation = !!(viaResource && viaResourceId && viaRelationship)
   const redirectMode = searchParams.get('redirectMode') ?? 'parent'
   const fromResourceId = searchParams.get('fromResourceId')
   const isReplicate = !!fromResourceId
@@ -62,9 +63,9 @@ export function ResourceCreatePage() {
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
-      if (isViaHasMany) {
+      if (isViaRelation) {
         return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(
-          `/api/resources/${viaResource}/${viaResourceId}/has-many/${viaRelationship}`,
+          `/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`,
           data,
         )
       }
@@ -81,7 +82,7 @@ export function ResourceCreatePage() {
       setValues({})
       setErrors({})
       // Navigate to the newly created record
-      if (isViaHasMany && redirectMode === 'parent') {
+      if (isViaRelation && redirectMode === 'parent') {
         navigate(`/resources/${viaResource}/${viaResourceId}`)
       } else {
         navigate(`/resources/${resource}/${res.data.id}`)
@@ -228,7 +229,7 @@ export function ResourceCreatePage() {
 
           <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
             <Link
-              to={isViaHasMany ? `/resources/${viaResource}/${viaResourceId}` : `/resources/${resource}`}
+              to={isViaRelation ? `/resources/${viaResource}/${viaResourceId}` : `/resources/${resource}`}
               className="rounded-md border px-4 py-2 text-sm font-medium martis-text-muted martis-border"
               style={{ backgroundColor: 'var(--martis-input-bg)', borderColor: 'var(--martis-border)' }}
             >

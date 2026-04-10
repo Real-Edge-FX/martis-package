@@ -78,7 +78,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const record = recordQuery.data?.data ?? null
   const detailFields: FieldDefinition[] = (schema as { fieldsForDetail?: FieldDefinition[] } | undefined)?.fieldsForDetail ?? []
 
-  const viaParams = `?viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}`
+  const viaParams = `?viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}&viaRelationshipType=has-one`
 
   if (recordQuery.isLoading) {
     return (
