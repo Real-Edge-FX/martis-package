@@ -454,6 +454,93 @@ php artisan martis:field MyCustomField
 
 This creates the PHP field class and a React component with hot reload support.
 
+### Custom Action Components
+
+Replace the default fields form inside an action modal with a fully custom React component. Works for both **inline actions** (per-row buttons) and **regular/bulk actions** (dropdown menu).
+
+#### Step 1 — Create the React component
+
+```tsx
+// packages/martis/resources/js/components/Actions/MyActionComponent.tsx
+import { useState } from "react"
+
+interface MyActionComponentProps {
+  // Props passed from PHP via ->component()
+  title: string
+  options: string[]
+  // Auto-injected by Martis — call to send field values to the PHP handler
+  onFieldsChange?: (fields: Record<string, unknown>) => void
+}
+
+export function MyActionComponent({ title, options, onFieldsChange }: MyActionComponentProps) {
+  const [selected, setSelected] = useState<string | null>(null)
+
+  function handleSelect(opt: string) {
+    setSelected(opt)
+    onFieldsChange?.({ selectedOption: opt }) // becomes $fields->selectedOption in PHP
+  }
+
+  return (
+    <div className="space-y-4">
+      <p style={{ color: "var(--martis-text)" }}>{title}</p>
+      {options.map((opt) => (
+        <button key={opt} type="button" onClick={() => handleSelect(opt)}
+          style={{ backgroundColor: selected === opt ? "var(--martis-accent)" : "var(--martis-surface)" }}>
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+}
+```
+
+> Always use CSS theme variables (`var(--martis-text)`, `var(--martis-accent)`, `var(--martis-surface)`, etc.) — never hardcode colors. This ensures compatibility with both light and dark themes.
+
+#### Step 2 — Register the component
+
+In `packages/martis/resources/js/app.tsx`:
+
+```tsx
+import { MyActionComponent } from '@/components/Actions/MyActionComponent'
+
+componentRegistry.register('my-action-component', MyActionComponent as never)
+```
+
+#### Step 3 — Use the component in a PHP Action
+
+```php
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+
+Action::using('My Custom Action', function (ActionFields $fields, Collection $models) {
+    // Field values come from onFieldsChange() calls inside the React component
+    $option = $fields->selectedOption ?? 'none';
+    return ActionResponse::message("Selected: {$option}");
+})
+    ->component('my-action-component', [
+        'title'   => 'Choose an option:',
+        'options' => ['A', 'B', 'C'],
+    ])
+    ->showInline()                    // optional: show as inline per-row button
+    ->confirmButtonText('Confirm')
+    ->cancelButtonText('Cancel');
+```
+
+#### Auto-injected props
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `onFieldsChange` | `(fields: Record<string, unknown>) => void` | Call to update fields sent to the PHP handler on confirm |
+| `onSuccess` | `() => void` | Programmatically close modal and trigger success state |
+| `onHide` | `() => void` | Programmatically cancel and close the modal |
+
+#### Working example
+
+See `ActionsDemoResource.php` in the playground for two live examples:
+- **Custom Preview (#19):** inline action — `->showInline()->component('demo-custom-action', ...)`
+- **Custom Component Demo (#20):** regular bulk action with the same component
+
 ## Testing
 
 ```bash
