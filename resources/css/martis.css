@@ -2144,3 +2144,10 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   color: #ffffff !important;
   fill: #ffffff !important;
 }
+
+/* ── BelongsToMany panel — DataTable nested inside card container ── */
+/* The card container already provides the outer border; remove duplicate */
+.btm-panel-datatable {
+  border: none !important;
+  border-radius: 0 !important;
+}

@@ -244,7 +244,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
                 {tMsg('no_records_available', 'No records available.')}
               </div>
             }
-            className="w-full martis-datatable martis-datatable-striped"
+            className="w-full martis-datatable martis-datatable-striped btm-panel-datatable"
             tableClassName="min-w-full"
           >
             {indexFields.map((f) => (
