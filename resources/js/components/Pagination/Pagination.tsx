@@ -20,7 +20,7 @@ function DefaultPagination({
   to,
   onPageChange,
 }: PaginationProps) {
-  if (lastPage <= 1) return null
+  if (total === 0) return null
 
   // PrimeReact Paginator uses 0-based first (row offset)
   const first = (currentPage - 1) * perPage
@@ -42,14 +42,16 @@ function DefaultPagination({
             <>{total} records</>
           )}
         </span>
-        <Paginator
-          first={first}
-          rows={perPage}
-          totalRecords={total}
-          onPageChange={handlePageChange}
-          template="PrevPageLink PageLinks NextPageLink"
-          className="p-0"
-        />
+        {lastPage > 1 && (
+          <Paginator
+            first={first}
+            rows={perPage}
+            totalRecords={total}
+            onPageChange={handlePageChange}
+            template="PrevPageLink PageLinks NextPageLink"
+            className="p-0"
+          />
+        )}
       </div>
     </div>
   )

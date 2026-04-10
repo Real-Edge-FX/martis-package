@@ -249,10 +249,11 @@ describe('Pagination', () => {
     expect(labels).toContain('3')
   })
 
-  it('does not render when only one page', () => {
+
+  it('does not render when total is zero', () => {
     const { container } = render(
-      <Pagination currentPage={1} lastPage={1} total={5}
-        perPage={10} from={1} to={5} onPageChange={vi.fn()}
+      <Pagination currentPage={1} lastPage={1} total={0}
+        perPage={10} from={null} to={null} onPageChange={vi.fn()}
       />
     )
     expect(container.firstChild).toBeNull()
