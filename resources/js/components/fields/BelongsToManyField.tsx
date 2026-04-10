@@ -89,6 +89,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
   const pivotFields = (field.pivotFields as FieldDefinition[] | undefined) ?? []
   const searchable = field.searchable as boolean
   const modalSize = (field.modalSize as string | undefined) ?? '2xl'
+  const modalHeight = (field.modalHeight as string | undefined) ?? null
 
   const pathParts = window.location.pathname.split('/')
   const resourcesIdx = pathParts.indexOf('resources')
@@ -346,8 +347,8 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             )}
           </DataTable>
 
-          {/* Pagination */}
-          {pagination && pagination.last_page > 1 && (
+          {/* Pagination / count bar */}
+          {pagination && (
             <div
               className="flex items-center justify-between rounded-b-xl px-4 py-3"
               style={{
@@ -356,7 +357,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
               }}
             >
               <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-                <span>{pagination.from}–{pagination.to} / {pagination.total}</span>
+                <span>{pagination.total === 0 ? '0' : `${pagination.from}–${pagination.to}`} / {pagination.total}</span>
                 {meta?.perPageOptions && (
                   <select
                     value={perPage}
@@ -374,37 +375,39 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
                   </select>
                 )}
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                  style={{
-                    borderColor: 'var(--martis-border)',
-                    backgroundColor: 'var(--martis-input-bg)',
-                    color: 'var(--martis-text)',
-                  }}
-                >
-                  ←
-                </button>
-                <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-                  {page} / {pagination.last_page}
-                </span>
-                <button
-                  type="button"
-                  disabled={page >= pagination.last_page}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                  style={{
-                    borderColor: 'var(--martis-border)',
-                    backgroundColor: 'var(--martis-input-bg)',
-                    color: 'var(--martis-text)',
-                  }}
-                >
-                  →
-                </button>
-              </div>
+              {pagination.last_page > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
+                    style={{
+                      borderColor: 'var(--martis-border)',
+                      backgroundColor: 'var(--martis-input-bg)',
+                      color: 'var(--martis-text)',
+                    }}
+                  >
+                    ←
+                  </button>
+                  <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+                    {page} / {pagination.last_page}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page >= pagination.last_page}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
+                    style={{
+                      borderColor: 'var(--martis-border)',
+                      backgroundColor: 'var(--martis-input-bg)',
+                      color: 'var(--martis-text)',
+                    }}
+                  >
+                    →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -429,6 +432,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
           relatedResource={relatedResource}
           pivotFields={pivotFields}
           modalSize={modalSize}
+          modalHeight={modalHeight}
           onSuccess={() => {
             setShowAttachModal(false)
             void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
@@ -535,6 +539,7 @@ function AttachModal({
   relatedResource,
   pivotFields,
   modalSize = '2xl',
+  modalHeight,
   onSuccess,
   onClose,
 }: {
@@ -544,6 +549,7 @@ function AttachModal({
   relatedResource: string
   pivotFields: FieldDefinition[]
   modalSize?: string
+  modalHeight?: string | null
   onSuccess: () => void
   onClose: () => void
 }) {
@@ -619,7 +625,7 @@ function AttachModal({
         style={{
           backgroundColor: 'var(--martis-card)',
           border: '1px solid var(--martis-border)',
-          maxHeight: '85vh',
+          maxHeight: modalHeight ?? '85vh',
           maxWidth: modalMaxWidth,
         }}
       >
@@ -676,7 +682,7 @@ function AttachModal({
         </div>
 
         {/* DataTable — scrollable body */}
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto px-6">
           <DataTable
             value={records}
             loading={attachableQuery.isLoading}
@@ -710,49 +716,51 @@ function AttachModal({
           </DataTable>
         </div>
 
-        {/* Pagination */}
-        {pagination && pagination.last_page > 1 && (
+        {/* Pagination / count bar */}
+        {pagination && (
           <div
-            className="flex shrink-0 items-center justify-between px-4 py-3"
+            className="flex shrink-0 items-center justify-between px-6 py-3"
             style={{
               borderTop: '1px solid var(--martis-border)',
               backgroundColor: 'var(--martis-surface)',
             }}
           >
             <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-              {pagination.from}–{pagination.to} / {pagination.total}
+              {pagination.total === 0 ? '0' : `${pagination.from}–${pagination.to}`} / {pagination.total}
             </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={attachPage <= 1}
-                onClick={() => setAttachPage((p) => Math.max(1, p - 1))}
-                className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                style={{
-                  borderColor: 'var(--martis-border)',
-                  backgroundColor: 'var(--martis-input-bg)',
-                  color: 'var(--martis-text)',
-                }}
-              >
-                ←
-              </button>
-              <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-                {attachPage} / {pagination.last_page}
-              </span>
-              <button
-                type="button"
-                disabled={attachPage >= pagination.last_page}
-                onClick={() => setAttachPage((p) => p + 1)}
-                className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                style={{
-                  borderColor: 'var(--martis-border)',
-                  backgroundColor: 'var(--martis-input-bg)',
-                  color: 'var(--martis-text)',
-                }}
-              >
-                →
-              </button>
-            </div>
+            {pagination.last_page > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={attachPage <= 1}
+                  onClick={() => setAttachPage((p) => Math.max(1, p - 1))}
+                  className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
+                  style={{
+                    borderColor: 'var(--martis-border)',
+                    backgroundColor: 'var(--martis-input-bg)',
+                    color: 'var(--martis-text)',
+                  }}
+                >
+                  ←
+                </button>
+                <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+                  {attachPage} / {pagination.last_page}
+                </span>
+                <button
+                  type="button"
+                  disabled={attachPage >= pagination.last_page}
+                  onClick={() => setAttachPage((p) => p + 1)}
+                  className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
+                  style={{
+                    borderColor: 'var(--martis-border)',
+                    backgroundColor: 'var(--martis-input-bg)',
+                    color: 'var(--martis-text)',
+                  }}
+                >
+                  →
+                </button>
+              </div>
+            )}
           </div>
         )}
 

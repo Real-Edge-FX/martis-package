@@ -60,6 +60,9 @@ class BelongsToMany extends Field
     /** Modal size for the attach modal. */
     protected ModalSize $modalSize = ModalSize::TwoExtraLarge;
 
+    /** Optional modal height (CSS value like '70vh' or '500px'). */
+    protected ?string $modalHeight = null;
+
     /** Closure to filter the relatable query (Nova v5: relatableQueryUsing). */
     protected ?\Closure $relatableQueryClosure = null;
 
@@ -252,12 +255,13 @@ class BelongsToMany extends Field
      *
      * Nova v5 parity: ->modalSize('lg')
      */
-    public function modalSize(ModalSize|string $size): static
+    public function modalSize(ModalSize|string $size, ?string $height = null): static
     {
         if (is_string($size)) {
             $size = ModalSize::from($size);
         }
         $this->modalSize = $size;
+        $this->modalHeight = $height;
 
         return $this;
     }
@@ -431,6 +435,7 @@ class BelongsToMany extends Field
             'allowDuplicateRelations' => $this->allowDuplicates,
             'showCreateRelationButton' => $this->isShowCreateRelationButton(),
             'modalSize' => $this->getModalSize()->value,
+            'modalHeight' => $this->modalHeight,
             'withSubtitles' => $this->withSubtitles,
             'dontReorderAttachables' => $this->dontReorderAttachables,
             'pivotFields' => $pivotFields,
