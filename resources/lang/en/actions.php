@@ -28,6 +28,7 @@ return [
     'inline_action' => 'Run',
     'attach' => 'Attach',
     'detach' => 'Detach',
+    'pivot_fields' => 'Pivot Fields',
     'attach_related' => 'Attach Record',
     'select_all' => 'Select all',
 ];

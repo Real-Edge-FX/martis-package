@@ -35,6 +35,7 @@ return [
     'inline_action' => 'Executar',
     'attach' => 'Associar',
     'detach' => 'Desassociar',
+    'pivot_fields' => 'Campos Pivot',
     'attach_related' => 'Associar Registo',
     'select_all' => 'Selecionar todos',
 ];

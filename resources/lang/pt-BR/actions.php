@@ -28,6 +28,7 @@ return [
     'inline_action' => 'Executar',
     'attach' => 'Vincular',
     'detach' => 'Desvincular',
+    'pivot_fields' => 'Campos Pivot',
     'attach_related' => 'Vincular Registro',
     'select_all' => 'Selecionar todos',
 ];

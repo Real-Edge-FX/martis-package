@@ -167,7 +167,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
   }
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="space-y-3">
       {/* Header — all controls on one line: title + search + per-page + attach */}
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="flex items-center gap-2 text-lg font-semibold flex-shrink-0" style={{ color: 'var(--martis-text)' }}>
@@ -696,7 +696,7 @@ function AttachModal({
 
         {/* Pagination — identical to ResourceIndex */}
         {pagination && (
-          <div className="shrink-0">
+          <div className="shrink-0 px-6 py-2">
             <Pagination
               currentPage={pagination.current_page}
               lastPage={pagination.last_page}
@@ -716,7 +716,7 @@ function AttachModal({
             style={{ borderColor: 'var(--martis-border)' }}
           >
             <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--martis-text-muted)' }}>
-              Pivot Fields
+              {tAct("pivot_fields", "Pivot Fields")}
             </p>
             {pivotFields.map((pf) => (
               <div key={pf.attribute}>
