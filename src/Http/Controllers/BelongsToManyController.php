@@ -184,14 +184,14 @@ class BelongsToManyController extends MartisController
         $titleAttr = $field->getRelationship();
 
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass): array {
+            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request): array {
                 $res = new $relatedResourceClass($model);
 
-                return [
-                    'id' => $model->getKey(),
-                    '_title' => $res->title(),
-                    '_resource' => ['uriKey' => $relatedResourceClass::uriKey()],
-                ];
+                return $this->serializeModel(
+                    $res,
+                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
+                    $model,
+                );
             })->all()
         );
 

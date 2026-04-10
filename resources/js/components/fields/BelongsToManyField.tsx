@@ -15,10 +15,26 @@ import {
   CaretDown,
   CaretUpDown,
   X,
-  Check,
 } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
+
+// -------------------------------------------------------------------------
+// Modal size mapping — PHP ModalSize enum value → CSS max-width
+// -------------------------------------------------------------------------
+
+const MODAL_SIZE_MAP: Record<string, string> = {
+  sm: '24rem',
+  md: '28rem',
+  lg: '32rem',
+  xl: '36rem',
+  '2xl': '42rem',
+  '3xl': '48rem',
+  '4xl': '56rem',
+  '5xl': '64rem',
+  '6xl': '72rem',
+  '7xl': '80rem',
+}
 
 // -------------------------------------------------------------------------
 // BelongsToMany index display — count badge
@@ -60,11 +76,6 @@ interface BtmMeta {
   canDetach: boolean
 }
 
-interface AttachableRecord {
-  id: string | number
-  _title?: string
-}
-
 function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field'] }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
@@ -77,6 +88,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
   const collapsedByDefault = field.collapsedByDefault as boolean
   const pivotFields = (field.pivotFields as FieldDefinition[] | undefined) ?? []
   const searchable = field.searchable as boolean
+  const modalSize = (field.modalSize as string | undefined) ?? '2xl'
 
   const pathParts = window.location.pathname.split('/')
   const resourcesIdx = pathParts.indexOf('resources')
@@ -426,6 +438,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
           relationship={relationship}
           relatedResource={relatedResource}
           pivotFields={pivotFields}
+          modalSize={modalSize}
           onSuccess={() => {
             setShowAttachModal(false)
             void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
@@ -504,7 +517,7 @@ function DetachConfirmModal({
 }
 
 // -------------------------------------------------------------------------
-// Attach modal — multi-select + debounced search + optional pivot fields
+// Debounce hook
 // -------------------------------------------------------------------------
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -521,12 +534,17 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue
 }
 
+// -------------------------------------------------------------------------
+// Attach modal — DataTable with multi-select + search + pagination
+// -------------------------------------------------------------------------
+
 function AttachModal({
   parentResource,
   parentId,
   relationship,
-  relatedResource: _relatedResource,
+  relatedResource,
   pivotFields,
+  modalSize = '2xl',
   onSuccess,
   onClose,
 }: {
@@ -535,6 +553,7 @@ function AttachModal({
   relationship: string
   relatedResource: string
   pivotFields: FieldDefinition[]
+  modalSize?: string
   onSuccess: () => void
   onClose: () => void
 }) {
@@ -543,16 +562,25 @@ function AttachModal({
 
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [selected, setSelected] = useState<AttachableRecord[]>([])
+  const [selected, setSelected] = useState<ResourceRecord[]>([])
   const [pivotValues, setPivotValues] = useState<Record<string, unknown>>({})
   const [error, setError] = useState<string | null>(null)
+  const [attachPage, setAttachPage] = useState(1)
+  const [attachPerPage] = useState(15)
+
+  // Fetch related resource schema for DataTable columns
+  const schemaQuery = useQuery({
+    queryKey: ['schema', relatedResource],
+    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`),
+    enabled: !!relatedResource,
+  })
 
   const attachableQuery = useQuery({
-    queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch],
+    queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage],
     queryFn: () => {
-      const params = new URLSearchParams({ per_page: '50' })
+      const params = new URLSearchParams({ per_page: String(attachPerPage), page: String(attachPage) })
       if (debouncedSearch) params.set('search', debouncedSearch)
-      return api.get<PaginatedResponse<AttachableRecord>>(
+      return api.get<PaginatedResponse<ResourceRecord>>(
         `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`
       )
     },
@@ -573,29 +601,9 @@ function AttachModal({
   })
 
   const records = attachableQuery.data?.data ?? []
-
-  const selectedIds = new Set(selected.map((s) => s.id))
-
-  function toggleRecord(rec: AttachableRecord) {
-    setSelected((prev) => {
-      const exists = prev.some((s) => s.id === rec.id)
-      if (exists) return prev.filter((s) => s.id !== rec.id)
-      return [...prev, rec]
-    })
-  }
-
-  function toggleAll() {
-    if (records.every((r) => selectedIds.has(r.id))) {
-      // Deselect all visible
-      setSelected((prev) => prev.filter((s) => !records.some((r) => r.id === s.id)))
-    } else {
-      // Select all visible that aren't already selected
-      setSelected((prev) => {
-        const newItems = records.filter((r) => !prev.some((s) => s.id === r.id))
-        return [...prev, ...newItems]
-      })
-    }
-  }
+  const pagination = attachableQuery.data?.meta
+  const schema = schemaQuery.data?.data
+  const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
 
   function handleAttach() {
     if (selected.length === 0) return
@@ -609,7 +617,7 @@ function AttachModal({
     }
   }
 
-  const allVisibleSelected = records.length > 0 && records.every((r) => selectedIds.has(r.id))
+  const modalMaxWidth = MODAL_SIZE_MAP[modalSize] ?? MODAL_SIZE_MAP['2xl']
 
   return (
     <div
@@ -617,11 +625,12 @@ function AttachModal({
       style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
     >
       <div
-        className="flex w-full max-w-lg flex-col overflow-hidden rounded-xl shadow-xl"
+        className="flex w-full flex-col overflow-hidden rounded-xl shadow-xl"
         style={{
           backgroundColor: 'var(--martis-card)',
           border: '1px solid var(--martis-border)',
-          maxHeight: '80vh',
+          maxHeight: '85vh',
+          maxWidth: modalMaxWidth,
         }}
       >
         {/* Header */}
@@ -636,10 +645,7 @@ function AttachModal({
             {selected.length > 0 && (
               <span
                 className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{
-                  backgroundColor: 'var(--martis-accent)',
-                  color: '#fff',
-                }}
+                style={{ backgroundColor: 'var(--martis-accent)', color: '#fff' }}
               >
                 {selected.length}
               </span>
@@ -666,7 +672,7 @@ function AttachModal({
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setAttachPage(1) }}
               placeholder={tMsg('search', 'Search…')}
               className="w-full rounded-lg border py-2 pl-9 pr-3 text-sm btm-modal-search"
               style={{
@@ -679,73 +685,86 @@ function AttachModal({
           </div>
         </div>
 
-        {/* Record list — scrollable, takes remaining space */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
-          {attachableQuery.isLoading ? (
-            <p className="py-4 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-              {tMsg('loading', 'Loading…')}
-            </p>
-          ) : records.length === 0 ? (
-            <p className="py-4 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-              {tMsg('no_records_available', 'No records available.')}
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {/* Select all toggle */}
+        {/* DataTable — scrollable body */}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <DataTable
+            value={records}
+            loading={attachableQuery.isLoading}
+            dataKey="id"
+            selectionMode="multiple"
+            selection={selected}
+            onSelectionChange={(e) => setSelected(e.value as ResourceRecord[])}
+            emptyMessage={
+              <div className="py-8 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+                {tMsg('no_records_available', 'No records available.')}
+              </div>
+            }
+            className="w-full martis-datatable martis-datatable-striped"
+            tableClassName="min-w-full"
+          >
+            <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+            {indexFields.map((f) => (
+              <Column
+                key={f.attribute}
+                field={f.attribute}
+                header={
+                  <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                    {f.label}
+                  </span>
+                }
+                body={(row: ResourceRecord) => (
+                  <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                )}
+              />
+            ))}
+          </DataTable>
+        </div>
+
+        {/* Pagination */}
+        {pagination && pagination.last_page > 1 && (
+          <div
+            className="flex shrink-0 items-center justify-between px-4 py-3"
+            style={{
+              borderTop: '1px solid var(--martis-border)',
+              backgroundColor: 'var(--martis-surface)',
+            }}
+          >
+            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+              {pagination.from}–{pagination.to} / {pagination.total}
+            </span>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={toggleAll}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium uppercase tracking-wider transition-colors"
+                disabled={attachPage <= 1}
+                onClick={() => setAttachPage((p) => Math.max(1, p - 1))}
+                className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
                 style={{
-                  color: 'var(--martis-text-muted)',
-                  cursor: 'pointer',
-                  background: 'none',
-                  border: 'none',
+                  borderColor: 'var(--martis-border)',
+                  backgroundColor: 'var(--martis-input-bg)',
+                  color: 'var(--martis-text)',
                 }}
               >
-                <span
-                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-                  style={{
-                    borderColor: allVisibleSelected ? 'var(--martis-accent)' : 'var(--martis-border)',
-                    backgroundColor: allVisibleSelected ? 'var(--martis-accent)' : 'transparent',
-                  }}
-                >
-                  {allVisibleSelected && <Check size={10} weight="bold" color="#fff" />}
-                </span>
-                {tAct('select_all', 'Select all')}
+                ←
               </button>
-
-              {records.map((rec) => {
-                const isSelected = selectedIds.has(rec.id)
-                return (
-                  <button
-                    key={rec.id}
-                    type="button"
-                    onClick={() => toggleRecord(rec)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors"
-                    style={{
-                      backgroundColor: isSelected ? 'color-mix(in srgb, var(--martis-accent) 12%, transparent)' : 'transparent',
-                      color: 'var(--martis-text)',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <span
-                      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-                      style={{
-                        borderColor: isSelected ? 'var(--martis-accent)' : 'var(--martis-border)',
-                        backgroundColor: isSelected ? 'var(--martis-accent)' : 'transparent',
-                      }}
-                    >
-                      {isSelected && <Check size={10} weight="bold" color="#fff" />}
-                    </span>
-                    <span className="truncate">{rec._title ?? String(rec.id)}</span>
-                  </button>
-                )
-              })}
+              <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+                {attachPage} / {pagination.last_page}
+              </span>
+              <button
+                type="button"
+                disabled={attachPage >= pagination.last_page}
+                onClick={() => setAttachPage((p) => p + 1)}
+                className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
+                style={{
+                  borderColor: 'var(--martis-border)',
+                  backgroundColor: 'var(--martis-input-bg)',
+                  color: 'var(--martis-text)',
+                }}
+              >
+                →
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Pivot fields (if any) */}
         {pivotFields.length > 0 && selected.length > 0 && (
