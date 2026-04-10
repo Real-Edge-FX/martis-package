@@ -29,4 +29,5 @@ return [
     'attach' => 'Vincular',
     'detach' => 'Desvincular',
     'attach_related' => 'Vincular Registro',
+    'select_all' => 'Selecionar todos',
 ];

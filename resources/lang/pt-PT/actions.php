@@ -36,4 +36,5 @@ return [
     'attach' => 'Associar',
     'detach' => 'Desassociar',
     'attach_related' => 'Associar Registo',
+    'select_all' => 'Selecionar todos',
 ];

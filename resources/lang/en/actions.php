@@ -29,4 +29,5 @@ return [
     'attach' => 'Attach',
     'detach' => 'Detach',
     'attach_related' => 'Attach Record',
+    'select_all' => 'Select all',
 ];
