@@ -289,4 +289,39 @@ return [
         'sections' => ['account', 'password', 'avatar', 'security'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Loader
+    |--------------------------------------------------------------------------
+    | Configure the built-in loading indicator (MartisLoader).
+    |
+    | message        - Default loading text. null = use i18n default ('Loading...').
+    | icon           - Phosphor icon name to replace the spinner (e.g. 'spinner').
+    |                  When set, the named icon spins instead of the default SpinnerGap.
+    | logo           - URL to a logo/image shown instead of the spinner.
+    |                  Takes precedence over 'icon'.
+    | spinnerColor   - CSS color for the spinner. Default: var(--martis-accent).
+    | overlayOpacity - Overlay background opacity (0.0–1.0). Default: 0.6.
+    | overlayColor   - CSS color for the overlay background. Default: var(--martis-bg).
+    | disabled       - Set to true to globally disable all loaders.
+    | disableOn      - Granular opt-out per context.
+    |   table        - Disable the refetch overlay on index tables.
+    |   search       - Disable the loader on search refetch.
+    |   components   - Disable loaders inside other components.
+    */
+    'loader' => [
+        'message' => null,
+        'icon' => null,
+        'logo' => null,
+        'spinnerColor' => null,
+        'overlayOpacity' => null,
+        'overlayColor' => null,
+        'disabled' => false,
+        'disableOn' => [
+            'table' => false,
+            'search' => false,
+            'components' => false,
+        ],
+    ],
+
 ];
