@@ -94,9 +94,9 @@ class BelongsToMany extends Field
         parent::__construct($attribute, $label);
         $this->relationship = $relationship ?: Str::camel($attribute);
 
-        // BelongsToMany is detail-only by default (Nova v5 behavior)
+        // BelongsToMany is hidden from index by default (shown on detail + forms)
         $this->hideFromIndex();
-        $this->hideFromForms();
+
     }
 
     /**

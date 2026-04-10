@@ -155,11 +155,11 @@ describe('BelongsToMany Field', function () {
         expect($field->getRelatedResourceKey())->toContain('tag');
     });
 
-    it('is hidden from index and forms by default', function () {
+    it('is hidden from index by default but shown on forms', function () {
         $field = BelongsToMany::make('Tags');
         $schema = $field->toArray();
         expect($schema['showOnIndex'])->toBeFalse();
-        expect($schema['showOnForms'])->toBeFalse();
+        expect($schema['showOnForms'])->toBeTrue();
     });
 
     it('includes pivot fields in toArray schema', function () {
