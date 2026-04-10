@@ -221,6 +221,20 @@ describe('BelongsToManyController', function () {
         expect(count($response->json('data')))->toBe(2);
     });
 
+    it('includes pivot data in index response', function () {
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $child = BTMChildModel::create(['title' => 'Child 1']);
+        $parent->children()->attach($child->id, ['notes' => 'important']);
+
+        $response = $this->getJson("/martis/api/resources/b-t-m-parent-models/{$parent->id}/belongs-to-many/children");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        expect($data)->toHaveCount(1);
+        expect($data[0])->toHaveKey('_pivot');
+        expect($data[0]['_pivot']['notes'])->toBe('important');
+    });
+
     it('lists attachable records (attachable)', function () {
         $parent = BTMParentModel::create(['name' => 'Parent A']);
         $child1 = BTMChildModel::create(['title' => 'Child 1']);

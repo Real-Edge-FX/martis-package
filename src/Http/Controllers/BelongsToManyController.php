@@ -83,9 +83,10 @@ class BelongsToManyController extends MartisController
             $query->orderBy($rawSort, $direction);
         }
 
-        // Pagination
+        // Pagination — use $relation->paginate() (not $query->paginate()) so Laravel
+        // can hydrate the pivot accessor on each resulting Model instance.
         $perPage = min((int) ($request->query('per_page', '10')), 100);
-        $paginator = $query->paginate($perPage);
+        $paginator = $relation->paginate($perPage);
 
         $data = array_values(
             collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request, $field): array {
