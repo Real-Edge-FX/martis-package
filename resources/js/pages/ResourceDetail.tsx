@@ -191,8 +191,8 @@ export function ResourceDetailPage() {
           <ResourceIcon iconName={(schema.icon)} size={14} />
           {schema.label}
         </Link>
-        <span style={{ color: "var(--martis-text-muted)" }}>/</span>
-        <span className="font-semibold" style={{ color: "var(--martis-text)" }}>
+        <span className="hidden sm:inline" style={{ color: "var(--martis-text-muted)" }}>/</span>
+        <span className="hidden sm:inline font-semibold truncate max-w-xs" style={{ color: "var(--martis-text)" }}>
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </span>
         {isDeleted && (
@@ -203,11 +203,11 @@ export function ResourceDetailPage() {
       </nav>
 
       {/* Header with title and actions */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--martis-text)" }}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl" style={{ color: "var(--martis-text)" }}>
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Resource actions dropdown */}
           {detailActions.length > 0 && (
             <ActionDropdown
@@ -299,10 +299,10 @@ export function ResourceDetailPage() {
           {scalarFields.map((field) => (
             <div
               key={field.attribute}
-              className="flex items-start gap-4 px-6 py-4"
+              className="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-start sm:gap-4 sm:px-6"
               style={{ borderColor: "var(--martis-border)" }}
             >
-              <dt className="shrink-0 text-sm font-medium" style={{ color: "var(--martis-text-muted)", minWidth: "12rem", maxWidth: "16rem" }}>
+              <dt className="text-sm font-medium sm:w-48 sm:shrink-0" style={{ color: "var(--martis-text-muted)" }}>
                 {field.label}
               </dt>
               <dd className="min-w-0 flex-1 text-sm">

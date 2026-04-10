@@ -169,7 +169,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   return (
     <div className="mt-6 space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
           {showRelationIcon && relatedIcon && (
             <ResourceIcon iconName={relatedIcon} size={20} />
@@ -188,7 +188,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             </span>
           )}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {meta?.searchable && (
             <div className="relative">
               <MagnifyingGlass
@@ -201,7 +201,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
                 placeholder={searchPlaceholder}
-                className="has-many-search-input rounded-md border py-1.5 pl-8 pr-3 text-sm"
+                className="has-many-search-input w-full rounded-md border py-1.5 pl-8 pr-3 text-sm sm:w-auto"
                 style={{
                   borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-input-bg)',
@@ -227,6 +227,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
       </div>
 
       {/* DataTable — same PrimeReact DataTable as the index page */}
+      <div className="overflow-x-auto">
       <DataTable
         value={records}
         loading={recordsQuery.isLoading}
@@ -321,6 +322,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
           />
         )}
       </DataTable>
+      </div>
 
       {/* Pagination */}
       {pagination && pagination.last_page > 1 && (

@@ -91,11 +91,11 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   return (
     <div className="mt-6 space-y-3">
       {/* Section header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
           {field.label}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {record === null && meta?.canCreate && (
             <button
               type="button"
@@ -133,12 +133,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
-              style={{
-                border: '1px solid #fca5a5',
-                backgroundColor: '#fef2f2',
-                color: '#dc2626',
-              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 dark:border-red-700/50 dark:bg-red-950/20 dark:text-red-400"
             >
               <Trash size={14} />
               {tAct('delete', 'Delete')}
@@ -188,11 +183,11 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
               .map((f) => (
                 <div
                   key={f.attribute}
-                  className="grid grid-cols-3 gap-4 px-5 py-3"
+                  className="flex flex-col gap-1 px-5 py-3 sm:grid sm:grid-cols-3 sm:gap-4"
                 >
                   <dt
                     className="text-sm font-medium"
-                    style={{ color: 'var(--martis-text-muted)' }}
+                    style={{ color: 'var(--martis-text-muted)', wordBreak: 'break-word' }}
                   >
                     {f.label}
                   </dt>
