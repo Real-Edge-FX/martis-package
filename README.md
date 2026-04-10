@@ -541,6 +541,40 @@ See `ActionsDemoResource.php` in the playground for two live examples:
 - **Custom Preview (#19):** inline action — `->showInline()->component('demo-custom-action', ...)`
 - **Custom Component Demo (#20):** regular bulk action with the same component
 
+### Action Response Types
+
+The `handle()` method returns an `ActionResponse` to control what happens after execution:
+
+| Method | Effect |
+|--------|--------|
+| `ActionResponse::message('Success!')` | Green success toast |
+| `ActionResponse::danger('Error!')` | Red error toast |
+| `ActionResponse::redirect('https://...')` | Redirect to external URL |
+| `ActionResponse::visit('/path')` | Navigate to internal route |
+| `ActionResponse::openInNewTab('https://...')` | Open URL in new tab |
+| `ActionResponse::download('file.csv', '/url')` | Trigger file download |
+| `ActionResponse::emit('event-name', $data)` | Trigger a client-side event |
+| `ActionResponse::modal('ComponentName', $data)` | Open a custom modal component |
+| `ActionResponse::openCreate('resource-key')` | Open the create drawer for a resource |
+| `ActionResponse::openDetail('resource-key', $id)` | Open the detail drawer for a record |
+
+#### Opening Drawers from Actions
+
+```php
+// Open the create drawer for a resource (useful as standalone action)
+Action::using('New Post', function (ActionFields $fields, Collection $models) {
+    return ActionResponse::openCreate('posts');
+})->standalone()->onlyOnIndex();
+
+// Open the detail drawer of the selected record (useful as inline action)
+Action::using('View Details', function (ActionFields $fields, Collection $models) {
+    $model = $models->first();
+    return ActionResponse::openDetail('posts', $model->id);
+})->showInline();
+```
+
+See **Actions Demo (#21, #22)** in the playground for live examples.
+
 ## Testing
 
 ```bash
