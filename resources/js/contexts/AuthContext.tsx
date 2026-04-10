@@ -36,8 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .get<User & { two_factor_pending?: boolean } | null>('/api/auth/user')
       .then((u) => {
         if (u && typeof u === 'object' && u.two_factor_pending) {
-          // Session is authenticated but 2FA challenge is pending
-          window.location.href = BASE_PATH + '/2fa/challenge'
+          // Session is authenticated but 2FA challenge is pending.
+          // Only redirect if not already on the challenge page to prevent loops.
+          const challengePath = BASE_PATH + '/2fa/challenge'
+          if (!window.location.pathname.startsWith(challengePath)) {
+            window.location.href = challengePath
+          }
           return
         }
         setUser(u && typeof u === 'object' && 'id' in u ? u : null)

@@ -16,7 +16,9 @@ use Martis\Profile\TwoFactorService;
  * requests or redirects to the 2FA challenge SPA page for browser requests.
  *
  * The challenge route itself is registered outside this middleware group so
- * it remains reachable during the pending state.
+ * it remains reachable during the pending state. The SPA catch-all that serves
+ * the /2fa/challenge page is within this group but is explicitly exempted to
+ * prevent redirect loops.
  */
 class EnsureTwoFactorChallenge
 {
@@ -35,6 +37,13 @@ class EnsureTwoFactorChallenge
             return $next($request);
         }
 
+        $basePath = trim((string) config('martis.path', 'admin'), '/');
+
+        // Pass through the 2FA challenge SPA page to prevent redirect loops
+        if ($request->is("{$basePath}/2fa/challenge")) {
+            return $next($request);
+        }
+
         if ($request->expectsJson()) {
             return response()->json([
                 'two_factor_required' => true,
@@ -43,8 +52,6 @@ class EnsureTwoFactorChallenge
         }
 
         // For browser (SPA) requests, redirect to the 2FA challenge page
-        $basePath = config('martis.path', 'admin');
-
         return redirect("/{$basePath}/2fa/challenge");
     }
 
