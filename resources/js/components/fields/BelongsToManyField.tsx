@@ -1,12 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields'
 import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
+import { useToast } from '@/contexts/ToastContext'
+import type { ActionMeta } from '@/components/Actions/ActionModal'
 import {
   Plus,
   LinkSimple,
@@ -16,8 +18,9 @@ import {
   CaretDown,
   CaretUpDown,
   X,
+  Lightning,
 } from '@phosphor-icons/react'
-import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
+import { DataTable, type DataTableSortEvent, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
 // -------------------------------------------------------------------------
@@ -106,6 +109,10 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
   const [collapsed, setCollapsed] = useState(collapsedByDefault)
   const [showAttachModal, setShowAttachModal] = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string | number; title?: string } | null>(null)
+  const [selectedRows, setSelectedRows] = useState<ResourceRecord[]>([])
+  const [activePivotAction, setActivePivotAction] = useState<ActionMeta | null>(null)
+  const [pivotDropdownOpen, setPivotDropdownOpen] = useState(false)
+  const pivotDropdownRef = useRef<HTMLDivElement>(null)
 
   // Schema for column headers
   const schemaQuery = useQuery({
@@ -129,6 +136,32 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
     },
     enabled: !!parentResource && !!parentId && !!relationship && !collapsed,
   })
+
+  // Pivot actions
+  const pivotActionsQuery = useQuery({
+    queryKey: ['pivot-actions', parentResource, parentId, relationship],
+    queryFn: () =>
+      api.get<{ actions: ActionMeta[] }>(
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`
+      ),
+    enabled: !!parentResource && !!parentId && !!relationship && !collapsed,
+  })
+
+  const pivotActions = pivotActionsQuery.data?.actions ?? []
+  const hasPivotActions = pivotActions.length > 0
+
+  // Close pivot dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (pivotDropdownRef.current && !pivotDropdownRef.current.contains(e.target as Node)) {
+        setPivotDropdownOpen(false)
+      }
+    }
+    if (pivotDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [pivotDropdownOpen])
 
   const detachMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
@@ -165,6 +198,14 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
       ? <CaretUp size={14} className="text-indigo-600" />
       : <CaretDown size={14} className="text-indigo-600" />
   }
+
+  // Group pivot actions by their pivotLabel
+  const pivotActionGroups = pivotActions.reduce<Record<string, ActionMeta[]>>((acc, action) => {
+    const label = action.pivotLabel ?? tAct('actions', 'Actions')
+    if (!acc[label]) acc[label] = []
+    acc[label].push(action)
+    return acc
+  }, {})
 
   return (
     <div className="space-y-3">
@@ -228,6 +269,73 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             </select>
           </div>
         )}
+        {/* Pivot action dropdowns — one per label group */}
+        {!collapsed && hasPivotActions && Object.entries(pivotActionGroups).map(([label, actions]) => (
+          <div key={label} className="relative flex-shrink-0" ref={pivotDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setPivotDropdownOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium flex-shrink-0"
+              style={{
+                backgroundColor: selectedRows.length > 0 ? 'var(--martis-accent)' : 'var(--martis-surface)',
+                color: selectedRows.length > 0 ? '#fff' : 'var(--martis-text)',
+                border: '1px solid var(--martis-border)',
+                cursor: 'pointer',
+              }}
+            >
+              <Lightning size={14} />
+              {label}
+              {selectedRows.length > 0 && (
+                <span
+                  className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.25)', color: '#fff' }}
+                >
+                  {selectedRows.length}
+                </span>
+              )}
+              <CaretDown size={12} />
+            </button>
+            {pivotDropdownOpen && (
+              <div
+                className="absolute left-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg shadow-lg"
+                style={{
+                  backgroundColor: 'var(--martis-card)',
+                  border: '1px solid var(--martis-border)',
+                }}
+              >
+                {actions.map((action) => (
+                  <button
+                    key={action.uriKey}
+                    type="button"
+                    disabled={selectedRows.length === 0 && !action.standalone}
+                    onClick={() => {
+                      setPivotDropdownOpen(false)
+                      setActivePivotAction(action)
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      color: action.destructive ? '#ef4444' : 'var(--martis-text)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: selectedRows.length === 0 && !action.standalone ? 'not-allowed' : 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedRows.length > 0 || action.standalone)
+                        e.currentTarget.style.backgroundColor = 'var(--martis-surface)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }}
+                  >
+                    <Lightning size={14} style={{ color: action.destructive ? '#ef4444' : 'var(--martis-accent)' }} />
+                    {action.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
         {!collapsed && meta?.canAttach && (
           <button
             type="button"
@@ -254,6 +362,11 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             onSort={(e: DataTableSortEvent) => {
               if (e.sortField) handleSort(String(e.sortField))
             }}
+            selectionMode={hasPivotActions ? 'multiple' : null}
+            selection={hasPivotActions ? selectedRows : []}
+            onSelectionChange={hasPivotActions
+              ? (e: DataTableSelectionMultipleChangeEvent<ResourceRecord[]>) => setSelectedRows(e.value)
+              : undefined as never}
             emptyMessage={
               <div className="py-8 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
                 {tMsg('no_records_available', 'No records available.')}
@@ -262,6 +375,11 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             className="w-full martis-datatable martis-datatable-striped"
             tableClassName="min-w-full"
           >
+            {/* Checkbox column — only when there are pivot actions */}
+            {hasPivotActions && (
+              <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+            )}
+
             {indexFields.map((f) => (
               <Column
                 key={f.attribute}
@@ -384,6 +502,23 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
         />
       )}
 
+      {/* Pivot action modal */}
+      {activePivotAction && (
+        <PivotActionModal
+          parentResource={parentResource}
+          parentId={parentId}
+          relationship={relationship}
+          action={activePivotAction}
+          selectedIds={selectedRows.map((r) => r.id as string | number)}
+          onSuccess={() => {
+            setActivePivotAction(null)
+            setSelectedRows([])
+            void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
+          }}
+          onClose={() => setActivePivotAction(null)}
+        />
+      )}
+
       {/* Attach modal */}
       {showAttachModal && (
         <AttachModal
@@ -405,6 +540,248 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
       <style>{`
         .btm-search-input::placeholder { color: var(--martis-text-muted); opacity: 0.7; }
       `}</style>
+    </div>
+  )
+}
+
+
+// -------------------------------------------------------------------------
+// Pivot Action Modal
+// -------------------------------------------------------------------------
+
+function PivotActionModal({
+  parentResource,
+  parentId,
+  relationship,
+  action,
+  selectedIds,
+  onSuccess,
+  onClose,
+}: {
+  parentResource: string
+  parentId: string
+  relationship: string
+  action: ActionMeta
+  selectedIds: Array<string | number>
+  onSuccess: () => void
+  onClose: () => void
+}) {
+  const { t } = useTranslation('actions')
+  const { addToast } = useToast()
+  const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [animVisible, setAnimVisible] = useState(false)
+  const autoExecuted = useRef(false)
+
+  useEffect(() => {
+    requestAnimationFrame(() => setAnimVisible(true))
+    autoExecuted.current = false
+  }, [])
+
+  const handleBackdropClose = useCallback(() => {
+    setAnimVisible(false)
+    setTimeout(onClose, 200)
+  }, [onClose])
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  const fieldsQuery = useQuery({
+    queryKey: ['action-fields', parentResource, action.uriKey],
+    queryFn: () =>
+      api.get<{ data: { fields: FieldDefinition[] } }>(
+        `/api/resources/${parentResource}/actions/${action.uriKey}/fields`
+      ),
+    enabled: !!action,
+  })
+
+  const fields = fieldsQuery.data?.data?.fields ?? []
+
+  const executeMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ data: { type: string; data: Record<string, unknown> } }>(
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions/${action.uriKey}`,
+        {
+          resources: selectedIds,
+          fields: fieldValues,
+        }
+      ),
+    onSuccess: (res) => {
+      const responseData = res?.data
+      if (responseData) {
+        const data = responseData.data
+        switch (responseData.type) {
+          case 'message':
+            addToast('success', (data?.message as string) ?? t('action_success'))
+            break
+          case 'danger':
+            addToast('error', (data?.message as string) ?? t('action_failed'))
+            break
+          default:
+            addToast('success', t('action_success'))
+        }
+      } else {
+        addToast('success', t('action_success'))
+      }
+      onSuccess()
+    },
+    onError: (err: Error) => {
+      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
+        const mapped: Record<string, string> = {}
+        for (const e of err.errors) {
+          const fieldKey = e.field.replace(/^fields\./, '')
+          if (!mapped[fieldKey]) mapped[fieldKey] = e.message
+        }
+        if (Object.keys(mapped).length > 0) {
+          setFieldErrors(mapped)
+          addToast('error', err.message || t('action_failed'))
+          return
+        }
+      }
+      addToast('error', (err instanceof ApiError ? err.message : err.message) ?? t('action_failed'))
+    },
+  })
+
+  const hasFields = fields.length > 0
+  const needsConfirmation = action.withConfirmation || hasFields
+
+  // Auto-execute if no confirmation or fields needed (only once)
+  if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
+    autoExecuted.current = true
+    setTimeout(() => executeMutation.mutate(), 0)
+    return null
+  }
+
+  if (!needsConfirmation) return null
+
+  const modalWidth = MODAL_SIZE_MAP[action.modalSize ?? 'md'] ?? MODAL_SIZE_MAP['md']
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9990 }}
+      className="flex items-center justify-center"
+    >
+      <div
+        className="absolute inset-0 transition-opacity duration-200"
+        style={{ backgroundColor: animVisible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)' }}
+        onClick={handleBackdropClose}
+      />
+      <div
+        role="dialog"
+        className="relative w-full rounded-xl shadow-xl transition-all duration-200 mx-4"
+        style={{
+          backgroundColor: 'var(--martis-card)',
+          border: action.destructive ? '1px solid rgba(220,38,38,0.4)' : '1px solid var(--martis-border)',
+          borderTop: action.destructive ? '3px solid #dc2626' : undefined,
+          maxWidth: modalWidth,
+          transform: animVisible ? 'scale(1)' : 'scale(0.95)',
+          opacity: animVisible ? 1 : 0,
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between border-b px-6 py-4"
+          style={{
+            borderColor: action.destructive ? 'rgba(220,38,38,0.2)' : 'var(--martis-border)',
+            backgroundColor: action.destructive ? 'rgba(220,38,38,0.05)' : undefined,
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: action.destructive ? 'rgba(220,38,38,0.1)' : 'rgba(99,102,241,0.1)',
+                color: action.destructive ? '#dc2626' : '#6366f1',
+              }}
+            >
+              <Lightning size={20} weight="fill" />
+            </div>
+            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+              {action.name}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+            style={{ color: 'var(--martis-text-muted)' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4">
+          {action.confirmText && (
+            <p className="mb-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+              {action.confirmText}
+            </p>
+          )}
+          {hasFields && (
+            <div className="space-y-4">
+              {fields.map((f) => (
+                <div key={f.attribute}>
+                  <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
+                    {f.label}
+                    {f.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <FieldInput
+                    field={f}
+                    value={fieldValues[f.attribute] ?? ''}
+                    onChange={(val: unknown) =>
+                      setFieldValues((prev) => ({ ...prev, [f.attribute]: val }))
+                    }
+                    error={fieldErrors[f.attribute]}
+                    context="create"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end gap-3 border-t px-6 py-4"
+          style={{
+            borderColor: 'var(--martis-border)',
+            backgroundColor: 'var(--martis-surface)',
+            borderRadius: '0 0 0.75rem 0.75rem',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={executeMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--martis-input-bg)',
+              borderColor: 'var(--martis-border)',
+              color: 'var(--martis-text)',
+            }}
+          >
+            <X size={14} />
+            {action.cancelButtonText ?? t('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => executeMutation.mutate()}
+            disabled={executeMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: action.destructive ? '#dc2626' : 'var(--martis-accent)' }}
+          >
+            <Lightning size={14} />
+            {executeMutation.isPending
+              ? t('please_wait')
+              : (action.confirmButtonText ?? t('run_action'))}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -696,7 +1073,7 @@ function AttachModal({
 
         {/* Pagination — identical to ResourceIndex */}
         {pagination && (
-          <div className="shrink-0 px-6 py-2">
+          <div className="shrink-0">
             <Pagination
               currentPage={pagination.current_page}
               lastPage={pagination.last_page}
@@ -716,7 +1093,7 @@ function AttachModal({
             style={{ borderColor: 'var(--martis-border)' }}
           >
             <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--martis-text-muted)' }}>
-              {tAct("pivot_fields", "Pivot Fields")}
+              Pivot Fields
             </p>
             {pivotFields.map((pf) => (
               <div key={pf.attribute}>
