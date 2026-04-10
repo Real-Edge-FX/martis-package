@@ -194,7 +194,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
               style={{ borderBottom: '1px solid var(--martis-border)' }}
             >
               {searchable ? (
-                <div className="relative" style={{ minWidth: '150px', maxWidth: '300px', flex: '1 1 auto' }}>
+                <div className="relative" style={{ minWidth: '150px', flex: '1 1 auto' }}>
                   <MagnifyingGlass
                     size={14}
                     className="absolute left-2.5 top-1/2 -translate-y-1/2"

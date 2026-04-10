@@ -299,13 +299,13 @@ export function ResourceDetailPage() {
           {scalarFields.map((field) => (
             <div
               key={field.attribute}
-              className="grid grid-cols-3 gap-4 px-6 py-4"
+              className="flex items-start gap-4 px-6 py-4"
               style={{ borderColor: "var(--martis-border)" }}
             >
-              <dt className="text-sm font-medium" style={{ color: "var(--martis-text-muted)" }}>
+              <dt className="shrink-0 text-sm font-medium" style={{ color: "var(--martis-text-muted)", width: "auto", maxWidth: "16rem" }}>
                 {field.label}
               </dt>
-              <dd className="col-span-2 text-sm">
+              <dd className="min-w-0 flex-1 text-sm">
                 <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
               </dd>
             </div>
