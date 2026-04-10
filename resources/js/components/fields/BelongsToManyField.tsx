@@ -1073,7 +1073,7 @@ function AttachModal({
 
         {/* Pagination — identical to ResourceIndex */}
         {pagination && (
-          <div className="shrink-0">
+          <div className="shrink-0 px-6 py-2">
             <Pagination
               currentPage={pagination.current_page}
               lastPage={pagination.last_page}
