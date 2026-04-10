@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields'
+import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
 import {
   Plus,
@@ -79,6 +80,7 @@ interface BtmMeta {
 function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field'] }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const { t: tRes } = useTranslation('resources')
   const qc = useQueryClient()
 
   const meta = field.belongsToManyMeta as BtmMeta | undefined
@@ -165,7 +167,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
 
   return (
     <div className="mt-6 space-y-3">
-      {/* Header — same layout as HasMany: title left, search+attach right */}
+      {/* Header — title left, attach button right */}
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
           {collapsable && (
@@ -191,45 +193,60 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             {totalCount}
           </span>
         </h3>
-        {!collapsed && (searchable || meta?.canAttach) && (
-          <div className="flex items-center gap-2">
-            {searchable && (
-              <div className="relative">
-                <MagnifyingGlass
-                  size={14}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2"
-                  style={{ color: 'var(--martis-text-muted)' }}
-                />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  placeholder={tMsg('search', 'Search…')}
-                  className="btm-search-input rounded-md border py-1.5 pl-8 pr-3 text-sm"
-                  style={{
-                    borderColor: 'var(--martis-border)',
-                    backgroundColor: 'var(--martis-input-bg)',
-                    color: 'var(--martis-text)',
-                  }}
-                />
-              </div>
-            )}
-            {meta?.canAttach && (
-              <button
-                type="button"
-                onClick={() => setShowAttachModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
-                style={{ backgroundColor: 'var(--martis-accent)' }}
-              >
-                <Plus size={14} weight="bold" />
-                {tAct('attach', 'Attach')}
-              </button>
-            )}
-          </div>
+        {!collapsed && meta?.canAttach && (
+          <button
+            type="button"
+            onClick={() => setShowAttachModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
+            style={{ backgroundColor: 'var(--martis-accent)' }}
+          >
+            <Plus size={14} weight="bold" />
+            {tAct('attach', 'Attach')}
+          </button>
         )}
       </div>
 
-      {/* DataTable — same structure as HasMany, no card wrapper */}
+      {/* Search + Per Page controls — same layout as ResourceIndex */}
+      {!collapsed && (searchable || (meta?.perPageOptions && meta.perPageOptions.length > 1)) && (
+        <div className="flex items-center gap-3">
+          {searchable && (
+            <div className="relative flex-1">
+              <MagnifyingGlass
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 martis-text-muted"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                placeholder={tMsg('search', 'Search…')}
+                className="btm-search-input block w-full rounded-md border py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-1"
+                style={{
+                  borderColor: 'var(--martis-border)',
+                  backgroundColor: 'var(--martis-input-bg)',
+                  color: 'var(--martis-text)',
+                }}
+              />
+            </div>
+          )}
+          {meta?.perPageOptions && meta.perPageOptions.length > 1 && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
+              <select
+                value={perPage}
+                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+                className="martis-perpage-select"
+              >
+                {meta.perPageOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DataTable */}
       {!collapsed && (
         <>
           <DataTable
@@ -347,68 +364,17 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             )}
           </DataTable>
 
-          {/* Pagination / count bar */}
+          {/* Pagination — identical to ResourceIndex */}
           {pagination && (
-            <div
-              className="flex items-center justify-between rounded-b-xl px-4 py-3"
-              style={{
-                borderTop: '1px solid var(--martis-border)',
-                backgroundColor: 'var(--martis-surface)',
-              }}
-            >
-              <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-                <span>{pagination.total === 0 ? '0' : `${pagination.from}–${pagination.to}`} / {pagination.total}</span>
-                {meta?.perPageOptions && (
-                  <select
-                    value={perPage}
-                    onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                    className="rounded border px-1.5 py-0.5 text-xs"
-                    style={{
-                      borderColor: 'var(--martis-border)',
-                      backgroundColor: 'var(--martis-input-bg)',
-                      color: 'var(--martis-text)',
-                    }}
-                  >
-                    {meta.perPageOptions.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              {pagination.last_page > 1 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                    style={{
-                      borderColor: 'var(--martis-border)',
-                      backgroundColor: 'var(--martis-input-bg)',
-                      color: 'var(--martis-text)',
-                    }}
-                  >
-                    ←
-                  </button>
-                  <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-                    {page} / {pagination.last_page}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={page >= pagination.last_page}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                    style={{
-                      borderColor: 'var(--martis-border)',
-                      backgroundColor: 'var(--martis-input-bg)',
-                      color: 'var(--martis-text)',
-                    }}
-                  >
-                    →
-                  </button>
-                </div>
-              )}
-            </div>
+            <Pagination
+              currentPage={pagination.current_page}
+              lastPage={pagination.last_page}
+              total={pagination.total}
+              perPage={pagination.per_page ?? perPage}
+              from={pagination.from}
+              to={pagination.to}
+              onPageChange={setPage}
+            />
           )}
         </>
       )}
@@ -555,6 +521,7 @@ function AttachModal({
 }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const { t: tRes } = useTranslation('resources')
 
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
@@ -562,7 +529,9 @@ function AttachModal({
   const [pivotValues, setPivotValues] = useState<Record<string, unknown>>({})
   const [error, setError] = useState<string | null>(null)
   const [attachPage, setAttachPage] = useState(1)
-  const [attachPerPage] = useState(15)
+  const [attachPerPage, setAttachPerPage] = useState(15)
+
+  const perPageOptions = [10, 15, 25, 50]
 
   // Fetch related resource schema for DataTable columns
   const schemaQuery = useQuery({
@@ -657,27 +626,41 @@ function AttachModal({
           </button>
         </div>
 
-        {/* Search */}
+        {/* Search + Per Page — same layout as ResourceIndex */}
         <div className="shrink-0 border-b px-6 py-3" style={{ borderColor: 'var(--martis-border)' }}>
-          <div className="relative">
-            <MagnifyingGlass
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: 'var(--martis-text-muted)' }}
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setAttachPage(1) }}
-              placeholder={tMsg('search', 'Search…')}
-              className="w-full rounded-lg border py-2 pl-9 pr-3 text-sm btm-modal-search"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-input-bg)',
-                color: 'var(--martis-text)',
-              }}
-              autoFocus
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <MagnifyingGlass
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--martis-text-muted)' }}
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setAttachPage(1) }}
+                placeholder={tMsg('search', 'Search…')}
+                className="w-full rounded-md border py-2 pl-9 pr-3 text-sm btm-modal-search focus:outline-none focus:ring-1"
+                style={{
+                  borderColor: 'var(--martis-border)',
+                  backgroundColor: 'var(--martis-input-bg)',
+                  color: 'var(--martis-text)',
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
+              <select
+                value={attachPerPage}
+                onChange={(e) => { setAttachPerPage(Number(e.target.value)); setAttachPage(1) }}
+                className="martis-perpage-select"
+              >
+                {perPageOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -716,51 +699,18 @@ function AttachModal({
           </DataTable>
         </div>
 
-        {/* Pagination / count bar */}
+        {/* Pagination — identical to ResourceIndex */}
         {pagination && (
-          <div
-            className="flex shrink-0 items-center justify-between px-6 py-3"
-            style={{
-              borderTop: '1px solid var(--martis-border)',
-              backgroundColor: 'var(--martis-surface)',
-            }}
-          >
-            <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-              {pagination.total === 0 ? '0' : `${pagination.from}–${pagination.to}`} / {pagination.total}
-            </span>
-            {pagination.last_page > 1 && (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={attachPage <= 1}
-                  onClick={() => setAttachPage((p) => Math.max(1, p - 1))}
-                  className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                  style={{
-                    borderColor: 'var(--martis-border)',
-                    backgroundColor: 'var(--martis-input-bg)',
-                    color: 'var(--martis-text)',
-                  }}
-                >
-                  ←
-                </button>
-                <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-                  {attachPage} / {pagination.last_page}
-                </span>
-                <button
-                  type="button"
-                  disabled={attachPage >= pagination.last_page}
-                  onClick={() => setAttachPage((p) => p + 1)}
-                  className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-                  style={{
-                    borderColor: 'var(--martis-border)',
-                    backgroundColor: 'var(--martis-input-bg)',
-                    color: 'var(--martis-text)',
-                  }}
-                >
-                  →
-                </button>
-              </div>
-            )}
+          <div className="shrink-0" style={{ borderTop: '1px solid var(--martis-border)' }}>
+            <Pagination
+              currentPage={pagination.current_page}
+              lastPage={pagination.last_page}
+              total={pagination.total}
+              perPage={pagination.per_page ?? attachPerPage}
+              from={pagination.from}
+              to={pagination.to}
+              onPageChange={setAttachPage}
+            />
           </div>
         )}
 

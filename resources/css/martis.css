@@ -1185,6 +1185,29 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   /* no border — clean transition from table to paginator */
 }
 
+/* ── Compact paginator buttons (REA-1194) ────────────────────────
+   Reduce page number and prev/next arrow button sizes globally.
+   Affects ResourceIndex, BelongsToMany detail panel, and modals.
+──────────────────────────────────────────────────────────────── */
+.p-paginator .p-paginator-page,
+.p-paginator .p-paginator-prev,
+.p-paginator .p-paginator-next,
+.p-paginator .p-paginator-first,
+.p-paginator .p-paginator-last {
+  min-width: 2rem !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  font-size: 0.8125rem !important;
+  padding: 0 !important;
+}
+.p-paginator .p-paginator-prev svg,
+.p-paginator .p-paginator-next svg,
+.p-paginator .p-paginator-first svg,
+.p-paginator .p-paginator-last svg {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+}
+
 /* ── DataTable no-hover variant (REA-1140) ──────────────────────
    Disable row hover effect when tableRowHover is false             */
 .martis-datatable-no-hover .p-datatable-tbody > tr:hover,
