@@ -416,3 +416,53 @@ describe('Action openCreate and openDetail responses', () => {
     expect(action.uriKey).toBe('open-create-demo')
   })
 })
+
+
+// ---------------------------------------------------------------------------
+// Sole action disabled logic (mirrors ResourceIndex bulk action bar logic)
+// ---------------------------------------------------------------------------
+
+function computeBulkDisabledActions(
+  actions: ActionMeta[],
+  selectedCount: number,
+): Set<string> {
+  const bulkDisabledActions = new Set<string>()
+  for (const action of actions) {
+    if (action.sole && selectedCount > 1) {
+      bulkDisabledActions.add(action.uriKey)
+      continue
+    }
+    // (authorization check omitted in this unit — covered by integration)
+  }
+  return bulkDisabledActions
+}
+
+describe('Sole action disabled logic', () => {
+  const soleAction = makeAction({ uriKey: 'send-notifications', name: 'Send Notifications', sole: true, executionMode: 'sole' })
+  const bulkAction = makeAction({ uriKey: 'export-csv', name: 'Export CSV', sole: false, executionMode: 'bulk' })
+
+  it('does not disable sole action when exactly 1 record is selected', () => {
+    const disabled = computeBulkDisabledActions([soleAction, bulkAction], 1)
+    expect(disabled.has('send-notifications')).toBe(false)
+    expect(disabled.has('export-csv')).toBe(false)
+  })
+
+  it('disables sole action when 2 records are selected', () => {
+    const disabled = computeBulkDisabledActions([soleAction, bulkAction], 2)
+    expect(disabled.has('send-notifications')).toBe(true)
+    expect(disabled.has('export-csv')).toBe(false)
+  })
+
+  it('disables sole action when many records are selected', () => {
+    const disabled = computeBulkDisabledActions([soleAction, bulkAction], 10)
+    expect(disabled.has('send-notifications')).toBe(true)
+    expect(disabled.has('export-csv')).toBe(false)
+  })
+
+  it('does not affect normal bulk actions regardless of selection count', () => {
+    const disabled2 = computeBulkDisabledActions([bulkAction], 2)
+    const disabled10 = computeBulkDisabledActions([bulkAction], 10)
+    expect(disabled2.has('export-csv')).toBe(false)
+    expect(disabled10.has('export-csv')).toBe(false)
+  })
+})

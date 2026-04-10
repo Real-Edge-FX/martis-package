@@ -302,6 +302,11 @@ export function ResourceIndexPage() {
         const selectedRows = rows.filter(r => selectedIds.has(r.id))
         const bulkDisabledActions = new Set<string>()
         for (const action of indexActions) {
+          // Sole actions are only available when exactly 1 record is selected
+          if (action.sole && selectedIds.size > 1) {
+            bulkDisabledActions.add(action.uriKey)
+            continue
+          }
           const allDisabled = selectedRows.length > 0 && selectedRows.every(row => {
             const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
             if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
