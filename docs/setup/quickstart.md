@@ -205,6 +205,6 @@ make build
 ## Next Steps
 
 - [Resources](../resources.md) — Configure resource behavior
-- [Fields Reference](../fields.md) — Explore all 31 field types
+- [Fields Reference](../fields.md) — Explore all 32 field types
 - [Override System](../overrides.md) — Customize components
 - [Troubleshooting](troubleshooting.md) — Common issues

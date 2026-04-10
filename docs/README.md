@@ -9,9 +9,9 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 ### Key Features
 
 - **Resource-driven CRUD** — Define fields once, get index/detail/create/edit views automatically
-- **31 Field Types** — Text, Number, Boolean, Select, Date, BelongsTo, HasMany, File, Image, Code, Markdown, and more
+- **32 Field Types** — Text, Number, Boolean, Select, Date, BelongsTo, HasMany, File, Image, Code, Markdown, and more
 - **Override System** — Replace any component at 4 granularity levels (explicit key, per-resource, per-type, global)
-- **React + TypeScript Frontend** — Modern SPA with React 18, React Router, TanStack Query
+- **React + TypeScript Frontend** — Modern SPA with React 18, TypeScript, React Router, TanStack Query
 - **Internationalization** — Built-in i18n with dynamic translation loading (EN, PT-BR, PT-PT)
 - **Dark/Light Theme** — Full theme support with automatic persistence
 - **Installable via Composer** — `composer require martis/martis`
@@ -46,24 +46,27 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 4 | **[Resources](resources.md)** | Resource classes — model binding, field definitions, context-aware resolution, lifecycle hooks, authorization, search configuration, pagination, soft deletes, table customization |
-| 5 | **[Fields Reference](fields.md)** | All 31 field types — configuration options, visibility flags, validation rules, relationship fields (BelongsTo, HasMany), enums, PrimeReact prop passthrough |
-| 6 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
-| 7 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
-| 8 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
+| 5 | **[Fields Reference](fields.md)** | All 32 field types — configuration options, visibility flags, validation rules, relationship fields (BelongsTo, HasMany, BelongsToMany, MorphTo), enums, PrimeReact prop passthrough |
+| 6 | **[Relationships](relationships.md)** | Relationship fields — BelongsTo, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo, choosing the right field |
+| 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
+| 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
+| 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
+| 10 | **[Authentication](authentication.md)** | Login, logout, two-factor authentication (2FA), user profile, avatar uploads, user menu configuration |
+| 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
 
 ### Architecture & Design
 
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
-| 8 | **[Technology Stack](architecture/stack.md)** | Full stack breakdown — PHP 8.2+, Laravel 11/12, React 19, PrimeReact, Tailwind CSS, Vite, Inertia.js, Pest, Vitest, PHPStan |
-| 9 | **[Architectural Decisions](architecture/decisions.md)** | 15 ADRs — why Inertia over SPA, why PrimeReact over Headless UI, contract-first design, backend-driven field resolution, and other key decisions |
-| 10 | **[REST API Overview](api/overview.md)** | All backend endpoints — resource CRUD, schema, search, file upload, relationship endpoints, authentication, request/response formats, error handling |
+| 12 | **[Technology Stack](architecture/stack.md)** | Full stack breakdown — PHP 8.2+, Laravel 11/12, React 18, PrimeReact, Tailwind CSS, Vite, Pest, Vitest, PHPStan |
+| 13 | **[Architectural Decisions](architecture/decisions.md)** | 15 ADRs — why PrimeReact over Headless UI, contract-first design, backend-driven field resolution, and other key decisions |
+| 14 | **[REST API Overview](api/overview.md)** | All backend endpoints — resource CRUD, schema, search, file upload, relationship endpoints, authentication, request/response formats, error handling |
 
 ### Project Status
 
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
-| 11 | **[Nova v5 Parity Map](PARITY_MAP.md)** | Feature-by-feature comparison with Laravel Nova v5 — what is done, in progress, and planned |
+| 15 | **[Nova v5 Parity Map](PARITY_MAP.md)** | Feature-by-feature comparison with Laravel Nova v5 — what is done, in progress, and planned |
 
 ---
 
@@ -76,10 +79,13 @@ docs/
 ├── README.md ........................ You are here — documentation hub
 ├── installation-guide.md ........... Installation & setup
 ├── resources.md .................... Resources reference
-├── fields.md ....................... Fields reference (31 types)
+├── fields.md ....................... Fields reference (32 types)
+├── relationships.md ................ Relationship fields guide
+├── actions.md ...................... Actions system
 ├── overrides.md .................... Override system
 ├── components.md ................... Built-in UI components
-├── actions.md ...................... Actions system
+├── authentication.md ............... Login, 2FA, profile
+├── configuration.md ................ Config reference
 ├── PARITY_MAP.md ................... Nova v5 parity tracker
 ├── api/
 │   └── overview.md ................. REST API reference
@@ -128,7 +134,7 @@ The playground application ships with pre-configured resources for development a
 
 ## Current State
 
-- **31 field types** implemented and tested
+- **32 field types** implemented and tested
 - **Full CRUD** — Index, Detail, Create, Edit, Delete with soft-delete support
 - **Override System v1** — componentRegistry + layoutRegistry + drawer overrides
 - **i18n** — EN + PT-BR + PT-PT, dynamic translation endpoint

@@ -146,8 +146,8 @@
 | Notifications | In-app notifications | TODO | Medium |
 | Panels/Tabs | Field grouping in tabs | TODO | Medium |
 | Custom Tools | Sidebar tools/pages | TODO | Medium |
-| ManyToMany | Pivot relationships | DONE | REA-1194 |
-| BelongsToMany | Pivot with sync | DONE | REA-1194 |
+| ManyToMany | Pivot relationships | DONE | — |
+| BelongsToMany | Pivot with sync | DONE | — |
 | MorphTo/MorphMany | Polymorphic relations | TODO | Low |
 | Repeater | Dynamic field groups | TODO | Low |
 
@@ -155,7 +155,7 @@
 
 ## Coverage Summary
 
-- **31 field types** implemented (15 core + 16 extended)
+- **32 field types** implemented (15 core + 16 extended)
 - **Full CRUD** — Index + Detail + Create + Edit + Delete with soft-delete support
 - **HasMany** — Inline DataTable on detail page with search, sort, pagination, CRUD
 - **Auth** — Login/logout + Sanctum session
@@ -287,7 +287,7 @@
 
 | Feature | Description | Nova v5 | Martis |
 |---------|-------------|---------|--------|
-| React 19 Frontend | Modern React with hooks, Suspense, concurrent | Vue 3 (Inertia) | React 19 + Router + Query |
+| React 18 Frontend | Modern React with hooks, Suspense, concurrent | Vue 3 (Inertia) | React 18 + Router + Query |
 | Open Source | MIT License | Proprietary ($199+/yr) | MIT License |
 | 1,512 Phosphor Icons | Full icon library built-in | Heroicons subset | Phosphor Icons |
 | Vite HMR | Hot module reload for development | Mix/Vite | Vite with HMR |
