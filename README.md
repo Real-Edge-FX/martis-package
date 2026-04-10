@@ -452,7 +452,7 @@ Edit `config/martis.php` to configure:
 
 ## UI & Frontend
 
-- **React 19** + **PrimeReact** — modern component library with full theme support
+- **React 18** + **PrimeReact** — modern component library with full theme support
 - **Tailwind CSS** — utility-first styling with CSS custom properties
 - **Phosphor Icons** — consistent iconography
 - **Dark / Light Mode** — toggle with persistent user preference
