@@ -84,22 +84,64 @@ GIT_ASKPASS=/home/martis/.git-askpass.sh git push origin master
 GIT_ASKPASS=/home/martis/.git-askpass.sh git push origin vX.Y.Z-alpha
 ```
 
-### Step 7 — Sync package repo
+### Step 7 — Release to package repo (martis-package)
 
+> ⚠️ **CRITICAL:** The TAG and GitHub Release must be created in `Real-Edge-FX/martis-package`, NOT just in the playground. `martis-package` is the repo users install via Composer. Tags in the playground are for internal tracking only.
+
+```bash
+# 7a. Push packages/martis to develop of martis-package
+make release-package VERSION=vX.Y.Z-alpha
+
+# 7b. Push same commit to main of martis-package
+SUBTREE_HASH=$(git subtree split --prefix=packages/martis 2>/dev/null | tail -1)
+GIT_ASKPASS=/home/martis/.git-askpass.sh git push origin-package ${SUBTREE_HASH}:refs/heads/main --no-verify
 ```
-git checkout develop
-make sync-package
+
+### Step 8 — Create TAG in martis-package (via GitHub API)
+
+> TAG must be created in `martis-package`, not in `martis`. Use the GitHub API since `gh` CLI is not installed on the server.
+
+```bash
+TOKEN=$(git remote get-url origin-package | grep -oP "(?<=x-access-token:)[^@]+")
+SUBTREE_HASH=$(git subtree split --prefix=packages/martis 2>/dev/null | tail -1)
+
+# Create annotated tag object
+TAG_RESPONSE=$(curl -s -X POST \
+  -H "Authorization: token $TOKEN" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/repos/Real-Edge-FX/martis-package/git/tags \
+  --data-raw "{"tag":"vX.Y.Z-alpha","message":"Release vX.Y.Z-alpha","object":"$SUBTREE_HASH","type":"commit","tagger":{"name":"RealEdgeFX","email":"noreply@realedgefx.com","date":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}}")
+TAG_SHA=$(echo "$TAG_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)[sha])")
+
+# Create ref pointing to tag object
+curl -s -X POST \
+  -H "Authorization: token $TOKEN" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/repos/Real-Edge-FX/martis-package/git/refs \
+  --data-raw "{"ref":"refs/tags/vX.Y.Z-alpha","sha":"$TAG_SHA"}"
 ```
 
-### Step 8 — Create GitHub Release
+### Step 9 — Create GitHub Release in martis-package
 
-Use the GitHub API to create a prerelease on `Real-Edge-FX/martis`:
+Use the GitHub API to create a prerelease on `Real-Edge-FX/martis-package` (not `martis`):
 - Tag: `vX.Y.Z-alpha`
 - Title: `vX.Y.Z-alpha`
 - Pre-release: `true`
 - Body: full release notes in English
 
-### Step 9 — Post-release validation
+```bash
+curl -s -X POST \
+  -H "Authorization: token $TOKEN" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/repos/Real-Edge-FX/martis-package/releases \
+  --data-raw "{"tag_name":"vX.Y.Z-alpha","name":"vX.Y.Z-alpha","body":"...","draft":false,"prerelease":true}"
+```
+
+### Step 10 — Create GitHub Release in playground (optional reference)
+
+Optionally create a mirrored release on `Real-Edge-FX/martis` for internal reference.
+
+### Step 11 — Post-release validation
 
 ```
 git ls-remote origin refs/tags/vX.Y.Z-alpha     # confirm tag on remote
@@ -175,6 +217,8 @@ If a release needs to be invalidated:
 | Merging without verifying divergence | History contamination | Check `git log develop..master` first |
 | Tagging before CI passes | Broken release | Never create TAG if `make ci` fails |
 | Forgetting `make sync-package` | Package repo out of date | Always sync after push |
+| Creating TAG only in playground (`martis`) | Package users cannot install the version | Always run Steps 7-9 to tag `martis-package` |
+| Creating GitHub Release in playground only | Misleading release notes, package users miss the release | Release notes go to `martis-package`, not `martis` |
 | Forgetting GitHub Release notes | No release documentation | Create release immediately after TAG |
 | Tagging on dirty working tree | Non-reproducible release | Always clean before tagging |
 
