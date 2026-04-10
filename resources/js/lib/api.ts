@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/config"
+import { API_BASE_URL, BASE_PATH } from "@/lib/config"
 
 export interface ValidationError {
   field: string
@@ -70,6 +70,11 @@ function normalizeErrors(raw: unknown): ValidationError[] | undefined {
   return undefined
 }
 
+
+/** Redirect to login with session-expired flag. Used when the server returns 401 mid-session. */
+function redirectOnSessionExpiry(): void {
+  window.location.href = BASE_PATH + '/login?expired=1'
+}
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const csrfToken = getCsrfToken()
 
@@ -89,6 +94,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const json: unknown = await res.json()
 
   if (!res.ok) {
+    // Intercept 401 globally: session expired — redirect to login.
+    // Skip /api/auth/user which legitimately returns null when not authenticated.
+    if (res.status === 401 && path !== '/api/auth/user') {
+      redirectOnSessionExpiry()
+    }
     const err = json as { message?: string; errors?: unknown }
     throw new ApiError(res.status, err.message ?? 'Request failed', normalizeErrors(err.errors))
   }
@@ -188,6 +198,9 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
   const json: unknown = await res.json()
 
   if (!res.ok) {
+    if (res.status === 401) {
+      redirectOnSessionExpiry()
+    }
     const err = json as { message?: string; errors?: unknown }
     throw new ApiError(res.status, err.message ?? 'Request failed', normalizeErrors(err.errors))
   }

@@ -8,4 +8,5 @@ return [
     'signing_in' => 'Entrando…',
     'error' => 'Erro ao autenticar.',
     'session_ended' => 'Sessão encerrada.',
+    'session_expired' => 'Sessão expirada, faça login novamente.',
 ];
