@@ -14,9 +14,13 @@ class AuthController extends MartisController
     /**
      * Return the currently authenticated user.
      *
-     * Returns the authenticated user as JSON, or literal  when not logged in.
-     * Note: the response is raw JSON  (not an empty object ) so the React
+     * Returns the authenticated user as JSON, or literal null when not logged in.
+     * Note: the response is raw JSON null (not an empty object {}) so the React
      * frontend can reliably distinguish the unauthenticated state.
+     *
+     * When a user is authenticated but has a pending 2FA challenge, the response
+     * includes `two_factor_pending: true` so the frontend can redirect to the
+     * challenge page without waiting for a 423 from an API call.
      *
      * This route is public — it can be called without an active session.
      *
@@ -36,6 +40,16 @@ class AuthController extends MartisController
             return response('null', 200)->header('Content-Type', 'application/json');
         }
 
+        // Indicate pending 2FA challenge so the SPA can redirect without API calls
+        $twoFactorPassed = $request->session()->get('martis_two_factor_passed');
+        $twoFactor = app(TwoFactorService::class);
+        if ($twoFactor->isEnabled($user) && $twoFactorPassed === false) {
+            return response()->json([
+                'two_factor_pending' => true,
+                'message' => 'Two-factor authentication required.',
+            ]);
+        }
+
         return response()->json($user);
     }
 
@@ -43,7 +57,7 @@ class AuthController extends MartisController
      * Log in with email and password and start a session.
      *
      * Authenticates the user via the configured guard and starts a Laravel session.
-     * When 2FA is enabled on the account, returns a  flag
+     * When 2FA is enabled on the account, returns a `two_factor_required` flag
      * instead of the user object — the frontend must complete the challenge.
      *
      * This route is exempt from CSRF verification so it can be called from the Swagger playground.
@@ -94,7 +108,7 @@ class AuthController extends MartisController
      * Log out the currently authenticated user (API variant).
      *
      * Invalidates the current session and regenerates the CSRF token.
-     * For JSON requests returns .
+     * For JSON requests returns `{message: "Logged out"}`.
      * For non-JSON requests redirects to the login route.
      *
      * This route is public so it works even when the session/CSRF token is stale.

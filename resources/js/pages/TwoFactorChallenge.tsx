@@ -30,8 +30,8 @@ export function TwoFactorChallengePage() {
     setSubmitting(true)
     try {
       await api.post('/api/2fa/challenge', {
-        code: useRecovery ? undefined : code,
-        recovery_code: useRecovery ? code : undefined,
+        code,
+        use_recovery_code: useRecovery,
       })
       navigate('/', { replace: true })
     } catch (err) {
@@ -69,7 +69,7 @@ export function TwoFactorChallengePage() {
             {t('2fa_challenge_title')}
           </h1>
           <p className="text-sm martis-text-muted text-center mb-6">
-            {t('2fa_challenge_instructions')}
+            {useRecovery ? t('2fa_recovery_instructions') : t('2fa_challenge_instructions')}
           </p>
 
           <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-5">

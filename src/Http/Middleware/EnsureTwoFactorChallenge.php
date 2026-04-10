@@ -12,8 +12,11 @@ use Martis\Profile\TwoFactorService;
  * but not yet challenged in the current session.
  *
  * When a user logs in and has 2FA active, the session is marked with
- * `martis_two_factor_pending = true`. This middleware redirects/returns
- * a 423 until the 2FA challenge is completed.
+ * `martis_two_factor_passed = false`. This middleware returns 423 for API
+ * requests or redirects to the 2FA challenge SPA page for browser requests.
+ *
+ * The challenge route itself is registered outside this middleware group so
+ * it remains reachable during the pending state.
  */
 class EnsureTwoFactorChallenge
 {
@@ -32,10 +35,17 @@ class EnsureTwoFactorChallenge
             return $next($request);
         }
 
-        return response()->json([
-            'two_factor_required' => true,
-            'message' => 'Two-factor authentication is required.',
-        ], Response::HTTP_LOCKED); // 423
+        if ($request->expectsJson()) {
+            return response()->json([
+                'two_factor_required' => true,
+                'message' => 'Two-factor authentication is required.',
+            ], Response::HTTP_LOCKED); // 423
+        }
+
+        // For browser (SPA) requests, redirect to the 2FA challenge page
+        $basePath = config('martis.path', 'admin');
+
+        return redirect("/{$basePath}/2fa/challenge");
     }
 
     /**

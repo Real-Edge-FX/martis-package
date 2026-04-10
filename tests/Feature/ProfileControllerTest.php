@@ -48,7 +48,8 @@ function makeTestUser(array $attrs = []): User
 
 function loginTestUser(User $user): void
 {
-    test()->actingAs($user, config('martis.guard'));
+    test()->actingAs($user, config('martis.guard'))
+        ->withSession(['martis_two_factor_passed' => true]);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

@@ -50,117 +50,131 @@ Route::middleware(config('martis.middleware', ['web']))
         // Auth user check — public so login page can check session without 401
         Route::get('/api/auth/user', [AuthController::class, 'user'])->name('api.auth.user');
 
+        // Throttle middleware shorthand
+        $throttle = config('martis.throttle.enabled', true)
+            ? 'throttle:'.config('martis.throttle.max_attempts', 120).','.config('martis.throttle.decay_minutes', 1)
+            : [];
+
         // Protected routes — require martis.auth middleware
         Route::middleware(config('martis.auth_middleware', ['martis.auth']))
-            ->group(function () {
-                // API routes
+            ->group(function () use ($throttle) {
+                // ── 2FA challenge — auth only, NO martis.2fa (this is how you complete 2FA) ──
                 Route::prefix('api')
                     ->name('api.')
-                    ->middleware(config('martis.throttle.enabled', true) ? 'throttle:'.config('martis.throttle.max_attempts', 120).','.config('martis.throttle.decay_minutes', 1) : [])
+                    ->middleware($throttle)
                     ->group(function () {
-                        Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
-
-                        // Attachment upload (Trix / Markdown file uploads)
-                        Route::post('/attachments/upload', [AttachmentController::class, 'upload'])
-                            ->name('attachments.upload');
-
-                        // ──────────────────────────────────────────────────────
-                        // Profile routes
-                        // ──────────────────────────────────────────────────────
-                        Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
-                        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-                        Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
-
-                        // Avatar
-                        Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
-                        Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
-
-                        // 2FA setup (within profile)
-                        Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
-                        Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
-                        Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
-                        Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
-
-                        // 2FA challenge (complete login when 2FA is pending)
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
                             ->middleware('throttle:5,1')
                             ->name('2fa.challenge');
-
-                        // Resource CRUD
-                        Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])
-                            ->name('resources.schema');
-                        Route::get('/resources/{resource}', [ResourceController::class, 'index'])
-                            ->name('resources.index');
-                        Route::post('/resources/{resource}', [ResourceController::class, 'store'])
-                            ->name('resources.store');
-                        // Relatable options — Nova v5 parity
-                        Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
-                            ->name('resources.relatable');
-
-                        // HasMany relationship CRUD — Nova v5 parity
-                        Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])
-                            ->name('resources.has-many.index');
-                        Route::post('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'store'])
-                            ->name('resources.has-many.store');
-                        Route::put('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'update'])
-                            ->name('resources.has-many.update');
-                        Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
-                            ->name('resources.has-many.destroy');
-
-                        // BelongsToMany relationship — Nova v5 parity
-                        Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}', [BelongsToManyController::class, 'index'])
-                            ->name('resources.belongs-to-many.index');
-                        Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/attachable', [BelongsToManyController::class, 'attachableIndex'])
-                            ->name('resources.belongs-to-many.attachable');
-                        Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/attach', [BelongsToManyController::class, 'attach'])
-                            ->name('resources.belongs-to-many.attach');
-                        Route::delete('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/detach', [BelongsToManyController::class, 'detach'])
-                            ->name('resources.belongs-to-many.detach');
-                        Route::put('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot', [BelongsToManyController::class, 'updatePivot'])
-                            ->name('resources.belongs-to-many.pivot');
-                        // Pivot action execution — Nova v5 parity
-                        Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions', [ActionController::class, 'pivotIndex'])
-                            ->name('resources.belongs-to-many.actions.index');
-                        Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
-                            ->name('resources.belongs-to-many.actions.execute');
-
-                        // Force delete (permanent deletion of soft-deleted records)
-                        Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])
-                            ->name('resources.force-delete');
-                        // Replicate fields (pre-fill data for create form)
-                        Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
-                            ->name('resources.replicate');
-                        // Action routes — Nova v5 parity
-                        Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
-                            ->name('resources.actions.index');
-                        Route::get('/resources/{resource}/actions/{action}/fields', [ActionController::class, 'fields'])
-                            ->name('resources.actions.fields');
-                        Route::post('/resources/{resource}/actions/{action}', [ActionController::class, 'execute'])
-                            ->name('resources.actions.execute');
-                        Route::post('/resources/{resource}/{id}/actions/{action}', [ActionController::class, 'executeSingle'])
-                            ->name('resources.actions.execute-single');
-
-                        // Inline create schema
-                        Route::get('/resources/{resource}/inline-create-schema', [ResourceController::class, 'inlineCreateSchema'])
-                            ->name('resources.inline-create-schema');
-                        // Inline create store
-                        Route::post('/resources/{resource}/inline-create', [ResourceController::class, 'inlineCreateStore'])
-                            ->name('resources.inline-create-store');
-
-                        Route::get('/resources/{resource}/{id}', [ResourceController::class, 'show'])
-                            ->name('resources.show');
-                        Route::put('/resources/{resource}/{id}', [ResourceController::class, 'update'])
-                            ->name('resources.update');
-                        Route::delete('/resources/{resource}/{id}', [ResourceController::class, 'destroy'])
-                            ->name('resources.destroy');
-                        Route::put('/resources/{resource}/{id}/restore', [ResourceController::class, 'restore'])
-                            ->name('resources.restore');
                     });
 
-                // SPA catch-all — must come AFTER api routes
-                Route::get('/', [DashboardController::class, 'index'])->name('index');
-                Route::get('/{path}', [DashboardController::class, 'index'])
-                    ->where('path', '(?!api/).*')
-                    ->name('spa');
+                // ── All other protected routes — require completed 2FA ──
+                Route::middleware('martis.2fa')
+                    ->group(function () use ($throttle) {
+                        // API routes
+                        Route::prefix('api')
+                            ->name('api.')
+                            ->middleware($throttle)
+                            ->group(function () {
+                                Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+
+                                // Attachment upload (Trix / Markdown file uploads)
+                                Route::post('/attachments/upload', [AttachmentController::class, 'upload'])
+                                    ->name('attachments.upload');
+
+                                // ──────────────────────────────────────────────────────
+                                // Profile routes
+                                // ──────────────────────────────────────────────────────
+                                Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+                                Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+                                Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
+
+                                // Avatar
+                                Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
+                                Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
+
+                                // 2FA setup (within profile)
+                                Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
+                                Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
+                                Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
+                                Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+
+                                // Resource CRUD
+                                Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])
+                                    ->name('resources.schema');
+                                Route::get('/resources/{resource}', [ResourceController::class, 'index'])
+                                    ->name('resources.index');
+                                Route::post('/resources/{resource}', [ResourceController::class, 'store'])
+                                    ->name('resources.store');
+                                // Relatable options — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
+                                    ->name('resources.relatable');
+
+                                // HasMany relationship CRUD — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])
+                                    ->name('resources.has-many.index');
+                                Route::post('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'store'])
+                                    ->name('resources.has-many.store');
+                                Route::put('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'update'])
+                                    ->name('resources.has-many.update');
+                                Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
+                                    ->name('resources.has-many.destroy');
+
+                                // BelongsToMany relationship — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}', [BelongsToManyController::class, 'index'])
+                                    ->name('resources.belongs-to-many.index');
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/attachable', [BelongsToManyController::class, 'attachableIndex'])
+                                    ->name('resources.belongs-to-many.attachable');
+                                Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/attach', [BelongsToManyController::class, 'attach'])
+                                    ->name('resources.belongs-to-many.attach');
+                                Route::delete('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/detach', [BelongsToManyController::class, 'detach'])
+                                    ->name('resources.belongs-to-many.detach');
+                                Route::put('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot', [BelongsToManyController::class, 'updatePivot'])
+                                    ->name('resources.belongs-to-many.pivot');
+                                // Pivot action execution — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions', [ActionController::class, 'pivotIndex'])
+                                    ->name('resources.belongs-to-many.actions.index');
+                                Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
+                                    ->name('resources.belongs-to-many.actions.execute');
+
+                                // Force delete (permanent deletion of soft-deleted records)
+                                Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])
+                                    ->name('resources.force-delete');
+                                // Replicate fields (pre-fill data for create form)
+                                Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
+                                    ->name('resources.replicate');
+                                // Action routes — Nova v5 parity
+                                Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
+                                    ->name('resources.actions.index');
+                                Route::get('/resources/{resource}/actions/{action}/fields', [ActionController::class, 'fields'])
+                                    ->name('resources.actions.fields');
+                                Route::post('/resources/{resource}/actions/{action}', [ActionController::class, 'execute'])
+                                    ->name('resources.actions.execute');
+                                Route::post('/resources/{resource}/{id}/actions/{action}', [ActionController::class, 'executeSingle'])
+                                    ->name('resources.actions.execute-single');
+
+                                // Inline create schema
+                                Route::get('/resources/{resource}/inline-create-schema', [ResourceController::class, 'inlineCreateSchema'])
+                                    ->name('resources.inline-create-schema');
+                                // Inline create store
+                                Route::post('/resources/{resource}/inline-create', [ResourceController::class, 'inlineCreateStore'])
+                                    ->name('resources.inline-create-store');
+
+                                Route::get('/resources/{resource}/{id}', [ResourceController::class, 'show'])
+                                    ->name('resources.show');
+                                Route::put('/resources/{resource}/{id}', [ResourceController::class, 'update'])
+                                    ->name('resources.update');
+                                Route::delete('/resources/{resource}/{id}', [ResourceController::class, 'destroy'])
+                                    ->name('resources.destroy');
+                                Route::put('/resources/{resource}/{id}/restore', [ResourceController::class, 'restore'])
+                                    ->name('resources.restore');
+                            });
+
+                        // SPA catch-all — must come AFTER api routes
+                        Route::get('/', [DashboardController::class, 'index'])->name('index');
+                        Route::get('/{path}', [DashboardController::class, 'index'])
+                            ->where('path', '(?!api/).*')
+                            ->name('spa');
+                    });
             });
     });
