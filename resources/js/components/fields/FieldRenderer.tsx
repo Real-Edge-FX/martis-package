@@ -196,6 +196,7 @@ export function FieldInput({
   onChange,
   error,
   resourceKey,
+  recordId,
   context,
 }: {
   field: FieldDefinition
@@ -203,6 +204,7 @@ export function FieldInput({
   onChange: (v: unknown) => void
   error?: string
   resourceKey?: string
+  recordId?: string | number
   context?: 'create' | 'update'
 }) {
   // Tier 0: per-context field override (from PHP field->overrideCreate/Update)
@@ -216,6 +218,6 @@ export function FieldInput({
     explicitKey,
     getFallbackInput(field.type),
   )
-  return <Component field={field} value={value} onChange={onChange} error={error} />
+  return <Component field={field} value={value} onChange={onChange} error={error} resourceKey={resourceKey} recordId={recordId} />
 }
 

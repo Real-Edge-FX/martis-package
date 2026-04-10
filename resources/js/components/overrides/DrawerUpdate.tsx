@@ -197,6 +197,7 @@ export function DrawerUpdate(props: OverrideProps) {
                   onChange={(v) => handleChange(field.attribute, v)}
                   error={errors[field.attribute]}
                   resourceKey={resource}
+                  recordId={recordId ?? undefined}
                   context="update"
                 />
               </div>

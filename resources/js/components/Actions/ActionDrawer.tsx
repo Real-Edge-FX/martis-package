@@ -71,10 +71,10 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: A
       onClose()
     },
     onEdit: (id) => {
-      if (id != null) navigate(`/martis/resources/${resource}/${id}/edit`)
+      if (id != null) navigate(`/resources/${resource}/${id}/edit`)
     },
     onView: (id) => {
-      navigate(`/martis/resources/${resource}/${id}`)
+      navigate(`/resources/${resource}/${id}`)
     },
     addToast,
   }

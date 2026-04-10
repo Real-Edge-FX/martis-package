@@ -65,7 +65,7 @@ interface RelatedRecord {
   [key: string]: unknown
 }
 
-export function MorphToFieldInput({ field, value, onChange, error }: FieldInputProps) {
+export function MorphToFieldInput({ field, value, onChange, error, resourceKey, recordId }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
@@ -124,10 +124,11 @@ export function MorphToFieldInput({ field, value, onChange, error }: FieldInputP
     }
   }, [open])
 
-  // Get current resource context for relatable endpoint
+  // Get current resource context for relatable endpoint.
+  // Prefer explicit resourceKey/recordId props (correct when rendered in drawers from actions).
   const params = useParams<{ resource?: string; id?: string }>()
-  const sourceResource = params.resource
-  const sourceId = params.id ?? '_'
+  const sourceResource = resourceKey ?? params.resource
+  const sourceId = recordId != null ? String(recordId) : (params.id ?? '_')
 
   // Fetch options for the selected type
   const fetchOptions = useCallback(async (query: string) => {

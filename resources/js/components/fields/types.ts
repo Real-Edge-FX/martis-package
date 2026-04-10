@@ -12,4 +12,8 @@ export interface FieldInputProps {
   value: unknown
   onChange: (value: unknown) => void
   error?: string
+  /** The resource URI key (e.g. 'posts') — used by relatable fields to build the correct API endpoint. */
+  resourceKey?: string
+  /** The record ID being edited — used by relatable fields for contextual relatable queries. */
+  recordId?: string | number
 }

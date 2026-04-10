@@ -60,7 +60,7 @@ interface RelatedRecord {
   [key: string]: unknown
 }
 
-export function BelongsToFieldInput({ field, value, onChange, error }: FieldInputProps) {
+export function BelongsToFieldInput({ field, value, onChange, error, resourceKey, recordId }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
@@ -118,10 +118,12 @@ export function BelongsToFieldInput({ field, value, onChange, error }: FieldInpu
     }
   }, [open])
 
-  // Get current resource context for relatable endpoint
+  // Get current resource context for relatable endpoint.
+  // Prefer explicit resourceKey/recordId props (correct when rendered in drawers from actions).
+  // Fall back to useParams() for standard page contexts.
   const params = useParams<{ resource?: string; id?: string }>()
-  const sourceResource = params.resource
-  const sourceId = params.id ?? '_'
+  const sourceResource = resourceKey ?? params.resource
+  const sourceId = recordId != null ? String(recordId) : (params.id ?? '_')
 
   // Fetch options from relatable endpoint (applies relatableQuery hooks)
   const fetchOptions = useCallback(async (query: string) => {
