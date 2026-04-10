@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\HasMany;
 use Martis\Fields\Text;
@@ -109,8 +110,10 @@ beforeEach(function () {
 
     $this->withoutMiddleware(MartisAuthenticate::class);
 
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::dropIfExists('hm_test_children');
     Schema::dropIfExists('hm_test_parents');
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
     Schema::create('hm_test_parents', function ($table) {
         $table->id();
@@ -118,6 +121,7 @@ beforeEach(function () {
         $table->timestamps();
     });
 
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::create('hm_test_children', function ($table) {
         $table->id();
         $table->string('title');
@@ -126,6 +130,7 @@ beforeEach(function () {
         $table->timestamps();
         $table->foreign('parent_id')->references('id')->on('hm_test_parents')->onDelete('cascade');
     });
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
