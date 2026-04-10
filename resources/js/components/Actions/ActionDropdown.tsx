@@ -212,7 +212,7 @@ function SubMenu({
                 e.stopPropagation()
                 if (!isDisabled) onSelect(child)
               }}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors disabled:opacity-40"
               style={{
                 color: isDisabled
                   ? "var(--martis-text-muted)"
@@ -401,7 +401,7 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
                       e.stopPropagation()
                       if (!isDisabled) handleSelect(item)
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors disabled:opacity-40"
                     style={{
                       color: isDisabled
                         ? "var(--martis-text-muted)"
