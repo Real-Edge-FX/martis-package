@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -43,6 +43,10 @@ export function ResourceIndexPage() {
   // Track which row IDs the inline action targets (separate from visual selection)
   const [inlineActionRowIds, setInlineActionRowIds] = useState<(string | number)[]>([])
 
+  // Reset selection when navigating between resources
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [resource])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
