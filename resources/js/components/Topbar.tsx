@@ -251,7 +251,7 @@ export function Topbar() {
               menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
           }}
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white overflow-hidden flex-shrink-0">
+          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold overflow-hidden flex-shrink-0 ${user?.avatar_url ? '' : 'bg-indigo-600 text-white'}`}>
             {user?.avatar_url ? (
               <img src={user.avatar_url} alt={user?.name ?? ''} className="h-full w-full object-cover" />
             ) : (

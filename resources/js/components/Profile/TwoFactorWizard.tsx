@@ -182,7 +182,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
         <Button
           type="button"
           label={t('2fa_scan_qr')}
-          outlined
+          text
           onClick={() => setStep('setup')}
         />
         <Button

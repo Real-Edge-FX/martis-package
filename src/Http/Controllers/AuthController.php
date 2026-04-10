@@ -2,11 +2,14 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 
 class AuthController extends MartisController
@@ -50,7 +53,17 @@ class AuthController extends MartisController
             ]);
         }
 
-        return response()->json($user);
+        // Include avatar_url so the Topbar can show the profile picture on initial load.
+        // The raw Eloquent model only contains the storage path (profile_picture);
+        // ProfileResource resolves it to a full public URL.
+        /** @var Model&Authenticatable $userModel */
+        $userModel = $user;
+        $profileResource = app(ProfileResource::class);
+        $profileData = $profileResource->toArray($userModel);
+
+        return response()->json(array_merge($userModel->toArray(), [
+            'avatar_url' => $profileData['avatar_url'],
+        ]));
     }
 
     /**
@@ -101,7 +114,14 @@ class AuthController extends MartisController
             ]);
         }
 
-        return response()->json($user);
+        /** @var Model&Authenticatable $loginUser */
+        $loginUser = $user;
+        $profileResource = app(ProfileResource::class);
+        $profileData = $profileResource->toArray($loginUser);
+
+        return response()->json(array_merge($loginUser->toArray(), [
+            'avatar_url' => $profileData['avatar_url'],
+        ]));
     }
 
     /**
