@@ -193,6 +193,7 @@ abstract class Field implements FieldContract
             'colSpan' => $this->colSpan,
             'colSpanMd' => $this->colSpanMd,
             'colSpanLg' => $this->colSpanLg,
+            'defaultValue' => $this->defaultValue,
             'overrides' => array_filter([
                 'create' => $this->overrideForCreate?->toArray(),
                 'update' => $this->overrideForUpdate?->toArray(),
@@ -257,6 +258,14 @@ abstract class Field implements FieldContract
         $this->hasDefault = true;
 
         return $this;
+    }
+
+    /**
+     * Get the default value for this field.
+     */
+    public function getDefaultValue(): mixed
+    {
+        return $this->defaultValue;
     }
 
     /** {@inheritDoc} */

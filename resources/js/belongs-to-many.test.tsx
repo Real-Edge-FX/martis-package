@@ -121,11 +121,12 @@ describe('BelongsToManyField — index display (count badge)', () => {
 // -------------------------------------------------------------------------
 
 describe('BelongsToManyField — detail panel', () => {
-  it('renders the Attach button when canAttach is true', () => {
+  it('does not render the Attach button in detail view (read-only)', () => {
+    // BelongsToManyFieldDisplay is always read-only — attach/detach only in edit forms
     render(
       <FieldDisplay field={belongsToManyField} value={null} />
     )
-    expect(screen.getByText('Attach')).toBeTruthy()
+    expect(screen.queryByText('Attach')).toBeNull()
   })
 
   it('renders the field label', () => {

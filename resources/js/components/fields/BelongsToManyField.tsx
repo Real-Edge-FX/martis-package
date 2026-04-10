@@ -49,8 +49,8 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
     return <BelongsToManyCountBadge count={value} />
   }
 
-  // Detail page — render the full panel
-  return <BelongsToManyDetailPanel field={field} />
+  // Detail page — render the full panel in read-only mode (no attach/detach/pivot actions)
+  return <BelongsToManyDetailPanel field={field} readOnly />
 }
 
 function BelongsToManyCountBadge({ count }: { count: number }) {
@@ -80,7 +80,7 @@ interface BtmMeta {
   canDetach: boolean
 }
 
-function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field'] }) {
+function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDisplayProps['field']; readOnly?: boolean }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
   const { t: tRes } = useTranslation('resources')
@@ -137,17 +137,17 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
     enabled: !!parentResource && !!parentId && !!relationship && !collapsed,
   })
 
-  // Pivot actions
+  // Pivot actions — only in non-readonly mode
   const pivotActionsQuery = useQuery({
     queryKey: ['pivot-actions', parentResource, parentId, relationship],
     queryFn: () =>
       api.get<{ data: { actions: ActionMeta[] } }>(
         `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`
       ),
-    enabled: !!parentResource && !!parentId && !!relationship && !collapsed,
+    enabled: !readOnly && !!parentResource && !!parentId && !!relationship && !collapsed,
   })
 
-  const pivotActions = pivotActionsQuery.data?.data?.actions ?? []
+  const pivotActions = readOnly ? [] : (pivotActionsQuery.data?.data?.actions ?? [])
   const hasPivotActions = pivotActions.length > 0
 
   // Close pivot dropdown when clicking outside
@@ -336,7 +336,7 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
             )}
           </div>
         ))}
-        {!collapsed && meta?.canAttach && (
+        {!readOnly && !collapsed && meta?.canAttach && (
           <button
             type="button"
             onClick={() => setShowAttachModal(true)}
@@ -429,19 +429,15 @@ function BelongsToManyDetailPanel({ field }: { field: FieldDisplayProps['field']
                 }
                 body={(row: ResourceRecord) => {
                   const pivot = row._pivot as Record<string, unknown> | undefined
-                  const val = pivot?.[pf.attribute]
-                  return (
-                    <span className="text-sm" style={{ color: 'var(--martis-text)' }}>
-                      {val != null ? String(val) : '—'}
-                    </span>
-                  )
+                  const val = pivot?.[pf.attribute] ?? null
+                  return <FieldDisplay field={pf} value={val} resourceKey={relatedResource} />
                 }}
                 sortable={false}
               />
             ))}
 
             {/* Actions column */}
-            {meta?.canDetach && (
+            {!readOnly && meta?.canDetach && (
               <Column
                 header={
                   <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -898,7 +894,13 @@ function AttachModal({
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [selected, setSelected] = useState<ResourceRecord[]>([])
-  const [pivotValues, setPivotValues] = useState<Record<string, unknown>>({})
+  const [pivotValues, setPivotValues] = useState<Record<string, unknown>>(() => {
+    const defaults: Record<string, unknown> = {}
+    for (const pf of pivotFields) {
+      if (pf.defaultValue != null) defaults[pf.attribute] = pf.defaultValue
+    }
+    return defaults
+  })
   const [error, setError] = useState<string | null>(null)
   const [attachPage, setAttachPage] = useState(1)
   const [attachPerPage, setAttachPerPage] = useState(15)
@@ -1093,7 +1095,7 @@ function AttachModal({
             style={{ borderColor: 'var(--martis-border)' }}
           >
             <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--martis-text-muted)' }}>
-              Pivot Fields
+              {tAct('pivot_fields', 'Pivot Fields')}
             </p>
             {pivotFields.map((pf) => (
               <div key={pf.attribute}>

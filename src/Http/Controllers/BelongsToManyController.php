@@ -414,8 +414,13 @@ class BelongsToManyController extends MartisController
                 }
             }
             foreach ($pivotFields as $pf) {
-                if ($pf instanceof Field && $request->has($pf->attribute())) {
+                if (! $pf instanceof Field) {
+                    continue;
+                }
+                if ($request->has($pf->attribute())) {
                     $pivotData[$pf->attribute()] = $request->input($pf->attribute());
+                } elseif ($pf->getDefaultValue() !== null) {
+                    $pivotData[$pf->attribute()] = $pf->getDefaultValue();
                 }
             }
         }
