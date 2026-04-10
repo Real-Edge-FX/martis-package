@@ -79,6 +79,7 @@ Route::middleware(config('martis.middleware', ['web']))
                         Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
                         Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
                         Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
+                        Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
 
                         // 2FA challenge (complete login when 2FA is pending)
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])

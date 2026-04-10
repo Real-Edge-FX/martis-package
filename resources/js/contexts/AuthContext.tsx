@@ -22,6 +22,7 @@ interface AuthContextValue {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  updateUser: (partial: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -47,6 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res)
   }, [])
 
+  const updateUser = useCallback((partial: Partial<User>) => {
+    setUser((prev) => prev ? { ...prev, ...partial } : prev)
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await api.post('/api/auth/logout')
@@ -58,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

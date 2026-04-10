@@ -56,6 +56,9 @@ return [
     '2fa_enabled_success' => 'Two-factor authentication enabled.',
     '2fa_disabled_success' => 'Two-factor authentication disabled.',
     '2fa_view_recovery' => 'View Recovery Codes',
+    '2fa_regen_warning' => 'This will invalidate your current recovery codes. Save the new codes in a safe place.',
+    '2fa_regenerating' => 'Generating…',
+    '2fa_regen_success' => 'Recovery codes regenerated successfully.',
 
     '2fa_challenge_title' => 'Two-Factor Authentication',
     '2fa_challenge_instructions' => 'Please enter the authentication code from your authenticator app.',

@@ -162,6 +162,29 @@ class ProfileController extends MartisController
         return response()->json(['message' => __('martis::profile.2fa_disabled_success')]);
     }
 
+    /**
+     * Regenerate recovery codes for the authenticated user.
+     *
+     * Generates a new set of recovery codes (invalidating old ones) and returns
+     * the plain-text codes for the user to save.
+     *
+     * @response array{recovery_codes: list<string>}
+     */
+    public function twoFactorRegenerateCodes(Request $request, TwoFactorService $twoFactor): JsonResponse
+    {
+        $user = $this->resolveUser($request);
+
+        try {
+            $result = $twoFactor->regenerateRecoveryCodes($user);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json($result);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────────────

@@ -18,7 +18,7 @@ interface ProfileData {
 
 export function ProfilePage() {
   const { t } = useTranslation('profile')
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -28,7 +28,11 @@ export function ProfilePage() {
   useEffect(() => {
     api
       .get<ProfileData>('/api/profile')
-      .then((data) => setProfile(data))
+      .then((data) => {
+        setProfile(data)
+        // Sync avatar_url to global auth context so Topbar updates
+        updateUser({ avatar_url: data.avatar_url })
+      })
       .catch(() => {
         // Use auth user data as fallback while backend is not ready
         setProfile({
@@ -64,7 +68,10 @@ export function ProfilePage() {
               <AvatarSection
                 avatarUrl={profile.avatar_url}
                 name={profile.name}
-                onUpdate={(url) => setProfile((p) => p ? { ...p, avatar_url: url } : p)}
+                onUpdate={(url) => {
+                  setProfile((p) => p ? { ...p, avatar_url: url } : p)
+                  updateUser({ avatar_url: url })
+                }}
               />
             )}
 

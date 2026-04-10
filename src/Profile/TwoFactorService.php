@@ -139,6 +139,30 @@ class TwoFactorService
     }
 
     /**
+     * Regenerate recovery codes for the given user.
+     *
+     * @return array{recovery_codes: list<string>}
+     *
+     * @throws \InvalidArgumentException if 2FA is not enabled
+     */
+    public function regenerateRecoveryCodes(Authenticatable $user): array
+    {
+        assert($user instanceof Model);
+
+        if (! $this->isEnabled($user)) {
+            throw new \InvalidArgumentException('2FA is not enabled for this user.');
+        }
+
+        $recoveryCodes = $this->generateRecoveryCodes();
+        $hashed = array_map(fn (string $c) => bcrypt($c), $recoveryCodes);
+
+        $user->two_factor_recovery_codes = encrypt(json_encode($hashed));
+        $user->save();
+
+        return ['recovery_codes' => $recoveryCodes];
+    }
+
+    /**
      * Check whether 2FA is active for the given user.
      */
     public function isEnabled(Authenticatable $user): bool

@@ -205,17 +205,53 @@ html.dark body {
 }
 
 /* ── Button ────────────────────────────────────────────────────── */
-.p-button {
+/* Primary filled button (default — not outlined, not text) */
+.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
   color: #ffffff;
 }
-.p-button:hover {
+.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger):hover {
   background-color: var(--martis-accent-hover);
   border-color: var(--martis-accent-hover);
 }
 .p-button:focus {
   box-shadow: 0 0 0 2px var(--martis-bg), 0 0 0 4px var(--martis-accent);
+}
+
+/* Outlined button (accent variant) */
+.p-button.p-button-outlined:not(.p-button-danger) {
+  background: transparent;
+  border-color: var(--martis-accent);
+  color: var(--martis-accent);
+}
+.p-button.p-button-outlined:not(.p-button-danger):hover {
+  background-color: rgba(99, 102, 241, 0.08);
+  border-color: var(--martis-accent);
+  color: var(--martis-accent);
+}
+
+/* Danger filled button */
+.p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text) {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+.p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text):hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Danger outlined button */
+.p-button.p-button-danger.p-button-outlined {
+  background: transparent;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.p-button.p-button-danger.p-button-outlined:hover {
+  background-color: rgba(239, 68, 68, 0.08);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 /* Button text variant */
@@ -485,10 +521,31 @@ html:not(.dark) .p-inputtext {
   color: var(--martis-text);
   border-color: var(--martis-border);
 }
-html:not(.dark) .p-button {
+html:not(.dark) .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
   color: #ffffff;
+}
+html:not(.dark) .p-button.p-button-outlined:not(.p-button-danger) {
+  background: transparent;
+  border-color: var(--martis-accent);
+  color: var(--martis-accent);
+}
+html:not(.dark) .p-button.p-button-outlined:not(.p-button-danger):hover {
+  background-color: rgba(99, 102, 241, 0.08);
+}
+html:not(.dark) .p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text) {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+html:not(.dark) .p-button.p-button-danger.p-button-outlined {
+  background: transparent;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+html:not(.dark) .p-button.p-button-danger.p-button-outlined:hover {
+  background-color: rgba(239, 68, 68, 0.08);
 }
 html:not(.dark) .p-button.p-button-text {
   background: transparent;

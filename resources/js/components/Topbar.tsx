@@ -251,8 +251,12 @@ export function Topbar() {
               menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
           }}
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
-            {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white overflow-hidden flex-shrink-0">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user?.name ?? ''} className="h-full w-full object-cover" />
+            ) : (
+              (user?.name ?? user?.email ?? '?')[0].toUpperCase()
+            )}
           </div>
           <span className="hidden sm:inline text-sm font-medium martis-text">
             {user?.name ?? user?.email}

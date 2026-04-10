@@ -56,6 +56,9 @@ return [
     '2fa_enabled_success' => 'Autenticação de dois fatores ativada.',
     '2fa_disabled_success' => 'Autenticação de dois fatores desativada.',
     '2fa_view_recovery' => 'Ver Códigos de Recuperação',
+    '2fa_regen_warning' => 'Isto irá invalidar os seus códigos de recuperação atuais. Guarde os novos códigos num local seguro.',
+    '2fa_regenerating' => 'A gerar…',
+    '2fa_regen_success' => 'Códigos de recuperação regenerados com sucesso.',
 
     '2fa_challenge_title' => 'Autenticação de Dois Fatores',
     '2fa_challenge_instructions' => 'Introduza o código de autenticação da sua aplicação.',
