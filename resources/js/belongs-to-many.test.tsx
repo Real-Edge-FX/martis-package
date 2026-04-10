@@ -56,8 +56,7 @@ vi.mock('primereact/column', () => ({
 }))
 
 import { render, screen } from '@testing-library/react'
-import { registerDefaultFields } from '@/components/fields'
-import { FieldDisplay } from '@/components/fields'
+import { registerDefaultFields, FieldDisplay, FieldInput } from '@/components/fields'
 import type { FieldDefinition } from '@/types'
 
 beforeEach(() => {
@@ -121,10 +120,22 @@ describe('BelongsToManyField — index display (count badge)', () => {
 // -------------------------------------------------------------------------
 
 describe('BelongsToManyField — detail panel', () => {
-  it('renders the Attach button in detail view when canAttach is true', () => {
-    // BelongsToManyFieldDisplay is interactive — attach/detach/pivot actions work on the detail page
+  it('does NOT render Attach button in detail view (readOnly)', () => {
+    // BelongsToManyFieldDisplay is read-only — no attach/detach/pivot actions on detail page
     render(
       <FieldDisplay field={belongsToManyField} value={null} />
+    )
+    expect(screen.queryByText('Attach')).toBeNull()
+  })
+
+  it('renders Attach button in edit view when canAttach is true', () => {
+    // BelongsToManyFieldInput is interactive — attach/detach/pivot actions work on edit page
+    render(
+      <FieldInput
+        field={belongsToManyField}
+        value={null}
+        onChange={() => {}}
+      />
     )
     expect(screen.queryByText('Attach')).toBeTruthy()
   })

@@ -49,8 +49,8 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
     return <BelongsToManyCountBadge count={value} />
   }
 
-  // Detail page — render the full panel (interactive: attach, detach, pivot actions)
-  return <BelongsToManyDetailPanel field={field} />
+  // Detail page — render the full panel in read-only mode (no attach/detach/pivot actions)
+  return <BelongsToManyDetailPanel field={field} readOnly />
 }
 
 function BelongsToManyCountBadge({ count }: { count: number }) {
@@ -1164,6 +1164,6 @@ function AttachModal({
 // Forms — no-op (BelongsToMany only on detail page)
 // -------------------------------------------------------------------------
 
-export function BelongsToManyFieldInput(_props: FieldInputProps) {
-  return null
+export function BelongsToManyFieldInput({ field }: FieldInputProps) {
+  return <BelongsToManyDetailPanel field={field} />
 }
