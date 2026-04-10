@@ -44,6 +44,13 @@ export function TopnavLayout() {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!searchEnabled) return
+      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        setSearchOpen(true)
+        return
+      }
+      // "/" shortcut when not in an input
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
         const tag = (e.target as HTMLElement)?.tagName
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
