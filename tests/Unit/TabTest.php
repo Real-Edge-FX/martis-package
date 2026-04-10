@@ -166,7 +166,7 @@ it('Field::filterForContext passes TabGroup through', function () {
         ]),
     ];
 
-    $filtered = Field::filterForContext($items, FieldContext::DETAIL);
+    $filtered = Field::filterLayoutForContext($items, FieldContext::DETAIL);
 
     expect($filtered)->toHaveCount(2);
 });
@@ -179,7 +179,7 @@ it('Field::filterForContext drops TabGroup when all content hidden', function ()
         ]),
     ];
 
-    $filtered = Field::filterForContext($items, FieldContext::DETAIL);
+    $filtered = Field::filterLayoutForContext($items, FieldContext::DETAIL);
 
     expect($filtered)->toHaveCount(1)
         ->and($filtered[0])->toBeInstanceOf(Text::class);

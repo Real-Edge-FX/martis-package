@@ -133,7 +133,7 @@ it('Field::filterForContext passes Panels through when they have visible fields'
         ]),
     ];
 
-    $filtered = Field::filterForContext($items, FieldContext::DETAIL);
+    $filtered = Field::filterLayoutForContext($items, FieldContext::DETAIL);
 
     expect($filtered)->toHaveCount(2);
 });
@@ -146,7 +146,7 @@ it('Field::filterForContext drops empty Panels', function () {
         ]),
     ];
 
-    $filtered = Field::filterForContext($items, FieldContext::DETAIL);
+    $filtered = Field::filterLayoutForContext($items, FieldContext::DETAIL);
 
     expect($filtered)->toHaveCount(1)
         ->and($filtered[0])->toBeInstanceOf(Text::class);

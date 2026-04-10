@@ -442,9 +442,11 @@ abstract class Field implements FieldContract
      *
      * This is the central filtering entry point. All controller methods
      * and the schema endpoint call this after resolving the raw field set.
+     * Layout containers (Panel, TabGroup) are flattened — use filterLayoutForContext()
+     * when the full layout structure must be preserved (e.g. schema serialization).
      *
-     * @param  list<FieldContract|LayoutContract>  $fields
-     * @return list<FieldContract|LayoutContract>
+     * @param  list<FieldContract>  $fields
+     * @return list<FieldContract>
      */
     public static function filterForContext(array $fields, FieldContext $context, ?Request $request = null): array
     {
@@ -456,11 +458,49 @@ abstract class Field implements FieldContract
             }
         }
 
+        return array_values(array_filter(
+            $fields,
+            function (FieldContract $f) use ($context, $request): bool {
+                if (! $f->isVisibleForContext($context)) {
+                    return false;
+                }
+
+                // Check field-level authorization (canSee) — skip when no request available
+                if ($request !== null && $f instanceof self && ! $f->isAuthorizedToSee($request)) {
+                    return false;
+                }
+
+                return true;
+            },
+        ));
+    }
+
+    /**
+     * Filter a mixed array of fields and layout containers for a given context,
+     * preserving the Panel and TabGroup structure.
+     *
+     * Unlike filterForContext(), this method keeps layout containers in the result and
+     * drops containers that become empty after context filtering.
+     * Use this when the full layout structure is needed (e.g., schema serialization).
+     * Use flattenLayoutFields() on the result when validation or model filling is needed.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<FieldContract|LayoutContract>
+     */
+    public static function filterLayoutForContext(array $items, FieldContext $context, ?Request $request = null): array
+    {
+        if ($request === null) {
+            try {
+                $request = request();
+            } catch (\Throwable) {
+                // No request available (e.g. unit tests without HTTP context)
+            }
+        }
+
         $result = [];
 
-        foreach ($fields as $item) {
+        foreach ($items as $item) {
             if ($item instanceof LayoutContract) {
-                // Delegate context filtering to layout containers (Panel, TabGroup, etc.)
                 $filtered = $item->filterForContext($context);
                 if ($filtered !== null) {
                     $result[] = $filtered;
@@ -474,7 +514,6 @@ abstract class Field implements FieldContract
                 continue;
             }
 
-            // Check field-level authorization (canSee) — skip when no request available
             if ($request !== null && $item instanceof self && ! $item->isAuthorizedToSee($request)) {
                 continue;
             }
@@ -482,7 +521,7 @@ abstract class Field implements FieldContract
             $result[] = $item;
         }
 
-        return array_values($result);
+        return $result;
     }
 
     /**
