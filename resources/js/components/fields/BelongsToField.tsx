@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -7,6 +8,7 @@ import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOut, CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
+import { Tooltip } from 'primereact/tooltip'
 
 interface BelongsToValue {
   id: number | string
@@ -19,26 +21,29 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
 }
 
 // ---------------------------------------------------------------------------
-// PeekCard — hover preview card for related records
+// PeekCard — hover preview card for related records (rendered via portal)
 // ---------------------------------------------------------------------------
 
 interface PeekCardProps {
   title: string
   recordId: number | string
   subtitle?: string | null
+  top: number
+  left: number
 }
 
-function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
-  return (
+function PeekCard({ title, recordId, subtitle, top, left }: PeekCardProps) {
+  return createPortal(
     <div
-      data-testid="peek-card" className="absolute z-50 min-w-40 max-w-56 rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
+      data-testid="peek-card"
+      className="fixed min-w-40 max-w-56 rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
       style={{
         backgroundColor: 'var(--martis-surface)',
         borderColor: 'var(--martis-border)',
         color: 'var(--martis-text)',
-        top: '100%',
-        left: 0,
-        marginTop: '6px',
+        zIndex: 9999,
+        top: `${top}px`,
+        left: `${left}px`,
       }}
     >
       <p className="font-medium leading-snug truncate">{title}</p>
@@ -56,7 +61,8 @@ function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
       >
         #{recordId}
       </p>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -67,15 +73,24 @@ function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
 export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
   const { t: tMsg } = useTranslation('messages')
   const [showPeek, setShowPeek] = useState(false)
+  const [peekPos, setPeekPos] = useState<{ top: number; left: number } | null>(null)
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const containerSpanRef = useRef<HTMLSpanElement>(null)
 
   function handleMouseEnter() {
-    peekTimer.current = setTimeout(() => setShowPeek(true), 300)
+    peekTimer.current = setTimeout(() => {
+      if (containerSpanRef.current) {
+        const rect = containerSpanRef.current.getBoundingClientRect()
+        setPeekPos({ top: rect.bottom + 6, left: rect.left })
+      }
+      setShowPeek(true)
+    }, 300)
   }
 
   function handleMouseLeave() {
     if (peekTimer.current) clearTimeout(peekTimer.current)
     setShowPeek(false)
+    setPeekPos(null)
   }
 
   if (value === null || value === undefined || value === '') {
@@ -91,7 +106,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
     if (relatedResource && displayAsLink) {
       return (
         <span
-          className="inline-flex items-center gap-1 relative"
+          ref={containerSpanRef}
+          className="inline-flex items-center gap-1"
           onMouseEnter={peekable ? handleMouseEnter : undefined}
           onMouseLeave={peekable ? handleMouseLeave : undefined}
         >
@@ -105,18 +121,22 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
           {peekable && (
             <Link
               to={`/resources/${relatedResource}/${value.id}`}
-              title="Preview"
+              data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
+              data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)' }}
-              className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity"
+              className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity martis-peek-arrow"
             >
               <ArrowSquareOut size={13} weight="regular" />
             </Link>
           )}
-          {peekable && showPeek && (
+          {peekable && <Tooltip target=".martis-peek-arrow" showDelay={300} />}
+          {peekable && showPeek && peekPos && (
             <PeekCard
               title={label}
               recordId={value.id}
               subtitle={value.subtitle}
+              top={peekPos.top}
+              left={peekPos.left}
             />
           )}
         </span>
@@ -341,8 +361,9 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
             tabIndex={-1}
             onClick={handleClear}
             onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
-            className="martis-belongs-to-clear"
-            title={tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
+            className="martis-belongs-to-clear martis-clear-btn"
+            data-pr-tooltip={tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
+            data-pr-position="top"
           >
             <X size={14} weight="bold" />
           </span>
@@ -358,7 +379,9 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
-          className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors"
+          className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors martis-create-related-btn"
+          data-pr-tooltip={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
+          data-pr-position="top"
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface)',
@@ -369,12 +392,13 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
-          title={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
         >
           <Plus size={16} weight="bold" />
         </button>
       )}
       </div>
+      <Tooltip target=".martis-clear-btn" showDelay={400} />
+      <Tooltip target=".martis-create-related-btn" showDelay={400} />
 
       {/* Dropdown panel */}
       {open && (

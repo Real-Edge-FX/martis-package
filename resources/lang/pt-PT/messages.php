@@ -76,4 +76,6 @@ return [
     'morph_to_no_results' => 'Sem resultados',
     'morph_to_none_option' => '— Nenhum —',
     'morph_to_empty' => '—',
+    'morph_to_clear' => 'Limpar seleção',
+    'morph_to_create_new' => 'Criar novo {{type}}',
 ];
