@@ -130,9 +130,11 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::dropIfExists('btm_test_pivot');
     Schema::dropIfExists('btm_test_children');
     Schema::dropIfExists('btm_test_parents');
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 });
 
 // ---------------------------------------------------------------------------
