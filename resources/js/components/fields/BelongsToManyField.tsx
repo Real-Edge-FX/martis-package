@@ -113,24 +113,34 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   const [pivotDropdownOpen, setPivotDropdownOpen] = useState(false)
   const pivotDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Reset local state when navigating to a different parent record (race condition fix)
+  useEffect(() => {
+    setSearch('')
+    setPage(1)
+    setSort(null)
+    setDirection('asc')
+    setSelectedRows([])
+  }, [parentId, parentResource])
+
   // Schema for column headers
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`),
+    queryFn: ({ signal }) => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`, signal),
     enabled: !!relatedResource,
   })
 
   // Attached records
   const recordsQuery = useQuery({
     queryKey: ['belongs-to-many', parentResource, parentId, relationship, { search, page, perPage, sort, direction }],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       params.set('page', String(page))
       params.set('per_page', String(perPage))
       if (sort) { params.set('sort', sort); params.set('direction', direction) }
       return api.get<PaginatedResponse<ResourceRecord>>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}?${params.toString()}`
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}?${params.toString()}`,
+        signal
       )
     },
     enabled: !!parentResource && !!parentId && !!relationship && !collapsed,
@@ -139,9 +149,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   // Pivot actions — only in non-readonly mode
   const pivotActionsQuery = useQuery({
     queryKey: ['pivot-actions', parentResource, parentId, relationship],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<{ data: { actions: ActionMeta[] } }>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`,
+        signal
       ),
     enabled: !readOnly && !!parentResource && !!parentId && !!relationship && !collapsed,
   })
@@ -593,9 +604,10 @@ function PivotActionModal({
 
   const fieldsQuery = useQuery({
     queryKey: ['action-fields', parentResource, action.uriKey],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<{ data: { fields: FieldDefinition[] } }>(
-        `/api/resources/${parentResource}/actions/${action.uriKey}/fields`
+        `/api/resources/${parentResource}/actions/${action.uriKey}/fields`,
+        signal
       ),
     enabled: !!action,
   })
@@ -918,17 +930,18 @@ function AttachModal({
   // Fetch related resource schema for DataTable columns
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`),
+    queryFn: ({ signal }) => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`, signal),
     enabled: !!relatedResource,
   })
 
   const attachableQuery = useQuery({
     queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams({ per_page: String(attachPerPage), page: String(attachPage) })
       if (debouncedSearch) params.set('search', debouncedSearch)
       return api.get<PaginatedResponse<ResourceRecord>>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`,
+        signal
       )
     },
     enabled: !!parentResource && !!parentId && !!relationship,
