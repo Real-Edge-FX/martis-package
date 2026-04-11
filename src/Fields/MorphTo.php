@@ -273,7 +273,7 @@ class MorphTo extends Field
         return [
             'type' => $morphType,
             'id' => $morphId,
-            'title' => $related?->getAttribute($this->titleAttribute),
+            'title' => $related?->getAttribute($this->resolvedTitleAttribute($morphType)),
             'resourceType' => $resourceType,
         ];
     }
@@ -317,6 +317,42 @@ class MorphTo extends Field
                 $model->setAttribute($this->morphIdColumn, $morphId);
             }
         }
+    }
+
+    /**
+     * Find the resource class that corresponds to a morph type (model class name).
+     *
+     * @param  string  $morphType  Full model class name e.g. App\Models\Post
+     * @return class-string<\Martis\Resource>|null
+     */
+    protected function findResourceClassForMorphType(string $morphType): ?string
+    {
+        foreach ($this->morphTypes as $resourceClass) {
+            try {
+                $model = $resourceClass::newModel();
+                $modelClass = get_class($model);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if (ltrim($modelClass, '\\') === ltrim($morphType, '\\')) {
+                return $resourceClass;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the title attribute for a given morphType.
+     *
+     * Prefers the resource class's titleAttribute() over the field's default.
+     */
+    protected function resolvedTitleAttribute(string $morphType): string
+    {
+        $resourceClass = $this->findResourceClassForMorphType($morphType);
+
+        return $resourceClass ? $resourceClass::titleAttribute() : $this->titleAttribute;
     }
 
     /**

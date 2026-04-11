@@ -21,32 +21,44 @@ interface MorphTypeOption {
 }
 
 function isMorphToValue(v: unknown): v is MorphToValue {
-  return v !== null && typeof v === 'object' && 'id' in (v as Record<string, unknown>) && ('type' in (v as Record<string, unknown>) || 'resourceType' in (v as Record<string, unknown>))
+  return (
+    v !== null &&
+    typeof v === 'object' &&
+    'id' in (v as Record<string, unknown>) &&
+    ('type' in (v as Record<string, unknown>) || 'resourceType' in (v as Record<string, unknown>))
+  )
 }
 
 // ---------------------------------------------------------------------------
-// Display
+// Display — Index & Detail
 // ---------------------------------------------------------------------------
 
 export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
+  const { t: tMsg } = useTranslation('messages')
+
   if (value === null || value === undefined || value === '') {
-    return <span className="martis-text-muted">—</span>
+    return <span className="martis-text-muted">{tMsg('morph_to_empty', '—')}</span>
   }
 
   if (isMorphToValue(value)) {
-    const label = value.title ?? String(value.id)
+    const recordTitle = value.title ?? String(value.id)
     const resourceType = value.resourceType
     const peekable = (field as unknown as Record<string, unknown>).peekable !== false
+    const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
+    const typeLabel = morphTypes?.find(t => t.value === resourceType)?.label ?? resourceType
 
     if (resourceType) {
       return (
         <span className="inline-flex items-center gap-1">
+          <span className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+            {typeLabel}:
+          </span>
           <Link
             to={`/resources/${resourceType}/${value.id}`}
             className="text-sm hover:underline"
             style={{ color: 'var(--martis-accent)' }}
           >
-            {label}
+            {recordTitle}
           </Link>
           {peekable && (
             <Link
@@ -62,7 +74,7 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
       )
     }
 
-    return <span className="martis-text">{label}</span>
+    return <span className="martis-text">{recordTitle}</span>
   }
 
   return <span className="martis-text">{String(value)}</span>
@@ -118,6 +130,10 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
       setSelectedType(currentValue.resourceType ?? null)
       setSelectedId(currentValue.id)
       setSelectedLabel(currentValue.title ?? null)
+    } else {
+      setSelectedType(null)
+      setSelectedId(null)
+      setSelectedLabel(null)
     }
   }, [currentValue])
 
@@ -140,7 +156,6 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   }, [open])
 
   // Get current resource context for relatable endpoint.
-  // Prefer explicit resourceKey/recordId props (correct when rendered in drawers from actions).
   const params = useParams<{ resource?: string; id?: string }>()
   const sourceResource = resourceKey ?? params.resource
   const sourceId = recordId != null ? String(recordId) : (params.id ?? '_')
@@ -203,6 +218,17 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   }
 
   function handleTypeChange(resourceType: string) {
+    // Empty value = "None" (nullable clear)
+    if (resourceType === '') {
+      setSelectedType(null)
+      setSelectedId(null)
+      setSelectedLabel(null)
+      setOptions([])
+      setSearch('')
+      onChange(null)
+      return
+    }
+
     setSelectedType(resourceType)
     setSelectedId(null)
     setSelectedLabel(null)
@@ -258,7 +284,13 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
             opacity: field.readonly ? 0.6 : 1,
           }}
         >
-          <option value="">{tMsg('select_type', 'Select type...')}</option>
+          {isNullable ? (
+            <option value="">{tMsg('morph_to_none_option', '— None —')}</option>
+          ) : (
+            <option value="" disabled={!!selectedType}>
+              {tMsg('morph_to_type_placeholder', 'Select type...')}
+            </option>
+          )}
           {morphTypes?.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
@@ -284,7 +316,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               <span className="martis-belongs-to-trigger-label">
                 {selectedLabel ?? (selectedId !== null ? `#${selectedId}` : (
                   <span style={{ color: 'var(--martis-text-muted)' }}>
-                    {tMsg('select_record', { type: selectedTypeLabel })}
+                    {tMsg('morph_to_resource_placeholder', { type: selectedTypeLabel, defaultValue: 'Select {{type}}...' })}
                   </span>
                 ))}
               </span>
@@ -340,7 +372,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   type="text"
                   value={search}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={tMsg('search')}
+                  placeholder={tMsg('morph_to_search_placeholder', 'Search...')}
                   className="martis-belongs-to-search-input"
                 />
               </div>
@@ -350,7 +382,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   <div className="martis-belongs-to-empty">{tMsg('loading')}</div>
                 ) : !loading && options.length === 0 ? (
                   <div className="martis-belongs-to-empty">
-                    {search ? tMsg('no_results_found') : tMsg('no_records_available')}
+                    {search ? tMsg('morph_to_no_results', 'No results') : tMsg('no_records_available')}
                   </div>
                 ) : (
                   options.map((record) => {

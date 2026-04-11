@@ -70,4 +70,10 @@ return [
     'belongs_to_create_related' => 'Criar {{resource}}',
     'belongs_to_none_option' => '— Nenhum —',
     'belongs_to_empty' => '—',
+    'morph_to_type_placeholder' => 'Selecionar tipo...',
+    'morph_to_resource_placeholder' => 'Selecionar {{type}}...',
+    'morph_to_search_placeholder' => 'Buscar...',
+    'morph_to_no_results' => 'Sem resultados',
+    'morph_to_none_option' => '— Nenhum —',
+    'morph_to_empty' => '—',
 ];
