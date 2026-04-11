@@ -376,6 +376,7 @@ function DefaultTable({
   return (
     <>
       <DataTable
+        key={resourceKey}
         value={rows}
         dataKey="id"
         removableSort

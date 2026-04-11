@@ -93,7 +93,13 @@ export function ResourceIndexPage() {
       )
     },
     enabled: !!resource,
-    placeholderData: (prev) => prev,
+    // Keep previous data only when paginating/searching within the same resource
+    // (not when navigating to a different resource — that would show stale columns/data)
+    placeholderData: (prev, prevQuery) => {
+      const prevKey = prevQuery?.queryKey
+      if (Array.isArray(prevKey) && prevKey[1] === resource) return prev
+      return undefined
+    },
   })
 
   // Fetch actions for this resource
