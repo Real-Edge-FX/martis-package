@@ -75,7 +75,7 @@ function normalizeErrors(raw: unknown): ValidationError[] | undefined {
 function redirectOnSessionExpiry(): void {
   window.location.href = BASE_PATH + '/login?expired=1'
 }
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const csrfToken = getCsrfToken()
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -87,6 +87,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       'X-XSRF-TOKEN': csrfToken,
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(signal !== undefined ? { signal } : {}),
   })
 
   if (res.status === 204) return undefined as unknown as T
@@ -209,7 +210,7 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>('GET', path),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
