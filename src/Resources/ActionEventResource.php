@@ -23,6 +23,11 @@ use Martis\Resource;
  */
 class ActionEventResource extends Resource
 {
+    public static function globallySearchable(): bool
+    {
+        return false;
+    }
+
     public static function model(): string
     {
         return ActionEvent::class;
