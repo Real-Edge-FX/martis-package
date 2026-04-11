@@ -16,4 +16,7 @@ return [
     'profile' => 'Perfil',
     'settings' => 'Configurações',
     'logout' => 'Sair',
+
+    'show_more' => 'Mostrar mais',
+    'show_less' => 'Mostrar menos',
 ];

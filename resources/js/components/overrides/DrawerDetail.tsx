@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { OverrideProps, ResourceRecord } from '@/types'
+import type { OverrideProps, ResourceRecord, FieldDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
@@ -55,7 +55,7 @@ export function DrawerDetail(props: OverrideProps) {
     onError: () => addToast('error', tMsg('error_delete')),
   })
 
-  const detailFields = (schema.fieldsForDetail ?? []).filter((f) => f.type !== 'has_many')
+  const detailFields = (schema.fieldsForDetail ?? []).filter(f => f.type !== 'has_many' && f.type !== 'panel' && f.type !== 'tab_group') as FieldDefinition[]
   const isLoading = !activeRecord || recordQuery.isLoading
 
   const recordTitle = activeRecord?._title

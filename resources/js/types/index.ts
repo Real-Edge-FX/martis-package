@@ -143,12 +143,14 @@ export interface CollectionAuthorizationMetadata {
   authorizedToRunDestructiveAction?: boolean
 }
 
+export type DetailItem = FieldDefinition | PanelDefinition | TabGroupDefinition
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
-  fieldsForDetail?: FieldDefinition[]
-  fieldsForCreate?: FieldDefinition[]
-  fieldsForUpdate?: FieldDefinition[]
+  fieldsForDetail?: DetailItem[]
+  fieldsForCreate?: DetailItem[]
+  fieldsForUpdate?: DetailItem[]
   fieldsForInlineCreate?: FieldDefinition[]
   fieldsForPreview?: FieldDefinition[]
   messages?: ResourceMessages
@@ -251,8 +253,8 @@ export interface TabDefinition {
 }
 
 export interface TabGroupDefinition {
-  /** Discriminant — always 'tabs' */
-  type: 'tabs'
+  /** Discriminant — always 'tab_group' */
+  type: 'tab_group'
   /** Array of tabs displayed in the tab bar */
   tabs: TabDefinition[]
 }

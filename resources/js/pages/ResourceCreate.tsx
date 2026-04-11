@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { ResourceSchema, OverrideProps } from '@/types'
+import type { ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition } from '@/types'
 import { FieldInput } from '@/components/fields'
+import { PanelInput } from '@/components/fields/PanelRenderer'
+import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from '@phosphor-icons/react'
@@ -44,10 +46,9 @@ export function ResourceCreatePage() {
   })
 
   const schema = schemaQuery.data?.data
-  const formFields = useMemo(
-    () => schema?.fieldsForCreate ?? [],
-    [schema],
-  )
+  const allFormFields = (schema?.fieldsForCreate ?? [])
+  const scalarFormFields = allFormFields.filter(f => f.type !== 'panel' && f.type !== 'tab_group') as FieldDefinition[]
+  const layoutFormItems = allFormFields.filter(f => f.type === 'panel' || f.type === 'tab_group') as (PanelDefinition | TabGroupDefinition)[]
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [replicateApplied, setReplicateApplied] = useState(false)
@@ -195,10 +196,16 @@ export function ResourceCreatePage() {
         {tAct('create')} {schema.singularLabel}
       </h1>
 
+      {layoutFormItems.map((item, idx) =>
+        item.type === 'tab_group'
+          ? <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+          : <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+      )}
+
       <form onSubmit={handleSubmit} noValidate>
         <div className="martis-card-bg rounded-xl border martis-border">
           <div className="divide-y" style={{ borderColor: 'var(--martis-border)' }}>
-            {formFields.map((field) => (
+            {scalarFormFields.map((field) => (
               <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4" style={{ borderColor: 'var(--martis-border)' }}>
                 <div>
                   <label

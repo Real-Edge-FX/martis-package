@@ -2,8 +2,10 @@ import { useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { ResourceRecord, ResourceSchema, OverrideProps } from "@/types"
+import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition } from "@/types"
 import { FieldDisplay } from "@/components/fields"
+import { PanelDisplay } from "@/components/fields/PanelRenderer"
+import { TabsDisplay } from "@/components/fields/TabsRenderer"
 import { DeleteModal } from "@/components/DeleteModal"
 import { ActionModal, ActionDropdown, ActionDrawer } from "@/components/Actions"
 import type { ActionMeta } from "@/components/Actions"
@@ -163,8 +165,10 @@ export function ResourceDetailPage() {
   }
 
   const detailFields = schema.fieldsForDetail ?? []
-  const scalarFields = detailFields.filter((f) => f.type !== 'has_many')
-  const hasManyFields = detailFields.filter((f) => f.type === 'has_many')
+  const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
+  const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
+  const scalarFields = detailFields.filter(f => f.type !== 'has_many' && f.type !== 'panel' && f.type !== 'tab_group') as FieldDefinition[]
+  const hasManyFields = detailFields.filter(f => f.type === 'has_many') as FieldDefinition[]
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
   const auth = record._authorization
   const canUpdate = auth?.authorizedToUpdate !== false
@@ -284,8 +288,16 @@ export function ResourceDetailPage() {
         </div>
       </div>
 
-      {/* Fields card */}
-      <div
+      {/* Panel and Tab layout containers */}
+      {tabGroupItems.map((tg, idx) => (
+        <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} />
+      ))}
+      {panelItems.map((panel, idx) => (
+        <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} />
+      ))}
+
+      {/* Fields card — only shown when there are scalar fields */}
+      {scalarFields.length > 0 && <div
         className="rounded-xl border"
         style={{
           borderColor: "var(--martis-border)",
@@ -311,7 +323,7 @@ export function ResourceDetailPage() {
             </div>
           ))}
         </dl>
-      </div>
+      </div>}
 
       {/* HasMany relationship tables */}
       {hasManyFields.map((field) => (
