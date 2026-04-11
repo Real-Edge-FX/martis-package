@@ -26,17 +26,29 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
 // PeekCard — hover preview card for related records (rendered via portal)
 // ---------------------------------------------------------------------------
 
+// Peek size max-width map (matches PeekSize PHP enum)
+const PEEK_SIZE_MAX_WIDTH: Record<string, string> = {
+  xs: '8rem',
+  sm: '12rem',
+  md: '16rem',
+  lg: '22rem',
+  xl: '28rem',
+}
+
 interface PeekCardProps {
   title: string
   recordId: number | string
   subtitle?: string | null
   peekData?: Array<{ key: string; value: unknown }> | null
+  showColumnNames?: boolean
+  peekSize?: string | null
   top: number
   left: number
 }
 
-function PeekCard({ title, recordId, subtitle, peekData, top, left }: PeekCardProps) {
+function PeekCard({ title, recordId, subtitle, peekData, showColumnNames = false, peekSize, top, left }: PeekCardProps) {
   const hasCustomColumns = peekData && peekData.length > 0
+  const maxWidth = peekSize ? (PEEK_SIZE_MAX_WIDTH[peekSize] ?? '16rem') : (hasCustomColumns ? '20rem' : '14rem')
   return createPortal(
     <div
       data-testid="peek-card"
@@ -49,7 +61,7 @@ function PeekCard({ title, recordId, subtitle, peekData, top, left }: PeekCardPr
         top: `${top}px`,
         left: `${left}px`,
         minWidth: '10rem',
-        maxWidth: hasCustomColumns ? '20rem' : '14rem',
+        maxWidth,
         width: 'max-content',
       }}
     >
@@ -67,13 +79,18 @@ function PeekCard({ title, recordId, subtitle, peekData, top, left }: PeekCardPr
           <tbody>
             {peekData.map(({ key, value }) => (
               <tr key={key}>
+                {showColumnNames && (
+                  <td
+                    className="text-xs pr-2 py-0.5 align-top whitespace-nowrap"
+                    style={{ color: 'var(--martis-text-muted)' }}
+                  >
+                    {key}
+                  </td>
+                )}
                 <td
-                  className="text-xs pr-2 py-0.5 align-top whitespace-nowrap"
-                  style={{ color: 'var(--martis-text-muted)' }}
+                  className="text-xs py-0.5 align-top overflow-hidden"
+                  style={{ color: 'var(--martis-text)', maxWidth: '12rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
-                  {key}
-                </td>
-                <td className="text-xs py-0.5 align-top" style={{ color: 'var(--martis-text)' }}>
                   {value === null || value === undefined ? '—' : String(value)}
                 </td>
               </tr>
@@ -129,6 +146,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
     const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
     const displayAsLink = (field as unknown as Record<string, unknown>).displayAsLink !== false
     const peekable = (field as unknown as Record<string, unknown>).peekable !== false
+    const showColumnNames = (field as unknown as Record<string, unknown>).showPeekColumnName === true
+    const peekSize = (field as unknown as Record<string, unknown>).peekSize as string | null | undefined
 
     if (relatedResource && displayAsLink) {
       return (
@@ -163,6 +182,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               recordId={value.id}
               subtitle={value.subtitle}
               peekData={value.peekData}
+              showColumnNames={showColumnNames}
+              peekSize={peekSize ?? null}
               top={peekPos.top}
               left={peekPos.left}
             />
@@ -202,6 +223,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const resourceSubtitleField = (field as unknown as Record<string, unknown>).resourceSubtitle as string | boolean | undefined
   const createButtonIconField = (field as unknown as Record<string, unknown>).createButtonIcon as string | undefined
   const createButtonColorField = (field as unknown as Record<string, unknown>).createButtonColor as string | undefined
+  const fieldPlaceholder = (field as unknown as Record<string, unknown>).placeholder as string | undefined
+  const resourceIconColor = (field as unknown as Record<string, unknown>).iconColor as string | undefined
 
   // Extract current ID from value (handles both plain ID and {id, title} objects)
   const currentId = useMemo(() => {
@@ -381,9 +404,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
         <span className="martis-belongs-to-trigger-label">
           {selectedLabel ?? (currentId !== null ? `#${currentId}` : (
             <span style={{ color: 'var(--martis-text-muted)' }}>
-              {isNullable
-                ? tMsg('belongs_to_none_option', { defaultValue: '— None —' })
-                : tMsg('select_field', { field: field.label })}
+              {fieldPlaceholder ?? tMsg('select_field', { field: field.label })}
             </span>
           ))}
         </span>
@@ -395,7 +416,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
             onClick={handleClear}
             onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
             className="martis-belongs-to-clear martis-clear-btn"
-            data-pr-tooltip={tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
+            data-pr-tooltip={tMsg('belongs_to_clear', { defaultValue: 'Clear selection' })}
             data-pr-position="top"
           >
             <X size={14} weight="bold" />
@@ -508,6 +529,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           modalSize={fieldModalSize}
           showResourceIcon={showResourceIcon}
           resourceIconOverride={resourceIconOverride}
+          resourceIconColor={resourceIconColor}
           resourceSubtitle={resourceSubtitleField}
         />
       )}

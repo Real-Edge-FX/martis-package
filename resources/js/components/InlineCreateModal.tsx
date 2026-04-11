@@ -202,20 +202,13 @@ export function InlineCreateModal({
           style={{ borderColor: "var(--martis-border)" }}
         >
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: "var(--martis-primary-bg, rgba(59, 130, 246, 0.1))" }}
-            >
-              {showResourceIcon ? (
-                <ResourceIcon
-                  iconName={resourceIconOverride ?? schema?.icon ?? "database"}
-                  size={20}
-                  color={resourceIconColor ?? "var(--martis-primary)"}
-                />
-              ) : (
-                <Plus size={20} style={{ color: "var(--martis-primary)" }} />
-              )}
-            </div>
+            {showResourceIcon && (
+              <ResourceIcon
+                iconName={resourceIconOverride ?? schema?.icon ?? "database"}
+                size={22}
+                color={resourceIconColor ?? "var(--martis-accent)"}
+              />
+            )}
             <div className="flex flex-col">
               <span
                 className="text-lg font-semibold"

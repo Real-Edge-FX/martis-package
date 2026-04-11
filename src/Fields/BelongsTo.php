@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
+use Martis\Enums\PeekSize;
 use Martis\Enums\PhosphorIcon;
 
 /**
@@ -130,6 +131,30 @@ class BelongsTo extends Field
      * Custom color for the inline create button.
      */
     protected ?string $createButtonColorValue = null;
+
+    /**
+     * Configurable placeholder text shown when no value is selected.
+     * When null, falls back to the translated "select_field" key.
+     */
+    protected ?string $placeholder = null;
+
+    /**
+     * Whether to display the column key (name) next to the value in the peek card.
+     * Defaults to false — only the value is shown.
+     */
+    protected bool $showPeekColumnName = false;
+
+    /**
+     * Controls the horizontal width of the peek/preview hover card.
+     * Defaults to MD (16rem).
+     */
+    protected PeekSize $peekSize = PeekSize::MD;
+
+    /**
+     * Custom color for the resource icon in the inline create modal header.
+     * Accepts any CSS color string (hex, rgb, var(...)).
+     */
+    protected ?string $iconColor = null;
 
     /**
      * Closure to customize the relatable query for this field.
@@ -600,6 +625,70 @@ class BelongsTo extends Field
     public function createButtonColor(string $color): static
     {
         $this->createButtonColorValue = $color;
+
+        return $this;
+    }
+
+    /**
+     * Set the column attribute used as the display label in index/table cells.
+     * Shorthand for titleAttribute() — uses the named column as the display text.
+     *
+     * Usage: BelongsTo::make("author")->displayColumn("full_name")
+     */
+    public function displayColumn(string $column): static
+    {
+        $this->titleAttribute = $column;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom placeholder text shown on the trigger button when no value is selected.
+     * Defaults to the translated "Select {field}..." string.
+     *
+     * Usage: BelongsTo::make("author")->placeholder("Choose an author...")
+     */
+    public function placeholder(string $text): static
+    {
+        $this->placeholder = $text;
+
+        return $this;
+    }
+
+    /**
+     * Configure whether to show the column name (key) next to its value in the peek card.
+     * Defaults to false — only values are displayed.
+     *
+     * Usage: BelongsTo::make("author")->peekColumns(["name", "email"])->showPeekColumnName()
+     */
+    public function showPeekColumnName(bool $show = true): static
+    {
+        $this->showPeekColumnName = $show;
+
+        return $this;
+    }
+
+    /**
+     * Set the horizontal size of the peek/preview hover card.
+     * Defaults to PeekSize::MD (16rem / 256px).
+     *
+     * Usage: BelongsTo::make("author")->peekSize(PeekSize::LG)
+     */
+    public function peekSize(PeekSize $size): static
+    {
+        $this->peekSize = $size;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom color for the resource icon in the inline create modal header.
+     *
+     * Usage: BelongsTo::make("author")->resourceIcon()->iconColor("#6366f1")
+     */
+    public function iconColor(string $color): static
+    {
+        $this->iconColor = $color;
 
         return $this;
     }

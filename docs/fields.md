@@ -658,20 +658,49 @@ BelongsTo::make('category_id', 'Category')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
+| `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | `'name'` |
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API. | `null` |
+| `placeholder` | `placeholder(string $text): static` | `$this` | Custom placeholder text shown when no value is selected. | translated `'Select {field}...'` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. | `true` |
 | `multiple` | `multiple(bool $value = true): static` | `$this` | Enable many-to-many mode (pivot sync). | `false` |
 | `displayAsLink` | `displayAsLink(bool $value = true): static` | `$this` | Render as clickable link on index/detail. | `true` |
 | `showCreateRelationButton` | `showCreateRelationButton(bool|\Closure $callback = true): static` | `$this` | Show "+" button to create related record inline via modal. | `false` |
 | `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
 | `modalSize` | `modalSize(ModalSize|string $size): static` | `$this` | Set the inline create modal size (`sm`, `md`, `lg`, `xl`, `2xl`–`7xl`). | `'2xl'` |
+| `iconColor` | `iconColor(string $color): static` | `$this` | Color for the resource icon in the inline create modal header. Any CSS color. | accent color |
+
+#### Peek / Preview
+
+The peek card appears on hover in index/detail mode, showing a preview of the related record.
+
+```php
+BelongsTo::make('author_id', 'Author')
+    ->relatedResource('users')
+    ->peekColumns(['name', 'email', 'role'])  // columns to show in card
+    ->showPeekColumnName()                     // show column labels (default: false)
+    ->peekSize(\Martis\Enums\PeekSize::LG)         // card width (xs/sm/md/lg/xl)
+
+// Disable peek entirely
+BelongsTo::make('author_id')->noPeeking()
+
+// peekable() is the default (true)
+BelongsTo::make('author_id')->peekable(false)
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `peekable` | `peekable(bool $value = true): static` | `$this` | Enable/disable the peek preview on hover. | `true` |
+| `noPeeking` | `noPeeking(): static` | `$this` | Disable peek. Shorthand for `peekable(false)`. | — |
+| `peekColumns` | `peekColumns(array $columns): static` | `$this` | Columns from the related model to display in the peek card. If empty, shows title + ID. | `[]` |
+| `showPeekColumnName` | `showPeekColumnName(bool $show = true): static` | `$this` | Show column labels next to values in the peek card. | `false` |
+| `peekSize` | `peekSize(PeekSize $size): static` | `$this` | Card width: `PeekSize::XS` (8rem) through `PeekSize::XL` (28rem). | `PeekSize::MD` (16rem) |
 
 **Overrides:**
 - `resolve()` returns `{id, title}` (single) or `[{id, title}, ...]` (multiple).
 - `fill()` sets FK (single) or registers deferred pivot sync (multiple) via `DeferredRelationSync`.
 
-**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`
+**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `peekColumns`, `showPeekColumnName`, `peekSize`, `placeholder`, `iconColor`
 
 ---
 
