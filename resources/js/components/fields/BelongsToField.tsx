@@ -106,7 +106,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
           {peekable && (
             <Link
               to={`/resources/${relatedResource}/${value.id}`}
-              title="Preview"
+              data-pr-tooltip="Preview"
+              data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)' }}
               className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity"
             >
@@ -348,7 +349,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
             onClick={handleClear}
             onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
             className="martis-belongs-to-clear"
-            title={tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
+            data-pr-tooltip={tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
+            data-pr-position="top"
           >
             <X size={14} weight="bold" />
           </span>
@@ -375,7 +377,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
-          title={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
+          data-pr-tooltip={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
+          data-pr-position="top"
         >
           {createButtonIconField ? (
             <ResourceIcon iconName={createButtonIconField} size={16} color={createButtonColorField ?? undefined} />

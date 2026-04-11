@@ -5,7 +5,6 @@ import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields"
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { Tooltip } from "primereact/tooltip"
 import { CaretUp, CaretDown, CaretUpDown, Lightning, Warning, DotsThreeVertical, CaretRight } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
@@ -376,7 +375,6 @@ function DefaultTable({
 
   return (
     <>
-      <Tooltip target=".martis-action-btn" position="top" showDelay={400} key={`tooltip-${rows.length}-${rows.map(r => r.id).join(",")}`} />
       <DataTable
         value={rows}
         dataKey="id"

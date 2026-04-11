@@ -51,7 +51,8 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
           {peekable && (
             <Link
               to={`/resources/${resourceType}/${value.id}`}
-              title="Preview"
+              data-pr-tooltip="Preview"
+              data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)' }}
               className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity"
             >
@@ -296,7 +297,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   onClick={handleClear}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
                   className="martis-belongs-to-clear"
-                  title="Clear selection"
+                  data-pr-tooltip="Clear selection"
+                  data-pr-position="top"
                 >
                   <X size={14} weight="bold" />
                 </span>
@@ -323,7 +325,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
-                title={`Create new ${selectedTypeLabel}`}
+                data-pr-tooltip={`Create new ${selectedTypeLabel}`}
+                data-pr-position="top"
               >
                 <Plus size={16} weight="bold" />
               </button>

@@ -217,7 +217,8 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
                 <button
                   type="button"
                   onClick={() => removeTag(tag.id)}
-                  title={`Remove ${tag.title}`}
+                  data-pr-tooltip={`Remove ${tag.title}`}
+                  data-pr-position="top"
                   className="opacity-60 hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--martis-badge-info-text)', lineHeight: 1 }}
                 >

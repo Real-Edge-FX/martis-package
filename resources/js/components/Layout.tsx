@@ -1,4 +1,5 @@
 import { Outlet, Navigate, useLocation } from "react-router-dom"
+import { Tooltip } from "primereact/tooltip"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { componentRegistry } from "@/lib/componentRegistry"
@@ -94,5 +95,10 @@ export function Layout() {
   const preset = config.layout?.preset ?? "sidebar"
   const LayoutComponent = presets[preset] ?? SidebarLayout
 
-  return <LayoutComponent />
+  return (
+    <>
+      <Tooltip target="[data-pr-tooltip]" showDelay={400} />
+      <LayoutComponent />
+    </>
+  )
 }
