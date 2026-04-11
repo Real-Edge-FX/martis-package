@@ -445,7 +445,7 @@ abstract class Field implements FieldContract
      * Layout containers (Panel, TabGroup) are flattened — use filterLayoutForContext()
      * when the full layout structure must be preserved (e.g. schema serialization).
      *
-     * @param  list<FieldContract>  $fields
+     * @param  list<FieldContract|LayoutContract>  $fields
      * @return list<FieldContract>
      */
     public static function filterForContext(array $fields, FieldContext $context, ?Request $request = null): array
@@ -458,6 +458,22 @@ abstract class Field implements FieldContract
             }
         }
 
+        // If the input contains layout containers (Panel, TabGroup), flatten them
+        // respecting context visibility before applying the field-level filter.
+        $hasLayout = false;
+        foreach ($fields as $item) {
+            if ($item instanceof LayoutContract) {
+                $hasLayout = true;
+                break;
+            }
+        }
+        if ($hasLayout) {
+            $filtered = self::filterLayoutForContext($fields, $context, $request);
+
+            return self::flattenLayoutFields($filtered);
+        }
+
+        /** @var list<FieldContract> $fields */
         return array_values(array_filter(
             $fields,
             function (FieldContract $f) use ($context, $request): bool {
