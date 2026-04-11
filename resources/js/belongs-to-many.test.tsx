@@ -27,6 +27,7 @@ vi.mock('react-router-dom', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
+  useParams: vi.fn().mockReturnValue({ resource: 'posts', id: '1' }),
 }))
 
 // Mock @tanstack/react-query
