@@ -139,8 +139,10 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::dropIfExists('hm_test_children');
     Schema::dropIfExists('hm_test_parents');
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 });
 
 // ---------------------------------------------------------------------------
