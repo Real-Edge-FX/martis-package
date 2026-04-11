@@ -316,7 +316,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               <span className="martis-belongs-to-trigger-label">
                 {selectedLabel ?? (selectedId !== null ? `#${selectedId}` : (
                   <span style={{ color: 'var(--martis-text-muted)' }}>
-                    {tMsg('morph_to_resource_placeholder', { type: selectedTypeLabel })}
+                    {tMsg('morph_to_resource_placeholder', { type: selectedTypeLabel, defaultValue: 'Select {{type}}...' })}
                   </span>
                 ))}
               </span>
