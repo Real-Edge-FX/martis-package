@@ -57,6 +57,9 @@ interface ResourceContract
     /** Return the Phosphor icon name for this resource (e.g. "newspaper"). */
     public function icon(): string;
 
+    /** Return the icon color (hex or CSS class) for this resource, or null to use the theme primary color. */
+    public function iconColor(): ?string;
+
     /** Return the navigation group this resource belongs to, or null for default. */
     public function group(): ?string;
 

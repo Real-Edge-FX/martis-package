@@ -789,6 +789,12 @@ abstract class Resource implements ResourceContract
         return 'database';
     }
 
+    /** {@inheritDoc} */
+    public function iconColor(): ?string
+    {
+        return null;
+    }
+
     // -------------------------------------------------------------------------
     // DataTable display configuration — configurable per resource
     // -------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOut, CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface BelongsToValue {
@@ -149,6 +150,11 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const canShowCreateButton = showCreateRelationButton && !!relatedResource
   const withSubtitles = (field as unknown as Record<string, unknown>).withSubtitles === true
   const subtitleAttribute = ((field as unknown as Record<string, unknown>).subtitleAttribute as string) || 'subtitle'
+  const showResourceIcon = (field as unknown as Record<string, unknown>).showResourceIcon === true
+  const resourceIconOverride = (field as unknown as Record<string, unknown>).resourceIconOverride as string | undefined
+  const resourceSubtitleField = (field as unknown as Record<string, unknown>).resourceSubtitle as string | boolean | undefined
+  const createButtonIconField = (field as unknown as Record<string, unknown>).createButtonIcon as string | undefined
+  const createButtonColorField = (field as unknown as Record<string, unknown>).createButtonColor as string | undefined
 
   // Extract current ID from value (handles both plain ID and {id, title} objects)
   const currentId = useMemo(() => {
@@ -362,7 +368,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface)',
-            color: 'var(--martis-primary)',
+            color: createButtonColorField ?? 'var(--martis-primary)',
             height: '38px',
             width: '38px',
             flexShrink: 0,
@@ -371,7 +377,11 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
           title={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
         >
-          <Plus size={16} weight="bold" />
+          {createButtonIconField ? (
+            <ResourceIcon iconName={createButtonIconField} size={16} color={createButtonColorField ?? undefined} />
+          ) : (
+            <Plus size={16} weight="bold" />
+          )}
         </button>
       )}
       </div>
@@ -461,6 +471,9 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           onClose={() => setShowInlineCreate(false)}
           onCreated={handleInlineCreated}
           modalSize={fieldModalSize}
+          showResourceIcon={showResourceIcon}
+          resourceIconOverride={resourceIconOverride}
+          resourceSubtitle={resourceSubtitleField}
         />
       )}
     </div>

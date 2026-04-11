@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
+use Martis\Enums\PhosphorIcon;
 
 /**
  * BelongsTo relationship field.
@@ -94,6 +95,33 @@ class BelongsTo extends Field
      * Nova v5 parity: ->dontReorderAssociatables()
      */
     protected bool $dontReorderAssociatables = false;
+
+    /**
+     * Whether to show the resource icon in the inline create modal header.
+     * When true and no override is set, the related resource icon() is used.
+     */
+    protected bool $showResourceIcon = false;
+
+    /**
+     * Override icon for the inline create modal header.
+     */
+    protected ?PhosphorIcon $resourceIconOverride = null;
+
+    /**
+     * Subtitle config for the inline create modal header.
+     * false = disabled, true = use resource subtitle(), string = fixed subtitle.
+     */
+    protected bool|string $resourceSubtitleValue = false;
+
+    /**
+     * Custom icon for the inline create button.
+     */
+    protected ?PhosphorIcon $createButtonIconValue = null;
+
+    /**
+     * Custom color for the inline create button.
+     */
+    protected ?string $createButtonColorValue = null;
 
     /**
      * Closure to customize the relatable query for this field.
@@ -496,6 +524,53 @@ class BelongsTo extends Field
     }
 
     /**
+     * Show the related resource icon in the inline create modal header.
+     * Without args: uses the related resource icon().
+     * With a PhosphorIcon: overrides with that specific icon.
+     */
+    public function resourceIcon(?PhosphorIcon $icon = null): static
+    {
+        $this->showResourceIcon = true;
+        $this->resourceIconOverride = $icon;
+
+        return $this;
+    }
+
+    /**
+     * Show a subtitle in the inline create modal header.
+     * true = uses the related resource subtitle().
+     * string = uses the fixed string.
+     */
+    public function resourceSubtitle(bool|string $value = true): static
+    {
+        $this->resourceSubtitleValue = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom icon for the inline create button.
+     * Defaults to Plus when not configured.
+     */
+    public function createButtonIcon(PhosphorIcon $icon): static
+    {
+        $this->createButtonIconValue = $icon;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom color for the inline create button.
+     * Accepts hex (e.g. #4F46E5) or any CSS color value.
+     */
+    public function createButtonColor(string $color): static
+    {
+        $this->createButtonColorValue = $color;
+
+        return $this;
+    }
+
+    /**
      * Get the relatableQueryUsing closure (used by RelationshipQueryResolver).
      */
     public function getRelatableQueryClosure(): ?\Closure
@@ -560,6 +635,11 @@ class BelongsTo extends Field
             'peekable' => $this->peekable,
             'withoutTrashed' => $this->withoutTrashed ?: null,
             'dontReorderAssociatables' => $this->dontReorderAssociatables ?: null,
+            'showResourceIcon' => $this->showResourceIcon ?: null,
+            'resourceIconOverride' => $this->resourceIconOverride?->value,
+            'resourceSubtitle' => $this->resourceSubtitleValue !== false ? $this->resourceSubtitleValue : null,
+            'createButtonIcon' => $this->createButtonIconValue?->value,
+            'createButtonColor' => $this->createButtonColorValue,
         ], fn (mixed $v): bool => $v !== null);
     }
 }
