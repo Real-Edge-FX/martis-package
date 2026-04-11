@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
 import { X, Plus } from "@phosphor-icons/react"
 import type { FieldDefinition } from "@/types"
+import { ResourceIcon } from "@/components/ResourceIcon"
 
 /** Modal size classes matching Nova v5 modal sizes */
 const MODAL_SIZE_CLASSES: Record<string, string> = {
@@ -33,6 +34,14 @@ interface InlineCreateModalProps {
   onCreated: (record: { id: string | number; title: string | null }) => void
   /** Modal size (defaults to 2xl) */
   modalSize?: string
+  /** When true, show the resource icon from the schema (or the override) in the modal header */
+  showResourceIcon?: boolean
+  /** Override Phosphor icon name (replaces schema icon when showResourceIcon is true) */
+  resourceIconOverride?: string | null
+  /** Color for the resource icon in the modal header */
+  resourceIconColor?: string | null
+  /** Subtitle text to show in the modal header */
+  resourceSubtitle?: string | boolean | null
 }
 
 export function InlineCreateModal({
@@ -41,6 +50,10 @@ export function InlineCreateModal({
   onClose,
   onCreated,
   modalSize = "2xl",
+  showResourceIcon = false,
+  resourceIconOverride,
+  resourceIconColor,
+  resourceSubtitle,
 }: InlineCreateModalProps) {
   const { addToast } = useToast()
   const { t: tAct } = useTranslation("actions")
@@ -58,6 +71,9 @@ export function InlineCreateModal({
           fields: FieldDefinition[]
           singularLabel: string
           label: string
+          icon?: string
+          iconColor?: string | null
+          subtitle?: string | null
         }
       }>(`/api/resources/${relatedResource}/inline-create-schema`),
     enabled: open,
@@ -190,14 +206,32 @@ export function InlineCreateModal({
               className="flex h-10 w-10 items-center justify-center rounded-full"
               style={{ backgroundColor: "var(--martis-primary-bg, rgba(59, 130, 246, 0.1))" }}
             >
-              <Plus size={20} style={{ color: "var(--martis-primary)" }} />
+              {showResourceIcon ? (
+                <ResourceIcon
+                  iconName={resourceIconOverride ?? schema?.icon ?? "database"}
+                  size={20}
+                  color={resourceIconColor ?? "var(--martis-primary)"}
+                />
+              ) : (
+                <Plus size={20} style={{ color: "var(--martis-primary)" }} />
+              )}
             </div>
-            <span
-              className="text-lg font-semibold"
-              style={{ color: "var(--martis-text)" }}
-            >
-              {tAct("create")} {schema?.singularLabel ?? relatedResource}
-            </span>
+            <div className="flex flex-col">
+              <span
+                className="text-lg font-semibold"
+                style={{ color: "var(--martis-text)" }}
+              >
+                {tAct("create")} {schema?.singularLabel ?? relatedResource}
+              </span>
+              {resourceSubtitle && (
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--martis-text-muted)" }}
+                >
+                  {typeof resourceSubtitle === "string" ? resourceSubtitle : schema?.subtitle}
+                </span>
+              )}
+            </div>
           </div>
           <button
             type="button"

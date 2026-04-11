@@ -631,6 +631,9 @@ class ResourceController extends MartisController
             'fields' => $fieldData,
             'singularLabel' => $resourceClass::singularLabel(),
             'label' => $resourceClass::label(),
+            'icon' => $instance->icon(),
+            'iconColor' => $instance->iconColor(),
+            'subtitle' => $resourceClass::subtitle(),
         ])->toResponse();
     }
 
@@ -750,6 +753,7 @@ class ResourceController extends MartisController
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
+            'iconColor' => $instance->iconColor(),
             'titleAttribute' => $resourceClass::titleAttribute(),
             'indexSearchable' => $resourceClass::indexSearchable(),
             'usesScout' => $resourceClass::usesScout(),

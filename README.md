@@ -419,6 +419,61 @@ BelongsTo::make('author_id', 'Author')
 - With `peekColumns(['name', 'email'])`: shows a table with those attribute key-value pairs
 - Disable the peek entirely with `->noPeeking()`
 
+#### Resource Icon & Subtitle in Modal (BUG04)
+
+By default, the inline create modal shows a generic `+` icon. You can configure the modal header to use the related resource's icon:
+
+```php
+use Martis\Enums\PhosphorIcon;
+
+BelongsTo::make('author_id', 'Author')
+    ->relatedResource('users')
+    ->showCreateRelationButton()
+    // Show the related resource's icon() in the modal header:
+    ->resourceIcon()
+    // OR override with a specific Phosphor icon:
+    ->resourceIcon(PhosphorIcon::User)
+    // Show the related resource's subtitle() in the modal header:
+    ->resourceSubtitle()
+    // OR use a fixed subtitle string:
+    ->resourceSubtitle('Select or create an author')
+```
+
+The `PhosphorIcon` enum covers all 1512 icons from `@phosphor-icons/react` v2.
+
+#### Custom Create Button Icon & Color (BUG05)
+
+Customize the inline create `+` button with a different icon or color:
+
+```php
+BelongsTo::make('category_id', 'Category')
+    ->relatedResource('categories')
+    ->showCreateRelationButton()
+    ->createButtonIcon(PhosphorIcon::FolderPlus)    // custom icon
+    ->createButtonColor('#10B981')                  // hex color
+```
+
+Falls back to the default `Plus` icon and primary theme color when not configured.
+
+#### Resource Icon Color
+
+Resources can define a custom icon color returned by the API:
+
+```php
+class PostResource extends Resource
+{
+    public function icon(): string
+    {
+        return PhosphorIcon::Newspaper->value; // 'newspaper'
+    }
+
+    public function iconColor(): ?string
+    {
+        return '#F59E0B'; // amber — or null to use theme primary
+    }
+}
+```
+
 ### Search
 
 #### Global Search (Cmd+K / Ctrl+K) — Nova v5 Parity
