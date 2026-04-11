@@ -98,7 +98,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   const withSubtitles = !!(field.withSubtitles as boolean | undefined)
   const subtitleAttribute = (field.subtitleAttribute as string | undefined) ?? 'subtitle'
 
-  const { resource: parentResource = '', id: parentId = '' } = useParams<{ resource: string; id: string }>()
+  const { resource: parentResource = '', id: parentId = '' } = useParams<{ resource?: string; id?: string }>()
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
