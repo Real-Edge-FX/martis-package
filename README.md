@@ -405,6 +405,20 @@ BelongsTo::make('category_id', 'Category')
     ->modalSize('lg')
 ```
 
+#### Peek Preview Columns (BelongsTo)
+
+By default, hovering over a BelongsTo link shows a preview card with the record's title and ID. Use `peekColumns()` to display additional attributes:
+
+```php
+BelongsTo::make('author_id', 'Author')
+    ->relatedResource('users')
+    ->peekColumns(['name', 'email', 'role'])
+```
+
+- Default (no `peekColumns` call): shows title + ID
+- With `peekColumns(['name', 'email'])`: shows a table with those attribute key-value pairs
+- Disable the peek entirely with `->noPeeking()`
+
 ### Search
 
 #### Global Search (Cmd+K / Ctrl+K) — Nova v5 Parity

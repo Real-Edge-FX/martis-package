@@ -84,6 +84,14 @@ class BelongsTo extends Field
     protected bool $peekable = true;
 
     /**
+     * Columns to display in the peek/preview card.
+     * Default: [] (shows title + ID using resolved value).
+     *
+     * @var list<string>
+     */
+    protected array $peekColumns = [];
+
+    /**
      * Whether soft-deleted records should be excluded from relatable options.
      * Nova v5 parity: ->withoutTrashed()
      */
@@ -222,7 +230,7 @@ class BelongsTo extends Field
      * Single mode: `['id' => 42, 'title' => 'Jane Doe']`
      * Multiple mode: `[['id' => 1, 'title' => 'Jane'], ['id' => 2, 'title' => 'John']]`
      *
-     * @return array{id: mixed, title: string|null, subtitle: string|null}|list<array{id: mixed, title: string|null}>|null
+     * @return array<string, mixed>|list<array{id: mixed, title: string|null}>|null
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
@@ -251,11 +259,22 @@ class BelongsTo extends Field
             $related = $model->{$camelRelationship};
         }
 
-        return [
+        /** @var array<string, mixed> $data */
+        $data = [
             'id' => $foreignKeyValue,
             'title' => $related?->getAttribute($this->titleAttribute),
-            'subtitle' => $this->withSubtitles ? $related?->getAttribute($this->subtitleAttribute) : null,
         ];
+
+        if ($this->withSubtitles) {
+            $data['subtitle'] = $related?->getAttribute($this->subtitleAttribute);
+        }
+
+        $peekData = $this->resolvePeekData($related);
+        if ($peekData !== null) {
+            $data['peekData'] = $peekData;
+        }
+
+        return $data;
     }
 
     /**
@@ -455,6 +474,21 @@ class BelongsTo extends Field
     }
 
     /**
+     * Configure which columns to show in the peek/preview hover card.
+     * Default: shows the title attribute + ID.
+     *
+     * Usage: ->peekColumns(['name', 'email', 'role'])
+     *
+     * @param  string[]  $columns  Attribute names from the related model.
+     */
+    public function peekColumns(array $columns): static
+    {
+        $this->peekColumns = array_values($columns);
+
+        return $this;
+    }
+
+    /**
      * Exclude soft-deleted records from the relatable options list.
      *
      * Nova v5 parity: ->withoutTrashed()
@@ -540,6 +574,26 @@ class BelongsTo extends Field
     }
 
     /**
+     * Resolve peek column data from the related model.
+     *
+     * @return list<array{key: string, value: mixed}>|null
+     */
+    protected function resolvePeekData(?Model $related): ?array
+    {
+        if ($related === null || empty($this->peekColumns)) {
+            return null;
+        }
+
+        return array_map(
+            fn (string $col): array => [
+                'key' => $col,
+                'value' => $related->getAttribute($col),
+            ],
+            $this->peekColumns
+        );
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function extraAttributes(): array
@@ -558,6 +612,7 @@ class BelongsTo extends Field
             'withSubtitles' => $this->withSubtitles ?: null,
             'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
             'peekable' => $this->peekable,
+            'peekColumns' => ! empty($this->peekColumns) ? $this->peekColumns : null,
             'withoutTrashed' => $this->withoutTrashed ?: null,
             'dontReorderAssociatables' => $this->dontReorderAssociatables ?: null,
         ], fn (mixed $v): bool => $v !== null);

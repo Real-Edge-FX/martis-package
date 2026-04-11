@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -98,10 +98,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   const withSubtitles = !!(field.withSubtitles as boolean | undefined)
   const subtitleAttribute = (field.subtitleAttribute as string | undefined) ?? 'subtitle'
 
-  const pathParts = window.location.pathname.split('/')
-  const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = resourcesIdx >= 0 ? pathParts[resourcesIdx + 1] : ''
-  const parentId = resourcesIdx >= 0 ? pathParts[resourcesIdx + 2] : ''
+  const { resource: parentResource = '', id: parentId = '' } = useParams<{ resource?: string; id?: string }>()
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -361,7 +358,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
             dataKey="id"
             removableSort
             sortField={sort ?? undefined}
-            sortOrder={direction === 'asc' ? 1 : -1}
+            sortOrder={sort ? (direction === 'asc' ? 1 : -1) : undefined}
             onSort={(e: DataTableSortEvent) => {
               if (e.sortField) handleSort(String(e.sortField))
             }}

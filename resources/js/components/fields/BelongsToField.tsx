@@ -12,6 +12,7 @@ interface BelongsToValue {
   id: number | string
   title?: string | null
   subtitle?: string | null
+  peekData?: Array<{ key: string; value: unknown }> | null
 }
 
 function isBelongsToValue(v: unknown): v is BelongsToValue {
@@ -26,12 +27,15 @@ interface PeekCardProps {
   title: string
   recordId: number | string
   subtitle?: string | null
+  peekData?: Array<{ key: string; value: unknown }> | null
 }
 
-function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
+function PeekCard({ title, recordId, subtitle, peekData }: PeekCardProps) {
+  const hasCustomColumns = peekData && peekData.length > 0
   return (
     <div
-      data-testid="peek-card" className="absolute z-50 min-w-40 max-w-56 rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
+      data-testid="peek-card"
+      className="absolute z-50 rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
       style={{
         backgroundColor: 'var(--martis-surface)',
         borderColor: 'var(--martis-border)',
@@ -39,10 +43,13 @@ function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
         top: '100%',
         left: 0,
         marginTop: '6px',
+        minWidth: '10rem',
+        maxWidth: hasCustomColumns ? '20rem' : '14rem',
+        width: 'max-content',
       }}
     >
       <p className="font-medium leading-snug truncate">{title}</p>
-      {subtitle && (
+      {subtitle && !hasCustomColumns && (
         <p
           className="text-xs truncate mt-0.5"
           style={{ color: 'var(--martis-text-muted)' }}
@@ -50,12 +57,32 @@ function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
           {subtitle}
         </p>
       )}
-      <p
-        className="text-xs mt-1"
-        style={{ color: 'var(--martis-text-muted)' }}
-      >
-        #{recordId}
-      </p>
+      {hasCustomColumns ? (
+        <table className="w-full mt-1.5 border-collapse">
+          <tbody>
+            {peekData.map(({ key, value }) => (
+              <tr key={key}>
+                <td
+                  className="text-xs pr-2 py-0.5 align-top whitespace-nowrap"
+                  style={{ color: 'var(--martis-text-muted)' }}
+                >
+                  {key}
+                </td>
+                <td className="text-xs py-0.5 align-top" style={{ color: 'var(--martis-text)' }}>
+                  {value === null || value === undefined ? '—' : String(value)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p
+          className="text-xs mt-1"
+          style={{ color: 'var(--martis-text-muted)' }}
+        >
+          #{recordId}
+        </p>
+      )}
     </div>
   )
 }
@@ -117,6 +144,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               title={label}
               recordId={value.id}
               subtitle={value.subtitle}
+              peekData={value.peekData}
             />
           )}
         </span>
@@ -394,22 +422,6 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
 
           {/* Options list */}
           <div className="martis-belongs-to-options">
-            {isNullable && (
-              <button
-                type="button"
-                onClick={() => { onChange(null); setSelectedLabel(null); setOpen(false); setSearch('') }}
-                className={`martis-belongs-to-option ${currentId === null ? 'martis-belongs-to-option--selected' : ''}`}
-              >
-                <span className="flex-1 min-w-0">
-                  <span className="martis-belongs-to-option-label block" style={{ color: 'var(--martis-text-muted)' }}>
-                    {tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
-                  </span>
-                </span>
-                {currentId === null && (
-                  <Check size={14} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
-                )}
-              </button>
-            )}
             {loading && options.length === 0 ? (
               <div className="martis-belongs-to-empty">{tMsg('loading')}</div>
             ) : !loading && options.length === 0 ? (
