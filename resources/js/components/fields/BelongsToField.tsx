@@ -31,7 +31,7 @@ interface PeekCardProps {
 function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
   return (
     <div
-      className="absolute z-50 min-w-40 max-w-56 rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
+      data-testid="peek-card" className="absolute z-50 min-w-40 max-w-56 rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
       style={{
         backgroundColor: 'var(--martis-surface)',
         borderColor: 'var(--martis-border)',
