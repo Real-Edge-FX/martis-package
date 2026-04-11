@@ -7,6 +7,7 @@ import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOut, CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
+import { Tooltip } from 'primereact/tooltip'
 
 interface MorphToValue {
   type: string
@@ -63,13 +64,15 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
           {peekable && (
             <Link
               to={`/resources/${resourceType}/${value.id}`}
-              title="Preview"
+              data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
+              data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)' }}
-              className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity"
+              className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity martis-morphto-peek-arrow"
             >
               <ArrowSquareOut size={13} weight="regular" />
             </Link>
           )}
+          {peekable && <Tooltip target=".martis-morphto-peek-arrow" showDelay={300} />}
         </span>
       )
     }
@@ -327,8 +330,9 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   tabIndex={-1}
                   onClick={handleClear}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
-                  className="martis-belongs-to-clear"
-                  title="Clear selection"
+                  className="martis-belongs-to-clear martis-morphto-clear-btn"
+                  data-pr-tooltip={tMsg('morph_to_clear', { defaultValue: 'Clear selection' })}
+                  data-pr-position="top"
                 >
                   <X size={14} weight="bold" />
                 </span>
@@ -344,7 +348,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
-                className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors"
+                className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors martis-morphto-create-btn"
                 style={{
                   borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-surface)',
@@ -355,12 +359,15 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
-                title={`Create new ${selectedTypeLabel}`}
+                data-pr-tooltip={tMsg('morph_to_create_new', { type: selectedTypeLabel, defaultValue: 'Create new {{type}}' })}
+                data-pr-position="top"
               >
                 <Plus size={16} weight="bold" />
               </button>
             )}
           </div>
+          <Tooltip target=".martis-morphto-clear-btn" showDelay={400} />
+          <Tooltip target=".martis-morphto-create-btn" showDelay={400} />
 
           {/* Dropdown panel */}
           {open && (
