@@ -65,4 +65,9 @@ return [
     'morph_to_many_detached' => 'Record detached successfully.',
     'morph_to_many_empty' => 'No related records yet.',
     'morph_to_many_search' => 'Search records to attach…',
+    'belongs_to_search_placeholder' => 'Search…',
+    'belongs_to_no_results' => 'No results',
+    'belongs_to_create_related' => 'Create {{resource}}',
+    'belongs_to_none_option' => '— None —',
+    'belongs_to_empty' => '—',
 ];

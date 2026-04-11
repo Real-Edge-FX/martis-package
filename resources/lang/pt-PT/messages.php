@@ -65,4 +65,9 @@ return [
     'morph_to_many_detached' => 'Registo dissociado com sucesso.',
     'morph_to_many_empty' => 'Sem registos relacionados ainda.',
     'morph_to_many_search' => 'Pesquisar registos para associar…',
+    'belongs_to_search_placeholder' => 'Pesquisar…',
+    'belongs_to_no_results' => 'Sem resultados',
+    'belongs_to_create_related' => 'Criar {{resource}}',
+    'belongs_to_none_option' => '— Nenhum —',
+    'belongs_to_empty' => '—',
 ];

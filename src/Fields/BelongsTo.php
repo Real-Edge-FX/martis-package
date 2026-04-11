@@ -222,7 +222,7 @@ class BelongsTo extends Field
      * Single mode: `['id' => 42, 'title' => 'Jane Doe']`
      * Multiple mode: `[['id' => 1, 'title' => 'Jane'], ['id' => 2, 'title' => 'John']]`
      *
-     * @return array{id: mixed, title: string|null}|list<array{id: mixed, title: string|null}>|null
+     * @return array{id: mixed, title: string|null, subtitle: string|null}|list<array{id: mixed, title: string|null}>|null
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
@@ -254,6 +254,7 @@ class BelongsTo extends Field
         return [
             'id' => $foreignKeyValue,
             'title' => $related?->getAttribute($this->titleAttribute),
+            'subtitle' => $this->withSubtitles ? $related?->getAttribute($this->subtitleAttribute) : null,
         ];
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Martis\Enums\ModalSize;
 use Martis\Fields\BelongsTo;
 
@@ -212,4 +213,26 @@ it('BelongsTo relatableQueryUsing stores closure', function () {
 it('BelongsTo relatableQueryUsing is null by default', function () {
     $field = BelongsTo::make('author');
     expect($field->getRelatableQueryClosure())->toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// resolve() subtitle
+// ---------------------------------------------------------------------------
+
+it('BelongsTo resolve() returns subtitle key always present', function () {
+    $field = BelongsTo::make('author');
+    // resolve() with null FK returns null (not array)
+    $model = new class extends Model
+    {
+        protected $guarded = [];
+    };
+    $model->author_id = null;
+    expect($field->resolve($model))->toBeNull();
+});
+
+it('BelongsTo toArray withSubtitles includes subtitleAttribute', function () {
+    $field = BelongsTo::make('author')->withSubtitles()->subtitleAttribute('bio');
+    $arr = $field->toArray();
+    expect($arr['withSubtitles'])->toBeTrue()
+        ->and($arr['subtitleAttribute'])->toBe('bio');
 });

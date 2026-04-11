@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query'
 interface BelongsToValue {
   id: number | string
   title?: string | null
+  subtitle?: string | null
 }
 
 function isBelongsToValue(v: unknown): v is BelongsToValue {
@@ -18,24 +19,82 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
 }
 
 // ---------------------------------------------------------------------------
-// Display
+// PeekCard — hover preview card for related records
+// ---------------------------------------------------------------------------
+
+interface PeekCardProps {
+  title: string
+  recordId: number | string
+  subtitle?: string | null
+}
+
+function PeekCard({ title, recordId, subtitle }: PeekCardProps) {
+  return (
+    <div
+      className="absolute z-50 min-w-40 max-w-56 rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
+      style={{
+        backgroundColor: 'var(--martis-surface)',
+        borderColor: 'var(--martis-border)',
+        color: 'var(--martis-text)',
+        top: '100%',
+        left: 0,
+        marginTop: '6px',
+      }}
+    >
+      <p className="font-medium leading-snug truncate">{title}</p>
+      {subtitle && (
+        <p
+          className="text-xs truncate mt-0.5"
+          style={{ color: 'var(--martis-text-muted)' }}
+        >
+          {subtitle}
+        </p>
+      )}
+      <p
+        className="text-xs mt-1"
+        style={{ color: 'var(--martis-text-muted)' }}
+      >
+        #{recordId}
+      </p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Display — Index / Detail
 // ---------------------------------------------------------------------------
 
 export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
+  const { t: tMsg } = useTranslation('messages')
+  const [showPeek, setShowPeek] = useState(false)
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleMouseEnter() {
+    peekTimer.current = setTimeout(() => setShowPeek(true), 300)
+  }
+
+  function handleMouseLeave() {
+    if (peekTimer.current) clearTimeout(peekTimer.current)
+    setShowPeek(false)
+  }
+
   if (value === null || value === undefined || value === '') {
-    return <span className="martis-text-muted">—</span>
+    return <span className="martis-text-muted">{tMsg('belongs_to_empty', { defaultValue: '—' })}</span>
   }
 
   if (isBelongsToValue(value)) {
     const label = value.title ?? String(value.id)
     const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
-
     const displayAsLink = (field as unknown as Record<string, unknown>).displayAsLink !== false
     const peekable = (field as unknown as Record<string, unknown>).peekable !== false
 
     if (relatedResource && displayAsLink) {
       return (
-        <span className="inline-flex items-center gap-1">
+        <span
+          className="inline-flex items-center gap-1 relative"
+          onMouseEnter={peekable ? handleMouseEnter : undefined}
+          onMouseLeave={peekable ? handleMouseLeave : undefined}
+        >
           <Link
             to={`/resources/${relatedResource}/${value.id}`}
             className="text-sm hover:underline"
@@ -52,6 +111,13 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
             >
               <ArrowSquareOut size={13} weight="regular" />
             </Link>
+          )}
+          {peekable && showPeek && (
+            <PeekCard
+              title={label}
+              recordId={value.id}
+              subtitle={value.subtitle}
+            />
           )}
         </span>
       )
@@ -134,8 +200,6 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   }, [open])
 
   // Get current resource context for relatable endpoint.
-  // Prefer explicit resourceKey/recordId props (correct when rendered in drawers from actions).
-  // Fall back to useParams() for standard page contexts.
   const params = useParams<{ resource?: string; id?: string }>()
   const sourceResource = resourceKey ?? params.resource
   const sourceId = recordId != null ? String(recordId) : (params.id ?? '_')
@@ -147,7 +211,6 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      // Always use relatable endpoint - applies query hooks server-side
       const endpoint = sourceResource
         ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=20${searchParam}`
         : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${relatedResource}${searchParam}`
@@ -160,7 +223,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     }
   }, [relatedResource, sourceResource, sourceId, field.attribute])
 
-  // Load initial options when dropdown opens (search uses debounce separately)
+  // Load initial options when dropdown opens
   useEffect(() => {
     if (open) {
       void fetchOptions("")
@@ -177,13 +240,10 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   }
 
   function getOptionLabel(record: RelatedRecord): string {
-    // Prioritize the BelongsTo field's titleAttribute over the resource's _title
     if (titleAttribute && record[titleAttribute] !== undefined && record[titleAttribute] !== null) {
       return String(record[titleAttribute])
     }
-    // Fall back to resource title
     if (record._title) return record._title
-    // Try common label attributes
     for (const attr of ['name', 'title', 'label', 'email']) {
       if (record[attr] !== undefined && record[attr] !== null) {
         return String(record[attr])
@@ -268,7 +328,9 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
         <span className="martis-belongs-to-trigger-label">
           {selectedLabel ?? (currentId !== null ? `#${currentId}` : (
             <span style={{ color: 'var(--martis-text-muted)' }}>
-              {isNullable ? tMsg('select') : tMsg('select_field', { field: field.label })}
+              {isNullable
+                ? tMsg('belongs_to_none_option', { defaultValue: '— None —' })
+                : tMsg('select_field', { field: field.label })}
             </span>
           ))}
         </span>
@@ -280,7 +342,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
             onClick={handleClear}
             onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
             className="martis-belongs-to-clear"
-            title="Clear selection"
+            title={tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
           >
             <X size={14} weight="bold" />
           </span>
@@ -307,7 +369,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
-          title="Create new"
+          title={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
         >
           <Plus size={16} weight="bold" />
         </button>
@@ -325,18 +387,36 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
               type="text"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder={tMsg('search')}
+              placeholder={tMsg('belongs_to_search_placeholder', { defaultValue: 'Search…' })}
               className="martis-belongs-to-search-input"
             />
           </div>
 
           {/* Options list */}
           <div className="martis-belongs-to-options">
+            {isNullable && (
+              <button
+                type="button"
+                onClick={() => { onChange(null); setSelectedLabel(null); setOpen(false); setSearch('') }}
+                className={`martis-belongs-to-option ${currentId === null ? 'martis-belongs-to-option--selected' : ''}`}
+              >
+                <span className="flex-1 min-w-0">
+                  <span className="martis-belongs-to-option-label block" style={{ color: 'var(--martis-text-muted)' }}>
+                    {tMsg('belongs_to_none_option', { defaultValue: '— None —' })}
+                  </span>
+                </span>
+                {currentId === null && (
+                  <Check size={14} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
+                )}
+              </button>
+            )}
             {loading && options.length === 0 ? (
               <div className="martis-belongs-to-empty">{tMsg('loading')}</div>
             ) : !loading && options.length === 0 ? (
               <div className="martis-belongs-to-empty">
-                {search ? tMsg('no_results_found') : tMsg('no_records_available')}
+                {search
+                  ? tMsg('belongs_to_no_results', { defaultValue: 'No results' })
+                  : tMsg('no_records_available')}
               </div>
             ) : (
               options.map((record) => {
