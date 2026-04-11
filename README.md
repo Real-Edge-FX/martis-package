@@ -939,6 +939,61 @@ On subsequent logins, users with 2FA enabled are redirected to a challenge scree
 All profile text is fully translatable via the `martis::profile` namespace (EN, PT-BR, PT-PT included).
 
 
+## UI Standards
+
+### Tooltip Standard (PrimeReact)
+
+All tooltips in Martis **must** use [`primereact/tooltip`](https://primereact.org/tooltip/). Native HTML `title=` attributes and custom tooltip implementations are **prohibited**.
+
+#### Global provider
+
+A global Tooltip provider is registered in `Layout.tsx` targeting `[data-pr-tooltip]`:
+
+```tsx
+import { Tooltip } from 'primereact/tooltip';
+// Inside Layout render:
+<Tooltip target="[data-pr-tooltip]" showDelay={400} />
+```
+
+This means any element with `data-pr-tooltip` will automatically have a tooltip — no need to add a per-component `<Tooltip>` instance.
+
+#### Simple tooltip (recommended)
+
+```tsx
+<button
+  data-pr-tooltip="Delete this record"
+  data-pr-position="top"
+>
+  <Trash size={16} />
+</button>
+```
+
+#### Tooltip on a specific element (ref-based)
+
+Use this when you need per-element configuration (custom delay, HTML content, etc.):
+
+```tsx
+import { Tooltip } from 'primereact/tooltip';
+import { useRef } from 'react';
+
+const btnRef = useRef(null);
+
+<button ref={btnRef}>Save</button>
+<Tooltip target={btnRef} content="Save record" position="top" />
+```
+
+#### Rules
+
+| Rule | Detail |
+|------|--------|
+| ❌ Never use `title=` | Native browser tooltips are inconsistent across themes |
+| ❌ Never build custom tooltip divs | Breaks dark/light mode consistency |
+| ✅ Always use `data-pr-tooltip` for simple text | Covered by global provider |
+| ✅ Use ref-based `<Tooltip>` for complex/HTML tooltips | Full PrimeReact API available |
+| ✅ Use `data-pr-position` to control placement | `"top"` \| `"bottom"` \| `"left"` \| `"right"` |
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

@@ -296,7 +296,8 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
                     to={`/resources/${relatedResource}/${row.id}/edit${viaParams}`}
                     className="rounded p-1.5 transition-colors no-underline"
                     style={{ color: 'var(--martis-text-muted)' }}
-                    title={tAct('edit', 'Edit')}
+                    data-pr-tooltip={tAct('edit', 'Edit')}
+                    data-pr-position="top"
                     onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
@@ -309,7 +310,8 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
                     onClick={() => setDeleteTarget({ id: row.id as string | number })}
                     className="rounded p-1.5 transition-colors"
                     style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-                    title={tAct('delete', 'Delete')}
+                    data-pr-tooltip={tAct('delete', 'Delete')}
+                    data-pr-position="top"
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >

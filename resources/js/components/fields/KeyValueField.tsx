@@ -149,7 +149,8 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
             <button
               type="button"
               onClick={() => removeRow(i)}
-              title="Remove row"
+              data-pr-tooltip="Remove row"
+              data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)', width: '1.75rem', flexShrink: 0 }}
               className="flex items-center justify-center hover:text-red-500 transition-colors"
             >

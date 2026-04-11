@@ -94,7 +94,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
           to="/"
           end
           className={navClass}
-          title={t("dashboard")}
+          data-pr-tooltip={t("dashboard")}
+          data-pr-position="right"
           onClick={isMobile ? onMobileClose : undefined}
         >
           <SquaresFour size={16} className="shrink-0" />
@@ -125,7 +126,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
                   key={r.uriKey}
                   to={`/resources/${r.uriKey}`}
                   className={navClass}
-                  title={r.label}
+                  data-pr-tooltip={r.label}
+                  data-pr-position="right"
                   onClick={isMobile ? onMobileClose : undefined}
                 >
                   <ResourceIcon iconName={r.icon} size={16} className="shrink-0" />
@@ -144,7 +146,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
             type="button"
             onClick={() => setCollapsed((c) => !c)}
             className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm martis-text-muted hover:bg-[var(--martis-hover)] transition-all no-underline border-0 bg-transparent cursor-pointer"
-            title={collapsed ? t("expand_sidebar") : t("collapse_sidebar")}
+            data-pr-tooltip={collapsed ? t("expand_sidebar") : t("collapse_sidebar")}
+            data-pr-position="top"
           >
             {collapsed ? <CaretDoubleRight size={16} /> : <CaretDoubleLeft size={16} />}
             {!collapsed && <span className="text-xs">{t("collapse_sidebar")}</span>}

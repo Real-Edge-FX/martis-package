@@ -452,7 +452,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                         onClick={() => setDetachTarget({ id: row.id as string | number, title: row._title as string })}
                         className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
                         style={{ color: 'var(--martis-text-muted)', background: 'none', border: '1px solid var(--martis-border)', cursor: 'pointer' }}
-                        title={tAct('detach', 'Detach')}
+                        data-pr-tooltip={tAct('detach', 'Detach')}
+                        data-pr-position="top"
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = '#ef4444'
                           e.currentTarget.style.borderColor = '#ef4444'
