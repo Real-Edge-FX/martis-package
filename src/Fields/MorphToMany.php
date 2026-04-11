@@ -77,6 +77,9 @@ class MorphToMany extends Field
     /** Whether to show subtitles in the attach modal search results. */
     protected bool $withSubtitles = false;
 
+    /** The attribute on the related model to show as subtitle. */
+    protected string $subtitleAttribute = 'subtitle';
+
     /** Per-page default for the inline listing. */
     protected int $relationPerPage = 10;
 
@@ -288,6 +291,19 @@ class MorphToMany extends Field
         return $this;
     }
 
+    /**
+     * Set which attribute to use as subtitle. Implicitly enables withSubtitles.
+     *
+     * Nova v5 parity: ->subtitleAttribute('description')
+     */
+    public function subtitleAttribute(string $attribute): static
+    {
+        $this->subtitleAttribute = $attribute;
+        $this->withSubtitles = true;
+
+        return $this;
+    }
+
     /** Set the default per-page for the inline listing. */
     public function perPage(int $perPage): static
     {
@@ -437,6 +453,7 @@ class MorphToMany extends Field
             'modalSize' => $this->modalSize->value,
             'modalHeight' => $this->modalHeight,
             'withSubtitles' => $this->withSubtitles,
+            'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
             'pivotFields' => $pivotFields,
             'morphToManyMeta' => [
                 'perPage' => $this->relationPerPage,

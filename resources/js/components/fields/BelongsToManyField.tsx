@@ -95,6 +95,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   const searchable = field.searchable as boolean
   const modalSize = (field.modalSize as string | undefined) ?? '2xl'
   const modalHeight = (field.modalHeight as string | undefined) ?? null
+  const withSubtitles = !!(field.withSubtitles as boolean | undefined)
+  const subtitleAttribute = (field.subtitleAttribute as string | undefined) ?? 'subtitle'
 
   const pathParts = window.location.pathname.split('/')
   const resourcesIdx = pathParts.indexOf('resources')
@@ -527,6 +529,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
           pivotFields={pivotFields}
           modalSize={modalSize}
           modalHeight={modalHeight}
+          withSubtitles={withSubtitles}
+          subtitleAttribute={subtitleAttribute}
           onSuccess={() => {
             setShowAttachModal(false)
             void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
@@ -876,6 +880,8 @@ function AttachModal({
   pivotFields,
   modalSize = '2xl',
   modalHeight,
+  withSubtitles = false,
+  subtitleAttribute = 'subtitle',
   onSuccess,
   onClose,
 }: {
@@ -886,6 +892,8 @@ function AttachModal({
   pivotFields: FieldDefinition[]
   modalSize?: string
   modalHeight?: string | null
+  withSubtitles?: boolean
+  subtitleAttribute?: string
   onSuccess: () => void
   onClose: () => void
 }) {
@@ -1058,7 +1066,7 @@ function AttachModal({
             tableClassName="min-w-full"
           >
             <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
-            {indexFields.map((f) => (
+            {indexFields.map((f, idx) => (
               <Column
                 key={f.attribute}
                 field={f.attribute}
@@ -1068,7 +1076,14 @@ function AttachModal({
                   </span>
                 }
                 body={(row: ResourceRecord) => (
-                  <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                  <div>
+                    <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                    {withSubtitles && idx === 0 && row[subtitleAttribute] != null && (
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>
+                        {String(row[subtitleAttribute])}
+                      </div>
+                    )}
+                  </div>
                 )}
               />
             ))}

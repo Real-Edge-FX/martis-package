@@ -8,7 +8,7 @@ import { FieldDisplay } from '@/components/fields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useTranslation } from 'react-i18next'
-import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown, CaretUpDown } from '@phosphor-icons/react'
+import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown, CaretUpDown, CaretRight } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -95,6 +95,11 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
   const [deleteTarget, setDeleteTarget] = useState<{ id: string | number } | null>(null)
 
+  // Collapsable panel
+  const collapsable = !!field.collapsable
+  const collapsedByDefault = !!field.collapsedByDefault
+  const [isCollapsed, setIsCollapsed] = useState(collapsedByDefault)
+
   // Fetch related resource schema for column headers, icon and searchPlaceholder
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
@@ -170,9 +175,24 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
     <div className="mt-6 space-y-3">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+        <h3
+          className={`flex items-center gap-2 text-lg font-semibold ${collapsable ? 'cursor-pointer select-none' : ''}`}
+          style={{ color: 'var(--martis-text)' }}
+          onClick={collapsable ? () => setIsCollapsed((v) => !v) : undefined}
+        >
           {showRelationIcon && relatedIcon && (
             <ResourceIcon iconName={relatedIcon} size={20} />
+          )}
+          {collapsable && (
+            <CaretRight
+              size={14}
+              weight="bold"
+              style={{
+                transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                transition: 'transform 0.15s',
+                color: 'var(--martis-text-muted)',
+              }}
+            />
           )}
           <span>{field.label}</span>
           {showRelationCount && (
@@ -188,6 +208,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             </span>
           )}
         </h3>
+        {!isCollapsed && (
         <div className="flex flex-wrap items-center gap-2">
           {meta?.searchable && (
             <div className="relative">
@@ -224,8 +245,11 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             </button>
           )}
         </div>
+        )}
       </div>
 
+      {!isCollapsed && (
+      <>
       {/* DataTable — same PrimeReact DataTable as the index page */}
       <div className="overflow-x-auto">
       <DataTable
@@ -386,6 +410,9 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             </button>
           </div>
         </div>
+      )}
+
+      </>
       )}
 
       {/* Delete confirmation modal */}
