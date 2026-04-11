@@ -166,7 +166,8 @@ class MorphToManyController extends MartisController
 
         // Exclude already-attached records unless allowDuplicates
         if (! $field->isAllowDuplicates()) {
-            $attachedIds = $relation->pluck((new $relatedModelClass)->getKeyName())->all();
+            $relatedModel = new $relatedModelClass;
+            $attachedIds = $relation->pluck($relatedModel->qualifyColumn($relatedModel->getKeyName()))->all();
             if (! empty($attachedIds)) {
                 $query->whereNotIn((new $relatedModelClass)->getKeyName(), $attachedIds);
             }
