@@ -60,16 +60,16 @@ it('BelongsTo modalSize can be set with enum', function () {
     expect($field->getModalSize())->toBe(ModalSize::Large);
 });
 
-it('BelongsTo modalSize can be set with string', function () {
+it('BelongsTo modalSize can be set with Large enum', function () {
     $field = BelongsTo::make('author')
-        ->modalSize('lg');
+        ->modalSize(ModalSize::Large);
 
     expect($field->getModalSize())->toBe(ModalSize::Large);
 });
 
-it('BelongsTo modalSize can be set to sm', function () {
+it('BelongsTo modalSize can be set to Small enum', function () {
     $field = BelongsTo::make('author')
-        ->modalSize('sm');
+        ->modalSize(ModalSize::Small);
 
     expect($field->getModalSize())->toBe(ModalSize::Small);
 });
@@ -82,7 +82,7 @@ it('BelongsTo toArray includes showCreateRelationButton and modalSize', function
     $field = BelongsTo::make('author')
         ->relatedResource('users')
         ->showCreateRelationButton()
-        ->modalSize('lg');
+        ->modalSize(ModalSize::Large);
 
     $arr = $field->toArray();
 

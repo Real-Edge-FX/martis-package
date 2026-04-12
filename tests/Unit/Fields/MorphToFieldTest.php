@@ -94,7 +94,7 @@ class MorphToFieldTest extends TestCase
 
     public function test_modal_size_custom_string(): void
     {
-        $field = MorphTo::make('commentable')->modalSize('5xl');
+        $field = MorphTo::make('commentable')->modalSize(ModalSize::FiveExtraLarge);
 
         $arr = $field->toArray();
         $this->assertSame('5xl', $arr['modalSize']);

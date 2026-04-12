@@ -43,7 +43,7 @@ class ReplicateTestResource extends Resource
             BelongsTo::make('category_id', 'Category')
                 ->relatedResource('inline-create-category-models')
                 ->showCreateRelationButton()
-                ->modalSize('lg'),
+                ->modalSize(ModalSize::Large),
         ];
     }
 }
