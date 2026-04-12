@@ -192,6 +192,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Storage
+    |--------------------------------------------------------------------------
+    | Configure the default storage disk for all Martis file operations.
+    | This acts as the global fallback when no disk is explicitly specified
+    | on a field, resource, or profile section.
+    |
+    | disk - Default filesystem disk (e.g. 'public', 'local', 's3').
+    |        Individual sections (avatar.disk, attachments) fall back to this
+    |        value when they are not explicitly configured.
+    */
+    'storage' => [
+        'disk' => env('MARTIS_STORAGE_DISK', 'public'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Resources Path
     |--------------------------------------------------------------------------
     | Where auto-discovery looks for Martis resource classes in the app.
