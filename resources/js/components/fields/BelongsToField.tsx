@@ -52,12 +52,13 @@ function PeekCard({ title, recordId, subtitle, peekData, showColumnNames = false
   return createPortal(
     <div
       data-testid="peek-card"
-      className="fixed rounded-lg border shadow-lg p-2.5 text-sm pointer-events-none"
+      className="fixed rounded-lg border p-2.5 text-sm pointer-events-none"
       style={{
         backgroundColor: 'var(--martis-surface)',
         borderColor: 'var(--martis-border)',
         color: 'var(--martis-text)',
         zIndex: 9999,
+        boxShadow: 'var(--martis-peek-shadow)',
         top: `${top}px`,
         left: `${left}px`,
         minWidth: '10rem',
