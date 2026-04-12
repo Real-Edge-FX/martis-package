@@ -165,11 +165,8 @@ class MorphTo extends Field
     /**
      * Set the modal size for inline creation.
      */
-    public function modalSize(ModalSize|string $size): static
+    public function modalSize(ModalSize $size): static
     {
-        if (is_string($size)) {
-            $size = ModalSize::from($size);
-        }
         $this->modalSize = $size;
 
         return $this;

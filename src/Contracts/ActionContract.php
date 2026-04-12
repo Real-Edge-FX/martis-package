@@ -212,6 +212,57 @@ interface ActionContract
     /** Get the pivot section label. */
     public function getPivotLabel(): ?string;
 
+
+    // -------------------------------------------------------------------------
+    // Then callback
+    // -------------------------------------------------------------------------
+
+    /** Get the then callback. */
+    public function getThenCallback(): ?Closure;
+
+    // -------------------------------------------------------------------------
+    // Queued action support
+    // -------------------------------------------------------------------------
+
+    /** Whether this action should be queued. */
+    public function isQueued(): bool;
+
+    // -------------------------------------------------------------------------
+    // Closure handler accessors
+    // -------------------------------------------------------------------------
+
+    /** Get the closure handler for closure-based actions. */
+    public function getClosureHandler(): ?Closure;
+
+    // -------------------------------------------------------------------------
+    // Martis extensions: Dry-run / Preview
+    // -------------------------------------------------------------------------
+
+    /** Enable dry-run preview for this action. */
+    public function withDryRun(): static;
+
+    /** Whether dry-run preview is enabled. */
+    public function hasDryRun(): bool;
+
+    /**
+     * Execute a dry-run preview (no side effects).
+     *
+     * @param  Collection<int, \Illuminate\Database\Eloquent\Model>  $models
+     * @return array<string, mixed>
+     */
+    public function dryRun(ActionFields $fields, Collection $models): array;
+
+    // -------------------------------------------------------------------------
+    // Martis extensions: Custom component
+    // -------------------------------------------------------------------------
+
+    /**
+     * Use a custom component inside the action modal.
+     *
+     * @param  array<string, mixed>  $props
+     */
+    public function component(string $componentKey, array $props = []): static;
+
     // -------------------------------------------------------------------------
     // Serialization
     // -------------------------------------------------------------------------

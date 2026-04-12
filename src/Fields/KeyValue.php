@@ -32,6 +32,7 @@ class KeyValue extends Field
 
     protected bool $addingRowsDisabled = false;
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'key_value';
@@ -96,11 +97,13 @@ class KeyValue extends Field
         return $this;
     }
 
+    /** Get the key column label. */
     public function getKeyLabel(): string
     {
         return $this->keyLabel;
     }
 
+    /** Get the value column label. */
     public function getValueLabel(): string
     {
         return $this->valueLabel;

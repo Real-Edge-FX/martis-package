@@ -73,6 +73,7 @@ class Tag extends Field
         return new static($relationship, $label, $relationship);
     }
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'tag';
@@ -162,41 +163,49 @@ class Tag extends Field
         return $this;
     }
 
+    /** Get the relationship method name. */
     public function getRelationship(): string
     {
         return $this->relationship;
     }
 
+    /** Get the attribute used as the tag label. */
     public function getTitleAttribute(): string
     {
         return $this->titleAttribute;
     }
 
+    /** Get the related resource class, if any. */
     public function getRelatedResource(): ?string
     {
         return $this->relatedUriKey;
     }
 
+    /** Whether a preview panel is shown on tag click. */
     public function hasPreview(): bool
     {
         return $this->withPreview;
     }
 
+    /** Whether tags are rendered as a vertical list instead of inline chips. */
     public function isDisplayAsList(): bool
     {
         return $this->displayAsList;
     }
 
+    /** Whether the "create new tag" button is shown. */
     public function isShowCreateRelationButton(): bool
     {
         return $this->showCreateRelationButton;
     }
 
+    /** Get the modal size used for the create-relation dialog. */
     public function getModalSize(): ModalSize
     {
         return $this->modalSize;
     }
 
+    /** Whether all available tags are preloaded on mount. */
     public function isPreload(): bool
     {
         return $this->preload;

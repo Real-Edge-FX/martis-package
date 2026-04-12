@@ -27,6 +27,7 @@ class Code extends Field
 
     protected CodeLanguage $language = CodeLanguage::Javascript;
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'code';
@@ -37,6 +38,7 @@ class Code extends Field
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
+    /** Treat the stored value as a JSON string — pretty-print on display. */
     public function json(): static
     {
         $this->isJson = true;
@@ -44,6 +46,7 @@ class Code extends Field
         return $this;
     }
 
+    /** Set the syntax-highlight language. */
     public function language(CodeLanguage $language): static
     {
         $this->language = $language;
@@ -51,16 +54,19 @@ class Code extends Field
         return $this;
     }
 
+    /** Whether JSON pretty-print mode is enabled. */
     public function isJson(): bool
     {
         return $this->isJson;
     }
 
+    /** Get the active syntax-highlight language. */
     public function getLanguage(): CodeLanguage
     {
         return $this->language;
     }
 
+    /** Resolve the stored value, pretty-printing JSON when enabled. */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $value = parent::resolve($model, $attribute);
@@ -80,6 +86,7 @@ class Code extends Field
         return $value;
     }
 
+    /** Fill the model attribute from the submitted form value. */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

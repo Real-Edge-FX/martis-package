@@ -258,11 +258,8 @@ class BelongsToMany extends Field
      *
      * Nova v5 parity: ->modalSize('lg')
      */
-    public function modalSize(ModalSize|string $size, ?string $height = null): static
+    public function modalSize(ModalSize $size, ?string $height = null): static
     {
-        if (is_string($size)) {
-            $size = ModalSize::from($size);
-        }
         $this->modalSize = $size;
         $this->modalHeight = $height;
 

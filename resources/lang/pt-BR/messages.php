@@ -80,4 +80,7 @@ return [
     'morph_to_empty' => '—',
     'morph_to_clear' => 'Limpar seleção',
     'morph_to_create_new' => 'Criar novo {{type}}',
+    'record_force_deleted' => 'Registro excluído permanentemente.',
+    'record_replicated' => 'Registro duplicado com sucesso.',
+    'force_delete_confirm' => 'Tem certeza? Esta ação é permanente e não pode ser desfeita.',
 ];

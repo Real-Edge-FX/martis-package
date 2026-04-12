@@ -51,6 +51,7 @@ class Badge extends Field
     /** @var array<string, string> Maps badge type → icon name */
     protected array $icons = [];
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'badge';

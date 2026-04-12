@@ -196,6 +196,47 @@ interface OverrideProps {
 - Close on ESC or backdrop click
 - Responsive grid layout with field column spans
 
+### DrawerOverride PHP API
+
+Use the `DrawerOverride` class for chainable PHP configuration of built-in drawers:
+
+```php
+use Martis\Enums\DrawerPosition;
+
+public function overrides(): array
+{
+    return [
+        'create' => DrawerOverride::create()
+            ->width('600px')
+            ->expandedWidth('900px')
+            ->allowExpand()
+            ->allowFullscreen()
+            ->position(DrawerPosition::Right)
+            ->showCloseButton()
+            ->backdrop(false)
+            ->subtitle('Fill in the details below')
+            ->showIcon()
+            ->iconColor('#6366f1'),
+    ];
+}
+```
+
+**Available methods:**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `width()` | `width(string $width)` | Set the collapsed drawer width (CSS value, e.g. `'40rem'`). |
+| `expandedWidth()` | `expandedWidth(string $width)` | Set the expanded drawer width. |
+| `allowExpand()` | `allowExpand(bool $value = true)` | Show the expand/collapse toggle button. |
+| `allowFullscreen()` | `allowFullscreen(bool $value = true)` | Show the fullscreen toggle button. |
+| `showCloseButton()` | `showCloseButton(bool $value = true)` | Show the close (×) button in the header. |
+| `position()` | `position(DrawerPosition $position)` | Slide in from `DrawerPosition::Right` (default) or `DrawerPosition::Left`. |
+| `backdrop()` | `backdrop(bool $value = true)` | Show a dimmed backdrop behind the drawer. |
+| `subtitle()` | `subtitle(string $subtitle)` | Display a subtitle below the drawer title. |
+| `showIcon()` | `showIcon(bool\|string $value = true)` | Show an icon in the header. Pass a Phosphor icon name to use a specific icon. |
+| `iconColor()` | `iconColor(string $color)` | Set the header icon color (any CSS color value). |
+
+
 ## 4. Server-Side Hooks
 
 Lifecycle hooks execute custom logic before/after CRUD operations.

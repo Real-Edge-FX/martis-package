@@ -36,6 +36,7 @@ class Trix extends Field
 
     protected ClickBehavior $linkClickBehavior = ClickBehavior::SamePage;
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'trix';
@@ -46,6 +47,7 @@ class Trix extends Field
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
+    /** Always render the Trix editor (never collapse to read-only view). */
     public function alwaysShow(): static
     {
         $this->alwaysShow = true;
@@ -53,6 +55,7 @@ class Trix extends Field
         return $this;
     }
 
+    /** Enable file attachments, optionally on a specific storage disk. */
     public function withFiles(string $disk = 'public'): static
     {
         $this->withFilesDisk = $disk;
@@ -60,6 +63,7 @@ class Trix extends Field
         return $this;
     }
 
+    /** Set the toolbar size. */
     public function toolbarSize(ToolbarSize $size): static
     {
         $this->toolbarSize = $size;
@@ -67,6 +71,7 @@ class Trix extends Field
         return $this;
     }
 
+    /** Set the click behaviour for inline images. */
     public function imageClickBehavior(ClickBehavior $behavior): static
     {
         $this->imageClickBehavior = $behavior;
@@ -74,6 +79,7 @@ class Trix extends Field
         return $this;
     }
 
+    /** Set the click behaviour for links. */
     public function linkClickBehavior(ClickBehavior $behavior): static
     {
         $this->linkClickBehavior = $behavior;
@@ -81,11 +87,13 @@ class Trix extends Field
         return $this;
     }
 
+    /** Whether the editor is always rendered in edit mode. */
     public function isAlwaysShow(): bool
     {
         return $this->alwaysShow;
     }
 
+    /** Get the storage disk used for file attachments. */
     public function getWithFilesDisk(): ?string
     {
         return $this->withFilesDisk;

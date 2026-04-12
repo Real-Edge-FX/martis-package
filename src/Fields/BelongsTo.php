@@ -351,11 +351,8 @@ class BelongsTo extends Field
      *
      * Nova v5 parity: modalSize("sm" | "md" | "lg" | "xl" | "2xl" | ... | "7xl")
      */
-    public function modalSize(ModalSize|string $size): static
+    public function modalSize(ModalSize $size): static
     {
-        if (is_string($size)) {
-            $size = ModalSize::from($size);
-        }
         $this->modalSize = $size;
 
         return $this;

@@ -80,4 +80,7 @@ return [
     'morph_to_empty' => '—',
     'morph_to_clear' => 'Clear selection',
     'morph_to_create_new' => 'Create new {{type}}',
+    'record_force_deleted' => 'Record permanently deleted.',
+    'record_replicated' => 'Record duplicated successfully.',
+    'force_delete_confirm' => 'Are you sure? This action is permanent and cannot be undone.',
 ];

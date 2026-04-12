@@ -20,6 +20,7 @@ class Heading extends Field
         $this->showOnIndex = false;
     }
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'heading';

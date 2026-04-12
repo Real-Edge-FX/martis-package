@@ -34,6 +34,7 @@ class Markdown extends Field
 
     protected ?string $withFilesDisk = null;
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'markdown';
@@ -44,6 +45,7 @@ class Markdown extends Field
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
+    /** Always render the Markdown editor (never collapse to preview). */
     public function alwaysShow(): static
     {
         $this->alwaysShow = true;
@@ -51,6 +53,7 @@ class Markdown extends Field
         return $this;
     }
 
+    /** Set the Markdown rendering preset. */
     public function preset(MarkdownPreset $preset): static
     {
         $this->preset = $preset;
@@ -58,6 +61,7 @@ class Markdown extends Field
         return $this;
     }
 
+    /** Enable file attachments, optionally on a specific storage disk. */
     public function withFiles(string $disk = 'public'): static
     {
         $this->withFilesDisk = $disk;
@@ -65,16 +69,19 @@ class Markdown extends Field
         return $this;
     }
 
+    /** Whether the editor is always rendered in edit mode. */
     public function isAlwaysShow(): bool
     {
         return $this->alwaysShow;
     }
 
+    /** Get the active Markdown rendering preset. */
     public function getPreset(): MarkdownPreset
     {
         return $this->preset;
     }
 
+    /** Get the storage disk used for file attachments. */
     public function getWithFilesDisk(): ?string
     {
         return $this->withFilesDisk;

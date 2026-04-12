@@ -18,22 +18,33 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
   const [wizardOpen, setWizardOpen] = useState(false)
   const [disabling, setDisabling] = useState(false)
   const [disableConfirmOpen, setDisableConfirmOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
   const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [regenerating, setRegenerating] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  function openDisableConfirm() {
+    setCurrentPassword('')
+    setDisableConfirmOpen(true)
+  }
+
+  function closeDisableConfirm() {
+    setCurrentPassword('')
+    setDisableConfirmOpen(false)
+  }
+
   async function handleDisable() {
     setDisabling(true)
     try {
-      await api.delete('/api/profile/2fa')
+      await api.delete('/api/profile/2fa', { current_password: currentPassword })
       onUpdate(false)
       addToast('success', t('2fa_disabled_success'))
     } catch {
       addToast('error', t('error'))
     } finally {
       setDisabling(false)
-      setDisableConfirmOpen(false)
+      closeDisableConfirm()
     }
   }
 
@@ -111,7 +122,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               </button>
               <button
                 type="button"
-                onClick={() => setDisableConfirmOpen(true)}
+                onClick={openDisableConfirm}
                 className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
                 style={{
                   backgroundColor: 'var(--martis-surface-alt)',
@@ -146,7 +157,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
       {/* Confirm Disable 2FA Dialog */}
       <Dialog
         visible={disableConfirmOpen}
-        onHide={() => setDisableConfirmOpen(false)}
+        onHide={closeDisableConfirm}
         header={
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
@@ -164,7 +175,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
             <button
               type="button"
               disabled={disabling}
-              onClick={() => setDisableConfirmOpen(false)}
+              onClick={closeDisableConfirm}
               className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--martis-surface-alt)',
@@ -177,7 +188,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
             </button>
             <button
               type="button"
-              disabled={disabling}
+              disabled={disabling || !currentPassword}
               onClick={() => void handleDisable()}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: '#dc2626' }}
@@ -188,9 +199,29 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
           </div>
         }
       >
-        <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-          {t('2fa_disable_confirm_body')}
-        </p>
+        <div className="space-y-4">
+          <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+            {t('2fa_disable_confirm_body')}
+          </p>
+          <div>
+            <label
+              htmlFor="disable-2fa-password"
+              className="block text-sm font-medium martis-text mb-1"
+            >
+              {t('current_password')}
+            </label>
+            <input
+              id="disable-2fa-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && currentPassword) void handleDisable() }}
+              className="w-full rounded-lg border px-3 py-2 text-sm martis-text martis-card-bg martis-border focus:outline-none focus:ring-2"
+              style={{ borderColor: 'var(--martis-border)' }}
+              autoComplete="current-password"
+            />
+          </div>
+        </div>
       </Dialog>
 
       {/* Recovery Codes Dialog */}

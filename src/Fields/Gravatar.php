@@ -31,6 +31,7 @@ class Gravatar extends Field
 
     protected GravatarSourceType $sourceType = GravatarSourceType::Email;
 
+    /** Returns the field type identifier. */
     public function type(): string
     {
         return 'gravatar';
@@ -102,11 +103,13 @@ class Gravatar extends Field
         return $this->sourceType(GravatarSourceType::Url);
     }
 
+    /** Get the avatar shape. */
     public function getShape(): AvatarShape
     {
         return $this->shape;
     }
 
+    /** Get the avatar size in pixels. */
     public function getSize(): int
     {
         return $this->size;
@@ -146,14 +149,6 @@ class Gravatar extends Field
         return self::gravatarUrl($value, $this->size);
     }
 
-    /**
-     * Resolve the raw value (email or URL) for form contexts.
-     * This returns the unmodified model value so forms show the actual stored data.
-     */
-    public function resolveForForm(Model $model, ?string $attribute = null): mixed
-    {
-        return $model->getAttribute($attribute ?? $this->attribute);
-    }
 
     /**
      * When shown on forms, fill saves the raw value (email or URL).

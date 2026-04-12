@@ -52,6 +52,10 @@ export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'sel
   | 'has_many'
   | 'belongs_to_many'
   | 'morph_to'
+  | 'has_one'
+  | 'morph_many'
+  | 'morph_one'
+  | 'morph_to_many'
 
 export interface SelectOption {
   value: string | number
