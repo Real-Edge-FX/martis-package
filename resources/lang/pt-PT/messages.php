@@ -21,6 +21,7 @@ return [
     'no_results_found' => 'Nenhum resultado encontrado.',
     'no_options' => 'Nenhuma opção disponível.',
     'no_tags_available' => 'Nenhuma tag disponível.',
+    'clear' => 'Limpar',
     'search' => 'Pesquisar…',
     'search_tags' => 'Pesquisar tags…',
     'select' => 'Selecionar…',

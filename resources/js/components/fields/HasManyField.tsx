@@ -261,7 +261,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             </button>
           )}
           {meta?.perPageOptions && (
-            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page')}:</label>
               <select
                 value={perPage}
