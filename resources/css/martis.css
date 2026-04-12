@@ -39,7 +39,7 @@
   --martis-topbar: #1e293b;
   --martis-search-bg: rgba(255, 255, 255, 0.06);
   --martis-search-border: rgba(255, 255, 255, 0.1);
-  --martis-peek-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --martis-peek-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
   --martis-row-even: rgba(30, 41, 59, 0.5);
   --martis-row-hover: rgba(51, 65, 85, 0.5);
 

@@ -71,6 +71,7 @@ return [
     'belongs_to_none_option' => '— None —',
     'belongs_to_empty' => '—',
     'belongs_to_clear' => 'Clear selection',
+    'belongs_to_multiple_selected' => '{{n}} selected',
     'morph_to_type_placeholder' => 'Select type...',
     'morph_to_resource_placeholder' => 'Select {{type}}...',
     'morph_to_search_placeholder' => 'Search...',
