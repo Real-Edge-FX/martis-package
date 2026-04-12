@@ -672,35 +672,55 @@ BelongsTo::make('category_id', 'Category')
 
 #### Peek / Preview
 
-The peek card appears on hover in index/detail mode, showing a preview of the related record.
+The peek card appears when the user hovers the small preview icon next to a related record link.
+Content is fetched lazily from the related resource's `fieldsForPreview()` — aligned with
+Laravel Nova v5's concept of peeking at BelongsTo relationships.
+
+The icon is the **only** trigger; hovering the record link itself does **not** open the peek card.
+This is the single intentional UX difference from Nova: Nova triggers peek on link hover,
+Martis triggers it on the icon only.
 
 ```php
+// Peek is enabled by default
 BelongsTo::make('author_id', 'Author')
     ->relatedResource('users')
-    ->peekColumns(['name', 'email', 'role'])  // columns to show in card
-    ->showPeekColumnName()                     // show column labels (default: false)
-    ->peekSize(\Martis\Enums\PeekSize::LG)         // card width (xs/sm/md/lg/xl)
 
 // Disable peek entirely
 BelongsTo::make('author_id')->noPeeking()
 
-// peekable() is the default (true)
+// Equivalent
 BelongsTo::make('author_id')->peekable(false)
 ```
 
+The peek card content is governed by the **related resource's `fieldsForPreview()` method**,
+which defaults to the detail fields (`fieldsForDetail()`). Override it on the resource class
+to control exactly which fields appear in the peek card:
+
+```php
+// UserResource.php (or any resource)
+public function fieldsForPreview(Request $request): array
+{
+    return [
+        Text::make('Name'),
+        Text::make('Email'),
+        Text::make('Role'),
+    ];
+}
+```
+
+Fields can also be shown/hidden from preview individually. By default a field visible on detail
+is also visible in preview (`showOnPreview` falls back to `showOnDetail`).
+
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| `peekable` | `peekable(bool $value = true): static` | `$this` | Enable/disable the peek preview on hover. | `true` |
+| `peekable` | `peekable(bool $value = true): static` | `$this` | Enable/disable the peek preview icon. | `true` |
 | `noPeeking` | `noPeeking(): static` | `$this` | Disable peek. Shorthand for `peekable(false)`. | — |
-| `peekColumns` | `peekColumns(array $columns): static` | `$this` | Columns from the related model to display in the peek card. If empty, shows title + ID. | `[]` |
-| `showPeekColumnName` | `showPeekColumnName(bool $show = true): static` | `$this` | Show column labels next to values in the peek card. | `false` |
-| `peekSize` | `peekSize(PeekSize $size): static` | `$this` | Card width: `PeekSize::XS` (8rem) through `PeekSize::XL` (28rem). | `PeekSize::MD` (16rem) |
 
 **Overrides:**
 - `resolve()` returns `{id, title}` (single) or `[{id, title}, ...]` (multiple).
 - `fill()` sets FK (single) or registers deferred pivot sync (multiple) via `DeferredRelationSync`.
 
-**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `peekColumns`, `showPeekColumnName`, `peekSize`, `placeholder`, `iconColor`
+**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `placeholder`, `iconColor`
 
 ---
 

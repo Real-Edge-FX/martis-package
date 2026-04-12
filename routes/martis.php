@@ -201,6 +201,9 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Replicate fields (pre-fill data for create form)
                                 Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
                                     ->name('resources.replicate');
+                                // Peek card — fetch related resource preview fields (Nova v5 parity)
+                                Route::get('/resources/{resource}/{id}/peek', [ResourceController::class, 'peek'])
+                                    ->name('resources.peek');
                                 // Action routes — Nova v5 parity
                                 Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
                                     ->name('resources.actions.index');

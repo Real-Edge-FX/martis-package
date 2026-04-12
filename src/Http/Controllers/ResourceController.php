@@ -1195,6 +1195,67 @@ class ResourceController extends MartisController
      * BelongsTo fields in multiple mode register pending syncs during fill().
      * This method executes them after the model has been persisted.
      */
+
+    // -------------------------------------------------------------------------
+    // Peek — GET /api/resources/{resource}/{id}/peek
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return a compact peek card payload for the given resource record.
+     *
+     * Used by BelongsTo and MorphTo frontend components to load peek content
+     * lazily when the user hovers the preview icon. Content is derived from
+     * fieldsForPreview() on the related resource — aligned with the resource's
+     * own field definitions, not a custom column list on the field.
+     *
+     * Nova v5 parity: peek content comes from the resource (fieldsForPreview),
+     * not from a custom peekColumns() list defined on the BelongsTo field.
+     *
+     * @response array{data: array{title: string, attributes: list<array{label: string, value: mixed}>}}
+     */
+    public function peek(Request $request, string $resource, int|string $id): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $model = $this->findModel($resourceClass, $id);
+
+        if ($model === null) {
+            return JsonErrorResponse::notFound()->toResponse();
+        }
+
+        $res = new $resourceClass($model);
+
+        if (! $res->authorizedToView($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        $fields = Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW);
+
+        $attributes = [];
+        foreach ($fields as $field) {
+            /** @var FieldContract&Field $fieldInstance */
+            $fieldInstance = $field;
+            $value = $fieldInstance->resolveForDisplay($model);
+            if ($value === null) {
+                continue;
+            }
+            $attributes[] = [
+                'label' => $field->label(),
+                'value' => $value,
+            ];
+        }
+
+        return JsonResponse::make([
+            'title' => $res->title(),
+            'attributes' => $attributes,
+        ])->toResponse();
+    }
+
     private function syncDeferredRelations(Model $model): void
     {
         DeferredRelationSync::sync($model);
