@@ -7,6 +7,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
 import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown, CaretUpDown, CaretRight } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
@@ -64,6 +65,7 @@ export function HasManyFieldIndexDisplay({ field, value }: FieldDisplayProps) {
 function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const { t: tRes } = useTranslation('resources')
   const navigate = useNavigate()
   const qc = useQueryClient()
 
@@ -245,16 +247,12 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             </button>
           )}
           {meta?.perPageOptions && (
-            <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+              <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page')}:</label>
               <select
                 value={perPage}
                 onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                className="rounded border px-1.5 py-0.5 text-xs"
-                style={{
-                  borderColor: 'var(--martis-border)',
-                  backgroundColor: 'var(--martis-input-bg)',
-                  color: 'var(--martis-text)',
-                }}
+                className="martis-perpage-select"
               >
                 {meta.perPageOptions.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
@@ -369,49 +367,16 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
       </div>
 
       {/* Pagination */}
-      {pagination && pagination.last_page > 1 && (
-        <div
-          className="flex items-center justify-between rounded-b-xl px-4 py-3"
-          style={{
-            borderTop: '1px solid var(--martis-border)',
-            backgroundColor: 'var(--martis-surface)',
-          }}
-        >
-          <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-            {pagination.from}–{pagination.to} / {pagination.total}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-input-bg)',
-                color: 'var(--martis-text)',
-              }}
-            >
-              ←
-            </button>
-            <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-              {page} / {pagination.last_page}
-            </span>
-            <button
-              type="button"
-              disabled={page >= pagination.last_page}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-input-bg)',
-                color: 'var(--martis-text)',
-              }}
-            >
-              →
-            </button>
-          </div>
-        </div>
+      {pagination && (
+        <Pagination
+          currentPage={pagination.current_page}
+          lastPage={pagination.last_page}
+          total={pagination.total}
+          perPage={pagination.per_page ?? perPage}
+          from={pagination.from ?? null}
+          to={pagination.to ?? null}
+          onPageChange={setPage}
+        />
       )}
 
       </>
