@@ -419,6 +419,62 @@ BelongsTo::make('author_id', 'Author')
 - With `peekColumns(['name', 'email'])`: shows a table with those attribute key-value pairs
 - Disable the peek entirely with `->noPeeking()`
 
+##### Peek Size
+
+Control the horizontal width of the peek card with `peekSize()`:
+
+```php
+use Martis\Enums\PeekSize;
+
+BelongsTo::make('author_id', 'Author')
+    ->relatedResource('users')
+    ->peekSize(PeekSize::LG)   // xs | sm | md (default) | lg | xl
+```
+
+| Value | Width |
+|-------|-------|
+| `PeekSize::XS` | 160 px |
+| `PeekSize::SM` | 220 px |
+| `PeekSize::MD` | 280 px (default) |
+| `PeekSize::LG` | 360 px |
+| `PeekSize::XL` | 480 px |
+
+##### Column Labels in Peek
+
+By default, the peek card shows only the **values** of each column (no label). Enable column labels with `showPeekColumnName()`:
+
+```php
+BelongsTo::make('author_id', 'Author')
+    ->relatedResource('users')
+    ->peekColumns(['name', 'email'])
+    ->showPeekColumnName()          // show labels (off by default)
+    ->showPeekColumnName(false)     // explicitly hide labels
+```
+
+#### Display Column in Index Table (BelongsTo)
+
+Define which attribute is displayed as the linked text in the index table with `displayColumn()`:
+
+```php
+BelongsTo::make('category_id', 'Category')
+    ->relatedResource('categories')
+    ->displayColumn('name')   // column to render in the table cell
+```
+
+Falls back to the related resource's `titleAttribute()` when not configured.
+
+#### Placeholder (BelongsTo)
+
+Set a custom placeholder for the selector trigger button shown when no value is selected:
+
+```php
+BelongsTo::make('category_id', 'Category')
+    ->relatedResource('categories')
+    ->placeholder('Select a category...')
+```
+
+Falls back to the translated generic placeholder when not set.
+
 #### Resource Icon & Subtitle in Modal (BUG04)
 
 By default, the inline create modal shows a generic `+` icon. You can configure the modal header to use the related resource's icon:
