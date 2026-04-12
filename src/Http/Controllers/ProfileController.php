@@ -153,10 +153,19 @@ class ProfileController extends MartisController
     /**
      * Disable 2FA for the authenticated user.
      *
+     * Requires the current password to prevent an attacker with a stolen
+     * session from silently disabling 2FA.
+     *
+     * @body-param string current_password required
+     *
      * @response array{message: string}
      */
     public function twoFactorDisable(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $request->validate([
+            'current_password' => ['required', 'string', 'current_password'],
+        ]);
+
         $user = $this->resolveUser($request);
         $twoFactor->disable($user);
 

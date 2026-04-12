@@ -216,7 +216,7 @@ return [
     | Allowed disks restricts which storage disks the upload endpoint accepts.
     |*/
     'attachments' => [
-        'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
+        'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
         'allowed_disks' => ['public', 'local'],
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
     ],

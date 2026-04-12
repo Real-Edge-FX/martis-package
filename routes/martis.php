@@ -33,8 +33,14 @@ Route::middleware(config('martis.middleware', ['web']))
         // Favicon — public, served from package or configured path
         Route::get('/favicon.ico', function () {
             $faviconPath = config('martis.brand.favicon');
-            if ($faviconPath && file_exists(public_path($faviconPath))) {
-                return response()->file(public_path($faviconPath));
+            if ($faviconPath) {
+                // Block path traversal and absolute paths
+                if (str_contains($faviconPath, '..') || str_starts_with($faviconPath, '/')) {
+                    abort(400, 'Invalid favicon path.');
+                }
+                if (file_exists(public_path($faviconPath))) {
+                    return response()->file(public_path($faviconPath));
+                }
             }
             $default = public_path('vendor/martis/favicon.ico');
             if (file_exists($default)) {

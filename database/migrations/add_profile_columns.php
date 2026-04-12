@@ -31,6 +31,9 @@ return new class extends Migration
             if (! Schema::hasColumn('users', 'two_factor_confirmed_at')) {
                 $table->timestamp('two_factor_confirmed_at')->nullable()->after('two_factor_recovery_codes');
             }
+            if (! Schema::hasColumn('users', 'two_factor_last_used_at')) {
+                $table->timestamp('two_factor_last_used_at')->nullable()->after('two_factor_confirmed_at');
+            }
         });
     }
 
@@ -45,6 +48,7 @@ return new class extends Migration
             Schema::hasColumn('users', 'two_factor_secret') ? 'two_factor_secret' : null,
             Schema::hasColumn('users', 'two_factor_recovery_codes') ? 'two_factor_recovery_codes' : null,
             Schema::hasColumn('users', 'two_factor_confirmed_at') ? 'two_factor_confirmed_at' : null,
+            Schema::hasColumn('users', 'two_factor_last_used_at') ? 'two_factor_last_used_at' : null,
         ]);
 
         if ($columns !== []) {

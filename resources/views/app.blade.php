@@ -31,7 +31,10 @@
             loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
-                'sections' => config('martis.profile.sections', ['account', 'password', 'avatar', 'security']),
+                'sections' => array_values(array_intersect(
+                    config('martis.profile.sections', ['account', 'password', 'avatar', 'security']),
+                    ['account', 'password', 'avatar', 'security']
+                )),
                 'menu' => [
                     'label' => config('martis.profile.menu.label'),
                     'icon' => config('martis.profile.menu.icon', 'user'),
@@ -51,8 +54,14 @@
             else document.documentElement.classList.remove('dark');
         })();
     </script>
-    @if(config('martis.theme.name'))
-        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . config('martis.theme.name') . '.css') }}">
+    @php
+        $themeName = config('martis.theme.name');
+        if ($themeName && ! preg_match('/^[a-zA-Z0-9_-]+$/', $themeName)) {
+            $themeName = null;
+        }
+    @endphp
+    @if(!empty($themeName))
+        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
     @endif
     @vite(['resources/js/app.tsx'], 'martis/build')
 </head>

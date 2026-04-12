@@ -30,7 +30,7 @@ class AttachmentController extends MartisController
     {
         /** @var list<string> $allowedMimes */
         $allowedMimes = config('martis.attachments.allowed_mimes', [
-            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+            'jpg', 'jpeg', 'png', 'gif', 'webp',
             'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
             'txt', 'csv', 'zip', 'mp4', 'mp3',
         ]);
@@ -56,7 +56,7 @@ class AttachmentController extends MartisController
         $requestedDisk = $request->input('disk', 'public');
         $disk = in_array($requestedDisk, $allowedDisks, true) ? $requestedDisk : 'public';
 
-        $filename = Str::random(40).'.'.$file->getClientOriginalExtension();
+        $filename = Str::random(40).'.'.$file->extension();
         $path = (string) $file->storeAs('martis-attachments', $filename, $disk);
 
         /** @var FilesystemAdapter $storage */

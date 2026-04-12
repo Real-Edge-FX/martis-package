@@ -223,7 +223,7 @@ it('disables 2FA', function () {
     loginTestUser($user);
     $prefix = config('martis.path', 'martis');
 
-    $response = $this->deleteJson("/{$prefix}/api/profile/2fa");
+    $response = $this->deleteJson("/{$prefix}/api/profile/2fa", ['current_password' => 'password']);
     $response->assertOk();
     $this->assertNull($user->fresh()->two_factor_confirmed_at);
     $this->assertNull($user->fresh()->two_factor_secret);

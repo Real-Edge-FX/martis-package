@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,7 +56,15 @@ class LoginController extends MartisController
         $request->session()->regenerate();
 
         if ($request->expectsJson()) {
-            return response()->json($auth->user());
+            // Filter sensitive fields before returning user data to the client
+            /** @var Model $loginUser */
+            $loginUser = $auth->user();
+            $safe = array_diff_key(
+                $loginUser->toArray(),
+                array_flip(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])
+            );
+
+            return response()->json($safe);
         }
 
         return redirect()->intended(route('martis.index'));
