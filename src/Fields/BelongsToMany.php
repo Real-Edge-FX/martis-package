@@ -256,7 +256,7 @@ class BelongsToMany extends Field
     /**
      * Set the modal size for the attach dialog.
      *
-     * Nova v5 parity: ->modalSize('lg')
+     * Nova v5 parity: ->modalSize(ModalSize::LG)
      */
     public function modalSize(ModalSize $size, ?string $height = null): static
     {

@@ -40,7 +40,7 @@ use Martis\SearchResolver;
  *   PUT    /martis/api/{resource}/{id}/restore      → restore (soft-deleted record)
  *
  * All responses use the JsonResponse / JsonPaginatedResponse / JsonErrorResponse
- * envelopes defined in Bloco 2 (Contracts).
+ * envelopes defined in the contracts layer (see Contracts/).
  */
 class ResourceController extends MartisController
 {

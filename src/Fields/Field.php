@@ -18,7 +18,7 @@ use Martis\FieldContext;
  * field classes only need to declare their `type()` identifier and any
  * type-specific extras.
  *
- * Hook points for Track C (HasMany, MorphTo, etc.):
+ * Hook points for relationship fields (HasMany, MorphTo, etc.):
  *   - Override `resolveUsing(callable $callback)` to customize value resolution
  *   - Override `fillUsing(callable $callback)` to customize model filling
  *   - Override `extraAttributes()` to append type-specific data to toArray()
@@ -820,7 +820,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Component override — Bloco 9
+    // Component override
     // -------------------------------------------------------------------------
 
     /** {@inheritDoc} */
@@ -895,7 +895,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Extension point — Track C hook
+    // Extension point — relationship field hooks
     // -------------------------------------------------------------------------
 
     // -------------------------------------------------------------------------

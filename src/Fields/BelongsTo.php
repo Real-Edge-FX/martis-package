@@ -349,7 +349,7 @@ class BelongsTo extends Field
     /**
      * Set the modal size for inline creation.
      *
-     * Nova v5 parity: modalSize("sm" | "md" | "lg" | "xl" | "2xl" | ... | "7xl")
+     * Nova v5 parity: ->modalSize(ModalSize::LG)
      */
     public function modalSize(ModalSize $size): static
     {

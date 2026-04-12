@@ -1036,7 +1036,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Server-side hooks — Bloco 9
+    // Server-side hooks
     // -------------------------------------------------------------------------
 
     /**
