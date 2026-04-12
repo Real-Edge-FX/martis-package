@@ -41,7 +41,7 @@ export function DrawerUpdate(props: OverrideProps) {
   })
 
   const activeRecord = record ?? recordQuery.data?.data
-  const formFields = useMemo(() => (schema.fieldsForUpdate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group') as FieldDefinition[], [schema])
+  const formFields = useMemo(() => (schema.fieldsForUpdate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [schema])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})

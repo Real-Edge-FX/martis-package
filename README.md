@@ -48,6 +48,7 @@ Visit `/martis` to log in. See the [Installation Guide](docs/installation-guide.
 - **i18n** — English, Portuguese (PT), Portuguese (BR) out of the box
 - **Dark and light theme** — full CSS variable theming, zero hardcoded colours
 - **Panels and tabs** — group fields visually with collapsible panels and tab navigation
+- **Grid layout** — multi-column form layouts via  and ; responsive by default, zero config
 
 ## Documentation
 
@@ -66,6 +67,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | Document | Description |
 |----------|-------------|
 | [Resources](docs/resources.md) | Resource classes, lifecycle hooks, authorization, search, pagination, soft deletes, exceptions |
+| [Grid Layout](docs/grid-layout.md) | Multi-column form layouts: Section::columns() and Field::span() |
 | [Fields Reference](docs/fields.md) | All field types — configuration, visibility flags, validation, enums |
 | [Relationships](docs/relationships.md) | BelongsTo, HasOne, HasMany, BelongsToMany (pivot fields), MorphTo, MorphOne, MorphMany, MorphToMany |
 | [Actions](docs/actions.md) | Inline, bulk, standalone, queued, custom components, authorization, audit log |

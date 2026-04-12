@@ -936,6 +936,23 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /**
+     * Shorthand for colSpan() — sets how many columns this field occupies in a Section grid.
+     *
+     * Designed for use with Section::columns(): define the grid on the Section,
+     * and use span() on each field to control its width.
+     *
+     * Example:
+     *   Section::make('Timeline', [
+     *       Date::make('start_date')->span(6),
+     *       Date::make('end_date')->span(6),
+     *   ])->columns(12)
+     */
+    public function span(int $cols): static
+    {
+        return $this->colSpan($cols);
+    }
+
     // -------------------------------------------------------------------------
     // Arbitrary metadata — withMeta()
     // -------------------------------------------------------------------------

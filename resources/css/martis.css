@@ -2246,3 +2246,16 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-datatable:hover .p-datatable-wrapper::-webkit-scrollbar-thumb {
   background-color: var(--martis-border);
 }
+
+
+/* ── Section grid layout — responsive spans (REA-1292) ───── */
+/* Prevents grid blowout on narrow content */
+.martis-section-grid > * {
+  min-width: 0;
+}
+/* Mobile: all fields expand to full row, overriding developer-set spans */
+@media (max-width: 767px) {
+  .martis-section-grid > * {
+    grid-column: 1 / -1 !important;
+  }
+}

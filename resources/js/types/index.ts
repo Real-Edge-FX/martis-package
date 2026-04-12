@@ -148,7 +148,7 @@ export interface CollectionAuthorizationMetadata {
   authorizedToRunDestructiveAction?: boolean
 }
 
-export type DetailItem = FieldDefinition | PanelDefinition | TabGroupDefinition
+export type DetailItem = FieldDefinition | PanelDefinition | TabGroupDefinition | SectionDefinition
 
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
@@ -245,6 +245,27 @@ export interface PanelDefinition {
   /** Whether the panel can be collapsed by the user */
   collapsible: boolean
   /** Whether the panel starts in a collapsed state */
+  collapsedByDefault: boolean
+  /** Maximum number of fields shown before Show more toggle. null = show all */
+  limit: number | null
+}
+
+
+export interface SectionDefinition {
+  /** Discriminant — always 'section' */
+  type: 'section'
+  /** Section heading displayed in the header bar */
+  title: string
+  /** Fields rendered inside the section */
+  fields: FieldDefinition[]
+  /**
+   * Number of CSS grid columns for this section (default: 12).
+   * Individual fields control their width with Field::span() / colSpan.
+   */
+  columns: number
+  /** Whether the section can be collapsed by the user */
+  collapsible: boolean
+  /** Whether the section starts in a collapsed state */
   collapsedByDefault: boolean
   /** Maximum number of fields shown before Show more toggle. null = show all */
   limit: number | null

@@ -32,7 +32,7 @@ export function DrawerCreate(props: OverrideProps) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
-  const formFields = useMemo(() => (schema.fieldsForCreate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group') as FieldDefinition[], [schema])
+  const formFields = useMemo(() => (schema.fieldsForCreate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [schema])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
