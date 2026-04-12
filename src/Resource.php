@@ -148,7 +148,7 @@ abstract class Resource implements ResourceContract
     /** {@inheritDoc} */
     public static function perPage(): int
     {
-        return 25;
+        return (int) config('martis.pagination.default_per_page', 25);
     }
 
     /**

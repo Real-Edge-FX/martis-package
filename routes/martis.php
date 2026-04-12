@@ -91,21 +91,23 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('attachments.upload');
 
                                 // ──────────────────────────────────────────────────────
-                                // Profile routes
+                                // Profile routes — registered only when profile is enabled
                                 // ──────────────────────────────────────────────────────
-                                Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
-                                Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-                                Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
+                                if (config('martis.profile.enabled', true)) {
+                                    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+                                    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+                                    Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
 
-                                // Avatar
-                                Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
-                                Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
+                                    // Avatar
+                                    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
+                                    Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
 
-                                // 2FA setup (within profile)
-                                Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
-                                Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
-                                Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
-                                Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+                                    // 2FA setup (within profile)
+                                    Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
+                                    Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
+                                    Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
+                                    Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+                                }
 
                                 // Resource CRUD
                                 Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])

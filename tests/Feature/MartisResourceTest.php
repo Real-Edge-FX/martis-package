@@ -42,5 +42,4 @@ it('martis config has expected keys', function () {
     expect($config)->toHaveKey('auth_middleware');
     expect($config)->toHaveKey('brand');
     expect($config)->toHaveKey('pagination');
-    expect($config)->toHaveKey('storage');
 });

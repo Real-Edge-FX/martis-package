@@ -16,6 +16,11 @@ export interface MartisLoaderProps {
   size?: "sm" | "md" | "lg"
   /** Children to render under the loader overlay */
   children?: React.ReactNode
+  /**
+   * Context identifier used to check loader.disableOn config.
+   * Supported: "table", "search", "components", "detail".
+   */
+  context?: "table" | "search" | "components" | "detail"
 }
 
 /**
@@ -38,10 +43,15 @@ export function MartisLoader({
   disabled = false,
   size = "md",
   children,
+  context,
 }: MartisLoaderProps) {
   const { t } = useTranslation("messages")
 
-  if (disabled || !loading) {
+  const loaderCfg = config.loader
+  const globallyDisabled = loaderCfg?.disabled === true
+  const contextDisabled = context !== undefined && loaderCfg?.disableOn?.[context] === true
+
+  if (disabled || globallyDisabled || contextDisabled || !loading) {
     return overlay ? <>{children}</> : null
   }
 

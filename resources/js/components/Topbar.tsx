@@ -8,7 +8,7 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut, UserCircle, List } from "@phosphor-icons/react"
+import { MagnifyingGlass, CaretDown, Sun, Moon, SignOut, UserCircle, List } from "@phosphor-icons/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 
 interface TopbarProps {
@@ -24,9 +24,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
   const [searchOpen, setSearchOpen] = useState(false)
   const isMobile = useIsMobile()
 
-  const showThemeToggle = config.userMenu?.showThemeToggle !== false
-  const showNotifications = config.userMenu?.showNotifications !== false
-  const showProfile = config.profile?.menu?.enabled !== false
+  const showThemeToggle = config.userMenu?.showThemeToggle !== false && config.theme?.allowToggle !== false
+  const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
 
   // Search mode resolution
   const desktopMode = config.search?.enabled === false ? "disabled" : (config.search?.mode ?? "bar")
@@ -222,23 +221,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
       )}
 
       <div className="flex items-center gap-3">
-        {showNotifications && (
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors border-0 cursor-pointer"
-            style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
-            aria-label="Notifications"
-          >
-            <Bell size={16} />
-          </button>
-        )}
-
         {/* User avatar + dropdown menu */}
         <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
         <div

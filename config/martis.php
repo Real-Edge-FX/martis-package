@@ -111,7 +111,7 @@ return [
     |--------------------------------------------------------------------------
     | Configure what appears in the user profile context menu.
     | Set any option to false to hide it.
-    |
+    | showProfile controls the Profile link in the dropdown.
     | 'customItems' allows you to add custom links/actions to the user menu.
     | Each item can have: label, icon (PrimeIcons class), url (route/external).
     | Use ['separator' => true] to add a divider between groups.
@@ -127,7 +127,6 @@ return [
     'user_menu' => [
         'showThemeToggle' => true,
         'showProfile' => true,
-        'showNotifications' => true,
         // 'customItems' => [],
     ],
 
@@ -189,15 +188,6 @@ return [
     'pagination' => [
         'default_per_page' => 25,
         'max_per_page' => 100,
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Storage
-    |--------------------------------------------------------------------------
-    */
-    'storage' => [
-        'disk' => env('MARTIS_STORAGE_DISK', 'public'),
     ],
 
     /*

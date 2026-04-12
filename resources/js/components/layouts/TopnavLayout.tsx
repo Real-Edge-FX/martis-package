@@ -16,7 +16,6 @@ import logoSrc from "@images/logo.png"
 import {
   SquaresFour,
   MagnifyingGlass,
-  Bell,
   CaretDown,
   Sun,
   Moon,
@@ -37,8 +36,7 @@ export function TopnavLayout() {
   })
 
   const brand = config.brand ?? "Martis"
-  const showThemeToggle = config.userMenu?.showThemeToggle !== false
-  const showNotifications = config.userMenu?.showNotifications !== false
+  const showThemeToggle = config.userMenu?.showThemeToggle !== false && config.theme?.allowToggle !== false
   const searchEnabled = config.search?.enabled !== false
 
   const handleKeyDown = useCallback(
@@ -171,18 +169,6 @@ export function TopnavLayout() {
                 aria-label="Search"
               >
                 <MagnifyingGlass size={16} />
-              </button>
-            )}
-            {showNotifications && (
-              <button
-                type="button"
-                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors border-0 cursor-pointer"
-                style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                aria-label="Notifications"
-              >
-                <Bell size={16} />
               </button>
             )}
             <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />

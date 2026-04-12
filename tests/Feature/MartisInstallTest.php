@@ -44,7 +44,6 @@ it('loads the martis configuration', function () {
     expect(config('martis.auth_middleware'))->toBe(['martis.auth']);
     expect(config('martis.brand.name'))->toBe('Martis');
     expect(config('martis.pagination.default_per_page'))->toBe(25);
-    expect(config('martis.storage.disk'))->toBe('public');
 });
 
 it('registers the martis.login route', function () {

@@ -25,6 +25,7 @@ export function ProfilePage() {
 
   const avatarEnabled = config.profile?.avatar?.enabled !== false
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false
+  const sections = config.profile?.sections ?? ['account', 'password', 'avatar', 'security']
 
   useEffect(() => {
     api
@@ -65,39 +66,47 @@ export function ProfilePage() {
       </div>
 
       <div className="space-y-6">
-        {profile && (
-          <>
-            {avatarEnabled && (
-              <AvatarSection
-                avatarUrl={profile.avatar_url}
-                name={profile.name}
-                onUpdate={(url) => {
-                  setProfile((p) => p ? { ...p, avatar_url: url } : p)
-                  updateUser({ avatar_url: url })
-                }}
-              />
-            )}
-
-            <AccountSection
-              name={profile.name}
-              email={profile.email}
-              onUpdate={(name, email) =>
-                setProfile((p) => p ? { ...p, name, email } : p)
-              }
-            />
-
-            <PasswordSection />
-
-            {twoFactorEnabled && (
-              <SecuritySection
-                twoFactorEnabled={profile.two_factor_enabled}
-                onUpdate={(enabled) =>
-                  setProfile((p) => p ? { ...p, two_factor_enabled: enabled } : p)
-                }
-              />
-            )}
-          </>
-        )}
+        {profile && sections.map((section) => {
+          switch (section) {
+            case 'avatar':
+              return avatarEnabled ? (
+                <AvatarSection
+                  key="avatar"
+                  avatarUrl={profile.avatar_url}
+                  name={profile.name}
+                  onUpdate={(url) => {
+                    setProfile((p) => p ? { ...p, avatar_url: url } : p)
+                    updateUser({ avatar_url: url })
+                  }}
+                />
+              ) : null
+            case 'account':
+              return (
+                <AccountSection
+                  key="account"
+                  name={profile.name}
+                  email={profile.email}
+                  onUpdate={(name, email) =>
+                    setProfile((p) => p ? { ...p, name, email } : p)
+                  }
+                />
+              )
+            case 'password':
+              return <PasswordSection key="password" />
+            case 'security':
+              return twoFactorEnabled ? (
+                <SecuritySection
+                  key="security"
+                  twoFactorEnabled={profile.two_factor_enabled}
+                  onUpdate={(enabled) =>
+                    setProfile((p) => p ? { ...p, two_factor_enabled: enabled } : p)
+                  }
+                />
+              ) : null
+            default:
+              return null
+          }
+        })}
       </div>
     </div>
   )

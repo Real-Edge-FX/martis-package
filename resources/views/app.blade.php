@@ -28,7 +28,21 @@
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
             layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
-            loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!}
+            loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
+            profile: {!! json_encode([
+                'enabled' => (bool) config('martis.profile.enabled', true),
+                'sections' => config('martis.profile.sections', ['account', 'password', 'avatar', 'security']),
+                'menu' => [
+                    'label' => config('martis.profile.menu.label'),
+                    'icon' => config('martis.profile.menu.icon', 'user'),
+                ],
+                'avatar' => [
+                    'enabled' => (bool) config('martis.profile.avatar.enabled', true),
+                ],
+                'two_factor' => [
+                    'enabled' => (bool) config('martis.profile.two_factor.enabled', true),
+                ],
+            ]) !!}
         };
         // Apply saved theme before first paint to prevent flash
         (function() {

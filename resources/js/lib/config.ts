@@ -6,7 +6,6 @@ export interface MartisThemeConfig {
 export interface MartisUserMenuConfig {
   showThemeToggle?: boolean
   showProfile?: boolean
-  showNotifications?: boolean
   customItems?: Array<{
     label: string
     icon?: string
@@ -85,6 +84,10 @@ export interface MartisProfileTwoFactorConfig {
 }
 
 export interface MartisProfileConfig {
+  /** Whether the profile page and its backend routes are enabled. Default: true. */
+  enabled?: boolean
+  /** Ordered list of sections to render. Supported: 'account', 'password', 'avatar', 'security'. */
+  sections?: string[]
   menu?: MartisProfileMenuConfig
   avatar?: MartisProfileAvatarConfig
   two_factor?: MartisProfileTwoFactorConfig

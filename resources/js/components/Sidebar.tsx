@@ -5,12 +5,16 @@ import { api } from "@/lib/api"
 import { config } from "@/lib/config"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
-import logoSrc from "@images/logo.png"
+import logoSrcDefault from "@images/logo.png"
 import { SquaresFour, CaretDown, CaretRight, CaretDoubleRight, CaretDoubleLeft } from "@phosphor-icons/react"
 import { ResourceIcon } from "./ResourceIcon"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
+}
+
+function getLogoSrc(): string {
+  return (config.logo ?? logoSrcDefault) as string
 }
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -54,6 +58,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
   }
 
   const brand = getBrand()
+  const logoSrc = getLogoSrc()
 
   // On mobile, hide entirely when closed
   if (isMobile && !mobileOpen) {
