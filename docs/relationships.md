@@ -4,15 +4,19 @@ This guide covers all relationship field types in Martis and how to use them.
 
 ## Overview
 
-Martis provides four relationship field types that map 1:1 to Laravel Eloquent relationships:
+Martis provides nine relationship field types that map 1:1 to Laravel Eloquent relationships:
 
 | Field | Eloquent Relationship | Nova v5 Equivalent |
 |-------|-----------------------|-------------------|
 | `BelongsTo` | `belongsTo()` | `BelongsTo` |
+| `HasOne` | `hasOne()` | `HasOne` |
 | `HasMany` | `hasMany()` | `HasMany` |
 | `BelongsToMany` | `belongsToMany()` | `BelongsToMany` |
 | `Tag` | `belongsToMany()` | `BelongsToMany` (chip UI) |
 | `MorphTo` | `morphTo()` | `MorphTo` |
+| `MorphOne` | `morphOne()` | `MorphOne` |
+| `MorphMany` | `morphMany()` | `MorphMany` |
+| `MorphToMany` | `morphToMany()` | `MorphToMany` |
 
 ---
 
@@ -191,12 +195,140 @@ See [fields.md — MorphTo](fields.md#morphto) for full API reference.
 
 ---
 
+---
+
+## HasOne
+
+A one-to-one relationship. Displays and manages a single related record via an Eloquent `hasOne` relationship. The related record is shown as a read-only panel on the detail page, with optional Create / Edit / Delete controls.
+
+**Detail-only by default** — hidden from index and forms.
+
+```php
+use Martis\Fields\HasOne;
+
+HasOne::make('Profile')
+HasOne::make('Profile', 'profile')
+HasOne::make('Profile', 'profile', ProfileResource::class)
+    ->canCreate(false)
+    ->canUpdate(false)
+    ->canDelete(false)
+```
+
+| Method | Description |
+|--------|-------------|
+| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
+| `canCreate(bool $value = true)` | Show/hide the Create button when no related record exists |
+| `canUpdate(bool $value = true)` | Show/hide the Edit button for the existing related record |
+| `canDelete(bool $value = true)` | Show/hide the Delete button for the existing related record |
+
+---
+
+## MorphOne
+
+A polymorphic one-to-one relationship. Mirrors `HasOne` but for `morphOne` Eloquent relationships. Detail-only by default.
+
+```php
+use Martis\Fields\MorphOne;
+
+MorphOne::make('Thumbnail')
+MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
+    ->canCreate(false)
+    ->canUpdate(false)
+```
+
+| Method | Description |
+|--------|-------------|
+| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
+| `canCreate(bool $value = true)` | Show/hide the Create button |
+| `canUpdate(bool $value = true)` | Show/hide the Edit button |
+| `canDelete(bool $value = true)` | Show/hide the Delete button |
+
+---
+
+## MorphMany
+
+A polymorphic one-to-many relationship. Renders as a DataTable panel on the detail page with full inline CRUD, similar to `HasMany` but for `morphMany` Eloquent relationships.
+
+**Detail-only by default.**
+
+```php
+use Martis\Fields\MorphMany;
+
+MorphMany::make('Comments', 'comments', CommentResource::class)
+    ->collapsable()
+    ->collapsedByDefault()
+    ->perPage(10)
+    ->canCreate(false)
+```
+
+| Method | Description |
+|--------|-------------|
+| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
+| `perPage(int $perPage)` | Records per page in the inline table |
+| `perPageOptions(array $options)` | Custom per-page selector options |
+| `canCreate(bool $value = true)` | Show/hide the Create button |
+| `canUpdate(bool $value = true)` | Show/hide the Edit button |
+| `canDelete(bool $value = true)` | Show/hide the Delete button |
+| `relationSearchable(bool $value = true)` | Enable search within the inline table |
+| `collapsable(bool $value = true)` | Make the panel collapsable |
+| `collapsedByDefault(bool $value = true)` | Start collapsed |
+| `showRelationIcon(bool $value = true)` | Show icon in the panel header |
+| `showRelationCount(bool $value = true)` | Show record count badge |
+| `badgeColor(string $color)` | Override the count badge colour |
+| `badgeIcon(string $icon)` | Override the panel icon |
+
+---
+
+## MorphToMany
+
+A polymorphic many-to-many relationship. Behaves like `BelongsToMany` (DataTable UI, attach/detach, pivot fields, search) but for `morphToMany` Eloquent relationships.
+
+**Detail-only by default.**
+
+```php
+use Martis\Fields\MorphToMany;
+
+MorphToMany::make('Tags', 'tags', TagResource::class)
+    ->titleAttribute('name')
+    ->searchable()
+    ->collapsable()
+    ->fields(fn () => [
+        Text::make('notes', 'Notes')->nullable(),
+    ])
+```
+
+| Method | Description |
+|--------|-------------|
+| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
+| `titleAttribute(string $attribute)` | Column used as the display label in attach modal |
+| `fields(\Closure $closure)` | Pivot fields added to the attach/edit-pivot form |
+| `actions(\Closure $closure)` | Actions available in the pivot table |
+| `searchable(bool $value = true)` | Enable search in the attach modal |
+| `collapsable(bool $value = true)` | Make the panel collapsable |
+| `collapsedByDefault(bool $value = true)` | Start collapsed |
+| `allowDuplicateRelations(bool $value = true)` | Allow attaching the same record twice |
+| `showCreateRelationButton(bool\|\Closure $callback = true)` | Show inline create button in attach modal |
+| `modalSize(ModalSize $size, ?string $height = null)` | Control modal dimensions |
+| `relatableQueryUsing(\Closure $closure)` | Filter the attachable record list |
+| `dontReorderAttachables(bool $value = true)` | Keep DB order in attachable list |
+| `withSubtitles(bool $value = true)` | Show subtitles in search results |
+| `subtitleAttribute(string $attribute)` | Column used as the subtitle |
+| `perPage(int $perPage)` | Records per page in the inline table |
+| `canAttach(bool $value = true)` | Control attach permission |
+| `canDetach(bool $value = true)` | Control detach permission |
+
+
+
 ## Choosing the Right Field
 
 | Use case | Field |
 |----------|-------|
 | FK stored on this model | `BelongsTo` |
-| FK stored on related model | `HasMany` |
+| FK stored on related model, single record | `HasOne` |
+| FK stored on related model, many records | `HasMany` |
 | Pivot table, DataTable UI, pivot fields | `BelongsToMany` |
 | Pivot table, chip/autocomplete UI, no pivot data | `Tag` |
-| Polymorphic parent | `MorphTo` |
+| Polymorphic parent (belongs to one of many types) | `MorphTo` |
+| Polymorphic has-one (single child across types) | `MorphOne` |
+| Polymorphic has-many (many children across types) | `MorphMany` |
+| Polymorphic many-to-many with pivot | `MorphToMany` |

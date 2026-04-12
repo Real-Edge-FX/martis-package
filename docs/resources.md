@@ -524,6 +524,42 @@ public function overrides(): array
 
 See the [Override System](overrides.md) documentation for full details.
 
+## Exception Handling
+
+Martis provides a set of typed exceptions for structured error handling. These are automatically converted to JSON API responses when thrown from resources, actions, or controllers.
+
+| Exception | HTTP Status | Use Case |
+|-----------|-------------|----------|
+| `MartisException` | 500 | Base class for all Martis errors |
+| `ValidationException` | 422 | Input validation failures with per-field errors |
+| `AuthorizationException` | 403 | Unauthorized access attempts |
+| `ResourceNotFoundException` | 404 | Record or resource not found |
+
+```php
+use Martis\Exceptions\ValidationException;
+use Martis\Exceptions\AuthorizationException;
+use Martis\Exceptions\ResourceNotFoundException;
+
+// Per-field validation errors (e.g. in an Action):
+throw ValidationException::fromFieldErrors([
+    'title' => ['The title must be at least 5 characters.'],
+    'slug'  => ['The slug is already taken.'],
+]);
+
+// Single-field shorthand:
+throw ValidationException::forField('slug', 'Slug is already taken.', 'unique');
+
+// Authorization:
+throw AuthorizationException::forAction('delete', 'post');
+
+// Not found:
+throw ResourceNotFoundException::forRecord('posts', $id);
+```
+
+All exceptions extend `MartisException` which itself extends `\RuntimeException`. Laravel's exception handler will catch them automatically. Unhandled `MartisException` subclasses return a 500 JSON response in production.
+
+
+
 ## Complete Example
 
 ```php
