@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Martis\Enums\ModalSize;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\Text;
 use Martis\Fields\Textarea;
