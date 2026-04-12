@@ -4,7 +4,7 @@ import { Badge } from 'primereact/badge'
 import { Dialog } from 'primereact/dialog'
 import { ShieldCheck, ShieldSlash, Copy, Check, ArrowsClockwise, Warning, X, Trash } from '@phosphor-icons/react'
 import { TwoFactorWizard } from './TwoFactorWizard'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 
 interface SecuritySectionProps {
@@ -23,28 +23,36 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [regenerating, setRegenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
 
   function openDisableConfirm() {
     setCurrentPassword('')
+    setPasswordError('')
     setDisableConfirmOpen(true)
   }
 
   function closeDisableConfirm() {
     setCurrentPassword('')
+    setPasswordError('')
     setDisableConfirmOpen(false)
   }
 
   async function handleDisable() {
+    setPasswordError('')
     setDisabling(true)
     try {
       await api.delete('/api/profile/2fa', { current_password: currentPassword })
       onUpdate(false)
+      closeDisableConfirm()
       addToast('success', t('2fa_disabled_success'))
-    } catch {
-      addToast('error', t('error'))
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        setPasswordError(t('current_password_wrong', { defaultValue: 'Password incorrecta. Tente novamente.' }))
+      } else {
+        addToast('error', t('error'))
+      }
     } finally {
       setDisabling(false)
-      closeDisableConfirm()
     }
   }
 
@@ -214,12 +222,15 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               id="disable-2fa-password"
               type="password"
               value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
+              onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError('') }}
               onKeyDown={(e) => { if (e.key === 'Enter' && currentPassword) void handleDisable() }}
-              className="w-full rounded-lg border px-3 py-2 text-sm martis-text martis-card-bg martis-border focus:outline-none focus:ring-2"
-              style={{ borderColor: 'var(--martis-border)' }}
+              className="w-full rounded-lg border px-3 py-2 text-sm martis-text martis-card-bg focus:outline-none focus:ring-2"
+              style={{ borderColor: passwordError ? '#ef4444' : 'var(--martis-border)' }}
               autoComplete="current-password"
             />
+            {passwordError && (
+              <p className="mt-1 text-xs text-red-500">{passwordError}</p>
+            )}
           </div>
         </div>
       </Dialog>

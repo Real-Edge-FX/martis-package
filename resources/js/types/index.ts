@@ -13,6 +13,7 @@ export interface ResourceMeta {
   icon: string | null
   group: string | null
   titleAttribute?: string
+  subtitle?: string | null
 }
 
 export interface NavigationGroup {

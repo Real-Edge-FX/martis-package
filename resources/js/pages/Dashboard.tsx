@@ -88,19 +88,23 @@ export function DashboardPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {groups.flatMap((g) =>
                   g.resources.map((r) => (
-                    <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block">
-                      <Card className="transition-all hover:shadow-md cursor-pointer">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20">
+                    <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block h-full">
+                      <Card className="transition-all hover:shadow-md cursor-pointer h-full">
+                        <div className="flex items-center gap-4 min-h-[2.5rem]">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
                             <ResourceIcon iconName={r.icon ?? null} size={20} className="text-indigo-400" />
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <p className="font-semibold martis-text">{r.label}</p>
-                            {r.group && (
-                              <p className="text-xs martis-text-muted">{r.group}</p>
+                            {r.subtitle ? (
+                              <p className="text-xs martis-text-muted truncate">{r.subtitle}</p>
+                            ) : r.group ? (
+                              <p className="text-xs martis-text-muted truncate">{r.group}</p>
+                            ) : (
+                              <p className="text-xs martis-text-muted invisible">–</p>
                             )}
                           </div>
-                          <CaretRight className="ml-auto martis-text-muted" />
+                          <CaretRight className="flex-shrink-0 martis-text-muted" />
                         </div>
                       </Card>
                     </Link>

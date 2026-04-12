@@ -123,11 +123,13 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
   const [peekPos, setPeekPos] = useState<{ top: number; left: number } | null>(null)
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerSpanRef = useRef<HTMLSpanElement>(null)
+  const peekIconRef = useRef<HTMLAnchorElement>(null)
 
   function handleMouseEnter() {
     peekTimer.current = setTimeout(() => {
-      if (containerSpanRef.current) {
-        const rect = containerSpanRef.current.getBoundingClientRect()
+      const target = peekIconRef.current ?? containerSpanRef.current
+      if (target) {
+        const rect = target.getBoundingClientRect()
         setPeekPos({ top: rect.bottom + 6, left: rect.left })
       }
       setShowPeek(true)
@@ -196,8 +198,6 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
         <span
           ref={containerSpanRef}
           className="inline-flex items-center gap-1"
-          onMouseEnter={peekable ? handleMouseEnter : undefined}
-          onMouseLeave={peekable ? handleMouseLeave : undefined}
         >
           <Link
             to={`/resources/${relatedResource}/${value.id}`}
@@ -208,11 +208,14 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
           </Link>
           {peekable && (
             <Link
+              ref={peekIconRef}
               to={`/resources/${relatedResource}/${value.id}`}
               data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
               data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)' }}
               className={`inline-flex items-center opacity-60 hover:opacity-100 transition-opacity ${peekArrowClass}`}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             >
               <ArrowSquareOut size={13} weight="regular" />
             </Link>

@@ -147,6 +147,10 @@ class ProfileController extends MartisController
             ], 422);
         }
 
+        // Mark session as 2FA-passed so the user is not forced to challenge
+        // immediately after enabling 2FA (fresh session already authenticated).
+        $request->session()->put('martis_two_factor_passed', true);
+
         return response()->json($result);
     }
 
@@ -168,6 +172,9 @@ class ProfileController extends MartisController
 
         $user = $this->resolveUser($request);
         $twoFactor->disable($user);
+
+        // Clear the 2FA-passed session flag so it does not linger
+        $request->session()->forget('martis_two_factor_passed');
 
         return response()->json(['message' => __('martis::profile.2fa_disabled_success')]);
     }

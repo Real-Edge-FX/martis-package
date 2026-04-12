@@ -25,7 +25,7 @@ export function ProfilePage() {
 
   const avatarEnabled = config.profile?.avatar?.enabled !== false
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false
-  const sections = config.profile?.sections ?? ['account', 'password', 'avatar', 'security']
+  const sections = config.profile?.sections ?? ['avatar', 'account', 'password', 'security']
 
   useEffect(() => {
     api
