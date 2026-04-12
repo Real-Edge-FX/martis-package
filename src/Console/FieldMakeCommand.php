@@ -12,6 +12,7 @@ class FieldMakeCommand extends Command
 
     protected $description = 'Create a new Martis field (PHP class + React TSX component)';
 
+    /** Create the command and inject the filesystem dependency. */
     public function __construct(private readonly Filesystem $files)
     {
         parent::__construct();

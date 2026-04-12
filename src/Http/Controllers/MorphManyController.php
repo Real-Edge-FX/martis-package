@@ -35,6 +35,7 @@ use Martis\SearchResolver;
  */
 class MorphManyController extends MartisController
 {
+    /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}

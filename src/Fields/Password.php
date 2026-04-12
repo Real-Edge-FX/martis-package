@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
  */
 class Password extends Field
 {
+    /** Create a password field, hidden from index and detail views. */
     public function __construct(string $attribute, string $label)
     {
         parent::__construct($attribute, $label);
