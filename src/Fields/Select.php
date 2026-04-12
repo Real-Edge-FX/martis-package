@@ -13,6 +13,9 @@ class Select extends Field
     /** @var list<array{label: string, value: scalar}> */
     protected array $options = [];
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'select';

@@ -41,6 +41,9 @@ class ExecuteAction implements ShouldQueue
         public readonly int|string|null $userId = null,
     ) {}
 
+    /**
+     * Handle.
+     */
     public function handle(): void
     {
         /** @var Action $action */

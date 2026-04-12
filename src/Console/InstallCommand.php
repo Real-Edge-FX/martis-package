@@ -12,6 +12,9 @@ class InstallCommand extends Command
 
     protected $description = 'Install the Martis admin panel';
 
+    /**
+     * Handle.
+     */
     public function handle(): int
     {
         $this->components->info('Installing Martis...');

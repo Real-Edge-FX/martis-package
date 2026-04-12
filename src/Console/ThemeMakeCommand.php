@@ -10,6 +10,9 @@ class ThemeMakeCommand extends Command
 
     protected $description = 'Scaffold a custom Martis theme with dark and light mode variables';
 
+    /**
+     * Handle.
+     */
     public function handle(): int
     {
         /** @var string $name */

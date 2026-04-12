@@ -7,24 +7,24 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * MultiSelect field — select multiple values from a predefined option list.
  *
- * Paridade com Laravel Nova v5: MultiSelect field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields#multiselect-field
+ * Laravel Nova v5 parity: MultiSelect field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields#multiselect-field
  *
- * MultiSelect é um field próprio, não um Select com multiple improvisado.
- * Persiste múltiplos valores como JSON array.
+ * MultiSelect is a first-class field, not an improvised Select with multiple.
+ * Persists multiple values as a JSON array.
  *
- * Contextos:
- *  - create: sim
- *  - update: sim
- *  - detail: sim (renderiza chips/labels dos valores selecionados)
- *  - index: sim (renderiza representação resumida)
+ * Contexts:
+ *  - create: yes
+ *  - update: yes
+ *  - detail: yes (renders chips/labels of selected values)
+ *  - index: yes (renders summarised representation)
  *
  * API:
  *  - options(['Label' => 'value']) ou options(['value1', 'value2'])
- *  - displayUsingLabels()   — exibe labels em vez de valores raw no detail/index
+ *  - displayUsingLabels()   — displays labels instead of raw values in detail/index
  *
- * Formato de storage: JSON array de values, ex: ["php","laravel","react"]
- * Suporta grupos: options(['Group' => ['Label' => 'value']])
+ * Storage format: JSON array of values, e.g. ["php","laravel","react"]
+ * Supports groups: options(['Group' => ['Label' => 'value']])
  */
 class MultiSelect extends Field
 {
@@ -35,6 +35,9 @@ class MultiSelect extends Field
 
     protected bool $displayLabels = false;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'multi_select';
@@ -98,6 +101,9 @@ class MultiSelect extends Field
         return $this->options;
     }
 
+    /**
+     * Is displaying labels.
+     */
     public function isDisplayingLabels(): bool
     {
         return $this->displayLabels;

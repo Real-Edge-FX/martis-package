@@ -20,7 +20,9 @@ class Heading extends Field
         $this->showOnIndex = false;
     }
 
-    /** Returns the field type identifier. */
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'heading';
@@ -36,11 +38,17 @@ class Heading extends Field
         return $this;
     }
 
+    /**
+     * Resolve.
+     */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         return null;
     }
 
+    /**
+     * Fill.
+     */
     public function fill(Model $model, mixed $value): void
     {
         // Heading is not a data field — never writes to the model

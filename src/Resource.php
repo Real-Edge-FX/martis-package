@@ -218,6 +218,9 @@ abstract class Resource implements ResourceContract
         return $query;
     }
 
+    /**
+     * Title.
+     */
     public function title(): string
     {
         if ($this->model === null) {
@@ -886,7 +889,7 @@ abstract class Resource implements ResourceContract
      * Override in concrete resources to customize:
      *   public static function createdMessage(): string
      *   {
-     *       return 'Novo usuário cadastrado!';
+     *       return 'New user registered!';
      *   }
      */
     public static function createdMessage(): string

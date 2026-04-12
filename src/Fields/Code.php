@@ -8,18 +8,18 @@ use Martis\Enums\CodeLanguage;
 /**
  * Code editor field — provides syntax-highlighted code editing.
  *
- * Paridade com Laravel Nova v5: Code field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields
+ * Laravel Nova v5 parity: Code field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields
  *
- * Contextos:
- *  - index: oculto por padrão (não adequado como coluna)
- *  - detail: exibição com syntax highlighting
- *  - create: editor de código
- *  - update: editor de código
+ * Contexts:
+ *  - index: hidden by default (not suitable as a column)
+ *  - detail: displayed with syntax highlighting
+ *  - create: code editor
+ *  - update: code editor
  *
- * Divergências intencionais do Nova:
- *  - Usa CodeMirror 6 (via @uiw/react-codemirror) em vez de CodeMirror 5.
- *  - Language modes mapeados para extensões do CodeMirror 6.
+ * Intentional divergences from Nova:
+ *  - Uses CodeMirror 6 (via @uiw/react-codemirror) instead of CodeMirror 5.
+ *  - Language modes mapped to CodeMirror 6 extensions.
  */
 class Code extends Field
 {
@@ -27,18 +27,25 @@ class Code extends Field
 
     protected CodeLanguage $language = CodeLanguage::Javascript;
 
-    /** Returns the field type identifier. */
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'code';
     }
 
+    /**
+     * Make.
+     */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
-    /** Treat the stored value as a JSON string — pretty-print on display. */
+    /**
+     * Json.
+     */
     public function json(): static
     {
         $this->isJson = true;
@@ -46,7 +53,9 @@ class Code extends Field
         return $this;
     }
 
-    /** Set the syntax-highlight language. */
+    /**
+     * Language.
+     */
     public function language(CodeLanguage $language): static
     {
         $this->language = $language;
@@ -54,19 +63,25 @@ class Code extends Field
         return $this;
     }
 
-    /** Whether JSON pretty-print mode is enabled. */
+    /**
+     * Is json.
+     */
     public function isJson(): bool
     {
         return $this->isJson;
     }
 
-    /** Get the active syntax-highlight language. */
+    /**
+     * Get language.
+     */
     public function getLanguage(): CodeLanguage
     {
         return $this->language;
     }
 
-    /** Resolve the stored value, pretty-printing JSON when enabled. */
+    /**
+     * Resolve.
+     */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $value = parent::resolve($model, $attribute);
@@ -86,7 +101,9 @@ class Code extends Field
         return $value;
     }
 
-    /** Fill the model attribute from the submitted form value. */
+    /**
+     * Fill.
+     */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

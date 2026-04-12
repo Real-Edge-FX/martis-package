@@ -10,11 +10,17 @@ namespace Martis\Fields;
  */
 class Email extends Text
 {
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'email';
     }
 
+    /**
+     * Build rules.
+     */
     public function buildRules(): array
     {
         return array_merge(parent::buildRules(), ['email']);

@@ -17,6 +17,9 @@ class FieldMakeCommand extends Command
         parent::__construct();
     }
 
+    /**
+     * Handle.
+     */
     public function handle(): int
     {
         /** @var string $rawName */

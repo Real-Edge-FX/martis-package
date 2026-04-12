@@ -9,31 +9,31 @@ use Martis\Enums\ModalSize;
 /**
  * Tag field — relational tagging via BelongsToMany.
  *
- * Paridade com Laravel Nova v5: Tag field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields#tag-field
+ * Laravel Nova v5 parity: Tag field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields#tag-field
  *
- * Tag NÃO é um input livre de strings — é um field relacional que opera sobre
- * uma relação BelongsToMany do Eloquent, com attach/detach, autocomplete e
- * opções de preview/list.
+ * Tag is NOT a free string input — it is a relational field that operates on
+ * a BelongsToMany Eloquent relation, with attach/detach, autocomplete and
+ * preview/list options.
  *
- * Contextos:
- *  - create: sim
- *  - update: sim
- *  - detail: sim
- *  - index: sim (representação resumida)
+ * Contexts:
+ *  - create: yes
+ *  - update: yes
+ *  - detail: yes
+ *  - index: yes (summarised representation)
  *
- * Configuração:
+ * Configuration:
  *   Tag::make('tags', 'Tags')
  *       ->relatedResource('tags')    // URI key do resource relacionado
- *       ->titleAttribute('name')     // atributo de exibição no model relacionado
+ *       ->titleAttribute('name')     // display attribute on the related model
  *       ->withPreview()              // mostra preview ao hovear
  *       ->displayAsList()            // exibe como lista em vez de chips
- *       ->showCreateRelationButton() // botão de criar relação inline
- *       ->modalSize('7xl')           // tamanho do modal de criação inline
- *       ->preload()                  // precarrega todos os tags disponíveis
+ *       ->showCreateRelationButton() // inline create relation button
+ *       ->modalSize('7xl')           // size of the inline create modal
+ *       ->preload()                  // preloads all available tags
  *
- * Fill: usa DeferredRelationSync para sincronizar a pivot table após o save.
- * Resolve: carrega os models relacionados via a relação Eloquent.
+ * Fill: uses DeferredRelationSync to synchronize the pivot table after save.
+ * Resolve: loads related models via the Eloquent relation.
  */
 class Tag extends Field
 {
@@ -73,7 +73,9 @@ class Tag extends Field
         return new static($relationship, $label, $relationship);
     }
 
-    /** Returns the field type identifier. */
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'tag';
@@ -163,49 +165,65 @@ class Tag extends Field
         return $this;
     }
 
-    /** Get the relationship method name. */
+    /**
+     * Get relationship.
+     */
     public function getRelationship(): string
     {
         return $this->relationship;
     }
 
-    /** Get the attribute used as the tag label. */
+    /**
+     * Get title attribute.
+     */
     public function getTitleAttribute(): string
     {
         return $this->titleAttribute;
     }
 
-    /** Get the related resource class, if any. */
+    /**
+     * Get related resource.
+     */
     public function getRelatedResource(): ?string
     {
         return $this->relatedUriKey;
     }
 
-    /** Whether a preview panel is shown on tag click. */
+    /**
+     * Has preview.
+     */
     public function hasPreview(): bool
     {
         return $this->withPreview;
     }
 
-    /** Whether tags are rendered as a vertical list instead of inline chips. */
+    /**
+     * Is display as list.
+     */
     public function isDisplayAsList(): bool
     {
         return $this->displayAsList;
     }
 
-    /** Whether the "create new tag" button is shown. */
+    /**
+     * Is show create relation button.
+     */
     public function isShowCreateRelationButton(): bool
     {
         return $this->showCreateRelationButton;
     }
 
-    /** Get the modal size used for the create-relation dialog. */
+    /**
+     * Get modal size.
+     */
     public function getModalSize(): ModalSize
     {
         return $this->modalSize;
     }
 
-    /** Whether all available tags are preloaded on mount. */
+    /**
+     * Is preload.
+     */
     public function isPreload(): bool
     {
         return $this->preload;

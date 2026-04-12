@@ -67,6 +67,9 @@ class File extends Field
      */
     protected bool $showFileInfo = true;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'file';
@@ -86,6 +89,9 @@ class File extends Field
         return $this;
     }
 
+    /**
+     * Get disk.
+     */
     public function getDisk(): string
     {
         return $this->disk;
@@ -136,6 +142,9 @@ class File extends Field
         return $this;
     }
 
+    /**
+     * Is multiple.
+     */
     public function isMultiple(): bool
     {
         return $this->multiple;

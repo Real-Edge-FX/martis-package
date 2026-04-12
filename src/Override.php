@@ -33,6 +33,9 @@ class Override implements OverrideContract
         protected array $params = [],
     ) {}
 
+    /**
+     * Component.
+     */
     public function component(): string
     {
         return $this->component;
@@ -59,6 +62,9 @@ class Override implements OverrideContract
         return $this;
     }
 
+    /**
+     * Get redirect after.
+     */
     public function getRedirectAfter(): ?string
     {
         return $this->redirectAfterValue;

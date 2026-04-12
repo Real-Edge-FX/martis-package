@@ -8,21 +8,21 @@ use Martis\Enums\ToolbarSize;
 /**
  * Trix rich-text editor field — HTML-based WYSIWYG editing.
  *
- * Paridade com Laravel Nova v5: Trix field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields
+ * Laravel Nova v5 parity: Trix field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields
  *
- * Contextos:
- *  - index: oculto por padrão (HTML longo não adequado)
- *  - detail: conteúdo oculto atrás de "Show Content" por padrão;
- *            alwaysShow() expande automaticamente
- *  - create: editor Trix (rich text HTML)
- *  - update: editor Trix (rich text HTML)
+ * Contexts:
+ *  - index: hidden by default (long HTML not suitable)
+ *  - detail: content hidden behind "Show Content" by default;
+ *            alwaysShow() expands automatically
+ *  - create: Trix editor (rich text HTML)
+ *  - update: Trix editor (rich text HTML)
  *
- * Armazena HTML bruto no banco.
+ * Stores raw HTML in the database.
  *
- * Divergências intencionais do Nova:
- *  - withFiles() registra o disk mas o upload é gerenciado pelo endpoint
- *    genérico de attachments do Martis, sem tabelas auxiliares do Nova.
+ * Intentional divergences from Nova:
+ *  - withFiles() registers the disk but uploading is managed by the
+ *    generic Martis attachments endpoint, without Nova's auxiliary tables.
  */
 class Trix extends Field
 {
@@ -36,18 +36,25 @@ class Trix extends Field
 
     protected ClickBehavior $linkClickBehavior = ClickBehavior::SamePage;
 
-    /** Returns the field type identifier. */
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'trix';
     }
 
+    /**
+     * Make.
+     */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
-    /** Always render the Trix editor (never collapse to read-only view). */
+    /**
+     * Always show.
+     */
     public function alwaysShow(): static
     {
         $this->alwaysShow = true;
@@ -55,7 +62,9 @@ class Trix extends Field
         return $this;
     }
 
-    /** Enable file attachments, optionally on a specific storage disk. */
+    /**
+     * With files.
+     */
     public function withFiles(string $disk = 'public'): static
     {
         $this->withFilesDisk = $disk;
@@ -63,7 +72,9 @@ class Trix extends Field
         return $this;
     }
 
-    /** Set the toolbar size. */
+    /**
+     * Toolbar size.
+     */
     public function toolbarSize(ToolbarSize $size): static
     {
         $this->toolbarSize = $size;
@@ -71,7 +82,9 @@ class Trix extends Field
         return $this;
     }
 
-    /** Set the click behaviour for inline images. */
+    /**
+     * Image click behavior.
+     */
     public function imageClickBehavior(ClickBehavior $behavior): static
     {
         $this->imageClickBehavior = $behavior;
@@ -79,7 +92,9 @@ class Trix extends Field
         return $this;
     }
 
-    /** Set the click behaviour for links. */
+    /**
+     * Link click behavior.
+     */
     public function linkClickBehavior(ClickBehavior $behavior): static
     {
         $this->linkClickBehavior = $behavior;
@@ -87,13 +102,17 @@ class Trix extends Field
         return $this;
     }
 
-    /** Whether the editor is always rendered in edit mode. */
+    /**
+     * Is always show.
+     */
     public function isAlwaysShow(): bool
     {
         return $this->alwaysShow;
     }
 
-    /** Get the storage disk used for file attachments. */
+    /**
+     * Get with files disk.
+     */
     public function getWithFilesDisk(): ?string
     {
         return $this->withFilesDisk;

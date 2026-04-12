@@ -8,7 +8,7 @@ use Martis\Enums\CurrencyDisplayMode;
 /**
  * Currency field — monetary value input with currency formatting.
  *
- * Paridade com Laravel Nova v5: Currency field.
+ * Laravel Nova v5 parity: Currency field.
  * Extends Number behavior for monetary values.
  * Stores numeric value in the database; display includes currency symbol.
  *
@@ -18,13 +18,13 @@ use Martis\Enums\CurrencyDisplayMode;
  *   - asMinorUnits()     — treat stored value as minor units (cents)
  *   - asMajorUnits()     — treat stored value as major units (dollars)
  *
- * Extensão Martis — apresentação visual:
- *   - displayMode('text'|'badge'|'badge_text') — controla exibição
- *   - showBadge()   — exibir apenas badge com símbolo
- *   - showText()    — exibir apenas texto com nome da moeda
- *   - badgeColor()  — cor do badge (ex: green, blue, red)
+ * Martis extension — visual presentation:
+ *   - displayMode('text'|'badge'|'badge_text') — controls display
+ *   - showBadge()   — display badge with symbol only
+ *   - showText()    — display text with currency name only
+ *   - badgeColor()  — badge color (e.g. green, blue, red)
  *
- * Contextos: create, update, detail, index.
+ * Contexts: create, update, detail, index.
  */
 class Currency extends Number
 {
@@ -73,6 +73,9 @@ class Currency extends Number
         'PEN' => ['symbol' => 'S/', 'name' => 'Peruvian Sol', 'decimals' => 2],
     ];
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'currency';
