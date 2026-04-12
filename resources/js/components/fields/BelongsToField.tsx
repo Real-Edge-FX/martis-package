@@ -310,14 +310,19 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     }
   }, [currentTitle])
 
-  // Sync selectedItems when value changes in multiple mode (e.g. edit form loads)
+  // Sync selectedItems when value changes in multiple mode (e.g. edit form loads from server)
+  // Only sync when value contains BelongsToValue objects — skip when it contains plain IDs
+  // (plain IDs come from onChange calls during user interaction and must not reset selectedItems)
   useEffect(() => {
     if (isMultiple && Array.isArray(value)) {
-      setSelectedItems(
-        (value as unknown[])
-          .filter(v => isBelongsToValue(v as BelongsToValue))
-          .map(v => { const bv = v as BelongsToValue; return { id: bv.id, title: bv.title ?? null } })
-      )
+      const hasBelongsToValues = (value as unknown[]).some(v => isBelongsToValue(v as BelongsToValue))
+      if (hasBelongsToValues) {
+        setSelectedItems(
+          (value as unknown[])
+            .filter(v => isBelongsToValue(v as BelongsToValue))
+            .map(v => { const bv = v as BelongsToValue; return { id: bv.id, title: bv.title ?? null } })
+        )
+      }
     }
   }, [isMultiple, JSON.stringify(value)])
 
