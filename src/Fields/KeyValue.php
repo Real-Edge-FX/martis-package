@@ -7,18 +7,18 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * KeyValue field — edits dynamic key-value pairs stored as JSON.
  *
- * Paridade com Laravel Nova v5: KeyValue field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields#keyvalue-field
+ * Laravel Nova v5 parity: KeyValue field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields#keyvalue-field
  *
- * Contextos:
- *  - create: sim
- *  - update: sim
- *  - detail: sim
- *  - index: não (oculto por padrão — não é adequado como coluna de tabela)
+ * Contexts:
+ *  - create: yes
+ *  - update: yes
+ *  - detail: yes
+ *  - index: no (hidden by default — not suitable as a table column)
  *
- * Divergências intencionais do Nova:
- *  - Index ocultado por padrão; developer pode chamar ->showOnIndex() se necessário.
- *  - KeyValue não live-reporta mudanças para o sistema de dependent fields.
+ * Intentional divergences from Nova:
+ *  - Index hidden by default; developer can call ->showOnIndex() if needed.
+ *  - KeyValue does not live-report changes to the dependent fields system.
  */
 class KeyValue extends Field
 {
@@ -32,6 +32,9 @@ class KeyValue extends Field
 
     protected bool $addingRowsDisabled = false;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'key_value';
@@ -96,26 +99,41 @@ class KeyValue extends Field
         return $this;
     }
 
+    /**
+     * Get key label.
+     */
     public function getKeyLabel(): string
     {
         return $this->keyLabel;
     }
 
+    /**
+     * Get value label.
+     */
     public function getValueLabel(): string
     {
         return $this->valueLabel;
     }
 
+    /**
+     * Get action text.
+     */
     public function getActionText(): string
     {
         return $this->actionText;
     }
 
+    /**
+     * Is editing keys disabled.
+     */
     public function isEditingKeysDisabled(): bool
     {
         return $this->editingKeysDisabled;
     }
 
+    /**
+     * Is adding rows disabled.
+     */
     public function isAddingRowsDisabled(): bool
     {
         return $this->addingRowsDisabled;

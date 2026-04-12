@@ -228,14 +228,29 @@ interface ResourceContract
     /** Flush the resolved policy cache (for testing). */
     public static function flushPolicyCache(): void;
 
+    /**
+     * Authorized to view any.
+     */
     public function authorizedToViewAny(Request $request): bool;
 
+    /**
+     * Authorized to view.
+     */
     public function authorizedToView(Request $request): bool;
 
+    /**
+     * Authorized to create.
+     */
     public function authorizedToCreate(Request $request): bool;
 
+    /**
+     * Authorized to update.
+     */
     public function authorizedToUpdate(Request $request): bool;
 
+    /**
+     * Authorized to delete.
+     */
     public function authorizedToDelete(Request $request): bool;
 
     /** Whether the user may restore this soft-deleted resource. */
@@ -315,27 +330,57 @@ interface ResourceContract
     // User-facing messages (i18n)
     // -------------------------------------------------------------------------
 
+    /**
+     * Created message.
+     */
     public static function createdMessage(): string;
 
+    /**
+     * Updated message.
+     */
     public static function updatedMessage(): string;
 
+    /**
+     * Deleted message.
+     */
     public static function deletedMessage(): string;
 
+    /**
+     * Restored message.
+     */
     public static function restoredMessage(): string;
 
+    /**
+     * Force deleted message.
+     */
     public static function forceDeletedMessage(): string;
 
+    /**
+     * Replicated message.
+     */
     public static function replicatedMessage(): string;
 
+    /**
+     * Delete confirm message.
+     */
     public static function deleteConfirmMessage(): string;
 
+    /**
+     * Archive confirm message.
+     */
     public static function archiveConfirmMessage(): string;
 
+    /**
+     * Force delete confirm message.
+     */
     public static function forceDeleteConfirmMessage(): string;
 
     /** Error display mode: "toast", "inline", or "both". */
     public static function errorDisplay(): ErrorDisplayMode;
 
+    /**
+     * Validation message.
+     */
     public static function validationMessage(): string;
 
     // -------------------------------------------------------------------------

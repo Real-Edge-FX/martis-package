@@ -15,6 +15,9 @@ class UserCommand extends Command
 
     protected $description = 'Create a new Martis admin user';
 
+    /**
+     * Handle.
+     */
     public function handle(): int
     {
         $this->components->info('Creating Martis admin user...');

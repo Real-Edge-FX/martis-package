@@ -19,6 +19,9 @@ class Hidden extends Field
         $this->showOnDetail = false;
     }
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'hidden';

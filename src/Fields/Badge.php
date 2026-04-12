@@ -5,28 +5,28 @@ namespace Martis\Fields;
 /**
  * Badge field — visual read-only indicator that maps model values to colored badges.
  *
- * Paridade com Laravel Nova v5: Badge field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields#badge-field
+ * Laravel Nova v5 parity: Badge field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields#badge-field
  *
- * Contextos:
- *  - index: sim (display-only)
- *  - detail: sim (display-only)
- *  - create: não (oculto por padrão — não é um input editável)
- *  - update: não (oculto por padrão — não é um input editável)
+ * Contexts:
+ *  - index: yes (display-only)
+ *  - detail: yes (display-only)
+ *  - create: no (hidden by default — not an editable input)
+ *  - update: no (hidden by default — not an editable input)
  *
- * Divergências intencionais do Nova:
- *  - Forms ocultados por padrão. Developer pode chamar ->showOnForms() se precisar
- *    renderizar o badge em contextos de formulário (read-only), mas Badge nunca
- *    deve ser tratado como input editável.
+ * Intentional divergences from Nova:
+ *  - Forms hidden by default. Developer can call ->showOnForms() if needed
+ *    to render the badge in form contexts (read-only), but Badge should never
+ *    be treated as an editable input.
  *
  * API:
- *  - map(['value' => 'type'])         — mapeia valor do model para tipo de badge
- *  - types(['type' => 'color'])       — define tipos visuais (sobrescreve defaults)
- *  - addTypes(['type' => 'color'])    — adiciona tipos extras aos defaults
- *  - withIcons()                      — habilita ícones nos badges
- *  - icons(['type' => 'icon'])        — mapeia tipos para ícones
+ *  - map(['value' => 'type'])         — maps model value to badge type
+ *  - types(['type' => 'color'])       — defines visual types (overrides defaults)
+ *  - addTypes(['type' => 'color'])    — adds extra types to the defaults
+ *  - withIcons()                      — enables icons on badges
+ *  - icons(['type' => 'icon'])        — maps types to icons
  *
- * Tipos padrão: info (azul), success (verde), warning (amarelo), danger (vermelho)
+ * Default types: info (blue), success (green), warning (yellow), danger (red)
  */
 class Badge extends Field
 {
@@ -51,6 +51,9 @@ class Badge extends Field
     /** @var array<string, string> Maps badge type → icon name */
     protected array $icons = [];
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'badge';
@@ -142,6 +145,9 @@ class Badge extends Field
         return $this->types;
     }
 
+    /**
+     * Has icons.
+     */
     public function hasIcons(): bool
     {
         return $this->withIcons;

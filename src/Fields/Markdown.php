@@ -7,24 +7,24 @@ use Martis\Enums\MarkdownPreset;
 /**
  * Markdown editor field — WYSIWYG Markdown editing with preview.
  *
- * Paridade com Laravel Nova v5: Markdown field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields
+ * Laravel Nova v5 parity: Markdown field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields
  *
- * Contextos:
- *  - index: oculto por padrão (texto longo não adequado)
- *  - detail: conteúdo oculto atrás de "Show Content" por padrão;
- *            alwaysShow() expande automaticamente
- *  - create: editor Markdown
- *  - update: editor Markdown
+ * Contexts:
+ *  - index: hidden by default (long text not suitable)
+ *  - detail: content hidden behind "Show Content" by default;
+ *            alwaysShow() expands automatically
+ *  - create: Markdown editor
+ *  - update: Markdown editor
  *
- * Armazena Markdown bruto no banco (não HTML).
- * Renderização para HTML acontece no frontend.
+ * Stores raw Markdown in the database (not HTML).
+ * Rendering to HTML happens on the frontend.
  *
- * Divergências intencionais do Nova:
- *  - withFiles() registra o disk mas o upload é gerenciado pelo endpoint
- *    genérico de attachments do Martis, sem tabelas auxiliares do Nova.
- *  - Presets controlam apenas a configuração do frontend (renderização);
- *    o backend armazena sempre Markdown bruto.
+ * Intentional divergences from Nova:
+ *  - withFiles() registers the disk but uploading is managed by the
+ *    generic Martis attachments endpoint, without Nova's auxiliary tables.
+ *  - Presets only control the frontend configuration (rendering);
+ *    the backend always stores raw Markdown.
  */
 class Markdown extends Field
 {
@@ -34,16 +34,25 @@ class Markdown extends Field
 
     protected ?string $withFilesDisk = null;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'markdown';
     }
 
+    /**
+     * Make.
+     */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
     }
 
+    /**
+     * Always show.
+     */
     public function alwaysShow(): static
     {
         $this->alwaysShow = true;
@@ -51,6 +60,9 @@ class Markdown extends Field
         return $this;
     }
 
+    /**
+     * Preset.
+     */
     public function preset(MarkdownPreset $preset): static
     {
         $this->preset = $preset;
@@ -58,6 +70,9 @@ class Markdown extends Field
         return $this;
     }
 
+    /**
+     * With files.
+     */
     public function withFiles(string $disk = 'public'): static
     {
         $this->withFilesDisk = $disk;
@@ -65,16 +80,25 @@ class Markdown extends Field
         return $this;
     }
 
+    /**
+     * Is always show.
+     */
     public function isAlwaysShow(): bool
     {
         return $this->alwaysShow;
     }
 
+    /**
+     * Get preset.
+     */
     public function getPreset(): MarkdownPreset
     {
         return $this->preset;
     }
 
+    /**
+     * Get with files disk.
+     */
     public function getWithFilesDisk(): ?string
     {
         return $this->withFilesDisk;

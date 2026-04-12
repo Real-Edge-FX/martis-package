@@ -23,51 +23,81 @@ use Martis\Resource;
  */
 class ActionEventResource extends Resource
 {
+    /**
+     * Globally searchable.
+     */
     public static function globallySearchable(): bool
     {
         return false;
     }
 
+    /**
+     * Model.
+     */
     public static function model(): string
     {
         return ActionEvent::class;
     }
 
+    /**
+     * Label.
+     */
     public static function label(): string
     {
         return 'Action Events';
     }
 
+    /**
+     * Singular label.
+     */
     public static function singularLabel(): string
     {
         return 'Action Event';
     }
 
+    /**
+     * Title attribute.
+     */
     public static function titleAttribute(): string
     {
         return 'name';
     }
 
+    /**
+     * Default sort.
+     */
     public static function defaultSort(): ?string
     {
         return 'created_at';
     }
 
+    /**
+     * Default sort direction.
+     */
     public static function defaultSortDirection(): string
     {
         return 'desc';
     }
 
+    /**
+     * Subtitle.
+     */
     public static function subtitle(): ?string
     {
         return 'Audit log of all actions executed in the admin panel';
     }
 
+    /**
+     * Icon.
+     */
     public function icon(): string
     {
         return 'clipboard-text';
     }
 
+    /**
+     * Group.
+     */
     public function group(): ?string
     {
         return null;
@@ -77,16 +107,25 @@ class ActionEventResource extends Resource
     // Read-only: disable create, update, delete
     // -------------------------------------------------------------------------
 
+    /**
+     * Authorized to create.
+     */
     public function authorizedToCreate(Request $request): bool
     {
         return false;
     }
 
+    /**
+     * Authorized to update.
+     */
     public function authorizedToUpdate(Request $request): bool
     {
         return false;
     }
 
+    /**
+     * Authorized to delete.
+     */
     public function authorizedToDelete(Request $request): bool
     {
         return false;
@@ -96,6 +135,9 @@ class ActionEventResource extends Resource
     // Fields
     // -------------------------------------------------------------------------
 
+    /**
+     * Fields.
+     */
     public function fields(Request $request): array
     {
         return [
@@ -140,6 +182,9 @@ class ActionEventResource extends Resource
         ];
     }
 
+    /**
+     * Fields for index.
+     */
     public function fieldsForIndex(Request $request): array
     {
         return [

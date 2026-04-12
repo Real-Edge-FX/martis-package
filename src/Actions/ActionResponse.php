@@ -113,6 +113,9 @@ class ActionResponse implements \JsonSerializable
         return new self(ActionResponseType::OpenUpdate, ['resource' => $resourceName, 'recordId' => $recordId]);
     }
 
+    /**
+     * Type.
+     */
     public function type(): ActionResponseType
     {
         return $this->type;

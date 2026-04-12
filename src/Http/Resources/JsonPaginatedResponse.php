@@ -54,31 +54,49 @@ final class JsonPaginatedResponse implements PaginationContract
         return new self($data, $paginationMeta, $links, $extraMeta);
     }
 
+    /**
+     * Total.
+     */
     public function total(): int
     {
         return $this->paginationMeta['total'];
     }
 
+    /**
+     * Per page.
+     */
     public function perPage(): int
     {
         return $this->paginationMeta['per_page'];
     }
 
+    /**
+     * Current page.
+     */
     public function currentPage(): int
     {
         return $this->paginationMeta['current_page'];
     }
 
+    /**
+     * Last page.
+     */
     public function lastPage(): int
     {
         return $this->paginationMeta['last_page'];
     }
 
+    /**
+     * From.
+     */
     public function from(): ?int
     {
         return $this->paginationMeta['from'];
     }
 
+    /**
+     * To.
+     */
     public function to(): ?int
     {
         return $this->paginationMeta['to'];

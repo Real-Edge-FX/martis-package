@@ -16,6 +16,9 @@ class Boolean extends Field
 
     protected ?string $falseLabel = null;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'boolean';

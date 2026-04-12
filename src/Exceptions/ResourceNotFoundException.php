@@ -43,11 +43,17 @@ class ResourceNotFoundException extends MartisException
         );
     }
 
+    /**
+     * Resource key.
+     */
     public function resourceKey(): string
     {
         return $this->resourceKey;
     }
 
+    /**
+     * Record id.
+     */
     public function recordId(): int|string
     {
         return $this->recordId;

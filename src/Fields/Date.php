@@ -20,6 +20,9 @@ class Date extends Field
 
     protected string $storeFormat = 'Y-m-d';
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'date';

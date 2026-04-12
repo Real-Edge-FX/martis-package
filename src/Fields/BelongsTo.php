@@ -173,6 +173,9 @@ class BelongsTo extends Field
         return new static($foreignKey, $label, $relationship, $foreignKey);
     }
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'belongs_to';

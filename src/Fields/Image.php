@@ -42,6 +42,9 @@ class Image extends File
     /** @var list<string> Default accepted image extensions (SVG excluded: cannot pass the 'image' validation rule and may contain XSS payloads). */
     protected array $acceptedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'image';
@@ -68,6 +71,9 @@ class Image extends File
     // Value lifecycle
     // -------------------------------------------------------------------------
 
+    /**
+     * Fill.
+     */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

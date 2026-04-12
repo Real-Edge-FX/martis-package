@@ -103,6 +103,9 @@ class MorphTo extends Field
         return new static($relationship, $label, $relationship);
     }
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'morph_to';

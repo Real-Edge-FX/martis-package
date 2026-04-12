@@ -10,6 +10,9 @@ namespace Martis\Fields;
  */
 class Text extends Field
 {
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'text';

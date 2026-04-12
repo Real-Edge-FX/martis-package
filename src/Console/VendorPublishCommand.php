@@ -15,6 +15,9 @@ class VendorPublishCommand extends Command
 
     protected $description = 'Publish Martis package files (config, assets, views, lang)';
 
+    /**
+     * Handle.
+     */
     public function handle(): int
     {
         $this->components->info('Publishing Martis files...');

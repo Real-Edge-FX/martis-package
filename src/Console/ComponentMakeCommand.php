@@ -15,6 +15,9 @@ class ComponentMakeCommand extends Command
 
     protected $description = 'Generate a React component and auto-register it in the boot file';
 
+    /**
+     * Handle.
+     */
     public function handle(): int
     {
         /** @var string $name */
