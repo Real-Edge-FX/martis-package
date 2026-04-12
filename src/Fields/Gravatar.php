@@ -149,7 +149,6 @@ class Gravatar extends Field
         return self::gravatarUrl($value, $this->size);
     }
 
-
     /**
      * When shown on forms, fill saves the raw value (email or URL).
      */

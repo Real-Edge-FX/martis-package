@@ -212,7 +212,6 @@ interface ActionContract
     /** Get the pivot section label. */
     public function getPivotLabel(): ?string;
 
-
     // -------------------------------------------------------------------------
     // Then callback
     // -------------------------------------------------------------------------
@@ -247,7 +246,7 @@ interface ActionContract
     /**
      * Execute a dry-run preview (no side effects).
      *
-     * @param  Collection<int, \Illuminate\Database\Eloquent\Model>  $models
+     * @param  Collection<int, Model>  $models
      * @return array<string, mixed>
      */
     public function dryRun(ActionFields $fields, Collection $models): array;
