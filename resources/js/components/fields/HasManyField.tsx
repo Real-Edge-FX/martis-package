@@ -244,6 +244,24 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
               {tAct('create', 'Create')}
             </button>
           )}
+          {meta?.perPageOptions && (
+            <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+              <select
+                value={perPage}
+                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+                className="rounded border px-1.5 py-0.5 text-xs"
+                style={{
+                  borderColor: 'var(--martis-border)',
+                  backgroundColor: 'var(--martis-input-bg)',
+                  color: 'var(--martis-text)',
+                }}
+              >
+                {meta.perPageOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         )}
       </div>
@@ -359,27 +377,9 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             backgroundColor: 'var(--martis-surface)',
           }}
         >
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-            <span>
-              {pagination.from}–{pagination.to} / {pagination.total}
-            </span>
-            {meta?.perPageOptions && (
-              <select
-                value={perPage}
-                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                className="rounded border px-1.5 py-0.5 text-xs"
-                style={{
-                  borderColor: 'var(--martis-border)',
-                  backgroundColor: 'var(--martis-input-bg)',
-                  color: 'var(--martis-text)',
-                }}
-              >
-                {meta.perPageOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            )}
-          </div>
+          <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+            {pagination.from}–{pagination.to} / {pagination.total}
+          </span>
           <div className="flex items-center gap-1">
             <button
               type="button"
