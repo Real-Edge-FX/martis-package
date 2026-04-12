@@ -46,6 +46,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 4 | **[Resources](resources.md)** | Resource classes — model binding, field definitions, context-aware resolution, lifecycle hooks, authorization, search configuration, pagination, soft deletes, table customization |
+| 4.5 | **[Panels & Tabs](panels-and-tabs.md)** | Panel e Tab layouts — Panel básico, collapsible, collapsedByDefault, limit; TabGroup com múltiplas abas; combinação de Panels dentro de Tabs; showcase no playground; serialização JSON |
 | 5 | **[Fields Reference](fields.md)** | All 32 field types — configuration options, visibility flags, validation rules, relationship fields (BelongsTo, HasMany, BelongsToMany, MorphTo), enums, PrimeReact prop passthrough |
 | 6 | **[Relationships](relationships.md)** | Relationship fields — BelongsTo, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo, choosing the right field |
 | 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
@@ -79,6 +80,7 @@ docs/
 ├── README.md ........................ You are here — documentation hub
 ├── installation-guide.md ........... Installation & setup
 ├── resources.md .................... Resources reference
+├── panels-and-tabs.md .............. Panels & Tabs layout guide
 ├── fields.md ....................... Fields reference (32 types)
 ├── relationships.md ................ Relationship fields guide
 ├── actions.md ...................... Actions system
