@@ -20,7 +20,7 @@ class AfterDelete
 {
     use Dispatchable;
 
-    /** Create a new after-delete event. */
+    /** Create the AfterDelete event. */
     public function __construct(
         /** The resource class-string that owns this model. */
         public readonly string $resourceClass,

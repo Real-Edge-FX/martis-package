@@ -44,7 +44,7 @@ use Martis\SearchResolver;
  */
 class ResourceController extends MartisController
 {
-    /** Create a new controller instance. */
+    /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}
@@ -68,7 +68,6 @@ class ResourceController extends MartisController
     #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default: "asc".', required: false, type: 'string', example: 'asc')]
     #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string', example: 'with')]
-    /** {@inheritDoc} */
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveResource($resource);

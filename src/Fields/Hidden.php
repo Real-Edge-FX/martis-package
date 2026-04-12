@@ -12,7 +12,7 @@ namespace Martis\Fields;
  */
 class Hidden extends Field
 {
-    /** Create a new field instance. */
+    /** Create a hidden field, invisible in index and detail views. */
     public function __construct(string $attribute, ?string $label = null)
     {
         parent::__construct($attribute, $label ?? $attribute);

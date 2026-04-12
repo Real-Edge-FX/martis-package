@@ -9,7 +9,7 @@ namespace Martis\Exceptions;
  */
 class ResourceNotFoundException extends MartisException
 {
-    /** Create a new resource-not-found exception. */
+    /** Create a resource-not-found exception. */
     public function __construct(
         string $message = 'Resource not found.',
         private readonly string $resourceKey = '',

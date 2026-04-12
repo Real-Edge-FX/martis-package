@@ -33,7 +33,7 @@ use Martis\SearchResolver;
  */
 class BelongsToManyController extends MartisController
 {
-    /** Create a new controller instance. */
+    /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}

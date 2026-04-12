@@ -10,7 +10,7 @@ namespace Martis\Fields;
  */
 class Id extends Field
 {
-    /** Create a new field instance. */
+    /** Create an ID field, read-only and hidden from forms. */
     public function __construct(string $attribute = 'id', ?string $label = null)
     {
         parent::__construct($attribute, $label ?? 'ID');

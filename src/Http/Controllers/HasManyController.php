@@ -35,7 +35,7 @@ use Martis\SearchResolver;
  */
 class HasManyController extends MartisController
 {
-    /** Create a new controller instance. */
+    /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}
@@ -51,7 +51,6 @@ class HasManyController extends MartisController
     #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
     #[QueryParameter('sort', description: 'Column to sort by.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc.', required: false, type: 'string')]
-    /** {@inheritDoc} */
     public function index(
         Request $request,
         string $resource,
