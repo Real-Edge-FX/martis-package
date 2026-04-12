@@ -89,6 +89,7 @@ class BelongsToMany extends Field
     /** Whether to show detach button. */
     protected bool $canDetach = true;
 
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,

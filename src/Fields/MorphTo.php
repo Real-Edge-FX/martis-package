@@ -79,6 +79,7 @@ class MorphTo extends Field
      */
     protected bool $peekable = true;
 
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,

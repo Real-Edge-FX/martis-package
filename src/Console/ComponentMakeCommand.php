@@ -97,6 +97,7 @@ class ComponentMakeCommand extends Command
         return self::SUCCESS;
     }
 
+    /** Get the stub file path for the given component type. */
     protected function getStub(string $type): string
     {
         $stubPath = __DIR__.'/../../stubs/component-'.$type.'.tsx.stub';
@@ -109,6 +110,7 @@ class ComponentMakeCommand extends Command
         return (string) file_get_contents($stubPath);
     }
 
+    /** Register the component class in the application boot file. */
     protected function updateBootFile(string $bootPath, string $className, string $registryKey, string $type): void
     {
         // Field type generates Display + Input exports; others generate a single export.

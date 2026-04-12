@@ -14,6 +14,7 @@ class Heading extends Field
 {
     protected ?string $contentText = null;
 
+    /** Create a new field instance. */
     public function __construct(string $attribute, string $label)
     {
         parent::__construct($attribute, $label);

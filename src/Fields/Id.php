@@ -10,6 +10,7 @@ namespace Martis\Fields;
  */
 class Id extends Field
 {
+    /** Create a new field instance. */
     public function __construct(string $attribute = 'id', ?string $label = null)
     {
         parent::__construct($attribute, $label ?? 'ID');

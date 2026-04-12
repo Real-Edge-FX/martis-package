@@ -81,6 +81,7 @@ class HasMany extends Field
     /** Whether the panel starts collapsed. */
     protected bool $collapsedByDefault = false;
 
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,

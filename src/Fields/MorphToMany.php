@@ -94,6 +94,7 @@ class MorphToMany extends Field
     /** Whether to show detach button. */
     protected bool $canDetachRelated = true;
 
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,

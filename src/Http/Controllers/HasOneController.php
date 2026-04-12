@@ -30,6 +30,7 @@ use Martis\ResourceRegistry;
  */
 class HasOneController extends MartisController
 {
+    /** Create a new controller instance. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}

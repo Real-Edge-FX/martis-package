@@ -22,6 +22,7 @@ class BeforeSave
 {
     use Dispatchable;
 
+    /** Create a new before-save event. */
     public function __construct(
         /** The resource class-string that owns this model. */
         public readonly string $resourceClass,

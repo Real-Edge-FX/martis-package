@@ -21,6 +21,7 @@ class AfterSave
 {
     use Dispatchable;
 
+    /** Create a new after-save event. */
     public function __construct(
         /** The resource class-string that owns this model. */
         public readonly string $resourceClass,

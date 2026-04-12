@@ -8,6 +8,7 @@ use Martis\ResourceRegistry;
 
 class NavigationController extends MartisController
 {
+    /** Create a new controller instance. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}

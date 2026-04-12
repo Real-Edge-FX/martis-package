@@ -30,6 +30,7 @@ class SearchController extends MartisController
     /** Minimum query length before search is triggered. */
     private const MIN_QUERY_LENGTH = 2;
 
+    /** Create a new controller instance. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}

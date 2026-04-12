@@ -70,6 +70,7 @@ class MorphMany extends Field
     /** Where to redirect after saving a related record. */
     protected HasManyRedirectMode $redirectMode = HasManyRedirectMode::Parent;
 
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,

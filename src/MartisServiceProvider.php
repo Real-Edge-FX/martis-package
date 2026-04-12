@@ -97,6 +97,7 @@ class MartisServiceProvider extends ServiceProvider
         }
     }
 
+    /** Register the custom exception handler for Martis routes. */
     protected function registerExceptionHandling(): void
     {
         if ($this->app->bound(ExceptionHandler::class)) {
@@ -116,6 +117,7 @@ class MartisServiceProvider extends ServiceProvider
         }
     }
 
+    /** Register the Martis middleware alias with the router. */
     protected function registerMiddlewareAlias(): void
     {
         /** @var Router $router */

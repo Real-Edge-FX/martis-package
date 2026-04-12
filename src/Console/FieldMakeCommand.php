@@ -12,6 +12,7 @@ class FieldMakeCommand extends Command
 
     protected $description = 'Create a new Martis field (PHP class + React TSX component)';
 
+    /** Create a new command instance. */
     public function __construct(private readonly Filesystem $files)
     {
         parent::__construct();
@@ -46,6 +47,7 @@ class FieldMakeCommand extends Command
         return self::SUCCESS;
     }
 
+    /** Generate the PHP field class file. */
     protected function generatePhpClass(string $name, string $typeKey): void
     {
         $namespace = $this->laravel->getNamespace().'Martis\\Fields';
@@ -71,6 +73,7 @@ class FieldMakeCommand extends Command
         $this->components->twoColumnDetail('<fg=green>PHP class</>', "app/Martis/Fields/{$name}.php");
     }
 
+    /** Generate the TypeScript React component file. */
     protected function generateTsxComponent(string $name, string $typeKey): void
     {
         $path = resource_path("js/martis/fields/{$typeKey}.tsx");

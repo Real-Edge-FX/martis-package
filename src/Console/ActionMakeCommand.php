@@ -14,6 +14,7 @@ class ActionMakeCommand extends GeneratorCommand
 
     protected $type = 'Martis action';
 
+    /** Get the stub file for the generator. */
     protected function getStub(): string
     {
         if ($this->option('destructive')) {
@@ -23,6 +24,7 @@ class ActionMakeCommand extends GeneratorCommand
         return __DIR__.'/../../../stubs/action.stub';
     }
 
+    /** Get the default namespace for the class. */
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\\Martis\\Actions';

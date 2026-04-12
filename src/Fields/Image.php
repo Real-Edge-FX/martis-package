@@ -332,6 +332,12 @@ class Image extends File
     // Thumbnail generation
     // -------------------------------------------------------------------------
 
+    /**
+     * Compute the thumbnail storage path derived from the original path.
+     *
+     * @param  string  $path  The original stored file path.
+     * @return string|null The derived thumbnail path, or null when not applicable.
+     */
     protected function getThumbnailPath(string $path): ?string
     {
         if ($this->thumbnailWidth === null && $this->thumbnailHeight === null) {
@@ -346,6 +352,7 @@ class Image extends File
         return $prefix.$filename.'_thumb.'.$ext;
     }
 
+    /** Generate and store a thumbnail for the uploaded image. */
     protected function generateThumbnail(string $storedPath, UploadedFile $file): void
     {
         if (class_exists('\Intervention\Image\ImageManager')) {
@@ -355,6 +362,7 @@ class Image extends File
         }
     }
 
+    /** Generate a thumbnail using the GD image library. */
     protected function generateThumbnailWithGd(string $storedPath, UploadedFile $file): void
     {
         $width = $this->thumbnailWidth ?? 300;

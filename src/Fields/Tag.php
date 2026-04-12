@@ -55,6 +55,7 @@ class Tag extends Field
 
     protected bool $relationSearchable = true;
 
+    /** Create a new field instance. */
     protected function __construct(string $attribute, string $label, string $relationship = '')
     {
         parent::__construct($attribute, $label);

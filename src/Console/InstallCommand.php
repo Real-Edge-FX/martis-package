@@ -41,6 +41,7 @@ class InstallCommand extends Command
         return self::SUCCESS;
     }
 
+    /** Create the required application directories. */
     protected function createDirectories(): void
     {
         $base = app_path('Martis');
@@ -66,6 +67,7 @@ class InstallCommand extends Command
         }
     }
 
+    /** Publish the Martis configuration file. */
     protected function publishConfig(): void
     {
         if (file_exists(config_path('martis.php')) && ! $this->option('force')) {
@@ -81,12 +83,14 @@ class InstallCommand extends Command
         $this->components->twoColumnDetail('<fg=green>Published</> config', 'config/martis.php');
     }
 
+    /** Publish the Martis frontend assets. */
     protected function publishAssets(): void
     {
         $this->callSilent('vendor:publish', ['--tag' => 'martis-assets', '--force' => true]);
         $this->components->twoColumnDetail('<fg=green>Published</> assets', 'public/vendor/martis');
     }
 
+    /** Publish the Martis database migrations. */
     protected function publishMigrations(): void
     {
         $migrationPattern = database_path('migrations/*_create_action_events_table.php');
@@ -105,6 +109,7 @@ class InstallCommand extends Command
         $this->components->twoColumnDetail('<fg=green>Published</> migrations', 'database/migrations');
     }
 
+    /** Publish the Martis translation files. */
     protected function publishTranslations(): void
     {
         $langPath = $this->laravel->langPath('vendor/martis');
@@ -190,6 +195,7 @@ class InstallCommand extends Command
         return $name ?: 'profile_picture';
     }
 
+    /** Run the published Martis migrations. */
     protected function runMigrations(): void
     {
         $this->call('migrate');

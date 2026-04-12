@@ -22,6 +22,7 @@ use Martis\Profile\TwoFactorService;
  */
 class EnsureTwoFactorChallenge
 {
+    /** Create a new middleware instance. */
     public function __construct(
         private readonly TwoFactorService $twoFactor,
     ) {}

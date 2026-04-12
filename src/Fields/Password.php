@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
  */
 class Password extends Field
 {
+    /** Create a new field instance. */
     public function __construct(string $attribute, string $label)
     {
         parent::__construct($attribute, $label);

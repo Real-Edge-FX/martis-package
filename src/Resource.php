@@ -60,6 +60,7 @@ abstract class Resource implements ResourceContract
      */
     private static array $resolvedPolicies = [];
 
+    /** Create a new resource instance. */
     public function __construct(?Model $model = null)
     {
         $this->model = $model;

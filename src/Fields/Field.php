@@ -106,6 +106,7 @@ abstract class Field implements FieldContract
 
     protected bool $hasDefault = false;
 
+    /** Create a new field instance. */
     protected function __construct(
         protected readonly string $attribute,
         protected readonly string $label,

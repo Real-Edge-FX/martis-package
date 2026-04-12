@@ -9,6 +9,7 @@ namespace Martis\Exceptions;
  */
 class AuthorizationException extends MartisException
 {
+    /** Create a new authorization exception. */
     public function __construct(
         string $message = 'This action is unauthorized.',
         string $errorCode = 'unauthorized',
