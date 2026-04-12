@@ -27,11 +27,14 @@ function SectionContainer({ section, children }: SectionContainerProps) {
   const sectionId = `section-content-${section.title.toLowerCase().replace(/\s+/g, '-')}`
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
-      {/* Section header */}
+    // overflow-visible so PrimeReact dropdown panels (portalled to body) are not
+    // clipped by the card boundary on browsers that create a block formatting context.
+    <div className="border border-border rounded-lg bg-card">
+      {/* Section header — rounded-t-lg reproduces the clipped top corners that
+          overflow:hidden previously provided on the outer container */}
       <div
         className={[
-          'flex items-center justify-between px-4 py-3 bg-muted/40 border-b border-border',
+          'flex items-center justify-between px-4 py-3 bg-muted/40 border-b border-border rounded-t-lg',
           section.collapsible ? 'cursor-pointer select-none hover:bg-muted/60 transition-colors' : '',
         ].join(' ')}
         onClick={section.collapsible ? () => setCollapsed((c: boolean) => !c) : undefined}
@@ -121,8 +124,19 @@ export function SectionInput({
           {fields.map((field) => (
             <div
               key={field.attribute}
+              className="flex flex-col gap-1.5"
               style={{ gridColumn: fieldGridColumn(field, section.columns) }}
             >
+              {/* Field label — always rendered above the input in section layout */}
+              <label
+                htmlFor={field.attribute}
+                className="block text-sm font-medium text-muted-foreground"
+              >
+                {field.label}
+                {field.required && (
+                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                )}
+              </label>
               <FieldInput
                 field={field}
                 value={values[field.attribute]}
