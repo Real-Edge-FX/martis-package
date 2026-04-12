@@ -9,9 +9,10 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
-import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown, CaretUpDown, CaretRight } from '@phosphor-icons/react'
+import { Plus, PencilSimple, Trash, MagnifyingGlass, X, CaretUp, CaretDown, CaretUpDown, CaretRight } from "@phosphor-icons/react"
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
+import { Tooltip } from 'primereact/tooltip'
 
 /**
  * HasMany field display — renders differently based on context:
@@ -224,13 +225,26 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
                 placeholder={searchPlaceholder}
-                className="has-many-search-input w-full rounded-md border py-1.5 pl-8 pr-3 text-sm sm:w-auto"
+                className="has-many-search-input w-full rounded-md border py-1.5 pl-8 pr-8 text-sm sm:w-auto"
                 style={{
                   borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-input-bg)',
                   color: 'var(--martis-text)',
                 }}
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setPage(1) }}
+                  className="absolute inset-y-0 right-2 flex items-center has-many-search-clear"
+                  style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+                  data-pr-tooltip={tMsg('clear', 'Clear')}
+                  data-pr-position="top"
+                >
+                  <X size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
+                </button>
+              )}
+              <Tooltip target=".has-many-search-clear" showDelay={400} />
             </div>
           )}
           {meta?.canCreate && (
