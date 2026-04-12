@@ -254,8 +254,8 @@ export interface PanelDefinition {
 export interface SectionDefinition {
   /** Discriminant — always 'section' */
   type: 'section'
-  /** Section heading displayed in the header bar */
-  title: string
+  /** Section heading displayed in the header bar. null/empty = no header rendered */
+  title: string | null
   /** Fields rendered inside the section */
   fields: FieldDefinition[]
   /**

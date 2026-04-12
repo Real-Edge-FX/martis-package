@@ -41,7 +41,7 @@ class Section implements LayoutContract
      * @param  list<FieldContract>  $fields
      */
     public function __construct(
-        protected readonly string $title,
+        protected readonly ?string $title,
         protected array $fields,
     ) {}
 
@@ -50,7 +50,15 @@ class Section implements LayoutContract
      *
      * @param  list<FieldContract>  $fields
      */
-    public static function make(string $title, array $fields): static
+    /**
+     * Create a new Section instance.
+     *
+     * The title is optional — pass an empty string or null to render the section
+     * without a header bar. Useful when you want grid layout without a visual label.
+     *
+     * @param  list<FieldContract>  $fields
+     */
+    public static function make(?string $title, array $fields): static
     {
         return new static($title, $fields);
     }

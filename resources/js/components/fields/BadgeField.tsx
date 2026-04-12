@@ -69,14 +69,10 @@ export function BadgeFieldDisplay({ field, value }: FieldDisplayProps) {
 // ---------------------------------------------------------------------------
 
 export function BadgeFieldInput({ field, value }: FieldInputProps) {
-  // Badge is intentionally display-only. If shown in a form context
-  // (e.g. via ->showOnForms()), it renders as read-only display.
+  // Badge is intentionally display-only. Renders as a clean read-only pill in form context.
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center" style={{ minHeight: '2.5rem' }}>
       <BadgeFieldDisplay field={field} value={value} />
-      <span className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-        (read-only)
-      </span>
     </div>
   )
 }

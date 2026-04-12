@@ -24,38 +24,39 @@ function SectionContainer({ section, children }: SectionContainerProps) {
     : section.fields
   const hiddenCount = section.fields.length - (section.limit ?? section.fields.length)
 
-  const sectionId = `section-content-${section.title.toLowerCase().replace(/\s+/g, '-')}`
+  const sectionId = `section-content-${(section.title ?? 'unnamed').toLowerCase().replace(/\s+/g, '-')}`
 
   return (
     // overflow-visible so PrimeReact dropdown panels (portalled to body) are not
     // clipped by the card boundary on browsers that create a block formatting context.
     <div className="border border-border rounded-lg bg-card">
-      {/* Section header — rounded-t-lg reproduces the clipped top corners that
-          overflow:hidden previously provided on the outer container */}
-      <div
-        className={[
-          'flex items-center justify-between px-4 py-3 bg-muted/40 border-b border-border rounded-t-lg',
-          section.collapsible ? 'cursor-pointer select-none hover:bg-muted/60 transition-colors' : '',
-        ].join(' ')}
-        onClick={section.collapsible ? () => setCollapsed((c: boolean) => !c) : undefined}
-        role={section.collapsible ? 'button' : undefined}
-        aria-expanded={section.collapsible ? !collapsed : undefined}
-        aria-controls={section.collapsible ? sectionId : undefined}
-        tabIndex={section.collapsible ? 0 : undefined}
-        onKeyDown={section.collapsible ? (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            setCollapsed((c: boolean) => !c)
-          }
-        } : undefined}
-      >
-        <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
-        {section.collapsible && (
-          <span className="text-muted-foreground" aria-hidden="true">
-            {collapsed ? <CaretRight size={16} /> : <CaretDown size={16} />}
-          </span>
-        )}
-      </div>
+      {/* Section header — only rendered when title is non-empty */}
+      {section.title && (
+        <div
+          className={[
+            'flex items-center justify-between px-4 py-3 bg-muted/40 border-b border-border rounded-t-lg',
+            section.collapsible ? 'cursor-pointer select-none hover:bg-muted/60 transition-colors' : '',
+          ].join(' ')}
+          onClick={section.collapsible ? () => setCollapsed((c: boolean) => !c) : undefined}
+          role={section.collapsible ? 'button' : undefined}
+          aria-expanded={section.collapsible ? !collapsed : undefined}
+          aria-controls={section.collapsible ? sectionId : undefined}
+          tabIndex={section.collapsible ? 0 : undefined}
+          onKeyDown={section.collapsible ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setCollapsed((c: boolean) => !c)
+            }
+          } : undefined}
+        >
+          <h3 className="text-base font-semibold text-foreground">{section.title}</h3>
+          {section.collapsible && (
+            <span className="text-muted-foreground" aria-hidden="true">
+              {collapsed ? <CaretRight size={16} /> : <CaretDown size={16} />}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Section content */}
       {!collapsed && (

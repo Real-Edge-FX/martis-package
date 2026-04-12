@@ -27,7 +27,7 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
         onChange={(e) => onChange(e.value as string)}
         disabled={field.readonly}
         invalid={!!error}
-        placeholder={field.placeholder ?? (field.nullable ? '— Select —' : undefined)}
+        placeholder={field.placeholder ?? '— Select —'}
         showClear={field.nullable}
         className="w-full"
       />
