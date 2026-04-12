@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
-use Martis\Enums\PeekSize;
 use Martis\Enums\PhosphorIcon;
 
 /**
@@ -71,18 +70,15 @@ class BelongsTo extends Field
     protected string $subtitleAttribute = 'subtitle';
 
     /**
-     * Whether the peek/preview button is shown for the related record.
-     * Defaults to true (Nova v5 parity).
+     * Whether the peek/preview icon is shown for the related record.
+     * Defaults to true (Nova v5 parity: peekable).
+     *
+     * When enabled, a small preview icon appears next to the related record link.
+     * Hovering the icon fetches the related resource's preview fields
+     * (via the peek endpoint, which uses fieldsForPreview()) and shows them
+     * in a compact card — aligned with Nova v5's concept of peeking.
      */
     protected bool $peekable = true;
-
-    /**
-     * Columns to display in the peek/preview card.
-     * Default: [] (shows title + ID using resolved value).
-     *
-     * @var list<string>
-     */
-    protected array $peekColumns = [];
 
     /**
      * Whether soft-deleted records should be excluded from relatable options.
@@ -128,18 +124,6 @@ class BelongsTo extends Field
      * When null, falls back to the translated "select_field" key.
      */
     protected ?string $placeholder = null;
-
-    /**
-     * Whether to display the column key (name) next to the value in the peek card.
-     * Defaults to false — only the value is shown.
-     */
-    protected bool $showPeekColumnName = false;
-
-    /**
-     * Controls the horizontal width of the peek/preview hover card.
-     * Defaults to MD (16rem).
-     */
-    protected PeekSize $peekSize = PeekSize::MD;
 
     /**
      * Custom color for the resource icon in the inline create modal header.
@@ -290,11 +274,6 @@ class BelongsTo extends Field
             $data['subtitle'] = $related?->getAttribute($this->subtitleAttribute);
         }
 
-        $peekData = $this->resolvePeekData($related);
-        if ($peekData !== null) {
-            $data['peekData'] = $peekData;
-        }
-
         return $data;
     }
 
@@ -389,8 +368,13 @@ class BelongsTo extends Field
     }
 
     /**
-     * Enable or disable the peek/preview button on the display component.
+     * Enable or disable the peek/preview icon on the display component.
      * Defaults to true — pass false or call noPeeking() to disable.
+     *
+     * When enabled, a small preview icon appears next to the related record link.
+     * Hovering the icon fetches the related resource's peek fields and shows
+     * them in a compact card. Peek content is governed by fieldsForPreview()
+     * on the related resource — not by a custom column list on this field.
      *
      * Nova v5 parity: ->peekable()
      */
@@ -402,28 +386,13 @@ class BelongsTo extends Field
     }
 
     /**
-     * Disable the peek/preview button for this relationship.
+     * Disable the peek/preview icon for this relationship.
      *
      * Nova v5 parity: ->noPeeking()
      */
     public function noPeeking(): static
     {
         $this->peekable = false;
-
-        return $this;
-    }
-
-    /**
-     * Configure which columns to show in the peek/preview hover card.
-     * Default: shows the title attribute + ID.
-     *
-     * Usage: ->peekColumns(['name', 'email', 'role'])
-     *
-     * @param  string[]  $columns  Attribute names from the related model.
-     */
-    public function peekColumns(array $columns): static
-    {
-        $this->peekColumns = array_values($columns);
 
         return $this;
     }
@@ -543,32 +512,6 @@ class BelongsTo extends Field
     }
 
     /**
-     * Configure whether to show the column name (key) next to its value in the peek card.
-     * Defaults to false — only values are displayed.
-     *
-     * Usage: BelongsTo::make("author")->peekColumns(["name", "email"])->showPeekColumnName()
-     */
-    public function showPeekColumnName(bool $show = true): static
-    {
-        $this->showPeekColumnName = $show;
-
-        return $this;
-    }
-
-    /**
-     * Set the horizontal size of the peek/preview hover card.
-     * Defaults to PeekSize::MD (16rem / 256px).
-     *
-     * Usage: BelongsTo::make("author")->peekSize(PeekSize::LG)
-     */
-    public function peekSize(PeekSize $size): static
-    {
-        $this->peekSize = $size;
-
-        return $this;
-    }
-
-    /**
      * Set a custom color for the resource icon in the inline create modal header.
      *
      * Usage: BelongsTo::make("author")->resourceIcon()->iconColor("#6366f1")
@@ -625,26 +568,6 @@ class BelongsTo extends Field
     }
 
     /**
-     * Resolve peek column data from the related model.
-     *
-     * @return list<array{key: string, value: mixed}>|null
-     */
-    protected function resolvePeekData(?Model $related): ?array
-    {
-        if ($related === null || empty($this->peekColumns)) {
-            return null;
-        }
-
-        return array_map(
-            fn (string $col): array => [
-                'key' => $col,
-                'value' => $related->getAttribute($col),
-            ],
-            $this->peekColumns
-        );
-    }
-
-    /**
      * @return array<string, mixed>
      */
     protected function extraAttributes(): array
@@ -662,7 +585,6 @@ class BelongsTo extends Field
             'withSubtitles' => $this->withSubtitles ?: null,
             'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
             'peekable' => $this->peekable,
-            'peekColumns' => ! empty($this->peekColumns) ? $this->peekColumns : null,
             'withoutTrashed' => $this->withoutTrashed ?: null,
             'dontReorderAssociatables' => $this->dontReorderAssociatables ?: null,
             'showResourceIcon' => $this->showResourceIcon ?: null,

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -31,11 +32,153 @@ function isMorphToValue(v: unknown): v is MorphToValue {
 }
 
 // ---------------------------------------------------------------------------
+// PeekCard — lazy-fetch hover preview card (Nova v5 concept alignment).
+// Content comes from the related resource's fieldsForPreview() via the peek endpoint.
+// Triggered exclusively by the preview icon, never by hover on the record link.
+// ---------------------------------------------------------------------------
+
+interface PeekAttribute {
+  label: string
+  value: unknown
+}
+
+interface PeekData {
+  title: string
+  attributes: PeekAttribute[]
+}
+
+interface PeekResponse {
+  data: PeekData
+}
+
+interface PeekCardProps {
+  resourceKey: string
+  recordId: number | string
+  top: number
+  left: number
+}
+
+function renderPeekValue(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'boolean') return value ? '✓' : '✗'
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    if (obj.title != null) return String(obj.title)
+    if (obj.id != null) return `#${obj.id}`
+    return '—'
+  }
+  const str = String(value)
+  return str === '' ? '—' : str
+}
+
+function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
+  const [data, setData] = useState<PeekData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    api.get<PeekResponse>(`/api/resources/${resourceKey}/${recordId}/peek`)
+      .then((res) => {
+        if (!cancelled) {
+          setData(res.data)
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [resourceKey, recordId])
+
+  const hasAttributes = data && data.attributes.length > 0
+
+  return createPortal(
+    <div
+      data-testid="peek-card"
+      className="fixed rounded-lg border p-2.5 text-sm pointer-events-none"
+      style={{
+        backgroundColor: 'var(--martis-surface)',
+        borderColor: 'var(--martis-border)',
+        color: 'var(--martis-text)',
+        zIndex: 9999,
+        boxShadow: 'var(--martis-peek-shadow)',
+        top: `${top}px`,
+        left: `${left}px`,
+        minWidth: '10rem',
+        maxWidth: '20rem',
+        width: 'max-content',
+      }}
+    >
+      {loading ? (
+        <p className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+          ···
+        </p>
+      ) : data ? (
+        <>
+          <p className="font-medium leading-snug truncate">{data.title}</p>
+          {hasAttributes && (
+            <table className="w-full mt-1.5 border-collapse">
+              <tbody>
+                {data.attributes.map(({ label, value }) => (
+                  <tr key={label}>
+                    <td
+                      className="text-xs pr-2 py-0.5 align-top whitespace-nowrap"
+                      style={{ color: 'var(--martis-text-muted)' }}
+                    >
+                      {label}
+                    </td>
+                    <td
+                      className="text-xs py-0.5 align-top overflow-hidden"
+                      style={{
+                        color: 'var(--martis-text)',
+                        maxWidth: '12rem',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {renderPeekValue(value)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      ) : null}
+    </div>,
+    document.body
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Display — Index & Detail
 // ---------------------------------------------------------------------------
 
 export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
   const { t: tMsg } = useTranslation('messages')
+  const instanceId = useId()
+  const peekArrowClass = `peek-arrow-morphto-${instanceId.replace(/:/g, '')}`
+  const [showPeek, setShowPeek] = useState(false)
+  const [peekPos, setPeekPos] = useState<{ top: number; left: number } | null>(null)
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const peekIconRef = useRef<HTMLAnchorElement>(null)
+
+  function handleMouseEnter() {
+    peekTimer.current = setTimeout(() => {
+      const target = peekIconRef.current
+      if (target) {
+        const rect = target.getBoundingClientRect()
+        setPeekPos({ top: rect.bottom + 6, left: rect.left })
+      }
+      setShowPeek(true)
+    }, 300)
+  }
+
+  function handleMouseLeave() {
+    if (peekTimer.current) clearTimeout(peekTimer.current)
+    setShowPeek(false)
+    setPeekPos(null)
+  }
 
   if (value === null || value === undefined || value === '') {
     return <span className="martis-text-muted">{tMsg('morph_to_empty', '—')}</span>
@@ -62,17 +205,29 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
             {recordTitle}
           </Link>
           {peekable && (
-            <Link
-              to={`/resources/${resourceType}/${value.id}`}
+            <a
+              ref={peekIconRef}
+              href="#"
+              onClick={(e) => e.preventDefault()}
               data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
               data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)' }}
-              className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity martis-morphto-peek-arrow"
+              className={`inline-flex items-center opacity-60 hover:opacity-100 transition-opacity ${peekArrowClass}`}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             >
               <ArrowSquareOut size={13} weight="regular" />
-            </Link>
+            </a>
           )}
-          {peekable && <Tooltip target=".martis-morphto-peek-arrow" showDelay={300} />}
+          {peekable && <Tooltip target={`.${peekArrowClass}`} showDelay={300} />}
+          {peekable && showPeek && peekPos && resourceType && (
+            <PeekCard
+              resourceKey={resourceType}
+              recordId={value.id}
+              top={peekPos.top}
+              left={peekPos.left}
+            />
+          )}
         </span>
       )
     }

@@ -15,7 +15,6 @@ interface BelongsToValue {
   id: number | string
   title?: string | null
   subtitle?: string | null
-  peekData?: Array<{ key: string; value: unknown }> | null
 }
 
 function isBelongsToValue(v: unknown): v is BelongsToValue {
@@ -23,32 +22,66 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
 }
 
 // ---------------------------------------------------------------------------
-// PeekCard — hover preview card for related records (rendered via portal)
+// PeekCard — hover preview card fetching content from the resource's
+// fieldsForPreview() via the /peek endpoint (Nova v5 concept alignment).
+// The card is triggered exclusively by the preview icon, never by hover on the link.
 // ---------------------------------------------------------------------------
 
-// Peek size max-width map (matches PeekSize PHP enum)
-const PEEK_SIZE_MAX_WIDTH: Record<string, string> = {
-  xs: '8rem',
-  sm: '12rem',
-  md: '16rem',
-  lg: '22rem',
-  xl: '28rem',
+interface PeekAttribute {
+  label: string
+  value: unknown
+}
+
+interface PeekData {
+  title: string
+  attributes: PeekAttribute[]
+}
+
+interface PeekResponse {
+  data: PeekData
 }
 
 interface PeekCardProps {
-  title: string
+  resourceKey: string
   recordId: number | string
-  subtitle?: string | null
-  peekData?: Array<{ key: string; value: unknown }> | null
-  showColumnNames?: boolean
-  peekSize?: string | null
   top: number
   left: number
 }
 
-function PeekCard({ title, recordId, subtitle, peekData, showColumnNames = false, peekSize, top, left }: PeekCardProps) {
-  const hasCustomColumns = peekData && peekData.length > 0
-  const maxWidth = peekSize ? (PEEK_SIZE_MAX_WIDTH[peekSize] ?? '16rem') : (hasCustomColumns ? '20rem' : '14rem')
+function renderPeekValue(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'boolean') return value ? '✓' : '✗'
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    if (obj.title != null) return String(obj.title)
+    if (obj.id != null) return `#${obj.id}`
+    return '—'
+  }
+  const str = String(value)
+  return str === '' ? '—' : str
+}
+
+function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
+  const [data, setData] = useState<PeekData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    api.get<PeekResponse>(`/api/resources/${resourceKey}/${recordId}/peek`)
+      .then((res) => {
+        if (!cancelled) {
+          setData(res.data)
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [resourceKey, recordId])
+
+  const hasAttributes = data && data.attributes.length > 0
+
   return createPortal(
     <div
       data-testid="peek-card"
@@ -62,50 +95,46 @@ function PeekCard({ title, recordId, subtitle, peekData, showColumnNames = false
         top: `${top}px`,
         left: `${left}px`,
         minWidth: '10rem',
-        maxWidth,
+        maxWidth: '20rem',
         width: 'max-content',
       }}
     >
-      <p className="font-medium leading-snug truncate">{title}</p>
-      {subtitle && !hasCustomColumns && (
-        <p
-          className="text-xs truncate mt-0.5"
-          style={{ color: 'var(--martis-text-muted)' }}
-        >
-          {subtitle}
+      {loading ? (
+        <p className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+          ···
         </p>
-      )}
-      {hasCustomColumns ? (
-        <table className="w-full mt-1.5 border-collapse">
-          <tbody>
-            {peekData.map(({ key, value }) => (
-              <tr key={key}>
-                {showColumnNames && (
-                  <td
-                    className="text-xs pr-2 py-0.5 align-top whitespace-nowrap"
-                    style={{ color: 'var(--martis-text-muted)' }}
-                  >
-                    {key}
-                  </td>
-                )}
-                <td
-                  className="text-xs py-0.5 align-top overflow-hidden"
-                  style={{ color: 'var(--martis-text)', maxWidth: '12rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
-                  {value === null || value === undefined ? '—' : String(value)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p
-          className="text-xs mt-1"
-          style={{ color: 'var(--martis-text-muted)' }}
-        >
-          #{recordId}
-        </p>
-      )}
+      ) : data ? (
+        <>
+          <p className="font-medium leading-snug truncate">{data.title}</p>
+          {hasAttributes && (
+            <table className="w-full mt-1.5 border-collapse">
+              <tbody>
+                {data.attributes.map(({ label, value }) => (
+                  <tr key={label}>
+                    <td
+                      className="text-xs pr-2 py-0.5 align-top whitespace-nowrap"
+                      style={{ color: 'var(--martis-text-muted)' }}
+                    >
+                      {label}
+                    </td>
+                    <td
+                      className="text-xs py-0.5 align-top overflow-hidden"
+                      style={{
+                        color: 'var(--martis-text)',
+                        maxWidth: '12rem',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {renderPeekValue(value)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      ) : null}
     </div>,
     document.body
   )
@@ -190,8 +219,6 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
     const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
     const displayAsLink = (field as unknown as Record<string, unknown>).displayAsLink !== false
     const peekable = (field as unknown as Record<string, unknown>).peekable !== false
-    const showColumnNames = (field as unknown as Record<string, unknown>).showPeekColumnName === true
-    const peekSize = (field as unknown as Record<string, unknown>).peekSize as string | null | undefined
 
     if (relatedResource && displayAsLink) {
       return (
@@ -207,9 +234,10 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
             {label}
           </Link>
           {peekable && (
-            <Link
+            <a
               ref={peekIconRef}
-              to={`/resources/${relatedResource}/${value.id}`}
+              href="#"
+              onClick={(e) => e.preventDefault()}
               data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
               data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)' }}
@@ -218,17 +246,13 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               onMouseLeave={handleMouseLeave}
             >
               <ArrowSquareOut size={13} weight="regular" />
-            </Link>
+            </a>
           )}
           {peekable && <Tooltip target={`.${peekArrowClass}`} showDelay={300} />}
-          {peekable && showPeek && peekPos && (
+          {peekable && showPeek && peekPos && relatedResource && (
             <PeekCard
-              title={label}
+              resourceKey={relatedResource}
               recordId={value.id}
-              subtitle={value.subtitle}
-              peekData={value.peekData}
-              showColumnNames={showColumnNames}
-              peekSize={peekSize ?? null}
               top={peekPos.top}
               left={peekPos.left}
             />
