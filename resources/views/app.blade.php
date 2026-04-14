@@ -63,7 +63,32 @@
     @if(!empty($themeName))
         <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
     @endif
-    @vite(['resources/js/app.tsx'], 'martis/build')
+    @php
+        $hotFile = public_path('vendor/martis/hot');
+        $manifestPath = public_path('vendor/martis/manifest.json');
+    @endphp
+
+    @if(file_exists($hotFile))
+        @php
+            $hotUrl = rtrim((string) file_get_contents($hotFile), '/');
+        @endphp
+        <script type="module" src="{{ $hotUrl }}/@vite/client"></script>
+        <script type="module" src="{{ $hotUrl }}/resources/js/app.tsx"></script>
+    @elseif(file_exists($manifestPath))
+        @php
+            $manifest = json_decode((string) file_get_contents($manifestPath), true) ?: [];
+            $entry = $manifest['resources/js/app.tsx'] ?? null;
+            $cssFiles = is_array($entry['css'] ?? null) ? $entry['css'] : [];
+            $entryFile = is_array($entry) ? (string) ($entry['file'] ?? '') : '';
+        @endphp
+
+        @if($entry)
+            @foreach($cssFiles as $cssFile)
+                <link rel="stylesheet" href="{{ asset('vendor/martis/' . ltrim($cssFile, '/')) }}">
+            @endforeach
+            <script type="module" src="{{ asset('vendor/martis/' . ltrim($entryFile, '/')) }}"></script>
+        @endif
+    @endif
 </head>
 <body>
     <div id="martis-root"></div>

@@ -3,6 +3,7 @@
 namespace Martis\Tests;
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Martis\MartisServiceProvider;
@@ -19,8 +20,15 @@ abstract class TestCase extends OrchestraTestCase
 
     protected function setUp(): void
     {
+        $this->cleanupPublishedMartisMigrations();
         parent::setUp();
         $this->withoutVite();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->cleanupPublishedMartisMigrations();
+        parent::tearDown();
     }
 
     protected function defineEnvironment($app): void
@@ -66,5 +74,21 @@ abstract class TestCase extends OrchestraTestCase
                 $table->timestamp('two_factor_confirmed_at')->nullable();
             }
         });
+    }
+
+    protected function cleanupPublishedMartisMigrations(): void
+    {
+        $filesystem = new Filesystem;
+        $migrationPath = is_object($this->app) && method_exists($this->app, 'databasePath')
+            ? $this->app->databasePath('migrations')
+            : __DIR__.'/../vendor/orchestra/testbench-core/laravel/database/migrations';
+
+        collect(glob($migrationPath.'/*_create_action_events_table.php') ?: [])->each(
+            fn (string $path) => $filesystem->delete($path)
+        );
+
+        collect(glob($migrationPath.'/*_add_martis_profile_columns.php') ?: [])->each(
+            fn (string $path) => $filesystem->delete($path)
+        );
     }
 }

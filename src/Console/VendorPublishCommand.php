@@ -31,6 +31,14 @@ class VendorPublishCommand extends Command
         }
 
         if ($this->option('assets') || $this->noneSelected()) {
+            if (! $this->compiledAssetsAreAvailable()) {
+                $this->components->error('Martis frontend assets are missing from this package release.');
+                $this->line('  Expected: <fg=cyan>public/manifest.json</>');
+                $this->line('  Fix the package release by running <fg=cyan>npm install && npm run build</> before publishing.');
+
+                return self::FAILURE;
+            }
+
             $this->publishTag('martis-assets', 'public/vendor/martis', $force);
             $published = true;
         }
@@ -81,5 +89,10 @@ class VendorPublishCommand extends Command
 
         $this->callSilent('vendor:publish', $options);
         $this->components->twoColumnDetail('<fg=green>Published</> '.$tag, $destination);
+    }
+
+    protected function compiledAssetsAreAvailable(): bool
+    {
+        return file_exists(__DIR__.'/../../public/manifest.json');
     }
 }

@@ -20,7 +20,7 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, './resources/js'),
             '@images': path.resolve(__dirname, './resources/images'),
-            '@user': path.resolve(__dirname, '../../playground/resources/js'),
+            '@user': path.resolve(__dirname, './resources/js/user'),
         },
     },
     test: {

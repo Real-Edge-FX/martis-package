@@ -8,8 +8,8 @@ Add Martis to any existing Laravel application as a Composer package.
 |-------------|-----------------|
 | PHP | 8.2+ |
 | Laravel | 12.x |
-| Node.js | 20+ |
-| PNPM | 9+ (or npm/yarn) |
+| Node.js | 20+ (contributors only) |
+| PNPM | 9+ (or npm/yarn, contributors only) |
 | MySQL | 8.0+ |
 | Redis | 7+ (optional, for cache/queue) |
 
@@ -22,11 +22,13 @@ composer require martis/martis
 php artisan martis:install
 ```
 
+This is the complete end-user install flow. The consuming Laravel application does not need to run Vite, install Node dependencies, or build frontend assets for Martis.
+
 This command performs the following steps automatically:
 
 1. **Creates the directory structure** — `app/Martis/` with subdirectories for Resources, Fields, Actions, Filters, Lenses, Dashboards, and Metrics.
 2. **Publishes the config file** — `config/martis.php` with all customizable settings.
-3. **Publishes frontend assets** — compiled React app to `public/vendor/martis/`.
+3. **Publishes frontend assets** — precompiled React app to `public/vendor/martis/`.
 4. **Publishes database migrations** — `create_action_events_table` migration to `database/migrations/`.
 5. **Publishes translation files** — `en`, `pt-BR`, `pt-PT` to `lang/vendor/martis/`.
 6. **Runs database migrations** — creates the `action_events` table automatically.
@@ -43,6 +45,42 @@ php artisan martis:user
 | Flag | Effect |
 |------|--------|
 | `--force` | Overwrite previously published config, migrations, and translations |
+| `--with-profile` | Publish the optional Martis profile migration for avatar + 2FA columns |
+| `--avatar-column=avatar_path` | Customize which users table column Martis should use for avatar paths |
+
+### Optional Profile Support
+
+By default, `martis:install` always installs the core Martis package and its `action_events` audit log migration. Profile support is optional because some applications already have their own avatar column strategy.
+
+To install Martis with its profile migration included:
+
+```bash
+php artisan martis:install --with-profile
+```
+
+That migration is idempotent:
+
+- it adds the avatar column only if it does not already exist
+- it adds the 2FA columns only if they do not already exist
+- re-running `martis:install --with-profile` does not create duplicate migration files
+
+If your application already stores avatar paths in a different users table column, pass that column name when installing:
+
+```bash
+php artisan martis:install --with-profile --avatar-column=avatar_path
+```
+
+Then set the same column in your environment:
+
+```bash
+MARTIS_AVATAR_COLUMN=avatar_path
+```
+
+In non-interactive environments such as CI, Docker setup scripts, or deployment hooks, `--no-interaction` skips the optional profile prompt. If you want the profile migration there as well, pass `--with-profile` explicitly:
+
+```bash
+php artisan martis:install --force --no-interaction --with-profile
+```
 ## Manual Install (Step by Step)
 
 If you prefer granular control, you can run each publish step individually.
@@ -85,7 +123,13 @@ This creates `config/martis.php` where you can customize:
 php artisan vendor:publish --tag=martis-assets --force
 ```
 
-This copies the compiled React application to `public/vendor/martis/`.
+This copies the precompiled React application to `public/vendor/martis/`. End users do not need to run Vite in the consuming Laravel app.
+
+Important:
+
+- `composer require`, `composer install`, and `composer update` do not automatically refresh files already published into `public/vendor/martis/`
+- after installing or upgrading Martis, run `martis:install` or `vendor:publish --tag=martis-assets --force`
+- this is standard behavior for Laravel packages that publish static files into the host application
 
 ### Step 4: Publish and Run Migrations
 
@@ -95,6 +139,20 @@ php artisan migrate
 ```
 
 This publishes the `create_action_events_table` migration and creates the `action_events` table used by the action audit log.
+
+If you also want Martis to provision its optional profile migration manually:
+
+```bash
+php artisan vendor:publish --tag=martis-profile-migration
+php artisan migrate
+```
+
+For advanced/manual workflows, the package still exposes the narrower tags below:
+
+```bash
+php artisan vendor:publish --tag=martis-2fa-migration
+php artisan vendor:publish --tag=martis-avatar-migration
+```
 
 ### Step 5: Publish Translations (Optional)
 
@@ -220,24 +278,44 @@ your-laravel-app/
 
 ## Upgrading
 
-When upgrading Martis, always re-publish the frontend assets:
+When upgrading Martis, always re-publish the frontend assets. Recommended command:
+
+```bash
+composer update martis/martis
+php artisan martis:install --force
+```
+
+Equivalent manual asset-only upgrade:
 
 ```bash
 composer update martis/martis
 php artisan vendor:publish --tag=martis-assets --force
 ```
 
-Or use the install command with `--force`:
+Why this second step exists:
+
+- Composer updates package files inside `vendor/martis/martis`
+- Martis serves published files from `public/vendor/martis`
+- the host app keeps using the old published files until you publish again
+
+Use the asset-only command if you only want to refresh static files. Use the install command with `--force` if you want the full recommended refresh:
 
 ```bash
 php artisan martis:install --force
+```
+
+If your application uses the optional profile migration, re-run the install command with the same profile options after upgrading:
+
+```bash
+composer update martis/martis
+php artisan martis:install --force --with-profile --avatar-column=avatar_path
 ```
 
 ## Available Artisan Commands
 
 | Command | Description |
 |---------|-------------|
-| `martis:install` | Full installation (directories, config, assets, migrations, translations, auto-migrate) |
+| `martis:install` | Full installation (directories, config, assets, core migrations, translations, auto-migrate) |
 | `martis:user` | Create an admin user |
 | `martis:resource` | Scaffold a new resource class |
 | `martis:field` | Scaffold a custom field class |
