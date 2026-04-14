@@ -2,7 +2,7 @@ import { useMemo, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, ResourceRecord, FieldDefinition } from '@/types'
-import { FieldInput } from '@/components/fields'
+import { FieldInput } from '@/components/fields/FieldRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 

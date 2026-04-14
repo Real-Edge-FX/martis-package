@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { CaretDown, CaretRight } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { SectionDefinition, FieldDefinition } from '@/types'
-import { FieldDisplay, FieldInput } from './index'
+import { FieldDisplay, FieldInput } from './FieldRenderer'
 
 // -------------------------------------------------------------------------
 // Section — shared internal container
