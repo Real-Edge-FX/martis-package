@@ -57,7 +57,7 @@ vi.mock('primereact/column', () => ({
 }))
 
 import { render, screen } from '@testing-library/react'
-import { registerDefaultFields, FieldDisplay, FieldInput } from '@/components/fields'
+import { registerDefaultFields, FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import type { FieldDefinition } from '@/types'
 
 beforeEach(() => {

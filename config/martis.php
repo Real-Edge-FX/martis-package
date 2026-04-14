@@ -126,7 +126,7 @@ return [
     */
     'user_menu' => [
         'showThemeToggle' => true,
-        'showProfile' => true,
+        'showProfile' => env('MARTIS_SHOW_PROFILE_MENU', true),
         // 'customItems' => [],
     ],
 
@@ -236,6 +236,7 @@ return [
         'allowed_disks' => ['public', 'local'],
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
     ],
+
     /*
     |--------------------------------------------------------------------------
     | Action Events (Audit Log)

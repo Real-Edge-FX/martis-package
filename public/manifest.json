@@ -1,36 +1,76 @@
 {
-  "_ActionDrawer-tkvjUtev.js": {
-    "file": "assets/ActionDrawer-tkvjUtev.js",
+  "_ActionDrawer-19nGxgJZ.js": {
+    "file": "assets/ActionDrawer-19nGxgJZ.js",
     "name": "ActionDrawer",
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx",
-      "_MartisLoader-BGGaPK7U.js"
+      "_MartisLoader-BMhzbeUU.js"
     ]
   },
-  "_MartisLoader-BGGaPK7U.js": {
-    "file": "assets/MartisLoader-BGGaPK7U.js",
+  "_MartisLoader-BMhzbeUU.js": {
+    "file": "assets/MartisLoader-BMhzbeUU.js",
     "name": "MartisLoader",
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx"
     ]
   },
-  "_SectionRenderer-BLREjAT_.js": {
-    "file": "assets/SectionRenderer-BLREjAT_.js",
+  "_SectionRenderer-CJvVpx5x.js": {
+    "file": "assets/SectionRenderer-CJvVpx5x.js",
     "name": "SectionRenderer",
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx"
     ]
   },
-  "_TabsRenderer-BAgdTmcY.js": {
-    "file": "assets/TabsRenderer-BAgdTmcY.js",
+  "_TabsRenderer-DRd0l8_v.js": {
+    "file": "assets/TabsRenderer-DRd0l8_v.js",
     "name": "TabsRenderer",
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx"
+    ]
+  },
+  "_app-vendor-gDgt-oVY.js": {
+    "file": "assets/app-vendor-gDgt-oVY.js",
+    "name": "app-vendor"
+  },
+  "_codemirror-HOv4cgqE.js": {
+    "file": "assets/codemirror-HOv4cgqE.js",
+    "name": "codemirror",
+    "imports": [
+      "_react-vendor-C1xO_533.js"
+    ]
+  },
+  "_primereact-BbzYVHEV.js": {
+    "file": "assets/primereact-BbzYVHEV.js",
+    "name": "primereact",
+    "imports": [
+      "_react-vendor-C1xO_533.js"
+    ]
+  },
+  "_react-vendor-C1xO_533.js": {
+    "file": "assets/react-vendor-C1xO_533.js",
+    "name": "react-vendor",
+    "imports": [
+      "_app-vendor-gDgt-oVY.js"
     ]
   },
   "_resolveRedirect-BkVnA70S.js": {
     "file": "assets/resolveRedirect-BkVnA70S.js",
     "name": "resolveRedirect"
+  },
+  "_richtext-B116Bax6.css": {
+    "file": "assets/richtext-B116Bax6.css",
+    "src": "_richtext-B116Bax6.css"
+  },
+  "_richtext-C6Zv-o0-.js": {
+    "file": "assets/richtext-C6Zv-o0-.js",
+    "name": "richtext",
+    "css": [
+      "assets/richtext-B116Bax6.css"
+    ]
   },
   "node_modules/primeicons/fonts/primeicons.eot": {
     "file": "assets/primeicons-DMOk5skT.eot",
@@ -65,10 +105,17 @@
     "src": "resources/images/logo.png"
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-BJXxHIDr.js",
+    "file": "assets/app-CBeZ9iPa.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
+    "imports": [
+      "_react-vendor-C1xO_533.js",
+      "_primereact-BbzYVHEV.js",
+      "_codemirror-HOv4cgqE.js",
+      "_richtext-C6Zv-o0-.js",
+      "_app-vendor-gDgt-oVY.js"
+    ],
     "dynamicImports": [
       "resources/js/pages/Profile.tsx",
       "resources/js/pages/ResourceIndex.tsx",
@@ -77,7 +124,7 @@
       "resources/js/pages/ResourceUpdate.tsx"
     ],
     "css": [
-      "assets/app-B3Bgpu3s.css"
+      "assets/app-Beem5Gjt.css"
     ],
     "assets": [
       "assets/logo-Ctxf8qMz.png",
@@ -91,62 +138,87 @@
     ]
   },
   "resources/js/pages/Profile.tsx": {
-    "file": "assets/Profile-COXMlXiW.js",
+    "file": "assets/Profile-CTvrVYVm.js",
     "name": "Profile",
     "src": "resources/js/pages/Profile.tsx",
     "isDynamicEntry": true,
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx",
-      "_MartisLoader-BGGaPK7U.js"
+      "_primereact-BbzYVHEV.js",
+      "_MartisLoader-BMhzbeUU.js",
+      "_app-vendor-gDgt-oVY.js",
+      "_codemirror-HOv4cgqE.js",
+      "_richtext-C6Zv-o0-.js"
     ]
   },
   "resources/js/pages/ResourceCreate.tsx": {
-    "file": "assets/ResourceCreate-yrnrrB2o.js",
+    "file": "assets/ResourceCreate-bCPeO8OA.js",
     "name": "ResourceCreate",
     "src": "resources/js/pages/ResourceCreate.tsx",
     "isDynamicEntry": true,
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx",
-      "_TabsRenderer-BAgdTmcY.js",
-      "_SectionRenderer-BLREjAT_.js",
-      "_resolveRedirect-BkVnA70S.js"
+      "_TabsRenderer-DRd0l8_v.js",
+      "_SectionRenderer-CJvVpx5x.js",
+      "_resolveRedirect-BkVnA70S.js",
+      "_app-vendor-gDgt-oVY.js",
+      "_primereact-BbzYVHEV.js",
+      "_codemirror-HOv4cgqE.js",
+      "_richtext-C6Zv-o0-.js"
     ]
   },
   "resources/js/pages/ResourceDetail.tsx": {
-    "file": "assets/ResourceDetail-CHOPy91A.js",
+    "file": "assets/ResourceDetail-CPYOBpxZ.js",
     "name": "ResourceDetail",
     "src": "resources/js/pages/ResourceDetail.tsx",
     "isDynamicEntry": true,
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx",
-      "_TabsRenderer-BAgdTmcY.js",
-      "_ActionDrawer-tkvjUtev.js",
+      "_TabsRenderer-DRd0l8_v.js",
+      "_ActionDrawer-19nGxgJZ.js",
       "_resolveRedirect-BkVnA70S.js",
-      "_MartisLoader-BGGaPK7U.js"
+      "_MartisLoader-BMhzbeUU.js",
+      "_app-vendor-gDgt-oVY.js",
+      "_primereact-BbzYVHEV.js",
+      "_codemirror-HOv4cgqE.js",
+      "_richtext-C6Zv-o0-.js"
     ]
   },
   "resources/js/pages/ResourceIndex.tsx": {
-    "file": "assets/ResourceIndex-3_Oc5Rto.js",
+    "file": "assets/ResourceIndex-BQxY0vip.js",
     "name": "ResourceIndex",
     "src": "resources/js/pages/ResourceIndex.tsx",
     "isDynamicEntry": true,
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx",
-      "_ActionDrawer-tkvjUtev.js",
-      "_MartisLoader-BGGaPK7U.js",
-      "_resolveRedirect-BkVnA70S.js"
+      "_primereact-BbzYVHEV.js",
+      "_ActionDrawer-19nGxgJZ.js",
+      "_MartisLoader-BMhzbeUU.js",
+      "_resolveRedirect-BkVnA70S.js",
+      "_app-vendor-gDgt-oVY.js",
+      "_codemirror-HOv4cgqE.js",
+      "_richtext-C6Zv-o0-.js"
     ]
   },
   "resources/js/pages/ResourceUpdate.tsx": {
-    "file": "assets/ResourceUpdate-_QMJ9iPT.js",
+    "file": "assets/ResourceUpdate-Cc_tTIpG.js",
     "name": "ResourceUpdate",
     "src": "resources/js/pages/ResourceUpdate.tsx",
     "isDynamicEntry": true,
     "imports": [
+      "_react-vendor-C1xO_533.js",
       "resources/js/app.tsx",
-      "_TabsRenderer-BAgdTmcY.js",
-      "_SectionRenderer-BLREjAT_.js",
-      "_resolveRedirect-BkVnA70S.js"
+      "_TabsRenderer-DRd0l8_v.js",
+      "_SectionRenderer-CJvVpx5x.js",
+      "_resolveRedirect-BkVnA70S.js",
+      "_app-vendor-gDgt-oVY.js",
+      "_primereact-BbzYVHEV.js",
+      "_codemirror-HOv4cgqE.js",
+      "_richtext-C6Zv-o0-.js"
     ]
   }
 }

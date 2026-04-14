@@ -5,29 +5,33 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class InstallCommand extends Command
 {
     protected $signature = 'martis:install
                             {--force : Overwrite existing assets}
-                            {--with-profile : Publish the optional Martis profile migration (avatar + 2FA columns)}
-                            {--avatar-column= : Column on the users table that stores avatar paths}';
+                            {--with-profile : Enable profile support}
+                            {--with-2fa : Enable two-factor authentication support}
+                            {--avatar-column= : Column on the users table that stores avatar paths}
+                            {--existing-avatar-column : Use an existing avatar column instead of publishing a migration}';
 
     protected $description = 'Install the Martis admin panel';
 
-    /**
-     * Handle.
-     */
     public function handle(): int
     {
         $this->components->info('Installing Martis...');
 
+        $options = $this->resolveInstallOptions();
+
         $this->createDirectories();
         $this->publishConfig();
         $this->publishAssets();
-        $this->publishMigrations();
+        $this->publishCoreMigrations();
         $this->publishTranslations();
-        $this->publishProfileMigration();
+        $this->publishOptionalMigrations($options);
+        $this->writeEnvironmentConfiguration($options);
+        $this->clearConfigCache();
         $this->runMigrations();
 
         $this->newLine();
@@ -44,9 +48,71 @@ class InstallCommand extends Command
         return self::SUCCESS;
     }
 
-    /** Create the required application directories. */
+    /**
+     * @return array{
+     *     profile_enabled: bool,
+     *     avatar_enabled: bool,
+     *     avatar_column: string,
+     *     publish_avatar_migration: bool,
+     *     two_factor_enabled: bool
+     * }
+     */
+    protected function resolveInstallOptions(): array
+    {
+        $interactive = $this->input->isInteractive() && ! app()->runningUnitTests();
+        $profileEnabled = (bool) $this->option('with-profile');
+        $twoFactorEnabled = (bool) $this->option('with-2fa');
+        $avatarEnabled = false;
+        $publishAvatarMigration = false;
+        $avatarColumn = 'profile_picture';
+
+        if (! $profileEnabled && ! $twoFactorEnabled && $interactive) {
+            $profileEnabled = $this->confirm('Would you like to enable the Martis Profile feature?', true);
+            $twoFactorEnabled = $this->confirm('Would you like to enable the Martis 2FA feature?', true);
+        }
+
+        if ($profileEnabled) {
+            $avatarEnabled = true;
+
+            $usingExistingAvatarColumn = (bool) $this->option('existing-avatar-column');
+            $avatarColumnOption = $this->option('avatar-column');
+
+            if ($interactive && ! $this->option('with-profile')) {
+                $shouldCreateAvatarMigration = $this->confirm(
+                    'Would you like Martis to publish a migration for the avatar column on the users table?',
+                    true
+                );
+
+                if ($shouldCreateAvatarMigration) {
+                    $publishAvatarMigration = true;
+                    $avatarColumn = $this->resolveAvatarColumnFromOptionOrPrompt($avatarColumnOption, 'profile_picture');
+                } else {
+                    $usingExistingAvatarColumn = true;
+                    $avatarColumn = $this->resolveExistingAvatarColumn($avatarColumnOption);
+                }
+            } else {
+                if ($usingExistingAvatarColumn) {
+                    $avatarColumn = $this->resolveExistingAvatarColumn($avatarColumnOption);
+                    $publishAvatarMigration = false;
+                } else {
+                    $avatarColumn = $this->resolveAvatarColumnFromOptionOrPrompt($avatarColumnOption, 'profile_picture');
+                    $publishAvatarMigration = true;
+                }
+            }
+        }
+
+        return [
+            'profile_enabled' => $profileEnabled,
+            'avatar_enabled' => $avatarEnabled,
+            'avatar_column' => $avatarColumn,
+            'publish_avatar_migration' => $publishAvatarMigration,
+            'two_factor_enabled' => $twoFactorEnabled,
+        ];
+    }
+
     protected function createDirectories(): void
     {
+        $filesystem = new Filesystem;
         $base = app_path('Martis');
 
         $dirs = [
@@ -64,13 +130,12 @@ class InstallCommand extends Command
             $path = $base.$dir;
 
             if (! is_dir($path)) {
-                mkdir($path, 0755, true);
+                $filesystem->ensureDirectoryExists($path, 0755);
                 $this->components->twoColumnDetail('<fg=green>Creating</> directory', "app/Martis{$dir}");
             }
         }
     }
 
-    /** Publish the Martis configuration file. */
     protected function publishConfig(): void
     {
         if (file_exists(config_path('martis.php')) && ! $this->option('force')) {
@@ -83,10 +148,10 @@ class InstallCommand extends Command
             '--tag' => 'martis-config',
             '--force' => (bool) $this->option('force'),
         ]);
+
         $this->components->twoColumnDetail('<fg=green>Published</> config', 'config/martis.php');
     }
 
-    /** Publish the Martis frontend assets. */
     protected function publishAssets(): void
     {
         if (! $this->compiledAssetsAreAvailable()) {
@@ -94,28 +159,61 @@ class InstallCommand extends Command
             $this->line('  Expected: <fg=cyan>public/manifest.json</>');
             $this->line('  Fix the package release by running <fg=cyan>npm install && npm run build</> before publishing.');
 
-            self::fail();
+            throw new RuntimeException('Martis frontend assets are missing from this package release.');
         }
 
-        $this->callSilent('vendor:publish', ['--tag' => 'martis-assets', '--force' => true]);
+        $this->callSilent('vendor:publish', [
+            '--tag' => 'martis-assets',
+            '--force' => true,
+        ]);
+
         $this->components->twoColumnDetail('<fg=green>Published</> assets', 'public/vendor/martis');
     }
 
-    /** Publish the Martis database migrations. */
     protected function compiledAssetsAreAvailable(): bool
     {
         return file_exists(__DIR__.'/../../public/manifest.json');
     }
 
-    protected function publishMigrations(): void
+    protected function publishCoreMigrations(): void
     {
         $this->publishMigrationStub(
-            __DIR__.'/../../database/migrations/create_action_events_table.php.stub',
+            __DIR__.'/../../stubs/create_action_events_table.php.stub',
             'create_action_events_table'
         );
     }
 
-    /** Publish the Martis translation files. */
+    /**
+     * @param array{
+     *     profile_enabled: bool,
+     *     avatar_enabled: bool,
+     *     avatar_column: string,
+     *     publish_avatar_migration: bool,
+     *     two_factor_enabled: bool
+     * } $options
+     */
+    protected function publishOptionalMigrations(array $options): void
+    {
+        if ($options['publish_avatar_migration']) {
+            $this->publishMigrationStub(
+                __DIR__.'/../../stubs/add_profile_picture_column.php.stub',
+                'add_martis_profile_picture_column_to_users_table',
+                fn (string $stub): string => str_replace('profile_picture', $options['avatar_column'], $stub)
+            );
+
+            $this->components->twoColumnDetail('<fg=green>Profile</> support', "avatar column: {$options['avatar_column']}");
+        }
+
+        if ($options['two_factor_enabled']) {
+            $this->publishMigrationStub(
+                __DIR__.'/../../stubs/add_two_factor_columns.php.stub',
+                'add_martis_two_factor_columns_to_users_table'
+            );
+
+            $this->components->twoColumnDetail('<fg=green>2FA</> support', 'two-factor migration published');
+        }
+    }
+
     protected function publishTranslations(): void
     {
         $langPath = $this->laravel->langPath('vendor/martis');
@@ -130,64 +228,40 @@ class InstallCommand extends Command
             '--tag' => 'martis-lang',
             '--force' => (bool) $this->option('force'),
         ]);
+
         $this->components->twoColumnDetail('<fg=green>Published</> translations', 'lang/vendor/martis');
     }
 
-    /**
-     * Interactive setup for profile pictures.
-     *
-     * Asks whether the user wants to enable profile pictures, checks if the
-     * required column already exists, and optionally generates a migration.
-     */
-    protected function setupProfilePictures(): void
+    protected function resolveAvatarColumnFromOptionOrPrompt(mixed $optionValue, string $default): string
     {
-        if (! $this->shouldPublishProfileMigration()) {
-            return;
+        if (is_string($optionValue) && trim($optionValue) !== '') {
+            return $this->sanitizeColumnName($optionValue);
         }
 
-        $column = $this->resolveAvatarColumn();
+        if ($this->input->isInteractive() && ! app()->runningUnitTests()) {
+            $value = $this->ask('Which users table column should Martis use for avatar paths?', $default);
 
-        $this->publishMigrationStub(
-            __DIR__.'/../../database/migrations/add_profile_columns.php.stub',
-            'add_martis_profile_columns',
-            fn (string $stub): string => str_replace('profile_picture', $column, $stub)
-        );
+            return $this->sanitizeColumnName((string) $value);
+        }
 
-        $this->components->twoColumnDetail('<fg=green>Profile</> support', "avatar column: {$column}");
-        $this->line("  Tip: set <fg=cyan>MARTIS_AVATAR_COLUMN={$column}</> in your .env file if you are not using the default.");
+        return $default;
     }
 
-    protected function shouldPublishProfileMigration(): bool
+    protected function resolveExistingAvatarColumn(mixed $optionValue): string
     {
-        if ((bool) $this->option('with-profile')) {
-            return true;
+        if (is_string($optionValue) && trim($optionValue) !== '') {
+            return $this->sanitizeColumnName($optionValue);
         }
 
-        if (app()->runningUnitTests() || ! $this->input->isInteractive()) {
-            return false;
+        if ($this->input->isInteractive() && ! app()->runningUnitTests()) {
+            $value = $this->ask('Which existing users table column should Martis use for avatar paths?', 'profile_picture');
+
+            return $this->sanitizeColumnName((string) $value);
         }
 
-        return $this->confirm('Publish the optional Martis profile migration (avatar + 2FA columns)?', true);
+        throw new RuntimeException('The --existing-avatar-column option requires --avatar-column=<column_name> in non-interactive mode.');
     }
 
-    protected function resolveAvatarColumn(): string
-    {
-        $column = $this->option('avatar-column');
-
-        if (! is_string($column) || trim($column) === '') {
-            if ($this->input->isInteractive()) {
-                $column = $this->ask('Which users table column should Martis use for avatar paths?', 'profile_picture');
-            } else {
-                $column = 'profile_picture';
-            }
-        }
-
-        return $this->sanitizeColumnName($column);
-    }
-
-    /**
-     * Generate a migration for adding the profile picture column.
-     */
     protected function publishMigrationStub(string $stubPath, string $migrationName, ?callable $transform = null): void
     {
         if (! file_exists($stubPath)) {
@@ -223,18 +297,85 @@ class InstallCommand extends Command
         return date('Y_m_d_His')."_{$migrationName}.php";
     }
 
-    /**
-     * Sanitize a column name to snake_case alphanumeric + underscores.
-     */
     protected function sanitizeColumnName(string $name): string
     {
         $name = Str::snake($name);
         $name = (string) preg_replace('/[^a-z0-9_]/', '', $name);
 
-        return $name ?: 'profile_picture';
+        return $name !== '' ? $name : 'profile_picture';
     }
 
-    /** Run the published Martis migrations. */
+    /**
+     * @param array{
+     *     profile_enabled: bool,
+     *     avatar_enabled: bool,
+     *     avatar_column: string,
+     *     publish_avatar_migration: bool,
+     *     two_factor_enabled: bool
+     * } $options
+     */
+    protected function writeEnvironmentConfiguration(array $options): void
+    {
+        $pairs = [
+            'MARTIS_PROFILE_ENABLED' => $options['profile_enabled'] ? 'true' : 'false',
+            'MARTIS_AVATAR_ENABLED' => $options['avatar_enabled'] ? 'true' : 'false',
+            'MARTIS_AVATAR_COLUMN' => $options['avatar_column'],
+            'MARTIS_2FA_ENABLED' => $options['two_factor_enabled'] ? 'true' : 'false',
+            'MARTIS_SHOW_PROFILE_MENU' => $options['profile_enabled'] ? 'true' : 'false',
+        ];
+
+        foreach ($pairs as $key => $value) {
+            $this->writeEnvValue($key, $value);
+        }
+
+        $this->components->twoColumnDetail('<fg=green>Updated</> environment', '.env');
+    }
+
+    protected function writeEnvValue(string $key, string $value): void
+    {
+        $filesystem = new Filesystem;
+        $envPath = $this->laravel->environmentFilePath();
+
+        if (! $filesystem->exists($envPath)) {
+            throw new RuntimeException('Could not find the application .env file.');
+        }
+
+        $contents = (string) $filesystem->get($envPath);
+        $escapedKey = preg_quote($key, '/');
+        $escapedValue = $this->normalizeEnvValue($value);
+
+        $pattern = "/^{$escapedKey}=.*$/m";
+        $commentedPattern = "/^#\s*{$escapedKey}=.*$/m";
+
+        if (preg_match($pattern, $contents) === 1) {
+            $contents = (string) preg_replace($pattern, "{$key}={$escapedValue}", $contents);
+        } elseif (preg_match($commentedPattern, $contents) === 1) {
+            $contents = (string) preg_replace($commentedPattern, "{$key}={$escapedValue}", $contents);
+        } else {
+            $contents = rtrim($contents).PHP_EOL."{$key}={$escapedValue}".PHP_EOL;
+        }
+
+        $filesystem->put($envPath, $contents);
+    }
+
+    protected function normalizeEnvValue(string $value): string
+    {
+        if ($value === 'true' || $value === 'false' || is_numeric($value)) {
+            return $value;
+        }
+
+        if (preg_match('/\s/', $value) === 1) {
+            return '"'.str_replace('"', '\"', $value).'"';
+        }
+
+        return $value;
+    }
+
+    protected function clearConfigCache(): void
+    {
+        $this->callSilent('config:clear');
+    }
+
     protected function runMigrations(): void
     {
         $this->call('migrate');

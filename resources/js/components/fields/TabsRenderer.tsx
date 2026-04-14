@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { TabGroupDefinition, TabDefinition, FieldDefinition, PanelDefinition } from '@/types'
-import { FieldDisplay, FieldInput } from './index'
+import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { PanelDisplay, PanelInput } from './PanelRenderer'
 
 // -------------------------------------------------------------------------
