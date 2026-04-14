@@ -29,7 +29,39 @@ composer require martis/martis
 php artisan martis:install
 ```
 
-The install command publishes assets, configuration, and scaffolds the admin panel in your Laravel application.
+The install command publishes precompiled assets, configuration, and scaffolds the admin panel in your Laravel application. End users do not need to run Vite or install Node dependencies in the host app.
+
+When you want Martis to provision the optional profile support columns as well, use:
+
+```bash
+php artisan martis:install --with-profile
+```
+
+That profile migration safely adds the avatar and 2FA columns only when they are missing. If your app already stores avatar paths in a different column, pass it explicitly:
+
+```bash
+php artisan martis:install --with-profile --avatar-column=avatar_path
+```
+
+## Upgrade
+
+When updating Martis in an existing Laravel application, use:
+
+```bash
+composer update martis/martis
+php artisan martis:install --force
+```
+
+This is the recommended upgrade flow because Composer updates the package inside `vendor/`, while Martis publishes static assets into `public/vendor/martis/`. Those published files must be refreshed after package updates.
+
+If the release contains no frontend changes, re-running `martis:install --force` is still safe and remains the recommended command.
+
+If you also use the optional profile migration, re-run the install command with the same flag you used originally:
+
+```bash
+composer update martis/martis
+php artisan martis:install --force --with-profile --avatar-column=avatar_path
+```
 
 ## Requirements
 
@@ -37,8 +69,8 @@ The install command publishes assets, configuration, and scaffolds the admin pan
 |------------|---------|
 | PHP | 8.2+ |
 | Laravel | 11+ or 12+ |
-| Node.js | 20+ |
-| pnpm | 8+ |
+| Node.js | 20+ (contributors only) |
+| pnpm | 8+ (contributors only) |
 
 ## Features
 

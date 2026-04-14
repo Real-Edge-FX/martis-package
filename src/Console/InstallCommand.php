@@ -3,12 +3,15 @@
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 
 class InstallCommand extends Command
 {
     protected $signature = 'martis:install
-                            {--force : Overwrite existing assets}';
+                            {--force : Overwrite existing assets}
+                            {--with-profile : Publish the optional Martis profile migration (avatar + 2FA columns)}
+                            {--avatar-column= : Column on the users table that stores avatar paths}';
 
     protected $description = 'Install the Martis admin panel';
 
@@ -21,7 +24,7 @@ class InstallCommand extends Command
         $this->publishAssets();
         $this->publishMigrations();
         $this->publishTranslations();
-        $this->setupProfilePictures();
+        $this->publishProfileMigration();
         $this->runMigrations();
 
         $this->newLine();
@@ -80,26 +83,29 @@ class InstallCommand extends Command
 
     protected function publishAssets(): void
     {
+        if (! $this->compiledAssetsAreAvailable()) {
+            $this->components->error('Martis frontend assets are missing from this package release.');
+            $this->line('  Expected: <fg=cyan>public/manifest.json</>');
+            $this->line('  Fix the package release by running <fg=cyan>npm install && npm run build</> before publishing.');
+
+            self::fail();
+        }
+
         $this->callSilent('vendor:publish', ['--tag' => 'martis-assets', '--force' => true]);
         $this->components->twoColumnDetail('<fg=green>Published</> assets', 'public/vendor/martis');
     }
 
+    protected function compiledAssetsAreAvailable(): bool
+    {
+        return file_exists(__DIR__.'/../../public/manifest.json');
+    }
+
     protected function publishMigrations(): void
     {
-        $migrationPattern = database_path('migrations/*_create_action_events_table.php');
-        $existing = glob($migrationPattern);
-
-        if ($existing !== false && count($existing) > 0 && ! $this->option('force')) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> migrations', 'already published (use --force to overwrite)');
-
-            return;
-        }
-
-        $this->callSilent('vendor:publish', [
-            '--tag' => 'martis-migrations',
-            '--force' => (bool) $this->option('force'),
-        ]);
-        $this->components->twoColumnDetail('<fg=green>Published</> migrations', 'database/migrations');
+        $this->publishMigrationStub(
+            __DIR__.'/../../database/migrations/create_action_events_table.php.stub',
+            'create_action_events_table'
+        );
     }
 
     protected function publishTranslations(): void
@@ -119,61 +125,85 @@ class InstallCommand extends Command
         $this->components->twoColumnDetail('<fg=green>Published</> translations', 'lang/vendor/martis');
     }
 
-    /**
-     * Interactive setup for profile pictures.
-     *
-     * Asks whether the user wants to enable profile pictures, checks if the
-     * required column already exists, and optionally generates a migration.
-     */
-    protected function setupProfilePictures(): void
+    protected function publishProfileMigration(): void
     {
-        if (app()->runningUnitTests() || ! $this->input->isInteractive()) {
+        if (! $this->shouldPublishProfileMigration()) {
             return;
         }
 
-        if (! $this->confirm('Enable profile pictures (avatar upload)?', true)) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> profile pictures', 'disabled');
+        $column = $this->resolveAvatarColumn();
 
-            return;
-        }
+        $this->publishMigrationStub(
+            __DIR__.'/../../database/migrations/add_profile_columns.php.stub',
+            'add_martis_profile_columns',
+            fn (string $stub): string => str_replace('profile_picture', $column, $stub)
+        );
 
-        $columnExists = $this->confirm('Does a profile picture column already exist on the users table?', false);
-
-        if ($columnExists) {
-            $column = $this->ask('Enter the existing column name', 'profile_picture');
-        } else {
-            $column = $this->ask('Enter the column name to create (snake_case)', 'profile_picture');
-            $this->generateAvatarMigration((string) $column);
-        }
-
-        $column = $this->sanitizeColumnName((string) $column);
-
-        $this->components->twoColumnDetail('<fg=green>Profile pictures</>', "column: {$column}");
-        $this->line("  Tip: set <fg=cyan>MARTIS_AVATAR_COLUMN={$column}</> in your .env file.");
+        $this->components->twoColumnDetail('<fg=green>Profile</> support', "avatar column: {$column}");
+        $this->line("  Tip: set <fg=cyan>MARTIS_AVATAR_COLUMN={$column}</> in your .env file if you are not using the default.");
     }
 
-    /**
-     * Generate a migration for adding the profile picture column.
-     */
-    protected function generateAvatarMigration(string $column): void
+    protected function shouldPublishProfileMigration(): bool
     {
-        $column = $this->sanitizeColumnName($column);
-        $stubPath = __DIR__.'/../../stubs/add_profile_picture_column.php.stub';
+        if ((bool) $this->option('with-profile')) {
+            return true;
+        }
 
+        if (app()->runningUnitTests() || ! $this->input->isInteractive()) {
+            return false;
+        }
+
+        return $this->confirm('Publish the optional Martis profile migration (avatar + 2FA columns)?', true);
+    }
+
+    protected function resolveAvatarColumn(): string
+    {
+        $column = $this->option('avatar-column');
+
+        if (! is_string($column) || trim($column) === '') {
+            if ($this->input->isInteractive()) {
+                $column = $this->ask('Which users table column should Martis use for avatar paths?', 'profile_picture');
+            } else {
+                $column = 'profile_picture';
+            }
+        }
+
+        return $this->sanitizeColumnName($column);
+    }
+
+    protected function publishMigrationStub(string $stubPath, string $migrationName, ?callable $transform = null): void
+    {
         if (! file_exists($stubPath)) {
-            $this->components->warn('Migration stub not found. Skipping migration generation.');
+            $this->components->warn("Migration stub not found for {$migrationName}. Skipping.");
 
             return;
         }
 
+        $existing = glob(database_path("migrations/*_{$migrationName}.php")) ?: [];
+        $force = (bool) $this->option('force');
+
+        if ($existing !== [] && ! $force) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> migration', "{$migrationName} already published");
+
+            return;
+        }
+
+        $filesystem = new Filesystem;
+        $filesystem->ensureDirectoryExists(database_path('migrations'));
+
+        $target = $existing[0] ?? database_path('migrations/'.$this->migrationFilename($migrationName));
         $stub = (string) file_get_contents($stubPath);
-        $stub = str_replace('profile_picture', $column, $stub);
+        $stub = $transform ? $transform($stub) : $stub;
 
-        $filename = date('Y_m_d_His').'_add_profile_picture_column.php';
-        $target = database_path("migrations/{$filename}");
+        $filesystem->put($target, $stub);
 
-        file_put_contents($target, $stub);
-        $this->components->twoColumnDetail('<fg=green>Created</> migration', "database/migrations/{$filename}");
+        $action = $existing === [] ? '<fg=green>Created</> migration' : '<fg=green>Updated</> migration';
+        $this->components->twoColumnDetail($action, 'database/migrations/'.basename($target));
+    }
+
+    protected function migrationFilename(string $migrationName): string
+    {
+        return date('Y_m_d_His')."_{$migrationName}.php";
     }
 
     /**
@@ -190,6 +220,6 @@ class InstallCommand extends Command
     protected function runMigrations(): void
     {
         $this->call('migrate');
-        $this->components->twoColumnDetail('<fg=green>Executed</> migrations', 'action_events table created');
+        $this->components->twoColumnDetail('<fg=green>Executed</> migrations', 'Martis database changes applied');
     }
 }

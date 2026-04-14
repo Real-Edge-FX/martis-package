@@ -25,7 +25,7 @@ Before creating a new TAG, verify all of the following:
 
 ### C. Quality Gates
 - `make ci` passes: 893+ PHP tests, 132+ TS tests, PHPStan level 8
-- Build artifacts committed (`make build` if needed)
+- Build artifacts committed (`make build` if frontend changed)
 - No known critical regressions in the playground
 
 ### D. Versioning (MAJOR.MINOR.PATCH-alpha)
@@ -43,9 +43,11 @@ Before creating a new TAG, verify all of the following:
 ### Step 1 — Commit pending assets (if any)
 
 ```
-git add playground/public/vendor/martis/
-git commit -m "chore(assets): rebuild playground assets for release vX.Y.Z-alpha"
+git add public/ package-lock.json
+git commit -m "chore(assets): rebuild package assets for release vX.Y.Z-alpha"
 ```
+
+Use this whenever frontend files changed in the package. End users do not build Martis locally, so the package release must already contain the compiled assets.
 
 ### Step 2 — Push develop
 
