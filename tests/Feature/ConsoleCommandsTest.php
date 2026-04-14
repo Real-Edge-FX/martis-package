@@ -6,12 +6,78 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
+function cleanupMartisInstallArtifacts(): void
+{
+    $filesystem = new Filesystem;
+
+    collect(glob(database_path('migrations/*_create_action_events_table.php')) ?: [])->each(
+        fn (string $path) => $filesystem->delete($path)
+    );
+
+    collect(glob(database_path('migrations/*_add_martis_profile_columns.php')) ?: [])->each(
+        fn (string $path) => $filesystem->delete($path)
+    );
+}
+
+beforeEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
 // ---------------------------------------------------------------------------
 // martis:install
 // ---------------------------------------------------------------------------
 
 it('martis:install is registered and runs successfully', function () {
     $this->artisan('martis:install')->assertSuccessful();
+});
+
+it('martis:install publishes the frontend manifest', function () {
+    $this->artisan('martis:install')->assertSuccessful();
+
+    expect(file_exists(public_path('vendor/martis/manifest.json')))->toBeTrue();
+})->afterEach(function () {
+    (new Filesystem)->deleteDirectory(public_path('vendor/martis'));
+    (new Filesystem)->deleteDirectory(app_path('Martis'));
+});
+
+it('martis:install publishes the action events migration once', function () {
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    $migrations = glob(database_path('migrations/*_create_action_events_table.php')) ?: [];
+
+    expect($migrations)->toHaveCount(1);
+});
+
+it('martis:install --no-interaction skips the optional profile migration by default', function () {
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    $migrations = glob(database_path('migrations/*_add_martis_profile_columns.php')) ?: [];
+
+    expect($migrations)->toHaveCount(0);
+});
+
+it('martis:install can publish the optional profile migration without duplication', function () {
+    $this->artisan('martis:install', [
+        '--no-interaction' => true,
+        '--with-profile' => true,
+        '--avatar-column' => 'avatar_path',
+    ])->assertSuccessful();
+
+    $this->artisan('martis:install', [
+        '--no-interaction' => true,
+        '--with-profile' => true,
+        '--avatar-column' => 'avatar_path',
+    ])->assertSuccessful();
+
+    $migrations = glob(database_path('migrations/*_add_martis_profile_columns.php')) ?: [];
+
+    expect($migrations)->toHaveCount(1);
+    expect(file_get_contents($migrations[0]))->toContain("'avatar_path'");
 });
 
 it('martis:install creates the expected Martis directories', function () {

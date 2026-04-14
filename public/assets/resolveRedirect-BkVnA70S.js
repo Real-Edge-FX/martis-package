@@ -1,0 +1,1 @@
+function s(a,e,r){const t=a??"detail";switch(t){case"detail":return`/resources/${e}/${r}`;case"index":return`/resources/${e}`;case"edit":return`/resources/${e}/${r}/edit`;case"create":return`/resources/${e}/create`;case"dashboard":return"/";case"stay":return null;default:return t.replace(/\{id\}/g,String(r)).replace(/\{resource\}/g,e)}}export{s as r};
