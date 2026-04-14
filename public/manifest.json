@@ -1,15 +1,29 @@
 {
-  "_ActionDrawer-s_lGdzcM.js": {
-    "file": "assets/ActionDrawer-s_lGdzcM.js",
+  "_ActionDrawer-tkvjUtev.js": {
+    "file": "assets/ActionDrawer-tkvjUtev.js",
     "name": "ActionDrawer",
     "imports": [
       "resources/js/app.tsx",
-      "_MartisLoader-JwLv832M.js"
+      "_MartisLoader-BGGaPK7U.js"
     ]
   },
-  "_MartisLoader-JwLv832M.js": {
-    "file": "assets/MartisLoader-JwLv832M.js",
+  "_MartisLoader-BGGaPK7U.js": {
+    "file": "assets/MartisLoader-BGGaPK7U.js",
     "name": "MartisLoader",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_SectionRenderer-BLREjAT_.js": {
+    "file": "assets/SectionRenderer-BLREjAT_.js",
+    "name": "SectionRenderer",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_TabsRenderer-BAgdTmcY.js": {
+    "file": "assets/TabsRenderer-BAgdTmcY.js",
+    "name": "TabsRenderer",
     "imports": [
       "resources/js/app.tsx"
     ]
@@ -51,7 +65,7 @@
     "src": "resources/images/logo.png"
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-DcrOsSob.js",
+    "file": "assets/app-BJXxHIDr.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -63,7 +77,7 @@
       "resources/js/pages/ResourceUpdate.tsx"
     ],
     "css": [
-      "assets/app-DAWD_L25.css"
+      "assets/app-B3Bgpu3s.css"
     ],
     "assets": [
       "assets/logo-Ctxf8qMz.png",
@@ -77,56 +91,61 @@
     ]
   },
   "resources/js/pages/Profile.tsx": {
-    "file": "assets/Profile-DmSpaZoZ.js",
+    "file": "assets/Profile-COXMlXiW.js",
     "name": "Profile",
     "src": "resources/js/pages/Profile.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_MartisLoader-JwLv832M.js"
+      "_MartisLoader-BGGaPK7U.js"
     ]
   },
   "resources/js/pages/ResourceCreate.tsx": {
-    "file": "assets/ResourceCreate-Cfi32s6I.js",
+    "file": "assets/ResourceCreate-yrnrrB2o.js",
     "name": "ResourceCreate",
     "src": "resources/js/pages/ResourceCreate.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
+      "_TabsRenderer-BAgdTmcY.js",
+      "_SectionRenderer-BLREjAT_.js",
       "_resolveRedirect-BkVnA70S.js"
     ]
   },
   "resources/js/pages/ResourceDetail.tsx": {
-    "file": "assets/ResourceDetail-ra9mXC_6.js",
+    "file": "assets/ResourceDetail-CHOPy91A.js",
     "name": "ResourceDetail",
     "src": "resources/js/pages/ResourceDetail.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ActionDrawer-s_lGdzcM.js",
+      "_TabsRenderer-BAgdTmcY.js",
+      "_ActionDrawer-tkvjUtev.js",
       "_resolveRedirect-BkVnA70S.js",
-      "_MartisLoader-JwLv832M.js"
+      "_MartisLoader-BGGaPK7U.js"
     ]
   },
   "resources/js/pages/ResourceIndex.tsx": {
-    "file": "assets/ResourceIndex-DukzPi0s.js",
+    "file": "assets/ResourceIndex-3_Oc5Rto.js",
     "name": "ResourceIndex",
     "src": "resources/js/pages/ResourceIndex.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ActionDrawer-s_lGdzcM.js",
-      "_MartisLoader-JwLv832M.js",
+      "_ActionDrawer-tkvjUtev.js",
+      "_MartisLoader-BGGaPK7U.js",
       "_resolveRedirect-BkVnA70S.js"
     ]
   },
   "resources/js/pages/ResourceUpdate.tsx": {
-    "file": "assets/ResourceUpdate-ST3198rH.js",
+    "file": "assets/ResourceUpdate-_QMJ9iPT.js",
     "name": "ResourceUpdate",
     "src": "resources/js/pages/ResourceUpdate.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
+      "_TabsRenderer-BAgdTmcY.js",
+      "_SectionRenderer-BLREjAT_.js",
       "_resolveRedirect-BkVnA70S.js"
     ]
   }
