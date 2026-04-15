@@ -18,8 +18,28 @@ export interface ResourceMeta {
 
 export interface NavigationGroup {
   label: string | null
-  resources: ResourceMeta[]
+  icon?: string | null
+  collapsable?: boolean
+  items: NavigationItem[]
 }
+
+export interface NavigationItemBase {
+  type: "resource" | "link"
+  label: string
+  url: string
+  icon: string | null
+  external?: boolean
+}
+
+export interface NavigationResourceItem extends NavigationItemBase, ResourceMeta {
+  type: "resource"
+}
+
+export interface NavigationLinkItem extends NavigationItemBase {
+  type: "link"
+}
+
+export type NavigationItem = NavigationResourceItem | NavigationLinkItem
 
 export interface PaginatedResponse<T> {
   data: T[]

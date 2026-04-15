@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
+import { getNavigationResourceItems } from '@/lib/navigation'
 import type { NavigationGroup } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { CardSkeleton } from '@/components/LoadingSkeleton'
@@ -19,7 +20,8 @@ export function DashboardPage() {
     staleTime: 1000 * 60,
   })
 
-  const totalResources = groups.reduce((n, g) => n + g.resources.length, 0)
+  const navigationResources = groups.flatMap((group) => getNavigationResourceItems(group))
+  const totalResources = navigationResources.length
   const name = user?.name ?? user?.email ?? ''
 
   const showMetrics = config.dashboard?.showMetrics !== false
@@ -86,8 +88,7 @@ export function DashboardPage() {
             <>
               <h2 className="mb-3 text-lg font-semibold martis-text">{t('registered')}</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {groups.flatMap((g) =>
-                  g.resources.map((r) => (
+                {navigationResources.map((r) => (
                     <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block h-full">
                       <Card className="transition-all hover:shadow-md cursor-pointer h-full">
                         <div className="flex items-center gap-4 min-h-[2.5rem]">
@@ -108,8 +109,7 @@ export function DashboardPage() {
                         </div>
                       </Card>
                     </Link>
-                  )),
-                )}
+                  ))}
               </div>
             </>
           )}

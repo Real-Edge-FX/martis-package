@@ -968,6 +968,7 @@ html:not(.dark) .martis-dropzone {
 .martis-datatable table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 .martis-datatable thead th {
@@ -1014,8 +1015,8 @@ html:not(.dark) .martis-dropzone {
 }
 
 /* Checkbox column */
-.martis-datatable th:first-child,
-.martis-datatable td:first-child {
+.martis-datatable th.martis-select-column,
+.martis-datatable td.martis-select-column {
   width: 3rem;
   text-align: center;
 }

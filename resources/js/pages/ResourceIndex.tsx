@@ -11,7 +11,6 @@ import type { ActionMeta } from '@/components/Actions'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react"
-import { Tooltip } from "primereact/tooltip"
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -381,15 +380,15 @@ export function ResourceIndexPage() {
               <button
                 type="button"
                 onClick={() => handleSearchChange('')}
-                className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear martis-index-search-clear"
+                className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear"
                 style={{ cursor: 'pointer', background: 'none', border: 'none' }}
-                data-pr-tooltip={tMsg('clear', 'Clear')}
+                data-pr-tooltip={tMsg('clear_search', 'Clear search')}
                 data-pr-position="top"
+                aria-label={tMsg('clear_search', 'Clear search')}
               >
                 <XIcon size={14} weight="bold" />
               </button>
             )}
-            <Tooltip target=".martis-index-search-clear" showDelay={400} />
           </div>
         )}
 
@@ -513,5 +512,3 @@ export function ResourceIndexPage() {
     </div>
   )
 }
-
-

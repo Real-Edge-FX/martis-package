@@ -139,6 +139,8 @@ public function group(): ?string
 }
 ```
 
+When no custom main menu is defined, Martis uses `group()` to build the default menu sections automatically.
+
 ### displayInNavigation()
 
 Controls whether the resource appears in the navigation menu. Override to `false` to hide a resource from the sidebar while keeping it accessible via direct URL.
@@ -149,6 +151,27 @@ public static function displayInNavigation(): bool
     return false; // Hidden from sidebar, still accessible via URL
 }
 ```
+
+`displayInNavigation()` is still respected even when the main menu is customized through the menu builder.
+
+### menuItem()
+
+Customize the navigation item generated for a resource.
+
+```php
+use Illuminate\Http\Request;
+use Martis\Menu\MenuItem;
+
+public function menuItem(Request $request): MenuItem
+{
+    return MenuItem::resource(static::class)
+        ->label('Help Desk')
+        ->icon('lifebuoy')
+        ->path('/support/help-desk');
+}
+```
+
+Use this when the resource should remain a resource-backed navigation item, but needs a custom label, icon, or path.
 
 Use this for internal resources (e.g., `ActionEventResource`) that should not clutter the main navigation.
 

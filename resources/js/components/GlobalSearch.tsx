@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
+import { getNavigationItems } from "@/lib/navigation"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
 import { MagnifyingGlassIcon, DatabaseIcon, CaretRightIcon, FileIcon, SpinnerIcon } from "@phosphor-icons/react"
@@ -42,18 +43,18 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     staleTime: 1000 * 60,
   })
 
-  const allResources = groups.flatMap((g) =>
-    g.resources.map((r) => ({ ...r, groupLabel: g.label })),
+  const allNavigationItems = groups.flatMap((group) =>
+    getNavigationItems(group).map((item) => ({ ...item, groupLabel: group.label })),
   )
 
-  const filteredResources = query.trim()
-    ? allResources.filter(
+  const filteredNavigationItems = query.trim()
+    ? allNavigationItems.filter(
         (r) =>
           r.label.toLowerCase().includes(query.toLowerCase()) ||
-          r.uriKey.toLowerCase().includes(query.toLowerCase()) ||
+          (r.type === "resource" && r.uriKey.toLowerCase().includes(query.toLowerCase())) ||
           (r.groupLabel ?? "").toLowerCase().includes(query.toLowerCase()),
       )
-    : allResources
+    : allNavigationItems
 
   // Debounce the query for the unified search endpoint
   useEffect(() => {
@@ -88,26 +89,39 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
 
   // Build unified navigation list
   type NavItem =
-    | { type: "resource"; uriKey: string; label: string; groupLabel?: string; icon?: string }
+    | { type: "resource"; uriKey: string; label: string; groupLabel?: string; icon?: string; url: string }
+    | { type: "link"; label: string; groupLabel?: string; icon?: string; url: string; external?: boolean }
     | { type: "record"; item: SearchResultItem; resourceLabel: string }
 
   const navItems: NavItem[] = []
 
-  for (const r of filteredResources) {
-    navItems.push({
-      type: "resource",
-      uriKey: r.uriKey,
-      label: r.label,
-      groupLabel: r.groupLabel ?? undefined,
-      icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
-    })
+  for (const r of filteredNavigationItems) {
+    if (r.type === "resource") {
+      navItems.push({
+        type: "resource",
+        uriKey: r.uriKey,
+        label: r.label,
+        groupLabel: r.groupLabel ?? undefined,
+        icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
+        url: r.url,
+      })
+    } else {
+      navItems.push({
+        type: "link",
+        label: r.label,
+        groupLabel: r.groupLabel ?? undefined,
+        icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
+        url: r.url,
+        external: r.external,
+      })
+    }
   }
 
   for (const rec of allRecordItems) {
     navItems.push({ type: "record", item: rec, resourceLabel: rec.resourceLabel })
   }
 
-  const resourceEndIndex = filteredResources.length
+  const resourceEndIndex = filteredNavigationItems.length
 
   // Focus input on mount
   useEffect(() => {
@@ -122,7 +136,13 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
   const goToItem = useCallback(
     (item: NavItem) => {
       if (item.type === "resource") {
-        navigate(`/resources/${item.uriKey}`)
+        navigate(item.url)
+      } else if (item.type === "link") {
+        if (item.external) {
+          window.open(item.url, "_blank", "noopener,noreferrer")
+        } else {
+          navigate(item.url)
+        }
       } else {
         navigate(item.item.url)
       }
@@ -185,7 +205,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
           )}
 
           {/* Resources section */}
-          {filteredResources.length > 0 && (
+          {filteredNavigationItems.length > 0 && (
             <>
               {hasRecords && (
                 <div
@@ -195,9 +215,9 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                   {t("section_resources", "Resources")}
                 </div>
               )}
-              {filteredResources.map((r, i) => (
+              {filteredNavigationItems.map((r, i) => (
                 <div
-                  key={`res-${r.uriKey}`}
+                  key={`nav-${r.type}-${r.type === "resource" ? r.uriKey : r.url}`}
                   className={`martis-search-item ${i === activeIndex ? "active" : ""}`}
                   onClick={() => goToItem(navItems[i])}
                 >

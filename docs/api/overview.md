@@ -355,7 +355,7 @@ GET /martis/api/translations/{locale}
 
 ## Navigation Endpoint
 
-Returns the sidebar navigation structure with resource groups.
+Returns the canonical navigation structure used by the Martis frontend.
 
 ```http
 GET /martis/api/navigation
@@ -366,16 +366,20 @@ GET /martis/api/navigation
 ```json
 [
   {
-    "label": null,
-    "resources": [
-      { "uriKey": "users", "label": "Users", "icon": "users" }
+    "label": "Quick Links",
+    "icon": null,
+    "collapsable": false,
+    "items": [
+      { "type": "link", "label": "Dashboard", "url": "/", "icon": "squares-four", "external": false }
     ]
   },
   {
     "label": "Content",
-    "resources": [
-      { "uriKey": "posts", "label": "Posts", "icon": "newspaper" },
-      { "uriKey": "categories", "label": "Categories", "icon": "folder" }
+    "icon": null,
+    "collapsable": true,
+    "items": [
+      { "type": "resource", "uriKey": "posts", "label": "Posts", "icon": "newspaper", "url": "/resources/posts", "external": false },
+      { "type": "resource", "uriKey": "categories", "label": "Categories", "icon": "folder", "url": "/resources/categories", "external": false }
     ]
   }
 ]

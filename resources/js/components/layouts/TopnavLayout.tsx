@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
+import { getNavigationItems } from "@/lib/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTheme } from "@/contexts/ThemeContext"
 import { GlobalSearch } from "@/components/GlobalSearch"
@@ -141,11 +142,27 @@ export function TopnavLayout() {
                 {t("dashboard")}
               </NavLink>
               {groups.flatMap((group) =>
-                group.resources.map((r) => (
-                  <NavLink key={r.uriKey} to={`/resources/${r.uriKey}`} className={navClass}>
-                    {r.label}
-                  </NavLink>
-                )),
+                getNavigationItems(group).map((item) =>
+                  item.external ? (
+                    <a
+                      key={`${group.label ?? "root"}-${item.label}-${item.url}`}
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={navClass({ isActive: false })}
+                    >
+                      {item.label}
+                    </a>
+                  ) : (
+                    <NavLink
+                      key={item.type === "resource" ? item.uriKey : `${group.label ?? "root"}-${item.label}-${item.url}`}
+                      to={item.url}
+                      className={navClass}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ),
+                ),
               )}
             </nav>
           </div>

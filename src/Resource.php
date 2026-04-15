@@ -23,6 +23,7 @@ use Martis\Events\AfterDelete;
 use Martis\Events\AfterSave;
 use Martis\Events\BeforeDelete;
 use Martis\Events\BeforeSave;
+use Martis\Menu\MenuItem;
 
 /**
  * Base class for all Martis admin resources.
@@ -913,6 +914,12 @@ abstract class Resource implements ResourceContract
     public function group(): ?string
     {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    public function menuItem(Request $request): MenuItem
+    {
+        return MenuItem::resource(static::class);
     }
 
     /**
