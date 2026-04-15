@@ -113,7 +113,7 @@ export function LoginPage() {
                   onKeyDown={handlePasswordKeyDown}
                   invalid={!!errors.email}
                   className="w-full"
-                  placeholder="admin@example.com"
+                  placeholder={t("email_placeholder")}
                   required
                 />
               </IconField>
@@ -136,7 +136,7 @@ export function LoginPage() {
                     onKeyDown={handlePasswordKeyDown}
                     invalid={!!errors.password}
                     className="w-full"
-                    placeholder="Enter your password"
+                    placeholder={t("password_placeholder")}
                     required
                   />
                 </IconField>
@@ -145,7 +145,7 @@ export function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 martis-text-muted hover:opacity-80 focus:outline-none bg-transparent border-0 cursor-pointer p-0"
                   tabIndex={-1}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? t("hide_password") : t("show_password")}
                 >
                   {showPassword ? <EyeSlashIcon size={16} /> : <EyeIcon size={16} />}
                 </button>
@@ -166,7 +166,7 @@ export function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs martis-text-muted" style={{ opacity: 0.5 }}>
-          Powered by {brand}
+          {t("powered_by", { brand })}
         </p>
       </div>
     </div>

@@ -77,7 +77,7 @@ Layouts can be overridden via the [Layout Registry](overrides.md#layout-override
 ## Localization
 
 ```php
-'locale' => env('MARTIS_LOCALE', 'en-US'),
+'locale' => env('MARTIS_LOCALE', 'en'),
 ```
 
 Default locale for the admin panel. Translations are loaded from `resources/lang/{locale}/` files. Publish translations with:
@@ -86,7 +86,7 @@ Default locale for the admin panel. Translations are loaded from `resources/lang
 php artisan vendor:publish --tag=martis-lang
 ```
 
-Shipped locales: `en` (English), `pt-BR` (Brazilian Portuguese), `pt-PT` (European Portuguese).
+Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (European Portuguese).
 
 ## API Throttle
 
@@ -295,7 +295,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_BRAND_NAME` | `brand.name` | `Martis` |
 | `MARTIS_FAVICON` | `brand.favicon` | `null` |
 | `MARTIS_LAYOUT` | `layout.preset` | `sidebar` |
-| `MARTIS_LOCALE` | `locale` | `en-US` |
+| `MARTIS_LOCALE` | `locale` | `en` |
 | `MARTIS_THROTTLE_ENABLED` | `throttle.enabled` | `true` |
 | `MARTIS_THROTTLE_MAX` | `throttle.max_attempts` | `120` |
 | `MARTIS_THROTTLE_DECAY` | `throttle.decay_minutes` | `1` |

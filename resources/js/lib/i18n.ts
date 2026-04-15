@@ -4,13 +4,12 @@ import { API_BASE_URL, config } from "./config"
 
 export function getLocale(): string {
   const locale = config.locale ?? "en"
-  const normalized = locale.replace('_', '-')
 
-  if (normalized === "en-US" || normalized === "en-GB") {
+  if (locale === "en_US" || locale === "en_GB") {
     return "en"
   }
 
-  return normalized
+  return locale
 }
 
 let initPromise: Promise<void> | null = null
