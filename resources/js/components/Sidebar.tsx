@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
 import type { NavigationGroup } from "@/types"
+import { getNavigationItems } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
 import logoSrcDefault from "@images/logo.png"
 import { SquaresFourIcon, CaretDownIcon, CaretRightIcon, CaretDoubleRightIcon, CaretDoubleLeftIcon } from "@phosphor-icons/react"
@@ -126,19 +127,41 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
               {!isMobile && collapsed && group.label && (
                 <div className="mb-2 mx-auto w-6 border-t" style={{ borderColor: 'var(--martis-border)' }} />
               )}
-              {(isExpanded || (!isMobile && collapsed)) && group.resources.map((r) => (
-                <NavLink
-                  key={r.uriKey}
-                  to={`/resources/${r.uriKey}`}
-                  className={navClass}
-                  data-pr-tooltip={r.label}
-                  data-pr-position="right"
-                  onClick={isMobile ? onMobileClose : undefined}
-                >
-                  <ResourceIcon iconName={r.icon} size={16} className="shrink-0" />
-                  {(isMobile || !collapsed) && r.label}
-                </NavLink>
-              ))}
+              {(isExpanded || (!isMobile && collapsed)) && getNavigationItems(group).map((item) => {
+                const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
+
+                if (item.external) {
+                  return (
+                    <a
+                      key={`${groupKey}-${item.label}-${item.url}`}
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={navClass({ isActive: false })}
+                      data-pr-tooltip={item.label}
+                      data-pr-position="right"
+                      onClick={isMobile ? onMobileClose : undefined}
+                    >
+                      <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
+                      {(isMobile || !collapsed) && item.label}
+                    </a>
+                  )
+                }
+
+                return (
+                  <NavLink
+                    key={item.type === "resource" ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
+                    to={item.url}
+                    className={navClass}
+                    data-pr-tooltip={item.label}
+                    data-pr-position="right"
+                    onClick={isMobile ? onMobileClose : undefined}
+                  >
+                    <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
+                    {(isMobile || !collapsed) && item.label}
+                  </NavLink>
+                )
+              })}
             </div>
           )
         })}

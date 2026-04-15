@@ -9,7 +9,7 @@ import type { NavigationGroup } from "@/types"
  * useMartisNav — exposes all navigation data for custom layouts.
  *
  * Use this hook when building a custom layout component to access:
- * - navigation: resource groups and items
+ * - navigation: menu sections and items
  * - user: current authenticated user
  * - brand: application name and logo
  * - theme: current theme and toggle function

@@ -35,6 +35,7 @@ class MartisServiceProvider extends ServiceProvider
             return new ResourceRegistry;
         });
 
+        $this->app->singleton(MartisManager::class);
         $this->app->singleton(TwoFactorService::class);
     }
 

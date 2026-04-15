@@ -51,6 +51,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 6 | **[Relationships](relationships.md)** | Relationship fields — BelongsTo, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo, choosing the right field |
 | 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
 | 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
+| 8.5 | **[Menus](menus.md)** | Declarative navigation — `Martis::mainMenu(...)`, `Menu`, `MenuSection`, `MenuItem`, resource-level `menuItem()`, and `/api/navigation` |
 | 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
 | 10 | **[Authentication](authentication.md)** | Login, logout, two-factor authentication (2FA), user profile, avatar uploads, user menu configuration |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |

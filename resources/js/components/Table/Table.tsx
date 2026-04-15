@@ -405,7 +405,12 @@ function DefaultTable({
         selectionMode={selectable ? "checkbox" : null}
       >
         {selectable && (
-          <Column selectionMode="multiple" headerStyle={{ width: "3rem" }} />
+          <Column
+            selectionMode="multiple"
+            headerStyle={{ width: "3rem" }}
+            headerClassName="martis-select-column"
+            bodyClassName="martis-select-column"
+          />
         )}
         {rows.some(r => "deleted_at" in r && r["deleted_at"] !== null) && (
           <Column

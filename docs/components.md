@@ -106,10 +106,11 @@ layoutRegistry.register('users', CustomUserLayout)
 Collapsible left navigation panel.
 
 **Features:**
-- Resource grouping by `group()` method
+- Declarative menu sections and items from `/api/navigation`
+- Automatic resource sections generated from `group()` when no custom main menu is defined
 - Expandable group sections
 - Dashboard quick link
-- Phosphor icons per resource
+- Phosphor icons per item/resource
 - Collapse state persisted to localStorage
 - Responsive: shows icons only when collapsed
 

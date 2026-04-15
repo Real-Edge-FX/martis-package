@@ -4,6 +4,8 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Martis\MartisManager;
+use Martis\Menu\MenuSection;
 use Martis\ResourceRegistry;
 
 class NavigationController extends MartisController
@@ -11,39 +13,41 @@ class NavigationController extends MartisController
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
+        private readonly MartisManager $martis,
     ) {}
 
     /**
-     * Return navigation groups for the React sidebar.
+     * Return navigation groups for the React panel.
      *
-     * Returns the navigation structure used by the React panel.
-     * Resources are grouped by their `group()` property.
-     * Resources without a group appear with `label: null`.
-     * Only resources the authenticated user is authorised to view are included.
+     * Returns the navigation structure used by the sidebar, dashboard cards,
+     * top navigation, and quick navigation search.
+     *
+     * Each section exposes a declarative `items` array containing resource and
+     * link items. Consumers should render this response directly.
      *
      * **Example response:**
      * ```json
      * [
      *   {
-     *     "label": null,
-     *     "resources": [
-     *       { "uriKey": "users", "label": "Users", "icon": "Users", ... }
+     *     "label": "Quick Links",
+     *     "items": [
+     *       { "type": "link", "label": "Overview", "url": "/overview", "external": false }
      *     ]
      *   },
      *   {
      *     "label": "Settings",
-     *     "resources": [
-     *       { "uriKey": "settings", "label": "Settings", "icon": "Gear", ... }
+     *     "items": [
+     *       { "type": "resource", "uriKey": "users", "label": "Users", "url": "/resources/users", ... }
      *     ]
      *   }
      * ]
      * ```
      *
-     * @response array<int, array{label: string|null, resources: array<int, array{uriKey: string, label: string, singularLabel: string, icon: string, group: string|null}>}>
+     * @response array<int, array{label: string|null, icon: string|null, collapsable: bool, items: array<int, array<string, mixed>>}>
      */
     public function index(Request $request): JsonResponse
     {
-        /** @var array<string, list<array<string, mixed>>> $grouped */
+        /** @var array<string, list<\Martis\Menu\MenuItem>> $grouped */
         $grouped = [];
 
         foreach ($this->registry->list() as $resourceClass) {
@@ -63,17 +67,14 @@ class NavigationController extends MartisController
                 $grouped[$key] = [];
             }
 
-            $grouped[$key][] = $instance->toArray();
+            $grouped[$key][] = $instance->menuItem($request);
         }
 
-        $result = [];
+        $sections = [];
         foreach ($grouped as $key => $resources) {
-            $result[] = [
-                'label' => $key === '' ? null : $key,
-                'resources' => $resources,
-            ];
+            $sections[] = MenuSection::make($key === '' ? null : $key, $resources);
         }
 
-        return response()->json($result);
+        return response()->json($this->martis->resolveMainMenu($request, $sections));
     }
 }

@@ -383,8 +383,10 @@ export function ResourceIndexPage() {
                 onClick={() => handleSearchChange('')}
                 className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear martis-index-search-clear"
                 style={{ cursor: 'pointer', background: 'none', border: 'none' }}
-                data-pr-tooltip={tMsg('clear', 'Clear')}
+                data-pr-tooltip={tMsg('clear_search', 'Clear search')}
                 data-pr-position="top"
+                aria-label={tMsg('clear_search', 'Clear search')}
+                title={tMsg('clear_search', 'Clear search')}
               >
                 <XIcon size={14} weight="bold" />
               </button>
@@ -513,5 +515,4 @@ export function ResourceIndexPage() {
     </div>
   )
 }
-
 

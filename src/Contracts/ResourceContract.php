@@ -11,6 +11,7 @@ use Martis\Enums\ErrorDisplayMode;
 use Martis\Enums\TableSize;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\LensContract;
+use Martis\Menu\MenuItem;
 
 /**
  * Contract for all Martis Resource classes.
@@ -66,6 +67,9 @@ interface ResourceContract
 
     /** Return the navigation group this resource belongs to, or null for default. */
     public function group(): ?string;
+
+    /** Build the default menu item for this resource. */
+    public function menuItem(Request $request): MenuItem;
 
     /** Return the underlying Eloquent model, if set. */
     public function getModel(): ?Model;
