@@ -1,4 +1,5 @@
 import { API_BASE_URL, BASE_PATH } from "@/lib/config"
+import i18n from "@/lib/i18n"
 
 export interface ValidationError {
   field: string
@@ -36,6 +37,16 @@ export class ApiError extends Error {
   }
 }
 
+function translateIfKey(message: string): string {
+  if (!message.includes('.')) return message
+
+  const [namespace, ...keyParts] = message.split('.')
+  if (!namespace || keyParts.length === 0) return message
+
+  const key = keyParts.join('.')
+  return i18n.exists(key, { ns: namespace }) ? i18n.t(key, { ns: namespace }) : message
+}
+
 function getCsrfToken(): string {
   // Prefer XSRF-TOKEN cookie — always fresh (updated on every Laravel response)
   const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/)
@@ -53,7 +64,10 @@ function normalizeErrors(raw: unknown): ValidationError[] | undefined {
   if (!raw) return undefined
   if (Array.isArray(raw)) {
     // Already Martis format (or empty)
-    return raw as ValidationError[]
+    return (raw as ValidationError[]).map((err) => ({
+      ...err,
+      message: translateIfKey(err.message),
+    }))
   }
   if (typeof raw === 'object') {
     // Laravel format: Record<string, string[]>
@@ -61,7 +75,7 @@ function normalizeErrors(raw: unknown): ValidationError[] | undefined {
     for (const [field, messages] of Object.entries(raw as Record<string, unknown>)) {
       if (Array.isArray(messages)) {
         for (const msg of messages) {
-          result.push({ field, message: String(msg), code: 'invalid' })
+          result.push({ field, message: translateIfKey(String(msg)), code: 'invalid' })
         }
       }
     }
@@ -101,7 +115,11 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
       redirectOnSessionExpiry()
     }
     const err = json as { message?: string; errors?: unknown }
-    throw new ApiError(res.status, err.message ?? 'Request failed', normalizeErrors(err.errors))
+    throw new ApiError(
+      res.status,
+      translateIfKey(err.message ?? 'Request failed'),
+      normalizeErrors(err.errors),
+    )
   }
 
   return json as T
@@ -203,7 +221,11 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
       redirectOnSessionExpiry()
     }
     const err = json as { message?: string; errors?: unknown }
-    throw new ApiError(res.status, err.message ?? 'Request failed', normalizeErrors(err.errors))
+    throw new ApiError(
+      res.status,
+      translateIfKey(err.message ?? 'Request failed'),
+      normalizeErrors(err.errors),
+    )
   }
 
   return json as T

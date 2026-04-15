@@ -39,17 +39,7 @@ class TranslationsController extends MartisController
      */
     public function show(Request $request, string $locale): JsonResponse
     {
-        // Sanitize locale — only alphanumeric, hyphens and underscores
-        $locale = preg_replace('/[^a-zA-Z0-9\-_]/', '', $locale) ?? 'en';
-
-        // Apply alias (e.g. en-US → en)
-        $locale = self::LOCALE_ALIASES[$locale] ?? $locale;
-
-        // Normalise to BCP-47 canonical form: language lowercase, region uppercase
-        // e.g. pt-pt → pt-PT, pt-br → pt-BR, en-us → en-US
-        if (preg_match('/^([a-z]{2,3})[-_]([a-zA-Z]{2,4})$/', $locale, $m)) {
-            $locale = strtolower($m[1]).'-'.strtoupper($m[2]);
-        }
+        $locale = $this->normalizeLocale($locale);
 
         $langBase = realpath(__DIR__.'/../../../resources/lang');
 
@@ -66,19 +56,92 @@ class TranslationsController extends MartisController
 
         $translations = [];
         foreach ($paths as $path) {
-            if (is_dir($path)) {
-                $files = glob("{$path}/*.php") ?: [];
-                foreach ($files as $file) {
-                    $ns = basename($file, '.php');
-                    if (! isset($translations[$ns])) {
-                        $translations[$ns] = require $file;
-                    }
+            if (! is_dir($path)) {
+                continue;
+            }
+
+            $files = glob("{$path}/*.php") ?: [];
+            foreach ($files as $file) {
+                $ns = basename($file, '.php');
+                if (! isset($translations[$ns])) {
+                    $translations[$ns] = require $file;
                 }
-                break;
             }
         }
 
+        $this->mergeLaravelValidationTranslations($translations, $locale);
+
         return response()->json($this->convertPlaceholders($translations));
+    }
+
+    private function normalizeLocale(string $locale): string
+    {
+        // Sanitize locale — only alphanumeric, hyphens and underscores
+        $locale = preg_replace('/[^a-zA-Z0-9\-_]/', '', $locale) ?? 'en';
+
+        // Apply alias (e.g. en-US → en)
+        $locale = self::LOCALE_ALIASES[$locale] ?? $locale;
+
+        // Normalise to BCP-47 canonical form: language lowercase, region uppercase
+        // e.g. pt-pt → pt-PT, pt-br → pt-BR, en-us → en-US
+        if (preg_match('/^([a-z]{2,3})[-_]([a-zA-Z]{2,4})$/', $locale, $m)) {
+            return strtolower($m[1]).'-'.strtoupper($m[2]);
+        }
+
+        return strtolower($locale);
+    }
+
+    /**
+     * Expose Laravel's own validation messages so the frontend can resolve
+     * keys like `validation.required` without shipping package-side copies.
+     *
+     * @param  array<string, mixed>  $translations
+     */
+    private function mergeLaravelValidationTranslations(array &$translations, string $locale): void
+    {
+        $fallbackLocale = $this->normalizeLocale((string) config('app.fallback_locale', 'en'));
+        $validation = [];
+
+        foreach ([$fallbackLocale, $locale] as $candidate) {
+            foreach ($this->localeDirectoryVariants($candidate) as $variant) {
+                $file = resource_path("lang/{$variant}/validation.php");
+                if (! is_file($file)) {
+                    continue;
+                }
+
+                $loaded = require $file;
+                if (is_array($loaded)) {
+                    $validation = array_replace_recursive($validation, $loaded);
+                }
+            }
+        }
+
+        if ($validation !== []) {
+            $translations['validation'] = array_replace_recursive(
+                is_array($translations['validation'] ?? null) ? $translations['validation'] : [],
+                $validation,
+            );
+        }
+    }
+
+    /**
+     * Support both `pt-PT` and `pt_PT` style lang directories in the host app.
+     *
+     * @return array<int, string>
+     */
+    private function localeDirectoryVariants(string $locale): array
+    {
+        $variants = [$locale];
+
+        if (str_contains($locale, '-')) {
+            $variants[] = str_replace('-', '_', $locale);
+        }
+
+        if (str_contains($locale, '_')) {
+            $variants[] = str_replace('_', '-', $locale);
+        }
+
+        return array_values(array_unique($variants));
     }
 
     /**

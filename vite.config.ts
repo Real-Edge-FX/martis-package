@@ -9,7 +9,6 @@ export default defineConfig({
     build: {
         outDir: 'public',
         manifest: 'manifest.json',
-        chunkSizeWarningLimit: 1000,
         rollupOptions: {
             input: 'resources/js/app.tsx',
             output: {
@@ -18,6 +17,10 @@ export default defineConfig({
 
                     if (id.includes('@codemirror') || id.includes('@uiw/react-codemirror')) {
                         return 'codemirror'
+                    }
+
+                    if (id.includes('@phosphor-icons/react')) {
+                        return 'phosphor-icons'
                     }
 
                     if (id.includes('primereact') || id.includes('primeicons')) {

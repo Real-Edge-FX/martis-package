@@ -13,14 +13,7 @@ import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useRef, useState, useEffect, useCallback } from "react"
 import logoSrc from "@images/logo.png"
-import {
-  SquaresFour,
-  MagnifyingGlass,
-  CaretDown,
-  Sun,
-  Moon,
-  SignOut,
-} from "@phosphor-icons/react"
+import { SquaresFourIcon, MagnifyingGlassIcon, CaretDownIcon, SunIcon, MoonIcon, SignOutIcon } from "@phosphor-icons/react"
 
 export function TopnavLayout() {
   const { user, logout } = useAuth()
@@ -103,9 +96,9 @@ export function TopnavLayout() {
                 role="menuitem"
               >
                 {theme === "dark" ? (
-                  <Sun size={16} className="p-menuitem-icon" />
+                  <SunIcon size={16} className="p-menuitem-icon" />
                 ) : (
-                  <Moon size={16} className="p-menuitem-icon" />
+                  <MoonIcon size={16} className="p-menuitem-icon" />
                 )}
                 <span className="p-menuitem-text">
                   {theme === "dark" ? t("light_mode") : t("dark_mode")}
@@ -129,7 +122,7 @@ export function TopnavLayout() {
           }}
           role="menuitem"
         >
-          <SignOut size={16} className="p-menuitem-icon" />
+          <SignOutIcon size={16} className="p-menuitem-icon" />
           <span className="p-menuitem-text">{t("logout")}</span>
         </a>
       ),
@@ -144,7 +137,7 @@ export function TopnavLayout() {
             <img src={logoSrc} alt={brand} className="h-8 w-auto object-contain" style={{ maxWidth: 120 }} />
             <nav className="flex items-center gap-1 overflow-x-auto">
               <NavLink to="/" end className={navClass}>
-                <SquaresFour size={16} className="shrink-0" />
+                <SquaresFourIcon size={16} className="shrink-0" />
                 {t("dashboard")}
               </NavLink>
               {groups.flatMap((group) =>
@@ -168,7 +161,7 @@ export function TopnavLayout() {
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 aria-label="Search"
               >
-                <MagnifyingGlass size={16} />
+                <MagnifyingGlassIcon size={16} />
               </button>
             )}
             <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
@@ -191,7 +184,7 @@ export function TopnavLayout() {
               <span className="hidden sm:inline text-sm font-medium martis-text">
                 {user?.name ?? user?.email}
               </span>
-              <CaretDown size={12} className="martis-text-muted" />
+              <CaretDownIcon size={12} className="martis-text-muted" />
             </div>
           </div>
         </div>

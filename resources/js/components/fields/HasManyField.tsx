@@ -9,7 +9,7 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
-import { Plus, PencilSimple, Trash, MagnifyingGlass, X, CaretUp, CaretDown, CaretUpDown, CaretRight } from "@phosphor-icons/react"
+import { PlusIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, XIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 import { Tooltip } from 'primereact/tooltip'
@@ -168,10 +168,10 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   }
 
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-    if (!active) return <CaretUpDown size={14} className="text-gray-400" />
+    if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUp size={14} className="text-indigo-600" />
-      : <CaretDown size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} className="text-indigo-600" />
+      : <CaretDownIcon size={14} className="text-indigo-600" />
   }
 
   return (
@@ -187,7 +187,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             <ResourceIcon iconName={relatedIcon} size={20} />
           )}
           {collapsable && (
-            <CaretRight
+            <CaretRightIcon
               size={14}
               weight="bold"
               style={{
@@ -215,7 +215,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
         <div className="flex flex-wrap items-center gap-2">
           {meta?.searchable && (
             <div className="relative">
-              <MagnifyingGlass
+              <MagnifyingGlassIcon
                 size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2"
                 style={{ color: 'var(--martis-text-muted)' }}
@@ -241,7 +241,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                   data-pr-tooltip={tMsg('clear', 'Clear')}
                   data-pr-position="top"
                 >
-                  <X size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
+                  <XIcon size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
                 </button>
               )}
               <Tooltip target=".has-many-search-clear" showDelay={400} />
@@ -256,7 +256,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
               style={{ backgroundColor: 'var(--martis-accent)' }}
             >
-              <Plus size={14} weight="bold" />
+              <PlusIcon size={14} weight="bold" />
               {tAct('create', 'Create')}
             </button>
           )}
@@ -355,7 +355,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                     onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
-                    <PencilSimple size={16} />
+                    <PencilSimpleIcon size={16} />
                   </Link>
                 )}
                 {meta?.canDelete && (
@@ -369,7 +369,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
-                    <Trash size={16} />
+                    <TrashIcon size={16} />
                   </button>
                 )}
               </div>

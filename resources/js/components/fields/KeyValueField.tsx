@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash } from '@phosphor-icons/react'
+import { PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface KeyValueRow {
@@ -154,7 +154,7 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
               style={{ color: 'var(--martis-text-muted)', width: '1.75rem', flexShrink: 0 }}
               className="flex items-center justify-center hover:text-red-500 transition-colors"
             >
-              <Trash size={14} />
+              <TrashIcon size={14} />
             </button>
           )}
         </div>
@@ -168,7 +168,7 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
           className="flex items-center gap-1.5 text-xs font-medium mt-1 transition-colors"
           style={{ color: 'var(--martis-accent)' }}
         >
-          <Plus size={12} weight="bold" />
+          <PlusIcon size={12} weight="bold" />
           {actionText ?? 'Add Row'}
         </button>
       )}

@@ -6,7 +6,7 @@ import { config } from "@/lib/config"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
 import logoSrcDefault from "@images/logo.png"
-import { SquaresFour, CaretDown, CaretRight, CaretDoubleRight, CaretDoubleLeft } from "@phosphor-icons/react"
+import { SquaresFourIcon, CaretDownIcon, CaretRightIcon, CaretDoubleRightIcon, CaretDoubleLeftIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "./ResourceIcon"
 
 function getBrand(): string {
@@ -103,7 +103,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
           data-pr-position="right"
           onClick={isMobile ? onMobileClose : undefined}
         >
-          <SquaresFour size={16} className="shrink-0" />
+          <SquaresFourIcon size={16} className="shrink-0" />
           {(isMobile || !collapsed) && t("dashboard")}
         </NavLink>
 
@@ -120,7 +120,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
                   className="mb-2 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-widest martis-text-muted hover:opacity-80 transition-opacity cursor-pointer bg-transparent border-0"
                 >
                   <span>{group.label}</span>
-                  {isExpanded ? <CaretDown size={10} /> : <CaretRight size={10} />}
+                  {isExpanded ? <CaretDownIcon size={10} /> : <CaretRightIcon size={10} />}
                 </button>
               )}
               {!isMobile && collapsed && group.label && (
@@ -154,7 +154,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
             data-pr-tooltip={collapsed ? t("expand_sidebar") : t("collapse_sidebar")}
             data-pr-position="top"
           >
-            {collapsed ? <CaretDoubleRight size={16} /> : <CaretDoubleLeft size={16} />}
+            {collapsed ? <CaretDoubleRightIcon size={16} /> : <CaretDoubleLeftIcon size={16} />}
             {!collapsed && <span className="text-xs">{t("collapse_sidebar")}</span>}
           </button>
         </div>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from 'primereact/badge'
 import { Dialog } from 'primereact/dialog'
-import { ShieldCheck, ShieldSlash, Copy, Check, ArrowsClockwise, Warning, X, Trash } from '@phosphor-icons/react'
+import { ShieldCheckIcon, ShieldSlashIcon, CopyIcon, CheckIcon, ArrowsClockwiseIcon, WarningIcon, XIcon, TrashIcon } from '@phosphor-icons/react'
 import { TwoFactorWizard } from './TwoFactorWizard'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
@@ -94,9 +94,9 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           {twoFactorEnabled ? (
-            <ShieldCheck size={24} className="text-green-500" />
+            <ShieldCheckIcon size={24} className="text-green-500" />
           ) : (
-            <ShieldSlash size={24} className="martis-text-muted" />
+            <ShieldSlashIcon size={24} className="martis-text-muted" />
           )}
           <div>
             <p className="text-sm font-medium martis-text">
@@ -125,7 +125,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                   color: 'var(--martis-text)',
                 }}
               >
-                <ArrowsClockwise size={14} />
+                <ArrowsClockwiseIcon size={14} />
                 {regenerating ? t('2fa_regenerating') : t('2fa_view_recovery')}
               </button>
               <button
@@ -138,7 +138,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                   color: '#dc2626',
                 }}
               >
-                <ShieldSlash size={14} />
+                <ShieldSlashIcon size={14} />
                 {t('2fa_disable')}
               </button>
             </>
@@ -149,7 +149,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
               style={{ backgroundColor: 'var(--martis-accent)' }}
             >
-              <ShieldCheck size={14} />
+              <ShieldCheckIcon size={14} />
               {t('2fa_enable')}
             </button>
           )}
@@ -169,7 +169,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
         header={
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-              <Warning size={18} className="text-red-600 dark:text-red-400" weight="fill" />
+              <WarningIcon size={18} className="text-red-600 dark:text-red-400" weight="fill" />
             </div>
             <span>{t('2fa_disable_confirm_title')}</span>
           </div>
@@ -191,7 +191,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                 color: 'var(--martis-text)',
               }}
             >
-              <X size={14} />
+              <XIcon size={14} />
               {t('2fa_cancel')}
             </button>
             <button
@@ -201,7 +201,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: '#dc2626' }}
             >
-              <Trash size={14} />
+              <TrashIcon size={14} />
               {disabling ? t('saving') : t('2fa_disable_confirm')}
             </button>
           </div>
@@ -272,7 +272,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                 color: 'var(--martis-text)',
               }}
             >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
               {copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
             </button>
             <button

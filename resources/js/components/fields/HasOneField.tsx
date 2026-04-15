@@ -7,7 +7,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
-import { Plus, PencilSimple, Trash } from '@phosphor-icons/react'
+import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 
 /**
  * HasOne field display.
@@ -105,7 +105,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
               style={{ backgroundColor: 'var(--martis-accent)' }}
             >
-              <Plus size={14} weight="bold" />
+              <PlusIcon size={14} weight="bold" />
               {tAct('create', 'Create')}
             </button>
           )}
@@ -125,7 +125,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
                 color: 'var(--martis-text)',
               }}
             >
-              <PencilSimple size={14} />
+              <PencilSimpleIcon size={14} />
               {tAct('edit', 'Edit')}
             </button>
           )}
@@ -135,7 +135,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
               onClick={() => setDeleteOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 dark:border-red-700/50 dark:bg-red-950/20 dark:text-red-400"
             >
-              <Trash size={14} />
+              <TrashIcon size={14} />
               {tAct('delete', 'Delete')}
             </button>
           )}
@@ -163,7 +163,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
                 className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
                 style={{ backgroundColor: 'var(--martis-accent)' }}
               >
-                <Plus size={14} weight="bold" />
+                <PlusIcon size={14} weight="bold" />
                 {tAct('create', 'Create')}
               </button>
             </div>

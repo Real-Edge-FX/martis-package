@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Dialog } from 'primereact/dialog'
 import { InputText } from 'primereact/inputtext'
-import { Copy, Check } from '@phosphor-icons/react'
+import { CopyIcon, CheckIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -233,7 +233,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
             color: 'var(--martis-text)',
           }}
         >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
           {copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
         </button>
         <button

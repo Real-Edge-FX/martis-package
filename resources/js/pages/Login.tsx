@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react"
+import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
@@ -11,7 +11,7 @@ import { Button } from "primereact/button"
 import { IconField } from "primereact/iconfield"
 import { InputIcon } from "primereact/inputicon"
 import logoSrc from "@images/logo.png"
-import { Envelope, Lock, Eye, EyeSlash, SignIn } from "@phosphor-icons/react"
+import { EnvelopeIcon, LockIcon, EyeIcon, EyeSlashIcon, SignInIcon } from "@phosphor-icons/react"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
@@ -45,10 +45,16 @@ export function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    const formData = new FormData(e.currentTarget as HTMLFormElement)
+    const submittedEmail = String(formData.get("email") ?? email).trim()
+    const submittedPassword = String(formData.get("password") ?? password)
+
+    setEmail(submittedEmail)
+    setPassword(submittedPassword)
     setErrors({})
     setSubmitting(true)
     try {
-      await login(email, password)
+      await login(submittedEmail, submittedPassword)
     } catch (err) {
       if (err instanceof TwoFactorRequiredError) {
         navigate('/2fa/challenge', { replace: true })
@@ -65,6 +71,13 @@ export function LoginPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function handlePasswordKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || submitting) return
+
+    e.preventDefault()
+    e.currentTarget.form?.requestSubmit()
   }
 
   const brand = getBrand()
@@ -90,13 +103,14 @@ export function LoginPage() {
                 {t("email")}
               </label>
               <IconField iconPosition="left">
-                <InputIcon><Envelope size={14} /></InputIcon>
+                <InputIcon><EnvelopeIcon size={14} /></InputIcon>
                 <InputText
                   id="email"
                   type="email"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handlePasswordKeyDown}
                   invalid={!!errors.email}
                   className="w-full"
                   placeholder="admin@example.com"
@@ -112,13 +126,14 @@ export function LoginPage() {
               </label>
               <div className="relative">
                 <IconField iconPosition="left">
-                  <InputIcon><Lock size={14} /></InputIcon>
+                  <InputIcon><LockIcon size={14} /></InputIcon>
                   <InputText
                     id="password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handlePasswordKeyDown}
                     invalid={!!errors.password}
                     className="w-full"
                     placeholder="Enter your password"
@@ -132,7 +147,7 @@ export function LoginPage() {
                   tabIndex={-1}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeSlashIcon size={16} /> : <EyeIcon size={16} />}
                 </button>
               </div>
               {errors.password && <small className="p-error">{errors.password}</small>}
@@ -141,7 +156,7 @@ export function LoginPage() {
             <Button
               type="submit"
               label={submitting ? t("signing_in") : t("sign_in")}
-              icon={submitting ? undefined : <SignIn size={20} weight="bold" />}
+              icon={submitting ? undefined : <SignInIcon size={20} weight="bold" />}
               loading={submitting}
               className="w-full"
               raised

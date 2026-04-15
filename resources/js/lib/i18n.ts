@@ -1,9 +1,16 @@
-import i18n from "i18next"
+import i18n, { type Resource, type ResourceLanguage } from "i18next"
 import { initReactI18next } from "react-i18next"
 import { API_BASE_URL, config } from "./config"
 
 export function getLocale(): string {
-  return config.locale ?? "en"
+  const locale = config.locale ?? "en"
+  const normalized = locale.replace('_', '-')
+
+  if (normalized === "en-US" || normalized === "en-GB") {
+    return "en"
+  }
+
+  return normalized
 }
 
 let initPromise: Promise<void> | null = null
@@ -14,22 +21,23 @@ export async function initI18n(): Promise<void> {
   const locale = getLocale()
 
   initPromise = (async () => {
-    let translations: Record<string, Record<string, string>> = {}
+    let translations: ResourceLanguage = {}
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/translations/${locale}`, {
+        cache: "no-store",
         credentials: "same-origin",
         headers: { Accept: "application/json" },
       })
       if (res.ok) {
-        translations = (await res.json()) as Record<string, Record<string, string>>
+        translations = (await res.json()) as ResourceLanguage
       }
     } catch {
-      // silent fallback — i18n will return the key names
+      // silent fallback — i18n will return key names
     }
 
     await i18n.use(initReactI18next).init({
-      resources: { [locale]: translations },
+      resources: { [locale]: translations } as Resource,
       lng: locale,
       fallbackLng: "en",
       interpolation: { escapeValue: false },

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { config } from "@/lib/config"
-import { SpinnerGap } from "@phosphor-icons/react"
+import { SpinnerGapIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 
 export interface MartisLoaderProps {
@@ -79,7 +79,7 @@ export function MartisLoader({
   ) : iconName ? (
     <ResourceIcon iconName={iconName} size={spinnerSize} className="animate-spin" />
   ) : (
-    <SpinnerGap size={spinnerSize} className="animate-spin" style={{ color: spinnerColor }} />
+    <SpinnerGapIcon size={spinnerSize} className="animate-spin" style={{ color: spinnerColor }} />
   )
 
   const loaderContent = (

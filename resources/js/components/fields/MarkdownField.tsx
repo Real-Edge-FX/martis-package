@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { marked } from 'marked'
-import { Eye, EyeSlash } from '@phosphor-icons/react'
+import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -43,7 +43,7 @@ export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
         onClick={() => setExpanded(true)}
         className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--martis-accent)" }}
       >
-        <Eye size={16} weight="bold" />
+        <EyeIcon size={16} weight="bold" />
         {t('show_content')}
       </button>
     )
@@ -57,7 +57,7 @@ export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
           onClick={() => setExpanded(false)}
           className="inline-flex items-center gap-1.5 text-sm mb-2" style={{ color: "var(--martis-accent)" }}
         >
-          <EyeSlash size={16} weight="bold" />
+          <EyeSlashIcon size={16} weight="bold" />
           {t('hide')}
         </button>
       )}

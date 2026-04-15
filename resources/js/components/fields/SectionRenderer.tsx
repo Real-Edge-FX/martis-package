@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CaretDown, CaretRight } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { SectionDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
@@ -52,7 +52,7 @@ function SectionContainer({ section, children }: SectionContainerProps) {
           <h3 className="text-base font-semibold text-foreground">{section.title}</h3>
           {section.collapsible && (
             <span className="text-muted-foreground" aria-hidden="true">
-              {collapsed ? <CaretRight size={16} /> : <CaretDown size={16} />}
+              {collapsed ? <CaretRightIcon size={16} /> : <CaretDownIcon size={16} />}
             </span>
           )}
         </div>

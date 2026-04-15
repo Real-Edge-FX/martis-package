@@ -9,7 +9,7 @@ import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from '@phosphor-icons/react'
+import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -220,7 +220,7 @@ export function ResourceUpdatePage() {
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
-          <ArrowLeft size={14} weight="bold" />
+          <ArrowLeftIcon size={14} weight="bold" />
           <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
           {backLabel}
         </Link>

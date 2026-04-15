@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlass, Database, CaretRight, File, Spinner } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, DatabaseIcon, CaretRightIcon, FileIcon, SpinnerIcon } from "@phosphor-icons/react"
 
 interface GlobalSearchProps {
   onClose: () => void
@@ -155,7 +155,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
         onKeyDown={handleKeyDown}
       >
         <div className="relative">
-          <MagnifyingGlass
+          <MagnifyingGlassIcon
             size={14}
             className="absolute left-4 top-1/2 -translate-y-1/2"
             style={{ color: "var(--martis-text-muted)" }}
@@ -169,7 +169,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
             onChange={(e) => setQuery(e.target.value)}
           />
           {searchingRecords && (
-            <Spinner
+            <SpinnerIcon
               size={14}
               className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin"
               style={{ color: "var(--martis-text-muted)" }}
@@ -201,7 +201,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                   className={`martis-search-item ${i === activeIndex ? "active" : ""}`}
                   onClick={() => goToItem(navItems[i])}
                 >
-                  <Database size={14} style={{ color: "var(--martis-accent)" }} />
+                  <DatabaseIcon size={14} style={{ color: "var(--martis-accent)" }} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">{r.label}</div>
                     {r.groupLabel && (
@@ -210,7 +210,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                       </div>
                     )}
                   </div>
-                  <CaretRight size={12} style={{ color: "var(--martis-text-muted)" }} />
+                  <CaretRightIcon size={12} style={{ color: "var(--martis-text-muted)" }} />
                 </div>
               ))}
             </>
@@ -237,7 +237,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                       className={`martis-search-item ${navIndex === activeIndex ? "active" : ""}`}
                       onClick={() => goToItem(navItems[navIndex])}
                     >
-                      <File size={14} style={{ color: "var(--martis-accent)" }} />
+                      <FileIcon size={14} style={{ color: "var(--martis-accent)" }} />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{item.title}</div>
                         {item.subtitle && (
@@ -246,7 +246,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                           </div>
                         )}
                       </div>
-                      <CaretRight size={12} style={{ color: "var(--martis-text-muted)" }} />
+                      <CaretRightIcon size={12} style={{ color: "var(--martis-text-muted)" }} />
                     </div>
                   )
                 })}

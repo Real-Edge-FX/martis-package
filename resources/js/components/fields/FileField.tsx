@@ -1,21 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import {
-  File as FileIcon,
-  FilePdf,
-  FileDoc,
-  FileText as FileTextIcon,
-  FileZip,
-  FileXls,
-  FilePpt,
-  FileCode,
-  FileCsv,
-  DownloadSimple,
-  Trash,
-  UploadSimple,
-  Plus,
-} from '@phosphor-icons/react'
+import { FileIcon, FilePdfIcon, FileDocIcon, FileTextIcon, FileZipIcon, FileXlsIcon, FilePptIcon, FileCodeIcon, FileCsvIcon, DownloadSimpleIcon, TrashIcon, UploadSimpleIcon, PlusIcon } from '@phosphor-icons/react'
 import { useToastSafe } from "@/contexts/ToastContext"
 
 interface FileValue {
@@ -39,24 +25,24 @@ function getFileTypeIcon(filename: string, size: number) {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
   switch (ext) {
     case 'pdf':
-      return <FilePdf size={size} style={{ color: '#ef4444' }} />
+      return <FilePdfIcon size={size} style={{ color: '#ef4444' }} />
     case 'doc':
     case 'docx':
-      return <FileDoc size={size} style={{ color: '#3b82f6' }} />
+      return <FileDocIcon size={size} style={{ color: '#3b82f6' }} />
     case 'xls':
     case 'xlsx':
-      return <FileXls size={size} style={{ color: '#22c55e' }} />
+      return <FileXlsIcon size={size} style={{ color: '#22c55e' }} />
     case 'ppt':
     case 'pptx':
-      return <FilePpt size={size} style={{ color: '#f97316' }} />
+      return <FilePptIcon size={size} style={{ color: '#f97316' }} />
     case 'zip':
     case 'rar':
     case 'gz':
     case '7z':
     case 'tar':
-      return <FileZip size={size} style={{ color: '#a855f7' }} />
+      return <FileZipIcon size={size} style={{ color: '#a855f7' }} />
     case 'csv':
-      return <FileCsv size={size} style={{ color: '#22c55e' }} />
+      return <FileCsvIcon size={size} style={{ color: '#22c55e' }} />
     case 'txt':
     case 'md':
     case 'rtf':
@@ -73,7 +59,7 @@ function getFileTypeIcon(filename: string, size: number) {
     case 'xml':
     case 'yaml':
     case 'yml':
-      return <FileCode size={size} style={{ color: '#6366f1' }} />
+      return <FileCodeIcon size={size} style={{ color: '#6366f1' }} />
     default:
       return <FileIcon size={size} style={{ color: 'var(--martis-text-muted)' }} />
   }
@@ -101,7 +87,7 @@ export function FileFieldDisplay({ value, field }: FieldDisplayProps) {
           >
             {getFileTypeIcon(file.name, 16)}
             {file.name}
-            <DownloadSimple size={14} />
+            <DownloadSimpleIcon size={14} />
           </a>
         ))}
       </div>
@@ -122,7 +108,7 @@ export function FileFieldDisplay({ value, field }: FieldDisplayProps) {
     >
       {getFileTypeIcon(value.name, 16)}
       {value.name}
-      <DownloadSimple size={14} />
+      <DownloadSimpleIcon size={14} />
     </a>
   )
 }
@@ -208,7 +194,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
                 className="flex-shrink-0 rounded p-1 hover:opacity-70"
                 style={{ color: 'var(--martis-accent)' }}
               >
-                <DownloadSimple size={16} />
+                <DownloadSimpleIcon size={16} />
               </a>
             )}
             <button
@@ -216,7 +202,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
               onClick={handleClear}
               className="flex-shrink-0 rounded p-1 hover:bg-red-500/10"
             >
-              <Trash size={16} className="text-red-500" />
+              <TrashIcon size={16} className="text-red-500" />
             </button>
           </>
         ) : (
@@ -226,7 +212,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
             className="flex w-full items-center gap-2 text-sm"
             style={{ color: 'var(--martis-text-muted)' }}
           >
-            <UploadSimple size={20} />
+            <UploadSimpleIcon size={20} />
             <span>Choose file or drag here</span>
           </button>
         )}
@@ -367,7 +353,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
                     className="flex-shrink-0 rounded p-1 hover:opacity-70"
                     style={{ color: 'var(--martis-accent)' }}
                   >
-                    <DownloadSimple size={14} />
+                    <DownloadSimpleIcon size={14} />
                   </a>
                 )}
                 <button
@@ -375,7 +361,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
                   onClick={() => handleRemove(item.id)}
                   className="flex-shrink-0 rounded p-1 hover:bg-red-500/10"
                 >
-                  <Trash size={14} className="text-red-500" />
+                  <TrashIcon size={14} className="text-red-500" />
                 </button>
               </div>
             )
@@ -400,7 +386,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
           className="flex w-full items-center gap-2 text-sm"
           style={{ color: 'var(--martis-text-muted)' }}
         >
-          {items.length > 0 ? <Plus size={20} /> : <UploadSimple size={20} />}
+          {items.length > 0 ? <PlusIcon size={20} /> : <UploadSimpleIcon size={20} />}
           <span>{items.length > 0 ? tRes('add_more_files') : tRes('choose_files')}</span>
         </button>
 

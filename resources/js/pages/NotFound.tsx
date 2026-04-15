@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { House } from '@phosphor-icons/react'
+import { HouseIcon } from '@phosphor-icons/react'
 
 export function NotFoundPage() {
   const { t } = useTranslation('messages')
@@ -16,7 +16,7 @@ export function NotFoundPage() {
         className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
         style={{ backgroundColor: 'var(--martis-accent)' }}
       >
-        <House size={16} weight="bold" />
+        <HouseIcon size={16} weight="bold" />
         {t('back_to_dashboard')}
       </Link>
     </div>

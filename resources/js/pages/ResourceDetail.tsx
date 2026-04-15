@@ -11,7 +11,7 @@ import { ActionModal, ActionDropdown, ActionDrawer } from "@/components/Actions"
 import type { ActionMeta } from "@/components/Actions"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise, Copy, TrashSimple } from "@phosphor-icons/react"
+import { ArrowLeftIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, CopyIcon, TrashSimpleIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
 import { componentRegistry } from "@/lib/componentRegistry"
@@ -191,7 +191,7 @@ export function ResourceDetailPage() {
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
-          <ArrowLeft size={14} weight="bold" />
+          <ArrowLeftIcon size={14} weight="bold" />
           <ResourceIcon iconName={(schema.icon)} size={14} />
           {schema.label}
         </Link>
@@ -226,7 +226,7 @@ export function ResourceDetailPage() {
               
               className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
             >
-              <ArrowCounterClockwise size={14} />
+              <ArrowCounterClockwiseIcon size={14} />
               {tAct("restore")}
             </button>
           ) : null}
@@ -243,7 +243,7 @@ export function ResourceDetailPage() {
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
           >
-            <PencilSimple size={14} />
+            <PencilSimpleIcon size={14} />
             {tAct("edit")}
           </button>
           )}
@@ -260,7 +260,7 @@ export function ResourceDetailPage() {
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
           >
-            <Copy size={14} />
+            <CopyIcon size={14} />
             {tAct("replicate")}
           </button>
           )}
@@ -270,7 +270,7 @@ export function ResourceDetailPage() {
             onClick={() => setShowDelete(true)}
             className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
           >
-            <Trash size={14} />
+            <TrashIcon size={14} />
             {tAct("delete")}
           </button>
           )}
@@ -281,7 +281,7 @@ export function ResourceDetailPage() {
             
             className="inline-flex items-center gap-1.5 rounded-md bg-red-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-900"
           >
-            <TrashSimple size={14} />
+            <TrashSimpleIcon size={14} />
             {tAct("delete_permanent")}
           </button>
           )}
@@ -394,7 +394,7 @@ export function ResourceDetailPage() {
             <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "var(--martis-border)" }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <ArrowCounterClockwise size={20} className="text-amber-600 dark:text-amber-400" />
+                  <ArrowCounterClockwiseIcon size={20} className="text-amber-600 dark:text-amber-400" />
                 </div>
                 <span className="text-lg font-semibold" style={{ color: "var(--martis-text)" }}>{tAct("restore")} {schema.singularLabel}</span>
               </div>
@@ -405,7 +405,7 @@ export function ResourceDetailPage() {
             <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: "var(--martis-border)", backgroundColor: "var(--martis-surface)", borderRadius: "0 0 0.75rem 0.75rem" }}>
               <button type="button" onClick={() => setShowRestore(false)} className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium" style={{ backgroundColor: "var(--martis-input-bg)", borderColor: "var(--martis-border)", color: "var(--martis-text)" }}>{tAct("cancel")}</button>
               <button type="button" onClick={async () => { await restoreMutation.mutateAsync(); setShowRestore(false) }} disabled={restoreMutation.isPending} className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50">
-                <ArrowCounterClockwise size={14} />
+                <ArrowCounterClockwiseIcon size={14} />
                 {restoreMutation.isPending ? tAct("please_wait") : tAct("restore")}
               </button>
             </div>

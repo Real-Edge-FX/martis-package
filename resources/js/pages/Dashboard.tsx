@@ -8,7 +8,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { Card } from 'primereact/card'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Database, Folder, CheckCircle, CaretRight } from '@phosphor-icons/react'
+import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon } from '@phosphor-icons/react'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -52,7 +52,7 @@ export function DashboardPage() {
                     <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/20">
-                    <Database size={20} className="text-indigo-400" />
+                    <DatabaseIcon size={20} className="text-indigo-400" />
                   </div>
                 </div>
               </div>
@@ -63,7 +63,7 @@ export function DashboardPage() {
                     <p className="mt-1 text-3xl font-bold martis-text">{groups.length}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20">
-                    <Folder size={20} className="text-emerald-400" />
+                    <FolderIcon size={20} className="text-emerald-400" />
                   </div>
                 </div>
               </div>
@@ -74,7 +74,7 @@ export function DashboardPage() {
                     <p className="mt-1 text-3xl font-bold martis-text">{totalResources}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20">
-                    <CheckCircle size={20} className="text-amber-400" />
+                    <CheckCircleIcon size={20} className="text-amber-400" />
                   </div>
                 </div>
               </div>
@@ -104,7 +104,7 @@ export function DashboardPage() {
                               <p className="text-xs martis-text-muted invisible">–</p>
                             )}
                           </div>
-                          <CaretRight className="flex-shrink-0 martis-text-muted" />
+                          <CaretRightIcon className="flex-shrink-0 martis-text-muted" />
                         </div>
                       </Card>
                     </Link>
