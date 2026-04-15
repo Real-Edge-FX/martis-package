@@ -5,7 +5,7 @@ import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { CaretUp, CaretDown, CaretUpDown, Lightning, Warning, DotsThreeVertical, CaretRight } from "@phosphor-icons/react"
+import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
@@ -39,10 +39,10 @@ export interface TableProps {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  if (!active) return <CaretUpDown size={14} className="text-gray-400" />
+  if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
   return dir === "asc"
-    ? <CaretUp size={14} className="text-indigo-600" />
-    : <CaretDown size={14} className="text-indigo-600" />
+    ? <CaretUpIcon size={14} className="text-indigo-600" />
+    : <CaretDownIcon size={14} className="text-indigo-600" />
 }
 
 /* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
@@ -164,7 +164,7 @@ function InlineSubMenu({
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
               >
                 <span className="font-medium">{child.label}</span>
-                <CaretRight size={12} />
+                <CaretRightIcon size={12} />
               </div>
               {openChild === key && <InlineSubMenu group={child} parentRect={childRects.get(key) ?? null} onAction={onAction} row={row} canRunAction={canRunAction} canRunDestructive={canRunDestructive} />}
             </div>
@@ -180,7 +180,7 @@ function InlineSubMenu({
             onMouseEnter={e => { if (!isDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
           >
-            {child.showIcon !== false && (child.icon ? <ResourceIcon iconName={child.icon} size={16} color={child.iconColor ?? undefined} /> : child.destructive ? <Warning size={16} weight="fill" color={child.iconColor ?? undefined} /> : <Lightning size={16} color={child.iconColor ?? undefined} />)}
+            {child.showIcon !== false && (child.icon ? <ResourceIcon iconName={child.icon} size={16} color={child.iconColor ?? undefined} /> : child.destructive ? <WarningIcon size={16} weight="fill" color={child.iconColor ?? undefined} /> : <LightningIcon size={16} color={child.iconColor ?? undefined} />)}
             <span>{child.name}</span>
           </button>
         )
@@ -243,7 +243,7 @@ function InlineActionMenu({
         data-pr-tooltip="Actions"
         data-pr-position="top"
       >
-        <DotsThreeVertical size={18} weight="bold" />
+        <DotsThreeVerticalIcon size={18} weight="bold" />
       </button>
       {open && rect && createPortal(
         <div
@@ -268,7 +268,7 @@ function InlineActionMenu({
                     onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
                   >
                     <span className="font-medium">{item.label}</span>
-                    <CaretRight size={12} />
+                    <CaretRightIcon size={12} />
                   </div>
                   {openGroup === key && <InlineSubMenu group={item} parentRect={groupRects.get(key) ?? null} onAction={(a, r) => { setOpen(false); onAction(a, r) }} row={row} canRunAction={canRunAction} canRunDestructive={canRunDestructive} />}
                 </div>
@@ -283,7 +283,7 @@ function InlineActionMenu({
                 onMouseEnter={e => { if (!isItemDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
               >
-                {item.showIcon !== false && (item.icon ? <ResourceIcon iconName={item.icon} size={16} color={item.iconColor ?? undefined} /> : item.destructive ? <Warning size={16} weight="fill" color={item.iconColor ?? undefined} /> : <Lightning size={16} color={item.iconColor ?? undefined} />)}
+                {item.showIcon !== false && (item.icon ? <ResourceIcon iconName={item.icon} size={16} color={item.iconColor ?? undefined} /> : item.destructive ? <WarningIcon size={16} weight="fill" color={item.iconColor ?? undefined} /> : <LightningIcon size={16} color={item.iconColor ?? undefined} />)}
                 <span>{item.name}</span>
               </button>
             )
@@ -467,7 +467,7 @@ function DefaultTable({
                       data-pr-tooltip={action.name}
                       data-pr-position="top"
                     >
-                      {action.showIcon !== false && (action.icon ? <ResourceIcon iconName={action.icon} size={18} color={action.iconColor ?? undefined} /> : action.destructive ? <Warning size={18} weight="fill" color={action.iconColor ?? undefined} /> : <Lightning size={18} color={action.iconColor ?? undefined} />)}
+                      {action.showIcon !== false && (action.icon ? <ResourceIcon iconName={action.icon} size={18} color={action.iconColor ?? undefined} /> : action.destructive ? <WarningIcon size={18} weight="fill" color={action.iconColor ?? undefined} /> : <LightningIcon size={18} color={action.iconColor ?? undefined} />)}
                     </button>
                   )
                 })}

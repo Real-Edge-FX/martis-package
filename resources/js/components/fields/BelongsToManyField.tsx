@@ -9,17 +9,7 @@ import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/contexts/ToastContext'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
-import {
-  Plus,
-  LinkSimple,
-  LinkBreak,
-  MagnifyingGlass,
-  CaretUp,
-  CaretDown,
-  CaretUpDown,
-  X,
-  Lightning,
-} from '@phosphor-icons/react'
+import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, MagnifyingGlassIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, XIcon, LightningIcon } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -63,7 +53,7 @@ function BelongsToManyCountBadge({ count }: { count: number }) {
         border: '1px solid var(--martis-border)',
       }}
     >
-      <LinkSimple size={11} />
+      <LinkSimpleIcon size={11} />
       {count}
     </span>
   )
@@ -203,10 +193,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   }
 
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-    if (!active) return <CaretUpDown size={14} className="text-gray-400" />
+    if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUp size={14} className="text-indigo-600" />
-      : <CaretDown size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} className="text-indigo-600" />
+      : <CaretDownIcon size={14} className="text-indigo-600" />
   }
 
   // Group pivot actions by their pivotLabel
@@ -229,10 +219,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
               className="rounded p-0.5 transition-colors"
               style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              {collapsed ? <CaretDown size={16} /> : <CaretUp size={16} />}
+              {collapsed ? <CaretDownIcon size={16} /> : <CaretUpIcon size={16} />}
             </button>
           )}
-          <LinkSimple size={18} style={{ color: 'var(--martis-accent)' }} />
+          <LinkSimpleIcon size={18} style={{ color: 'var(--martis-accent)' }} />
           <span>{field.label}</span>
           <span
             className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
@@ -247,7 +237,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
         </h3>
         {!collapsed && searchable && (
           <div className="relative flex-1 min-w-[120px]">
-            <MagnifyingGlass
+            <MagnifyingGlassIcon
               size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 martis-text-muted"
             />
@@ -293,7 +283,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                 cursor: 'pointer',
               }}
             >
-              <Lightning size={14} />
+              <LightningIcon size={14} />
               {label}
               {selectedRows.length > 0 && (
                 <span
@@ -303,7 +293,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                   {selectedRows.length}
                 </span>
               )}
-              <CaretDown size={12} />
+              <CaretDownIcon size={12} />
             </button>
             {pivotDropdownOpen && (
               <div
@@ -338,7 +328,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                       e.currentTarget.style.backgroundColor = 'transparent'
                     }}
                   >
-                    <Lightning size={14} style={{ color: action.destructive ? '#ef4444' : 'var(--martis-accent)' }} />
+                    <LightningIcon size={14} style={{ color: action.destructive ? '#ef4444' : 'var(--martis-accent)' }} />
                     {action.name}
                   </button>
                 ))}
@@ -353,7 +343,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
             className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white flex-shrink-0"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
-            <Plus size={14} weight="bold" />
+            <PlusIcon size={14} weight="bold" />
             {tAct('attach', 'Attach')}
           </button>
         )}
@@ -474,7 +464,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                           e.currentTarget.style.borderColor = 'var(--martis-border)'
                         }}
                       >
-                        <LinkBreak size={14} />
+                        <LinkBreakIcon size={14} />
                         {tAct('detach', 'Detach')}
                       </button>
                     )}
@@ -711,7 +701,7 @@ function PivotActionModal({
                 color: action.destructive ? '#dc2626' : '#6366f1',
               }}
             >
-              <Lightning size={20} weight="fill" />
+              <LightningIcon size={20} weight="fill" />
             </div>
             <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
               {action.name}
@@ -723,7 +713,7 @@ function PivotActionModal({
             className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             style={{ color: 'var(--martis-text-muted)' }}
           >
-            <X size={16} />
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -777,7 +767,7 @@ function PivotActionModal({
               color: 'var(--martis-text)',
             }}
           >
-            <X size={14} />
+            <XIcon size={14} />
             {action.cancelButtonText ?? t('cancel')}
           </button>
           <button
@@ -787,7 +777,7 @@ function PivotActionModal({
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: action.destructive ? '#dc2626' : 'var(--martis-accent)' }}
           >
-            <Lightning size={14} />
+            <LightningIcon size={14} />
             {executeMutation.isPending
               ? t('please_wait')
               : (action.confirmButtonText ?? t('run_action'))}
@@ -1017,7 +1007,7 @@ function AttachModal({
             className="rounded p-1"
             style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
-            <X size={18} />
+            <XIcon size={18} />
           </button>
         </div>
 
@@ -1025,7 +1015,7 @@ function AttachModal({
         <div className="shrink-0 border-b px-6 py-3" style={{ borderColor: 'var(--martis-border)' }}>
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
-              <MagnifyingGlass
+              <MagnifyingGlassIcon
                 size={14}
                 className="absolute left-3 top-1/2 -translate-y-1/2"
                 style={{ color: 'var(--martis-text-muted)' }}
@@ -1171,7 +1161,7 @@ function AttachModal({
             className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
-            <LinkSimple size={14} />
+            <LinkSimpleIcon size={14} />
             {attachMutation.isPending
               ? tAct('please_wait', 'Please wait…')
               : selected.length > 1

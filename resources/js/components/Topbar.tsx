@@ -8,7 +8,7 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlass, CaretDown, Sun, Moon, SignOut, UserCircle, List } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, CaretDownIcon, SunIcon, MoonIcon, SignOutIcon, UserCircleIcon, ListIcon } from "@phosphor-icons/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 
 interface TopbarProps {
@@ -81,9 +81,9 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
                 role="menuitem"
               >
                 {theme === "dark" ? (
-                  <Sun size={16} className="p-menuitem-icon" />
+                  <SunIcon size={16} className="p-menuitem-icon" />
                 ) : (
-                  <Moon size={16} className="p-menuitem-icon" />
+                  <MoonIcon size={16} className="p-menuitem-icon" />
                 )}
                 <span className="p-menuitem-text">
                   {theme === "dark" ? t("light_mode") : t("dark_mode")}
@@ -118,7 +118,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
                 }}
                 role="menuitem"
               >
-                <UserCircle size={16} className="p-menuitem-icon" />
+                <UserCircleIcon size={16} className="p-menuitem-icon" />
                 <span className="p-menuitem-text">
                   {config.profile?.menu?.label ?? t("profile", "Profile")}
                 </span>
@@ -141,7 +141,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
           }}
           role="menuitem"
         >
-          <SignOut size={16} className="p-menuitem-icon" />
+          <SignOutIcon size={16} className="p-menuitem-icon" />
           <span className="p-menuitem-text">{t("logout")}</span>
         </a>
       ),
@@ -162,7 +162,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
             aria-label={t("open_sidebar", "Menu")}
           >
-            <List size={20} />
+            <ListIcon size={20} />
           </button>
         )}
         <Breadcrumbs />
@@ -181,7 +181,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
             minWidth: 220,
           }}
         >
-          <MagnifyingGlass size={12} />
+          <MagnifyingGlassIcon size={12} />
           <span>
             {config.search?.placeholder ?? t("search_placeholder", "Press / to search")}
           </span>
@@ -216,7 +216,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
           }
           aria-label="Search"
         >
-          <MagnifyingGlass size={16} />
+          <MagnifyingGlassIcon size={16} />
         </button>
       )}
 
@@ -250,7 +250,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
           <span className="hidden sm:inline text-sm font-medium martis-text">
             {user?.name ?? user?.email}
           </span>
-          <CaretDown size={12} className="martis-text-muted" />
+          <CaretDownIcon size={12} className="martis-text-muted" />
         </div>
       </div>
 

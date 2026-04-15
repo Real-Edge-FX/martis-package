@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CaretDown, CaretRight } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { PanelDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
@@ -49,7 +49,7 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
         <h3 className="text-sm font-semibold text-foreground">{panel.title}</h3>
         {panel.collapsible && (
           <span className="text-muted-foreground" aria-hidden="true">
-            {collapsed ? <CaretRight size={16} /> : <CaretDown size={16} />}
+            {collapsed ? <CaretRightIcon size={16} /> : <CaretDownIcon size={16} />}
           </span>
         )}
       </div>

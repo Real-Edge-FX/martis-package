@@ -3,30 +3,16 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class TranslationsController extends MartisController
 {
     /**
-     * Locale aliases — maps external locale identifiers to internal lang/ folder names.
-     * e.g. 'en-US' → 'en', 'pt-BR' is stored as 'pt-BR'
-     */
-    private const LOCALE_ALIASES = [
-        'en-US' => 'en',
-        'en_US' => 'en',
-        'en-GB' => 'en',
-        'en_GB' => 'en',
-    ];
-
-    /**
      * Return all translation strings for the given locale as JSON.
      * Falls back to 'en' when the requested locale is not found.
      *
-     * Accepts any BCP-47 locale tag (e.g. `pt-PT`, `pt-pt`, `pt_PT`, `en`).
-     * The locale is normalised to canonical form (language lowercase, region uppercase)
-     * before resolving the lang/ folder, so `pt-pt` and `pt-PT` both resolve correctly.
+     * Accepts Laravel locale identifiers such as `en`, `pt_BR`, and `pt_PT`.
      *
-     * @param  string  $locale  BCP-47 locale identifier (e.g. `pt-PT`, `pt-BR`, `en`)
+     * @param  string  $locale  Laravel locale identifier (e.g. `pt_PT`, `pt_BR`, `en`)
      *
      * @response array{
      *   actions: array<string, string>,
@@ -37,19 +23,9 @@ class TranslationsController extends MartisController
      *   resources: array<string, string>
      * }
      */
-    public function show(Request $request, string $locale): JsonResponse
+    public function show(string $locale): JsonResponse
     {
-        // Sanitize locale — only alphanumeric, hyphens and underscores
-        $locale = preg_replace('/[^a-zA-Z0-9\-_]/', '', $locale) ?? 'en';
-
-        // Apply alias (e.g. en-US → en)
-        $locale = self::LOCALE_ALIASES[$locale] ?? $locale;
-
-        // Normalise to BCP-47 canonical form: language lowercase, region uppercase
-        // e.g. pt-pt → pt-PT, pt-br → pt-BR, en-us → en-US
-        if (preg_match('/^([a-z]{2,3})[-_]([a-zA-Z]{2,4})$/', $locale, $m)) {
-            $locale = strtolower($m[1]).'-'.strtoupper($m[2]);
-        }
+        $locale = $this->normalizeLocale($locale);
 
         $langBase = realpath(__DIR__.'/../../../resources/lang');
 
@@ -66,19 +42,64 @@ class TranslationsController extends MartisController
 
         $translations = [];
         foreach ($paths as $path) {
-            if (is_dir($path)) {
-                $files = glob("{$path}/*.php") ?: [];
-                foreach ($files as $file) {
-                    $ns = basename($file, '.php');
-                    if (! isset($translations[$ns])) {
-                        $translations[$ns] = require $file;
-                    }
+            if (! is_dir($path)) {
+                continue;
+            }
+
+            $files = glob("{$path}/*.php") ?: [];
+            foreach ($files as $file) {
+                $ns = basename($file, '.php');
+                if (! isset($translations[$ns])) {
+                    $translations[$ns] = require $file;
                 }
-                break;
             }
         }
 
+        $this->mergeLaravelValidationTranslations($translations, $locale);
+
         return response()->json($this->convertPlaceholders($translations));
+    }
+
+    private function normalizeLocale(string $locale): string
+    {
+        $locale = preg_replace('/[^a-zA-Z0-9_]/', '', $locale) ?? 'en';
+
+        if (preg_match('/^([a-z]{2,3})_([a-zA-Z]{2,4})$/', $locale, $matches)) {
+            return strtolower($matches[1]).'_'.strtoupper($matches[2]);
+        }
+
+        return strtolower($locale);
+    }
+
+    /**
+     * Expose Laravel's own validation messages so the frontend can resolve
+     * keys like `validation.required` without shipping package-side copies.
+     *
+     * @param  array<string, mixed>  $translations
+     */
+    private function mergeLaravelValidationTranslations(array &$translations, string $locale): void
+    {
+        $fallbackLocale = $this->normalizeLocale((string) config('app.fallback_locale', 'en'));
+        $validation = [];
+
+        foreach ([$fallbackLocale, $locale] as $candidate) {
+            $file = resource_path("lang/{$candidate}/validation.php");
+            if (! is_file($file)) {
+                continue;
+            }
+
+            $loaded = require $file;
+            if (is_array($loaded)) {
+                $validation = array_replace_recursive($validation, $loaded);
+            }
+        }
+
+        if ($validation !== []) {
+            $translations['validation'] = array_replace_recursive(
+                is_array($translations['validation'] ?? null) ? $translations['validation'] : [],
+                $validation,
+            );
+        }
     }
 
     /**

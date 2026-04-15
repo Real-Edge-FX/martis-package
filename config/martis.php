@@ -75,7 +75,7 @@ return [
     | Default locale for the Martis admin panel.
     | Override per user by setting locale dynamically or publish lang files.
     */
-    'locale' => env('MARTIS_LOCALE', 'en-US'),
+    'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 
     /*
     |--------------------------------------------------------------------------

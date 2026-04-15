@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
-import { ArrowSquareOut, CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { Tooltip } from 'primereact/tooltip'
@@ -216,7 +216,7 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
-              <ArrowSquareOut size={13} weight="regular" />
+              <ArrowSquareOutIcon size={13} weight="regular" />
             </a>
           )}
           {peekable && <Tooltip target={`.${peekArrowClass}`} showDelay={300} />}
@@ -489,11 +489,11 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   data-pr-tooltip={tMsg('morph_to_clear', { defaultValue: 'Clear selection' })}
                   data-pr-position="top"
                 >
-                  <X size={14} weight="bold" />
+                  <XIcon size={14} weight="bold" />
                 </span>
               )}
 
-              <CaretDown
+              <CaretDownIcon
                 size={14}
                 weight="bold"
                 style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }}
@@ -517,7 +517,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                 data-pr-tooltip={tMsg('morph_to_create_new', { type: selectedTypeLabel, defaultValue: 'Create new {{type}}' })}
                 data-pr-position="top"
               >
-                <Plus size={16} weight="bold" />
+                <PlusIcon size={16} weight="bold" />
               </button>
             )}
           </div>
@@ -528,7 +528,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
           {open && (
             <div className="martis-belongs-to-dropdown">
               <div className="martis-belongs-to-search">
-                <MagnifyingGlass size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+                <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -570,7 +570,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                           )}
                         </span>
                         {isSelected && (
-                          <Check size={14} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
+                          <CheckIcon size={14} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
                         )}
                       </button>
                     )

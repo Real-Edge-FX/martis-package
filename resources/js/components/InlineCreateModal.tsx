@@ -5,7 +5,7 @@ import { api, ApiError, hasFileValues } from "@/lib/api"
 import { FieldInput } from "@/components/fields/FieldRenderer"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
-import { X, Plus } from "@phosphor-icons/react"
+import { XIcon, PlusIcon } from "@phosphor-icons/react"
 import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 
@@ -232,7 +232,7 @@ export function InlineCreateModal({
             className="rounded-md p-1 transition-colors"
             style={{ color: "var(--martis-text-muted)" }}
           >
-            <X size={20} />
+            <XIcon size={20} />
           </button>
         </div>
 
@@ -334,7 +334,7 @@ export function InlineCreateModal({
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             style={{ backgroundColor: "var(--martis-accent)" }}
           >
-            <Plus size={14} />
+            <PlusIcon size={14} />
             {createMutation.isPending
               ? tAct("saving")
               : `${tAct("create")} ${schema?.singularLabel ?? ""}`}

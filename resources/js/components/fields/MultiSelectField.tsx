@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CaretDown, X, Check, MagnifyingGlass } from '@phosphor-icons/react'
+import { CaretDownIcon, XIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface SelectOpt {
@@ -191,13 +191,13 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                   className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--martis-text-muted)', lineHeight: 1 }}
                 >
-                  <X size={10} weight="bold" />
+                  <XIcon size={10} weight="bold" />
                 </button>
               )}
             </span>
           ))
         )}
-        <CaretDown
+        <CaretDownIcon
           size={12}
           weight="bold"
           style={{
@@ -226,7 +226,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
         >
           {/* Search — aligned to BelongsTo style (icon + borderless input) */}
           <div className="martis-belongs-to-search">
-            <MagnifyingGlass size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+            <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
             <input
               autoFocus
               type="text"
@@ -288,7 +288,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                       >
                         <span>{opt.label}</span>
                         {isSelected && (
-                          <Check size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
+                          <CheckIcon size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
                         )}
                       </button>
                     )

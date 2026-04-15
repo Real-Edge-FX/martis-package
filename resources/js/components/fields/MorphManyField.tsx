@@ -8,7 +8,7 @@ import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useTranslation } from 'react-i18next'
-import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown, CaretUpDown } from '@phosphor-icons/react'
+import { PlusIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -160,10 +160,10 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
   }
 
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-    if (!active) return <CaretUpDown size={14} className="text-gray-400" />
+    if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUp size={14} className="text-indigo-600" />
-      : <CaretDown size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} className="text-indigo-600" />
+      : <CaretDownIcon size={14} className="text-indigo-600" />
   }
 
   return (
@@ -191,7 +191,7 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
         <div className="flex flex-wrap items-center gap-2">
           {meta?.searchable && (
             <div className="relative">
-              <MagnifyingGlass
+              <MagnifyingGlassIcon
                 size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2"
                 style={{ color: 'var(--martis-text-muted)' }}
@@ -219,7 +219,7 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
               style={{ backgroundColor: 'var(--martis-accent)' }}
             >
-              <Plus size={14} weight="bold" />
+              <PlusIcon size={14} weight="bold" />
               {tAct('create', 'Create')}
             </button>
           )}
@@ -301,7 +301,7 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
                     onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
-                    <PencilSimple size={16} />
+                    <PencilSimpleIcon size={16} />
                   </Link>
                 )}
                 {meta?.canDelete && (
@@ -315,7 +315,7 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
-                    <Trash size={16} />
+                    <TrashIcon size={16} />
                   </button>
                 )}
               </div>

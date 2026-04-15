@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { registry } from '@/lib/registry'
 import { useTranslation } from 'react-i18next'
-import { Warning, Trash, ArrowCounterClockwise, X } from '@phosphor-icons/react'
+import { WarningIcon, TrashIcon, ArrowCounterClockwiseIcon, XIcon } from '@phosphor-icons/react'
 
 export interface DeleteModalProps {
   open: boolean
@@ -88,7 +88,7 @@ function DefaultDeleteModal({
         >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-              <Warning size={20} className="text-red-600 dark:text-red-400" weight="fill" />
+              <WarningIcon size={20} className="text-red-600 dark:text-red-400" weight="fill" />
             </div>
             <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
               {isSoftDelete ? tAct('archive') : tAct('delete')} {resourceLabel}
@@ -100,7 +100,7 @@ function DefaultDeleteModal({
             className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             style={{ color: 'var(--martis-text-muted)' }}
           >
-            <X size={16} />
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -131,7 +131,7 @@ function DefaultDeleteModal({
               color: 'var(--martis-text)',
             }}
           >
-            <X size={14} />
+            <XIcon size={14} />
             {tAct('cancel')}
           </button>
           <button
@@ -143,7 +143,7 @@ function DefaultDeleteModal({
               backgroundColor: isSoftDelete ? '#f59e0b' : '#dc2626',
             }}
           >
-            {isSoftDelete ? <ArrowCounterClockwise size={14} /> : <Trash size={14} />}
+            {isSoftDelete ? <ArrowCounterClockwiseIcon size={14} /> : <TrashIcon size={14} />}
             {loading
               ? tAct('please_wait')
               : isSoftDelete

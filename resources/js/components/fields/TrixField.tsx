@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
-import { Eye, EyeSlash, X } from "@phosphor-icons/react"
+import { EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
 import { BASE_PATH } from "@/lib/config"
 import { useTranslation } from 'react-i18next'
 import "trix/dist/trix.css"
@@ -26,7 +26,7 @@ function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
         className="absolute top-4 right-4 text-white hover:text-gray-300 z-50"
         aria-label="Close"
       >
-        <X size={28} weight="bold" />
+        <XIcon size={28} weight="bold" />
       </button>
       <img
         src={src}
@@ -94,7 +94,7 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
         onClick={() => setExpanded(true)}
         className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--martis-accent)" }}
       >
-        <Eye size={16} weight="bold" />
+        <EyeIcon size={16} weight="bold" />
         {t('show_content')}
       </button>
     )
@@ -108,7 +108,7 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
           onClick={() => setExpanded(false)}
           className="inline-flex items-center gap-1.5 text-sm mb-2" style={{ color: "var(--martis-accent)" }}
         >
-          <EyeSlash size={16} weight="bold" />
+          <EyeSlashIcon size={16} weight="bold" />
           {t('hide')}
         </button>
       )}
@@ -236,13 +236,13 @@ export function TrixFieldInput({
         ) as HTMLMetaElement | null
         const csrfMatch = document.cookie.match(/XSRF-TOKEN=([^;]+)/)
         const headers: Record<string, string> = {
-          "X-Requested-With": "XMLHttpRequest",
+          "XIcon-Requested-With": "XMLHttpRequest",
           Accept: "application/json",
         }
         if (csrfMeta) {
-          headers["X-CSRF-TOKEN"] = csrfMeta.content
+          headers["XIcon-CSRF-TOKEN"] = csrfMeta.content
         } else if (csrfMatch) {
-          headers["X-XSRF-TOKEN"] = decodeURIComponent(csrfMatch[1])
+          headers["XIcon-XSRF-TOKEN"] = decodeURIComponent(csrfMatch[1])
         }
 
         attachment.setUploadProgress(10)

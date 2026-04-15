@@ -5,7 +5,7 @@ import type { OverrideProps, ResourceRecord, FieldDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
-import { PencilSimple, Trash } from '@phosphor-icons/react'
+import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 
 
@@ -87,7 +87,7 @@ export function DrawerDetail(props: OverrideProps) {
               onClick={() => setShowDelete(true)}
               className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
             >
-              <Trash size={14} />
+              <TrashIcon size={14} />
               {tAct('delete')}
             </button>
             <button
@@ -96,7 +96,7 @@ export function DrawerDetail(props: OverrideProps) {
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-white"
               style={{ backgroundColor: 'var(--martis-accent)' }}
             >
-              <PencilSimple size={14} />
+              <PencilSimpleIcon size={14} />
               {tAct('edit')}
             </button>
           </>

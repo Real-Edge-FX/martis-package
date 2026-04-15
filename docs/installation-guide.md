@@ -30,7 +30,7 @@ This command performs the following steps automatically:
 2. **Publishes the config file** — `config/martis.php` with all customizable settings.
 3. **Publishes frontend assets** — precompiled React app to `public/vendor/martis/`.
 4. **Publishes database migrations** — `create_action_events_table` migration to `database/migrations/`.
-5. **Publishes translation files** — `en`, `pt-BR`, `pt-PT` to `lang/vendor/martis/`.
+5. **Publishes translation files** — `en`, `pt_BR`, `pt_PT` to `lang/vendor/martis/`.
 6. **Runs database migrations** — creates the `action_events` table automatically.
 
 After installation, create an admin user:
@@ -108,7 +108,7 @@ This creates `config/martis.php` where you can customize:
 - `theme.default` — Default theme (`dark` or `light`)
 - `theme.allow_toggle` — Allow users to switch themes
 - `locale` — Default locale
-- `available_locales` — Supported locales (`en`, `pt-BR`, `pt-PT`)
+- `available_locales` — Supported locales (`en`, `pt_BR`, `pt_PT`)
 - `uploads.disk` — File upload disk (default: `public`)
 - `uploads.path` — Upload path prefix
 - `brand` — Application name shown in sidebar
@@ -160,7 +160,7 @@ php artisan vendor:publish --tag=martis-avatar-migration
 php artisan vendor:publish --tag=martis-translations
 ```
 
-Copies language files to `lang/vendor/martis/` for customization. Available locales: `en`, `pt-BR`, `pt-PT`.
+Copies language files to `lang/vendor/martis/` for customization. Available locales: `en`, `pt_BR`, `pt_PT`.
 
 ### Step 6: Create Your First Resource
 
@@ -263,8 +263,8 @@ your-laravel-app/
 │   └── vendor/
 │       └── martis/                # Published translations
 │           ├── en/
-│           ├── pt-BR/
-│           └── pt-PT/
+│           ├── pt_BR/
+│           └── pt_PT/
 ├── public/
 │   └── vendor/
 │       └── martis/                # Published frontend assets

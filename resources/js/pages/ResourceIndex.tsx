@@ -10,7 +10,7 @@ import { ActionModal, ActionDropdown, ActionDrawer } from '@/components/Actions'
 import type { ActionMeta } from '@/components/Actions'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
-import { MagnifyingGlass, X } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react"
 import { Tooltip } from "primereact/tooltip"
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
@@ -375,7 +375,7 @@ export function ResourceIndexPage() {
               }}
             />
             <span className="absolute inset-y-0 left-3 flex items-center">
-              <MagnifyingGlass size={14} className="martis-text-muted" />
+              <MagnifyingGlassIcon size={14} className="martis-text-muted" />
             </span>
             {search && (
               <button
@@ -386,7 +386,7 @@ export function ResourceIndexPage() {
                 data-pr-tooltip={tMsg('clear', 'Clear')}
                 data-pr-position="top"
               >
-                <X size={14} weight="bold" />
+                <XIcon size={14} weight="bold" />
               </button>
             )}
             <Tooltip target=".martis-index-search-clear" showDelay={400} />
