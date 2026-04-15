@@ -1,6 +1,10 @@
 <?php
 
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FilterContract;
+use Martis\Contracts\LensContract;
+use Martis\Contracts\CardContract;
+use Martis\Contracts\DashboardContract;
 use Martis\Contracts\PaginationContract;
 use Martis\Contracts\ResourceContract;
 
@@ -10,6 +14,13 @@ it('ResourceContract interface exists', function () {
 
 it('FieldContract interface exists', function () {
     expect(interface_exists(FieldContract::class))->toBeTrue();
+});
+
+it('schema foundation contracts exist', function () {
+    expect(interface_exists(FilterContract::class))->toBeTrue()
+        ->and(interface_exists(LensContract::class))->toBeTrue()
+        ->and(interface_exists(CardContract::class))->toBeTrue()
+        ->and(interface_exists(DashboardContract::class))->toBeTrue();
 });
 
 it('PaginationContract interface exists', function () {
@@ -37,7 +48,11 @@ it('ResourceContract declares all context-aware field resolution methods', funct
         ->and($methods)->toContain('fieldsForCreate')
         ->and($methods)->toContain('fieldsForUpdate')
         ->and($methods)->toContain('fieldsForInlineCreate')
-        ->and($methods)->toContain('fieldsForPreview');
+        ->and($methods)->toContain('fieldsForPreview')
+        ->and($methods)->toContain('filters')
+        ->and($methods)->toContain('lenses')
+        ->and($methods)->toContain('cards')
+        ->and($methods)->toContain('dashboards');
     // fieldsForForms must NOT exist — it was removed in
     expect($methods)->not->toContain('fieldsForForms');
 });

@@ -10,7 +10,11 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use Martis\Contracts\ActionContract;
+use Martis\Contracts\CardContract;
+use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FilterContract;
+use Martis\Contracts\LensContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
 use Martis\Enums\ErrorDisplayMode;
@@ -296,6 +300,53 @@ abstract class Resource implements ResourceContract
     public function fieldsForPreview(Request $request): array
     {
         return $this->fields($request);
+    }
+
+    // -------------------------------------------------------------------------
+    // Schema foundation — task 1
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the filter descriptors exposed by this resource.
+     *
+     * Task 1 foundation only: the full filters engine lands later, but the
+     * schema contract exists now so resources can declare intent safely.
+     *
+     * @return list<FilterContract|array<string, mixed>>
+     */
+    public function filters(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Return the lens descriptors exposed by this resource.
+     *
+     * @return list<LensContract|array<string, mixed>>
+     */
+    public function lenses(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Return the card descriptors exposed by this resource.
+     *
+     * @return list<CardContract|array<string, mixed>>
+     */
+    public function cards(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Return the dashboard descriptors exposed by this resource.
+     *
+     * @return list<DashboardContract|array<string, mixed>>
+     */
+    public static function dashboards(): array
+    {
+        return [];
     }
 
     // -------------------------------------------------------------------------

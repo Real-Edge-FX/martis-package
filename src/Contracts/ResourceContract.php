@@ -5,8 +5,12 @@ namespace Martis\Contracts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Martis\Contracts\CardContract;
+use Martis\Contracts\DashboardContract;
 use Martis\Enums\ErrorDisplayMode;
 use Martis\Enums\TableSize;
+use Martis\Contracts\FilterContract;
+use Martis\Contracts\LensContract;
 
 /**
  * Contract for all Martis Resource classes.
@@ -126,6 +130,38 @@ interface ResourceContract
      * @return list<FieldContract>
      */
     public function fieldsForPreview(Request $request): array;
+
+    // -------------------------------------------------------------------------
+    // Schema foundation — task 1
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the filter descriptors exposed by this resource.
+     *
+     * @return list<FilterContract|array<string, mixed>>
+     */
+    public function filters(Request $request): array;
+
+    /**
+     * Return the lens descriptors exposed by this resource.
+     *
+     * @return list<LensContract|array<string, mixed>>
+     */
+    public function lenses(Request $request): array;
+
+    /**
+     * Return the card descriptors exposed by this resource.
+     *
+     * @return list<CardContract|array<string, mixed>>
+     */
+    public function cards(Request $request): array;
+
+    /**
+     * Return the dashboard descriptors exposed by this resource.
+     *
+     * @return list<DashboardContract|array<string, mixed>>
+     */
+    public static function dashboards(): array;
 
     // -------------------------------------------------------------------------
     // Query hooks — Nova v5 parity

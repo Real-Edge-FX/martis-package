@@ -744,6 +744,10 @@ class ResourceController extends MartisController
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
         $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
+        $filters = $this->serializeSchemaDescriptors($instance->filters($request));
+        $lenses = $this->serializeSchemaDescriptors($instance->lenses($request));
+        $cards = $this->serializeSchemaDescriptors($instance->cards($request));
+        $dashboards = $this->serializeSchemaDescriptors($resourceClass::dashboards());
 
         $data = [
             'uriKey' => $resourceClass::uriKey(),
@@ -768,6 +772,10 @@ class ResourceController extends MartisController
             'fieldsForUpdate' => $fieldsForUpdate,
             'fieldsForInlineCreate' => $fieldsForInlineCreate,
             'fieldsForPreview' => $fieldsForPreview,
+            'filters' => $filters,
+            'lenses' => $lenses,
+            'cards' => $cards,
+            'dashboards' => $dashboards,
             'messages' => [
                 'created' => $resourceClass::createdMessage(),
                 'updated' => $resourceClass::updatedMessage(),
@@ -787,6 +795,37 @@ class ResourceController extends MartisController
         ];
 
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * Normalize schema descriptors to plain arrays.
+     *
+     * Accepts plain arrays or lightweight descriptor objects that expose
+     * a toArray() method. This keeps task-1 hooks flexible while the full
+     * implementations are still pending.
+     *
+     * @param  array<int, mixed>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function serializeSchemaDescriptors(array $items): array
+    {
+        return array_values(array_map(function (mixed $item): array {
+            if (is_array($item)) {
+                /** @var array<string, mixed> $item */
+                return $item;
+            }
+
+            if (is_object($item) && method_exists($item, 'toArray')) {
+                $serialized = $item->toArray();
+
+                if (is_array($serialized)) {
+                    /** @var array<string, mixed> $serialized */
+                    return $serialized;
+                }
+            }
+
+            return ['value' => $item];
+        }, $items));
     }
 
     // -------------------------------------------------------------------------

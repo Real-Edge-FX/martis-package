@@ -5,8 +5,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Martis\Cards\Card;
+use Martis\Dashboards\Dashboard;
+use Martis\Filters\Filter as ResourceFilter;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -88,6 +92,68 @@ class VisibilityTestResource extends Resource
     }
 }
 
+class SchemaFoundationResource extends Resource
+{
+    public static function model(): string
+    {
+        return PostModel::class;
+    }
+
+    public static function label(): string
+    {
+        return 'Schema Foundations';
+    }
+
+    public static function singularLabel(): string
+    {
+        return 'Schema Foundation';
+    }
+
+    public function group(): ?string
+    {
+        return 'Playground QA';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->required(),
+        ];
+    }
+
+    public function filters(Request $request): array
+    {
+        return [
+            ResourceFilter::make('Published State')->withMeta([
+                'options' => ['draft', 'published'],
+            ]),
+        ];
+    }
+
+    public function lenses(Request $request): array
+    {
+        return [
+            Lens::make('Recently Updated')->withMeta([
+                'description' => 'Foundation-only lens descriptor for schema testing.',
+            ]),
+        ];
+    }
+
+    public function cards(Request $request): array
+    {
+        return [
+            Card::make('Posts Overview')->componentKey('posts-overview-card'),
+        ];
+    }
+
+    public static function dashboards(): array
+    {
+        return [
+            Dashboard::make('Operations Dashboard')->componentKey('operations-dashboard'),
+        ];
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Database + registry setup
 // ---------------------------------------------------------------------------
@@ -137,6 +203,7 @@ beforeEach(function () {
     $registry->register(PostResource::class);
     $registry->register(SoftPostResource::class);
     $registry->register(VisibilityTestResource::class);
+    $registry->register(SchemaFoundationResource::class);
 });
 
 afterEach(function () {
@@ -450,6 +517,57 @@ it('schema returns all 6 contextual field arrays pre-filtered by backend', funct
     expect($data['fieldsForUpdate'])->toBeArray();
     expect($data['fieldsForInlineCreate'])->toBeArray();
     expect($data['fieldsForPreview'])->toBeArray();
+    expect($data['filters'])->toBeArray();
+    expect($data['lenses'])->toBeArray();
+    expect($data['cards'])->toBeArray();
+    expect($data['dashboards'])->toBeArray();
+});
+
+it('schema foundation hooks default to empty arrays when not overridden', function () {
+    $response = $this->getJson('/martis/api/resources/post-models/schema');
+    $response->assertStatus(200);
+
+    $data = $response->json('data');
+
+    expect($data['filters'])->toBe([])
+        ->and($data['lenses'])->toBe([])
+        ->and($data['cards'])->toBe([])
+        ->and($data['dashboards'])->toBe([]);
+});
+
+it('schema serializes foundation hook descriptors when overridden', function () {
+    $response = $this->getJson('/martis/api/resources/schema-foundation-resources/schema');
+    $response->assertStatus(200);
+
+    $data = $response->json('data');
+
+    expect($data['group'])->toBe('Playground QA');
+    expect($data['filters'][0])->toMatchArray([
+        'type' => 'filter',
+        'name' => 'Published State',
+        'uriKey' => 'published-state',
+    ]);
+    expect($data['filters'][0]['meta']['options'])->toBe(['draft', 'published']);
+
+    expect($data['lenses'][0])->toMatchArray([
+        'type' => 'lens',
+        'name' => 'Recently Updated',
+        'uriKey' => 'recently-updated',
+    ]);
+
+    expect($data['cards'][0])->toMatchArray([
+        'type' => 'card',
+        'name' => 'Posts Overview',
+        'uriKey' => 'posts-overview',
+        'component' => 'posts-overview-card',
+    ]);
+
+    expect($data['dashboards'][0])->toMatchArray([
+        'type' => 'dashboard',
+        'name' => 'Operations Dashboard',
+        'uriKey' => 'operations-dashboard',
+        'component' => 'operations-dashboard',
+    ]);
 });
 
 it('schema contextual arrays are pre-filtered — frontend should not need to filter', function () {
