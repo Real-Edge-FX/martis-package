@@ -222,6 +222,108 @@ Supports responsive breakpoints: `colSpan()`, `colSpanMd()`, `colSpanLg()`.
 
 ---
 
+## Metrics & Dashboard Extensions
+
+### Dashboard Filters
+
+> Nova 5 does not support dashboard-level filters.
+
+Martis allows declarative filters on dashboards that affect all cards. This reuses the same Filter system from resources:
+
+```php
+class SalesDashboard extends Dashboard
+{
+    public function filters(Request $request): array
+    {
+        return [
+            DateRangeFilter::make('Period')->column('created_at'),
+            RegionFilter::make('Region'),
+        ];
+    }
+}
+```
+
+### Responsive 12-Column Metric Grid
+
+> Nova 5 uses fixed widths: `'1/3'`, `'1/2'`, `'2/3'`, `'full'`.
+
+Martis uses a 12-column grid with responsive breakpoints:
+
+```php
+TotalUsers::make('Total Users')
+    ->width(12)       // mobile: full width
+    ->widthMd(6)      // tablet: half
+    ->widthLg(4)      // desktop: one-third
+```
+
+Nova-style strings are auto-converted for compatibility.
+
+### Metric Polling (Auto-Refresh)
+
+> Nova 5 only has a manual refresh button.
+
+Martis supports automatic polling with a visual "LIVE" indicator:
+
+```php
+ActiveUsersNow::make('Active Users')->refreshEvery(30)
+```
+
+Cards with polling auto-refresh without user interaction. Minimum interval: 5 seconds.
+
+### Card Icons
+
+> Nova 5 does not support icons on metric cards.
+
+```php
+TotalUsers::make('Total Users')->icon('users')
+```
+
+Icons use the built-in Phosphor Icons library (1,512 icons).
+
+### Card Styles
+
+> Nova 5 does not support visual card styling.
+
+```php
+use Martis\Enums\CardStyle;
+
+Revenue::make('Revenue')->style(CardStyle::Success)  // green accent
+```
+
+Available: `Default`, `Success`, `Warning`, `Danger`, `Info`.
+
+### Card Height Control
+
+> Nova 5 does not support card height control.
+
+```php
+UsersByRole::make('By Role')->height(300)
+```
+
+### Filter Grid Layout (span)
+
+> Nova 5 does not support filter layout control.
+
+```php
+StatusFilter::make('Status')->span(4)          // 1/3 width
+DateRangeFilter::make('Period')->span(8)       // 2/3 width
+```
+
+### Global Cache Configuration
+
+> Nova 5 only supports per-metric caching. Martis adds global defaults.
+
+```php
+// config/martis.php
+'cache' => [
+    'metrics' => 5,        // 5 minutes default
+    'dashboards' => null,  // no cache
+    'navigation' => 1,     // 1 minute
+],
+```
+
+---
+
 ## Authentication & Profile
 
 ### User Profile Page

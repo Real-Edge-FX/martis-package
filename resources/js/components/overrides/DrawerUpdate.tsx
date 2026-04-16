@@ -1,8 +1,11 @@
 import { useMemo, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { OverrideProps, ResourceRecord, FieldDefinition } from '@/types'
+import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { PanelInput } from '@/components/fields/PanelRenderer'
+import { SectionInput } from '@/components/fields/SectionRenderer'
+import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 
@@ -41,7 +44,8 @@ export function DrawerUpdate(props: OverrideProps) {
   })
 
   const activeRecord = record ?? recordQuery.data?.data
-  const formFields = useMemo(() => (schema.fieldsForUpdate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [schema])
+  const allFormFields = useMemo(() => schema.fieldsForUpdate ?? [], [schema])
+  const scalarFields = useMemo(() => allFormFields.filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [allFormFields])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -51,13 +55,13 @@ export function DrawerUpdate(props: OverrideProps) {
   useEffect(() => {
     if (activeRecord && !initialized) {
       const initial: Record<string, unknown> = {}
-      formFields.forEach((field) => {
+      scalarFields.forEach((field) => {
         initial[field.attribute] = activeRecord[field.attribute] ?? null
       })
       setValues(initial)
       setInitialized(true)
     }
-  }, [activeRecord, formFields, initialized])
+  }, [activeRecord, scalarFields, initialized])
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -180,8 +184,19 @@ export function DrawerUpdate(props: OverrideProps) {
           />
         </div>
       ) : (
-        <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="p-6 grid grid-cols-12 gap-4">
-          {formFields.map((field) => (
+        <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
+          {allFormFields.map((item, idx) => {
+            if (item.type === 'tab_group') {
+              return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="update" />
+            }
+            if (item.type === 'section') {
+              return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="update" />
+            }
+            if (item.type === 'panel') {
+              return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="update" />
+            }
+            const field = item as FieldDefinition
+            return (
               <div key={field.attribute} style={colSpanStyle(field)}>
                 <label
                   htmlFor={field.attribute}
@@ -201,7 +216,8 @@ export function DrawerUpdate(props: OverrideProps) {
                   context="update"
                 />
               </div>
-            ))}
+            )
+          })}
         </form>
       )}
     </DrawerShell>

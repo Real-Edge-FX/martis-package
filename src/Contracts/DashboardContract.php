@@ -2,12 +2,14 @@
 
 namespace Martis\Contracts;
 
+use Closure;
+use Illuminate\Http\Request;
+
 /**
- * Contract for dashboard descriptors.
+ * Contract for Martis dashboards.
  *
- * Task 1 foundation only: this contract defines the minimum schema surface
- * needed for resources to advertise dashboard-level metadata before the full
- * dashboards system is implemented.
+ * Dashboards are containers for metrics and custom cards,
+ * with optional filters and authorization.
  */
 interface DashboardContract
 {
@@ -20,12 +22,35 @@ interface DashboardContract
     public function component(): ?string;
 
     /**
+     * Get the cards (metrics) for this dashboard.
+     *
+     * @return list<MetricContract|array<string, mixed>>
+     */
+    public function cards(Request $request): array;
+
+    /**
+     * Get the filters for this dashboard. Martis extension.
+     *
+     * @return list<FilterContract|array<string, mixed>>
+     */
+    public function filters(Request $request): array;
+
+    /**
+     * Whether to show a manual refresh button.
+     */
+    public function showRefreshButton(): bool;
+
+    public function canSee(Closure $callback): static;
+
+    public function authorizedToSee(Request $request): bool;
+
+    /**
      * @return array<string, mixed>
      */
     public function meta(): array;
 
     /**
-     * @return array{type: string, name: string, uriKey: string, component: string|null, meta: array<string, mixed>}
+     * @return array<string, mixed>
      */
     public function toArray(): array;
 }

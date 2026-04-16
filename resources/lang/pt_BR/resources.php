@@ -36,4 +36,12 @@ return [
     'clear_filters' => 'Limpar todos os filtros',
     'filter_from' => 'De',
     'filter_to' => 'Até',
+    'refresh' => 'Atualizar',
+    'auto_refresh' => 'Atualização automática',
+    'no_data' => 'Sem dados disponíveis',
+    'live' => 'AO VIVO',
+    'vs' => 'vs',
+    'showing' => 'Mostrando',
+    'of' => 'de',
+    'records' => 'registros',
 ];

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Martis\Http\Controllers\ActionController;
 use Martis\Http\Controllers\AttachmentController;
+use Martis\Http\Controllers\MetricController;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\BelongsToManyController;
 use Martis\Http\Controllers\DashboardController;
@@ -88,6 +89,14 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->middleware($throttle)
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+
+                                // Dashboards and Metrics — Nova v5 parity
+                                Route::get('/dashboards', [MetricController::class, 'dashboards'])
+                                    ->name('dashboards.index');
+                                Route::get('/dashboards/{dashboard}', [MetricController::class, 'show'])
+                                    ->name('dashboards.show');
+                                Route::get('/dashboards/{dashboard}/cards/{card}', [MetricController::class, 'computeDashboardMetric'])
+                                    ->name('dashboards.cards.compute');
 
                                 // Global Search — Nova v5 parity
                                 Route::get('/search', [SearchController::class, 'search'])->name('search');
@@ -204,6 +213,10 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Peek card — fetch related resource preview fields (Nova v5 parity)
                                 Route::get('/resources/{resource}/{id}/peek', [ResourceController::class, 'peek'])
                                     ->name('resources.peek');
+                                // Resource metric cards — Nova v5 parity
+                                Route::get('/resources/{resource}/cards/{card}', [MetricController::class, 'computeResourceMetric'])
+                                    ->name('resources.cards.compute');
+
                                 // Action routes — Nova v5 parity
                                 Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
                                     ->name('resources.actions.index');

@@ -141,10 +141,10 @@
 | Actions | Batch actions on records | DONE |: Full system + icons, groups, tooltips, pivot, disabled states |
 | Filters | Column filters | DONE | Full system: Select, Boolean, Date, DateRange + collapsible panel |
 | Lenses | Custom filtered views | TODO | Medium |
-| Metrics | Dashboard metric cards | TODO | High |
+| Metrics | Dashboard metric cards | DONE | Full system: Value, Trend, Partition, Progress + dashboards + filters + polling |
 | Impersonation | Admin impersonation | TODO | Low |
 | Notifications | In-app notifications | TODO | Medium |
-| Panels/Tabs | Field grouping in tabs | TODO | Medium |
+| Panels/Tabs | Field grouping in tabs | DONE | Panel, Section, Tab, TabGroup + description + help text |
 | Custom Tools | Sidebar tools/pages | TODO | Medium |
 | ManyToMany | Pivot relationships | DONE | — |
 | BelongsToMany | Pivot with sync | DONE | — |

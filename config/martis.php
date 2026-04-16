@@ -170,6 +170,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cache — Martis Extension
+    |--------------------------------------------------------------------------
+    |
+    | Global cache TTL defaults for different Martis subsystems.
+    | Individual metrics can override via cacheFor() on the class.
+    | Set to null to disable caching for that area.
+    |
+    | TTL values are in minutes.
+    |
+    */
+
+    'cache' => [
+        'metrics' => env('MARTIS_CACHE_METRICS', 5),
+        'dashboards' => env('MARTIS_CACHE_DASHBOARDS', null),
+        'navigation' => env('MARTIS_CACHE_NAVIGATION', 1),
+        'schema' => env('MARTIS_CACHE_SCHEMA', null),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Toast Notifications
     |--------------------------------------------------------------------------
     | Configure the position of toast notifications.

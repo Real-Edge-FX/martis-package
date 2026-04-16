@@ -36,4 +36,12 @@ return [
     'clear_filters' => 'Clear all filters',
     'filter_from' => 'From',
     'filter_to' => 'To',
+    'refresh' => 'Refresh',
+    'auto_refresh' => 'Auto-refresh',
+    'no_data' => 'No data available',
+    'live' => 'LIVE',
+    'vs' => 'vs',
+    'showing' => 'Showing',
+    'of' => 'of',
+    'records' => 'records',
 ];

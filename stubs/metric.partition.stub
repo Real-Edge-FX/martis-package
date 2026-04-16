@@ -1,0 +1,19 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Metrics\PartitionMetric;
+use Martis\Metrics\PartitionResult;
+
+class {{ class }} extends PartitionMetric
+{
+    /**
+     * Calculate the metric value.
+     */
+    public function calculate(Request $request): PartitionResult
+    {
+        // return $this->count($request, Model::class, 'group_column');
+        return $this->result([]);
+    }
+}
