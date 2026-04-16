@@ -6,6 +6,7 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Martis\Console\ActionMakeCommand;
+use Martis\Console\FilterMakeCommand;
 use Martis\Console\ComponentMakeCommand;
 use Martis\Console\FieldMakeCommand;
 use Martis\Console\InstallCommand;
@@ -63,6 +64,7 @@ class MartisServiceProvider extends ServiceProvider
                 VendorPublishCommand::class,
                 PolicyMakeCommand::class,
                 ActionMakeCommand::class,
+                FilterMakeCommand::class,
             ]);
 
             $this->publishes([

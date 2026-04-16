@@ -102,6 +102,12 @@ abstract class Field implements FieldContract
 
     protected ?string $helpText = null;
 
+    /** Whether the field spans the full width of the form. Nova v5 parity. */
+    protected bool $fullWidth = false;
+
+    /** Whether the field label is stacked above (true) or inline (false). Nova v5 parity. */
+    protected bool $stacked = true;
+
     protected mixed $defaultValue = null;
 
     protected bool $hasDefault = false;
@@ -194,6 +200,9 @@ abstract class Field implements FieldContract
             'rules' => $this->buildRules(),
             'component' => $this->componentKey,
             'placeholder' => $this->placeholder,
+            'helpText' => $this->helpText,
+            'fullWidth' => $this->fullWidth,
+            'stacked' => $this->stacked,
             'colSpan' => $this->colSpan,
             'colSpanMd' => $this->colSpanMd,
             'colSpanLg' => $this->colSpanLg,
@@ -245,10 +254,39 @@ abstract class Field implements FieldContract
 
     /**
      * Set help text displayed below the field input.
+     *
+     * Supports inline HTML for rich help text (links, bold, code).
+     * Martis extension: Nova v5 only supports plain text.
      */
     public function help(string $text): static
     {
         $this->helpText = $text;
+
+        return $this;
+    }
+
+    /**
+     * Make the field span the full width of the form container.
+     *
+     * Nova v5 parity. Equivalent to ->span(12) in a 12-column section,
+     * but works outside of sections too.
+     */
+    public function fullWidth(bool $fullWidth = true): static
+    {
+        $this->fullWidth = $fullWidth;
+
+        return $this;
+    }
+
+    /**
+     * Control whether the field label is stacked above the input (true)
+     * or displayed inline beside it (false).
+     *
+     * Nova v5 parity. Default is stacked (true).
+     */
+    public function stacked(bool $stacked = true): static
+    {
+        $this->stacked = $stacked;
 
         return $this;
     }

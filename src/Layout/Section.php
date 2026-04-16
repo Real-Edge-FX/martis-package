@@ -31,6 +31,9 @@ class Section implements LayoutContract
     /** Number of CSS grid columns (default: 12). */
     protected int $columns = 12;
 
+    /** Subtitle/description shown below the section title. Martis extension. */
+    protected ?string $description = null;
+
     protected bool $collapsible = false;
 
     protected bool $collapsedByDefault = false;
@@ -79,6 +82,18 @@ class Section implements LayoutContract
     public function columns(int $columns): static
     {
         $this->columns = max(1, $columns);
+
+        return $this;
+    }
+
+    /**
+     * Set a description/subtitle shown below the section title.
+     *
+     * Martis extension: Nova v5 does not support descriptions on layout containers.
+     */
+    public function description(string $description): static
+    {
+        $this->description = $description;
 
         return $this;
     }
@@ -142,6 +157,7 @@ class Section implements LayoutContract
         return [
             'type' => 'section',
             'title' => $this->title,
+            'description' => $this->description,
             'columns' => $this->columns,
             'collapsible' => $this->collapsible,
             'collapsedByDefault' => $this->collapsedByDefault,

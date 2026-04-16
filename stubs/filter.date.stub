@@ -1,0 +1,22 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Martis\Filters\DateFilter;
+
+class {{ class }} extends DateFilter
+{
+    /**
+     * Apply the filter to the given query.
+     *
+     * The $value is a date string in Y-m-d format.
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return $query->whereDate($this->column, $this->operator, $value);
+    }
+}

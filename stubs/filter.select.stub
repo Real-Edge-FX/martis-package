@@ -1,0 +1,34 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Martis\Filters\SelectFilter;
+
+class {{ class }} extends SelectFilter
+{
+    /**
+     * Define the filter options.
+     *
+     * Keys are display labels, values are passed to apply().
+     *
+     * @return array<string, mixed>
+     */
+    public function options(Request $request): array
+    {
+        return [
+            //
+        ];
+    }
+
+    /**
+     * Apply the filter to the given query.
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return $query->where('column', $value);
+    }
+}

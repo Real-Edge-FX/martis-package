@@ -29,14 +29,15 @@ function SectionContainer({ section, children }: SectionContainerProps) {
   return (
     // overflow-visible so PrimeReact dropdown panels (portalled to body) are not
     // clipped by the card boundary on browsers that create a block formatting context.
-    <div className="border border-border rounded-lg bg-card">
+    <div className="rounded-lg" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
       {/* Section header — only rendered when title is non-empty */}
       {section.title && (
         <div
           className={[
-            'flex items-center justify-between px-4 py-3 bg-muted/40 border-b border-border rounded-t-lg',
-            section.collapsible ? 'cursor-pointer select-none hover:bg-muted/60 transition-colors' : '',
+            'flex items-center justify-between px-4 py-3 rounded-t-lg',
+            section.collapsible ? 'cursor-pointer select-none transition-colors' : '',
           ].join(' ')}
+          style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
           onClick={section.collapsible ? () => setCollapsed((c: boolean) => !c) : undefined}
           role={section.collapsible ? 'button' : undefined}
           aria-expanded={section.collapsible ? !collapsed : undefined}
@@ -49,9 +50,14 @@ function SectionContainer({ section, children }: SectionContainerProps) {
             }
           } : undefined}
         >
-          <h3 className="text-base font-semibold text-foreground">{section.title}</h3>
+          <div>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--martis-text)' }}>{section.title}</h3>
+            {section.description && (
+              <p className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>{section.description}</p>
+            )}
+          </div>
           {section.collapsible && (
-            <span className="text-muted-foreground" aria-hidden="true">
+            <span style={{ color: 'var(--martis-text-muted)' }} aria-hidden="true">
               {collapsed ? <CaretRightIcon size={16} /> : <CaretDownIcon size={16} />}
             </span>
           )}
@@ -67,7 +73,8 @@ function SectionContainer({ section, children }: SectionContainerProps) {
           {hasLimit && hiddenCount > 0 && (
             <button
               type="button"
-              className="mt-3 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+              className="mt-3 text-xs font-medium transition-colors"
+              style={{ color: 'var(--martis-accent)' }}
               onClick={() => setExpanded((e: boolean) => !e)}
             >
               {expanded ? t('show_less') : t('show_more')}
@@ -131,7 +138,8 @@ export function SectionInput({
               {/* Field label — always rendered above the input in section layout */}
               <label
                 htmlFor={field.attribute}
-                className="block text-sm font-medium text-muted-foreground"
+                className="block text-sm font-medium"
+                style={{ color: 'var(--martis-text-muted)' }}
               >
                 {field.label}
                 {field.required && (
@@ -147,6 +155,9 @@ export function SectionInput({
                 recordId={recordId}
                 context={context}
               />
+              {field.helpText && (
+                <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
+              )}
             </div>
           ))}
         </div>
@@ -180,7 +191,7 @@ export function SectionDisplay({
               key={field.attribute}
               style={{ gridColumn: fieldGridColumn(field, section.columns) }}
             >
-              <dt className="text-xs font-medium text-muted-foreground mb-1">{field.label}</dt>
+              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
               <dd>
                 <FieldDisplay
                   field={field}

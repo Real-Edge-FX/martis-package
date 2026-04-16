@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps } from '@/types'
+import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
 import { Table } from '@/components/Table'
 import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
@@ -15,6 +15,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
+import { FilterPanel } from '@/components/FilterPanel'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 
 export function ResourceIndexPage() {
@@ -36,6 +37,7 @@ export function ResourceIndexPage() {
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null)
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
   // Track whether the current action was triggered inline (single row)
@@ -50,6 +52,7 @@ export function ResourceIndexPage() {
     setSelectedIds(new Set())
     setSearch('')
     setDebouncedSearch('')
+    setActiveFilters({})
     clearTimeout(searchTimerRef.current)
   }, [resource])
   // Debounce search
@@ -76,7 +79,7 @@ export function ResourceIndexPage() {
 
   // Index data
   const indexQuery = useQuery({
-    queryKey: ['resources', resource, page, debouncedSearch, sortBy, sortDir, effectivePerPage, trashedFilter],
+    queryKey: ['resources', resource, page, debouncedSearch, sortBy, sortDir, effectivePerPage, trashedFilter, activeFilters],
     queryFn: () => {
       const params = new URLSearchParams({
         page: String(page),
@@ -87,6 +90,9 @@ export function ResourceIndexPage() {
       if (sortBy) {
         params.set('sort', sortBy)
         params.set('direction', sortDir)
+      }
+      if (Object.keys(activeFilters).length > 0) {
+        params.set('filters', JSON.stringify(activeFilters))
       }
       return api.get<PaginatedResponse<ResourceRecord>>(
         `/api/resources/${resource}?${params.toString()}`,
@@ -309,6 +315,15 @@ export function ResourceIndexPage() {
           )}
         </div>
       </div>
+
+      {/* Filter panel — shown when resource has filters */}
+      {schema.filters && schema.filters.length > 0 && (
+        <FilterPanel
+          filters={schema.filters}
+          value={activeFilters}
+          onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
+        />
+      )}
 
       {/* Bulk action bar — shown when items are selected (not for inline action temp selection) */}
       {selectedIds.size > 0 && indexActions.length > 0 && (() => {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 
 export interface DrawerShellProps {
@@ -51,6 +52,7 @@ export function DrawerShell({
   footer,
   children,
 }: DrawerShellProps) {
+  const { t: tMsg } = useTranslation('messages')
   const [visible, setVisible] = useState(false)
   const [state, setState] = useState<DrawerState>('normal')
 
@@ -157,7 +159,7 @@ export function DrawerShell({
                 onClick={toggleExpand}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
-                data-pr-tooltip={state === 'expanded' ? 'Collapse' : 'Expand'}
+                data-pr-tooltip={state === 'expanded' ? tMsg('collapse', 'Collapse') : tMsg('expand', 'Expand')}
                 data-pr-position="top"
               >
                 {state === 'expanded' ? (
@@ -175,7 +177,7 @@ export function DrawerShell({
                 onClick={toggleFullscreen}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
-                data-pr-tooltip={state === 'fullscreen' ? 'Exit fullscreen' : 'Fullscreen'}
+                data-pr-tooltip={state === 'fullscreen' ? tMsg('exit_fullscreen', 'Exit fullscreen') : tMsg('fullscreen', 'Fullscreen')}
                 data-pr-position="top"
               >
                 {state === 'fullscreen' ? (
@@ -193,7 +195,7 @@ export function DrawerShell({
                 onClick={handleClose}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
-                data-pr-tooltip="Close"
+                data-pr-tooltip={tMsg('close', 'Close')}
                 data-pr-position="top"
               >
                 <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>

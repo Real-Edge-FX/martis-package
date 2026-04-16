@@ -199,6 +199,7 @@ function InlineActionMenu({
   row: ResourceRecord
   onAction: (action: ActionMeta, row: ResourceRecord) => void
 }) {
+  const { t: tMsg } = useTranslation('messages')
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -240,7 +241,7 @@ function InlineActionMenu({
         onClick={e => { e.stopPropagation(); setOpen(!open) }}
         className="martis-action-btn inline-flex items-center justify-center rounded p-1.5 transition-colors hover:opacity-80"
         style={{ color: "var(--martis-text-muted)", backgroundColor: open ? "var(--martis-hover)" : "transparent" }}
-        data-pr-tooltip="Actions"
+        data-pr-tooltip={tMsg('actions', 'Actions')}
         data-pr-position="top"
       >
         <DotsThreeVerticalIcon size={18} weight="bold" />

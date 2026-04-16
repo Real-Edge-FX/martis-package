@@ -21,9 +21,24 @@ use Martis\Layout\Panel;
 Panel::make('Título do Panel', [
     // campos...
 ])
+->description('Texto descritivo')  // Martis extension — subtítulo abaixo do título
 ->collapsible()        // opcional — permite recolher
 ->collapsedByDefault() // opcional — começa recolhido (implica collapsible)
 ->limit(int $n)        // opcional — mostra apenas os primeiros N campos
+```
+
+> **Martis extension:** `->description()` adds a subtitle below the Panel title. Nova 5 does not support this.
+
+### Help Text on Fields
+
+Fields inside Panels support `->help()` to display contextual help below the input. Supports inline HTML (Martis extension — Nova only supports plain text):
+
+```php
+Panel::make('Security', [
+    Text::make('password')
+        ->required()
+        ->help('Minimum 8 characters. Use a <strong>strong password</strong>.'),
+])
 ```
 
 ### Exemplos
