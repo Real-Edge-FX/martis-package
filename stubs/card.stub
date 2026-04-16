@@ -1,0 +1,15 @@
+<?php
+
+namespace {{ namespace }};
+
+use Martis\Cards\Card;
+
+class {{ class }} extends Card
+{
+    public function __construct()
+    {
+        parent::__construct('{{ label }}');
+
+        $this->componentKey('{{ key }}');
+    }
+}

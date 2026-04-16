@@ -60,9 +60,6 @@
             $themeName = null;
         }
     @endphp
-    @if(!empty($themeName))
-        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
-    @endif
     @php
         $hotFile = public_path('vendor/martis/hot');
         $manifestPath = public_path('vendor/martis/manifest.json');
@@ -88,6 +85,10 @@
             @endforeach
             <script type="module" src="{{ asset('vendor/martis/' . ltrim($entryFile, '/')) }}"></script>
         @endif
+    @endif
+    {{-- Theme overrides must load AFTER app.css to win CSS specificity --}}
+    @if(!empty($themeName))
+        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
     @endif
 </head>
 <body>

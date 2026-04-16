@@ -121,10 +121,14 @@ A date picker filter for filtering by a single date.
 ```php
 use Martis\Filters\DateFilter;
 
+use Martis\Enums\ComparisonOperator;
+
 DateFilter::make('Created After')
     ->column('created_at')
-    ->operator('>=')
+    ->operator(ComparisonOperator::GreaterThanOrEqual)
 ```
+
+Available operators: `Equals`, `GreaterThanOrEqual`, `LessThanOrEqual`, `GreaterThan`, `LessThan`.
 
 `DateFilter` is a concrete class that can be used directly without subclassing. The `$value` is a date string in `Y-m-d` format.
 
@@ -264,6 +268,26 @@ Override the default frontend component with `componentKey()`:
 ```php
 SelectFilter::make('Status')->componentKey('my-custom-filter')
 ```
+
+## Filter Grid Layout (span)
+
+> **Martis extension** — Nova 5 does not support filter layout control.
+
+Control how much horizontal space each filter occupies using a 12-column grid:
+
+```php
+public function filters(Request $request): array
+{
+    return [
+        StatusFilter::make('Status')->span(4),              // 1/3 width
+        DateRangeFilter::make('Period')->span(8),            // 2/3 width
+        RegionFilter::make('Region')->span(3),               // 1/4 width
+        SearchFilter::make('Keyword')->span(9),              // 3/4 width
+    ];
+}
+```
+
+Default spans: select/boolean = 3 columns, date-range = 6 columns. Override with `->span()`.
 
 ## Filter Interaction
 

@@ -1,0 +1,24 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Dashboards\Dashboard;
+
+class {{ class }} extends Dashboard
+{
+    public function __construct()
+    {
+        parent::__construct('{{ class }}');
+    }
+
+    /**
+     * Get the cards (metrics) for this dashboard.
+     */
+    public function cards(Request $request): array
+    {
+        return [
+            //
+        ];
+    }
+}

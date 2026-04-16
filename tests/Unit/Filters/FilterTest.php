@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Martis\Enums\ComparisonOperator;
 use Martis\Filters\BooleanFilter;
 use Martis\Filters\DateFilter;
 use Martis\Filters\DateRangeFilter;
@@ -146,7 +147,7 @@ it('DateFilter accepts custom column', function () {
 });
 
 it('DateFilter accepts custom operator', function () {
-    $filter = DateFilter::make('After Date')->operator('>=');
+    $filter = DateFilter::make('After Date')->operator(ComparisonOperator::GreaterThanOrEqual);
     expect($filter->filterType())->toBe('date');
 });
 

@@ -1,0 +1,20 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Metrics\TrendMetric;
+use Martis\Metrics\TrendResult;
+
+class {{ class }} extends TrendMetric
+{
+    /**
+     * Calculate the metric value.
+     */
+    public function calculate(Request $request): TrendResult
+    {
+        // return $this->countByDays($request, Model::class);
+        // return $this->sumByDays($request, Model::class, 'column');
+        return $this->result([], []);
+    }
+}

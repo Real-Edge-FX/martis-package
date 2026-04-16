@@ -4,6 +4,7 @@ namespace Martis\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Martis\Enums\ComparisonOperator;
 
 /**
  * A date picker filter for filtering records by a single date.
@@ -18,7 +19,7 @@ class DateFilter extends Filter
     protected string $column;
 
     /** The comparison operator. */
-    protected string $operator = '=';
+    protected ComparisonOperator $operator = ComparisonOperator::Equals;
 
     public function __construct(
         string $name,
@@ -50,9 +51,9 @@ class DateFilter extends Filter
     }
 
     /**
-     * Set the comparison operator (=, >=, <=, >, <).
+     * Set the comparison operator.
      */
-    public function operator(string $operator): static
+    public function operator(ComparisonOperator $operator): static
     {
         $this->operator = $operator;
 
@@ -61,6 +62,6 @@ class DateFilter extends Filter
 
     public function apply(Request $request, Builder $query, mixed $value): Builder
     {
-        return $query->whereDate($this->column, $this->operator, $value);
+        return $query->whereDate($this->column, $this->operator->value, $value);
     }
 }

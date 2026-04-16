@@ -1,0 +1,21 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Metrics\ValueMetric;
+use Martis\Metrics\ValueResult;
+
+class {{ class }} extends ValueMetric
+{
+    /**
+     * Calculate the metric value.
+     */
+    public function calculate(Request $request): ValueResult
+    {
+        // return $this->count($request, Model::class);
+        // return $this->sum($request, Model::class, 'column');
+        // return $this->average($request, Model::class, 'column');
+        return $this->result(0);
+    }
+}

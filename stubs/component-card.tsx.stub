@@ -1,0 +1,42 @@
+interface {{ class }}Props {
+  card: {
+    uriKey: string
+    name: string
+    component: string
+    meta: Record<string, unknown>
+  }
+}
+
+export function {{ class }}({ card }: {{ class }}Props) {
+  return (
+    <div
+      style={{
+        gridColumn: 'span 12 / span 12',
+        borderRadius: '0.75rem',
+        border: '1px solid var(--martis-border)',
+        backgroundColor: 'var(--martis-surface)',
+        padding: '1.5rem 2rem',
+      }}
+    >
+      <h3
+        style={{
+          margin: 0,
+          fontSize: '1rem',
+          fontWeight: 600,
+          color: 'var(--martis-text)',
+        }}
+      >
+        {card.name}
+      </h3>
+      <p
+        style={{
+          margin: '0.5rem 0 0',
+          fontSize: '0.875rem',
+          color: 'var(--martis-text-muted)',
+        }}
+      >
+        Custom card component. Edit this file to build your UI.
+      </p>
+    </div>
+  )
+}

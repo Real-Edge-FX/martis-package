@@ -27,6 +27,9 @@ abstract class Filter implements FilterContract
 
     protected ?string $component = null;
 
+    /** Grid span in 12-column system (default: auto). Martis extension. */
+    protected ?int $span = null;
+
     /** Authorization callback — Martis extension. */
     protected ?Closure $canSeeCallback = null;
 
@@ -73,6 +76,21 @@ abstract class Filter implements FilterContract
     public function componentKey(string $component): static
     {
         $this->component = $component;
+
+        return $this;
+    }
+
+    /**
+     * Set the filter width in a 12-column grid.
+     *
+     * Martis extension: controls how much horizontal space the filter
+     * occupies in the filter panel. Default is auto (flex-1).
+     *
+     * Common values: 3 (quarter), 4 (third), 6 (half), 8 (two-thirds), 12 (full).
+     */
+    public function span(int $columns): static
+    {
+        $this->span = max(1, min(12, $columns));
 
         return $this;
     }
@@ -213,6 +231,7 @@ abstract class Filter implements FilterContract
             'component' => $this->component(),
             'options' => $this->resolvedOptions,
             'default' => $this->default(),
+            'span' => $this->span,
             'meta' => $this->meta(),
         ];
     }

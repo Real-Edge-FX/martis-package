@@ -170,6 +170,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cache — Martis Extension
+    |--------------------------------------------------------------------------
+    |
+    | Global cache TTL defaults for different Martis subsystems.
+    | Individual metrics can override via cacheFor() on the class.
+    | Set to null to disable caching for that area.
+    |
+    | TTL values are in minutes.
+    |
+    */
+
+    'cache' => [
+        'metrics' => env('MARTIS_CACHE_METRICS', 5),
+        'dashboards' => env('MARTIS_CACHE_DASHBOARDS', null),
+        'navigation' => env('MARTIS_CACHE_NAVIGATION', 1),
+        'schema' => env('MARTIS_CACHE_SCHEMA', null),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Toast Notifications
     |--------------------------------------------------------------------------
     | Configure the position of toast notifications.
@@ -222,6 +242,16 @@ return [
     | Override per-resource via the $policy static property on the Resource class.
     */
     'policy_namespace' => 'App\\Martis\\Policies',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Extensions Path
+    |--------------------------------------------------------------------------
+    | Directory where custom React components are created by martis:component.
+    | Relative to the application's resource_path().
+    | The vite build must point MARTIS_USER_DIR to this same directory.
+    */
+    'extensions_path' => env('MARTIS_EXTENSIONS_PATH', 'martis-extensions'),
 
     /*
     |--------------------------------------------------------------------------

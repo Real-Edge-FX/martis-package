@@ -6,14 +6,14 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-#[AsCommand(name: 'martis:component')]
+#[AsCommand(name: 'martis:override')]
 class ComponentMakeCommand extends Command
 {
-    protected $signature = 'martis:component
-        {name : The component name (e.g. StatusBadge)}
-        {--type=generic : Component type: field, layout, footer, generic}';
+    protected $signature = 'martis:override
+        {name : The override component name (e.g. StatusBadge)}
+        {--type=generic : Override type: field, layout, footer, generic}';
 
-    protected $description = 'Generate a React component and auto-register it in the boot file';
+    protected $description = 'Generate a React override component (TSX only) to customise existing Martis visuals';
 
     /**
      * Handle.
@@ -35,7 +35,8 @@ class ComponentMakeCommand extends Command
         $className = Str::studly($name);
         $kebabName = Str::kebab($name);
 
-        $baseDir = resource_path('js/user/martis');
+        $extensionsPath = config('martis.extensions_path', 'martis-extensions');
+        $baseDir = resource_path($extensionsPath.'/martis');
         $componentDir = $baseDir.'/components';
         $componentPath = $componentDir.'/'.$className.'.tsx';
         $bootPath = $baseDir.'/boot.ts';
@@ -92,7 +93,8 @@ class ComponentMakeCommand extends Command
         }
 
         $this->newLine();
-        $this->line("Don't forget to rebuild assets: <comment>npm run build</comment>");
+        $this->line('Rebuild assets with:');
+        $this->line("  <comment>MARTIS_USER_DIR=".resource_path($extensionsPath)." npm run build</comment>");
 
         return self::SUCCESS;
     }

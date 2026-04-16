@@ -122,6 +122,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
   const [dragOver, setDragOver] = useState(false)
   const { addToast } = useToastSafe()
   const { t: tMsg } = useTranslation("messages")
+  const { t: tRes } = useTranslation("resources")
 
   const currentFile = value instanceof window.File ? value : null
   const existingFile = isFileValue(value) ? value : null
@@ -213,7 +214,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
             style={{ color: 'var(--martis-text-muted)' }}
           >
             <UploadSimpleIcon size={20} />
-            <span>Choose file or drag here</span>
+            <span>{tRes('choose_files')}</span>
           </button>
         )}
 
@@ -333,7 +334,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
       {items.length > 0 && (
         <div className="flex flex-col gap-1">
           {items.map((item) => {
-            const name = item.file?.name ?? item.existing?.name ?? 'Unknown'
+            const name = item.file?.name ?? item.existing?.name ?? tRes('unknown_file', 'Unknown')
             return (
               <div
                 key={item.id}

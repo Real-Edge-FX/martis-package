@@ -222,6 +222,108 @@ Supports responsive breakpoints: `colSpan()`, `colSpanMd()`, `colSpanLg()`.
 
 ---
 
+## Metrics & Dashboard Extensions
+
+### Dashboard Filters
+
+> Nova 5 does not support dashboard-level filters.
+
+Martis allows declarative filters on dashboards that affect all cards. This reuses the same Filter system from resources:
+
+```php
+class SalesDashboard extends Dashboard
+{
+    public function filters(Request $request): array
+    {
+        return [
+            DateRangeFilter::make('Period')->column('created_at'),
+            RegionFilter::make('Region'),
+        ];
+    }
+}
+```
+
+### Responsive 12-Column Metric Grid
+
+> Nova 5 uses fixed widths: `'1/3'`, `'1/2'`, `'2/3'`, `'full'`.
+
+Martis uses a 12-column grid with responsive breakpoints:
+
+```php
+TotalUsers::make('Total Users')
+    ->width(12)       // mobile: full width
+    ->widthMd(6)      // tablet: half
+    ->widthLg(4)      // desktop: one-third
+```
+
+Nova-style strings are auto-converted for compatibility.
+
+### Metric Polling (Auto-Refresh)
+
+> Nova 5 only has a manual refresh button.
+
+Martis supports automatic polling with a visual "LIVE" indicator:
+
+```php
+ActiveUsersNow::make('Active Users')->refreshEvery(30)
+```
+
+Cards with polling auto-refresh without user interaction. Minimum interval: 5 seconds.
+
+### Card Icons
+
+> Nova 5 does not support icons on metric cards.
+
+```php
+TotalUsers::make('Total Users')->icon('users')
+```
+
+Icons use the built-in Phosphor Icons library (1,512 icons).
+
+### Card Styles
+
+> Nova 5 does not support visual card styling.
+
+```php
+use Martis\Enums\CardStyle;
+
+Revenue::make('Revenue')->style(CardStyle::Success)  // green accent
+```
+
+Available: `Default`, `Success`, `Warning`, `Danger`, `Info`.
+
+### Card Height Control
+
+> Nova 5 does not support card height control.
+
+```php
+UsersByRole::make('By Role')->height(300)
+```
+
+### Filter Grid Layout (span)
+
+> Nova 5 does not support filter layout control.
+
+```php
+StatusFilter::make('Status')->span(4)          // 1/3 width
+DateRangeFilter::make('Period')->span(8)       // 2/3 width
+```
+
+### Global Cache Configuration
+
+> Nova 5 only supports per-metric caching. Martis adds global defaults.
+
+```php
+// config/martis.php
+'cache' => [
+    'metrics' => 5,        // 5 minutes default
+    'dashboards' => null,  // no cache
+    'navigation' => 1,     // 1 minute
+],
+```
+
+---
+
 ## Authentication & Profile
 
 ### User Profile Page
@@ -305,13 +407,47 @@ Customizable loading indicator:
 
 ### Component Scaffolding
 
-Generate React components with auto-registration:
+Generate custom dashboard cards, field overrides, and visual components:
 
 ```bash
-php artisan martis:component StatusBadge --type=field
+# Custom dashboard card — creates PHP class + React component + auto-registers
+php artisan martis:card WelcomeCard
+
+# Visual override — creates TSX component + auto-registers (no PHP)
+php artisan martis:override StatusBadge --type=field
 ```
 
-Creates the component file and auto-registers it in `boot.ts`.
+The `martis:card` command creates both the PHP class (`app/Martis/Cards/`) and the React component, auto-registering it in the boot file. The developer only needs to add the card to a Dashboard's `cards()` method.
+
+The `martis:override` command creates a TSX-only component for overriding how existing fields, layouts, or footers render — without needing a PHP class.
+
+### Custom Dashboard Cards
+
+> Nova 5 cards require manual PHP class creation and separate frontend registration.
+
+Martis provides a single command that scaffolds everything:
+
+```bash
+php artisan martis:card RevenueChart
+```
+
+This creates:
+1. `app/Martis/Cards/RevenueChart.php` — with `componentKey()` pre-configured
+2. `resources/martis-extensions/martis/components/RevenueChart.tsx` — starter React component
+3. Auto-registers in `boot.ts`
+
+Usage in a Dashboard:
+
+```php
+public function cards(Request $request): array
+{
+    return [
+        (new RevenueChart())->withMeta(['currency' => 'EUR']),
+    ];
+}
+```
+
+The React component receives all `meta` data as props.
 
 ---
 
@@ -326,9 +462,15 @@ Creates the component file and auto-registers it in `boot.ts`.
 | `martis:field` | Generate a custom field (PHP + React TSX) |
 | `martis:action` | Generate an action (`--destructive` for destructive variant) |
 | `martis:filter` | Generate a filter (`--boolean`, `--date` variants) |
-| `martis:component` | Scaffold a React component with auto-registration |
+| `martis:card` | Generate a custom dashboard card (PHP + React TSX + auto-register) |
+| `martis:override` | Scaffold a React override component (TSX only, auto-register) |
 | `martis:policy` | Generate a resource policy |
-| `martis:theme` | Scaffold a custom theme (dark + light) |
+| `martis:theme` | Scaffold a custom theme with all CSS variables (dark + light) |
+| `martis:value` | Generate a value metric |
+| `martis:trend` | Generate a trend metric |
+| `martis:partition` | Generate a partition metric |
+| `martis:progress` | Generate a progress metric |
+| `martis:dashboard` | Generate a dashboard class |
 | `martis:user` | Create an admin user |
 
 ### Action Event Logging

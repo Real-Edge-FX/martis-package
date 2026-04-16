@@ -1,0 +1,19 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Metrics\ProgressMetric;
+use Martis\Metrics\ProgressResult;
+
+class {{ class }} extends ProgressMetric
+{
+    /**
+     * Calculate the metric value.
+     */
+    public function calculate(Request $request): ProgressResult
+    {
+        // return $this->count($request, Model::class, fn($q) => $q->where(...), target: 100);
+        return $this->result(0, 100);
+    }
+}

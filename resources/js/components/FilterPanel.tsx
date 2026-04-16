@@ -10,6 +10,8 @@ interface FilterPanelProps {
   filters: FilterDefinition[]
   value: ActiveFilters
   onChange: (filters: ActiveFilters) => void
+  /** Optional content rendered inline before the filter toggle button. */
+  prefix?: React.ReactNode
 }
 
 /**
@@ -26,7 +28,7 @@ function computeDefaults(filters: FilterDefinition[]): ActiveFilters {
   return defaults
 }
 
-export function FilterPanel({ filters, value, onChange }: FilterPanelProps) {
+export function FilterPanel({ filters, value, onChange, prefix }: FilterPanelProps) {
   const { t } = useTranslation('resources')
   const [open, setOpen] = useState(false)
   const defaultsApplied = useRef(false)
@@ -86,8 +88,9 @@ export function FilterPanel({ filters, value, onChange }: FilterPanelProps) {
 
   return (
     <div>
-      {/* Toggle button */}
+      {/* Toggle button row */}
       <div className="flex items-center gap-2 flex-wrap">
+        {prefix}
         <button
           type="button"
           data-testid="filter-toggle"
@@ -170,9 +173,11 @@ export function FilterPanel({ filters, value, onChange }: FilterPanelProps) {
             borderColor: 'var(--martis-border)',
           }}
         >
-          <div className="flex flex-wrap gap-4">
-            {filters.map((filter) => (
-              <div key={filter.uriKey} className="min-w-[180px] flex-1 max-w-[280px]">
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
+            {filters.map((filter) => {
+              const colSpan = filter.span ?? (filter.filterType === 'date-range' ? 6 : 3)
+              return (
+              <div key={filter.uriKey} style={{ gridColumn: `span ${colSpan}` }}>
                 <label
                   className="mb-1 block text-xs font-medium"
                   style={{ color: 'var(--martis-text-muted)' }}
@@ -185,7 +190,8 @@ export function FilterPanel({ filters, value, onChange }: FilterPanelProps) {
                   onChange={(v) => handleChange(filter.uriKey, v)}
                 />
               </div>
-            ))}
+              )
+            })}
           </div>
 
           {activeCount > 0 && (

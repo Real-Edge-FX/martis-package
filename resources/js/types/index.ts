@@ -85,10 +85,83 @@ export interface FilterDefinition {
   component: string | null
   options: FilterOption[]
   default: unknown
+  span?: number | null
   meta: Record<string, unknown>
 }
 
 export type ActiveFilters = Record<string, unknown>
+
+// -------------------------------------------------------------------------
+// Metric and Dashboard types
+// -------------------------------------------------------------------------
+
+export type MetricType = 'value' | 'trend' | 'partition' | 'progress'
+
+export interface MetricDefinition {
+  type: 'metric'
+  metricType: MetricType
+  name: string
+  uriKey: string
+  component: string | null
+  width: number
+  widthMd?: number | null
+  widthLg?: number | null
+  ranges?: Record<string, string>
+  refreshEvery?: number | null
+  onlyOnDetail?: boolean
+  height?: number | null
+  style?: 'default' | 'success' | 'warning' | 'danger' | 'info'
+  icon?: string | null
+  meta: Record<string, unknown>
+}
+
+export interface DashboardDefinition {
+  type: 'dashboard'
+  name: string
+  uriKey: string
+  component: string | null
+  showRefreshButton: boolean
+  meta: Record<string, unknown>
+}
+
+export interface DashboardData {
+  dashboard: DashboardDefinition
+  cards: MetricDefinition[]
+  filters: FilterDefinition[]
+}
+
+export interface ValueMetricData {
+  value: number
+  previous?: number
+  change?: number
+  prefix?: string
+  suffix?: string
+  format?: string
+}
+
+export interface TrendMetricData {
+  labels: string[]
+  values: number[]
+  latestValue?: number
+  sumValue?: number
+  prefix?: string
+  suffix?: string
+}
+
+export interface PartitionMetricData {
+  labels: string[]
+  values: number[]
+  colors?: string[]
+}
+
+export interface ProgressMetricData {
+  current: number
+  target: number
+  percentage: number
+  avoid?: boolean
+  prefix?: string
+  suffix?: string
+}
 
 // -------------------------------------------------------------------------
 // Field & Resource schema types (Bloco 8)
