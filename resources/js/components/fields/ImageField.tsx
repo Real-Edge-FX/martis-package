@@ -69,6 +69,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
   const [dragOver, setDragOver] = useState(false)
   const { addToast } = useToastSafe()
   const { t: tMsg } = useTranslation("messages")
+  const { t: tRes } = useTranslation("resources")
 
   const currentFile = value instanceof window.File ? value : null
   const existingImage = isImageValue(value) ? value : null
@@ -158,14 +159,14 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
                   className="text-xs hover:underline"
                   style={{ color: 'var(--martis-accent)' }}
                 >
-                  Change
+                  {tRes('change')}
                 </button>
                 <button
                   type="button"
                   onClick={handleClear}
                   className="text-xs text-red-500 hover:underline"
                 >
-                  Remove
+                  {tRes('remove')}
                 </button>
               </div>
             </div>
@@ -178,7 +179,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
             style={{ color: 'var(--martis-text-muted)' }}
           >
             <ImageIcon size={28} />
-            <span>Click or drag image here</span>
+            <span>{tRes('choose_images')}</span>
           </button>
         )}
 

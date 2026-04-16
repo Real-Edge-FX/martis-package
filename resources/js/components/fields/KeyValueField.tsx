@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface KeyValueRow {
@@ -78,6 +79,7 @@ export function KeyValueFieldDisplay({ field, value }: FieldDisplayProps) {
 // ---------------------------------------------------------------------------
 
 export function KeyValueFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t: tMsg } = useTranslation('messages')
   const keyLabel = (field as Record<string, unknown>).keyLabel as string | undefined
   const valueLabel = (field as Record<string, unknown>).valueLabel as string | undefined
   const actionText = (field as Record<string, unknown>).actionText as string | undefined
@@ -149,7 +151,7 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
             <button
               type="button"
               onClick={() => removeRow(i)}
-              data-pr-tooltip="Remove row"
+              data-pr-tooltip={tMsg('remove_row', 'Remove row')}
               data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)', width: '1.75rem', flexShrink: 0 }}
               className="flex items-center justify-center hover:text-red-500 transition-colors"

@@ -66,6 +66,104 @@ export interface Toast {
 }
 
 // -------------------------------------------------------------------------
+// Filter types
+// -------------------------------------------------------------------------
+
+export type FilterType = 'select' | 'boolean' | 'date' | 'date-range'
+
+export interface FilterOption {
+  label: string
+  value: string | number | boolean
+  group?: string
+}
+
+export interface FilterDefinition {
+  type: 'filter'
+  filterType: FilterType
+  name: string
+  uriKey: string
+  component: string | null
+  options: FilterOption[]
+  default: unknown
+  span?: number | null
+  meta: Record<string, unknown>
+}
+
+export type ActiveFilters = Record<string, unknown>
+
+// -------------------------------------------------------------------------
+// Metric and Dashboard types
+// -------------------------------------------------------------------------
+
+export type MetricType = 'value' | 'trend' | 'partition' | 'progress'
+
+export interface MetricDefinition {
+  type: 'metric'
+  metricType: MetricType
+  name: string
+  uriKey: string
+  component: string | null
+  width: number
+  widthMd?: number | null
+  widthLg?: number | null
+  ranges?: Record<string, string>
+  refreshEvery?: number | null
+  onlyOnDetail?: boolean
+  height?: number | null
+  style?: 'default' | 'success' | 'warning' | 'danger' | 'info'
+  icon?: string | null
+  meta: Record<string, unknown>
+}
+
+export interface DashboardDefinition {
+  type: 'dashboard'
+  name: string
+  uriKey: string
+  component: string | null
+  showRefreshButton: boolean
+  meta: Record<string, unknown>
+}
+
+export interface DashboardData {
+  dashboard: DashboardDefinition
+  cards: MetricDefinition[]
+  filters: FilterDefinition[]
+}
+
+export interface ValueMetricData {
+  value: number
+  previous?: number
+  change?: number
+  prefix?: string
+  suffix?: string
+  format?: string
+}
+
+export interface TrendMetricData {
+  labels: string[]
+  values: number[]
+  latestValue?: number
+  sumValue?: number
+  prefix?: string
+  suffix?: string
+}
+
+export interface PartitionMetricData {
+  labels: string[]
+  values: number[]
+  colors?: string[]
+}
+
+export interface ProgressMetricData {
+  current: number
+  target: number
+  percentage: number
+  avoid?: boolean
+  prefix?: string
+  suffix?: string
+}
+
+// -------------------------------------------------------------------------
 // Field & Resource schema types (Bloco 8)
 // -------------------------------------------------------------------------
 
@@ -119,6 +217,12 @@ export interface FieldDefinition {
   colSpanMd?: number | null
   /** Column span from lg breakpoint (>= 1024px). */
   colSpanLg?: number | null
+  /** Help text displayed below the field input. Supports inline HTML (Martis extension). */
+  helpText?: string | null
+  /** Whether the field spans the full width of the form. Nova v5 parity. */
+  fullWidth?: boolean
+  /** Whether the label is stacked above (true) or inline (false). Nova v5 parity. */
+  stacked?: boolean
   /** Allow access to arbitrary meta properties set via withMeta(). */
   [key: string]: unknown
 }
@@ -178,6 +282,7 @@ export interface ResourceSchema extends ResourceEmbedded {
   fieldsForUpdate?: DetailItem[]
   fieldsForInlineCreate?: FieldDefinition[]
   fieldsForPreview?: FieldDefinition[]
+  filters?: FilterDefinition[]
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
   actionsMenuLabel?: string | null
@@ -260,6 +365,8 @@ export interface PanelDefinition {
   type: 'panel'
   /** Panel heading displayed in the header bar */
   title: string
+  /** Subtitle/description below the title. Martis extension. */
+  description?: string | null
   /** Fields rendered inside the panel */
   fields: FieldDefinition[]
   /** Whether the panel can be collapsed by the user */
@@ -276,6 +383,8 @@ export interface SectionDefinition {
   type: 'section'
   /** Section heading displayed in the header bar. null/empty = no header rendered */
   title: string | null
+  /** Subtitle/description below the title. Martis extension. */
+  description?: string | null
   /** Fields rendered inside the section */
   fields: FieldDefinition[]
   /**

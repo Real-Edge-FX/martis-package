@@ -49,6 +49,9 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 4.5 | **[Panels & Tabs](panels-and-tabs.md)** | Panel e Tab layouts — Panel básico, collapsible, collapsedByDefault, limit; TabGroup com múltiplas abas; combinação de Panels dentro de Tabs; showcase no playground; serialização JSON |
 | 5 | **[Fields Reference](fields.md)** | All 32 field types — configuration options, visibility flags, validation rules, relationship fields (BelongsTo, HasMany, BelongsToMany, MorphTo), enums, PrimeReact prop passthrough |
 | 6 | **[Relationships](relationships.md)** | Relationship fields — BelongsTo, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo, choosing the right field |
+| 6.5 | **[Filters](filters.md)** | Filters framework — SelectFilter, BooleanFilter, DateFilter, DateRangeFilter, custom filters, default values, dynamic filters, API reference |
+| 6.6 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
+| 6.7 | **[Dashboards](dashboards.md)** | Dashboard system — multiple dashboards, dashboard filters, refresh button, registration, fallback |
 | 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
 | 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
 | 8.5 | **[Menus](menus.md)** | Declarative navigation — `Martis::mainMenu(...)`, `Menu`, `MenuSection`, `MenuItem`, resource-level `menuItem()`, and `/api/navigation` |
@@ -68,7 +71,8 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
-| 15 | **[Nova v5 Parity Map](PARITY_MAP.md)** | Feature-by-feature comparison with Laravel Nova v5 — what is done, in progress, and planned |
+| 15 | **[Martis Differentials](differentials.md)** | All features unique to Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
+| 16 | **[Nova v5 Parity Map](PARITY_MAP.md)** | Feature-by-feature comparison with Laravel Nova v5 — what is done, in progress, and planned |
 
 ---
 
@@ -84,11 +88,13 @@ docs/
 ├── panels-and-tabs.md .............. Panels & Tabs layout guide
 ├── fields.md ....................... Fields reference (32 types)
 ├── relationships.md ................ Relationship fields guide
+├── filters.md ...................... Filters framework
 ├── actions.md ...................... Actions system
 ├── overrides.md .................... Override system
 ├── components.md ................... Built-in UI components
 ├── authentication.md ............... Login, 2FA, profile
 ├── configuration.md ................ Config reference
+├── differentials.md ................ Martis differentials (unique features)
 ├── PARITY_MAP.md ................... Nova v5 parity tracker
 ├── api/
 │   └── overview.md ................. REST API reference

@@ -45,34 +45,38 @@ export function ResourceUpdatePage() {
   const record = recordQuery.data?.data
 
   const allFormFields = (schema?.fieldsForUpdate ?? [])
-  const scalarFormFields = allFormFields.filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[]
-  const layoutFormItems = allFormFields.filter(f => f.type === 'panel' || f.type === 'tab_group' || f.type === 'section') as (PanelDefinition | TabGroupDefinition | SectionDefinition)[]
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [initialized, setInitialized] = useState(false)
 
-  // Pre-populate form only after BOTH schema and record are loaded
+  // Pre-populate form only after BOTH schema and record are loaded.
+  // Walks all form items (scalar fields + layout containers) to extract field attributes.
   useEffect(() => {
     if (record && schema && !initialized) {
       const initial: Record<string, unknown> = {}
-      scalarFormFields.forEach((f) => { initial[f.attribute] = record[f.attribute] ?? null })
-      layoutFormItems.forEach((item) => {
-        if (item.type === 'panel' || item.type === 'section') {
-          item.fields.forEach((f: FieldDefinition) => { initial[f.attribute] = record[f.attribute] ?? null })
-        } else {
-          item.tabs.forEach((tab) => {
-            tab.fields.forEach((f) => {
-              if ('attribute' in f) { initial[(f as FieldDefinition).attribute] = record[(f as FieldDefinition).attribute] ?? null }
-              else { (f as PanelDefinition).fields.forEach((pf: FieldDefinition) => { initial[pf.attribute] = record[pf.attribute] ?? null }) }
+      const extractFields = (items: unknown[]) => {
+        for (const item of items as Array<Record<string, unknown>>) {
+          if (item.type === 'panel' || item.type === 'section') {
+            ((item.fields ?? []) as FieldDefinition[]).forEach((f) => { initial[f.attribute] = record[f.attribute] ?? null })
+          } else if (item.type === 'tab_group') {
+            (((item as unknown as TabGroupDefinition).tabs) ?? []).forEach((tab) => {
+              tab.fields.forEach((f) => {
+                if ('attribute' in f) { initial[(f as FieldDefinition).attribute] = record[(f as FieldDefinition).attribute] ?? null }
+                else { ((f as PanelDefinition).fields ?? []).forEach((pf: FieldDefinition) => { initial[pf.attribute] = record[pf.attribute] ?? null }) }
+              })
             })
-          })
+          } else {
+            const f = item as unknown as FieldDefinition
+            if (f.attribute) { initial[f.attribute] = record[f.attribute] ?? null }
+          }
         }
-      })
+      }
+      extractFields(allFormFields)
       setValues(initial)
       setInitialized(true)
     }
-  }, [record, schema, scalarFormFields, layoutFormItems, initialized])
+  }, [record, schema, allFormFields, initialized])
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -234,66 +238,66 @@ export function ResourceUpdatePage() {
         {tAct('edit')} {schema.singularLabel}
       </h1>
 
-      {layoutFormItems.map((item, idx) => {
-        if (item.type === 'tab_group') {
-          return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
-        }
-        if (item.type === 'section') {
-          return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
-        }
-        return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
-      })}
-
       <form onSubmit={handleSubmit} noValidate>
-        <div className="rounded-xl border"
-            style={{
-              borderColor: "var(--martis-border)",
-              backgroundColor: "var(--martis-card)",
-            }}>
-          <div className="martis-divide"
-              style={{ borderColor: "var(--martis-border)" }}>
-            {scalarFormFields.map((field) => (
-              <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4">
-                <div>
-                  <label
-                    htmlFor={field.attribute}
-                    className="block text-sm font-medium"
-                    style={{ color: "var(--martis-text-muted)" }}
-                  >
-                    {field.label}
-                    {field.required && (
-                      <span className="ml-1 text-red-500" aria-hidden="true">
-                        *
-                      </span>
+        <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+          {/* Fields rendered in declaration order */}
+          <div className="p-6 space-y-4">
+            {allFormFields.map((item, idx) => {
+              if (item.type === 'tab_group') {
+                return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+              }
+              if (item.type === 'section') {
+                return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+              }
+              if (item.type === 'panel') {
+                return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+              }
+              const field = item as FieldDefinition
+              return (
+                <div key={field.attribute} className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label
+                      htmlFor={field.attribute}
+                      className="block text-sm font-medium"
+                      style={{ color: 'var(--martis-text-muted)' }}
+                    >
+                      {field.label}
+                      {field.required && (
+                        <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                      )}
+                    </label>
+                  </div>
+                  <div className="col-span-2">
+                    <FieldInput
+                      field={field}
+                      value={values[field.attribute] ?? null}
+                      onChange={(v) => handleChange(field.attribute, v)}
+                      error={errors[field.attribute]}
+                      resourceKey={resource}
+                      context="update"
+                    />
+                    {field.helpText && (
+                      <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
                     )}
-                  </label>
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    context="update"
-                  />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
+          {/* Footer */}
           <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4"
             style={{
-              borderColor: "var(--martis-border)",
-              backgroundColor: "var(--martis-hover)",
+              borderColor: 'var(--martis-border)',
+              backgroundColor: 'var(--martis-hover)',
             }}>
             <Link
               to={cancelLink}
               className="rounded-md border px-4 py-2 text-sm font-medium no-underline"
               style={{
-                borderColor: "var(--martis-border)",
-                backgroundColor: "var(--martis-surface)",
-                color: "var(--martis-text)",
+                borderColor: 'var(--martis-border)',
+                backgroundColor: 'var(--martis-surface)',
+                color: 'var(--martis-text)',
               }}
             >
               {tAct('cancel')}
@@ -301,7 +305,8 @@ export function ResourceUpdatePage() {
             <button
               type="submit"
               disabled={updateMutation.isPending}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              style={{ backgroundColor: 'var(--martis-accent)' }}
             >
               {updateMutation.isPending ? tAct('saving') : tAct('save')}
             </button>

@@ -1,5 +1,6 @@
 import { registry } from '@/lib/registry'
 import { Paginator, type PaginatorPageChangeEvent } from 'primereact/paginator'
+import { useTranslation } from 'react-i18next'
 
 export interface PaginationProps {
   currentPage: number
@@ -20,6 +21,7 @@ function DefaultPagination({
   to,
   onPageChange,
 }: PaginationProps) {
+  const { t } = useTranslation('resources')
   if (total === 0) return null
 
   // PrimeReact Paginator uses 0-based first (row offset)
@@ -35,11 +37,11 @@ function DefaultPagination({
         <span className="text-sm martis-text-muted">
           {from !== null && to !== null ? (
             <>
-              Showing <strong>{from}</strong>–<strong>{to}</strong> of{' '}
+              {t('showing', 'Showing')} <strong>{from}</strong>–<strong>{to}</strong> {t('of', 'of')}{' '}
               <strong>{total}</strong>
             </>
           ) : (
-            <>{total} records</>
+            <>{total} {t('records', 'records')}</>
           )}
         </span>
         {lastPage > 1 && (

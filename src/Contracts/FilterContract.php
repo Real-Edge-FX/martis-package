@@ -2,19 +2,30 @@
 
 namespace Martis\Contracts;
 
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+
 /**
- * Contract for resource filter descriptors.
+ * Contract for resource filters.
  *
- * Task 1 foundation only: this contract defines the minimum schema surface
- * needed for resources to advertise filters before the full filters engine
- * is implemented.
+ * Filters modify the index query based on user-selected values.
+ * Each filter type (select, boolean, date, date-range) provides
+ * its own input rendering and query application logic.
  */
 interface FilterContract
 {
     /**
-     * Create a new filter descriptor.
+     * Create a new filter instance.
      */
     public static function make(string $name, ?string $uriKey = null): static;
+
+    /**
+     * Apply the filter to the given query.
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    public function apply(Request $request, Builder $query, mixed $value): Builder;
 
     /**
      * Human-readable filter name.
@@ -22,14 +33,46 @@ interface FilterContract
     public function name(): string;
 
     /**
-     * Stable URI key used in schema payloads and future requests.
+     * Stable URI key used in query parameters and schema payloads.
      */
     public function uriKey(): string;
+
+    /**
+     * The filter type identifier (e.g. 'select', 'boolean', 'date', 'date-range').
+     */
+    public function filterType(): string;
 
     /**
      * Optional frontend component key for custom rendering.
      */
     public function component(): ?string;
+
+    /**
+     * Get the filter options (for select and boolean filters).
+     *
+     * Keys are display labels, values are the query values.
+     * Supports grouped format: ['Group' => ['Label' => 'value']].
+     *
+     * @return array<string, mixed>
+     */
+    public function options(Request $request): array;
+
+    /**
+     * Get the default filter value.
+     */
+    public function default(): mixed;
+
+    /**
+     * Set a callback that determines if the filter should be visible.
+     *
+     * Martis extension: Nova v5 does not support per-filter authorization.
+     */
+    public function canSee(Closure $callback): static;
+
+    /**
+     * Determine if the filter should be visible for the given request.
+     */
+    public function authorizedToSee(Request $request): bool;
 
     /**
      * Extra metadata forwarded to the frontend.
@@ -39,9 +82,9 @@ interface FilterContract
     public function meta(): array;
 
     /**
-     * Serialize the descriptor for the schema endpoint.
+     * Serialize the filter for the schema endpoint.
      *
-     * @return array{type: string, name: string, uriKey: string, component: string|null, meta: array<string, mixed>}
+     * @return array<string, mixed>
      */
     public function toArray(): array;
 }

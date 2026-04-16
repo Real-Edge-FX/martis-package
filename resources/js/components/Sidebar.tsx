@@ -100,7 +100,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
           to="/"
           end
           className={navClass}
-          data-pr-tooltip={t("dashboard")}
+          data-pr-tooltip={(!isMobile && collapsed) ? t("dashboard") : undefined}
           data-pr-position="right"
           onClick={isMobile ? onMobileClose : undefined}
         >
@@ -138,7 +138,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
                       target="_blank"
                       rel="noreferrer"
                       className={navClass({ isActive: false })}
-                      data-pr-tooltip={item.label}
+                      data-pr-tooltip={(!isMobile && collapsed) ? item.label : undefined}
                       data-pr-position="right"
                       onClick={isMobile ? onMobileClose : undefined}
                     >
@@ -153,7 +153,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
                     key={item.type === "resource" ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
                     to={item.url}
                     className={navClass}
-                    data-pr-tooltip={item.label}
+                    data-pr-tooltip={(!isMobile && collapsed) ? item.label : undefined}
                     data-pr-position="right"
                     onClick={isMobile ? onMobileClose : undefined}
                   >

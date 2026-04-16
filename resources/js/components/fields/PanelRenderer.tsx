@@ -27,13 +27,14 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
   const panelId = `panel-content-${panel.title.toLowerCase().replace(/\s+/g, '-')}`
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
+    <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
       {/* Panel header */}
       <div
         className={[
-          'flex items-center justify-between px-4 py-3 bg-muted/40 border-b border-border',
-          panel.collapsible ? 'cursor-pointer select-none hover:bg-muted/60 transition-colors' : '',
+          'flex items-center justify-between px-4 py-3',
+          panel.collapsible ? 'cursor-pointer select-none transition-colors' : '',
         ].join(' ')}
+        style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
         onClick={panel.collapsible ? () => setCollapsed((c: boolean) => !c) : undefined}
         role={panel.collapsible ? 'button' : undefined}
         aria-expanded={panel.collapsible ? !collapsed : undefined}
@@ -46,9 +47,14 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
           }
         } : undefined}
       >
-        <h3 className="text-sm font-semibold text-foreground">{panel.title}</h3>
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>{panel.title}</h3>
+          {panel.description && (
+            <p className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>{panel.description}</p>
+          )}
+        </div>
         {panel.collapsible && (
-          <span className="text-muted-foreground" aria-hidden="true">
+          <span style={{ color: 'var(--martis-text-muted)' }} aria-hidden="true">
             {collapsed ? <CaretRightIcon size={16} /> : <CaretDownIcon size={16} />}
           </span>
         )}
@@ -63,7 +69,8 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
           {hasLimit && hiddenCount > 0 && (
             <button
               type="button"
-              className="mt-3 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+              className="mt-3 text-xs font-medium transition-colors"
+              style={{ color: 'var(--martis-accent)' }}
               onClick={() => setExpanded((e: boolean) => !e)}
             >
               {expanded ? t('show_less') : t('show_more')}
@@ -100,7 +107,7 @@ export function PanelDisplay({
                 gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
               }}
             >
-              <dt className="text-xs font-medium text-muted-foreground mb-1">{field.label}</dt>
+              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
               <dd>
                 <FieldDisplay
                   field={field}
@@ -159,6 +166,9 @@ export function PanelInput({
                 recordId={recordId}
                 context={context}
               />
+              {field.helpText && (
+                <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
+              )}
             </div>
           ))}
         </div>

@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { OverrideProps, FieldDefinition } from '@/types'
+import type { OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { PanelInput } from '@/components/fields/PanelRenderer'
+import { SectionInput } from '@/components/fields/SectionRenderer'
+import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 
@@ -32,7 +35,7 @@ export function DrawerCreate(props: OverrideProps) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
-  const formFields = useMemo(() => (schema.fieldsForCreate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [schema])
+  const allFormFields = useMemo(() => schema.fieldsForCreate ?? [], [schema])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -132,8 +135,19 @@ export function DrawerCreate(props: OverrideProps) {
         </>
       }
     >
-      <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="p-6 grid grid-cols-12 gap-4">
-        {formFields.map((field) => (
+      <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
+        {allFormFields.map((item, idx) => {
+          if (item.type === 'tab_group') {
+            return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+          }
+          if (item.type === 'section') {
+            return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+          }
+          if (item.type === 'panel') {
+            return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+          }
+          const field = item as FieldDefinition
+          return (
             <div key={field.attribute} style={colSpanStyle(field)}>
               <label
                 htmlFor={field.attribute}
@@ -152,7 +166,8 @@ export function DrawerCreate(props: OverrideProps) {
                 context="create"
               />
             </div>
-          ))}
+          )
+        })}
       </form>
     </DrawerShell>
   )

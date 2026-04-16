@@ -1,0 +1,45 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Martis\Filters\BooleanFilter;
+
+class {{ class }} extends BooleanFilter
+{
+    /**
+     * Define the filter options.
+     *
+     * Keys are display labels, values are passed as keys in the $value array.
+     *
+     * @return array<string, mixed>
+     */
+    public function options(Request $request): array
+    {
+        return [
+            //
+        ];
+    }
+
+    /**
+     * Apply the filter to the given query.
+     *
+     * The $value is an associative array of option values mapped
+     * to their checked state (true/false).
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        if (is_array($value)) {
+            foreach ($value as $column => $enabled) {
+                if ($enabled) {
+                    $query->where($column, true);
+                }
+            }
+        }
+
+        return $query;
+    }
+}

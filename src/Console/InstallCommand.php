@@ -124,6 +124,8 @@ class InstallCommand extends Command
             '/Lenses',
             '/Dashboards',
             '/Metrics',
+            '/Cards',
+            '/Policies',
         ];
 
         foreach ($dirs as $dir) {

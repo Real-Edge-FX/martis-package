@@ -77,12 +77,15 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 
 - **36 field types** — text, select, date, file, image, code, markdown, rich text, badge, status, currency, country, key-value, sparkline, and more
 - **Relationship fields** — BelongsTo, HasOne, HasMany, BelongsToMany, MorphTo, MorphOne, MorphMany, MorphToMany with full inline CRUD
+- **Filters** — select, boolean, date, and date-range filters with collapsible panel, searchable options, and composable query logic
+- **Metrics & Dashboards** — value, trend, partition, and progress metrics with Chart.js charts, multiple dashboards, caching, auto-refresh polling, and dashboard filters
 - **Actions** — row-level, bulk, standalone, queued, with confirmation, validation, pivot fields, and custom React components
 - **Override system** — replace any React component (view, field, layout, drawer) without forking the package
 - **Global search** — configurable across all registered resources
 - **Authentication & Profile** — built-in login, 2FA (TOTP), avatar upload, user menu
 - **i18n** — English, Portuguese (PT), Portuguese (BR) out of the box
-- **Dark and light theme** — full CSS variable theming, zero hardcoded colours
+- **Custom cards** — build custom dashboard cards with `martis:card` (PHP + React scaffolding, auto-registration)
+- **Dark and light theme** — full CSS variable theming with `martis:theme` scaffolding (all variables, dark + light)
 - **Panels and tabs** — group fields visually with collapsible panels and tab navigation
 - **Grid layout** — multi-column form layouts via  and ; responsive by default, zero config
 
@@ -106,6 +109,9 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Grid Layout](docs/grid-layout.md) | Multi-column form layouts: Section::columns() and Field::span() |
 | [Fields Reference](docs/fields.md) | All field types — configuration, visibility flags, validation, enums |
 | [Relationships](docs/relationships.md) | BelongsTo, HasOne, HasMany, BelongsToMany (pivot fields), MorphTo, MorphOne, MorphMany, MorphToMany |
+| [Filters](docs/filters.md) | Select, boolean, date, and date-range filters — defining, customizing, and composing index filters |
+| [Metrics](docs/metrics.md) | Value, trend, partition, and progress metrics — query helpers, ranges, caching, card width, auto-refresh |
+| [Dashboards](docs/dashboards.md) | Multiple dashboards, dashboard filters, refresh button, registration |
 | [Actions](docs/actions.md) | Inline, bulk, standalone, queued, custom components, authorization, audit log |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer |
 | [Built-in Components](docs/components.md) | UI components, hooks (useEventBus, useError), tooltip standard, theming |
@@ -125,6 +131,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 
 | Document | Description |
 |----------|-------------|
+| [Martis Differentials](docs/differentials.md) | All features unique to Martis that do not exist in Nova 5 |
 | [Nova v5 Parity Map](docs/PARITY_MAP.md) | Feature-by-feature tracker vs Laravel Nova v5 |
 | [Documentation Index](docs/README.md) | Full docs hub with quick links |
 

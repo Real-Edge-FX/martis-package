@@ -4,6 +4,7 @@ namespace Martis;
 
 use Closure;
 use Illuminate\Http\Request;
+use Martis\Contracts\DashboardContract;
 use Martis\Menu\Menu;
 use Martis\Menu\MenuSection;
 
@@ -11,6 +12,9 @@ class MartisManager
 {
     /** @var Closure(Request, Menu): (Menu|array<int, MenuSection>|null)|null */
     protected ?Closure $mainMenuResolver = null;
+
+    /** @var list<class-string<DashboardContract>|DashboardContract> */
+    protected array $dashboards = [];
 
     /**
      * Register a custom main menu builder.
@@ -23,6 +27,46 @@ class MartisManager
 
         return $this;
     }
+
+    // -------------------------------------------------------------------------
+    // Dashboards
+    // -------------------------------------------------------------------------
+
+    /**
+     * Register dashboards for the application.
+     *
+     * @param  list<class-string<DashboardContract>|DashboardContract>  $dashboards
+     */
+    public function dashboards(array $dashboards): static
+    {
+        $this->dashboards = $dashboards;
+
+        return $this;
+    }
+
+    /**
+     * Resolve all registered dashboards.
+     *
+     * @return list<DashboardContract>
+     */
+    public function resolveDashboards(Request $request): array
+    {
+        $resolved = [];
+
+        foreach ($this->dashboards as $dashboard) {
+            $instance = is_string($dashboard) ? new $dashboard : $dashboard;
+
+            if ($instance instanceof DashboardContract && $instance->authorizedToSee($request)) {
+                $resolved[] = $instance;
+            }
+        }
+
+        return $resolved;
+    }
+
+    // -------------------------------------------------------------------------
+    // Menus
+    // -------------------------------------------------------------------------
 
     public function forgetMainMenu(): static
     {

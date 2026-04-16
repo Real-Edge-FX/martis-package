@@ -20,22 +20,26 @@ function TabBar({
     <div
       role="tablist"
       aria-label="Resource tabs"
-      className="flex border-b border-border bg-muted/30 px-1 pt-1 gap-0.5 overflow-x-auto"
+      className="flex px-1 pt-1 gap-0.5 overflow-x-auto overflow-y-hidden"
+      style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
     >
       {tabs.map((tab, i) => (
         <button
+          type="button"
           key={tab.title}
           role="tab"
           aria-selected={i === activeIndex}
           aria-controls={`tabpanel-${i}`}
           id={`tab-${i}`}
           tabIndex={i === activeIndex ? 0 : -1}
-          className={[
-            'px-4 py-2 text-sm font-medium rounded-t-md border border-transparent whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            i === activeIndex
-              ? 'bg-card border-border border-b-card -mb-px text-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:bg-card/60',
-          ].join(' ')}
+          className="px-4 py-2 text-sm font-medium rounded-t-md whitespace-nowrap transition-colors focus-visible:outline-none"
+          style={{
+            color: i === activeIndex ? 'var(--martis-text)' : 'var(--martis-text-muted)',
+            backgroundColor: i === activeIndex ? 'var(--martis-surface)' : 'transparent',
+            border: i === activeIndex ? '1px solid var(--martis-border)' : '1px solid transparent',
+            borderBottom: i === activeIndex ? '1px solid var(--martis-surface)' : '1px solid transparent',
+            marginBottom: i === activeIndex ? '-1px' : undefined,
+          }}
           onClick={() => onSelect(i)}
           onKeyDown={(e) => {
             if (e.key === 'ArrowRight') { onSelect((i + 1) % tabs.length) }
@@ -79,7 +83,7 @@ export function TabsDisplay({
   if (!activeTab) return null
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
+    <div className="rounded-lg" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
       <TabBar tabs={tabs} activeIndex={activeIndex} onSelect={setActiveIndex} />
 
       <div
@@ -105,7 +109,7 @@ export function TabsDisplay({
                 style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
               >
                 <dl>
-                  <dt className="text-xs font-medium text-muted-foreground mb-1">{field.label}</dt>
+                  <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
                   <dd>
                     <FieldDisplay
                       field={field}
@@ -152,7 +156,7 @@ export function TabsInput({
   if (!activeTab) return null
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
+    <div className="rounded-lg" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
       <TabBar tabs={tabs} activeIndex={activeIndex} onSelect={setActiveIndex} />
 
       <div
@@ -194,6 +198,9 @@ export function TabsInput({
                   recordId={recordId}
                   context={context}
                 />
+                {field.helpText && (
+                  <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
+                )}
               </div>
             )
           })}

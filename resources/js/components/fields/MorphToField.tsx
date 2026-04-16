@@ -8,7 +8,7 @@ import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
-import { Tooltip } from 'primereact/tooltip'
+// Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface MorphToValue {
   type: string
@@ -219,7 +219,7 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
               <ArrowSquareOutIcon size={13} weight="regular" />
             </a>
           )}
-          {peekable && <Tooltip target={`.${peekArrowClass}`} showDelay={300} />}
+          {/* Tooltip handled by global Layout <Tooltip> */}
           {peekable && showPeek && peekPos && resourceType && (
             <PeekCard
               resourceKey={resourceType}
@@ -521,8 +521,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               </button>
             )}
           </div>
-          <Tooltip target=".martis-morphto-clear-btn" showDelay={400} />
-          <Tooltip target=".martis-morphto-create-btn" showDelay={400} />
+          {/* Tooltips handled by global Layout <Tooltip> */}
 
           {/* Dropdown panel */}
           {open && (
