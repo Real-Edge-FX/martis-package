@@ -92,12 +92,28 @@ export function MartisTooltip() {
       hide()
     }
 
+    // Hide tooltip on any click (the target element may be removed from DOM)
+    const handleMouseDown = () => {
+      hide()
+    }
+
+    // Hide tooltip if the current target is removed from the DOM
+    const observer = new MutationObserver(() => {
+      if (currentTarget.current && !document.body.contains(currentTarget.current)) {
+        hide()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+
     document.addEventListener('mouseenter', handleMouseEnter, true)
     document.addEventListener('mouseleave', handleMouseLeave, true)
+    document.addEventListener('mousedown', handleMouseDown, true)
 
     return () => {
       document.removeEventListener('mouseenter', handleMouseEnter, true)
       document.removeEventListener('mouseleave', handleMouseLeave, true)
+      document.removeEventListener('mousedown', handleMouseDown, true)
+      observer.disconnect()
       clearTimeout(showTimer.current)
     }
   }, [show, hide])
