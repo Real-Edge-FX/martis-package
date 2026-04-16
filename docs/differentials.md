@@ -407,13 +407,47 @@ Customizable loading indicator:
 
 ### Component Scaffolding
 
-Generate React components with auto-registration:
+Generate custom dashboard cards, field overrides, and visual components:
 
 ```bash
-php artisan martis:component StatusBadge --type=field
+# Custom dashboard card — creates PHP class + React component + auto-registers
+php artisan martis:card WelcomeCard
+
+# Visual override — creates TSX component + auto-registers (no PHP)
+php artisan martis:override StatusBadge --type=field
 ```
 
-Creates the component file and auto-registers it in `boot.ts`.
+The `martis:card` command creates both the PHP class (`app/Martis/Cards/`) and the React component, auto-registering it in the boot file. The developer only needs to add the card to a Dashboard's `cards()` method.
+
+The `martis:override` command creates a TSX-only component for overriding how existing fields, layouts, or footers render — without needing a PHP class.
+
+### Custom Dashboard Cards
+
+> Nova 5 cards require manual PHP class creation and separate frontend registration.
+
+Martis provides a single command that scaffolds everything:
+
+```bash
+php artisan martis:card RevenueChart
+```
+
+This creates:
+1. `app/Martis/Cards/RevenueChart.php` — with `componentKey()` pre-configured
+2. `resources/martis-extensions/martis/components/RevenueChart.tsx` — starter React component
+3. Auto-registers in `boot.ts`
+
+Usage in a Dashboard:
+
+```php
+public function cards(Request $request): array
+{
+    return [
+        (new RevenueChart())->withMeta(['currency' => 'EUR']),
+    ];
+}
+```
+
+The React component receives all `meta` data as props.
 
 ---
 
@@ -428,9 +462,15 @@ Creates the component file and auto-registers it in `boot.ts`.
 | `martis:field` | Generate a custom field (PHP + React TSX) |
 | `martis:action` | Generate an action (`--destructive` for destructive variant) |
 | `martis:filter` | Generate a filter (`--boolean`, `--date` variants) |
-| `martis:component` | Scaffold a React component with auto-registration |
+| `martis:card` | Generate a custom dashboard card (PHP + React TSX + auto-register) |
+| `martis:override` | Scaffold a React override component (TSX only, auto-register) |
 | `martis:policy` | Generate a resource policy |
-| `martis:theme` | Scaffold a custom theme (dark + light) |
+| `martis:theme` | Scaffold a custom theme with all CSS variables (dark + light) |
+| `martis:value` | Generate a value metric |
+| `martis:trend` | Generate a trend metric |
+| `martis:partition` | Generate a partition metric |
+| `martis:progress` | Generate a progress metric |
+| `martis:dashboard` | Generate a dashboard class |
 | `martis:user` | Create an admin user |
 
 ### Action Event Logging

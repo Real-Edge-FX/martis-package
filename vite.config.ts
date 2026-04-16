@@ -50,7 +50,7 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, './resources/js'),
             '@images': path.resolve(__dirname, './resources/images'),
-            '@user': path.resolve(__dirname, './resources/js/user'),
+            '@user': path.resolve(process.env.MARTIS_USER_DIR ?? path.join(__dirname, './resources/js/user')),
         },
     },
     test: {

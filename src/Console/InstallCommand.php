@@ -124,6 +124,7 @@ class InstallCommand extends Command
             '/Lenses',
             '/Dashboards',
             '/Metrics',
+            '/Cards',
             '/Policies',
         ];
 

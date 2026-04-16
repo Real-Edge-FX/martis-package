@@ -84,7 +84,8 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 - **Global search** — configurable across all registered resources
 - **Authentication & Profile** — built-in login, 2FA (TOTP), avatar upload, user menu
 - **i18n** — English, Portuguese (PT), Portuguese (BR) out of the box
-- **Dark and light theme** — full CSS variable theming, zero hardcoded colours
+- **Custom cards** — build custom dashboard cards with `martis:card` (PHP + React scaffolding, auto-registration)
+- **Dark and light theme** — full CSS variable theming with `martis:theme` scaffolding (all variables, dark + light)
 - **Panels and tabs** — group fields visually with collapsible panels and tab navigation
 - **Grid layout** — multi-column form layouts via  and ; responsive by default, zero config
 

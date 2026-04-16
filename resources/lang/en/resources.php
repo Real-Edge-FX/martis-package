@@ -17,6 +17,7 @@ return [
     'change' => 'Change',
     'remove' => 'Remove',
     'download' => 'Download',
+    'unknown_file' => 'Unknown',
     'max_size' => 'Max: :size',
     'render_error' => 'An error occurred while rendering this page.',
     'id_label' => 'Relationship ID',

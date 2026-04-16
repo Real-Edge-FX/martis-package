@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { CardSkeleton } from '@/components/LoadingSkeleton'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { MetricCard } from '@/components/metrics'
+import { componentRegistry } from '@/lib/componentRegistry'
 import { FilterPanel } from '@/components/FilterPanel'
 import { Card } from 'primereact/card'
 import { Link } from 'react-router-dom'
@@ -209,14 +210,23 @@ function DashboardView({
           className="grid gap-4"
           style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}
         >
-          {cards.map((card) => (
-            <MetricCard
-              key={card.uriKey}
-              metric={card}
-              endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
-              filters={activeFilters}
-            />
-          ))}
+          {cards.map((card) => {
+            if (card.component) {
+              const CustomCard = componentRegistry.resolve(card.component)
+              if (CustomCard) {
+                const C = CustomCard as React.ComponentType<{ card: typeof card }>
+                return <C key={card.uriKey} card={card} />
+              }
+            }
+            return (
+              <MetricCard
+                key={card.uriKey}
+                metric={card}
+                endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
+                filters={activeFilters}
+              />
+            )
+          })}
         </div>
       ) : (
         <p className="text-sm py-8 text-center" style={{ color: 'var(--martis-text-muted)' }}>

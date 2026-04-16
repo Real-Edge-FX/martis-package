@@ -6,6 +6,7 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Martis\Console\ActionMakeCommand;
+use Martis\Console\CardMakeCommand;
 use Martis\Console\DashboardMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\ComponentMakeCommand;
@@ -64,6 +65,7 @@ class MartisServiceProvider extends ServiceProvider
                 ResourceMakeCommand::class,
                 FieldMakeCommand::class,
                 UserCommand::class,
+                CardMakeCommand::class,
                 ComponentMakeCommand::class,
                 ThemeMakeCommand::class,
                 VendorPublishCommand::class,
