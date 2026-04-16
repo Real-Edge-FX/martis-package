@@ -24,6 +24,9 @@ class Panel implements LayoutContract
 {
     protected string $title;
 
+    /** Subtitle/description shown below the panel title. Martis extension. */
+    protected ?string $description = null;
+
     /** @var list<FieldContract> */
     protected array $fields;
 
@@ -55,6 +58,18 @@ class Panel implements LayoutContract
     // -------------------------------------------------------------------------
     // Fluent configuration
     // -------------------------------------------------------------------------
+
+    /**
+     * Set a description/subtitle shown below the panel title.
+     *
+     * Martis extension: Nova v5 does not support descriptions on Panels.
+     */
+    public function description(string $description): static
+    {
+        $this->description = $description;
+
+        return $this;
+    }
 
     /** Allow the panel to be collapsed/expanded by the user. */
     public function collapsible(): static
@@ -121,6 +136,7 @@ class Panel implements LayoutContract
         return [
             'type' => 'panel',
             'title' => $this->title,
+            'description' => $this->description,
             'collapsible' => $this->collapsible,
             'collapsedByDefault' => $this->collapsedByDefault,
             'limit' => $this->limit,

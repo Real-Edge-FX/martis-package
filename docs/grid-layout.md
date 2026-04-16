@@ -93,9 +93,21 @@ A `columns(3)` grid with `span(1)` fields gives you three 33%-wide columns.
 **Section also supports:**
 
 ```php
+Section::make('...', [...])->description('Contextual help text')  // Martis extension
 Section::make('...', [...])->collapsible()         // user can collapse
 Section::make('...', [...])->collapsedByDefault()   // starts collapsed
 Section::make('...', [...])->limit(5)               // show 5 fields, Show more for rest
+```
+
+> **Martis extension:** `->description()` adds a subtitle below the Section title. Nova 5 does not have a Section primitive.
+
+**Help text on fields in Sections** supports inline HTML (Martis extension):
+
+```php
+Section::make('Identity', [
+    Text::make('name')->span(6)->help('The full name of the user.'),
+    Email::make('email')->span(6)->help('See our <a href="/privacy">policy</a>.'),
+])->columns(12)
 ```
 
 ---

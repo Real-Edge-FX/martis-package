@@ -2014,6 +2014,35 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
 }
 
 
+/* ── Filter dropdown — compact size for filter panel ─────────────── */
+.martis-filter-dropdown.p-dropdown {
+  min-height: 2rem !important;
+  height: 2rem !important;
+  font-size: 0.8125rem !important;
+}
+.martis-filter-dropdown .p-dropdown-label {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.8125rem !important;
+  min-height: unset !important;
+}
+.martis-filter-dropdown .p-dropdown-trigger {
+  width: 1.5rem !important;
+}
+/* Clear icon in filter dropdowns — red to match the project clear standard
+   High-specificity selectors to override html:not(.dark) rules above */
+html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon,
+html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon svg {
+  color: #ef4444 !important;
+  fill: #ef4444 !important;
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+}
+html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover,
+html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
+  color: #dc2626 !important;
+  fill: #dc2626 !important;
+}
+
 /* ── Fix: Dark theme checkbox — brighter highlight for visibility (REA-1102) ── */
 .dark .p-checkbox .p-checkbox-box {
   background-color: rgba(255,255,255,0.08);
@@ -2059,11 +2088,7 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   white-space: nowrap;
   max-width: 300px;
 }
-.dark .p-tooltip .p-tooltip-text {
-  background-color: #374151;
-  color: #f3f4f6;
-}
-/* light theme: CSS variables in the theming block below handle both themes */
+/* Tooltip colors are handled by CSS variables in the theming block below */
 
 /* ── Fix: Custom checkbox in table — independent of PrimeReact DataTable selection (REA-1102) ── */
 .martis-table-checkbox .p-checkbox-box {
@@ -2141,8 +2166,18 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight {
   padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
 }
-.p-tooltip .p-tooltip-arrow {
+/* Arrow must match the tooltip background for all positions */
+.p-tooltip-top .p-tooltip-arrow {
   border-top-color: var(--martis-sidebar) !important;
+}
+.p-tooltip-bottom .p-tooltip-arrow {
+  border-bottom-color: var(--martis-sidebar) !important;
+}
+.p-tooltip-left .p-tooltip-arrow {
+  border-left-color: var(--martis-sidebar) !important;
+}
+.p-tooltip-right .p-tooltip-arrow {
+  border-right-color: var(--martis-sidebar) !important;
 }
 
 /* ── Fix: Toast left border matches severity icon color exactly (REA-1183) ── */

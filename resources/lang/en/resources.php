@@ -30,4 +30,10 @@ return [
     'trashed_active' => 'Active',
     'trashed_with' => 'With archived',
     'trashed_only' => 'Only archived',
+    'filters' => 'Filters',
+    'clear_filter' => 'Clear filter',
+    'clear_all' => 'Clear all',
+    'clear_filters' => 'Clear all filters',
+    'filter_from' => 'From',
+    'filter_to' => 'To',
 ];

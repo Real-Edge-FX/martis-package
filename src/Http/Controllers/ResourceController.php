@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FilterContract;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\DeferredRelationSync;
@@ -106,6 +107,9 @@ class ResourceController extends MartisController
 
         // Apply indexQuery hook — Nova v5 parity
         $query = $resourceClass::indexQuery($request, $query);
+
+        // Apply filters — Nova v5 parity
+        $this->applyFilters($request, $query, $instance);
 
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
@@ -744,7 +748,7 @@ class ResourceController extends MartisController
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
         $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
-        $filters = $this->serializeSchemaDescriptors($instance->filters($request));
+        $filters = $this->serializeFilters($instance->filters($request), $request);
         $lenses = $this->serializeSchemaDescriptors($instance->lenses($request));
         $cards = $this->serializeSchemaDescriptors($instance->cards($request));
         $dashboards = $this->serializeSchemaDescriptors($resourceClass::dashboards());
@@ -795,6 +799,52 @@ class ResourceController extends MartisController
         ];
 
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * Serialize filter instances for the schema endpoint.
+     *
+     * Calls resolveForSchema() on each filter to pre-resolve options
+     * before calling toArray().
+     *
+     * @param  array<int, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    private function serializeFilters(array $filters, Request $request): array
+    {
+        $result = [];
+
+        foreach ($filters as $filter) {
+            // Skip filters the user is not authorized to see (Martis extension)
+            if ($filter instanceof \Martis\Filters\Filter) {
+                if (! $filter->authorizedToSee($request)) {
+                    continue;
+                }
+
+                $filter->resolveForSchema($request);
+                $result[] = $filter->toArray();
+
+                continue;
+            }
+
+            if (is_array($filter)) {
+                /** @var array<string, mixed> $filter */
+                $result[] = $filter;
+
+                continue;
+            }
+
+            if (is_object($filter) && method_exists($filter, 'toArray')) {
+                $serialized = $filter->toArray();
+                $result[] = is_array($serialized) ? $serialized : ['value' => $filter];
+
+                continue;
+            }
+
+            $result[] = ['value' => $filter];
+        }
+
+        return array_values($result);
     }
 
     /**
@@ -1141,6 +1191,58 @@ class ResourceController extends MartisController
      * @param  class-string<resource>  $resourceClass
      * @param  Builder<Model>  $query
      */
+    /**
+     * Apply user-selected filters to the index query.
+     *
+     * Reads the `filters` query parameter (JSON-encoded object mapping
+     * filter URI keys to their selected values) and calls apply()
+     * on each matching filter instance.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private function applyFilters(Request $request, Builder $query, Resource $instance): void
+    {
+        $rawFilters = $request->query('filters', '');
+
+        if (! is_string($rawFilters) || $rawFilters === '') {
+            return;
+        }
+
+        /** @var array<string, mixed>|null $decoded */
+        $decoded = json_decode($rawFilters, true);
+
+        if (! is_array($decoded) || $decoded === []) {
+            return;
+        }
+
+        $filterInstances = $instance->filters($request);
+
+        foreach ($filterInstances as $filter) {
+            if (! $filter instanceof FilterContract) {
+                continue;
+            }
+
+            // Skip unauthorized filters (Martis extension)
+            if (! $filter->authorizedToSee($request)) {
+                continue;
+            }
+
+            $key = $filter->uriKey();
+
+            if (! array_key_exists($key, $decoded)) {
+                continue;
+            }
+
+            $value = $decoded[$key];
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $filter->apply($request, $query, $value);
+        }
+    }
+
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
         $rawSort = $request->query('sort');

@@ -9,7 +9,7 @@ import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIco
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQueryClient } from '@tanstack/react-query'
-import { Tooltip } from 'primereact/tooltip'
+// Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface BelongsToValue {
   id: number | string
@@ -248,7 +248,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               <ArrowSquareOutIcon size={13} weight="regular" />
             </a>
           )}
-          {peekable && <Tooltip target={`.${peekArrowClass}`} showDelay={300} />}
+          {/* Tooltip handled by global Layout <Tooltip> */}
           {peekable && showPeek && peekPos && relatedResource && (
             <PeekCard
               resourceKey={relatedResource}
@@ -525,7 +525,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
             style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }}
           />
         </button>
-        <Tooltip target=".martis-clear-btn-multi" showDelay={400} />
+        {/* Tooltip handled by global Layout <Tooltip> */}
 
         {open && (
           <div className="martis-belongs-to-dropdown">
@@ -672,8 +672,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
         </button>
       )}
       </div>
-      <Tooltip target=".martis-clear-btn" showDelay={400} />
-      <Tooltip target=".martis-create-related-btn" showDelay={400} />
+      {/* Tooltips handled by global Layout <Tooltip> */}
 
       {/* Dropdown panel */}
       {open && (

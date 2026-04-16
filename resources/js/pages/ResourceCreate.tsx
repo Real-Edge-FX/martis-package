@@ -48,8 +48,6 @@ export function ResourceCreatePage() {
 
   const schema = schemaQuery.data?.data
   const allFormFields = (schema?.fieldsForCreate ?? [])
-  const scalarFormFields = allFormFields.filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[]
-  const layoutFormItems = allFormFields.filter(f => f.type === 'panel' || f.type === 'tab_group' || f.type === 'section') as (PanelDefinition | TabGroupDefinition | SectionDefinition)[]
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [replicateApplied, setReplicateApplied] = useState(false)
@@ -197,48 +195,54 @@ export function ResourceCreatePage() {
         {tAct('create')} {schema.singularLabel}
       </h1>
 
-      {layoutFormItems.map((item, idx) => {
-        if (item.type === 'tab_group') {
-          return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-        }
-        if (item.type === 'section') {
-          return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-        }
-        return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-      })}
-
       <form onSubmit={handleSubmit} noValidate>
-        <div className="martis-card-bg rounded-xl border martis-border">
-          <div className="divide-y" style={{ borderColor: 'var(--martis-border)' }}>
-            {scalarFormFields.map((field) => (
-              <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4" style={{ borderColor: 'var(--martis-border)' }}>
-                <div>
-                  <label
-                    htmlFor={field.attribute}
-                    className="block text-sm font-medium martis-text-muted"
-                  >
-                    {field.label}
-                    {field.required && (
-                      <span className="ml-1 text-red-500" aria-hidden="true">
-                        *
-                      </span>
+        <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+          {/* Fields rendered in declaration order — layout containers and scalar fields interleaved */}
+          <div className="p-6 space-y-4">
+            {allFormFields.map((item, idx) => {
+              if (item.type === 'tab_group') {
+                return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+              }
+              if (item.type === 'section') {
+                return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+              }
+              if (item.type === 'panel') {
+                return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+              }
+              // Scalar field
+              const field = item as FieldDefinition
+              return (
+                <div key={field.attribute} className="grid grid-cols-3 gap-4" style={{ borderColor: 'var(--martis-border)' }}>
+                  <div>
+                    <label
+                      htmlFor={field.attribute}
+                      className="block text-sm font-medium martis-text-muted"
+                    >
+                      {field.label}
+                      {field.required && (
+                        <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                      )}
+                    </label>
+                  </div>
+                  <div className="col-span-2">
+                    <FieldInput
+                      field={field}
+                      value={values[field.attribute] ?? null}
+                      onChange={(v) => handleChange(field.attribute, v)}
+                      error={errors[field.attribute]}
+                      resourceKey={resource}
+                      context="create"
+                    />
+                    {field.helpText && (
+                      <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
                     )}
-                  </label>
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    context="create"
-                  />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
+          {/* Footer */}
           <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
             <Link
               to={isViaRelation ? `/resources/${viaResource}/${viaResourceId}` : `/resources/${resource}`}

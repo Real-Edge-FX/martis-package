@@ -30,4 +30,10 @@ return [
     'trashed_active' => 'Ativos',
     'trashed_with' => 'Com arquivados',
     'trashed_only' => 'Apenas arquivados',
+    'filters' => 'Filtros',
+    'clear_filter' => 'Limpar filtro',
+    'clear_all' => 'Limpar todos',
+    'clear_filters' => 'Limpar todos os filtros',
+    'filter_from' => 'De',
+    'filter_to' => 'Até',
 ];

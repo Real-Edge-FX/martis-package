@@ -136,7 +136,9 @@ Text::make('first_name', 'First Name') // explicit label
 | `readonly` | `readonly(): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. |
 | `required` | `required(): static` | `$this` | Require a non-null value (adds `required` validation rule). |
 | `placeholder` | `placeholder(string $text): static` | `$this` | Set placeholder text for the input. |
-| `help` | `help(string $text): static` | `$this` | Set help text displayed below the field input. |
+| `help` | `help(string $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). |
+| `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. Nova v5 parity. |
+| `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). Nova v5 parity. |
 | `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. |
 
 ### Visibility

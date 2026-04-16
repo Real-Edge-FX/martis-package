@@ -139,7 +139,7 @@
 | Feature | Nova v5 | Status | Priority |
 |---------|---------|--------|----------|
 | Actions | Batch actions on records | DONE |: Full system + icons, groups, tooltips, pivot, disabled states |
-| Filters | Column filters | TODO | High |
+| Filters | Column filters | DONE | Full system: Select, Boolean, Date, DateRange + collapsible panel |
 | Lenses | Custom filtered views | TODO | Medium |
 | Metrics | Dashboard metric cards | TODO | High |
 | Impersonation | Admin impersonation | TODO | Low |

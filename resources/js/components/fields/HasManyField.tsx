@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, XIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
-import { Tooltip } from 'primereact/tooltip'
+// Tooltip handled by global <Tooltip> in Layout.tsx
 
 /**
  * HasMany field display — renders differently based on context:
@@ -244,7 +244,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                   <XIcon size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
                 </button>
               )}
-              <Tooltip target=".has-many-search-clear" showDelay={400} />
+              {/* Tooltip handled by global Layout <Tooltip> */}
             </div>
           )}
           {meta?.canCreate && (

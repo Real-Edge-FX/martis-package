@@ -1,5 +1,5 @@
 import { Outlet, Navigate, useLocation } from "react-router-dom"
-import { Tooltip } from "primereact/tooltip"
+import { MartisTooltip } from "@/components/MartisTooltip"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { componentRegistry } from "@/lib/componentRegistry"
@@ -97,7 +97,7 @@ export function Layout() {
 
   return (
     <>
-      <Tooltip target="[data-pr-tooltip]" showDelay={400} />
+      <MartisTooltip />
       <LayoutComponent />
     </>
   )
