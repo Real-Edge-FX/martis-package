@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Martis\Enums\ModalSize;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\Text;
 use Martis\Fields\Textarea;
@@ -43,7 +44,7 @@ class ReplicateTestResource extends Resource
             BelongsTo::make('category_id', 'Category')
                 ->relatedResource('inline-create-category-models')
                 ->showCreateRelationButton()
-                ->modalSize('lg'),
+                ->modalSize(ModalSize::Large),
         ];
     }
 }

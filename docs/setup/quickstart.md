@@ -47,14 +47,14 @@ git checkout -b feature/REA-XXX-description
 # 3. Run CI before committing
 make ci
 
-# 4. Commit with conventional commit format
+# 4. Build assets if frontend changed
+make build
+
+# 5. Commit with conventional commit format
 git add <files>
 git commit -m "feat(scope): description
 
 Co-Authored-By: Paperclip <noreply@paperclip.ing>"
-
-# 5. Build assets (MANDATORY after frontend changes)
-make build
 
 # 6. Merge back to develop
 git checkout develop
@@ -70,7 +70,7 @@ make push
 ### Important Rules
 
 1. **Always use `make push`** — never `git push` directly. `make push` handles GitHub token refresh automatically.
-2. **Always run `make build`** after frontend changes — without this, the browser serves stale JavaScript.
+2. **Always run `make build` before committing frontend changes** — the compiled assets in `public/` are part of the package release.
 3. **Never leave the server on a feature branch** — always checkout back to `develop` before finishing.
 4. **Always run `make ci`** before committing — the pre-push hook blocks pushes that fail CI.
 
@@ -85,7 +85,7 @@ make assets-watch
 # Terminal 2: Edit files in packages/martis/resources/js/
 ```
 
-Note: `make assets-watch` is for development only. Always run `make build` for production assets.
+Note: `make assets-watch` is for development only. Before committing frontend changes or cutting a release, always run `make build`.
 
 ## Running Tests
 

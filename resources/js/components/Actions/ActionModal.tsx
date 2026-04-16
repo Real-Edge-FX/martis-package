@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
 import type { FieldDefinition } from '@/types'
-import { FieldInput } from '@/components/fields'
+import { FieldInput } from '@/components/fields/FieldRenderer'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { registry } from '@/lib/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
-import { Lightning, Warning, X } from '@phosphor-icons/react'
+import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { componentRegistry } from '@/lib/componentRegistry'
 
 export interface ActionMeta {
@@ -267,9 +267,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       return <ResourceIcon iconName={action!.icon} size={20} weight="fill" />
     }
     if (action!.destructive) {
-      return <Warning size={20} className="text-red-600 dark:text-red-400" weight="fill" />
+      return <WarningIcon size={20} className="text-red-600 dark:text-red-400" weight="fill" />
     }
-    return <Lightning size={20} className="text-indigo-600 dark:text-indigo-400" weight="fill" />
+    return <LightningIcon size={20} className="text-indigo-600 dark:text-indigo-400" weight="fill" />
   }
 
   const content = (
@@ -323,7 +323,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
             className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             style={{ color: 'var(--martis-text-muted)' }}
           >
-            <X size={16} />
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -391,7 +391,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
               color: 'var(--martis-text)',
             }}
           >
-            <X size={14} />
+            <XIcon size={14} />
             {cancelButton}
           </button>
           <button
@@ -403,7 +403,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
               backgroundColor: action.destructive ? '#dc2626' : 'var(--martis-accent)',
             }}
           >
-            <Lightning size={14} />
+            <LightningIcon size={14} />
             {executeMutation.isPending ? t('please_wait') : confirmButton}
           </button>
         </div>

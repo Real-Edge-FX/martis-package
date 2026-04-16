@@ -27,7 +27,25 @@
             dashboard: {!! json_encode(config('martis.dashboard', ['showMetrics' => true, 'showResourceCards' => true])) !!},
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
-            layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!}
+            layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
+            loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
+            profile: {!! json_encode([
+                'enabled' => (bool) config('martis.profile.enabled', true),
+                'sections' => array_values(array_intersect(
+                    config('martis.profile.sections', ['account', 'password', 'avatar', 'security']),
+                    ['account', 'password', 'avatar', 'security']
+                )),
+                'menu' => [
+                    'label' => config('martis.profile.menu.label'),
+                    'icon' => config('martis.profile.menu.icon', 'user'),
+                ],
+                'avatar' => [
+                    'enabled' => (bool) config('martis.profile.avatar.enabled', true),
+                ],
+                'two_factor' => [
+                    'enabled' => (bool) config('martis.profile.two_factor.enabled', true),
+                ],
+            ]) !!}
         };
         // Apply saved theme before first paint to prevent flash
         (function() {
@@ -36,10 +54,41 @@
             else document.documentElement.classList.remove('dark');
         })();
     </script>
-    @if(config('martis.theme.name'))
-        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . config('martis.theme.name') . '.css') }}">
+    @php
+        $themeName = config('martis.theme.name');
+        if ($themeName && ! preg_match('/^[a-zA-Z0-9_-]+$/', $themeName)) {
+            $themeName = null;
+        }
+    @endphp
+    @if(!empty($themeName))
+        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
     @endif
-    @vite(['resources/js/app.tsx'], 'martis/build')
+    @php
+        $hotFile = public_path('vendor/martis/hot');
+        $manifestPath = public_path('vendor/martis/manifest.json');
+    @endphp
+
+    @if(file_exists($hotFile))
+        @php
+            $hotUrl = rtrim((string) file_get_contents($hotFile), '/');
+        @endphp
+        <script type="module" src="{{ $hotUrl }}/@vite/client"></script>
+        <script type="module" src="{{ $hotUrl }}/resources/js/app.tsx"></script>
+    @elseif(file_exists($manifestPath))
+        @php
+            $manifest = json_decode((string) file_get_contents($manifestPath), true) ?: [];
+            $entry = $manifest['resources/js/app.tsx'] ?? null;
+            $cssFiles = is_array($entry['css'] ?? null) ? $entry['css'] : [];
+            $entryFile = is_array($entry) ? (string) ($entry['file'] ?? '') : '';
+        @endphp
+
+        @if($entry)
+            @foreach($cssFiles as $cssFile)
+                <link rel="stylesheet" href="{{ asset('vendor/martis/' . ltrim($cssFile, '/')) }}">
+            @endforeach
+            <script type="module" src="{{ asset('vendor/martis/' . ltrim($entryFile, '/')) }}"></script>
+        @endif
+    @endif
 </head>
 <body>
     <div id="martis-root"></div>

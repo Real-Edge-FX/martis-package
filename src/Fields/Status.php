@@ -5,28 +5,28 @@ namespace Martis\Fields;
 /**
  * Status field — visual state indicator with semantic loading/failed states.
  *
- * Paridade com Laravel Nova v5: Status field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields#status-field
+ * Laravel Nova v5 parity: Status field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields#status-field
  *
- * Status é semanticamente distinto do Badge:
- *  - Badge: indicador genérico de valor com cor
- *  - Status: indicador de estado/progresso com semântica de loading e falha
+ * Status is semantically distinct from Badge:
+ *  - Badge: generic value indicator with color
+ *  - Status: state/progress indicator with loading and failed semantics
  *
- * Contextos:
- *  - index: sim (display-only)
- *  - detail: sim (display-only)
- *  - create/update: não renderizado como input nativo (oculto por padrão)
+ * Contexts:
+ *  - index: yes (display-only)
+ *  - detail: yes (display-only)
+ *  - create/update: not rendered as a native input (hidden by default)
  *
- * Divergências intencionais do Nova:
- *  - Forms ocultados por padrão. Status não é um campo de formulário padrão.
- *  - Status não pode ser "depended upon" por outros fields no sistema de
- *    dependent fields — live-reporting de mudanças não é suportado.
+ * Intentional divergences from Nova:
+ *  - Forms hidden by default. Status is not a standard form field.
+ *  - Status cannot be "depended upon" by other fields in the
+ *    dependent fields system — live change reporting is not supported.
  *
  * API:
  *  - loadingWhen(['value1', 'value2'])  — valores que renderizam spinner de loading
  *  - failedWhen(['value1', 'value2'])   — valores que renderizam indicador de erro
  *
- * Valores não listados são renderizados como estado "success" (concluído).
+ * Unlisted values are rendered as "success" state (completed).
  */
 class Status extends Field
 {
@@ -36,6 +36,9 @@ class Status extends Field
     /** @var list<string> Values that trigger failed state */
     protected array $failedWhen = [];
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'status';

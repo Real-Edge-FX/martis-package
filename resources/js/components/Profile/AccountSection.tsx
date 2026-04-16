@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { InputText } from 'primereact/inputtext'
 import { IconField } from 'primereact/iconfield'
 import { InputIcon } from 'primereact/inputicon'
-import { Envelope, User } from '@phosphor-icons/react'
+import { EnvelopeIcon, UserIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -54,7 +54,7 @@ export function AccountSection({ name, email, onUpdate }: AccountSectionProps) {
             {t('name')}
           </label>
           <IconField iconPosition="left">
-            <InputIcon><User size={14} /></InputIcon>
+            <InputIcon><UserIcon size={14} /></InputIcon>
             <InputText
               id="profile-name"
               value={nameVal}
@@ -72,7 +72,7 @@ export function AccountSection({ name, email, onUpdate }: AccountSectionProps) {
             {t('email')}
           </label>
           <IconField iconPosition="left">
-            <InputIcon><Envelope size={14} /></InputIcon>
+            <InputIcon><EnvelopeIcon size={14} /></InputIcon>
             <InputText
               id="profile-email"
               type="email"

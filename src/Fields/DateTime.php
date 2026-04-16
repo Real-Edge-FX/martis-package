@@ -10,6 +10,9 @@ namespace Martis\Fields;
  */
 class DateTime extends Date
 {
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'datetime';

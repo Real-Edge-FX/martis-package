@@ -12,6 +12,7 @@ namespace Martis\Fields;
  */
 class Hidden extends Field
 {
+    /** Create a hidden field, invisible in index and detail views. */
     public function __construct(string $attribute, ?string $label = null)
     {
         parent::__construct($attribute, $label ?? $attribute);
@@ -19,6 +20,9 @@ class Hidden extends Field
         $this->showOnDetail = false;
     }
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'hidden';

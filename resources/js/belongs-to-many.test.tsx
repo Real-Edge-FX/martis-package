@@ -27,6 +27,7 @@ vi.mock('react-router-dom', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
+  useParams: vi.fn().mockReturnValue({ resource: 'posts', id: '1' }),
 }))
 
 // Mock @tanstack/react-query
@@ -56,7 +57,7 @@ vi.mock('primereact/column', () => ({
 }))
 
 import { render, screen } from '@testing-library/react'
-import { registerDefaultFields, FieldDisplay, FieldInput } from '@/components/fields'
+import { registerDefaultFields, FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import type { FieldDefinition } from '@/types'
 
 beforeEach(() => {

@@ -13,12 +13,33 @@ export interface ResourceMeta {
   icon: string | null
   group: string | null
   titleAttribute?: string
+  subtitle?: string | null
 }
 
 export interface NavigationGroup {
   label: string | null
-  resources: ResourceMeta[]
+  icon?: string | null
+  collapsable?: boolean
+  items: NavigationItem[]
 }
+
+export interface NavigationItemBase {
+  type: "resource" | "link"
+  label: string
+  url: string
+  icon: string | null
+  external?: boolean
+}
+
+export interface NavigationResourceItem extends NavigationItemBase, ResourceMeta {
+  type: "resource"
+}
+
+export interface NavigationLinkItem extends NavigationItemBase {
+  type: "link"
+}
+
+export type NavigationItem = NavigationResourceItem | NavigationLinkItem
 
 export interface PaginatedResponse<T> {
   data: T[]
@@ -52,6 +73,10 @@ export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'sel
   | 'has_many'
   | 'belongs_to_many'
   | 'morph_to'
+  | 'has_one'
+  | 'morph_many'
+  | 'morph_one'
+  | 'morph_to_many'
 
 export interface SelectOption {
   value: string | number
@@ -143,12 +168,14 @@ export interface CollectionAuthorizationMetadata {
   authorizedToRunDestructiveAction?: boolean
 }
 
+export type DetailItem = FieldDefinition | PanelDefinition | TabGroupDefinition | SectionDefinition
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
-  fieldsForDetail?: FieldDefinition[]
-  fieldsForCreate?: FieldDefinition[]
-  fieldsForUpdate?: FieldDefinition[]
+  fieldsForDetail?: DetailItem[]
+  fieldsForCreate?: DetailItem[]
+  fieldsForUpdate?: DetailItem[]
   fieldsForInlineCreate?: FieldDefinition[]
   fieldsForPreview?: FieldDefinition[]
   messages?: ResourceMessages
@@ -222,4 +249,58 @@ export interface OverrideProps {
   // Utilities
   /** Show a toast notification. */
   addToast: (type: "success" | "error" | "warning" | "info", message: string) => void
+}
+
+// -------------------------------------------------------------------------
+// Panel & Tab layout types
+// -------------------------------------------------------------------------
+
+export interface PanelDefinition {
+  /** Discriminant — always 'panel' */
+  type: 'panel'
+  /** Panel heading displayed in the header bar */
+  title: string
+  /** Fields rendered inside the panel */
+  fields: FieldDefinition[]
+  /** Whether the panel can be collapsed by the user */
+  collapsible: boolean
+  /** Whether the panel starts in a collapsed state */
+  collapsedByDefault: boolean
+  /** Maximum number of fields shown before Show more toggle. null = show all */
+  limit: number | null
+}
+
+
+export interface SectionDefinition {
+  /** Discriminant — always 'section' */
+  type: 'section'
+  /** Section heading displayed in the header bar. null/empty = no header rendered */
+  title: string | null
+  /** Fields rendered inside the section */
+  fields: FieldDefinition[]
+  /**
+   * Number of CSS grid columns for this section (default: 12).
+   * Individual fields control their width with Field::span() / colSpan.
+   */
+  columns: number
+  /** Whether the section can be collapsed by the user */
+  collapsible: boolean
+  /** Whether the section starts in a collapsed state */
+  collapsedByDefault: boolean
+  /** Maximum number of fields shown before Show more toggle. null = show all */
+  limit: number | null
+}
+
+export interface TabDefinition {
+  /** Tab label shown in the navigation bar */
+  title: string
+  /** Fields (and nested panels) rendered in this tab's content area */
+  fields: (FieldDefinition | PanelDefinition)[]
+}
+
+export interface TabGroupDefinition {
+  /** Discriminant — always 'tab_group' */
+  type: 'tab_group'
+  /** Array of tabs displayed in the tab bar */
+  tabs: TabDefinition[]
 }

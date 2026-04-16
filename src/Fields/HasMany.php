@@ -75,6 +75,13 @@ class HasMany extends Field
     /** Where to redirect after saving a related record. */
     protected HasManyRedirectMode $redirectMode = HasManyRedirectMode::Parent;
 
+    /** Whether the panel section header is collapsable. */
+    protected bool $collapsable = false;
+
+    /** Whether the panel starts collapsed. */
+    protected bool $collapsedByDefault = false;
+
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,
@@ -229,6 +236,31 @@ class HasMany extends Field
         return $this;
     }
 
+    /**
+     * Make the HasMany panel collapsable.
+     *
+     * Nova v5 parity: ->collapsable()
+     */
+    public function collapsable(bool $value = true): static
+    {
+        $this->collapsable = $value;
+
+        return $this;
+    }
+
+    /**
+     * Start the panel collapsed by default.
+     *
+     * Nova v5 parity: ->collapsedByDefault()
+     */
+    public function collapsedByDefault(bool $value = true): static
+    {
+        $this->collapsable = true;
+        $this->collapsedByDefault = $value;
+
+        return $this;
+    }
+
     /** Return the Eloquent relationship method name. */
     public function getRelationship(): string
     {
@@ -298,6 +330,8 @@ class HasMany extends Field
             'badgeColor' => $this->badgeColorValue,
             'badgeIcon' => $this->badgeIconValue,
             'redirectAfterSave' => $this->redirectMode->value,
+            'collapsable' => $this->collapsable ?: null,
+            'collapsedByDefault' => $this->collapsedByDefault ?: null,
             'hasManyMeta' => [
                 'perPage' => $this->relationPerPage,
                 'perPageOptions' => $this->relationPerPageOptions,

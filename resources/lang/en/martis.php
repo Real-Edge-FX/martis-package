@@ -16,4 +16,7 @@ return [
     'profile' => 'Profile',
     'settings' => 'Settings',
     'logout' => 'Logout',
+
+    'show_more' => 'Show more',
+    'show_less' => 'Show less',
 ];

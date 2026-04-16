@@ -5,13 +5,13 @@ import type { IconProps } from "@phosphor-icons/react"
  * Convenience aliases: short/custom names → Phosphor PascalCase export names.
  */
 const aliases: Record<string, string> = {
-  folders: "FolderSimple",
-  chat: "ChatCircle",
-  "chart-bar": "ChartBar",
-  "file-text": "FileText",
-  "shopping-cart": "ShoppingCart",
-  "map-pin": "MapPin",
-  "credit-card": "CreditCard",
+  folders: "FolderSimpleIcon",
+  chat: "ChatCircleIcon",
+  "chart-bar": "ChartBarIcon",
+  "file-text": "FileTextIcon",
+  "shopping-cart": "ShoppingCartIcon",
+  "map-pin": "MapPinIcon",
+  "credit-card": "CreditCardIcon",
 }
 
 /**
@@ -60,22 +60,31 @@ function resolveIcon(name: string): React.ComponentType<IconProps> {
 
   // 2. Try PascalCase conversion from kebab-case
   const pascal = kebabToPascal(name)
+  if (isComponent(iconExports[`${pascal}Icon`])) {
+    return iconExports[`${pascal}Icon`]
+  }
   if (isComponent(iconExports[pascal])) {
     return iconExports[pascal]
   }
 
   // 3. Try direct lookup (user passes PascalCase)
+  if (isComponent(iconExports[`${name}Icon`])) {
+    return iconExports[`${name}Icon`]
+  }
   if (isComponent(iconExports[name])) {
     return iconExports[name]
   }
 
   // 4. Try capitalizing first letter only (e.g., "database" → "Database")
   const capitalized = name.charAt(0).toUpperCase() + name.slice(1)
+  if (isComponent(iconExports[`${capitalized}Icon`])) {
+    return iconExports[`${capitalized}Icon`]
+  }
   if (isComponent(iconExports[capitalized])) {
     return iconExports[capitalized]
   }
 
-  return PhosphorIcons.Database
+  return PhosphorIcons.DatabaseIcon
 }
 
 interface ResourceIconProps {

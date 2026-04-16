@@ -17,4 +17,12 @@ return [
     'edit' => 'Edit',
     'index' => 'Index',
     'profile' => 'Profile',
+    'open_sidebar' => 'Open menu',
+    'search_resources' => 'Search resources...',
+    'no_results' => 'No results found.',
+    'navigate' => 'navigate',
+    'select' => 'select',
+    'close' => 'close',
+    'section_resources' => 'Resources',
+    'searching' => 'Searching...',
 ];

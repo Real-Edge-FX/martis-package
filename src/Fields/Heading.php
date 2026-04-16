@@ -14,12 +14,16 @@ class Heading extends Field
 {
     protected ?string $contentText = null;
 
+    /** Create a heading field with the given label. */
     public function __construct(string $attribute, string $label)
     {
         parent::__construct($attribute, $label);
         $this->showOnIndex = false;
     }
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'heading';
@@ -35,11 +39,17 @@ class Heading extends Field
         return $this;
     }
 
+    /**
+     * Resolve.
+     */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         return null;
     }
 
+    /**
+     * Fill.
+     */
     public function fill(Model $model, mixed $value): void
     {
         // Heading is not a data field — never writes to the model

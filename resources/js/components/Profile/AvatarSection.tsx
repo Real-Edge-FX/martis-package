@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Camera, Trash } from '@phosphor-icons/react'
+import { CameraIcon, TrashIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -122,7 +122,7 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: 'var(--martis-accent)' }}
                 >
-                  <Camera size={14} />
+                  <CameraIcon size={14} />
                   {uploading ? t('avatar_uploading') : t('avatar_upload')}
                 </button>
                 <button
@@ -150,7 +150,7 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
                   style={{ backgroundColor: 'var(--martis-accent)' }}
                 >
-                  <Camera size={14} />
+                  <CameraIcon size={14} />
                   {avatarUrl ? t('avatar_change') : t('avatar_upload')}
                 </button>
                 {avatarUrl && (
@@ -165,7 +165,7 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
                       color: '#dc2626',
                     }}
                   >
-                    <Trash size={14} />
+                    <TrashIcon size={14} />
                     {removing ? t('avatar_uploading') : t('avatar_remove')}
                   </button>
                 )}

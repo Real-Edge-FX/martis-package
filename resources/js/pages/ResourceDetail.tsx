@@ -2,14 +2,16 @@ import { useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { ResourceRecord, ResourceSchema, OverrideProps } from "@/types"
-import { FieldDisplay } from "@/components/fields"
+import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition } from "@/types"
+import { FieldDisplay } from "@/components/fields/FieldRenderer"
+import { PanelDisplay } from "@/components/fields/PanelRenderer"
+import { TabsDisplay } from "@/components/fields/TabsRenderer"
 import { DeleteModal } from "@/components/DeleteModal"
 import { ActionModal, ActionDropdown, ActionDrawer } from "@/components/Actions"
 import type { ActionMeta } from "@/components/Actions"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, PencilSimple, Trash, ArrowCounterClockwise, Copy, TrashSimple } from "@phosphor-icons/react"
+import { ArrowLeftIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, CopyIcon, TrashSimpleIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
 import { componentRegistry } from "@/lib/componentRegistry"
@@ -163,8 +165,10 @@ export function ResourceDetailPage() {
   }
 
   const detailFields = schema.fieldsForDetail ?? []
-  const scalarFields = detailFields.filter((f) => f.type !== 'has_many')
-  const hasManyFields = detailFields.filter((f) => f.type === 'has_many')
+  const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
+  const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
+  const scalarFields = detailFields.filter(f => f.type !== 'has_many' && f.type !== 'panel' && f.type !== 'tab_group') as FieldDefinition[]
+  const hasManyFields = detailFields.filter(f => f.type === 'has_many') as FieldDefinition[]
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
   const auth = record._authorization
   const canUpdate = auth?.authorizedToUpdate !== false
@@ -187,12 +191,12 @@ export function ResourceDetailPage() {
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
-          <ArrowLeft size={14} weight="bold" />
+          <ArrowLeftIcon size={14} weight="bold" />
           <ResourceIcon iconName={(schema.icon)} size={14} />
           {schema.label}
         </Link>
-        <span style={{ color: "var(--martis-text-muted)" }}>/</span>
-        <span className="font-semibold" style={{ color: "var(--martis-text)" }}>
+        <span className="hidden sm:inline" style={{ color: "var(--martis-text-muted)" }}>/</span>
+        <span className="hidden sm:inline font-semibold truncate max-w-xs" style={{ color: "var(--martis-text)" }}>
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </span>
         {isDeleted && (
@@ -203,11 +207,11 @@ export function ResourceDetailPage() {
       </nav>
 
       {/* Header with title and actions */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--martis-text)" }}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl" style={{ color: "var(--martis-text)" }}>
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Resource actions dropdown */}
           {detailActions.length > 0 && (
             <ActionDropdown
@@ -222,7 +226,7 @@ export function ResourceDetailPage() {
               
               className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
             >
-              <ArrowCounterClockwise size={14} />
+              <ArrowCounterClockwiseIcon size={14} />
               {tAct("restore")}
             </button>
           ) : null}
@@ -239,7 +243,7 @@ export function ResourceDetailPage() {
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
           >
-            <PencilSimple size={14} />
+            <PencilSimpleIcon size={14} />
             {tAct("edit")}
           </button>
           )}
@@ -256,7 +260,7 @@ export function ResourceDetailPage() {
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
           >
-            <Copy size={14} />
+            <CopyIcon size={14} />
             {tAct("replicate")}
           </button>
           )}
@@ -266,7 +270,7 @@ export function ResourceDetailPage() {
             onClick={() => setShowDelete(true)}
             className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
           >
-            <Trash size={14} />
+            <TrashIcon size={14} />
             {tAct("delete")}
           </button>
           )}
@@ -277,15 +281,23 @@ export function ResourceDetailPage() {
             
             className="inline-flex items-center gap-1.5 rounded-md bg-red-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-900"
           >
-            <TrashSimple size={14} />
+            <TrashSimpleIcon size={14} />
             {tAct("delete_permanent")}
           </button>
           )}
         </div>
       </div>
 
-      {/* Fields card */}
-      <div
+      {/* Panel and Tab layout containers */}
+      {tabGroupItems.map((tg, idx) => (
+        <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} />
+      ))}
+      {panelItems.map((panel, idx) => (
+        <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} />
+      ))}
+
+      {/* Fields card — only shown when there are scalar fields */}
+      {scalarFields.length > 0 && <div
         className="rounded-xl border"
         style={{
           borderColor: "var(--martis-border)",
@@ -299,10 +311,10 @@ export function ResourceDetailPage() {
           {scalarFields.map((field) => (
             <div
               key={field.attribute}
-              className="flex items-start gap-4 px-6 py-4"
+              className="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-start sm:gap-4 sm:px-6"
               style={{ borderColor: "var(--martis-border)" }}
             >
-              <dt className="shrink-0 text-sm font-medium" style={{ color: "var(--martis-text-muted)", minWidth: "12rem", maxWidth: "16rem" }}>
+              <dt className="text-sm font-medium sm:w-48 sm:shrink-0" style={{ color: "var(--martis-text-muted)" }}>
                 {field.label}
               </dt>
               <dd className="min-w-0 flex-1 text-sm">
@@ -311,7 +323,7 @@ export function ResourceDetailPage() {
             </div>
           ))}
         </dl>
-      </div>
+      </div>}
 
       {/* HasMany relationship tables */}
       {hasManyFields.map((field) => (
@@ -382,7 +394,7 @@ export function ResourceDetailPage() {
             <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "var(--martis-border)" }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <ArrowCounterClockwise size={20} className="text-amber-600 dark:text-amber-400" />
+                  <ArrowCounterClockwiseIcon size={20} className="text-amber-600 dark:text-amber-400" />
                 </div>
                 <span className="text-lg font-semibold" style={{ color: "var(--martis-text)" }}>{tAct("restore")} {schema.singularLabel}</span>
               </div>
@@ -393,7 +405,7 @@ export function ResourceDetailPage() {
             <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: "var(--martis-border)", backgroundColor: "var(--martis-surface)", borderRadius: "0 0 0.75rem 0.75rem" }}>
               <button type="button" onClick={() => setShowRestore(false)} className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium" style={{ backgroundColor: "var(--martis-input-bg)", borderColor: "var(--martis-border)", color: "var(--martis-text)" }}>{tAct("cancel")}</button>
               <button type="button" onClick={async () => { await restoreMutation.mutateAsync(); setShowRestore(false) }} disabled={restoreMutation.isPending} className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50">
-                <ArrowCounterClockwise size={14} />
+                <ArrowCounterClockwiseIcon size={14} />
                 {restoreMutation.isPending ? tAct("please_wait") : tAct("restore")}
               </button>
             </div>

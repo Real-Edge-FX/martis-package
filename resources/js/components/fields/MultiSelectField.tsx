@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CaretDown, X, Check } from '@phosphor-icons/react'
+import { CaretDownIcon, XIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface SelectOpt {
@@ -191,13 +191,13 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                   className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--martis-text-muted)', lineHeight: 1 }}
                 >
-                  <X size={10} weight="bold" />
+                  <XIcon size={10} weight="bold" />
                 </button>
               )}
             </span>
           ))
         )}
-        <CaretDown
+        <CaretDownIcon
           size={12}
           weight="bold"
           style={{
@@ -224,16 +224,16 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
             flexDirection: 'column',
           }}
         >
-          {/* Search */}
-          <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--martis-border)' }}>
+          {/* Search — aligned to BelongsTo style (icon + borderless input) */}
+          <div className="martis-belongs-to-search">
+            <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
             <input
               autoFocus
               type="text"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder={tMsg('search')}
-              className="martis-input"
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+              className="martis-belongs-to-search-input"
             />
           </div>
 
@@ -288,7 +288,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                       >
                         <span>{opt.label}</span>
                         {isSelected && (
-                          <Check size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
+                          <CheckIcon size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
                         )}
                       </button>
                     )

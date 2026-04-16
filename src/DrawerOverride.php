@@ -2,6 +2,8 @@
 
 namespace Martis;
 
+use Martis\Enums\DrawerPosition;
+
 /**
  * Typed override for the built-in Drawer components.
  *
@@ -91,10 +93,10 @@ class DrawerOverride extends Override
         return $this;
     }
 
-    /** Drawer position: 'right' (default) or 'left'. */
-    public function position(string $position): static
+    /** Drawer position. */
+    public function position(DrawerPosition $position): static
     {
-        $this->params['position'] = $position;
+        $this->params['position'] = $position->value;
 
         return $this;
     }

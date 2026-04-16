@@ -1,25 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import { FieldDisplay, FieldInput } from '@/components/fields'
+import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/contexts/ToastContext'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
-import {
-  Plus,
-  LinkSimple,
-  LinkBreak,
-  MagnifyingGlass,
-  CaretUp,
-  CaretDown,
-  CaretUpDown,
-  X,
-  Lightning,
-} from '@phosphor-icons/react'
+import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, MagnifyingGlassIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, XIcon, LightningIcon } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -63,7 +53,7 @@ function BelongsToManyCountBadge({ count }: { count: number }) {
         border: '1px solid var(--martis-border)',
       }}
     >
-      <LinkSimple size={11} />
+      <LinkSimpleIcon size={11} />
       {count}
     </span>
   )
@@ -95,11 +85,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   const searchable = field.searchable as boolean
   const modalSize = (field.modalSize as string | undefined) ?? '2xl'
   const modalHeight = (field.modalHeight as string | undefined) ?? null
+  const withSubtitles = !!(field.withSubtitles as boolean | undefined)
+  const subtitleAttribute = (field.subtitleAttribute as string | undefined) ?? 'subtitle'
 
-  const pathParts = window.location.pathname.split('/')
-  const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = resourcesIdx >= 0 ? pathParts[resourcesIdx + 1] : ''
-  const parentId = resourcesIdx >= 0 ? pathParts[resourcesIdx + 2] : ''
+  const { resource: parentResource = '', id: parentId = '' } = useParams<{ resource?: string; id?: string }>()
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -114,24 +103,34 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   const [pivotDropdownOpen, setPivotDropdownOpen] = useState(false)
   const pivotDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Reset local state when navigating to a different parent record (race condition fix)
+  useEffect(() => {
+    setSearch('')
+    setPage(1)
+    setSort(null)
+    setDirection('asc')
+    setSelectedRows([])
+  }, [parentId, parentResource])
+
   // Schema for column headers
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`),
+    queryFn: ({ signal }) => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`, signal),
     enabled: !!relatedResource,
   })
 
   // Attached records
   const recordsQuery = useQuery({
     queryKey: ['belongs-to-many', parentResource, parentId, relationship, { search, page, perPage, sort, direction }],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       params.set('page', String(page))
       params.set('per_page', String(perPage))
       if (sort) { params.set('sort', sort); params.set('direction', direction) }
       return api.get<PaginatedResponse<ResourceRecord>>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}?${params.toString()}`
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}?${params.toString()}`,
+        signal
       )
     },
     enabled: !!parentResource && !!parentId && !!relationship && !collapsed,
@@ -140,9 +139,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   // Pivot actions — only in non-readonly mode
   const pivotActionsQuery = useQuery({
     queryKey: ['pivot-actions', parentResource, parentId, relationship],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<{ data: { actions: ActionMeta[] } }>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`,
+        signal
       ),
     enabled: !readOnly && !!parentResource && !!parentId && !!relationship && !collapsed,
   })
@@ -193,10 +193,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   }
 
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-    if (!active) return <CaretUpDown size={14} className="text-gray-400" />
+    if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUp size={14} className="text-indigo-600" />
-      : <CaretDown size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} className="text-indigo-600" />
+      : <CaretDownIcon size={14} className="text-indigo-600" />
   }
 
   // Group pivot actions by their pivotLabel
@@ -219,10 +219,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
               className="rounded p-0.5 transition-colors"
               style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              {collapsed ? <CaretDown size={16} /> : <CaretUp size={16} />}
+              {collapsed ? <CaretDownIcon size={16} /> : <CaretUpIcon size={16} />}
             </button>
           )}
-          <LinkSimple size={18} style={{ color: 'var(--martis-accent)' }} />
+          <LinkSimpleIcon size={18} style={{ color: 'var(--martis-accent)' }} />
           <span>{field.label}</span>
           <span
             className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
@@ -237,7 +237,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
         </h3>
         {!collapsed && searchable && (
           <div className="relative flex-1 min-w-[120px]">
-            <MagnifyingGlass
+            <MagnifyingGlassIcon
               size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 martis-text-muted"
             />
@@ -283,7 +283,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                 cursor: 'pointer',
               }}
             >
-              <Lightning size={14} />
+              <LightningIcon size={14} />
               {label}
               {selectedRows.length > 0 && (
                 <span
@@ -293,7 +293,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                   {selectedRows.length}
                 </span>
               )}
-              <CaretDown size={12} />
+              <CaretDownIcon size={12} />
             </button>
             {pivotDropdownOpen && (
               <div
@@ -328,7 +328,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                       e.currentTarget.style.backgroundColor = 'transparent'
                     }}
                   >
-                    <Lightning size={14} style={{ color: action.destructive ? '#ef4444' : 'var(--martis-accent)' }} />
+                    <LightningIcon size={14} style={{ color: action.destructive ? '#ef4444' : 'var(--martis-accent)' }} />
                     {action.name}
                   </button>
                 ))}
@@ -343,7 +343,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
             className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white flex-shrink-0"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
-            <Plus size={14} weight="bold" />
+            <PlusIcon size={14} weight="bold" />
             {tAct('attach', 'Attach')}
           </button>
         )}
@@ -352,13 +352,14 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
       {/* DataTable */}
       {!collapsed && (
         <>
+          <div className="overflow-x-auto">
           <DataTable
             value={records}
             loading={recordsQuery.isLoading}
             dataKey="id"
             removableSort
             sortField={sort ?? undefined}
-            sortOrder={direction === 'asc' ? 1 : -1}
+            sortOrder={sort ? (direction === 'asc' ? 1 : -1) : undefined}
             onSort={(e: DataTableSortEvent) => {
               if (e.sortField) handleSort(String(e.sortField))
             }}
@@ -452,7 +453,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                         onClick={() => setDetachTarget({ id: row.id as string | number, title: row._title as string })}
                         className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
                         style={{ color: 'var(--martis-text-muted)', background: 'none', border: '1px solid var(--martis-border)', cursor: 'pointer' }}
-                        title={tAct('detach', 'Detach')}
+                        data-pr-tooltip={tAct('detach', 'Detach')}
+                        data-pr-position="top"
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = '#ef4444'
                           e.currentTarget.style.borderColor = '#ef4444'
@@ -462,7 +464,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
                           e.currentTarget.style.borderColor = 'var(--martis-border)'
                         }}
                       >
-                        <LinkBreak size={14} />
+                        <LinkBreakIcon size={14} />
                         {tAct('detach', 'Detach')}
                       </button>
                     )}
@@ -472,6 +474,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
               />
             )}
           </DataTable>
+          </div>
 
           {/* Pagination — identical to ResourceIndex */}
           {pagination && (
@@ -525,6 +528,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
           pivotFields={pivotFields}
           modalSize={modalSize}
           modalHeight={modalHeight}
+          withSubtitles={withSubtitles}
+          subtitleAttribute={subtitleAttribute}
           onSuccess={() => {
             setShowAttachModal(false)
             void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
@@ -589,9 +594,10 @@ function PivotActionModal({
 
   const fieldsQuery = useQuery({
     queryKey: ['action-fields', parentResource, action.uriKey],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<{ data: { fields: FieldDefinition[] } }>(
-        `/api/resources/${parentResource}/actions/${action.uriKey}/fields`
+        `/api/resources/${parentResource}/actions/${action.uriKey}/fields`,
+        signal
       ),
     enabled: !!action,
   })
@@ -695,7 +701,7 @@ function PivotActionModal({
                 color: action.destructive ? '#dc2626' : '#6366f1',
               }}
             >
-              <Lightning size={20} weight="fill" />
+              <LightningIcon size={20} weight="fill" />
             </div>
             <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
               {action.name}
@@ -707,7 +713,7 @@ function PivotActionModal({
             className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             style={{ color: 'var(--martis-text-muted)' }}
           >
-            <X size={16} />
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -761,7 +767,7 @@ function PivotActionModal({
               color: 'var(--martis-text)',
             }}
           >
-            <X size={14} />
+            <XIcon size={14} />
             {action.cancelButtonText ?? t('cancel')}
           </button>
           <button
@@ -771,7 +777,7 @@ function PivotActionModal({
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: action.destructive ? '#dc2626' : 'var(--martis-accent)' }}
           >
-            <Lightning size={14} />
+            <LightningIcon size={14} />
             {executeMutation.isPending
               ? t('please_wait')
               : (action.confirmButtonText ?? t('run_action'))}
@@ -874,6 +880,8 @@ function AttachModal({
   pivotFields,
   modalSize = '2xl',
   modalHeight,
+  withSubtitles = false,
+  subtitleAttribute = 'subtitle',
   onSuccess,
   onClose,
 }: {
@@ -884,6 +892,8 @@ function AttachModal({
   pivotFields: FieldDefinition[]
   modalSize?: string
   modalHeight?: string | null
+  withSubtitles?: boolean
+  subtitleAttribute?: string
   onSuccess: () => void
   onClose: () => void
 }) {
@@ -910,17 +920,18 @@ function AttachModal({
   // Fetch related resource schema for DataTable columns
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`),
+    queryFn: ({ signal }) => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`, signal),
     enabled: !!relatedResource,
   })
 
   const attachableQuery = useQuery({
     queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams({ per_page: String(attachPerPage), page: String(attachPage) })
       if (debouncedSearch) params.set('search', debouncedSearch)
       return api.get<PaginatedResponse<ResourceRecord>>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`,
+        signal
       )
     },
     enabled: !!parentResource && !!parentId && !!relationship,
@@ -996,7 +1007,7 @@ function AttachModal({
             className="rounded p-1"
             style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
-            <X size={18} />
+            <XIcon size={18} />
           </button>
         </div>
 
@@ -1004,7 +1015,7 @@ function AttachModal({
         <div className="shrink-0 border-b px-6 py-3" style={{ borderColor: 'var(--martis-border)' }}>
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
-              <MagnifyingGlass
+              <MagnifyingGlassIcon
                 size={14}
                 className="absolute left-3 top-1/2 -translate-y-1/2"
                 style={{ color: 'var(--martis-text-muted)' }}
@@ -1056,7 +1067,7 @@ function AttachModal({
             tableClassName="min-w-full"
           >
             <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
-            {indexFields.map((f) => (
+            {indexFields.map((f, idx) => (
               <Column
                 key={f.attribute}
                 field={f.attribute}
@@ -1066,7 +1077,14 @@ function AttachModal({
                   </span>
                 }
                 body={(row: ResourceRecord) => (
-                  <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                  <div>
+                    <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                    {withSubtitles && idx === 0 && row[subtitleAttribute] != null && (
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>
+                        {String(row[subtitleAttribute])}
+                      </div>
+                    )}
+                  </div>
                 )}
               />
             ))}
@@ -1143,7 +1161,7 @@ function AttachModal({
             className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
-            <LinkSimple size={14} />
+            <LinkSimpleIcon size={14} />
             {attachMutation.isPending
               ? tAct('please_wait', 'Please wait…')
               : selected.length > 1

@@ -1,12 +1,15 @@
-import { useMemo, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { ResourceRecord, ResourceSchema, OverrideProps } from '@/types'
-import { FieldInput } from '@/components/fields'
+import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
+import { FieldInput } from '@/components/fields/FieldRenderer'
+import { PanelInput } from '@/components/fields/PanelRenderer'
+import { SectionInput } from '@/components/fields/SectionRenderer'
+import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from '@phosphor-icons/react'
+import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -41,11 +44,9 @@ export function ResourceUpdatePage() {
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
 
-  // Stable reference — recomputed only when schema changes
-  const formFields = useMemo(
-    () => schema?.fieldsForUpdate ?? [],
-    [schema],
-  )
+  const allFormFields = (schema?.fieldsForUpdate ?? [])
+  const scalarFormFields = allFormFields.filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[]
+  const layoutFormItems = allFormFields.filter(f => f.type === 'panel' || f.type === 'tab_group' || f.type === 'section') as (PanelDefinition | TabGroupDefinition | SectionDefinition)[]
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -55,14 +56,23 @@ export function ResourceUpdatePage() {
   useEffect(() => {
     if (record && schema && !initialized) {
       const initial: Record<string, unknown> = {}
-      formFields.forEach((field) => {
-        const val = record[field.attribute] ?? null
-        initial[field.attribute] = val
+      scalarFormFields.forEach((f) => { initial[f.attribute] = record[f.attribute] ?? null })
+      layoutFormItems.forEach((item) => {
+        if (item.type === 'panel' || item.type === 'section') {
+          item.fields.forEach((f: FieldDefinition) => { initial[f.attribute] = record[f.attribute] ?? null })
+        } else {
+          item.tabs.forEach((tab) => {
+            tab.fields.forEach((f) => {
+              if ('attribute' in f) { initial[(f as FieldDefinition).attribute] = record[(f as FieldDefinition).attribute] ?? null }
+              else { (f as PanelDefinition).fields.forEach((pf: FieldDefinition) => { initial[pf.attribute] = record[pf.attribute] ?? null }) }
+            })
+          })
+        }
       })
       setValues(initial)
       setInitialized(true)
     }
-  }, [record, schema, formFields, initialized])
+  }, [record, schema, scalarFormFields, layoutFormItems, initialized])
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -210,7 +220,7 @@ export function ResourceUpdatePage() {
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
-          <ArrowLeft size={14} weight="bold" />
+          <ArrowLeftIcon size={14} weight="bold" />
           <ResourceIcon iconName={((schema as unknown as { icon?: string }).icon)} size={14} />
           {backLabel}
         </Link>
@@ -224,6 +234,16 @@ export function ResourceUpdatePage() {
         {tAct('edit')} {schema.singularLabel}
       </h1>
 
+      {layoutFormItems.map((item, idx) => {
+        if (item.type === 'tab_group') {
+          return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+        }
+        if (item.type === 'section') {
+          return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+        }
+        return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+      })}
+
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-xl border"
             style={{
@@ -232,7 +252,7 @@ export function ResourceUpdatePage() {
             }}>
           <div className="martis-divide"
               style={{ borderColor: "var(--martis-border)" }}>
-            {formFields.map((field) => (
+            {scalarFormFields.map((field) => (
               <div key={field.attribute} className="grid grid-cols-3 gap-4 px-6 py-4">
                 <div>
                   <label

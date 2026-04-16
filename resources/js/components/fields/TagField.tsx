@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { MagnifyingGlass, X, Plus, Check } from '@phosphor-icons/react'
+import { MagnifyingGlassIcon, XIcon, PlusIcon, CheckIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
@@ -217,11 +217,12 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
                 <button
                   type="button"
                   onClick={() => removeTag(tag.id)}
-                  title={`Remove ${tag.title}`}
+                  data-pr-tooltip={`Remove ${tag.title}`}
+                  data-pr-position="top"
                   className="opacity-60 hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--martis-badge-info-text)', lineHeight: 1 }}
                 >
-                  <X size={10} weight="bold" />
+                  <XIcon size={10} weight="bold" />
                 </button>
               )}
             </span>
@@ -237,7 +238,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
           className="flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
           style={{ color: 'var(--martis-accent)' }}
         >
-          <Plus size={12} weight="bold" />
+          <PlusIcon size={12} weight="bold" />
           Add {field.label}
         </button>
       )}
@@ -263,7 +264,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
             className="flex items-center gap-2 px-3 py-2"
             style={{ borderBottom: '1px solid var(--martis-border)' }}
           >
-            <MagnifyingGlass size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+            <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
             <input
               autoFocus
               type="text"
@@ -326,7 +327,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
                   >
                     <span>{label}</span>
                     {alreadySelected && (
-                      <Check size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
+                      <CheckIcon size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
                     )}
                   </button>
                 )

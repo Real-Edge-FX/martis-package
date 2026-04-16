@@ -22,7 +22,7 @@ class AvatarService
      */
     public function upload(Authenticatable $user, UploadedFile $file): string
     {
-        $disk = (string) config('martis.profile.avatar.disk', 'public');
+        $disk = (string) config('martis.profile.avatar.disk', config('martis.storage.disk', 'public'));
         $path = (string) config('martis.profile.avatar.path', 'avatars');
         $column = (string) config('martis.profile.avatar.column', 'profile_picture');
 
@@ -48,7 +48,7 @@ class AvatarService
      */
     public function remove(Authenticatable $user): void
     {
-        $disk = (string) config('martis.profile.avatar.disk', 'public');
+        $disk = (string) config('martis.profile.avatar.disk', config('martis.storage.disk', 'public'));
         $column = (string) config('martis.profile.avatar.column', 'profile_picture');
 
         /** @var Model&Authenticatable $user */

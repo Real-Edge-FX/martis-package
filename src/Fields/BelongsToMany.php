@@ -72,6 +72,9 @@ class BelongsToMany extends Field
     /** Whether to show subtitles in the attach modal search results. */
     protected bool $withSubtitles = false;
 
+    /** The attribute on the related model to show as subtitle. */
+    protected string $subtitleAttribute = 'subtitle';
+
     /** Per-page default for the inline listing. */
     protected int $relationPerPage = 10;
 
@@ -86,6 +89,7 @@ class BelongsToMany extends Field
     /** Whether to show detach button. */
     protected bool $canDetach = true;
 
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,
@@ -253,13 +257,10 @@ class BelongsToMany extends Field
     /**
      * Set the modal size for the attach dialog.
      *
-     * Nova v5 parity: ->modalSize('lg')
+     * Nova v5 parity: ->modalSize(ModalSize::LG)
      */
-    public function modalSize(ModalSize|string $size, ?string $height = null): static
+    public function modalSize(ModalSize $size, ?string $height = null): static
     {
-        if (is_string($size)) {
-            $size = ModalSize::from($size);
-        }
         $this->modalSize = $size;
         $this->modalHeight = $height;
 
@@ -300,6 +301,19 @@ class BelongsToMany extends Field
     public function withSubtitles(bool $value = true): static
     {
         $this->withSubtitles = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set which attribute to use as subtitle. Implicitly enables withSubtitles.
+     *
+     * Nova v5 parity: ->subtitleAttribute('description')
+     */
+    public function subtitleAttribute(string $attribute): static
+    {
+        $this->subtitleAttribute = $attribute;
+        $this->withSubtitles = true;
 
         return $this;
     }
@@ -437,6 +451,7 @@ class BelongsToMany extends Field
             'modalSize' => $this->getModalSize()->value,
             'modalHeight' => $this->modalHeight,
             'withSubtitles' => $this->withSubtitles,
+            'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
             'dontReorderAttachables' => $this->dontReorderAttachables,
             'pivotFields' => $pivotFields,
             'belongsToManyMeta' => [

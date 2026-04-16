@@ -10,7 +10,7 @@ import { ActionModal, ActionDropdown, ActionDrawer } from '@/components/Actions'
 import type { ActionMeta } from '@/components/Actions'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
-import { MagnifyingGlass } from '@phosphor-icons/react'
+import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -93,7 +93,13 @@ export function ResourceIndexPage() {
       )
     },
     enabled: !!resource,
-    placeholderData: (prev) => prev,
+    // Keep previous data only when paginating/searching within the same resource
+    // (not when navigating to a different resource — that would show stale columns/data)
+    placeholderData: (prev, prevQuery) => {
+      const prevKey = prevQuery?.queryKey
+      if (Array.isArray(prevKey) && prevKey[1] === resource) return prev
+      return undefined
+    },
   })
 
   // Fetch actions for this resource
@@ -356,11 +362,11 @@ export function ResourceIndexPage() {
         {showSearch && (
           <div className="relative flex-1">
             <input
-              type="search"
+              type="text"
               placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-1"
+              className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-1"
               style={{
                 backgroundColor: 'var(--martis-input-bg)',
                 border: '1px solid var(--martis-border)',
@@ -368,8 +374,21 @@ export function ResourceIndexPage() {
               }}
             />
             <span className="absolute inset-y-0 left-3 flex items-center">
-              <MagnifyingGlass size={14} className="martis-text-muted" />
+              <MagnifyingGlassIcon size={14} className="martis-text-muted" />
             </span>
+            {search && (
+              <button
+                type="button"
+                onClick={() => handleSearchChange('')}
+                className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear"
+                style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+                data-pr-tooltip={tMsg('clear_search', 'Clear search')}
+                data-pr-position="top"
+                aria-label={tMsg('clear_search', 'Clear search')}
+              >
+                <XIcon size={14} weight="bold" />
+              </button>
+            )}
           </div>
         )}
 
@@ -493,5 +512,3 @@ export function ResourceIndexPage() {
     </div>
   )
 }
-
-

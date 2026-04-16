@@ -9,7 +9,7 @@ use Martis\Enums\GravatarSourceType;
 /**
  * Gravatar field — displays avatar from Gravatar service or a direct URL.
  *
- * Paridade com Laravel Nova v5: Gravatar field.
+ * Laravel Nova v5 parity: Gravatar field.
  * Generates Gravatar URL from email or uses a direct avatar URL.
  *
  * Nova-compatible API:
@@ -21,7 +21,7 @@ use Martis\Enums\GravatarSourceType;
  *
  * Default: uses 'email' column, rounded display.
  *
- * Contextos: index (sim), detail (sim), create/update (configurable).
+ * Contexts: index (sim), detail (sim), create/update (configurable).
  */
 class Gravatar extends Field
 {
@@ -31,6 +31,9 @@ class Gravatar extends Field
 
     protected GravatarSourceType $sourceType = GravatarSourceType::Email;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'gravatar';
@@ -102,11 +105,17 @@ class Gravatar extends Field
         return $this->sourceType(GravatarSourceType::Url);
     }
 
+    /**
+     * Get shape.
+     */
     public function getShape(): AvatarShape
     {
         return $this->shape;
     }
 
+    /**
+     * Get size.
+     */
     public function getSize(): int
     {
         return $this->size;

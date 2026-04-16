@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { OverrideProps } from '@/types'
-import { FieldInput } from '@/components/fields'
+import type { OverrideProps, FieldDefinition } from '@/types'
+import { FieldInput } from '@/components/fields/FieldRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 
@@ -32,7 +32,7 @@ export function DrawerCreate(props: OverrideProps) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
-  const formFields = useMemo(() => schema.fieldsForCreate ?? [], [schema])
+  const formFields = useMemo(() => (schema.fieldsForCreate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [schema])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})

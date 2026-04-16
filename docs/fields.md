@@ -658,20 +658,69 @@ BelongsTo::make('category_id', 'Category')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
+| `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | `'name'` |
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API. | `null` |
+| `placeholder` | `placeholder(string $text): static` | `$this` | Custom placeholder text shown when no value is selected. | translated `'Select {field}...'` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. | `true` |
 | `multiple` | `multiple(bool $value = true): static` | `$this` | Enable many-to-many mode (pivot sync). | `false` |
 | `displayAsLink` | `displayAsLink(bool $value = true): static` | `$this` | Render as clickable link on index/detail. | `true` |
 | `showCreateRelationButton` | `showCreateRelationButton(bool|\Closure $callback = true): static` | `$this` | Show "+" button to create related record inline via modal. | `false` |
 | `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
 | `modalSize` | `modalSize(ModalSize|string $size): static` | `$this` | Set the inline create modal size (`sm`, `md`, `lg`, `xl`, `2xl`–`7xl`). | `'2xl'` |
+| `iconColor` | `iconColor(string $color): static` | `$this` | Color for the resource icon in the inline create modal header. Any CSS color. | accent color |
+
+#### Peek / Preview
+
+The peek card appears when the user hovers the small preview icon next to a related record link.
+Content is fetched lazily from the related resource's `fieldsForPreview()` — aligned with
+Laravel Nova v5's concept of peeking at BelongsTo relationships.
+
+The icon is the **only** trigger; hovering the record link itself does **not** open the peek card.
+This is the single intentional UX difference from Nova: Nova triggers peek on link hover,
+Martis triggers it on the icon only.
+
+```php
+// Peek is enabled by default
+BelongsTo::make('author_id', 'Author')
+    ->relatedResource('users')
+
+// Disable peek entirely
+BelongsTo::make('author_id')->noPeeking()
+
+// Equivalent
+BelongsTo::make('author_id')->peekable(false)
+```
+
+The peek card content is governed by the **related resource's `fieldsForPreview()` method**,
+which defaults to the detail fields (`fieldsForDetail()`). Override it on the resource class
+to control exactly which fields appear in the peek card:
+
+```php
+// UserResource.php (or any resource)
+public function fieldsForPreview(Request $request): array
+{
+    return [
+        Text::make('Name'),
+        Text::make('Email'),
+        Text::make('Role'),
+    ];
+}
+```
+
+Fields can also be shown/hidden from preview individually. By default a field visible on detail
+is also visible in preview (`showOnPreview` falls back to `showOnDetail`).
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `peekable` | `peekable(bool $value = true): static` | `$this` | Enable/disable the peek preview icon. | `true` |
+| `noPeeking` | `noPeeking(): static` | `$this` | Disable peek. Shorthand for `peekable(false)`. | — |
 
 **Overrides:**
 - `resolve()` returns `{id, title}` (single) or `[{id, title}, ...]` (multiple).
 - `fill()` sets FK (single) or registers deferred pivot sync (multiple) via `DeferredRelationSync`.
 
-**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`
+**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `placeholder`, `iconColor`
 
 ---
 

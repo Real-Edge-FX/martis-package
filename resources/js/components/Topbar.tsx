@@ -8,23 +8,14 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlass, Bell, CaretDown, Sun, Moon, SignOut, UserCircle } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, CaretDownIcon, SunIcon, MoonIcon, SignOutIcon, UserCircleIcon, ListIcon } from "@phosphor-icons/react"
+import { useIsMobile } from "@/hooks/useIsMobile"
 
-function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false,
-  )
-  useEffect(() => {
-    function onResize() {
-      setIsMobile(window.innerWidth <= breakpoint)
-    }
-    window.addEventListener("resize", onResize)
-    return () => window.removeEventListener("resize", onResize)
-  }, [breakpoint])
-  return isMobile
+interface TopbarProps {
+  onToggleSidebar?: () => void
 }
 
-export function Topbar() {
+export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
@@ -33,9 +24,8 @@ export function Topbar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const isMobile = useIsMobile()
 
-  const showThemeToggle = config.userMenu?.showThemeToggle !== false
-  const showNotifications = config.userMenu?.showNotifications !== false
-  const showProfile = config.profile?.menu?.enabled !== false
+  const showThemeToggle = config.userMenu?.showThemeToggle !== false && config.theme?.allowToggle !== false
+  const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
 
   // Search mode resolution
   const desktopMode = config.search?.enabled === false ? "disabled" : (config.search?.mode ?? "bar")
@@ -91,9 +81,9 @@ export function Topbar() {
                 role="menuitem"
               >
                 {theme === "dark" ? (
-                  <Sun size={16} className="p-menuitem-icon" />
+                  <SunIcon size={16} className="p-menuitem-icon" />
                 ) : (
-                  <Moon size={16} className="p-menuitem-icon" />
+                  <MoonIcon size={16} className="p-menuitem-icon" />
                 )}
                 <span className="p-menuitem-text">
                   {theme === "dark" ? t("light_mode") : t("dark_mode")}
@@ -128,7 +118,7 @@ export function Topbar() {
                 }}
                 role="menuitem"
               >
-                <UserCircle size={16} className="p-menuitem-icon" />
+                <UserCircleIcon size={16} className="p-menuitem-icon" />
                 <span className="p-menuitem-text">
                   {config.profile?.menu?.label ?? t("profile", "Profile")}
                 </span>
@@ -151,7 +141,7 @@ export function Topbar() {
           }}
           role="menuitem"
         >
-          <SignOut size={16} className="p-menuitem-icon" />
+          <SignOutIcon size={16} className="p-menuitem-icon" />
           <span className="p-menuitem-text">{t("logout")}</span>
         </a>
       ),
@@ -160,7 +150,23 @@ export function Topbar() {
 
   return (
     <header className="martis-topbar-bg flex h-14 items-center justify-between border-b martis-border px-5">
-      <Breadcrumbs />
+      <div className="flex items-center gap-3">
+        {/* Hamburger — only on mobile when sidebar is managed externally */}
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
+            style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+            aria-label={t("open_sidebar", "Menu")}
+          >
+            <ListIcon size={20} />
+          </button>
+        )}
+        <Breadcrumbs />
+      </div>
 
       {/* Search — full bar mode */}
       {searchMode === "bar" && (
@@ -175,7 +181,7 @@ export function Topbar() {
             minWidth: 220,
           }}
         >
-          <MagnifyingGlass size={12} />
+          <MagnifyingGlassIcon size={12} />
           <span>
             {config.search?.placeholder ?? t("search_placeholder", "Press / to search")}
           </span>
@@ -210,28 +216,11 @@ export function Topbar() {
           }
           aria-label="Search"
         >
-          <MagnifyingGlass size={16} />
+          <MagnifyingGlassIcon size={16} />
         </button>
       )}
 
       <div className="flex items-center gap-3">
-        {showNotifications && (
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors border-0 cursor-pointer"
-            style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
-            aria-label="Notifications"
-          >
-            <Bell size={16} />
-          </button>
-        )}
-
         {/* User avatar + dropdown menu */}
         <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
         <div
@@ -261,7 +250,7 @@ export function Topbar() {
           <span className="hidden sm:inline text-sm font-medium martis-text">
             {user?.name ?? user?.email}
           </span>
-          <CaretDown size={12} className="martis-text-muted" />
+          <CaretDownIcon size={12} className="martis-text-muted" />
         </div>
       </div>
 

@@ -139,6 +139,8 @@ public function group(): ?string
 }
 ```
 
+When no custom main menu is defined, Martis uses `group()` to build the default menu sections automatically.
+
 ### displayInNavigation()
 
 Controls whether the resource appears in the navigation menu. Override to `false` to hide a resource from the sidebar while keeping it accessible via direct URL.
@@ -149,6 +151,27 @@ public static function displayInNavigation(): bool
     return false; // Hidden from sidebar, still accessible via URL
 }
 ```
+
+`displayInNavigation()` is still respected even when the main menu is customized through the menu builder.
+
+### menuItem()
+
+Customize the navigation item generated for a resource.
+
+```php
+use Illuminate\Http\Request;
+use Martis\Menu\MenuItem;
+
+public function menuItem(Request $request): MenuItem
+{
+    return MenuItem::resource(static::class)
+        ->label('Help Desk')
+        ->icon('lifebuoy')
+        ->path('/support/help-desk');
+}
+```
+
+Use this when the resource should remain a resource-backed navigation item, but needs a custom label, icon, or path.
 
 Use this for internal resources (e.g., `ActionEventResource`) that should not clutter the main navigation.
 
@@ -523,6 +546,42 @@ public function overrides(): array
 ```
 
 See the [Override System](overrides.md) documentation for full details.
+
+## Exception Handling
+
+Martis provides a set of typed exceptions for structured error handling. These are automatically converted to JSON API responses when thrown from resources, actions, or controllers.
+
+| Exception | HTTP Status | Use Case |
+|-----------|-------------|----------|
+| `MartisException` | 500 | Base class for all Martis errors |
+| `ValidationException` | 422 | Input validation failures with per-field errors |
+| `AuthorizationException` | 403 | Unauthorized access attempts |
+| `ResourceNotFoundException` | 404 | Record or resource not found |
+
+```php
+use Martis\Exceptions\ValidationException;
+use Martis\Exceptions\AuthorizationException;
+use Martis\Exceptions\ResourceNotFoundException;
+
+// Per-field validation errors (e.g. in an Action):
+throw ValidationException::fromFieldErrors([
+    'title' => ['The title must be at least 5 characters.'],
+    'slug'  => ['The slug is already taken.'],
+]);
+
+// Single-field shorthand:
+throw ValidationException::forField('slug', 'Slug is already taken.', 'unique');
+
+// Authorization:
+throw AuthorizationException::forAction('delete', 'post');
+
+// Not found:
+throw ResourceNotFoundException::forRecord('posts', $id);
+```
+
+All exceptions extend `MartisException` which itself extends `\RuntimeException`. Laravel's exception handler will catch them automatically. Unhandled `MartisException` subclasses return a 500 JSON response in production.
+
+
 
 ## Complete Example
 

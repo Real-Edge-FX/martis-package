@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { api, ApiError, hasFileValues } from "@/lib/api"
-import { FieldInput } from "@/components/fields"
+import { FieldInput } from "@/components/fields/FieldRenderer"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
-import { X, Plus } from "@phosphor-icons/react"
+import { XIcon, PlusIcon } from "@phosphor-icons/react"
 import type { FieldDefinition } from "@/types"
+import { ResourceIcon } from "@/components/ResourceIcon"
 
 /** Modal size classes matching Nova v5 modal sizes */
 const MODAL_SIZE_CLASSES: Record<string, string> = {
@@ -33,6 +34,14 @@ interface InlineCreateModalProps {
   onCreated: (record: { id: string | number; title: string | null }) => void
   /** Modal size (defaults to 2xl) */
   modalSize?: string
+  /** When true, show the resource icon from the schema (or the override) in the modal header */
+  showResourceIcon?: boolean
+  /** Override Phosphor icon name (replaces schema icon when showResourceIcon is true) */
+  resourceIconOverride?: string | null
+  /** Color for the resource icon in the modal header */
+  resourceIconColor?: string | null
+  /** Subtitle text to show in the modal header */
+  resourceSubtitle?: string | boolean | null
 }
 
 export function InlineCreateModal({
@@ -41,6 +50,10 @@ export function InlineCreateModal({
   onClose,
   onCreated,
   modalSize = "2xl",
+  showResourceIcon = false,
+  resourceIconOverride,
+  resourceIconColor,
+  resourceSubtitle,
 }: InlineCreateModalProps) {
   const { addToast } = useToast()
   const { t: tAct } = useTranslation("actions")
@@ -58,6 +71,9 @@ export function InlineCreateModal({
           fields: FieldDefinition[]
           singularLabel: string
           label: string
+          icon?: string
+          iconColor?: string | null
+          subtitle?: string | null
         }
       }>(`/api/resources/${relatedResource}/inline-create-schema`),
     enabled: open,
@@ -186,18 +202,29 @@ export function InlineCreateModal({
           style={{ borderColor: "var(--martis-border)" }}
         >
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: "var(--martis-primary-bg, rgba(59, 130, 246, 0.1))" }}
-            >
-              <Plus size={20} style={{ color: "var(--martis-primary)" }} />
+            {showResourceIcon && (
+              <ResourceIcon
+                iconName={resourceIconOverride ?? schema?.icon ?? "database"}
+                size={22}
+                color={resourceIconColor ?? "var(--martis-accent)"}
+              />
+            )}
+            <div className="flex flex-col">
+              <span
+                className="text-lg font-semibold"
+                style={{ color: "var(--martis-text)" }}
+              >
+                {tAct("create")} {schema?.singularLabel ?? relatedResource}
+              </span>
+              {resourceSubtitle && (
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--martis-text-muted)" }}
+                >
+                  {typeof resourceSubtitle === "string" ? resourceSubtitle : schema?.subtitle}
+                </span>
+              )}
             </div>
-            <span
-              className="text-lg font-semibold"
-              style={{ color: "var(--martis-text)" }}
-            >
-              {tAct("create")} {schema?.singularLabel ?? relatedResource}
-            </span>
           </div>
           <button
             type="button"
@@ -205,7 +232,7 @@ export function InlineCreateModal({
             className="rounded-md p-1 transition-colors"
             style={{ color: "var(--martis-text-muted)" }}
           >
-            <X size={20} />
+            <XIcon size={20} />
           </button>
         </div>
 
@@ -307,7 +334,7 @@ export function InlineCreateModal({
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             style={{ backgroundColor: "var(--martis-accent)" }}
           >
-            <Plus size={14} />
+            <PlusIcon size={14} />
             {createMutation.isPending
               ? tAct("saving")
               : `${tAct("create")} ${schema?.singularLabel ?? ""}`}

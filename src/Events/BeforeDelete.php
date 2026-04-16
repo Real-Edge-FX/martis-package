@@ -22,6 +22,7 @@ class BeforeDelete
 {
     use Dispatchable;
 
+    /** Create the BeforeDelete event. */
     public function __construct(
         /** The resource class-string that owns this model. */
         public readonly string $resourceClass,

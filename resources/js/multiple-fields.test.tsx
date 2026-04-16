@@ -15,8 +15,8 @@ vi.mock("react-i18next", () => ({
   }),
 }))
 import { render, screen, fireEvent } from '@testing-library/react'
-import { registerDefaultFields } from '@/components/fields'
-import { FieldDisplay, FieldInput } from '@/components/fields'
+import { registerDefaultFields } from '@/components/fields/FieldRenderer'
+import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import type { FieldDefinition } from '@/types'
 import { hasFileValues } from '@/lib/api'
 

@@ -2,9 +2,12 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
+use Martis\Enums\PhosphorIcon;
 
 /**
  * BelongsTo relationship field.
@@ -17,9 +20,6 @@ use Martis\Enums\ModalSize;
  * but resolves via the relationship method (e.g. `author`) so it can
  * display a human-readable label instead of a bare integer.
  *
- * Supports single (standard BelongsTo) and multiple (BelongsToMany-style)
- * modes. In multiple mode, the frontend renders checkboxes and the backend
- * syncs a pivot table.
  *
  * @phpstan-consistent-constructor
  */
@@ -40,12 +40,6 @@ class BelongsTo extends Field
     protected bool $relationSearchable = true;
 
     /**
-     * When true, the field operates in many-to-many mode:
-     * uses a pivot table and renders as multi-select with checkboxes.
-     */
-    protected bool $multiple = false;
-
-    /**
      * Whether to display the related record as a clickable link on index/detail.
      * Defaults to true — set to false via ->displayAsLink(false).
      */
@@ -62,6 +56,86 @@ class BelongsTo extends Field
      * Defaults to 2xl (Nova v5 parity).
      */
     protected ModalSize $modalSize = ModalSize::TwoExtraLarge;
+
+    /**
+     * Whether to show subtitle text under each dropdown option.
+     * Nova v5 parity: ->withSubtitles()
+     */
+    protected bool $withSubtitles = false;
+
+    /**
+     * The attribute on the related model used as the subtitle text.
+     * Defaults to "subtitle".
+     */
+    protected string $subtitleAttribute = 'subtitle';
+
+    /**
+     * Whether the peek/preview icon is shown for the related record.
+     * Defaults to true (Nova v5 parity: peekable).
+     *
+     * When enabled, a small preview icon appears next to the related record link.
+     * Hovering the icon fetches the related resource's preview fields
+     * (via the peek endpoint, which uses fieldsForPreview()) and shows them
+     * in a compact card — aligned with Nova v5's concept of peeking.
+     */
+    protected bool $peekable = true;
+
+    /**
+     * Whether soft-deleted records should be excluded from relatable options.
+     * Nova v5 parity: ->withoutTrashed()
+     */
+    protected bool $withoutTrashed = false;
+
+    /**
+     * Whether to disable auto-reordering of associatables.
+     * Nova v5 parity: ->dontReorderAssociatables()
+     */
+    protected bool $dontReorderAssociatables = false;
+
+    /**
+     * Whether to show the resource icon in the inline create modal header.
+     * When true and no override is set, the related resource icon() is used.
+     */
+    protected bool $showResourceIcon = false;
+
+    /**
+     * Override icon for the inline create modal header.
+     */
+    protected ?PhosphorIcon $resourceIconOverride = null;
+
+    /**
+     * Subtitle config for the inline create modal header.
+     * false = disabled, true = use resource subtitle(), string = fixed subtitle.
+     */
+    protected bool|string $resourceSubtitleValue = false;
+
+    /**
+     * Custom icon for the inline create button.
+     */
+    protected ?PhosphorIcon $createButtonIconValue = null;
+
+    /**
+     * Custom color for the inline create button.
+     */
+    protected ?string $createButtonColorValue = null;
+
+    /**
+     * Configurable placeholder text shown when no value is selected.
+     * When null, falls back to the translated "select_field" key.
+     */
+    protected ?string $placeholder = null;
+
+    /**
+     * Custom color for the resource icon in the inline create modal header.
+     * Accepts any CSS color string (hex, rgb, var(...)).
+     */
+    protected ?string $iconColor = null;
+
+    /**
+     * Closure to customize the relatable query for this field.
+     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => ...)
+     */
+    protected ?\Closure $relatableQueryClosure = null;
 
     /**
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
@@ -99,6 +173,9 @@ class BelongsTo extends Field
         return new static($foreignKey, $label, $relationship, $foreignKey);
     }
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'belongs_to';
@@ -149,25 +226,6 @@ class BelongsTo extends Field
     }
 
     /**
-     * Enable multi-select mode (many-to-many via pivot table).
-     *
-     * In this mode, the field renders as a multi-select with checkboxes.
-     * The Eloquent model must define a belongsToMany() relationship
-     * matching the relationship name.
-     *
-     * Example:
-     *   BelongsTo::make('authors', 'Authors')
-     *       ->relatedResource('users')
-     *       ->multiple()
-     */
-    public function multiple(bool $value = true): static
-    {
-        $this->multiple = $value;
-
-        return $this;
-    }
-
-    /**
      * Configure whether the field displays as a clickable link on index/detail.
      * Defaults to true. Set to false to render as plain text.
      */
@@ -181,19 +239,12 @@ class BelongsTo extends Field
     /**
      * Resolve the field value: returns the foreign key value AND the display title.
      *
-     * Single mode: `['id' => 42, 'title' => 'Jane Doe']`
-     * Multiple mode: `[['id' => 1, 'title' => 'Jane'], ['id' => 2, 'title' => 'John']]`
-     *
-     * @return array{id: mixed, title: string|null}|list<array{id: mixed, title: string|null}>|null
+     * @return array<string, mixed>|null
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
             return ($this->resolveCallback)($model->getAttribute($this->foreignKey), $model, $this->foreignKey);
-        }
-
-        if ($this->multiple) {
-            return $this->resolveMultiple($model);
         }
 
         $foreignKeyValue = $model->getAttribute($this->foreignKey);
@@ -213,46 +264,21 @@ class BelongsTo extends Field
             $related = $model->{$camelRelationship};
         }
 
-        return [
+        /** @var array<string, mixed> $data */
+        $data = [
             'id' => $foreignKeyValue,
             'title' => $related?->getAttribute($this->titleAttribute),
         ];
+
+        if ($this->withSubtitles) {
+            $data['subtitle'] = $related?->getAttribute($this->subtitleAttribute);
+        }
+
+        return $data;
     }
 
     /**
-     * Resolve for multiple mode: load all related models.
-     *
-     * @return list<array{id: mixed, title: string|null}>
-     */
-    protected function resolveMultiple(Model $model): array
-    {
-        $camelRelationship = Str::camel($this->relationship);
-        $method = null;
-        if (method_exists($model, $this->relationship)) {
-            $method = $this->relationship;
-        } elseif ($camelRelationship !== $this->relationship && method_exists($model, $camelRelationship)) {
-            $method = $camelRelationship;
-        }
-
-        if ($method === null) {
-            return [];
-        }
-
-        $related = $model->{$method};
-
-        if ($related === null) {
-            return [];
-        }
-
-        return $related->map(fn (Model $item): array => [
-            'id' => $item->getKey(),
-            'title' => $item->getAttribute($this->titleAttribute),
-        ])->values()->all();
-    }
-
-    /**
-     * Fill the foreign key column on the model (single mode)
-     * or sync pivot table (multiple mode).
+     * Fill the foreign key column on the model.
      */
     public function fill(Model $model, mixed $value): void
     {
@@ -266,15 +292,6 @@ class BelongsTo extends Field
             return;
         }
 
-        if ($this->multiple) {
-            // Multiple mode: sync happens after model is saved (needs ID).
-            // Store the IDs in a static registry for deferred sync.
-            $ids = $this->extractMultipleIds($value);
-            DeferredRelationSync::register($model, $this->relationship, $ids);
-
-            return;
-        }
-
         // Accept either a raw ID or an array with 'id' key
         $id = is_array($value) ? ($value['id'] ?? null) : $value;
 
@@ -284,43 +301,6 @@ class BelongsTo extends Field
         }
 
         $model->setAttribute($this->foreignKey, $id);
-    }
-
-    /**
-     * Extract IDs from the multiple-mode value.
-     *
-     * @return list<int|string>
-     */
-    protected function extractMultipleIds(mixed $value): array
-    {
-        if ($value === null || $value === '' || $value === []) {
-            return [];
-        }
-
-        // Array of IDs
-        if (is_array($value)) {
-            // Could be [1, 2, 3] or [['id' => 1], ['id' => 2]]
-            return array_values(array_filter(array_map(function (mixed $item): int|string|null {
-                if (is_array($item) && isset($item['id'])) {
-                    return $item['id'];
-                }
-                if (is_string($item) && ($item === '' || $item === 'null')) {
-                    return null;
-                }
-
-                return $item;
-            }, $value), fn ($v): bool => $v !== null));
-        }
-
-        // JSON string
-        if (is_string($value)) {
-            $decoded = json_decode($value, true);
-            if (is_array($decoded)) {
-                return $this->extractMultipleIds($decoded);
-            }
-        }
-
-        return [];
     }
 
     /**
@@ -351,16 +331,220 @@ class BelongsTo extends Field
     /**
      * Set the modal size for inline creation.
      *
-     * Nova v5 parity: modalSize("sm" | "md" | "lg" | "xl" | "2xl" | ... | "7xl")
+     * Nova v5 parity: ->modalSize(ModalSize::LG)
      */
-    public function modalSize(ModalSize|string $size): static
+    public function modalSize(ModalSize $size): static
     {
-        if (is_string($size)) {
-            $size = ModalSize::from($size);
-        }
         $this->modalSize = $size;
 
         return $this;
+    }
+
+    /**
+     * Show subtitle text under each dropdown option.
+     *
+     * The subtitle is read from the related model's $subtitleAttribute (default: "subtitle").
+     * Nova v5 parity: ->withSubtitles()
+     */
+    public function withSubtitles(bool $value = true): static
+    {
+        $this->withSubtitles = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set the subtitle attribute on the related model.
+     * Implicitly enables withSubtitles.
+     *
+     * Usage: ->subtitleAttribute('description')
+     */
+    public function subtitleAttribute(string $attribute): static
+    {
+        $this->subtitleAttribute = $attribute;
+        $this->withSubtitles = true;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable the peek/preview icon on the display component.
+     * Defaults to true — pass false or call noPeeking() to disable.
+     *
+     * When enabled, a small preview icon appears next to the related record link.
+     * Hovering the icon fetches the related resource's peek fields and shows
+     * them in a compact card. Peek content is governed by fieldsForPreview()
+     * on the related resource — not by a custom column list on this field.
+     *
+     * Nova v5 parity: ->peekable()
+     */
+    public function peekable(bool $value = true): static
+    {
+        $this->peekable = $value;
+
+        return $this;
+    }
+
+    /**
+     * Disable the peek/preview icon for this relationship.
+     *
+     * Nova v5 parity: ->noPeeking()
+     */
+    public function noPeeking(): static
+    {
+        $this->peekable = false;
+
+        return $this;
+    }
+
+    /**
+     * Exclude soft-deleted records from the relatable options list.
+     *
+     * Nova v5 parity: ->withoutTrashed()
+     */
+    public function withoutTrashed(): static
+    {
+        $this->withoutTrashed = true;
+
+        return $this;
+    }
+
+    /**
+     * Disable auto-reordering of relatable options (keep DB/query order).
+     *
+     * Nova v5 parity: ->dontReorderAssociatables()
+     */
+    public function dontReorderAssociatables(): static
+    {
+        $this->dontReorderAssociatables = true;
+
+        return $this;
+    }
+
+    /**
+     * Customize the relatable options query using a closure.
+     *
+     * The closure receives ($request, $query) and should modify the Builder in-place
+     * or return a new Builder.
+     *
+     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => $query->where('active', 1))
+     *
+     * @param  \Closure(Request, Builder<Model>): void  $closure
+     */
+    public function relatableQueryUsing(\Closure $closure): static
+    {
+        $this->relatableQueryClosure = $closure;
+
+        return $this;
+    }
+
+    /**
+     * Show the related resource icon in the inline create modal header.
+     * Without args: uses the related resource icon().
+     * With a PhosphorIcon: overrides with that specific icon.
+     */
+    public function resourceIcon(?PhosphorIcon $icon = null): static
+    {
+        $this->showResourceIcon = true;
+        $this->resourceIconOverride = $icon;
+
+        return $this;
+    }
+
+    /**
+     * Show a subtitle in the inline create modal header.
+     * true = uses the related resource subtitle().
+     * string = uses the fixed string.
+     */
+    public function resourceSubtitle(bool|string $value = true): static
+    {
+        $this->resourceSubtitleValue = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom icon for the inline create button.
+     * Defaults to Plus when not configured.
+     */
+    public function createButtonIcon(PhosphorIcon $icon): static
+    {
+        $this->createButtonIconValue = $icon;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom color for the inline create button.
+     * Accepts hex (e.g. #4F46E5) or any CSS color value.
+     */
+    public function createButtonColor(string $color): static
+    {
+        $this->createButtonColorValue = $color;
+
+        return $this;
+    }
+
+    /**
+     * Set the column attribute used as the display label in index/table cells.
+     * Shorthand for titleAttribute() — uses the named column as the display text.
+     *
+     * Usage: BelongsTo::make("author")->displayColumn("full_name")
+     */
+    public function displayColumn(string $column): static
+    {
+        $this->titleAttribute = $column;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom placeholder text shown on the trigger button when no value is selected.
+     * Defaults to the translated "Select {field}..." string.
+     *
+     * Usage: BelongsTo::make("author")->placeholder("Choose an author...")
+     */
+    public function placeholder(string $text): static
+    {
+        $this->placeholder = $text;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom color for the resource icon in the inline create modal header.
+     *
+     * Usage: BelongsTo::make("author")->resourceIcon()->iconColor("#6366f1")
+     */
+    public function iconColor(string $color): static
+    {
+        $this->iconColor = $color;
+
+        return $this;
+    }
+
+    /**
+     * Get the relatableQueryUsing closure (used by RelationshipQueryResolver).
+     */
+    public function getRelatableQueryClosure(): ?\Closure
+    {
+        return $this->relatableQueryClosure;
+    }
+
+    /**
+     * Whether soft-deleted records should be excluded.
+     */
+    public function isWithoutTrashed(): bool
+    {
+        return $this->withoutTrashed;
+    }
+
+    /**
+     * Whether auto-reordering of associatables is disabled.
+     */
+    public function isDontReorderAssociatables(): bool
+    {
+        return $this->dontReorderAssociatables;
     }
 
     /**
@@ -395,10 +579,19 @@ class BelongsTo extends Field
             'relatedResource' => $this->relatedUriKey,
             'relatedLabel' => $this->relatedUriKey ? Str::title(str_replace('_', ' ', $this->relationship)) : null,
             'relationSearchable' => $this->relationSearchable,
-            'multiple' => $this->multiple ?: null,
             'displayAsLink' => $this->displayAsLink,
             'showCreateRelationButton' => $this->isShowCreateRelationButton(),
             'modalSize' => $this->getModalSize()->value,
+            'withSubtitles' => $this->withSubtitles ?: null,
+            'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
+            'peekable' => $this->peekable,
+            'withoutTrashed' => $this->withoutTrashed ?: null,
+            'dontReorderAssociatables' => $this->dontReorderAssociatables ?: null,
+            'showResourceIcon' => $this->showResourceIcon ?: null,
+            'resourceIconOverride' => $this->resourceIconOverride?->value,
+            'resourceSubtitle' => $this->resourceSubtitleValue !== false ? $this->resourceSubtitleValue : null,
+            'createButtonIcon' => $this->createButtonIconValue?->value,
+            'createButtonColor' => $this->createButtonColorValue,
         ], fn (mixed $v): bool => $v !== null);
     }
 }

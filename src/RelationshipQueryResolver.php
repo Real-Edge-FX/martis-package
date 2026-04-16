@@ -4,9 +4,11 @@ namespace Martis;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\BelongsTo;
 
 /**
  * Central resolver for relatable query hooks — Nova v5 parity.
@@ -23,6 +25,9 @@ use Martis\Contracts\FieldContract;
  * When the dynamic method accepts a third parameter (FieldContract), the
  * current field instance is passed so the hook can differentiate between
  * multiple relationship fields pointing to the same target resource.
+ *
+ * After resource-level hooks, field-level closures are applied when the field
+ * supports them (e.g. BelongsTo::relatableQueryUsing(), BelongsTo::withoutTrashed()).
  */
 class RelationshipQueryResolver
 {
@@ -46,17 +51,40 @@ class RelationshipQueryResolver
         $dynamicMethod = static::buildDynamicMethodName($targetResourceClass);
 
         if ($dynamicMethod !== null && method_exists($sourceResourceClass, $dynamicMethod)) {
-            return static::callDynamicMethod(
+            $query = static::callDynamicMethod(
                 $sourceResourceClass,
                 $dynamicMethod,
                 $request,
                 $query,
                 $field,
             );
+        } else {
+            // Step 2: Fall back to generic relatableQuery on TARGET resource
+            $query = $targetResourceClass::relatableQuery($request, $query);
         }
 
-        // Step 2: Fall back to generic relatableQuery on TARGET resource
-        return $targetResourceClass::relatableQuery($request, $query);
+        // Step 3: Apply field-level query modifiers (BelongsTo-specific)
+        if ($field instanceof BelongsTo) {
+            // Apply relatableQueryUsing closure if defined
+            $closure = $field->getRelatableQueryClosure();
+            if ($closure !== null) {
+                $result = $closure($request, $query);
+                if ($result instanceof Builder) {
+                    $query = $result;
+                }
+            }
+
+            // Apply withoutTrashed: exclude soft-deleted records if the model uses SoftDeletes
+            if ($field->isWithoutTrashed()) {
+                $model = $query->getModel();
+                if (method_exists($model, 'bootSoftDeletes') || in_array(SoftDeletes::class, class_uses_recursive($model), true)) {
+                    // @phpstan-ignore-next-line
+                    $query->withoutTrashed();
+                }
+            }
+        }
+
+        return $query;
     }
 
     /**

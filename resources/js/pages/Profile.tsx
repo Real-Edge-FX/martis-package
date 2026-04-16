@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { UserCircle } from '@phosphor-icons/react'
+import { UserCircleIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
@@ -25,6 +25,7 @@ export function ProfilePage() {
 
   const avatarEnabled = config.profile?.avatar?.enabled !== false
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false
+  const sections = config.profile?.sections ?? ['avatar', 'account', 'password', 'security']
 
   useEffect(() => {
     api
@@ -58,46 +59,54 @@ export function ProfilePage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold martis-text flex items-center gap-2 selection:bg-primary/20 selection:text-foreground">
-          <UserCircle size={28} className="martis-text-muted flex-shrink-0" />
+          <UserCircleIcon size={28} className="martis-text-muted flex-shrink-0" />
           {t('title')}
         </h1>
         <p className="text-sm martis-text-muted mt-1">{t('subtitle')}</p>
       </div>
 
       <div className="space-y-6">
-        {profile && (
-          <>
-            {avatarEnabled && (
-              <AvatarSection
-                avatarUrl={profile.avatar_url}
-                name={profile.name}
-                onUpdate={(url) => {
-                  setProfile((p) => p ? { ...p, avatar_url: url } : p)
-                  updateUser({ avatar_url: url })
-                }}
-              />
-            )}
-
-            <AccountSection
-              name={profile.name}
-              email={profile.email}
-              onUpdate={(name, email) =>
-                setProfile((p) => p ? { ...p, name, email } : p)
-              }
-            />
-
-            <PasswordSection />
-
-            {twoFactorEnabled && (
-              <SecuritySection
-                twoFactorEnabled={profile.two_factor_enabled}
-                onUpdate={(enabled) =>
-                  setProfile((p) => p ? { ...p, two_factor_enabled: enabled } : p)
-                }
-              />
-            )}
-          </>
-        )}
+        {profile && sections.map((section) => {
+          switch (section) {
+            case 'avatar':
+              return avatarEnabled ? (
+                <AvatarSection
+                  key="avatar"
+                  avatarUrl={profile.avatar_url}
+                  name={profile.name}
+                  onUpdate={(url) => {
+                    setProfile((p) => p ? { ...p, avatar_url: url } : p)
+                    updateUser({ avatar_url: url })
+                  }}
+                />
+              ) : null
+            case 'account':
+              return (
+                <AccountSection
+                  key="account"
+                  name={profile.name}
+                  email={profile.email}
+                  onUpdate={(name, email) =>
+                    setProfile((p) => p ? { ...p, name, email } : p)
+                  }
+                />
+              )
+            case 'password':
+              return <PasswordSection key="password" />
+            case 'security':
+              return twoFactorEnabled ? (
+                <SecuritySection
+                  key="security"
+                  twoFactorEnabled={profile.two_factor_enabled}
+                  onUpdate={(enabled) =>
+                    setProfile((p) => p ? { ...p, two_factor_enabled: enabled } : p)
+                  }
+                />
+              ) : null
+            default:
+              return null
+          }
+        })}
       </div>
     </div>
   )

@@ -8,7 +8,7 @@ use Martis\Enums\ChartType;
 /**
  * Sparkline field — inline mini chart for trend visualization.
  *
- * Paridade com Laravel Nova v5: Sparkline field.
+ * Laravel Nova v5 parity: Sparkline field.
  * Display-only field (not editable). Shows a small line or bar chart.
  *
  * Nova-compatible API:
@@ -17,7 +17,7 @@ use Martis\Enums\ChartType;
  *   - height($px)     — chart height in pixels
  *   - width($px)      — chart width in pixels
  *
- * Contextos: index (sim), detail (sim), create/update (não — display-only).
+ * Contexts: index (yes), detail (yes), create/update (no — display-only).
  */
 class Sparkline extends Field
 {
@@ -34,6 +34,9 @@ class Sparkline extends Field
     /** @var string Color for the sparkline */
     protected string $chartColor = '#6366f1';
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'sparkline';

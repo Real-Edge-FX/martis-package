@@ -15,11 +15,13 @@ class ResourceMakeCommand extends GeneratorCommand
 
     protected $type = 'Martis resource';
 
+    /** Get the stub file for the generator. */
     protected function getStub(): string
     {
         return __DIR__.'/../../stubs/resource.stub';
     }
 
+    /** Get the default namespace for the class. */
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\\Martis\\Resources';
@@ -52,6 +54,7 @@ class ResourceMakeCommand extends GeneratorCommand
         return Str::studly(Str::before($base, 'Resource') ?: $base);
     }
 
+    /** Build the class with the given name. */
     protected function buildClass($name): string
     {
         $stub = parent::buildClass($name);

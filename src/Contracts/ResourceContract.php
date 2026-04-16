@@ -5,8 +5,13 @@ namespace Martis\Contracts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Martis\Contracts\CardContract;
+use Martis\Contracts\DashboardContract;
 use Martis\Enums\ErrorDisplayMode;
 use Martis\Enums\TableSize;
+use Martis\Contracts\FilterContract;
+use Martis\Contracts\LensContract;
+use Martis\Menu\MenuItem;
 
 /**
  * Contract for all Martis Resource classes.
@@ -57,8 +62,14 @@ interface ResourceContract
     /** Return the Phosphor icon name for this resource (e.g. "newspaper"). */
     public function icon(): string;
 
+    /** Return the icon color (hex or CSS class) for this resource, or null to use the theme primary color. */
+    public function iconColor(): ?string;
+
     /** Return the navigation group this resource belongs to, or null for default. */
     public function group(): ?string;
+
+    /** Build the default menu item for this resource. */
+    public function menuItem(Request $request): MenuItem;
 
     /** Return the underlying Eloquent model, if set. */
     public function getModel(): ?Model;
@@ -123,6 +134,38 @@ interface ResourceContract
      * @return list<FieldContract>
      */
     public function fieldsForPreview(Request $request): array;
+
+    // -------------------------------------------------------------------------
+    // Schema foundation — task 1
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the filter descriptors exposed by this resource.
+     *
+     * @return list<FilterContract|array<string, mixed>>
+     */
+    public function filters(Request $request): array;
+
+    /**
+     * Return the lens descriptors exposed by this resource.
+     *
+     * @return list<LensContract|array<string, mixed>>
+     */
+    public function lenses(Request $request): array;
+
+    /**
+     * Return the card descriptors exposed by this resource.
+     *
+     * @return list<CardContract|array<string, mixed>>
+     */
+    public function cards(Request $request): array;
+
+    /**
+     * Return the dashboard descriptors exposed by this resource.
+     *
+     * @return list<DashboardContract|array<string, mixed>>
+     */
+    public static function dashboards(): array;
 
     // -------------------------------------------------------------------------
     // Query hooks — Nova v5 parity
@@ -225,14 +268,29 @@ interface ResourceContract
     /** Flush the resolved policy cache (for testing). */
     public static function flushPolicyCache(): void;
 
+    /**
+     * Authorized to view any.
+     */
     public function authorizedToViewAny(Request $request): bool;
 
+    /**
+     * Authorized to view.
+     */
     public function authorizedToView(Request $request): bool;
 
+    /**
+     * Authorized to create.
+     */
     public function authorizedToCreate(Request $request): bool;
 
+    /**
+     * Authorized to update.
+     */
     public function authorizedToUpdate(Request $request): bool;
 
+    /**
+     * Authorized to delete.
+     */
     public function authorizedToDelete(Request $request): bool;
 
     /** Whether the user may restore this soft-deleted resource. */
@@ -312,27 +370,57 @@ interface ResourceContract
     // User-facing messages (i18n)
     // -------------------------------------------------------------------------
 
+    /**
+     * Created message.
+     */
     public static function createdMessage(): string;
 
+    /**
+     * Updated message.
+     */
     public static function updatedMessage(): string;
 
+    /**
+     * Deleted message.
+     */
     public static function deletedMessage(): string;
 
+    /**
+     * Restored message.
+     */
     public static function restoredMessage(): string;
 
+    /**
+     * Force deleted message.
+     */
     public static function forceDeletedMessage(): string;
 
+    /**
+     * Replicated message.
+     */
     public static function replicatedMessage(): string;
 
+    /**
+     * Delete confirm message.
+     */
     public static function deleteConfirmMessage(): string;
 
+    /**
+     * Archive confirm message.
+     */
     public static function archiveConfirmMessage(): string;
 
+    /**
+     * Force delete confirm message.
+     */
     public static function forceDeleteConfirmMessage(): string;
 
     /** Error display mode: "toast", "inline", or "both". */
     public static function errorDisplay(): ErrorDisplayMode;
 
+    /**
+     * Validation message.
+     */
     public static function validationMessage(): string;
 
     // -------------------------------------------------------------------------
@@ -356,6 +444,28 @@ interface ResourceContract
      * @return mixed Scout builder instance
      */
     public static function scoutQuery(Request $request, mixed $query): mixed;
+
+    // -------------------------------------------------------------------------
+    // Global Search — Nova v5 parity
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether this resource is included in global search (Cmd+K).
+     *
+     * Return false to exclude this resource from the global search modal.
+     * Defaults to true for all resources.
+     */
+    public static function globallySearchable(): bool;
+
+    /**
+     * Return a per-record subtitle for global search results.
+     *
+     * Override to return a meaningful secondary string shown below the record
+     * title in the Cmd+K search modal.
+     *
+     * Example: return $model->email; // for a User resource
+     */
+    public function searchSubtitle(Model $model): ?string;
 
     // -------------------------------------------------------------------------
     // Page overrides

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { X, Lightning } from "@phosphor-icons/react"
+import { XIcon, LightningIcon } from "@phosphor-icons/react"
 import type { CustomActionComponentProps } from "./ActionModal"
 
 /**
@@ -68,7 +68,7 @@ export function DemoCustomAction({
             className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             style={{ color: 'var(--martis-text-muted)' }}
           >
-            <X size={16} />
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -147,7 +147,7 @@ export function DemoCustomAction({
               color: 'var(--martis-text)',
             }}
           >
-            <X size={14} />
+            <XIcon size={14} />
             Cancel
           </button>
           <button
@@ -157,7 +157,7 @@ export function DemoCustomAction({
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
-            <Lightning size={14} />
+            <LightningIcon size={14} />
             {isExecuting ? 'Processing...' : 'Confirm Choice'}
           </button>
         </div>

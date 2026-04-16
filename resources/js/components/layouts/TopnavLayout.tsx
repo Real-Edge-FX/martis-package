@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
+import { getNavigationItems } from "@/lib/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTheme } from "@/contexts/ThemeContext"
 import { GlobalSearch } from "@/components/GlobalSearch"
@@ -13,15 +14,7 @@ import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useRef, useState, useEffect, useCallback } from "react"
 import logoSrc from "@images/logo.png"
-import {
-  SquaresFour,
-  MagnifyingGlass,
-  Bell,
-  CaretDown,
-  Sun,
-  Moon,
-  SignOut,
-} from "@phosphor-icons/react"
+import { SquaresFourIcon, MagnifyingGlassIcon, CaretDownIcon, SunIcon, MoonIcon, SignOutIcon } from "@phosphor-icons/react"
 
 export function TopnavLayout() {
   const { user, logout } = useAuth()
@@ -37,13 +30,19 @@ export function TopnavLayout() {
   })
 
   const brand = config.brand ?? "Martis"
-  const showThemeToggle = config.userMenu?.showThemeToggle !== false
-  const showNotifications = config.userMenu?.showNotifications !== false
+  const showThemeToggle = config.userMenu?.showThemeToggle !== false && config.theme?.allowToggle !== false
   const searchEnabled = config.search?.enabled !== false
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!searchEnabled) return
+      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        setSearchOpen(true)
+        return
+      }
+      // "/" shortcut when not in an input
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
         const tag = (e.target as HTMLElement)?.tagName
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
@@ -98,9 +97,9 @@ export function TopnavLayout() {
                 role="menuitem"
               >
                 {theme === "dark" ? (
-                  <Sun size={16} className="p-menuitem-icon" />
+                  <SunIcon size={16} className="p-menuitem-icon" />
                 ) : (
-                  <Moon size={16} className="p-menuitem-icon" />
+                  <MoonIcon size={16} className="p-menuitem-icon" />
                 )}
                 <span className="p-menuitem-text">
                   {theme === "dark" ? t("light_mode") : t("dark_mode")}
@@ -124,7 +123,7 @@ export function TopnavLayout() {
           }}
           role="menuitem"
         >
-          <SignOut size={16} className="p-menuitem-icon" />
+          <SignOutIcon size={16} className="p-menuitem-icon" />
           <span className="p-menuitem-text">{t("logout")}</span>
         </a>
       ),
@@ -139,15 +138,31 @@ export function TopnavLayout() {
             <img src={logoSrc} alt={brand} className="h-8 w-auto object-contain" style={{ maxWidth: 120 }} />
             <nav className="flex items-center gap-1 overflow-x-auto">
               <NavLink to="/" end className={navClass}>
-                <SquaresFour size={16} className="shrink-0" />
+                <SquaresFourIcon size={16} className="shrink-0" />
                 {t("dashboard")}
               </NavLink>
               {groups.flatMap((group) =>
-                group.resources.map((r) => (
-                  <NavLink key={r.uriKey} to={`/resources/${r.uriKey}`} className={navClass}>
-                    {r.label}
-                  </NavLink>
-                )),
+                getNavigationItems(group).map((item) =>
+                  item.external ? (
+                    <a
+                      key={`${group.label ?? "root"}-${item.label}-${item.url}`}
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={navClass({ isActive: false })}
+                    >
+                      {item.label}
+                    </a>
+                  ) : (
+                    <NavLink
+                      key={item.type === "resource" ? item.uriKey : `${group.label ?? "root"}-${item.label}-${item.url}`}
+                      to={item.url}
+                      className={navClass}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ),
+                ),
               )}
             </nav>
           </div>
@@ -163,19 +178,7 @@ export function TopnavLayout() {
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 aria-label="Search"
               >
-                <MagnifyingGlass size={16} />
-              </button>
-            )}
-            {showNotifications && (
-              <button
-                type="button"
-                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors border-0 cursor-pointer"
-                style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                aria-label="Notifications"
-              >
-                <Bell size={16} />
+                <MagnifyingGlassIcon size={16} />
               </button>
             )}
             <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
@@ -198,7 +201,7 @@ export function TopnavLayout() {
               <span className="hidden sm:inline text-sm font-medium martis-text">
                 {user?.name ?? user?.email}
               </span>
-              <CaretDown size={12} className="martis-text-muted" />
+              <CaretDownIcon size={12} className="martis-text-muted" />
             </div>
           </div>
         </div>

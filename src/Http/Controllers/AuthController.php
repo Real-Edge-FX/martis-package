@@ -61,7 +61,7 @@ class AuthController extends MartisController
         $profileResource = app(ProfileResource::class);
         $profileData = $profileResource->toArray($userModel);
 
-        return response()->json(array_merge($userModel->toArray(), [
+        return response()->json(array_merge($this->safeUserArray($userModel), [
             'avatar_url' => $profileData['avatar_url'],
         ]));
     }
@@ -119,7 +119,7 @@ class AuthController extends MartisController
         $profileResource = app(ProfileResource::class);
         $profileData = $profileResource->toArray($loginUser);
 
-        return response()->json(array_merge($loginUser->toArray(), [
+        return response()->json(array_merge($this->safeUserArray($loginUser), [
             'avatar_url' => $profileData['avatar_url'],
         ]));
     }
@@ -152,5 +152,21 @@ class AuthController extends MartisController
         }
 
         return redirect()->route('martis.login');
+    }
+
+    /**
+     * Return a sanitised user array safe for client responses.
+     *
+     * Strips sensitive fields (password hash, 2FA secret, recovery codes,
+     * remember token) that must never be sent to the browser.
+     *
+     * @return array<string, mixed>
+     */
+    private function safeUserArray(Model&Authenticatable $user): array
+    {
+        return array_diff_key(
+            $user->toArray(),
+            array_flip(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])
+        );
     }
 }

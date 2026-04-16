@@ -106,10 +106,11 @@ layoutRegistry.register('users', CustomUserLayout)
 Collapsible left navigation panel.
 
 **Features:**
-- Resource grouping by `group()` method
+- Declarative menu sections and items from `/api/navigation`
+- Automatic resource sections generated from `group()` when no custom main menu is defined
 - Expandable group sections
 - Dashboard quick link
-- Phosphor icons per resource
+- Phosphor icons per item/resource
 - Collapse state persisted to localStorage
 - Responsive: shows icons only when collapsed
 
@@ -363,6 +364,111 @@ Resolves post-CRUD navigation targets:
 | `'stay'` | No navigation |
 | Custom URL | Replace `{id}` and `{resource}` placeholders |
 
+## Event Bus
+
+The Martis Event Bus enables decoupled communication between components without prop drilling. It is available via the `useEventBus` hook.
+
+```tsx
+import { useEventBus } from '@martis/martis/lib/useEventBus'
+
+const { on, emit } = useEventBus()
+
+// Subscribe — auto-cleaned up on unmount:
+useEffect(() => {
+  return on('martis:record-created', ({ resourceKey, id }) => {
+    console.log('New record', id, 'in', resourceKey)
+  })
+}, [on])
+
+// Emit:
+emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+```
+
+**Built-in events:**
+
+| Event | Payload | Fired when |
+|-------|---------|------------|
+| `martis:record-created` | `{ resourceKey, id }` | After a record is created |
+| `martis:record-updated` | `{ resourceKey, id }` | After a record is updated |
+| `martis:record-deleted` | `{ resourceKey, id }` | After a record is deleted |
+| `martis:record-restored` | `{ resourceKey, id }` | After a soft-deleted record is restored |
+| `martis:action-executed` | `{ actionKey, resourceKey }` | After an action completes |
+| `martis:refresh-index` | `{ resourceKey }` | Request a full index refresh |
+
+Custom events can use any string key. Martis prefixes built-in events with `martis:`.
+
+---
+
+## useError Hook
+
+Centralised error state management for forms and page components.
+
+```tsx
+import { useError } from '@martis/martis/lib/useError'
+
+const { errors, setError, clearErrors, hasErrors } = useError()
+
+try {
+  await api.post('/api/posts', data)
+} catch (err) {
+  setError(err) // Handles ApiError, Error, or string
+}
+
+// Render errors:
+{errors.message && <p className="text-destructive">{errors.message}</p>}
+{errors.fieldErrors?.title && <p className="text-destructive">{errors.fieldErrors.title}</p>}
+```
+
+| Property / Method | Type | Description |
+|-------------------|------|-------------|
+| `errors` | `{ message?: string; fieldErrors: Record<string, string> }` | Current error state |
+| `setError(err)` | `(ApiError \| Error \| string) => void` | Parse and set errors from a caught exception |
+| `clearErrors()` | `() => void` | Reset all error state |
+| `hasErrors` | `boolean` | Whether any error is currently set |
+
+---
+
+## Tooltip Standard (PrimeReact)
+
+All tooltips in Martis **must** use [`primereact/tooltip`](https://primereact.org/tooltip/). Native HTML `title=` attributes and custom tooltip implementations are prohibited.
+
+A global Tooltip provider is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
+
+### Simple tooltip (recommended)
+
+```tsx
+<button
+  data-pr-tooltip="Delete this record"
+  data-pr-position="top"
+>
+  <Trash size={16} />
+</button>
+```
+
+### Ref-based tooltip (for complex / HTML content)
+
+```tsx
+import { Tooltip } from 'primereact/tooltip'
+import { useRef } from 'react'
+
+const btnRef = useRef(null)
+
+<button ref={btnRef}>Save</button>
+<Tooltip target={btnRef} content="Save record" position="top" />
+```
+
+### Rules
+
+| Rule | Detail |
+|------|--------|
+| ❌ Never use `title=` | Native browser tooltips are inconsistent across themes |
+| ❌ Never build custom tooltip divs | Breaks dark/light mode consistency |
+| ✅ Always use `data-pr-tooltip` for simple text | Covered by global provider |
+| ✅ Use ref-based `<Tooltip>` for complex/HTML tooltips | Full PrimeReact API available |
+| ✅ Use `data-pr-position` to control placement | `"top"` \| `"bottom"` \| `"left"` \| `"right"` |
+
+
+
 ## Theming
 
 Martis uses CSS custom properties for theming. Override these variables to customize colors:
@@ -383,3 +489,43 @@ Martis uses CSS custom properties for theming. Override these variables to custo
 ```
 
 Light theme variables are set via `html:not(.dark)` selector and automatically applied when theme is toggled.
+
+## Loading Indicator
+
+### MartisLoader
+
+The built-in loading indicator used across all resource pages, the profile page, and action drawers.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `loading` | `boolean` | `true` | Controls visibility |
+| `message` | `string \| null` | config or i18n | Text shown next to spinner |
+| `overlay` | `boolean` | `false` | Covers child content with a semi-transparent overlay |
+| `disabled` | `boolean` | `false` | Hides this instance regardless of state |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | Spinner and text size |
+| `children` | `ReactNode` | — | Content to wrap in overlay mode |
+
+**Usage:**
+
+```tsx
+import { MartisLoader } from '@martis/martis/components/Loader'
+
+// Simple spinner
+<MartisLoader loading={isLoading} />
+
+// Overlay mode — wraps content with a semi-transparent loading state
+<MartisLoader loading={isFetching} overlay>
+  <DataTable rows={rows} />
+</MartisLoader>
+```
+
+**Configuration:** All visual options (message, icon, logo, colors, opacity) are controlled via `config/martis.php` under the `loader` key. See the [Loader documentation](loader.md) for the full configuration reference and customization guide.
+
+**Custom loader component:** Replace the built-in loader entirely via the component registry:
+
+```typescript
+import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+componentRegistry.register('loader', MyCustomLoader)
+```

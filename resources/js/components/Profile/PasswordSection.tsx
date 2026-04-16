@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { InputText } from 'primereact/inputtext'
 import { IconField } from 'primereact/iconfield'
 import { InputIcon } from 'primereact/inputicon'
-import { Lock } from '@phosphor-icons/react'
+import { LockIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -64,7 +64,7 @@ export function PasswordSection() {
             {t('current_password')}
           </label>
           <IconField iconPosition="left">
-            <InputIcon><Lock size={14} /></InputIcon>
+            <InputIcon><LockIcon size={14} /></InputIcon>
             <InputText
               id="current-password"
               type="password"
@@ -84,7 +84,7 @@ export function PasswordSection() {
             {t('new_password')}
           </label>
           <IconField iconPosition="left">
-            <InputIcon><Lock size={14} /></InputIcon>
+            <InputIcon><LockIcon size={14} /></InputIcon>
             <InputText
               id="new-password"
               type="password"
@@ -104,7 +104,7 @@ export function PasswordSection() {
             {t('confirm_password')}
           </label>
           <IconField iconPosition="left">
-            <InputIcon><Lock size={14} /></InputIcon>
+            <InputIcon><LockIcon size={14} /></InputIcon>
             <InputText
               id="confirm-password"
               type="password"

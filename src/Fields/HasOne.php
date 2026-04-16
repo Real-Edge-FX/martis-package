@@ -41,6 +41,7 @@ class HasOne extends Field
     /** Whether to show a "Delete" button for the existing related record. */
     protected bool $canDeleteRelated = true;
 
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,

@@ -27,29 +27,39 @@ interface ActionContract
     // Factory
     // -------------------------------------------------------------------------
 
-    /** Create a new action instance. */
+    /**
+     * Create a new action instance.
+     *
+     * @param  mixed  ...$arguments  Optional constructor arguments forwarded to the action class.
+     */
     public static function make(mixed ...$arguments): static;
 
     // -------------------------------------------------------------------------
     // Core identity
     // -------------------------------------------------------------------------
 
-    /** Return the display name for this action. */
+    /**
+     * Return the display name for this action.
+     */
     public function name(): string;
 
-    /** Return the URI key used to identify this action in routes. */
+    /**
+     * Return the URI key used to identify this action in routes.
+     */
     public function uriKey(): string;
 
     /**
      * Execute the action on the given models.
      *
-     * @param  Collection<int, Model>  $models
+     * @param  ActionFields  $fields  The validated field values from the confirmation modal.
+     * @param  Collection<int, Model>  $models  The selected model instances.
      */
     public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null;
 
     /**
      * Define the fields for this action's confirmation modal.
      *
+     * @param  Request  $request  The incoming HTTP request.
      * @return list<FieldContract>
      */
     public function fields(Request $request): array;
@@ -58,138 +68,237 @@ interface ActionContract
     // Authorization
     // -------------------------------------------------------------------------
 
-    /** Set a callback that determines whether this action is visible. */
+    /**
+     * Set a callback that determines whether this action is visible.
+     *
+     * @param  Closure  $callback  Receives the current Request; return true to show the action.
+     */
     public function canSee(Closure $callback): static;
 
-    /** Set a callback that determines whether this action can run against a model. */
+    /**
+     * Set a callback that determines whether this action can run against a model.
+     *
+     * @param  Closure  $callback  Receives (Request $request, Model $model); return true to allow.
+     */
     public function canRun(Closure $callback): static;
 
-    /** Determine if the action is visible to the current request. */
+    /**
+     * Determine if the action is visible to the current request.
+     *
+     * @param  Request  $request  The incoming HTTP request.
+     */
     public function authorizedToSee(Request $request): bool;
 
-    /** Determine if the action can run against a specific model. */
+    /**
+     * Determine if the action can run against a specific model.
+     *
+     * @param  Request  $request  The incoming HTTP request.
+     * @param  Model  $model  The target model instance.
+     */
     public function authorizedToRun(Request $request, Model $model): bool;
 
     // -------------------------------------------------------------------------
     // Visibility
     // -------------------------------------------------------------------------
 
-    /** Ensure visible on index page. */
+    /**
+     * Ensure visible on index page.
+     */
     public function showOnIndex(): static;
 
-    /** Ensure visible on detail page. */
+    /**
+     * Ensure visible on detail page.
+     */
     public function showOnDetail(): static;
 
-    /** Display directly on table rows (inline button). */
+    /**
+     * Display directly on table rows (inline button).
+     */
     public function showInline(): static;
 
-    /** Show ONLY on index. */
+    /**
+     * Show ONLY on index.
+     */
     public function onlyOnIndex(): static;
 
-    /** Show ONLY on detail. */
+    /**
+     * Show ONLY on detail.
+     */
     public function onlyOnDetail(): static;
 
-    /** Show ONLY as inline on table rows. */
+    /**
+     * Show ONLY as inline on table rows.
+     */
     public function onlyInline(): static;
 
-    /** Hide from index. */
+    /**
+     * Hide from index.
+     */
     public function exceptOnIndex(): static;
 
-    /** Hide from detail. */
+    /**
+     * Hide from detail.
+     */
     public function exceptOnDetail(): static;
 
-    /** Hide from inline display. */
+    /**
+     * Hide from inline display.
+     */
     public function exceptInline(): static;
 
-    /** Whether the action is visible on index. */
+    /**
+     * Whether the action is visible on index.
+     */
     public function isShownOnIndex(): bool;
 
-    /** Whether the action is visible on detail. */
+    /**
+     * Whether the action is visible on detail.
+     */
     public function isShownOnDetail(): bool;
 
-    /** Whether the action is shown inline. */
+    /**
+     * Whether the action is shown inline.
+     */
     public function isShownInline(): bool;
 
     // -------------------------------------------------------------------------
     // Execution mode
     // -------------------------------------------------------------------------
 
-    /** Set the action to standalone mode (no resource selection required). */
+    /**
+     * Set the action to standalone mode (no resource selection required).
+     */
     public function standalone(): static;
 
-    /** Set the action to sole mode (exactly one resource must be selected). */
+    /**
+     * Set the action to sole mode (exactly one resource must be selected).
+     */
     public function sole(): static;
 
-    /** Return the current execution mode. */
+    /**
+     * Return the current execution mode.
+     */
     public function executionMode(): ActionExecutionMode;
 
-    /** Whether this action is standalone. */
+    /**
+     * Whether this action is standalone.
+     */
     public function isStandalone(): bool;
 
-    /** Whether this action is sole. */
+    /**
+     * Whether this action is sole.
+     */
     public function isSole(): bool;
 
-    /** Whether this action is destructive. */
+    /**
+     * Whether this action is destructive.
+     */
     public function isDestructive(): bool;
 
     // -------------------------------------------------------------------------
     // Confirmation modal
     // -------------------------------------------------------------------------
 
-    /** Set the confirmation dialog text. */
+    /**
+     * Set the confirmation dialog text.
+     *
+     * @param  string  $text  The body text shown in the confirmation dialog.
+     */
     public function confirmText(string $text): static;
 
-    /** Set the confirm button text. */
+    /**
+     * Set the confirm button text.
+     *
+     * @param  string  $text  Label for the confirm/submit button.
+     */
     public function confirmButtonText(string $text): static;
 
-    /** Set the cancel button text. */
+    /**
+     * Set the cancel button text.
+     *
+     * @param  string  $text  Label for the cancel button.
+     */
     public function cancelButtonText(string $text): static;
 
-    /** Skip the confirmation dialog entirely. */
+    /**
+     * Skip the confirmation dialog entirely.
+     */
     public function withoutConfirmation(): static;
 
-    /** Set the modal size. */
+    /**
+     * Set the modal size.
+     *
+     * @param  ModalSize  $size  The desired modal size enum value.
+     */
     public function size(ModalSize $size): static;
 
-    /** Set the modal to fullscreen. */
+    /**
+     * Set the modal to fullscreen.
+     */
     public function fullscreen(): static;
 
     // -------------------------------------------------------------------------
     // Action log control
     // -------------------------------------------------------------------------
 
-    /** Disable action event logging for this action. */
+    /**
+     * Disable action event logging for this action.
+     */
     public function withoutActionEvents(): static;
 
-    /** Whether this action should log events. */
+    /**
+     * Whether this action should log events.
+     */
     public function shouldLogEvents(): bool;
 
     // -------------------------------------------------------------------------
     // Icon & Group
     // -------------------------------------------------------------------------
 
-    /** Set the Phosphor icon name for this action. */
+    /**
+     * Set the Phosphor icon name for this action.
+     *
+     * @param  string  $icon  The Phosphor icon identifier (e.g. "trash", "pencil").
+     */
     public function icon(string $icon): static;
 
-    /** Get the icon name. */
+    /**
+     * Get the icon name.
+     */
     public function getIcon(): ?string;
 
-    /** Hide the icon entirely — the menu item shows label only. */
+    /**
+     * Hide the icon entirely — the menu item shows label only.
+     */
     public function withoutIcon(): static;
 
-    /** Whether an icon should be rendered for this action. */
+    /**
+     * Whether an icon should be rendered for this action.
+     */
     public function isShowingIcon(): bool;
 
-    /** Set a CSS color for the icon (e.g. "#dc2626", "var(--martis-danger)"). */
+    /**
+     * Set a CSS color for the icon (e.g. "#dc2626", "var(--martis-danger)").
+     *
+     * @param  string  $color  A valid CSS color value.
+     */
     public function iconColor(string $color): static;
 
-    /** Get the icon color. */
+    /**
+     * Get the icon color.
+     */
     public function getIconColor(): ?string;
 
-    /** Set the menu group for this action (dot-notation for submenus). */
+    /**
+     * Set the menu group for this action (dot-notation for submenus).
+     *
+     * @param  string  $group  Group name or dot-notation path (e.g. "Moderation.Danger Zone").
+     */
     public function group(string $group): static;
 
-    /** Get the group name. */
+    /**
+     * Get the group name.
+     */
     public function getGroup(): ?string;
 
     // -------------------------------------------------------------------------
@@ -199,18 +308,88 @@ interface ActionContract
     /**
      * Mark this action as a pivot action (runs on BelongsToMany pivot context).
      * Pivot actions receive related models loaded via the parent relationship,
-     * so each model has access to `$model->pivot` with pivot column data.
+     * so each model has access to $model->pivot with pivot column data.
      */
     public function pivotAction(): static;
 
-    /** Whether this action is a pivot action. */
+    /**
+     * Whether this action is a pivot action.
+     */
     public function isPivotAction(): bool;
 
-    /** Set a custom label for the pivot section header. */
+    /**
+     * Set a custom label for the pivot section header.
+     *
+     * @param  string  $label  The label text for the pivot actions section.
+     */
     public function referToPivotAs(string $label): static;
 
-    /** Get the pivot section label. */
+    /**
+     * Get the pivot section label.
+     */
     public function getPivotLabel(): ?string;
+
+    // -------------------------------------------------------------------------
+    // Then callback
+    // -------------------------------------------------------------------------
+
+    /**
+     * Get the then callback.
+     */
+    public function getThenCallback(): ?Closure;
+
+    // -------------------------------------------------------------------------
+    // Queued action support
+    // -------------------------------------------------------------------------
+
+    /**
+     * Whether this action should be queued.
+     */
+    public function isQueued(): bool;
+
+    // -------------------------------------------------------------------------
+    // Closure handler accessors
+    // -------------------------------------------------------------------------
+
+    /**
+     * Get the closure handler for closure-based actions.
+     */
+    public function getClosureHandler(): ?Closure;
+
+    // -------------------------------------------------------------------------
+    // Martis extensions: Dry-run / Preview
+    // -------------------------------------------------------------------------
+
+    /**
+     * Enable dry-run preview for this action.
+     */
+    public function withDryRun(): static;
+
+    /**
+     * Whether dry-run preview is enabled.
+     */
+    public function hasDryRun(): bool;
+
+    /**
+     * Execute a dry-run preview (no side effects).
+     *
+     * @param  ActionFields  $fields  The validated field values from the confirmation modal.
+     * @param  Collection<int, Model>  $models  The selected model instances.
+     * @return array<string, mixed>
+     */
+    public function dryRun(ActionFields $fields, Collection $models): array;
+
+    // -------------------------------------------------------------------------
+    // Martis extensions: Custom component
+    // -------------------------------------------------------------------------
+
+    /**
+     * Use a custom component inside the action modal.
+     *
+     * @param  string  $componentKey  The component key registered in the frontend componentRegistry.
+     * @param  array<string, mixed>  $props  Arbitrary props forwarded to the React component.
+     */
+    public function component(string $componentKey, array $props = []): static;
 
     // -------------------------------------------------------------------------
     // Serialization

@@ -96,6 +96,9 @@ class TwoFactorService
 
     /**
      * Verify an OTP code against a user's 2FA secret.
+     *
+     * Implements TOTP replay protection: once a time step has been used
+     * successfully, it cannot be reused within the same window.
      */
     public function verifyForUser(Authenticatable $user, string $code): bool
     {
@@ -106,7 +109,7 @@ class TwoFactorService
 
         $secret = (string) decrypt($user->two_factor_secret);
 
-        return $this->verify($secret, $code);
+        return $this->verifyAndTrack($user, $secret, $code);
     }
 
     /**
@@ -206,7 +209,7 @@ class TwoFactorService
     }
 
     /**
-     * Verify a TOTP code against a Base32 secret.
+     * Verify a TOTP code against a Base32 secret (pure, no side effects).
      *
      * @param  string  $secret  Base32-encoded TOTP secret.
      * @param  string  $code  6-digit OTP to verify.
@@ -222,6 +225,58 @@ class TwoFactorService
 
         for ($i = -self::WINDOW; $i <= self::WINDOW; $i++) {
             if ($this->hotp($key, $timestamp + $i) === $code) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Verify a TOTP code with replay protection.
+     *
+     * Tracks the last successfully used time step in .
+     * Rejects codes from time steps at or before the last successful step,
+     * preventing replay attacks within the ±WINDOW interval (~90 seconds).
+     *
+     * Requires the user model to have a  column
+     * (timestamp, nullable). If the column is absent the check degrades
+     * gracefully to plain TOTP verification.
+     *
+     * @param  Model&Authenticatable  $user  The authenticated user.
+     * @param  string  $secret  Base32-encoded TOTP secret.
+     * @param  string  $code  6-digit OTP to verify.
+     */
+    private function verifyAndTrack(Model&Authenticatable $user, string $secret, string $code): bool
+    {
+        if (strlen($code) !== 6 || ! ctype_digit($code)) {
+            return false;
+        }
+
+        $key = $this->base32Decode($secret);
+        $timestamp = (int) floor(time() / 30);
+
+        // Determine the last used time step.
+        // Eloquent returns null for unmigrated columns — no exception needed.
+        $lastUsedAt = $user->two_factor_last_used_at ?? null;
+
+        $lastStep = $lastUsedAt instanceof \DateTimeInterface
+            ? (int) floor($lastUsedAt->getTimestamp() / 30)
+            : -PHP_INT_MAX;
+
+        for ($i = -self::WINDOW; $i <= self::WINDOW; $i++) {
+            $step = $timestamp + $i;
+
+            // Reject any step that was already consumed
+            if ($step <= $lastStep) {
+                continue;
+            }
+
+            if ($this->hotp($key, $step) === $code) {
+                // Record the consumed step so it cannot be reused
+                $user->two_factor_last_used_at = now();
+                $user->save();
+
                 return true;
             }
         }

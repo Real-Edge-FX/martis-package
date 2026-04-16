@@ -2,18 +2,30 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { NavigationGroup, PaginatedResponse } from "@/types"
+import { getNavigationItems } from "@/lib/navigation"
+import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlass, Database, CaretRight, File } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, DatabaseIcon, CaretRightIcon, FileIcon, SpinnerIcon } from "@phosphor-icons/react"
 
 interface GlobalSearchProps {
   onClose: () => void
 }
 
-interface RecordResult {
+interface SearchResultItem {
   id: number | string
-  _title: string
-  _resource: { uriKey: string; singularLabel: string; icon?: string }
+  title: string
+  subtitle: string | null
+  url: string
+}
+
+interface SearchResultGroup {
+  resource: string
+  label: string
+  items: SearchResultItem[]
+}
+
+interface GlobalSearchResponse {
+  results: SearchResultGroup[]
 }
 
 export function GlobalSearch({ onClose }: GlobalSearchProps) {
@@ -31,20 +43,20 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     staleTime: 1000 * 60,
   })
 
-  const allResources = groups.flatMap((g) =>
-    g.resources.map((r) => ({ ...r, groupLabel: g.label })),
+  const allNavigationItems = groups.flatMap((group) =>
+    getNavigationItems(group).map((item) => ({ ...item, groupLabel: group.label })),
   )
 
-  const filteredResources = query.trim()
-    ? allResources.filter(
+  const filteredNavigationItems = query.trim()
+    ? allNavigationItems.filter(
         (r) =>
           r.label.toLowerCase().includes(query.toLowerCase()) ||
-          r.uriKey.toLowerCase().includes(query.toLowerCase()) ||
+          (r.type === "resource" && r.uriKey.toLowerCase().includes(query.toLowerCase())) ||
           (r.groupLabel ?? "").toLowerCase().includes(query.toLowerCase()),
       )
-    : allResources
+    : allNavigationItems
 
-  // Debounce search query for record search
+  // Debounce the query for the unified search endpoint
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (query.trim().length < 2) {
@@ -54,68 +66,62 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     debounceRef.current = setTimeout(() => {
       setDebouncedQuery(query.trim())
     }, 300)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [query])
 
-  // Search records across all resources
-  const { data: recordResults = [], isFetching: searchingRecords } = useQuery<RecordResult[]>({
+  // Unified global search — single request, grouped results with subtitle
+  const { data: searchResponse, isFetching: searchingRecords } = useQuery<GlobalSearchResponse>({
     queryKey: ["global-search", debouncedQuery],
-    queryFn: async () => {
-      if (!debouncedQuery || debouncedQuery.length < 2) return []
-      const searches = allResources.map(async (r) => {
-        try {
-          const res = await api.get<PaginatedResponse<Record<string, unknown>>>(
-            `/api/resources/${r.uriKey}?search=${encodeURIComponent(debouncedQuery)}&per_page=5`
-          )
-          return (res.data ?? []).map((record: Record<string, unknown>) => ({
-            id: record.id as number | string,
-            _title: (record._title as string) ?? `#${record.id}`,
-            _resource: {
-              uriKey: r.uriKey,
-              singularLabel: r.singularLabel ?? r.label,
-              icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
-            },
-          }))
-        } catch {
-          return []
-        }
-      })
-      const results = await Promise.all(searches)
-      return results.flat()
-    },
+    queryFn: () =>
+      api.get<GlobalSearchResponse>(`/api/search?q=${encodeURIComponent(debouncedQuery)}`),
     enabled: debouncedQuery.length >= 2,
     staleTime: 1000 * 10,
   })
 
-  // Build unified list for keyboard navigation
+  const searchGroups = searchResponse?.results ?? []
+
+  // Flatten all record results for keyboard navigation
+  const allRecordItems = searchGroups.flatMap((group) =>
+    group.items.map((item) => ({ ...item, resourceLabel: group.label })),
+  )
+
+  // Build unified navigation list
   type NavItem =
-    | { type: "resource"; uriKey: string; label: string; groupLabel?: string; icon?: string }
-    | { type: "record"; id: number | string; title: string; resourceUriKey: string; resourceLabel: string; icon?: string }
+    | { type: "resource"; uriKey: string; label: string; groupLabel?: string; icon?: string; url: string }
+    | { type: "link"; label: string; groupLabel?: string; icon?: string; url: string; external?: boolean }
+    | { type: "record"; item: SearchResultItem; resourceLabel: string }
 
   const navItems: NavItem[] = []
 
-  // Add resources
-  for (const r of filteredResources) {
-    navItems.push({
-      type: "resource",
-      uriKey: r.uriKey,
-      label: r.label,
-      groupLabel: r.groupLabel ?? undefined,
-      icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
-    })
+  for (const r of filteredNavigationItems) {
+    if (r.type === "resource") {
+      navItems.push({
+        type: "resource",
+        uriKey: r.uriKey,
+        label: r.label,
+        groupLabel: r.groupLabel ?? undefined,
+        icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
+        url: r.url,
+      })
+    } else {
+      navItems.push({
+        type: "link",
+        label: r.label,
+        groupLabel: r.groupLabel ?? undefined,
+        icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
+        url: r.url,
+        external: r.external,
+      })
+    }
   }
 
-  // Add records
-  for (const rec of recordResults) {
-    navItems.push({
-      type: "record",
-      id: rec.id,
-      title: rec._title,
-      resourceUriKey: rec._resource.uriKey,
-      resourceLabel: rec._resource.singularLabel,
-      icon: rec._resource.icon,
-    })
+  for (const rec of allRecordItems) {
+    navItems.push({ type: "record", item: rec, resourceLabel: rec.resourceLabel })
   }
+
+  const resourceEndIndex = filteredNavigationItems.length
 
   // Focus input on mount
   useEffect(() => {
@@ -125,14 +131,20 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
   // Reset active index when results change
   useEffect(() => {
     setActiveIndex(0)
-  }, [query, recordResults.length])
+  }, [query, allRecordItems.length])
 
   const goToItem = useCallback(
     (item: NavItem) => {
       if (item.type === "resource") {
-        navigate(`/resources/${item.uriKey}`)
+        navigate(item.url)
+      } else if (item.type === "link") {
+        if (item.external) {
+          window.open(item.url, "_blank", "noopener,noreferrer")
+        } else {
+          navigate(item.url)
+        }
       } else {
-        navigate(`/resources/${item.resourceUriKey}/${item.id}`)
+        navigate(item.item.url)
       }
       onClose()
     },
@@ -153,8 +165,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     }
   }
 
-  const hasRecords = recordResults.length > 0
-  const resourceEndIndex = filteredResources.length
+  const hasRecords = allRecordItems.length > 0
 
   return (
     <div className="martis-search-overlay" onClick={onClose}>
@@ -164,7 +175,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
         onKeyDown={handleKeyDown}
       >
         <div className="relative">
-          <MagnifyingGlass
+          <MagnifyingGlassIcon
             size={14}
             className="absolute left-4 top-1/2 -translate-y-1/2"
             style={{ color: "var(--martis-text-muted)" }}
@@ -177,6 +188,13 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {searchingRecords && (
+            <SpinnerIcon
+              size={14}
+              className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin"
+              style={{ color: "var(--martis-text-muted)" }}
+            />
+          )}
         </div>
 
         <div className="martis-search-results">
@@ -187,66 +205,78 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
           )}
 
           {/* Resources section */}
-          {filteredResources.length > 0 && (
+          {filteredNavigationItems.length > 0 && (
             <>
               {hasRecords && (
-                <div className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--martis-text-muted)" }}>
-                  Resources
+                <div
+                  className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--martis-text-muted)" }}
+                >
+                  {t("section_resources", "Resources")}
                 </div>
               )}
-              {filteredResources.map((r, i) => (
+              {filteredNavigationItems.map((r, i) => (
                 <div
-                  key={`res-${r.uriKey}`}
+                  key={`nav-${r.type}-${r.type === "resource" ? r.uriKey : r.url}`}
                   className={`martis-search-item ${i === activeIndex ? "active" : ""}`}
                   onClick={() => goToItem(navItems[i])}
                 >
-                  <Database size={14} style={{ color: "var(--martis-accent)" }} />
-                  <div className="flex-1">
+                  <DatabaseIcon size={14} style={{ color: "var(--martis-accent)" }} />
+                  <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">{r.label}</div>
                     {r.groupLabel && (
-                      <div className="text-xs" style={{ color: "var(--martis-text-muted)" }}>
+                      <div className="text-xs truncate" style={{ color: "var(--martis-text-muted)" }}>
                         {r.groupLabel}
                       </div>
                     )}
                   </div>
-                  <CaretRight size={12} style={{ color: "var(--martis-text-muted)" }} />
+                  <CaretRightIcon size={12} style={{ color: "var(--martis-text-muted)" }} />
                 </div>
               ))}
             </>
           )}
 
-          {/* Records section */}
-          {hasRecords && (
-            <>
-              <div className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--martis-text-muted)" }}>
-                Records
-              </div>
-              {recordResults.map((rec, i) => {
-                const navIndex = resourceEndIndex + i
-                return (
-                  <div
-                    key={`rec-${rec._resource.uriKey}-${rec.id}`}
-                    className={`martis-search-item ${navIndex === activeIndex ? "active" : ""}`}
-                    onClick={() => goToItem(navItems[navIndex])}
-                  >
-                    <File size={14} style={{ color: "var(--martis-accent)" }} />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{rec._title}</div>
-                      <div className="text-xs" style={{ color: "var(--martis-text-muted)" }}>
-                        {rec._resource.singularLabel}
+          {/* Records grouped by resource — with subtitle */}
+          {hasRecords &&
+            searchGroups.map((group) => (
+              <div key={group.resource}>
+                <div
+                  className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--martis-text-muted)" }}
+                >
+                  {group.label}
+                </div>
+                {group.items.map((item) => {
+                  const flatIndex = allRecordItems.findIndex(
+                    (r) => r.id === item.id && r.url === item.url,
+                  )
+                  const navIndex = resourceEndIndex + flatIndex
+                  return (
+                    <div
+                      key={`rec-${group.resource}-${item.id}`}
+                      className={`martis-search-item ${navIndex === activeIndex ? "active" : ""}`}
+                      onClick={() => goToItem(navItems[navIndex])}
+                    >
+                      <FileIcon size={14} style={{ color: "var(--martis-accent)" }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{item.title}</div>
+                        {item.subtitle && (
+                          <div className="text-xs truncate" style={{ color: "var(--martis-text-muted)" }}>
+                            {item.subtitle}
+                          </div>
+                        )}
                       </div>
+                      <CaretRightIcon size={12} style={{ color: "var(--martis-text-muted)" }} />
                     </div>
-                    <CaretRight size={12} style={{ color: "var(--martis-text-muted)" }} />
-                  </div>
-                )
-              })}
-            </>
-          )}
+                  )
+                })}
+              </div>
+            ))}
 
-          {/* Loading indicator */}
-          {searchingRecords && (
-            <div className="px-4 py-2 text-center text-xs" style={{ color: "var(--martis-text-muted)" }}>
-              Searching records...
+          {/* Loading indicator when no results yet */}
+          {searchingRecords && !hasRecords && debouncedQuery.length >= 2 && (
+            <div className="px-4 py-4 text-center text-xs" style={{ color: "var(--martis-text-muted)" }}>
+              {t("searching", "Searching...")}
             </div>
           )}
         </div>
@@ -256,19 +286,28 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
           style={{ borderColor: "var(--martis-border)", color: "var(--martis-text-muted)" }}
         >
           <span>
-            <kbd className="rounded px-1 py-0.5 text-[10px] font-mono" style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}>
+            <kbd
+              className="rounded px-1 py-0.5 text-[10px] font-mono"
+              style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}
+            >
               &uarr;&darr;
             </kbd>{" "}
             {t("navigate", "navigate")}
           </span>
           <span>
-            <kbd className="rounded px-1 py-0.5 text-[10px] font-mono" style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}>
+            <kbd
+              className="rounded px-1 py-0.5 text-[10px] font-mono"
+              style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}
+            >
               &crarr;
             </kbd>{" "}
             {t("select", "select")}
           </span>
           <span>
-            <kbd className="rounded px-1 py-0.5 text-[10px] font-mono" style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}>
+            <kbd
+              className="rounded px-1 py-0.5 text-[10px] font-mono"
+              style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}
+            >
               esc
             </kbd>{" "}
             {t("close", "close")}

@@ -23,6 +23,9 @@ class PolicyMakeCommand extends Command
 
     protected $description = 'Create a new Martis resource policy class';
 
+    /**
+     * Handle.
+     */
     public function handle(Filesystem $files): int
     {
         $nameArg = $this->argument('name');

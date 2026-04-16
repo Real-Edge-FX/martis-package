@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useMemo, useCallback } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import { Image as ImageIcon, Plus, Trash } from '@phosphor-icons/react'
+import { ImageIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import { useToastSafe } from "@/contexts/ToastContext"
 
 interface ImageValue {
@@ -327,7 +327,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
                 onClick={() => handleRemove(item.id)}
                 className="absolute right-1 top-1 rounded-full bg-black/60 p-1 opacity-0 transition-opacity group-hover:opacity-100"
               >
-                <Trash size={12} className="text-white" />
+                <TrashIcon size={12} className="text-white" />
               </button>
             </div>
           ))}
@@ -351,7 +351,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
           className="flex w-full flex-col items-center gap-2 px-4 py-4 text-sm"
           style={{ color: 'var(--martis-text-muted)' }}
         >
-          {items.length > 0 ? <Plus size={24} /> : <ImageIcon size={28} />}
+          {items.length > 0 ? <PlusIcon size={24} /> : <ImageIcon size={28} />}
           <span>{items.length > 0 ? tRes('add_more_images') : tRes('choose_images')}</span>
         </button>
 

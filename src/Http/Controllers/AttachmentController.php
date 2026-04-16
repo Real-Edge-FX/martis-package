@@ -30,7 +30,7 @@ class AttachmentController extends MartisController
     {
         /** @var list<string> $allowedMimes */
         $allowedMimes = config('martis.attachments.allowed_mimes', [
-            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+            'jpg', 'jpeg', 'png', 'gif', 'webp',
             'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
             'txt', 'csv', 'zip', 'mp4', 'mp3',
         ]);
@@ -51,12 +51,18 @@ class AttachmentController extends MartisController
         $file = $request->file('file');
 
         // Whitelist allowed storage disks to prevent writes to unexpected locations
+        /** @var string $storageDisk */
+        $storageDisk = config('martis.storage.disk', 'public');
         /** @var list<string> $allowedDisks */
         $allowedDisks = config('martis.attachments.allowed_disks', ['public', 'local']);
-        $requestedDisk = $request->input('disk', 'public');
-        $disk = in_array($requestedDisk, $allowedDisks, true) ? $requestedDisk : 'public';
+        // Include the global storage disk in the allowed list automatically
+        if (! in_array($storageDisk, $allowedDisks, true)) {
+            $allowedDisks[] = $storageDisk;
+        }
+        $requestedDisk = $request->input('disk', $storageDisk);
+        $disk = in_array($requestedDisk, $allowedDisks, true) ? $requestedDisk : $storageDisk;
 
-        $filename = Str::random(40).'.'.$file->getClientOriginalExtension();
+        $filename = Str::random(40).'.'.$file->extension();
         $path = (string) $file->storeAs('martis-attachments', $filename, $disk);
 
         /** @var FilesystemAdapter $storage */

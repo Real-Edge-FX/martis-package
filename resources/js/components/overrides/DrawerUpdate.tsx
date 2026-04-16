@@ -1,8 +1,8 @@
 import { useMemo, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { OverrideProps, ResourceRecord } from '@/types'
-import { FieldInput } from '@/components/fields'
+import type { OverrideProps, ResourceRecord, FieldDefinition } from '@/types'
+import { FieldInput } from '@/components/fields/FieldRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 
@@ -41,7 +41,7 @@ export function DrawerUpdate(props: OverrideProps) {
   })
 
   const activeRecord = record ?? recordQuery.data?.data
-  const formFields = useMemo(() => schema.fieldsForUpdate ?? [], [schema])
+  const formFields = useMemo(() => (schema.fieldsForUpdate ?? []).filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [schema])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})

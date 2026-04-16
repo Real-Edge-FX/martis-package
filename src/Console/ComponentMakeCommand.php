@@ -15,6 +15,9 @@ class ComponentMakeCommand extends Command
 
     protected $description = 'Generate a React component and auto-register it in the boot file';
 
+    /**
+     * Handle.
+     */
     public function handle(): int
     {
         /** @var string $name */
@@ -32,40 +35,40 @@ class ComponentMakeCommand extends Command
         $className = Str::studly($name);
         $kebabName = Str::kebab($name);
 
-        // Determine paths
-        $componentDir = resource_path('js/martis/components');
+        $baseDir = resource_path('js/user/martis');
+        $componentDir = $baseDir.'/components';
         $componentPath = $componentDir.'/'.$className.'.tsx';
-        $bootPath = resource_path('js/martis/boot.ts');
+        $bootPath = $baseDir.'/boot.ts';
 
-        // Create directory if needed
         if (! is_dir($componentDir)) {
             mkdir($componentDir, 0755, true);
         }
 
-        // Check if component already exists
+        if (! is_dir(dirname($bootPath))) {
+            mkdir(dirname($bootPath), 0755, true);
+        }
+
         if (file_exists($componentPath)) {
             $this->error("Component already exists: {$componentPath}");
 
             return self::FAILURE;
         }
 
-        // Generate component from stub
         $stub = $this->getStub($type);
         $content = str_replace(
             ['{{ class }}', '{{ kebab }}'],
             [$className, $kebabName],
             $stub,
         );
+
         file_put_contents($componentPath, $content);
 
-        // Determine registry key based on type
         $registryKey = match ($type) {
             'footer' => 'layout:footer',
             'layout' => 'layout:shell',
             default => $kebabName,
         };
 
-        // Auto-register in boot file
         $this->updateBootFile($bootPath, $className, $registryKey, $type);
 
         $this->info("Component created: {$componentPath}");
@@ -89,26 +92,30 @@ class ComponentMakeCommand extends Command
         }
 
         $this->newLine();
-        $this->line("Don't forget to rebuild assets: <comment>make build</comment>");
+        $this->line("Don't forget to rebuild assets: <comment>npm run build</comment>");
 
         return self::SUCCESS;
     }
 
+    /**
+     * Get the stub file contents for the given component type.
+     */
     protected function getStub(string $type): string
     {
         $stubPath = __DIR__.'/../../stubs/component-'.$type.'.tsx.stub';
 
         if (! file_exists($stubPath)) {
-            // Fallback to generic
             $stubPath = __DIR__.'/../../stubs/component-generic.tsx.stub';
         }
 
         return (string) file_get_contents($stubPath);
     }
 
+    /**
+     * Register the component in the user boot file.
+     */
     protected function updateBootFile(string $bootPath, string $className, string $registryKey, string $type): void
     {
-        // Field type generates Display + Input exports; others generate a single export.
         if ($type === 'field') {
             $importLine = "import { {$className}Display, {$className}Input } from './components/{$className}'";
             $registerLines = [
@@ -118,48 +125,59 @@ class ComponentMakeCommand extends Command
         } else {
             $importLine = "import { {$className} } from './components/{$className}'";
             $registerLines = [
-                "componentRegistry.register('{$registryKey}', {$className})",
+                "componentRegistry.register('{$registryKey}', {$className} as never)",
             ];
         }
 
         if (file_exists($bootPath)) {
             $content = (string) file_get_contents($bootPath);
 
-            // Add import if not already present
+            if (! str_contains($content, "import { componentRegistry } from '@/lib/componentRegistry'")) {
+                $content = "import { componentRegistry } from '@/lib/componentRegistry'\n".$content;
+            }
+
             if (! str_contains($content, $importLine)) {
                 $lines = explode("\n", $content);
                 $lastImportIndex = -1;
+
                 foreach ($lines as $i => $line) {
                     if (str_starts_with(trim($line), 'import ')) {
                         $lastImportIndex = $i;
                     }
                 }
+
                 if ($lastImportIndex >= 0) {
                     array_splice($lines, $lastImportIndex + 1, 0, [$importLine]);
                 } else {
                     array_unshift($lines, $importLine);
                 }
+
                 $content = implode("\n", $lines);
             }
 
-            // Add register calls if not already present
+            if (! str_contains($content, '// Auto-registered by martis:component')) {
+                $content = rtrim($content)."\n\n// Auto-registered by martis:component\n";
+            }
+
             foreach ($registerLines as $registerLine) {
                 if (! str_contains($content, $registerLine)) {
-                    $content .= "\n{$registerLine}\n";
+                    $content = rtrim($content)."\n".$registerLine."\n";
                 }
             }
 
             file_put_contents($bootPath, $content);
-        } else {
-            // Create boot file from scratch
-            $content = "import { componentRegistry } from '@/lib/componentRegistry'\n";
-            $content .= $importLine."\n";
-            $content .= "\n// Auto-registered by martis:component\n";
-            foreach ($registerLines as $registerLine) {
-                $content .= $registerLine."\n";
-            }
 
-            file_put_contents($bootPath, $content);
+            return;
         }
+
+        $content = "import { componentRegistry } from '@/lib/componentRegistry'\n";
+        $content .= $importLine."\n";
+        $content .= "\n// Auto-registered by martis:component\n";
+
+        foreach ($registerLines as $registerLine) {
+            $content .= $registerLine."\n";
+        }
+
+        file_put_contents($bootPath, $content);
     }
 }

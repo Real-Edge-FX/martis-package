@@ -33,6 +33,7 @@ use Martis\SearchResolver;
  */
 class BelongsToManyController extends MartisController
 {
+    /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}
@@ -166,7 +167,8 @@ class BelongsToManyController extends MartisController
 
         // Exclude already-attached records unless allowDuplicateRelations
         if (! $field->isAllowDuplicates()) {
-            $attachedIds = $relation->pluck((new $relatedModelClass)->getKeyName())->all();
+            $relatedModel = new $relatedModelClass;
+            $attachedIds = $relation->pluck($relatedModel->qualifyColumn($relatedModel->getKeyName()))->all();
             if (! empty($attachedIds)) {
                 $query->whereNotIn((new $relatedModelClass)->getKeyName(), $attachedIds);
             }

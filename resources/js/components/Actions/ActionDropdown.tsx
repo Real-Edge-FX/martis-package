@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
-import { Lightning, CaretDown, CaretRight, Warning } from "@phosphor-icons/react"
+import { LightningIcon, CaretDownIcon, CaretRightIcon, WarningIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import type { ActionMeta } from "./ActionModal"
 
@@ -78,9 +78,9 @@ function ActionIcon({ action, size = 16 }: { action: ActionMeta; size?: number }
     return <ResourceIcon iconName={action.icon} size={size} color={color} />
   }
   if (action.destructive) {
-    return <Warning size={size} weight="fill" color={color} />
+    return <WarningIcon size={size} weight="fill" color={color} />
   }
-  return <Lightning size={size} color={color} />
+  return <LightningIcon size={size} color={color} />
 }
 
 function computeSubMenuPos(parentRect: DOMRect): { top: number; left: number } {
@@ -187,7 +187,7 @@ function SubMenu({
                   }
                 >
                   <span className="font-medium">{child.label}</span>
-                  <CaretRight size={12} />
+                  <CaretRightIcon size={12} />
                 </div>
                 {openChild === key && (
                   <SubMenu
@@ -319,9 +319,9 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
           color: "var(--martis-text)",
         }}
       >
-        <Lightning size={14} />
+        <LightningIcon size={14} />
         {label ?? t("actions")}
-        <CaretDown size={12} />
+        <CaretDownIcon size={12} />
       </button>
 
       {open &&
@@ -375,7 +375,7 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
                         }
                       >
                         <span className="font-medium">{item.label}</span>
-                        <CaretRight size={12} />
+                        <CaretRightIcon size={12} />
                       </div>
                       {openGroup === key && (
                         <SubMenu

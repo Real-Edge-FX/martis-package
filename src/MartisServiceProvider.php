@@ -35,6 +35,7 @@ class MartisServiceProvider extends ServiceProvider
             return new ResourceRegistry;
         });
 
+        $this->app->singleton(MartisManager::class);
         $this->app->singleton(TwoFactorService::class);
     }
 
@@ -84,6 +85,10 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../database/migrations/create_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_action_events_table.php'),
             ], 'martis-migrations');
 
+            $this->publishes([
+                __DIR__.'/../database/migrations/add_profile_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_martis_profile_columns.php'),
+            ], 'martis-profile-migration');
+
             // Profile: 2FA columns migration stub
             $this->publishes([
                 __DIR__.'/../stubs/add_two_factor_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_two_factor_columns.php'),
@@ -97,6 +102,7 @@ class MartisServiceProvider extends ServiceProvider
         }
     }
 
+    /** Register the custom exception handler for Martis routes. */
     protected function registerExceptionHandling(): void
     {
         if ($this->app->bound(ExceptionHandler::class)) {
@@ -116,6 +122,7 @@ class MartisServiceProvider extends ServiceProvider
         }
     }
 
+    /** Register the Martis middleware alias with the router. */
     protected function registerMiddlewareAlias(): void
     {
         /** @var Router $router */

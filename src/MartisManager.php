@@ -1,0 +1,63 @@
+<?php
+
+namespace Martis;
+
+use Closure;
+use Illuminate\Http\Request;
+use Martis\Menu\Menu;
+use Martis\Menu\MenuSection;
+
+class MartisManager
+{
+    /** @var Closure(Request, Menu): (Menu|array<int, MenuSection>|null)|null */
+    protected ?Closure $mainMenuResolver = null;
+
+    /**
+     * Register a custom main menu builder.
+     *
+     * @param  Closure(Request, Menu): (Menu|array<int, MenuSection>|null)  $resolver
+     */
+    public function mainMenu(Closure $resolver): static
+    {
+        $this->mainMenuResolver = $resolver;
+
+        return $this;
+    }
+
+    public function forgetMainMenu(): static
+    {
+        $this->mainMenuResolver = null;
+
+        return $this;
+    }
+
+    /**
+     * @param  list<MenuSection>  $defaultSections
+     * @return list<array<string, mixed>>
+     */
+    public function resolveMainMenu(Request $request, array $defaultSections): array
+    {
+        $menu = Menu::make($defaultSections);
+
+        if ($this->mainMenuResolver instanceof Closure) {
+            $resolved = call_user_func($this->mainMenuResolver, $request, $menu);
+
+            if ($resolved instanceof Menu) {
+                $menu = $resolved;
+            } elseif (is_array($resolved)) {
+                $menu = Menu::make($resolved);
+            }
+        }
+
+        $sections = [];
+        foreach ($menu->all() as $section) {
+            $resolvedSection = $section->resolve($request);
+
+            if ($resolvedSection !== null) {
+                $sections[] = $resolvedSection;
+            }
+        }
+
+        return array_values($sections);
+    }
+}

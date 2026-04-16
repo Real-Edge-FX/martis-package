@@ -4,13 +4,15 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import { FieldDisplay } from '@/components/fields'
+import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
-import { Plus, PencilSimple, Trash, MagnifyingGlass, CaretUp, CaretDown, CaretUpDown } from '@phosphor-icons/react'
+import { PlusIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, XIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
+import { Tooltip } from 'primereact/tooltip'
 
 /**
  * HasMany field display — renders differently based on context:
@@ -64,6 +66,7 @@ export function HasManyFieldIndexDisplay({ field, value }: FieldDisplayProps) {
 function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const { t: tRes } = useTranslation('resources')
   const navigate = useNavigate()
   const qc = useQueryClient()
 
@@ -94,6 +97,11 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const [sort, setSort] = useState<string | null>(null)
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
   const [deleteTarget, setDeleteTarget] = useState<{ id: string | number } | null>(null)
+
+  // Collapsable panel
+  const collapsable = !!field.collapsable
+  const collapsedByDefault = !!field.collapsedByDefault
+  const [isCollapsed, setIsCollapsed] = useState(collapsedByDefault)
 
   // Fetch related resource schema for column headers, icon and searchPlaceholder
   const schemaQuery = useQuery({
@@ -160,19 +168,34 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   }
 
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-    if (!active) return <CaretUpDown size={14} className="text-gray-400" />
+    if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUp size={14} className="text-indigo-600" />
-      : <CaretDown size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} className="text-indigo-600" />
+      : <CaretDownIcon size={14} className="text-indigo-600" />
   }
 
   return (
     <div className="mt-6 space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3
+          className={`flex items-center gap-2 text-lg font-semibold ${collapsable ? 'cursor-pointer select-none' : ''}`}
+          style={{ color: 'var(--martis-text)' }}
+          onClick={collapsable ? () => setIsCollapsed((v) => !v) : undefined}
+        >
           {showRelationIcon && relatedIcon && (
             <ResourceIcon iconName={relatedIcon} size={20} />
+          )}
+          {collapsable && (
+            <CaretRightIcon
+              size={14}
+              weight="bold"
+              style={{
+                transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                transition: 'transform 0.15s',
+                color: 'var(--martis-text-muted)',
+              }}
+            />
           )}
           <span>{field.label}</span>
           {showRelationCount && (
@@ -188,10 +211,11 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             </span>
           )}
         </h3>
-        <div className="flex items-center gap-2">
+        {!isCollapsed && (
+        <div className="flex flex-wrap items-center gap-2">
           {meta?.searchable && (
             <div className="relative">
-              <MagnifyingGlass
+              <MagnifyingGlassIcon
                 size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2"
                 style={{ color: 'var(--martis-text-muted)' }}
@@ -201,13 +225,26 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
                 placeholder={searchPlaceholder}
-                className="has-many-search-input rounded-md border py-1.5 pl-8 pr-3 text-sm"
+                className="has-many-search-input w-full rounded-md border py-1.5 pl-8 pr-8 text-sm sm:w-auto"
                 style={{
                   borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-input-bg)',
                   color: 'var(--martis-text)',
                 }}
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setPage(1) }}
+                  className="absolute inset-y-0 right-2 flex items-center has-many-search-clear"
+                  style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+                  data-pr-tooltip={tMsg('clear', 'Clear')}
+                  data-pr-position="top"
+                >
+                  <XIcon size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
+                </button>
+              )}
+              <Tooltip target=".has-many-search-clear" showDelay={400} />
             </div>
           )}
           {meta?.canCreate && (
@@ -219,14 +256,32 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
               style={{ backgroundColor: 'var(--martis-accent)' }}
             >
-              <Plus size={14} weight="bold" />
+              <PlusIcon size={14} weight="bold" />
               {tAct('create', 'Create')}
             </button>
           )}
+          {meta?.perPageOptions && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page')}:</label>
+              <select
+                value={perPage}
+                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+                className="martis-perpage-select"
+              >
+                {meta.perPageOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
+        )}
       </div>
 
+      {!isCollapsed && (
+      <>
       {/* DataTable — same PrimeReact DataTable as the index page */}
+      <div className="overflow-x-auto">
       <DataTable
         value={records}
         loading={recordsQuery.isLoading}
@@ -295,11 +350,12 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                     to={`/resources/${relatedResource}/${row.id}/edit${viaParams}`}
                     className="rounded p-1.5 transition-colors no-underline"
                     style={{ color: 'var(--martis-text-muted)' }}
-                    title={tAct('edit', 'Edit')}
+                    data-pr-tooltip={tAct('edit', 'Edit')}
+                    data-pr-position="top"
                     onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
-                    <PencilSimple size={16} />
+                    <PencilSimpleIcon size={16} />
                   </Link>
                 )}
                 {meta?.canDelete && (
@@ -308,11 +364,12 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                     onClick={() => setDeleteTarget({ id: row.id as string | number })}
                     className="rounded p-1.5 transition-colors"
                     style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-                    title={tAct('delete', 'Delete')}
+                    data-pr-tooltip={tAct('delete', 'Delete')}
+                    data-pr-position="top"
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
-                    <Trash size={16} />
+                    <TrashIcon size={16} />
                   </button>
                 )}
               </div>
@@ -321,69 +378,22 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
           />
         )}
       </DataTable>
+      </div>
 
       {/* Pagination */}
-      {pagination && pagination.last_page > 1 && (
-        <div
-          className="flex items-center justify-between rounded-b-xl px-4 py-3"
-          style={{
-            borderTop: '1px solid var(--martis-border)',
-            backgroundColor: 'var(--martis-surface)',
-          }}
-        >
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-            <span>
-              {pagination.from}–{pagination.to} / {pagination.total}
-            </span>
-            {meta?.perPageOptions && (
-              <select
-                value={perPage}
-                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                className="rounded border px-1.5 py-0.5 text-xs"
-                style={{
-                  borderColor: 'var(--martis-border)',
-                  backgroundColor: 'var(--martis-input-bg)',
-                  color: 'var(--martis-text)',
-                }}
-              >
-                {meta.perPageOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-input-bg)',
-                color: 'var(--martis-text)',
-              }}
-            >
-              ←
-            </button>
-            <span className="px-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-              {page} / {pagination.last_page}
-            </span>
-            <button
-              type="button"
-              disabled={page >= pagination.last_page}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded border px-2 py-1 text-xs font-medium disabled:opacity-40"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-input-bg)',
-                color: 'var(--martis-text)',
-              }}
-            >
-              →
-            </button>
-          </div>
-        </div>
+      {pagination && (
+        <Pagination
+          currentPage={pagination.current_page}
+          lastPage={pagination.last_page}
+          total={pagination.total}
+          perPage={pagination.per_page ?? perPage}
+          from={pagination.from ?? null}
+          to={pagination.to ?? null}
+          onPageChange={setPage}
+        />
+      )}
+
+      </>
       )}
 
       {/* Delete confirmation modal */}

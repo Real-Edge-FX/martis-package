@@ -7,23 +7,26 @@ use Illuminate\Contracts\Validation\Rule;
 /**
  * URL field — renders clickable links on index/detail and a text input on forms.
  *
- * Paridade com Laravel Nova v5: URL field.
- * Referência: https://nova.laravel.com/docs/v5/resources/fields
+ * Laravel Nova v5 parity: URL field.
+ * Reference: https://nova.laravel.com/docs/v5/resources/fields
  *
- * Contextos:
- *  - index: link clicável
- *  - detail: link clicável
- *  - create: input de URL editável
- *  - update: input de URL editável
+ * Contexts:
+ *  - index: clickable link
+ *  - detail: clickable link
+ *  - create: editable URL input
+ *  - update: editable URL input
  *
- * O texto do link pode ser customizado via displayUsing() (herdado) ou displayText() (estático).
- * Valores computados são suportados via resolveUsing().
+ * Link text can be customised via displayUsing() (inherited) or displayText() (static).
+ * Computed values are supported via resolveUsing().
  */
 class Url extends Field
 {
     /** Custom display text for the link (static string). */
     protected ?string $displayText = null;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'url';
@@ -42,6 +45,9 @@ class Url extends Field
         return $this;
     }
 
+    /**
+     * Get display text.
+     */
     public function getDisplayText(): ?string
     {
         return $this->displayText;

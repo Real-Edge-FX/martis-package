@@ -61,6 +61,25 @@ class MorphTo extends Field
     /** Whether the dropdown should support text search. */
     protected bool $relationSearchable = true;
 
+    /**
+     * Whether to show subtitle text under each dropdown option.
+     * Nova v5 parity: ->withSubtitles()
+     */
+    protected bool $withSubtitles = false;
+
+    /**
+     * The attribute on the related model used as the subtitle text.
+     * Defaults to "subtitle".
+     */
+    protected string $subtitleAttribute = 'subtitle';
+
+    /**
+     * Whether the peek/preview button is shown for the related record.
+     * Defaults to true (Nova v5 parity).
+     */
+    protected bool $peekable = true;
+
+    /** Create a new field instance. */
     protected function __construct(
         string $attribute,
         string $label,
@@ -85,6 +104,9 @@ class MorphTo extends Field
         return new static($relationship, $label, $relationship);
     }
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'morph_to';
@@ -147,12 +169,61 @@ class MorphTo extends Field
     /**
      * Set the modal size for inline creation.
      */
-    public function modalSize(ModalSize|string $size): static
+    public function modalSize(ModalSize $size): static
     {
-        if (is_string($size)) {
-            $size = ModalSize::from($size);
-        }
         $this->modalSize = $size;
+
+        return $this;
+    }
+
+    /**
+     * Show subtitle text under each dropdown option.
+     *
+     * The subtitle is read from the related model's $subtitleAttribute (default: "subtitle").
+     * Nova v5 parity: ->withSubtitles()
+     */
+    public function withSubtitles(bool $value = true): static
+    {
+        $this->withSubtitles = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set the subtitle attribute on the related model.
+     * Implicitly enables withSubtitles.
+     *
+     * Usage: ->subtitleAttribute('description')
+     */
+    public function subtitleAttribute(string $attribute): static
+    {
+        $this->subtitleAttribute = $attribute;
+        $this->withSubtitles = true;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable the peek/preview button on the display component.
+     * Defaults to true — pass false or call noPeeking() to disable.
+     *
+     * Nova v5 parity: ->peekable()
+     */
+    public function peekable(bool $value = true): static
+    {
+        $this->peekable = $value;
+
+        return $this;
+    }
+
+    /**
+     * Disable the peek/preview button for this relationship.
+     *
+     * Nova v5 parity: ->noPeeking()
+     */
+    public function noPeeking(): static
+    {
+        $this->peekable = false;
 
         return $this;
     }
@@ -203,7 +274,7 @@ class MorphTo extends Field
         return [
             'type' => $morphType,
             'id' => $morphId,
-            'title' => $related?->getAttribute($this->titleAttribute),
+            'title' => $related?->getAttribute($this->resolvedTitleAttribute($morphType)),
             'resourceType' => $resourceType,
         ];
     }
@@ -247,6 +318,42 @@ class MorphTo extends Field
                 $model->setAttribute($this->morphIdColumn, $morphId);
             }
         }
+    }
+
+    /**
+     * Find the resource class that corresponds to a morph type (model class name).
+     *
+     * @param  string  $morphType  Full model class name e.g. App\Models\Post
+     * @return class-string<\Martis\Resource>|null
+     */
+    protected function findResourceClassForMorphType(string $morphType): ?string
+    {
+        foreach ($this->morphTypes as $resourceClass) {
+            try {
+                $model = $resourceClass::newModel();
+                $modelClass = get_class($model);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if (ltrim($modelClass, '\\') === ltrim($morphType, '\\')) {
+                return $resourceClass;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the title attribute for a given morphType.
+     *
+     * Prefers the resource class's titleAttribute() over the field's default.
+     */
+    protected function resolvedTitleAttribute(string $morphType): string
+    {
+        $resourceClass = $this->findResourceClassForMorphType($morphType);
+
+        return $resourceClass ? $resourceClass::titleAttribute() : $this->titleAttribute;
     }
 
     /**
@@ -343,6 +450,9 @@ class MorphTo extends Field
             'relationSearchable' => $this->relationSearchable,
             'showCreateRelationButton' => $this->isShowCreateRelationButton(),
             'modalSize' => $this->modalSize->value,
+            'withSubtitles' => $this->withSubtitles,
+            'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
+            'peekable' => $this->peekable,
         ];
     }
 }

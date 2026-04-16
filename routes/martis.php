@@ -9,9 +9,13 @@ use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
 use Martis\Http\Controllers\LoginController;
+use Martis\Http\Controllers\MorphManyController;
+use Martis\Http\Controllers\MorphOneController;
+use Martis\Http\Controllers\MorphToManyController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
+use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
 
@@ -29,8 +33,14 @@ Route::middleware(config('martis.middleware', ['web']))
         // Favicon — public, served from package or configured path
         Route::get('/favicon.ico', function () {
             $faviconPath = config('martis.brand.favicon');
-            if ($faviconPath && file_exists(public_path($faviconPath))) {
-                return response()->file(public_path($faviconPath));
+            if ($faviconPath) {
+                // Block path traversal and absolute paths
+                if (str_contains($faviconPath, '..') || str_starts_with($faviconPath, '/')) {
+                    abort(400, 'Invalid favicon path.');
+                }
+                if (file_exists(public_path($faviconPath))) {
+                    return response()->file(public_path($faviconPath));
+                }
             }
             $default = public_path('vendor/martis/favicon.ico');
             if (file_exists($default)) {
@@ -79,26 +89,31 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
 
+                                // Global Search — Nova v5 parity
+                                Route::get('/search', [SearchController::class, 'search'])->name('search');
+
                                 // Attachment upload (Trix / Markdown file uploads)
                                 Route::post('/attachments/upload', [AttachmentController::class, 'upload'])
                                     ->name('attachments.upload');
 
                                 // ──────────────────────────────────────────────────────
-                                // Profile routes
+                                // Profile routes — registered only when profile is enabled
                                 // ──────────────────────────────────────────────────────
-                                Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
-                                Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-                                Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
+                                if (config('martis.profile.enabled', true)) {
+                                    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+                                    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+                                    Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
 
-                                // Avatar
-                                Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
-                                Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
+                                    // Avatar
+                                    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
+                                    Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
 
-                                // 2FA setup (within profile)
-                                Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
-                                Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
-                                Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
-                                Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+                                    // 2FA setup (within profile)
+                                    Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
+                                    Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
+                                    Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
+                                    Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+                                }
 
                                 // Resource CRUD
                                 Route::get('/resources/{resource}/schema', [ResourceController::class, 'schema'])
@@ -148,12 +163,47 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
                                     ->name('resources.belongs-to-many.actions.execute');
 
+                                // MorphToMany polymorphic relationship — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}', [MorphToManyController::class, 'index'])
+                                    ->name('resources.morph-to-many.index');
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/attachable', [MorphToManyController::class, 'attachableIndex'])
+                                    ->name('resources.morph-to-many.attachable');
+                                Route::post('/resources/{resource}/{id}/morph-to-many/{relationship}/attach', [MorphToManyController::class, 'attach'])
+                                    ->name('resources.morph-to-many.attach');
+                                Route::delete('/resources/{resource}/{id}/morph-to-many/{relationship}/{relatedId}/detach', [MorphToManyController::class, 'detach'])
+                                    ->name('resources.morph-to-many.detach');
+                                Route::put('/resources/{resource}/{id}/morph-to-many/{relationship}/{relatedId}/pivot', [MorphToManyController::class, 'updatePivot'])
+                                    ->name('resources.morph-to-many.pivot');
+
+                                // MorphMany polymorphic one-to-many — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'index'])
+                                    ->name('resources.morph-many.index');
+                                Route::post('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'store'])
+                                    ->name('resources.morph-many.store');
+                                Route::put('/resources/{resource}/{id}/morph-many/{relationship}/{relatedId}', [MorphManyController::class, 'update'])
+                                    ->name('resources.morph-many.update');
+                                Route::delete('/resources/{resource}/{id}/morph-many/{relationship}/{relatedId}', [MorphManyController::class, 'destroy'])
+                                    ->name('resources.morph-many.destroy');
+
+                                // MorphOne polymorphic one-to-one — Nova v5 parity
+                                Route::get('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'show'])
+                                    ->name('resources.morph-one.show');
+                                Route::post('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'store'])
+                                    ->name('resources.morph-one.store');
+                                Route::put('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'update'])
+                                    ->name('resources.morph-one.update');
+                                Route::delete('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'destroy'])
+                                    ->name('resources.morph-one.destroy');
+
                                 // Force delete (permanent deletion of soft-deleted records)
                                 Route::delete('/resources/{resource}/{id}/force', [ResourceController::class, 'forceDelete'])
                                     ->name('resources.force-delete');
                                 // Replicate fields (pre-fill data for create form)
                                 Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
                                     ->name('resources.replicate');
+                                // Peek card — fetch related resource preview fields (Nova v5 parity)
+                                Route::get('/resources/{resource}/{id}/peek', [ResourceController::class, 'peek'])
+                                    ->name('resources.peek');
                                 // Action routes — Nova v5 parity
                                 Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
                                     ->name('resources.actions.index');

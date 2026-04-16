@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
 use Martis\FieldContext;
 
@@ -17,7 +18,7 @@ use Martis\FieldContext;
  * field classes only need to declare their `type()` identifier and any
  * type-specific extras.
  *
- * Hook points for Track C (HasMany, MorphTo, etc.):
+ * Hook points for relationship fields (HasMany, MorphTo, etc.):
  *   - Override `resolveUsing(callable $callback)` to customize value resolution
  *   - Override `fillUsing(callable $callback)` to customize model filling
  *   - Override `extraAttributes()` to append type-specific data to toArray()
@@ -105,6 +106,7 @@ abstract class Field implements FieldContract
 
     protected bool $hasDefault = false;
 
+    /** Create a new field instance. */
     protected function __construct(
         protected readonly string $attribute,
         protected readonly string $label,
@@ -187,6 +189,8 @@ abstract class Field implements FieldContract
             'showOnIndex' => $this->showOnIndex,
             'showOnDetail' => $this->showOnDetail,
             'showOnForms' => $this->showOnForms,
+            'showOnCreate' => $this->showOnCreate,
+            'showOnUpdate' => $this->showOnUpdate,
             'rules' => $this->buildRules(),
             'component' => $this->componentKey,
             'placeholder' => $this->placeholder,
@@ -439,8 +443,10 @@ abstract class Field implements FieldContract
      *
      * This is the central filtering entry point. All controller methods
      * and the schema endpoint call this after resolving the raw field set.
+     * Layout containers (Panel, TabGroup) are flattened — use filterLayoutForContext()
+     * when the full layout structure must be preserved (e.g. schema serialization).
      *
-     * @param  list<FieldContract>  $fields
+     * @param  list<FieldContract|LayoutContract>  $fields
      * @return list<FieldContract>
      */
     public static function filterForContext(array $fields, FieldContext $context, ?Request $request = null): array
@@ -453,6 +459,22 @@ abstract class Field implements FieldContract
             }
         }
 
+        // If the input contains layout containers (Panel, TabGroup), flatten them
+        // respecting context visibility before applying the field-level filter.
+        $hasLayout = false;
+        foreach ($fields as $item) {
+            if ($item instanceof LayoutContract) {
+                $hasLayout = true;
+                break;
+            }
+        }
+        if ($hasLayout) {
+            $filtered = self::filterLayoutForContext($fields, $context, $request);
+
+            return self::flattenLayoutFields($filtered);
+        }
+
+        /** @var list<FieldContract> $fields */
         return array_values(array_filter(
             $fields,
             function (FieldContract $f) use ($context, $request): bool {
@@ -468,6 +490,80 @@ abstract class Field implements FieldContract
                 return true;
             },
         ));
+    }
+
+    /**
+     * Filter a mixed array of fields and layout containers for a given context,
+     * preserving the Panel and TabGroup structure.
+     *
+     * Unlike filterForContext(), this method keeps layout containers in the result and
+     * drops containers that become empty after context filtering.
+     * Use this when the full layout structure is needed (e.g., schema serialization).
+     * Use flattenLayoutFields() on the result when validation or model filling is needed.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<FieldContract|LayoutContract>
+     */
+    public static function filterLayoutForContext(array $items, FieldContext $context, ?Request $request = null): array
+    {
+        if ($request === null) {
+            try {
+                $request = request();
+            } catch (\Throwable) {
+                // No request available (e.g. unit tests without HTTP context)
+            }
+        }
+
+        $result = [];
+
+        foreach ($items as $item) {
+            if ($item instanceof LayoutContract) {
+                $filtered = $item->filterForContext($context);
+                if ($filtered !== null) {
+                    $result[] = $filtered;
+                }
+
+                continue;
+            }
+
+            /** @var FieldContract $item */
+            if (! $item->isVisibleForContext($context)) {
+                continue;
+            }
+
+            if ($request !== null && $item instanceof self && ! $item->isAuthorizedToSee($request)) {
+                continue;
+            }
+
+            $result[] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Flatten a mixed array of fields and layout containers into a flat list of FieldContract items.
+     *
+     * Used for validation and model filling, where layout structure is irrelevant.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<FieldContract>
+     */
+    public static function flattenLayoutFields(array $items): array
+    {
+        $fields = [];
+
+        foreach ($items as $item) {
+            if ($item instanceof LayoutContract) {
+                foreach ($item->flattenFields() as $f) {
+                    $fields[] = $f;
+                }
+            } else {
+                $fields[] = $item;
+            }
+        }
+
+        return $fields;
     }
 
     /** {@inheritDoc} */
@@ -725,7 +821,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Component override — Bloco 9
+    // Component override
     // -------------------------------------------------------------------------
 
     /** {@inheritDoc} */
@@ -800,7 +896,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Extension point — Track C hook
+    // Extension point — relationship field hooks
     // -------------------------------------------------------------------------
 
     // -------------------------------------------------------------------------
@@ -838,6 +934,23 @@ abstract class Field implements FieldContract
         $this->colSpanLg = max(1, min(12, $cols));
 
         return $this;
+    }
+
+    /**
+     * Shorthand for colSpan() — sets how many columns this field occupies in a Section grid.
+     *
+     * Designed for use with Section::columns(): define the grid on the Section,
+     * and use span() on each field to control its width.
+     *
+     * Example:
+     *   Section::make('Timeline', [
+     *       Date::make('start_date')->span(6),
+     *       Date::make('end_date')->span(6),
+     *   ])->columns(12)
+     */
+    public function span(int $cols): static
+    {
+        return $this->colSpan($cols);
     }
 
     // -------------------------------------------------------------------------

@@ -25,7 +25,7 @@ Before creating a new TAG, verify all of the following:
 
 ### C. Quality Gates
 - `make ci` passes: 893+ PHP tests, 132+ TS tests, PHPStan level 8
-- Build artifacts committed (`make build` if needed)
+- Build artifacts committed (`make build` if frontend changed)
 - No known critical regressions in the playground
 
 ### D. Versioning (MAJOR.MINOR.PATCH-alpha)
@@ -43,9 +43,11 @@ Before creating a new TAG, verify all of the following:
 ### Step 1 — Commit pending assets (if any)
 
 ```
-git add playground/public/vendor/martis/
-git commit -m "chore(assets): rebuild playground assets for release vX.Y.Z-alpha"
+git add public/ package-lock.json
+git commit -m "chore(assets): rebuild package assets for release vX.Y.Z-alpha"
 ```
+
+Use this whenever frontend files changed in the package. End users do not build Martis locally, so the package release must already contain the compiled assets.
 
 ### Step 2 — Push develop
 
@@ -141,7 +143,20 @@ curl -s -X POST \
 
 Optionally create a mirrored release on `Real-Edge-FX/martis` for internal reference.
 
-### Step 11 — Post-release validation
+### Step 11 — Rebuild and deploy martis-docs
+
+After bumping the version in `martis-docs/src/data/version.ts` (done by `make sync-package`), rebuild the static docs site:
+
+```bash
+ssh -i secrets/martis_server_ed25519 martis@192.168.50.21 \
+  "source ~/.nvm/nvm.sh && nvm use 22 && cd /home/martis/martis-docs && pnpm build"
+```
+
+> ⚠️ **Important:** `dist/` is gitignored and served directly by Caddy from the filesystem. The rebuild must be done manually on the server after each release. The version displayed on the landing page (`https://martis-docs.realedgefx.com`) will only update after this step.
+
+Verify the live site shows the correct version before proceeding.
+
+### Step 12 — Post-release validation
 
 ```
 git ls-remote origin refs/tags/vX.Y.Z-alpha     # confirm tag on remote
@@ -221,6 +236,7 @@ If a release needs to be invalidated:
 | Creating GitHub Release in playground only | Misleading release notes, package users miss the release | Release notes go to `martis-package`, not `martis` |
 | Forgetting GitHub Release notes | No release documentation | Create release immediately after TAG |
 | Tagging on dirty working tree | Non-reproducible release | Always clean before tagging |
+| Forgetting to rebuild martis-docs | Landing page shows old version | Always run Step 11 (pnpm build on server) after sync-package |
 
 ## Release History
 

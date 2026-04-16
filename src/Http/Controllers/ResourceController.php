@@ -40,10 +40,11 @@ use Martis\SearchResolver;
  *   PUT    /martis/api/{resource}/{id}/restore      → restore (soft-deleted record)
  *
  * All responses use the JsonResponse / JsonPaginatedResponse / JsonErrorResponse
- * envelopes defined in Bloco 2 (Contracts).
+ * envelopes defined in the contracts layer (see Contracts/).
  */
 class ResourceController extends MartisController
 {
+    /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}
@@ -631,6 +632,9 @@ class ResourceController extends MartisController
             'fields' => $fieldData,
             'singularLabel' => $resourceClass::singularLabel(),
             'label' => $resourceClass::label(),
+            'icon' => $instance->icon(),
+            'iconColor' => $instance->iconColor(),
+            'subtitle' => $resourceClass::subtitle(),
         ])->toResponse();
     }
 
@@ -735,11 +739,15 @@ class ResourceController extends MartisController
 
         // Context-specific field arrays — resolved then filtered by visibility
         $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
-        $fieldsForDetail = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
-        $fieldsForCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
-        $fieldsForUpdate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
+        $fieldsForDetail = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
+        $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
+        $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
         $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
+        $filters = $this->serializeSchemaDescriptors($instance->filters($request));
+        $lenses = $this->serializeSchemaDescriptors($instance->lenses($request));
+        $cards = $this->serializeSchemaDescriptors($instance->cards($request));
+        $dashboards = $this->serializeSchemaDescriptors($resourceClass::dashboards());
 
         $data = [
             'uriKey' => $resourceClass::uriKey(),
@@ -750,6 +758,7 @@ class ResourceController extends MartisController
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
+            'iconColor' => $instance->iconColor(),
             'titleAttribute' => $resourceClass::titleAttribute(),
             'indexSearchable' => $resourceClass::indexSearchable(),
             'usesScout' => $resourceClass::usesScout(),
@@ -763,6 +772,10 @@ class ResourceController extends MartisController
             'fieldsForUpdate' => $fieldsForUpdate,
             'fieldsForInlineCreate' => $fieldsForInlineCreate,
             'fieldsForPreview' => $fieldsForPreview,
+            'filters' => $filters,
+            'lenses' => $lenses,
+            'cards' => $cards,
+            'dashboards' => $dashboards,
             'messages' => [
                 'created' => $resourceClass::createdMessage(),
                 'updated' => $resourceClass::updatedMessage(),
@@ -782,6 +795,37 @@ class ResourceController extends MartisController
         ];
 
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * Normalize schema descriptors to plain arrays.
+     *
+     * Accepts plain arrays or lightweight descriptor objects that expose
+     * a toArray() method. This keeps task-1 hooks flexible while the full
+     * implementations are still pending.
+     *
+     * @param  array<int, mixed>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function serializeSchemaDescriptors(array $items): array
+    {
+        return array_values(array_map(function (mixed $item): array {
+            if (is_array($item)) {
+                /** @var array<string, mixed> $item */
+                return $item;
+            }
+
+            if (is_object($item) && method_exists($item, 'toArray')) {
+                $serialized = $item->toArray();
+
+                if (is_array($serialized)) {
+                    /** @var array<string, mixed> $serialized */
+                    return $serialized;
+                }
+            }
+
+            return ['value' => $item];
+        }, $items));
     }
 
     // -------------------------------------------------------------------------
@@ -1190,6 +1234,67 @@ class ResourceController extends MartisController
      * BelongsTo fields in multiple mode register pending syncs during fill().
      * This method executes them after the model has been persisted.
      */
+
+    // -------------------------------------------------------------------------
+    // Peek — GET /api/resources/{resource}/{id}/peek
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return a compact peek card payload for the given resource record.
+     *
+     * Used by BelongsTo and MorphTo frontend components to load peek content
+     * lazily when the user hovers the preview icon. Content is derived from
+     * fieldsForPreview() on the related resource — aligned with the resource's
+     * own field definitions, not a custom column list on the field.
+     *
+     * Nova v5 parity: peek content comes from the resource (fieldsForPreview),
+     * not from a custom peekColumns() list defined on the BelongsTo field.
+     *
+     * @response array{data: array{title: string, attributes: list<array{label: string, value: mixed}>}}
+     */
+    public function peek(Request $request, string $resource, int|string $id): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $model = $this->findModel($resourceClass, $id);
+
+        if ($model === null) {
+            return JsonErrorResponse::notFound()->toResponse();
+        }
+
+        $res = new $resourceClass($model);
+
+        if (! $res->authorizedToView($request)) {
+            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+        }
+
+        $fields = Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW);
+
+        $attributes = [];
+        foreach ($fields as $field) {
+            /** @var FieldContract&Field $fieldInstance */
+            $fieldInstance = $field;
+            $value = $fieldInstance->resolveForDisplay($model);
+            if ($value === null) {
+                continue;
+            }
+            $attributes[] = [
+                'label' => $field->label(),
+                'value' => $value,
+            ];
+        }
+
+        return JsonResponse::make([
+            'title' => $res->title(),
+            'attributes' => $attributes,
+        ])->toResponse();
+    }
+
     private function syncDeferredRelations(Model $model): void
     {
         DeferredRelationSync::sync($model);

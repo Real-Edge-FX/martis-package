@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
-import { CaretDown, MagnifyingGlass, X, Check, Plus } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
+import { Tooltip } from 'primereact/tooltip'
 
 interface MorphToValue {
   type: string
@@ -21,35 +23,216 @@ interface MorphTypeOption {
 }
 
 function isMorphToValue(v: unknown): v is MorphToValue {
-  return v !== null && typeof v === 'object' && 'id' in (v as Record<string, unknown>) && ('type' in (v as Record<string, unknown>) || 'resourceType' in (v as Record<string, unknown>))
+  return (
+    v !== null &&
+    typeof v === 'object' &&
+    'id' in (v as Record<string, unknown>) &&
+    ('type' in (v as Record<string, unknown>) || 'resourceType' in (v as Record<string, unknown>))
+  )
 }
 
 // ---------------------------------------------------------------------------
-// Display
+// PeekCard — lazy-fetch hover preview card (Nova v5 concept alignment).
+// Content comes from the related resource's fieldsForPreview() via the peek endpoint.
+// Triggered exclusively by the preview icon, never by hover on the record link.
 // ---------------------------------------------------------------------------
 
-export function MorphToFieldDisplay({ value, field: _field }: FieldDisplayProps) {
+interface PeekAttribute {
+  label: string
+  value: unknown
+}
+
+interface PeekData {
+  title: string
+  attributes: PeekAttribute[]
+}
+
+interface PeekResponse {
+  data: PeekData
+}
+
+interface PeekCardProps {
+  resourceKey: string
+  recordId: number | string
+  top: number
+  left: number
+}
+
+function renderPeekValue(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'boolean') return value ? '✓' : '✗'
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    if (obj.title != null) return String(obj.title)
+    if (obj.id != null) return `#${obj.id}`
+    return '—'
+  }
+  const str = String(value)
+  return str === '' ? '—' : str
+}
+
+function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
+  const [data, setData] = useState<PeekData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    api.get<PeekResponse>(`/api/resources/${resourceKey}/${recordId}/peek`)
+      .then((res) => {
+        if (!cancelled) {
+          setData(res.data)
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [resourceKey, recordId])
+
+  const hasAttributes = data && data.attributes.length > 0
+
+  return createPortal(
+    <div
+      data-testid="peek-card"
+      className="fixed rounded-lg border p-2.5 text-sm pointer-events-none"
+      style={{
+        backgroundColor: 'var(--martis-surface)',
+        borderColor: 'var(--martis-border)',
+        color: 'var(--martis-text)',
+        zIndex: 9999,
+        boxShadow: 'var(--martis-peek-shadow)',
+        top: `${top}px`,
+        left: `${left}px`,
+        minWidth: '10rem',
+        maxWidth: '20rem',
+        width: 'max-content',
+      }}
+    >
+      {loading ? (
+        <p className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+          ···
+        </p>
+      ) : data ? (
+        <>
+          <p className="font-medium leading-snug truncate">{data.title}</p>
+          {hasAttributes && (
+            <table className="w-full mt-1.5 border-collapse">
+              <tbody>
+                {data.attributes.map(({ label, value }) => (
+                  <tr key={label}>
+                    <td
+                      className="text-xs pr-2 py-0.5 align-top whitespace-nowrap"
+                      style={{ color: 'var(--martis-text-muted)' }}
+                    >
+                      {label}
+                    </td>
+                    <td
+                      className="text-xs py-0.5 align-top overflow-hidden"
+                      style={{
+                        color: 'var(--martis-text)',
+                        maxWidth: '12rem',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {renderPeekValue(value)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      ) : null}
+    </div>,
+    document.body
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Display — Index & Detail
+// ---------------------------------------------------------------------------
+
+export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
+  const { t: tMsg } = useTranslation('messages')
+  const instanceId = useId()
+  const peekArrowClass = `peek-arrow-morphto-${instanceId.replace(/:/g, '')}`
+  const [showPeek, setShowPeek] = useState(false)
+  const [peekPos, setPeekPos] = useState<{ top: number; left: number } | null>(null)
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const peekIconRef = useRef<HTMLAnchorElement>(null)
+
+  function handleMouseEnter() {
+    peekTimer.current = setTimeout(() => {
+      const target = peekIconRef.current
+      if (target) {
+        const rect = target.getBoundingClientRect()
+        setPeekPos({ top: rect.bottom + 6, left: rect.left })
+      }
+      setShowPeek(true)
+    }, 300)
+  }
+
+  function handleMouseLeave() {
+    if (peekTimer.current) clearTimeout(peekTimer.current)
+    setShowPeek(false)
+    setPeekPos(null)
+  }
+
   if (value === null || value === undefined || value === '') {
-    return <span className="martis-text-muted">—</span>
+    return <span className="martis-text-muted">{tMsg('morph_to_empty', '—')}</span>
   }
 
   if (isMorphToValue(value)) {
-    const label = value.title ?? String(value.id)
+    const recordTitle = value.title ?? String(value.id)
     const resourceType = value.resourceType
+    const peekable = (field as unknown as Record<string, unknown>).peekable !== false
+    const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
+    const typeLabel = morphTypes?.find(t => t.value === resourceType)?.label ?? resourceType
 
     if (resourceType) {
       return (
-        <Link
-          to={`/resources/${resourceType}/${value.id}`}
-          className="text-sm hover:underline"
-          style={{ color: 'var(--martis-accent)' }}
-        >
-          {label}
-        </Link>
+        <span className="inline-flex items-center gap-1">
+          <span className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+            {typeLabel}:
+          </span>
+          <Link
+            to={`/resources/${resourceType}/${value.id}`}
+            className="text-sm hover:underline"
+            style={{ color: 'var(--martis-accent)' }}
+          >
+            {recordTitle}
+          </Link>
+          {peekable && (
+            <a
+              ref={peekIconRef}
+              href="#"
+              onClick={(e) => e.preventDefault()}
+              data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
+              data-pr-position="top"
+              style={{ color: 'var(--martis-text-muted)' }}
+              className={`inline-flex items-center opacity-60 hover:opacity-100 transition-opacity ${peekArrowClass}`}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+            >
+              <ArrowSquareOutIcon size={13} weight="regular" />
+            </a>
+          )}
+          {peekable && <Tooltip target={`.${peekArrowClass}`} showDelay={300} />}
+          {peekable && showPeek && peekPos && resourceType && (
+            <PeekCard
+              resourceKey={resourceType}
+              recordId={value.id}
+              top={peekPos.top}
+              left={peekPos.left}
+            />
+          )}
+        </span>
       )
     }
 
-    return <span className="martis-text">{label}</span>
+    return <span className="martis-text">{recordTitle}</span>
   }
 
   return <span className="martis-text">{String(value)}</span>
@@ -72,6 +255,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   const isNullable = (field as unknown as Record<string, unknown>).nullable as boolean | undefined
   const showCreateRelationButton = (field as unknown as Record<string, unknown>).showCreateRelationButton === true
   const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
+  const withSubtitles = (field as unknown as Record<string, unknown>).withSubtitles === true
+  const subtitleAttribute = ((field as unknown as Record<string, unknown>).subtitleAttribute as string) || 'subtitle'
 
   const qc = useQueryClient()
 
@@ -103,6 +288,10 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
       setSelectedType(currentValue.resourceType ?? null)
       setSelectedId(currentValue.id)
       setSelectedLabel(currentValue.title ?? null)
+    } else {
+      setSelectedType(null)
+      setSelectedId(null)
+      setSelectedLabel(null)
     }
   }, [currentValue])
 
@@ -125,7 +314,6 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   }, [open])
 
   // Get current resource context for relatable endpoint.
-  // Prefer explicit resourceKey/recordId props (correct when rendered in drawers from actions).
   const params = useParams<{ resource?: string; id?: string }>()
   const sourceResource = resourceKey ?? params.resource
   const sourceId = recordId != null ? String(recordId) : (params.id ?? '_')
@@ -178,7 +366,27 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     return `#${record.id}`
   }
 
+  function getOptionSubtitle(record: RelatedRecord): string | null {
+    if (!withSubtitles) return null
+    const sub = record[subtitleAttribute]
+    if (sub !== undefined && sub !== null && sub !== '') {
+      return String(sub)
+    }
+    return null
+  }
+
   function handleTypeChange(resourceType: string) {
+    // Empty value = "None" (nullable clear)
+    if (resourceType === '') {
+      setSelectedType(null)
+      setSelectedId(null)
+      setSelectedLabel(null)
+      setOptions([])
+      setSearch('')
+      onChange(null)
+      return
+    }
+
     setSelectedType(resourceType)
     setSelectedId(null)
     setSelectedLabel(null)
@@ -234,7 +442,13 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
             opacity: field.readonly ? 0.6 : 1,
           }}
         >
-          <option value="">{tMsg('select_type', 'Select type...')}</option>
+          {isNullable ? (
+            <option value="">{tMsg('morph_to_none_option', '— None —')}</option>
+          ) : (
+            <option value="" disabled={!!selectedType}>
+              {tMsg('morph_to_type_placeholder', 'Select type...')}
+            </option>
+          )}
           {morphTypes?.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
@@ -260,7 +474,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               <span className="martis-belongs-to-trigger-label">
                 {selectedLabel ?? (selectedId !== null ? `#${selectedId}` : (
                   <span style={{ color: 'var(--martis-text-muted)' }}>
-                    {tMsg('select_record', { type: selectedTypeLabel })}
+                    {tMsg('morph_to_resource_placeholder', { type: selectedTypeLabel, defaultValue: 'Select {{type}}...' })}
                   </span>
                 ))}
               </span>
@@ -271,14 +485,15 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   tabIndex={-1}
                   onClick={handleClear}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as React.MouseEvent) }}
-                  className="martis-belongs-to-clear"
-                  title="Clear selection"
+                  className="martis-belongs-to-clear martis-morphto-clear-btn"
+                  data-pr-tooltip={tMsg('morph_to_clear', { defaultValue: 'Clear selection' })}
+                  data-pr-position="top"
                 >
-                  <X size={14} weight="bold" />
+                  <XIcon size={14} weight="bold" />
                 </span>
               )}
 
-              <CaretDown
+              <CaretDownIcon
                 size={14}
                 weight="bold"
                 style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }}
@@ -288,7 +503,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
-                className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors"
+                className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors martis-morphto-create-btn"
                 style={{
                   borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-surface)',
@@ -299,24 +514,27 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-surface)' }}
-                title={`Create new ${selectedTypeLabel}`}
+                data-pr-tooltip={tMsg('morph_to_create_new', { type: selectedTypeLabel, defaultValue: 'Create new {{type}}' })}
+                data-pr-position="top"
               >
-                <Plus size={16} weight="bold" />
+                <PlusIcon size={16} weight="bold" />
               </button>
             )}
           </div>
+          <Tooltip target=".martis-morphto-clear-btn" showDelay={400} />
+          <Tooltip target=".martis-morphto-create-btn" showDelay={400} />
 
           {/* Dropdown panel */}
           {open && (
             <div className="martis-belongs-to-dropdown">
               <div className="martis-belongs-to-search">
-                <MagnifyingGlass size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+                <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={search}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={tMsg('search')}
+                  placeholder={tMsg('morph_to_search_placeholder', 'Search...')}
                   className="martis-belongs-to-search-input"
                 />
               </div>
@@ -326,11 +544,12 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   <div className="martis-belongs-to-empty">{tMsg('loading')}</div>
                 ) : !loading && options.length === 0 ? (
                   <div className="martis-belongs-to-empty">
-                    {search ? tMsg('no_results_found') : tMsg('no_records_available')}
+                    {search ? tMsg('morph_to_no_results', 'No results') : tMsg('no_records_available')}
                   </div>
                 ) : (
                   options.map((record) => {
                     const label = getOptionLabel(record)
+                    const subtitle = getOptionSubtitle(record)
                     const isSelected = selectedId !== null && String(record.id) === String(selectedId)
                     return (
                       <button
@@ -339,9 +558,19 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                         onClick={() => handleSelect(record)}
                         className={`martis-belongs-to-option ${isSelected ? 'martis-belongs-to-option--selected' : ''}`}
                       >
-                        <span className="martis-belongs-to-option-label">{label}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="martis-belongs-to-option-label block">{label}</span>
+                          {subtitle && (
+                            <span
+                              className="block text-xs truncate"
+                              style={{ color: 'var(--martis-text-muted)' }}
+                            >
+                              {subtitle}
+                            </span>
+                          )}
+                        </span>
                         {isSelected && (
-                          <Check size={14} weight="bold" style={{ color: 'var(--martis-accent)' }} />
+                          <CheckIcon size={14} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
                         )}
                       </button>
                     )

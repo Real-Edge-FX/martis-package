@@ -12,6 +12,9 @@ class Textarea extends Field
 {
     protected int $rows = 5;
 
+    /**
+     * Type.
+     */
     public function type(): string
     {
         return 'textarea';
@@ -27,6 +30,9 @@ class Textarea extends Field
         return $this;
     }
 
+    /**
+     * Get rows.
+     */
     public function getRows(): int
     {
         return $this->rows;

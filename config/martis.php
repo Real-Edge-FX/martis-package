@@ -75,7 +75,7 @@ return [
     | Default locale for the Martis admin panel.
     | Override per user by setting locale dynamically or publish lang files.
     */
-    'locale' => env('MARTIS_LOCALE', 'en-US'),
+    'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 
     /*
     |--------------------------------------------------------------------------
@@ -111,7 +111,7 @@ return [
     |--------------------------------------------------------------------------
     | Configure what appears in the user profile context menu.
     | Set any option to false to hide it.
-    |
+    | showProfile controls the Profile link in the dropdown.
     | 'customItems' allows you to add custom links/actions to the user menu.
     | Each item can have: label, icon (PrimeIcons class), url (route/external).
     | Use ['separator' => true] to add a divider between groups.
@@ -126,8 +126,7 @@ return [
     */
     'user_menu' => [
         'showThemeToggle' => true,
-        'showProfile' => true,
-        'showNotifications' => true,
+        'showProfile' => env('MARTIS_SHOW_PROFILE_MENU', true),
         // 'customItems' => [],
     ],
 
@@ -195,6 +194,13 @@ return [
     |--------------------------------------------------------------------------
     | Storage
     |--------------------------------------------------------------------------
+    | Configure the default storage disk for all Martis file operations.
+    | This acts as the global fallback when no disk is explicitly specified
+    | on a field, resource, or profile section.
+    |
+    | disk - Default filesystem disk (e.g. 'public', 'local', 's3').
+    |        Individual sections (avatar.disk, attachments) fall back to this
+    |        value when they are not explicitly configured.
     */
     'storage' => [
         'disk' => env('MARTIS_STORAGE_DISK', 'public'),
@@ -226,10 +232,11 @@ return [
     | Allowed disks restricts which storage disks the upload endpoint accepts.
     |*/
     'attachments' => [
-        'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
+        'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
         'allowed_disks' => ['public', 'local'],
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
     ],
+
     /*
     |--------------------------------------------------------------------------
     | Action Events (Audit Log)
@@ -287,6 +294,41 @@ return [
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
         ],
         'sections' => ['account', 'password', 'avatar', 'security'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Loader
+    |--------------------------------------------------------------------------
+    | Configure the built-in loading indicator (MartisLoader).
+    |
+    | message        - Default loading text. null = use i18n default ('Loading...').
+    | icon           - Phosphor icon name to replace the spinner (e.g. 'spinner').
+    |                  When set, the named icon spins instead of the default SpinnerGap.
+    | logo           - URL to a logo/image shown instead of the spinner.
+    |                  Takes precedence over 'icon'.
+    | spinnerColor   - CSS color for the spinner. Default: var(--martis-accent).
+    | overlayOpacity - Overlay background opacity (0.0–1.0). Default: 0.6.
+    | overlayColor   - CSS color for the overlay background. Default: var(--martis-bg).
+    | disabled       - Set to true to globally disable all loaders.
+    | disableOn      - Granular opt-out per context.
+    |   table        - Disable the refetch overlay on index tables.
+    |   search       - Disable the loader on search refetch.
+    |   components   - Disable loaders inside other components.
+    */
+    'loader' => [
+        'message' => null,
+        'icon' => null,
+        'logo' => null,
+        'spinnerColor' => null,
+        'overlayOpacity' => null,
+        'overlayColor' => null,
+        'disabled' => false,
+        'disableOn' => [
+            'table' => false,
+            'search' => false,
+            'components' => false,
+        ],
     ],
 
 ];

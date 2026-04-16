@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Text;
@@ -91,9 +92,11 @@ beforeEach(function () {
         ],
     ]);
 
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::dropIfExists('btm_test_pivot');
     Schema::dropIfExists('btm_test_children');
     Schema::dropIfExists('btm_test_parents');
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
     Schema::create('btm_test_parents', function ($table) {
         $table->id();
@@ -107,6 +110,7 @@ beforeEach(function () {
         $table->timestamps();
     });
 
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::create('btm_test_pivot', function ($table) {
         $table->foreignId('parent_id')->constrained('btm_test_parents')->onDelete('cascade');
         $table->foreignId('child_id')->constrained('btm_test_children')->onDelete('cascade');
@@ -114,6 +118,7 @@ beforeEach(function () {
         $table->timestamps();
         $table->primary(['parent_id', 'child_id']);
     });
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
     $registry = app(ResourceRegistry::class);
     $registry->register(BTMParentResource::class);
@@ -125,9 +130,11 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
     Schema::dropIfExists('btm_test_pivot');
     Schema::dropIfExists('btm_test_children');
     Schema::dropIfExists('btm_test_parents');
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 });
 
 // ---------------------------------------------------------------------------

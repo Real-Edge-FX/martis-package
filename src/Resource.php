@@ -10,7 +10,11 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use Martis\Contracts\ActionContract;
+use Martis\Contracts\CardContract;
+use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FilterContract;
+use Martis\Contracts\LensContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
 use Martis\Enums\ErrorDisplayMode;
@@ -19,6 +23,7 @@ use Martis\Events\AfterDelete;
 use Martis\Events\AfterSave;
 use Martis\Events\BeforeDelete;
 use Martis\Events\BeforeSave;
+use Martis\Menu\MenuItem;
 
 /**
  * Base class for all Martis admin resources.
@@ -60,6 +65,7 @@ abstract class Resource implements ResourceContract
      */
     private static array $resolvedPolicies = [];
 
+    /** Create a new resource instance, optionally binding an existing model. */
     public function __construct(?Model $model = null)
     {
         $this->model = $model;
@@ -148,7 +154,7 @@ abstract class Resource implements ResourceContract
     /** {@inheritDoc} */
     public static function perPage(): int
     {
-        return 25;
+        return (int) config('martis.pagination.default_per_page', 25);
     }
 
     /**
@@ -218,6 +224,9 @@ abstract class Resource implements ResourceContract
         return $query;
     }
 
+    /**
+     * Title.
+     */
     public function title(): string
     {
         if ($this->model === null) {
@@ -292,6 +301,53 @@ abstract class Resource implements ResourceContract
     public function fieldsForPreview(Request $request): array
     {
         return $this->fields($request);
+    }
+
+    // -------------------------------------------------------------------------
+    // Schema foundation — task 1
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the filter descriptors exposed by this resource.
+     *
+     * Task 1 foundation only: the full filters engine lands later, but the
+     * schema contract exists now so resources can declare intent safely.
+     *
+     * @return list<FilterContract|array<string, mixed>>
+     */
+    public function filters(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Return the lens descriptors exposed by this resource.
+     *
+     * @return list<LensContract|array<string, mixed>>
+     */
+    public function lenses(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Return the card descriptors exposed by this resource.
+     *
+     * @return list<CardContract|array<string, mixed>>
+     */
+    public function cards(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Return the dashboard descriptors exposed by this resource.
+     *
+     * @return list<DashboardContract|array<string, mixed>>
+     */
+    public static function dashboards(): array
+    {
+        return [];
     }
 
     // -------------------------------------------------------------------------
@@ -789,6 +845,12 @@ abstract class Resource implements ResourceContract
         return 'database';
     }
 
+    /** {@inheritDoc} */
+    public function iconColor(): ?string
+    {
+        return null;
+    }
+
     // -------------------------------------------------------------------------
     // DataTable display configuration — configurable per resource
     // -------------------------------------------------------------------------
@@ -854,6 +916,12 @@ abstract class Resource implements ResourceContract
         return null;
     }
 
+    /** {@inheritDoc} */
+    public function menuItem(Request $request): MenuItem
+    {
+        return MenuItem::resource(static::class);
+    }
+
     /**
      * Determine whether this resource should appear in the navigation menu.
      *
@@ -880,7 +948,7 @@ abstract class Resource implements ResourceContract
      * Override in concrete resources to customize:
      *   public static function createdMessage(): string
      *   {
-     *       return 'Novo usuário cadastrado!';
+     *       return 'New user registered!';
      *   }
      */
     public static function createdMessage(): string
@@ -1030,7 +1098,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Server-side hooks — Bloco 9
+    // Server-side hooks
     // -------------------------------------------------------------------------
 
     /**
@@ -1147,5 +1215,41 @@ abstract class Resource implements ResourceContract
     public static function scoutQuery(Request $request, mixed $query): mixed
     {
         return $query;
+    }
+
+    // -------------------------------------------------------------------------
+    // Global Search — Nova v5 parity
+    // -------------------------------------------------------------------------
+
+    /**
+     * Determine whether this resource is included in global search (Cmd+K).
+     *
+     * Return false to exclude this resource from the Cmd+K global search modal.
+     * Defaults to true so all resources participate unless explicitly opted out.
+     *
+     * Nova v5 parity: public static $globallySearchable = true;
+     */
+    public static function globallySearchable(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Return a per-record subtitle for global search results.
+     *
+     * Override to return a meaningful secondary string shown below the record
+     * title in the Cmd+K search modal.
+     *
+     * Nova v5 parity: public function subtitle()
+     *
+     * Example:
+     *   public function searchSubtitle(Model $model): ?string
+     *   {
+     *       return $model->email;
+     *   }
+     */
+    public function searchSubtitle(Model $model): ?string
+    {
+        return null;
     }
 }

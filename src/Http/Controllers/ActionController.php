@@ -15,6 +15,7 @@ use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
+use Martis\Exceptions\MartisException;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field as MartisField;
 use Martis\Http\Resources\JsonErrorResponse;
@@ -34,6 +35,7 @@ use Martis\ResourceRegistry;
  */
 class ActionController extends MartisController
 {
+    /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
     ) {}
@@ -235,6 +237,10 @@ class ActionController extends MartisController
 
             if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
                 $this->logActionEvent($actionInstance, $models, $request, 'failed', $e->getMessage(), $snapshots);
+            }
+
+            if ($e instanceof MartisException) {
+                throw $e;
             }
 
             return JsonErrorResponse::serverError('Action failed: '.$e->getMessage())->toResponse();
@@ -610,6 +616,10 @@ class ActionController extends MartisController
                 'relationship' => $relationship,
                 'error' => $e->getMessage(),
             ]);
+
+            if ($e instanceof MartisException) {
+                throw $e;
+            }
 
             return JsonErrorResponse::serverError('Pivot action failed: '.$e->getMessage())->toResponse();
         }

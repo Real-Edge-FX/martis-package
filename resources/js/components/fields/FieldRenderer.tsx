@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import { lazy, Suspense, type ComponentType } from 'react'
 import { componentRegistry } from '@/lib/componentRegistry'
 import type { FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -23,18 +23,156 @@ import { StatusFieldDisplay, StatusFieldInput } from './StatusField'
 import { MultiSelectFieldDisplay, MultiSelectFieldInput } from './MultiSelectField'
 import { TagFieldDisplay, TagFieldInput } from './TagField'
 import { UrlFieldDisplay, UrlFieldInput } from './UrlField'
-import { CodeFieldDisplay, CodeFieldInput } from './CodeField'
 import { ColorFieldDisplay, ColorFieldInput } from './ColorField'
-import { MarkdownFieldDisplay, MarkdownFieldInput } from './MarkdownField'
-import { TrixFieldDisplay, TrixFieldInput } from './TrixField'
 import { CountryFieldDisplay, CountryFieldInput } from './CountryField'
 import { CurrencyFieldDisplay, CurrencyFieldInput } from './CurrencyField'
 import { SparklineFieldDisplay, SparklineFieldInput } from './SparklineField'
 import { GravatarFieldDisplay, GravatarFieldInput } from './GravatarField'
-import { HasManyFieldDisplay, HasManyFieldInput } from './HasManyField'
-import { BelongsToManyFieldDisplay, BelongsToManyFieldInput } from './BelongsToManyField'
 import { MorphToFieldDisplay, MorphToFieldInput } from './MorphToField'
+import { MorphOneFieldDisplay, MorphOneFieldInput } from './MorphOneField'
 import { HasOneFieldDisplay, HasOneFieldInput } from './HasOneField'
+
+const LAZY_FIELD_FALLBACK = <div />
+
+function createLazyFieldComponent<P extends object>(
+  displayName: string,
+  loader: () => Promise<{ default: ComponentType<P> }>,
+): ComponentType<P> {
+  const LazyComponent = lazy(loader)
+  const WrappedLazyComponent = LazyComponent as unknown as ComponentType<P>
+
+  function LazyFieldComponent(props: P) {
+    return (
+      <Suspense fallback={LAZY_FIELD_FALLBACK}>
+        <WrappedLazyComponent {...props} />
+      </Suspense>
+    )
+  }
+
+  LazyFieldComponent.displayName = displayName
+
+  return LazyFieldComponent
+}
+
+const loadCodeField = () => import('./CodeField')
+const loadMarkdownField = () => import('./MarkdownField')
+const loadTrixField = () => import('./TrixField')
+const loadHasManyField = () => import('./HasManyField')
+const loadBelongsToManyField = () => import('./BelongsToManyField')
+const loadMorphManyField = () => import('./MorphManyField')
+const loadMorphToManyField = () => import('./MorphToManyField')
+
+const LazyCodeFieldDisplay = createLazyFieldComponent<FieldDisplayProps>(
+  'LazyCodeFieldDisplay',
+  async () => {
+    const module = await loadCodeField()
+    return { default: module.CodeFieldDisplay }
+  },
+)
+
+const LazyCodeFieldInput = createLazyFieldComponent<FieldInputProps>(
+  'LazyCodeFieldInput',
+  async () => {
+    const module = await loadCodeField()
+    return { default: module.CodeFieldInput }
+  },
+)
+
+const LazyMarkdownFieldDisplay = createLazyFieldComponent<FieldDisplayProps>(
+  'LazyMarkdownFieldDisplay',
+  async () => {
+    const module = await loadMarkdownField()
+    return { default: module.MarkdownFieldDisplay }
+  },
+)
+
+const LazyMarkdownFieldInput = createLazyFieldComponent<FieldInputProps>(
+  'LazyMarkdownFieldInput',
+  async () => {
+    const module = await loadMarkdownField()
+    return { default: module.MarkdownFieldInput }
+  },
+)
+
+const LazyTrixFieldDisplay = createLazyFieldComponent<FieldDisplayProps>(
+  'LazyTrixFieldDisplay',
+  async () => {
+    const module = await loadTrixField()
+    return { default: module.TrixFieldDisplay }
+  },
+)
+
+const LazyTrixFieldInput = createLazyFieldComponent<FieldInputProps>(
+  'LazyTrixFieldInput',
+  async () => {
+    const module = await loadTrixField()
+    return { default: module.TrixFieldInput }
+  },
+)
+
+const LazyHasManyFieldDisplay = createLazyFieldComponent<FieldDisplayProps>(
+  'LazyHasManyFieldDisplay',
+  async () => {
+    const module = await loadHasManyField()
+    return { default: module.HasManyFieldDisplay }
+  },
+)
+
+const LazyHasManyFieldInput = createLazyFieldComponent<FieldInputProps>(
+  'LazyHasManyFieldInput',
+  async () => {
+    const module = await loadHasManyField()
+    return { default: module.HasManyFieldInput }
+  },
+)
+
+const LazyBelongsToManyFieldDisplay = createLazyFieldComponent<FieldDisplayProps>(
+  'LazyBelongsToManyFieldDisplay',
+  async () => {
+    const module = await loadBelongsToManyField()
+    return { default: module.BelongsToManyFieldDisplay }
+  },
+)
+
+const LazyBelongsToManyFieldInput = createLazyFieldComponent<FieldInputProps>(
+  'LazyBelongsToManyFieldInput',
+  async () => {
+    const module = await loadBelongsToManyField()
+    return { default: module.BelongsToManyFieldInput }
+  },
+)
+
+const LazyMorphManyFieldDisplay = createLazyFieldComponent<FieldDisplayProps>(
+  'LazyMorphManyFieldDisplay',
+  async () => {
+    const module = await loadMorphManyField()
+    return { default: module.MorphManyFieldDisplay }
+  },
+)
+
+const LazyMorphManyFieldInput = createLazyFieldComponent<FieldInputProps>(
+  'LazyMorphManyFieldInput',
+  async () => {
+    const module = await loadMorphManyField()
+    return { default: module.MorphManyFieldInput }
+  },
+)
+
+const LazyMorphToManyFieldDisplay = createLazyFieldComponent<FieldDisplayProps>(
+  'LazyMorphToManyFieldDisplay',
+  async () => {
+    const module = await loadMorphToManyField()
+    return { default: module.MorphToManyFieldDisplay }
+  },
+)
+
+const LazyMorphToManyFieldInput = createLazyFieldComponent<FieldInputProps>(
+  'LazyMorphToManyFieldInput',
+  async () => {
+    const module = await loadMorphToManyField()
+    return { default: module.MorphToManyFieldInput }
+  },
+)
 
 // -------------------------------------------------------------------------
 // Default display components per type
@@ -62,17 +200,20 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   multi_select: MultiSelectFieldDisplay,
   tag: TagFieldDisplay,
   url: UrlFieldDisplay,
-  code: CodeFieldDisplay,
+  code: LazyCodeFieldDisplay,
   color: ColorFieldDisplay,
-  markdown: MarkdownFieldDisplay,
-  trix: TrixFieldDisplay,
+  markdown: LazyMarkdownFieldDisplay,
+  trix: LazyTrixFieldDisplay,
   country: CountryFieldDisplay,
   currency: CurrencyFieldDisplay,
   sparkline: SparklineFieldDisplay,
   gravatar: GravatarFieldDisplay,
-  has_many: HasManyFieldDisplay,
-  belongs_to_many: BelongsToManyFieldDisplay,
+  has_many: LazyHasManyFieldDisplay,
+  belongs_to_many: LazyBelongsToManyFieldDisplay,
   morph_to: MorphToFieldDisplay,
+  morph_many: LazyMorphManyFieldDisplay,
+  morph_one: MorphOneFieldDisplay,
+  morph_to_many: LazyMorphToManyFieldDisplay,
   has_one: HasOneFieldDisplay,
 }
 
@@ -102,17 +243,20 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   multi_select: MultiSelectFieldInput,
   tag: TagFieldInput,
   url: UrlFieldInput,
-  code: CodeFieldInput,
+  code: LazyCodeFieldInput,
   color: ColorFieldInput,
-  markdown: MarkdownFieldInput,
-  trix: TrixFieldInput,
+  markdown: LazyMarkdownFieldInput,
+  trix: LazyTrixFieldInput,
   country: CountryFieldInput,
   currency: CurrencyFieldInput,
   sparkline: SparklineFieldInput,
   gravatar: GravatarFieldInput,
-  has_many: HasManyFieldInput,
-  belongs_to_many: BelongsToManyFieldInput,
+  has_many: LazyHasManyFieldInput,
+  belongs_to_many: LazyBelongsToManyFieldInput,
   morph_to: MorphToFieldInput,
+  morph_many: LazyMorphManyFieldInput,
+  morph_one: MorphOneFieldInput,
+  morph_to_many: LazyMorphToManyFieldInput,
   has_one: HasOneFieldInput,
 }
 
@@ -223,4 +367,3 @@ export function FieldInput({
   )
   return <Component field={field} value={value} onChange={onChange} error={error} resourceKey={resourceKey} recordId={recordId} />
 }
-
