@@ -32,11 +32,13 @@ Route::middleware(config('martis.middleware', ['web']))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-        // Favicon — public, served from package or configured path
+        // Favicon — public, served from configured path, published assets,
+        // or the package's own resources/ directory as final fallback (so
+        // the default Martis favicon works out-of-the-box without any
+        // vendor:publish step, even after a Vite rebuild wipes public/).
         Route::get('/favicon.ico', function () {
             $faviconPath = config('martis.brand.favicon');
             if ($faviconPath) {
-                // Block path traversal and absolute paths
                 if (str_contains($faviconPath, '..') || str_starts_with($faviconPath, '/')) {
                     abort(400, 'Invalid favicon path.');
                 }
@@ -44,9 +46,13 @@ Route::middleware(config('martis.middleware', ['web']))
                     return response()->file(public_path($faviconPath));
                 }
             }
-            $default = public_path('vendor/martis/favicon.ico');
-            if (file_exists($default)) {
-                return response()->file($default);
+            $published = public_path('vendor/martis/favicon.ico');
+            if (file_exists($published)) {
+                return response()->file($published);
+            }
+            $packageDefault = __DIR__.'/../resources/favicon.ico';
+            if (file_exists($packageDefault)) {
+                return response()->file($packageDefault);
             }
             abort(404);
         })->name('favicon');

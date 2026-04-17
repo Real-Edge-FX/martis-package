@@ -245,7 +245,7 @@ export function ResourceLensPage() {
                 style={{ backgroundColor: 'var(--martis-success-bg)', color: 'var(--martis-success)' }}
               >
                 <PulseIcon size={10} weight="fill" />
-                {tMsg('live', 'LIVE')}
+                {t('live', 'LIVE')}
               </span>
             )}
           </p>

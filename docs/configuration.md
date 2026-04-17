@@ -44,7 +44,27 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 |-----|------|---------|-------------|
 | `name` | `string` | `'Martis'` | Displayed in the sidebar header and browser title. |
 | `logo` | `?string` | `null` | Path to a custom logo image (relative to public/). |
-| `favicon` | `?string` | `null` | Path to a custom favicon. |
+| `favicon` | `?string` | `null` | Path to a custom favicon (relative to `public/`). When `null`, Martis serves its own default favicon from the package — no `vendor:publish` step required. |
+
+### Customising the favicon
+
+1. Drop the file into your app's `public/` directory — any filename and extension are accepted (`.ico`, `.png`, `.svg`). Example: `public/brand/favicon.ico`.
+2. Point the config at it, relative to `public/`:
+
+   ```env
+   MARTIS_FAVICON=brand/favicon.ico
+   ```
+
+   Or set it directly in `config/martis.php`:
+
+   ```php
+   'brand' => [
+       'favicon' => 'brand/favicon.ico',
+   ],
+   ```
+3. Visit `/{martis-path}/favicon.ico` — the configured file is served. If the file is missing, the route falls back to the package default, so broken paths never 404.
+
+> Path rules: values must stay inside `public/`. Absolute paths (`/etc/...`) and traversal (`../`) are rejected with `400 Bad Request`.
 
 ## Footer
 
