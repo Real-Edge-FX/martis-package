@@ -340,7 +340,7 @@ export function ResourceIndexPage() {
             continue
           }
           const allDisabled = selectedRows.length > 0 && selectedRows.every(row => {
-            const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+            const perAction = row._actionAuthorization
             if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
             return false
           })

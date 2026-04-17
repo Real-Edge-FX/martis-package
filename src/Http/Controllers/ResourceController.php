@@ -81,7 +81,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToViewAny($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         /** @var class-string<Model> $modelClass */
@@ -199,7 +199,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Support ?context=update so edit forms get raw attribute values
@@ -247,7 +247,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $model = $resourceClass::newModel();
@@ -320,7 +320,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToUpdate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
@@ -398,7 +398,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -462,7 +462,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToRestore($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $model->restore();
@@ -514,7 +514,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToForceDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -566,7 +566,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToReplicate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Create in-memory replica using Eloquent replicate() — does NOT save to DB
@@ -616,7 +616,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
@@ -663,7 +663,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Block nested inline create (Nova v5: only one level deep)
@@ -735,7 +735,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToViewAny($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = $instance->fields($request);
@@ -749,9 +749,15 @@ class ResourceController extends MartisController
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
         $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
         $filters = $this->serializeFilters($instance->filters($request), $request);
-        $lenses = $this->serializeSchemaDescriptors($instance->lenses($request));
-        $cards = $this->serializeSchemaDescriptors($instance->cards($request));
-        $dashboards = $this->serializeSchemaDescriptors($resourceClass::dashboards());
+        $lenses = $this->serializeSchemaDescriptors(
+            $this->filterAuthorizedToSee($instance->lenses($request), $request),
+        );
+        $cards = $this->serializeSchemaDescriptors(
+            $this->filterAuthorizedToSee($instance->cards($request), $request),
+        );
+        $dashboards = $this->serializeSchemaDescriptors(
+            $this->filterAuthorizedToSee($resourceClass::dashboards(), $request),
+        );
 
         // Serialize actions inline so the frontend doesn't need a second
         // round-trip to /api/resources/{res}/actions — this eliminates the
@@ -862,11 +868,35 @@ class ResourceController extends MartisController
     }
 
     /**
+     * Drop items whose `authorizedToSee(Request)` returns false.
+     *
+     * Items without the method (or that are plain arrays) are kept as-is.
+     *
+     * @template T
+     *
+     * @param  iterable<int, T>  $items
+     * @return list<T>
+     */
+    private function filterAuthorizedToSee(iterable $items, Request $request): array
+    {
+        $result = [];
+        foreach ($items as $item) {
+            if (is_object($item) && method_exists($item, 'authorizedToSee')) {
+                if (! $item->authorizedToSee($request)) {
+                    continue;
+                }
+            }
+            $result[] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
      * Normalize schema descriptors to plain arrays.
      *
      * Accepts plain arrays or lightweight descriptor objects that expose
-     * a toArray() method. This keeps task-1 hooks flexible while the full
-     * implementations are still pending.
+     * a toArray() method.
      *
      * @param  array<int, mixed>  $items
      * @return list<array<string, mixed>>
@@ -935,7 +965,7 @@ class ResourceController extends MartisController
             $instance = new $resourceClass;
 
             if (! $instance->authorizedToViewAny($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
 
             // Find the relationship field in the resource fields
@@ -971,7 +1001,7 @@ class ResourceController extends MartisController
         if ($relatedUriKey !== null && $this->registry->has($relatedUriKey)) {
             $relatedCheck = new ($this->registry->get($relatedUriKey));
             if (! $relatedCheck->authorizedToViewAny($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 
@@ -1386,7 +1416,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW);

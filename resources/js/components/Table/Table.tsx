@@ -181,7 +181,7 @@ function InlineSubMenu({
             </div>
           )
         }
-        const childPerAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+        const childPerAction = row._actionAuthorization
         const isDisabled = childPerAction && child.uriKey in childPerAction ? !childPerAction[child.uriKey] : (child.destructive ? !canRunDestructive : !canRunAction)
         return (
           <button key={child.uriKey} type="button" disabled={isDisabled}
@@ -239,7 +239,7 @@ function InlineActionMenu({
 
   const rect = btnRef.current?.getBoundingClientRect()
   // Per-action canRun helper for inline grouped actions
-  const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+  const perAction = row._actionAuthorization
   const canRunAction = row._authorization?.authorizedToRunAction !== false
   const canRunDestructive = row._authorization?.authorizedToRunDestructiveAction !== false
   const tree = buildInlineGroupTree(actions)
@@ -421,7 +421,7 @@ function DefaultTable({
   const canRunForRow = useCallback(
     (row: ResourceRecord, action: ActionMeta): boolean => {
       // Per-action canRun from backend
-      const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+      const perAction = row._actionAuthorization
       if (perAction && action.uriKey in perAction) {
         return perAction[action.uriKey]
       }

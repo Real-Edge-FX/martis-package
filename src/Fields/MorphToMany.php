@@ -439,6 +439,9 @@ class MorphToMany extends Field
             $pivotFields[] = $pf->toArray();
         }
 
+        $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
+        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
@@ -447,7 +450,7 @@ class MorphToMany extends Field
             'collapsable' => $this->collapsable,
             'collapsedByDefault' => $this->collapsedByDefault,
             'allowDuplicateRelations' => $this->allowDuplicates,
-            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
+            'showCreateRelationButton' => $this->isShowCreateRelationButton() && $authorizedToCreate,
             'modalSize' => $this->modalSize->value,
             'modalHeight' => $this->modalHeight,
             'withSubtitles' => $this->withSubtitles,
@@ -459,6 +462,6 @@ class MorphToMany extends Field
                 'canAttach' => $this->canAttachRelated,
                 'canDetach' => $this->canDetachRelated,
             ],
-        ];
+        ] + $relatedAuth;
     }
 }

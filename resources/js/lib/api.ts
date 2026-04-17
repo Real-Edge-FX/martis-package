@@ -17,6 +17,11 @@ export class ApiError extends Error {
     this.name = 'ApiError'
   }
 
+  /** Whether the server denied the action on authorization grounds (HTTP 403). */
+  isForbidden(): boolean {
+    return this.status === 403
+  }
+
   /** Group errors by field name for inline display. */
   errorsByField(): Record<string, string> {
     const result: Record<string, string> = {}
@@ -115,9 +120,16 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
       redirectOnSessionExpiry()
     }
     const err = json as { message?: string; errors?: unknown }
+    // 403: surface a distinct "not authorized" message so the UI can show a
+    // policy-specific toast instead of the generic action failure. The server
+    // message is preserved if provided.
+    // On 403, prefer the i18n "forbidden" message so callers get a
+    // policy-specific toast instead of the generic action failure.
+    const fallbackKey = res.status === 403 ? 'messages.error_forbidden' : 'Request failed'
+    const message = translateIfKey(err.message ?? fallbackKey)
     throw new ApiError(
       res.status,
-      translateIfKey(err.message ?? 'Request failed'),
+      message,
       normalizeErrors(err.errors),
     )
   }

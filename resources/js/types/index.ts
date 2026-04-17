@@ -347,6 +347,12 @@ export interface ResourceRecord {
   id: number | string
   _title?: string
   _authorization?: AuthorizationMetadata
+  /**
+   * Per-action run authorization, keyed by action uriKey. Populated by the
+   * backend on index responses so the UI can disable bulk/inline actions the
+   * current user cannot execute on this specific row.
+   */
+  _actionAuthorization?: Record<string, boolean>
   [key: string]: unknown
   _resource: ResourceEmbedded
 }

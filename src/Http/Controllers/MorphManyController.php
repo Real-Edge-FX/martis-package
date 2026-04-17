@@ -141,7 +141,7 @@ class MorphManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
         if (! $parentInstance->authorizedToAdd($request, $relatedModelClass)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $relatedInstance = new $relatedResourceClass;
@@ -216,7 +216,7 @@ class MorphManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
@@ -291,7 +291,7 @@ class MorphManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -347,7 +347,7 @@ class MorphManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = $parentInstance->fieldsForDetail($request);
@@ -386,7 +386,7 @@ class MorphManyController extends MartisController
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;
             if (! $relatedCheck->authorizedToCreate($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 

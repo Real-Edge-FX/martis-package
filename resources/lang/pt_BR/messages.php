@@ -12,6 +12,7 @@ return [
     'error_create' => 'Erro ao criar registro.',
     'error_delete' => 'Erro ao excluir registro.',
     'error_restore' => 'Erro ao restaurar registro.',
+    'error_forbidden' => 'Você não tem permissão para executar esta ação.',
     'invalid_field' => 'Inválido',
     'archived' => 'Arquivado',
     'archive_confirm' => 'Este registro será arquivado e poderá ser restaurado depois.',

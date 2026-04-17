@@ -421,15 +421,24 @@ class MorphTo extends Field
     /**
      * Build the type options for the frontend dropdown.
      *
-     * @return list<array{value: string, label: string}>
+     * Each option is enriched with authorization flags for the related
+     * resource, so the frontend can hide the "create" action per-type
+     * when the current user is not allowed to create that type.
+     *
+     * @return list<array{value: string, label: string, authorizedToViewAny: bool, authorizedToCreate: bool}>
      */
     protected function buildTypeOptions(): array
     {
         $options = [];
         foreach ($this->morphTypes as $resourceClass) {
+            $uriKey = $resourceClass::uriKey();
+            $auth = $this->relatedResourceAuthorizations($uriKey);
+
             $options[] = [
-                'value' => $resourceClass::uriKey(),
+                'value' => $uriKey,
                 'label' => $resourceClass::singularLabel(),
+                'authorizedToViewAny' => $auth['authorizedToViewAny'] ?? true,
+                'authorizedToCreate' => $auth['authorizedToCreate'] ?? true,
             ];
         }
 
@@ -441,14 +450,26 @@ class MorphTo extends Field
      */
     protected function extraAttributes(): array
     {
+        $typeOptions = $this->buildTypeOptions();
+
+        // MorphTo has multiple related resources; allow the create button
+        // when at least one of the allowed morph types is creatable.
+        $anyAuthorizedToCreate = $typeOptions === [] ? true : false;
+        foreach ($typeOptions as $option) {
+            if (($option['authorizedToCreate'] ?? true) === true) {
+                $anyAuthorizedToCreate = true;
+                break;
+            }
+        }
+
         return [
             'relationship' => $this->relationship,
             'morphTypeColumn' => $this->morphTypeColumn,
             'morphIdColumn' => $this->morphIdColumn,
             'titleAttribute' => $this->titleAttribute,
-            'morphTypes' => $this->buildTypeOptions(),
+            'morphTypes' => $typeOptions,
             'relationSearchable' => $this->relationSearchable,
-            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
+            'showCreateRelationButton' => $this->isShowCreateRelationButton() && $anyAuthorizedToCreate,
             'modalSize' => $this->modalSize->value,
             'withSubtitles' => $this->withSubtitles,
             'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,

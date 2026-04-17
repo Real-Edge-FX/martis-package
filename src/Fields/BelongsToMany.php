@@ -439,6 +439,9 @@ class BelongsToMany extends Field
             }
         }
 
+        $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
+        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
@@ -447,7 +450,7 @@ class BelongsToMany extends Field
             'collapsable' => $this->collapsable,
             'collapsedByDefault' => $this->collapsedByDefault,
             'allowDuplicateRelations' => $this->allowDuplicates,
-            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
+            'showCreateRelationButton' => $this->isShowCreateRelationButton() && $authorizedToCreate,
             'modalSize' => $this->getModalSize()->value,
             'modalHeight' => $this->modalHeight,
             'withSubtitles' => $this->withSubtitles,
@@ -460,6 +463,6 @@ class BelongsToMany extends Field
                 'canAttach' => $this->canAttach,
                 'canDetach' => $this->canDetach,
             ],
-        ];
+        ] + $relatedAuth;
     }
 }

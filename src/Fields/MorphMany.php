@@ -282,6 +282,9 @@ class MorphMany extends Field
      */
     protected function extraAttributes(): array
     {
+        $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
+        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
@@ -295,10 +298,10 @@ class MorphMany extends Field
                 'perPage' => $this->relationPerPage,
                 'perPageOptions' => $this->relationPerPageOptions,
                 'searchable' => $this->relationSearchable,
-                'canCreate' => $this->canCreateRelated,
+                'canCreate' => $this->canCreateRelated && $authorizedToCreate,
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
             ],
-        ];
+        ] + $relatedAuth;
     }
 }

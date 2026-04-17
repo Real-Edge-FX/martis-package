@@ -561,11 +561,20 @@ class BelongsTo extends Field
      */
     public function isShowCreateRelationButton(): bool
     {
-        if ($this->showCreateRelationButton instanceof \Closure) {
-            return (bool) ($this->showCreateRelationButton)(request());
+        $declared = $this->showCreateRelationButton instanceof \Closure
+            ? (bool) ($this->showCreateRelationButton)(request())
+            : $this->showCreateRelationButton;
+
+        if (! $declared) {
+            return false;
         }
 
-        return $this->showCreateRelationButton;
+        $auth = $this->relatedResourceAuthorizations($this->relatedUriKey);
+        if ($auth === []) {
+            return $declared;
+        }
+
+        return (bool) ($auth['authorizedToCreate'] ?? true);
     }
 
     /**
@@ -601,6 +610,6 @@ class BelongsTo extends Field
             'resourceSubtitle' => $this->resourceSubtitleValue !== false ? $this->resourceSubtitleValue : null,
             'createButtonIcon' => $this->createButtonIconValue?->value,
             'createButtonColor' => $this->createButtonColorValue,
-        ], fn (mixed $v): bool => $v !== null);
+        ], fn (mixed $v): bool => $v !== null) + $this->relatedResourceAuthorizations($this->relatedUriKey);
     }
 }
