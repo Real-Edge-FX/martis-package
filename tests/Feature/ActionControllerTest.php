@@ -283,22 +283,6 @@ class ActionTestRestrictedResource extends Resource
 // ── Setup ────────────────────────────────────────────────────────
 
 beforeEach(function () {
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => '3306',
-            'database' => 'martis_playground',
-            'username' => 'martis',
-            'password' => 'martis_password',
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => false,
-        ],
-    ]);
-
     $this->withoutMiddleware(MartisAuthenticate::class);
 
     Schema::dropIfExists('action_test_items');

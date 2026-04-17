@@ -14,9 +14,11 @@ interface MetricCardProps {
   metric: MetricDefinition
   endpoint: string
   filters?: ActiveFilters
+  /** Optional pre-rendered body to replace the default metric content (framed custom cards). */
+  customContent?: React.ReactNode
 }
 
-export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
+export function MetricCard({ metric, endpoint, filters, customContent }: MetricCardProps) {
   const { t } = useTranslation('resources')
   const [range, setRange] = useState<string>(
     Object.keys(metric.ranges ?? {})[0] ?? '30',
@@ -131,7 +133,9 @@ export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
 
       {/* Card content */}
       <div className="p-4">
-        {result === null && query.isLoading ? (
+        {customContent ? (
+          customContent
+        ) : result === null && query.isLoading ? (
           <div
             className="h-20 animate-pulse rounded"
             style={{ backgroundColor: 'var(--martis-hover)' }}

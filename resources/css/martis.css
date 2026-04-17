@@ -140,6 +140,34 @@
   --martis-badge-danger-bg: rgba(239, 68, 68, 0.15);
   --martis-badge-danger-text: #fca5a5;
   --martis-badge-danger-border: rgba(239, 68, 68, 0.3);
+
+  /* ▸ PrimeReact bridge — map PrimeReact CSS variables to Martis tokens.
+     User themes override Martis vars; PrimeReact inherits automatically. */
+  --primary-color: var(--martis-accent);
+  --primary-color-text: #ffffff;
+  --primary-50: var(--martis-accent-bg-light, rgba(99, 102, 241, 0.05));
+  --primary-100: var(--martis-accent-bg, rgba(99, 102, 241, 0.15));
+  --surface-a: var(--martis-surface);
+  --surface-b: var(--martis-bg);
+  --surface-c: var(--martis-hover);
+  --surface-d: var(--martis-border);
+  --surface-e: var(--martis-surface);
+  --surface-f: var(--martis-card);
+  --surface-ground: var(--martis-bg);
+  --surface-section: var(--martis-surface);
+  --surface-card: var(--martis-card);
+  --surface-overlay: var(--martis-card);
+  --surface-border: var(--martis-border);
+  --surface-hover: var(--martis-hover);
+  --text-color: var(--martis-text);
+  --text-color-secondary: var(--martis-text-muted);
+  --highlight-bg: var(--martis-accent-bg);
+  --highlight-text-color: var(--martis-accent);
+  --focus-ring: 0 0 0 0.2rem var(--martis-focus-ring);
+  --content-padding: 0.75rem;
+  --inline-spacing: 0.5rem;
+  --border-radius: var(--martis-radius-md);
+  --maskbg: var(--martis-overlay);
 }
 
 html:not(.dark) {

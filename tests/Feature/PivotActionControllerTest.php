@@ -122,26 +122,11 @@ class PivotChildResource extends Resource
 // ── Setup ───────────────────────────────────────────────────────────────────
 
 beforeEach(function () {
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => '3306',
-            'database' => 'martis_playground',
-            'username' => 'martis',
-            'password' => 'martis_password',
-            'strict' => false,
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-        ],
-    ]);
-
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::dropIfExists('pivot_test_pivot');
     Schema::dropIfExists('pivot_test_children');
     Schema::dropIfExists('pivot_test_parents');
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 
     Schema::create('pivot_test_parents', function ($table) {
         $table->id();
@@ -170,11 +155,11 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::dropIfExists('pivot_test_pivot');
     Schema::dropIfExists('pivot_test_children');
     Schema::dropIfExists('pivot_test_parents');
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 });
 
 // ── Tests ───────────────────────────────────────────────────────────────────

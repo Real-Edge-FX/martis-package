@@ -217,7 +217,7 @@ function SubMenu({
                 color: isDisabled
                   ? "var(--martis-text-muted)"
                   : child.destructive
-                    ? "#dc2626"
+                    ? "var(--martis-danger)"
                     : "var(--martis-text)",
               }}
               onMouseEnter={(e) => {
@@ -406,7 +406,7 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
                       color: isDisabled
                         ? "var(--martis-text-muted)"
                         : item.destructive
-                          ? "#dc2626"
+                          ? "var(--martis-danger)"
                           : "var(--martis-text)",
                     }}
                     onMouseEnter={(e) => {

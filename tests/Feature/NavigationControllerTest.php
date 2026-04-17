@@ -149,24 +149,6 @@ class NavigationSupportResource extends Resource
 }
 
 beforeEach(function () {
-    $existing = config('database.connections.mysql', []);
-
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => array_merge($existing, [
-            'driver' => 'mysql',
-            'host' => (string) env('MARTIS_TEST_DB_HOST', env('DB_HOST', $existing['host'] ?? '127.0.0.1')),
-            'port' => (string) env('MARTIS_TEST_DB_PORT', env('DB_PORT', $existing['port'] ?? '3306')),
-            'database' => (string) env('MARTIS_TEST_DB_DATABASE', env('DB_DATABASE', $existing['database'] ?? 'martis_playground')),
-            'username' => (string) env('MARTIS_TEST_DB_USERNAME', env('DB_USERNAME', $existing['username'] ?? 'martis')),
-            'password' => (string) env('MARTIS_TEST_DB_PASSWORD', env('DB_PASSWORD', $existing['password'] ?? 'martis_password')),
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => false,
-        ]),
-    ]);
-
     $this->withoutMiddleware(MartisAuthenticate::class);
 
     Schema::dropIfExists('martis_test_navigation_items');

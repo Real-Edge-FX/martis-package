@@ -234,6 +234,22 @@ class ThemeMakeCommand extends Command
   --martis-file-icon-ppt:     #f97316;
   --martis-file-icon-zip:     #a855f7;
   --martis-file-icon-default: #6b7280;
+
+  /* ▸ PrimeReact bridge — map PrimeReact tokens to Martis theme vars. */
+  --primary-color:          var(--martis-accent);
+  --primary-color-text:     #ffffff;
+  --surface-ground:         var(--martis-bg);
+  --surface-card:           var(--martis-card);
+  --surface-overlay:        var(--martis-card);
+  --surface-border:         var(--martis-border);
+  --surface-hover:          var(--martis-hover);
+  --text-color:             var(--martis-text);
+  --text-color-secondary:   var(--martis-text-muted);
+  --highlight-bg:           var(--martis-accent-bg);
+  --highlight-text-color:   var(--martis-accent);
+  --focus-ring:             0 0 0 0.2rem var(--martis-focus-ring);
+  --border-radius:          var(--martis-radius-md);
+  --maskbg:                 var(--martis-overlay);
 }
 
 /* ── Light Mode ──────────────────────────────────────────────── */
@@ -329,6 +345,22 @@ html:not(.dark) {
   --martis-chart-8:  #db2777;
   --martis-chart-9:  #0d9488;
   --martis-chart-10: #9333ea;
+
+  /* ▸ PrimeReact bridge (light-mode overrides inherit Martis tokens). */
+  --primary-color:          var(--martis-accent);
+  --primary-color-text:     #ffffff;
+  --surface-ground:         var(--martis-bg);
+  --surface-card:           var(--martis-card);
+  --surface-overlay:        var(--martis-card);
+  --surface-border:         var(--martis-border);
+  --surface-hover:          var(--martis-hover);
+  --text-color:             var(--martis-text);
+  --text-color-secondary:   var(--martis-text-muted);
+  --highlight-bg:           var(--martis-accent-bg);
+  --highlight-text-color:   var(--martis-accent);
+  --focus-ring:             0 0 0 0.2rem var(--martis-focus-ring);
+  --border-radius:          var(--martis-radius-md);
+  --maskbg:                 var(--martis-overlay);
 }
 
 CSS;

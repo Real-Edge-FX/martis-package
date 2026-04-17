@@ -382,7 +382,7 @@ That's it — buttons, links, focus rings, selected items all turn pink instantl
 4. Inspect HTML `<head>` — theme `<link>` must appear AFTER app CSS
 
 ### Some colors don't change
-PrimeReact has its own `:root` variables (`--primary-color`, `--surface-*`, etc.) that are NOT controlled by Martis variables. Some PrimeReact internals may still use their own colors. Override them in your theme if needed.
+Since v0.6.0, Martis ships a **PrimeReact bridge**: `--primary-color`, `--surface-card`, `--surface-border`, `--text-color`, `--text-color-secondary`, `--highlight-bg`, `--highlight-text-color`, `--focus-ring`, `--border-radius`, and `--maskbg` are mapped to the matching `--martis-*` tokens. PrimeReact components therefore inherit your theme automatically. If a specific PrimeReact internal still uses its own colour, override it alongside the Martis tokens in your theme file.
 
 ### Chart colors don't update
 Chart.js receives resolved color strings, not CSS variables. The theme system already resolves `--martis-chart-*` at runtime. If you provide `var(--my-custom-var)` directly to a chart prop without using the helper, it won't work.

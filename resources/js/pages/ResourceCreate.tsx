@@ -123,7 +123,7 @@ export function ResourceCreatePage() {
 
   if (!schema) {
     return (
-      <div className="rounded-lg border p-6 martis-border" style={{ backgroundColor: 'var(--martis-surface)', color: '#ef4444' }}>
+      <div className="rounded-lg border p-6 martis-border" style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-danger)' }}>
         {tMsg('error_schema')}
       </div>
     )

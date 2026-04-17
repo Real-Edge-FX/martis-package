@@ -18,6 +18,8 @@ class Card implements CardContract
         protected ?string $uriKey = null,
         protected ?string $component = null,
         protected array $meta = [],
+        protected int $width = 4,
+        protected bool $framed = false,
     ) {}
 
     public static function make(string $name, ?string $uriKey = null): static
@@ -58,6 +60,28 @@ class Card implements CardContract
     }
 
     /**
+     * Grid column span in the 12-column dashboard grid (1-12).
+     */
+    public function width(int $span): static
+    {
+        $this->width = max(1, min(12, $span));
+
+        return $this;
+    }
+
+    /**
+     * Wrap the custom component inside the Martis MetricCard chrome
+     * (border, header with title/icon, padded body). Off by default
+     * so that hero-style cards can render full-bleed.
+     */
+    public function framed(bool $framed = true): static
+    {
+        $this->framed = $framed;
+
+        return $this;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function meta(): array
@@ -72,6 +96,8 @@ class Card implements CardContract
             'name' => $this->name(),
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
+            'width' => $this->width,
+            'framed' => $this->framed,
             'meta' => $this->meta(),
         ];
     }

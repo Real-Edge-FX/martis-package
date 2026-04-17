@@ -583,6 +583,22 @@ public function cards(Request $request): array
 
 The React component receives all `meta` data as props.
 
+### Card Width and Framing
+
+> Nova 5 cards require the developer to manage grid spans and chrome inside the custom component.
+
+Martis Cards expose two declarative methods on the backend:
+
+```php
+Card::make('Revenue')
+    ->componentKey('revenue-card')
+    ->width(6)        // grid-column span (1-12), defaults to 4
+    ->framed();       // wrap custom component in the default MetricCard chrome
+```
+
+- `width(int)` — the Dashboard grid wraps the custom component in a `div` with `grid-column: span {width}`, so the component body never needs to touch `gridColumn` itself.
+- `framed(bool = true)` — when `true`, the component renders inside the standard `MetricCard` container (title, icon, border). Defaults to `false` so hero-style cards can render full-bleed.
+
 ---
 
 ## Developer Experience

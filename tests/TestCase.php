@@ -83,12 +83,16 @@ abstract class TestCase extends OrchestraTestCase
             ? $this->app->databasePath('migrations')
             : __DIR__.'/../vendor/orchestra/testbench-core/laravel/database/migrations';
 
-        collect(glob($migrationPath.'/*_create_action_events_table.php') ?: [])->each(
-            fn (string $path) => $filesystem->delete($path)
-        );
+        $patterns = [
+            '/*_create_action_events_table.php',
+            '/*_add_martis_profile_picture_column_to_users_table.php',
+            '/*_add_martis_two_factor_columns_to_users_table.php',
+        ];
 
-        collect(glob($migrationPath.'/*_add_martis_profile_columns.php') ?: [])->each(
-            fn (string $path) => $filesystem->delete($path)
-        );
+        foreach ($patterns as $pattern) {
+            collect(glob($migrationPath.$pattern) ?: [])->each(
+                fn (string $path) => $filesystem->delete($path)
+            );
+        }
     }
 }

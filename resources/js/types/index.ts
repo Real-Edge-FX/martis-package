@@ -113,6 +113,8 @@ export interface MetricDefinition {
   style?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   icon?: string | null
   color?: string | null
+  /** Wrap custom component inside the default MetricCard chrome. */
+  framed?: boolean
   meta: Record<string, unknown>
 }
 
