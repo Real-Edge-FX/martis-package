@@ -186,9 +186,19 @@ export function TabsInput({
             return (
               <div
                 key={field.attribute}
-                className="col-span-12"
+                className="col-span-12 flex flex-col gap-1.5"
                 style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
               >
+                <label
+                  htmlFor={field.attribute}
+                  className="block text-sm font-medium"
+                  style={{ color: 'var(--martis-text-muted)' }}
+                >
+                  {field.label}
+                  {field.required && (
+                    <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                  )}
+                </label>
                 <FieldInput
                   field={field}
                   value={values[field.attribute]}

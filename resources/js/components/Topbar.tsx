@@ -240,9 +240,9 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
               menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
           }}
         >
-          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold overflow-hidden flex-shrink-0 ${user?.avatar_url ? '' : 'bg-indigo-600 text-white'}`}>
-            {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={user?.name ?? ''} className="h-full w-full object-cover" />
+          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold overflow-hidden flex-shrink-0 ${user?.avatar_url?.trim() ? '' : 'bg-indigo-600 text-white'}`}>
+            {user?.avatar_url?.trim() ? (
+              <img src={user.avatar_url} alt={user?.name ?? ''} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
             ) : (
               (user?.name ?? user?.email ?? '?')[0].toUpperCase()
             )}

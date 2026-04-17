@@ -112,6 +112,7 @@ export interface MetricDefinition {
   height?: number | null
   style?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   icon?: string | null
+  color?: string | null
   meta: Record<string, unknown>
 }
 

@@ -9,7 +9,7 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { Pagination } from '@/components/Pagination'
 import { useTranslation } from 'react-i18next'
-import { PlusIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, XIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, CaretRightIcon } from "@phosphor-icons/react"
+import { PlusIcon, EyeIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, XIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 // Tooltip handled by global <Tooltip> in Layout.tsx
@@ -32,7 +32,7 @@ export function HasManyFieldDisplay({ field, value }: FieldDisplayProps) {
 /**
  * Index display — shows a configurable count badge with optional icon.
  * Configurable via:
- *   ->badgeColor('#3b82f6')  — custom badge color
+ *   ->badgeColor('var(--martis-info)')  — custom badge color
  *   ->badgeIcon('newspaper') — icon next to count
  */
 export function HasManyFieldIndexDisplay({ field, value }: FieldDisplayProps) {
@@ -241,7 +241,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                   data-pr-tooltip={tMsg('clear', 'Clear')}
                   data-pr-position="top"
                 >
-                  <XIcon size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
+                  <XIcon size={14} weight="bold" style={{ color: 'var(--martis-danger)' }} />
                 </button>
               )}
               {/* Tooltip handled by global Layout <Tooltip> */}
@@ -345,6 +345,17 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
             }
             body={(row: ResourceRecord) => (
               <div className="flex items-center justify-end gap-1">
+                <Link
+                  to={`/resources/${relatedResource}/${row.id}`}
+                  className="rounded p-1.5 transition-colors no-underline"
+                  style={{ color: 'var(--martis-text-muted)' }}
+                  data-pr-tooltip={tAct('view', 'View')}
+                  data-pr-position="top"
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-accent)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
+                >
+                  <EyeIcon size={16} />
+                </Link>
                 {meta?.canUpdate && (
                   <Link
                     to={`/resources/${relatedResource}/${row.id}/edit${viaParams}`}
@@ -366,7 +377,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
                     style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                     data-pr-tooltip={tAct('delete', 'Delete')}
                     data-pr-position="top"
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-danger)')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
                     <TrashIcon size={16} />

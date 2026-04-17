@@ -219,8 +219,8 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
                   onClick={() => removeTag(tag.id)}
                   data-pr-tooltip={`Remove ${tag.title}`}
                   data-pr-position="top"
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                  style={{ color: 'var(--martis-badge-info-text)', lineHeight: 1 }}
+                  className="opacity-70 hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--martis-danger)', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
                   <XIcon size={10} weight="bold" />
                 </button>

@@ -494,7 +494,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           className="martis-belongs-to-trigger"
           style={{
             width: '100%',
-            borderColor: error ? '#ef4444' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
+            borderColor: error ? 'var(--martis-danger)' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
             opacity: field.readonly ? 0.6 : 1,
             cursor: field.readonly ? 'not-allowed' : 'pointer',
           }}
@@ -593,7 +593,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           className="martis-input block w-full rounded-md border px-3 py-2 text-sm"
           style={{
             backgroundColor: 'var(--martis-input-bg)',
-            borderColor: error ? '#ef4444' : 'var(--martis-border)',
+            borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
             color: 'var(--martis-text)',
           }}
         />
@@ -613,7 +613,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
         className="martis-belongs-to-trigger"
         style={{
           flex: 1,
-          borderColor: error ? '#ef4444' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
+          borderColor: error ? 'var(--martis-danger)' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
           opacity: field.readonly ? 0.6 : 1,
           cursor: field.readonly ? 'not-allowed' : 'pointer',
         }}

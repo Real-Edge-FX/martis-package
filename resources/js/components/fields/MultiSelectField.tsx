@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CaretDownIcon, XIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
+import { ClearButton } from '@/components/ClearButton'
 
 interface SelectOpt {
   label: string
@@ -152,6 +153,8 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
     return opt?.label ?? val
   }
 
+  const showClear = !!field.nullable && selected.length > 0 && !field.readonly
+
   return (
     <div ref={containerRef} className="flex flex-col gap-1 relative">
       {/* Trigger with chips */}
@@ -160,12 +163,12 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
         className="martis-input flex flex-wrap items-center gap-1 cursor-pointer"
         style={{
           minHeight: '2.375rem',
-          padding: '0.375rem 2rem 0.375rem 0.5rem',
+          padding: showClear ? '0.375rem 3.25rem 0.375rem 0.5rem' : '0.375rem 2rem 0.375rem 0.5rem',
           position: 'relative',
           opacity: field.readonly ? 0.7 : 1,
           cursor: field.readonly ? 'not-allowed' : 'pointer',
-          ...(error ? { borderColor: '#ef4444', boxShadow: '0 0 0 1px #ef4444' } : {}),
-          ...(open && !error ? { borderColor: 'var(--martis-accent)', boxShadow: '0 0 0 1px var(--martis-accent)' } : {}),
+          ...(error ? { borderColor: 'var(--martis-danger)' } : {}),
+          ...(open && !error ? { borderColor: 'var(--martis-accent)' } : {}),
         }}
       >
         {selected.length === 0 ? (
@@ -188,8 +191,8 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                 <button
                   type="button"
                   onClick={(e) => removeChip(v, e)}
-                  className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
-                  style={{ color: 'var(--martis-text-muted)', lineHeight: 1 }}
+                  className="ml-0.5 opacity-70 hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--martis-danger)', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
                   <XIcon size={10} weight="bold" />
                 </button>
@@ -197,6 +200,11 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
             </span>
           ))
         )}
+        <ClearButton
+          visible={showClear}
+          onClick={() => onChange([])}
+          style={{ position: 'absolute', right: '1.75rem', top: '50%', transform: 'translateY(-50%)' }}
+        />
         <CaretDownIcon
           size={12}
           weight="bold"

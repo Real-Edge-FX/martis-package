@@ -40,7 +40,7 @@ return [
     'refresh' => 'Refresh',
     'auto_refresh' => 'Auto-refresh',
     'no_data' => 'No data available',
-    'live' => 'LIVE',
+    'live' => 'Live',
     'vs' => 'vs',
     'showing' => 'Showing',
     'of' => 'of',

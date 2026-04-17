@@ -30,9 +30,16 @@ class PartitionResult extends MetricResult
     }
 
     /**
-     * Set custom colors for each partition slice.
+     * Set custom colors for partition slices.
      *
-     * @param  list<string>  $colors  Hex color codes
+     * Two formats supported:
+     * 1. Sequential array (order matches labels):
+     *    ->colors(['#22c55e', '#f59e0b', '#3b82f6'])
+     *
+     * 2. Associative map (label => color, order-independent):
+     *    ->colors(['active' => '#22c55e', 'paused' => '#f59e0b', 'archived' => '#6b7280'])
+     *
+     * @param  array<int|string, string>  $colors
      */
     public function colors(array $colors): static
     {

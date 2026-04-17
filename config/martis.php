@@ -323,7 +323,7 @@ return [
             'enabled' => env('MARTIS_2FA_ENABLED', true),
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
         ],
-        'sections' => ['account', 'password', 'avatar', 'security'],
+        'sections' => ['avatar', 'account', 'password', 'security'],
     ],
 
     /*

@@ -48,6 +48,13 @@ abstract class Metric implements MetricContract
     protected ?string $icon = null;
 
     /**
+     * Custom chart color (CSS color value or var). Martis extension.
+     * Used by Trend and Progress metrics for line/bar/progress fill.
+     * Falls back to --martis-accent if null.
+     */
+    protected ?string $color = null;
+
+    /**
      * Query scope applied by dashboard filters.
      * Set by MetricController before calling resolve().
      *
@@ -380,6 +387,24 @@ abstract class Metric implements MetricContract
         return $this;
     }
 
+    /**
+     * Set the chart color for this metric. Martis extension.
+     *
+     * Accepts any CSS color value (hex, rgb, rgba, var(--name), or named color).
+     * Used by:
+     * - TrendMetric: line/area color
+     * - ProgressMetric: progress bar fill
+     * - ValueMetric: change indicator color (optional)
+     *
+     * @param  string  $color  CSS color value
+     */
+    public function color(string $color): static
+    {
+        $this->color = $color;
+
+        return $this;
+    }
+
     // -------------------------------------------------------------------------
     // Metadata
     // -------------------------------------------------------------------------
@@ -426,6 +451,7 @@ abstract class Metric implements MetricContract
             'height' => $this->height,
             'style' => $this->cardStyle->value,
             'icon' => $this->icon,
+            'color' => $this->color,
             'meta' => $this->meta(),
         ];
     }

@@ -9,6 +9,28 @@ import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 
+/** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
+function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
+  const result: FieldDefinition[] = []
+  for (const item of items) {
+    if (item.type === 'panel' || item.type === 'section') {
+      const children = (item as Record<string, unknown>).fields as Array<Record<string, unknown>> | undefined
+      if (children) result.push(...extractScalarFields(children))
+    } else if (item.type === 'tab_group') {
+      const tabs = (item as Record<string, unknown>).tabs as Array<Record<string, unknown>> | undefined
+      if (tabs) {
+        for (const tab of tabs) {
+          const tabFields = tab.fields as Array<Record<string, unknown>> | undefined
+          if (tabFields) result.push(...extractScalarFields(tabFields))
+        }
+      }
+    } else {
+      result.push(item as unknown as FieldDefinition)
+    }
+  }
+  return result
+}
+
 
 
 /** Resolve the effective column span for a field. */
@@ -45,7 +67,7 @@ export function DrawerUpdate(props: OverrideProps) {
 
   const activeRecord = record ?? recordQuery.data?.data
   const allFormFields = useMemo(() => schema.fieldsForUpdate ?? [], [schema])
-  const scalarFields = useMemo(() => allFormFields.filter(f => f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[], [allFormFields])
+  const scalarFields = useMemo(() => extractScalarFields(allFormFields), [allFormFields])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})

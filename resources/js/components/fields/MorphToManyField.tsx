@@ -306,7 +306,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
                     }}
                     className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
-                      color: action.destructive ? '#ef4444' : 'var(--martis-text)',
+                      color: action.destructive ? 'var(--martis-danger)' : 'var(--martis-text)',
                       background: 'none',
                       border: 'none',
                       cursor: selectedRows.length === 0 && !action.standalone ? 'not-allowed' : 'pointer',
@@ -320,7 +320,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
                       e.currentTarget.style.backgroundColor = 'transparent'
                     }}
                   >
-                    <LightningIcon size={14} style={{ color: action.destructive ? '#ef4444' : 'var(--martis-accent)' }} />
+                    <LightningIcon size={14} style={{ color: action.destructive ? 'var(--martis-danger)' : 'var(--martis-accent)' }} />
                     {action.name}
                   </button>
                 ))}
@@ -448,8 +448,8 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
                         data-pr-tooltip={tAct('detach', 'Detach')}
                         data-pr-position="top"
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.color = '#ef4444'
-                          e.currentTarget.style.borderColor = '#ef4444'
+                          e.currentTarget.style.color = 'var(--martis-danger)'
+                          e.currentTarget.style.borderColor = 'var(--martis-danger)'
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.color = 'var(--martis-text-muted)'
@@ -689,7 +689,7 @@ function PivotActionModal({
               className="flex h-10 w-10 items-center justify-center rounded-full"
               style={{
                 backgroundColor: action.destructive ? 'rgba(220,38,38,0.1)' : 'rgba(99,102,241,0.1)',
-                color: action.destructive ? '#dc2626' : '#6366f1',
+                color: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)',
               }}
             >
               <LightningIcon size={20} weight="fill" />
@@ -766,7 +766,7 @@ function PivotActionModal({
             onClick={() => executeMutation.mutate()}
             disabled={executeMutation.isPending}
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: action.destructive ? '#dc2626' : 'var(--martis-accent)' }}
+            style={{ backgroundColor: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)' }}
           >
             <LightningIcon size={14} />
             {executeMutation.isPending
@@ -831,7 +831,7 @@ function DetachConfirmModal({
             disabled={loading}
             onClick={() => { void onConfirm() }}
             className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            style={{ backgroundColor: '#ef4444' }}
+            style={{ backgroundColor: 'var(--martis-danger)' }}
           >
             {loading ? tAct('please_wait', 'Please wait…') : tAct('detach', 'Detach')}
           </button>

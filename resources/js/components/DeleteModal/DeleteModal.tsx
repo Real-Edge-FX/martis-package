@@ -140,7 +140,7 @@ function DefaultDeleteModal({
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
             style={{
-              backgroundColor: isSoftDelete ? '#f59e0b' : '#dc2626',
+              backgroundColor: isSoftDelete ? 'var(--martis-warning, #f59e0b)' : 'var(--martis-danger, #dc2626)',
             }}
           >
             {isSoftDelete ? <ArrowCounterClockwiseIcon size={14} /> : <TrashIcon size={14} />}

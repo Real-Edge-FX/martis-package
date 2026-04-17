@@ -40,7 +40,7 @@ return [
     'refresh' => 'Atualizar',
     'auto_refresh' => 'Atualização automática',
     'no_data' => 'Sem dados disponíveis',
-    'live' => 'AO VIVO',
+    'live' => 'Em directo',
     'vs' => 'vs',
     'showing' => 'A mostrar',
     'of' => 'de',
