@@ -9,6 +9,7 @@ return [
     'registered' => 'Recursos registrados',
     'welcome' => 'Bem-vindo ao Martis Admin Engine.',
     'hello' => 'Olá, :name',
+    'default_dashboard' => 'Dashboard Padrão',
     'no_records' => 'Nenhum registro encontrado.',
     'choose_files' => 'Arraste arquivos aqui ou clique para escolher',
     'add_more_files' => 'Adicionar mais arquivos',

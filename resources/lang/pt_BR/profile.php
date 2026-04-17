@@ -21,6 +21,12 @@ return [
     'password_updated' => 'Senha atualizada com sucesso.',
     'password_mismatch' => 'As senhas não coincidem.',
     'password_min' => 'A senha deve ter no mínimo 8 caracteres.',
+    'password_rules_unmet' => 'A senha não atende aos requisitos mínimos.',
+    'password_requirements' => 'Requisitos da senha',
+    'password_rule_min' => 'Pelo menos 8 caracteres',
+    'password_rule_upper' => 'Uma letra maiúscula',
+    'password_rule_lower' => 'Uma letra minúscula',
+    'password_rule_number' => 'Um número',
     'update_password' => 'Atualizar Senha',
     'updating_password' => 'Atualizando…',
 

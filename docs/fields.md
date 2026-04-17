@@ -1148,6 +1148,52 @@ Badge::make('status')
 **Default badge types:** `info` (blue), `success` (green), `warning` (yellow), `danger` (red)
 **Extra attributes:** `map`, `types`, `withIcons`, `icons`
 
+> [!important] Badge is display-only — use `Select` in forms
+> `Badge` is intentionally filtered out of create/update contexts (`showOnCreation = showOnUpdate = false` by default). It is meant for index/detail display only. If you want the user to **pick** a value that renders as a badge afterwards, use `Select` in `fieldsForCreate`/`fieldsForUpdate` and keep `Badge` in `fieldsForIndex`/`fieldsForDetail`.
+>
+> **Wrong — field disappears from the edit drawer:**
+> ```php
+> public function fields(Request $request): array
+> {
+>     return [
+>         Badge::make('status')->map([
+>             'active' => 'success',
+>             'inactive' => 'warning',
+>         ]),
+>     ];
+> }
+> ```
+>
+> **Right — editable input in forms, badge in index/detail:**
+> ```php
+> public function fieldsForIndex(Request $request): array
+> {
+>     return [
+>         Badge::make('status')->map([
+>             'active' => 'success',
+>             'inactive' => 'warning',
+>         ]),
+>     ];
+> }
+>
+> public function fieldsForCreate(Request $request): array
+> {
+>     return [
+>         Select::make('status')->options([
+>             'active'   => 'Active',
+>             'inactive' => 'Inactive',
+>         ])->required(),
+>     ];
+> }
+>
+> public function fieldsForUpdate(Request $request): array
+> {
+>     return $this->fieldsForCreate($request);
+> }
+> ```
+>
+> Calling `->showOnForms()` on a Badge forces it into forms as read-only — useful to *show* the current value while another field edits it, but never as an input.
+
 ---
 
 ### Status

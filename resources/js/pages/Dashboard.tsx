@@ -19,7 +19,7 @@ export function DashboardPage() {
   const { user } = useAuth()
   const { t } = useTranslation('resources')
 
-  // Fetch navigation for resource cards fallback
+  // Fetch navigation (needed for default layout + fallback)
   const { data: groups = [], isLoading: navLoading } = useQuery<NavigationGroup[]>({
     queryKey: ['navigation'],
     queryFn: () => api.get('/api/navigation'),
@@ -40,75 +40,40 @@ export function DashboardPage() {
   // Use first dashboard as default
   const currentDashboardKey = activeDashboard ?? dashboards[0]?.uriKey ?? null
 
-  const navigationResources = groups.flatMap((group) => getNavigationResourceItems(group))
-  const totalResources = navigationResources.length
   const name = user?.name ?? user?.email ?? ''
-
-  const showMetrics = config.dashboard?.showMetrics !== false
-  const showResourceCards = config.dashboard?.showResourceCards !== false
+  const showGreeting = config.dashboard?.showGreeting !== false
+  const showWelcome = config.dashboard?.showWelcome !== false
 
   return (
     <div>
-      {/* Welcome header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--martis-text)' }}>
-          {t('hello', { name })}
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-          {t('welcome')}
-        </p>
-      </div>
+      {(showGreeting || showWelcome) && (
+        <div className="mb-6">
+          {showGreeting && (
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--martis-text)' }}>
+              {t('hello', { name })}
+            </h1>
+          )}
+          {showWelcome && (
+            <p className={`${showGreeting ? 'mt-1 ' : ''}text-sm`} style={{ color: 'var(--martis-text-muted)' }}>
+              {t('welcome')}
+            </p>
+          )}
+        </div>
+      )}
 
       {navLoading || dashboardsQuery.isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
         </div>
       ) : hasDashboards ? (
-        /* Dynamic dashboards with metrics */
         <DashboardView
           dashboards={dashboards}
           currentKey={currentDashboardKey}
           onSelect={setActiveDashboard}
+          groups={groups}
         />
       ) : (
-        /* Fallback: static dashboard (existing behavior) */
-        <>
-          {showMetrics && (
-            <div className="mb-6 grid gap-4 sm:grid-cols-3">
-              <StatCard label={t('registered')} value={totalResources} icon={<DatabaseIcon size={20} className="text-indigo-400" />} bgClass="bg-indigo-500/20" />
-              <StatCard label={t('groups')} value={groups.length} icon={<FolderIcon size={20} className="text-emerald-400" />} bgClass="bg-emerald-500/20" />
-              <StatCard label={t('active')} value={totalResources} icon={<CheckCircleIcon size={20} className="text-amber-400" />} bgClass="bg-amber-500/20" />
-            </div>
-          )}
-
-          {showResourceCards && (
-            <>
-              <h2 className="mb-3 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>{t('registered')}</h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {navigationResources.map((r) => (
-                  <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block h-full">
-                    <Card className="transition-all hover:shadow-md cursor-pointer h-full">
-                      <div className="flex items-center gap-4 min-h-[2.5rem]">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
-                          <ResourceIcon iconName={r.icon ?? null} size={20} className="text-indigo-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold" style={{ color: 'var(--martis-text)' }}>{r.label}</p>
-                          {r.subtitle ? (
-                            <p className="text-xs truncate" style={{ color: 'var(--martis-text-muted)' }}>{r.subtitle}</p>
-                          ) : r.group ? (
-                            <p className="text-xs truncate" style={{ color: 'var(--martis-text-muted)' }}>{r.group}</p>
-                          ) : null}
-                        </div>
-                        <CaretRightIcon style={{ color: 'var(--martis-text-muted)' }} />
-                      </div>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-        </>
+        <DefaultDashboardView groups={groups} />
       )}
     </div>
   )
@@ -122,20 +87,25 @@ function DashboardView({
   dashboards,
   currentKey,
   onSelect,
+  groups,
 }: {
   dashboards: DashboardDefinition[]
   currentKey: string | null
   onSelect: (key: string) => void
+  groups: NavigationGroup[]
 }) {
   const { t } = useTranslation('resources')
   const qc = useQueryClient()
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
 
-  // Fetch dashboard data (cards + filters)
+  const currentDashboard = dashboards.find((d) => d.uriKey === currentKey) ?? null
+  const isDefaultLayout = currentDashboard?.layout === 'default'
+
+  // Fetch dashboard data (cards + filters) — skip for default layout (no cards)
   const dashboardQuery = useQuery({
     queryKey: ['dashboard', currentKey],
     queryFn: () => api.get<{ data: DashboardData }>(`/api/dashboards/${currentKey}`),
-    enabled: !!currentKey,
+    enabled: !!currentKey && !isDefaultLayout,
   })
 
   const dashboardData = dashboardQuery.data?.data
@@ -170,13 +140,29 @@ function DashboardView({
         </div>
       )}
 
-      {/* Refresh + Filters — FilterPanel is standalone block like in resource index */}
-      {filters.length > 0 ? (
-        <FilterPanel
-          filters={filters}
-          value={activeFilters}
-          onChange={(f) => setActiveFilters(f)}
-          prefix={showRefresh ? (
+      {isDefaultLayout ? (
+        <DefaultDashboardView groups={groups} />
+      ) : (
+        <>
+          {/* Refresh + Filters — FilterPanel is standalone block like in resource index */}
+          {filters.length > 0 ? (
+            <FilterPanel
+              filters={filters}
+              value={activeFilters}
+              onChange={(f) => setActiveFilters(f)}
+              prefix={showRefresh ? (
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+                  style={{ color: 'var(--martis-text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                >
+                  <ArrowClockwiseIcon size={14} />
+                  {t('refresh', 'Refresh')}
+                </button>
+              ) : undefined}
+            />
+          ) : showRefresh ? (
             <button
               type="button"
               onClick={handleRefresh}
@@ -186,59 +172,105 @@ function DashboardView({
               <ArrowClockwiseIcon size={14} />
               {t('refresh', 'Refresh')}
             </button>
-          ) : undefined}
-        />
-      ) : showRefresh ? (
-        <button
-          type="button"
-          onClick={handleRefresh}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-          style={{ color: 'var(--martis-text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}
-        >
-          <ArrowClockwiseIcon size={14} />
-          {t('refresh', 'Refresh')}
-        </button>
-      ) : null}
+          ) : null}
 
-      {/* Metric cards grid (12-column) */}
-      {dashboardQuery.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
-        </div>
-      ) : cards.length > 0 ? (
-        <div
-          className="grid gap-4"
-          style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}
-        >
-          {cards.map((card) => {
-            if (card.component) {
-              const CustomCard = componentRegistry.resolve(card.component)
-              if (CustomCard) {
-                const C = CustomCard as React.ComponentType<{ card: typeof card }>
-                return <C key={card.uriKey} card={card} />
-              }
-            }
-            return (
-              <MetricCard
-                key={card.uriKey}
-                metric={card}
-                endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
-                filters={activeFilters}
-              />
-            )
-          })}
-        </div>
-      ) : (
-        <p className="text-sm py-8 text-center" style={{ color: 'var(--martis-text-muted)' }}>
-          {t('no_data', 'No cards configured for this dashboard.')}
-        </p>
+          {/* Metric cards grid (12-column) */}
+          {dashboardQuery.isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
+            </div>
+          ) : cards.length > 0 ? (
+            <div
+              className="grid gap-4"
+              style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}
+            >
+              {cards.map((card) => {
+                if (card.component) {
+                  const CustomCard = componentRegistry.resolve(card.component)
+                  if (CustomCard) {
+                    const C = CustomCard as React.ComponentType<{ card: typeof card }>
+                    return <C key={card.uriKey} card={card} />
+                  }
+                }
+                return (
+                  <MetricCard
+                    key={card.uriKey}
+                    metric={card}
+                    endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
+                    filters={activeFilters}
+                  />
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm py-8 text-center" style={{ color: 'var(--martis-text-muted)' }}>
+              {t('no_data', 'No cards configured for this dashboard.')}
+            </p>
+          )}
+        </>
       )}
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Static stat card (fallback dashboard)
+// Default Martis dashboard — navigation-derived summary + resource cards.
+// Shared between: (a) DefaultDashboard registered by the app, and
+// (b) the automatic fallback shown when no dashboards are registered.
+// ---------------------------------------------------------------------------
+
+function DefaultDashboardView({ groups }: { groups: NavigationGroup[] }) {
+  const { t } = useTranslation('resources')
+
+  const navigationResources = groups.flatMap((group) => getNavigationResourceItems(group))
+  const totalResources = navigationResources.length
+
+  const showMetrics = config.dashboard?.showMetrics !== false
+  const showResourceCards = config.dashboard?.showResourceCards !== false
+
+  return (
+    <>
+      {showMetrics && (
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <StatCard label={t('registered')} value={totalResources} icon={<DatabaseIcon size={20} className="text-indigo-400" />} bgClass="bg-indigo-500/20" />
+          <StatCard label={t('groups')} value={groups.length} icon={<FolderIcon size={20} className="text-emerald-400" />} bgClass="bg-emerald-500/20" />
+          <StatCard label={t('active')} value={totalResources} icon={<CheckCircleIcon size={20} className="text-amber-400" />} bgClass="bg-amber-500/20" />
+        </div>
+      )}
+
+      {showResourceCards && (
+        <>
+          <h2 className="mb-3 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>{t('registered')}</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {navigationResources.map((r) => (
+              <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block h-full">
+                <Card className="transition-all hover:shadow-md cursor-pointer h-full">
+                  <div className="flex items-center gap-4 min-h-[2.5rem]">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
+                      <ResourceIcon iconName={r.icon ?? null} size={20} className="text-indigo-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold" style={{ color: 'var(--martis-text)' }}>{r.label}</p>
+                      {r.subtitle ? (
+                        <p className="text-xs truncate" style={{ color: 'var(--martis-text-muted)' }}>{r.subtitle}</p>
+                      ) : r.group ? (
+                        <p className="text-xs truncate" style={{ color: 'var(--martis-text-muted)' }}>{r.group}</p>
+                      ) : null}
+                    </div>
+                    <CaretRightIcon style={{ color: 'var(--martis-text-muted)' }} />
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Static stat card (default dashboard)
 // ---------------------------------------------------------------------------
 
 function StatCard({ label, value, icon, bgClass }: { label: string; value: number; icon: React.ReactNode; bgClass: string }) {

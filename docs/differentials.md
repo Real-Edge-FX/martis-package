@@ -82,6 +82,48 @@ Text::make('status')
 
 ## Action System Extensions
 
+### Default Row Actions (View, Edit, Delete)
+
+Every resource index automatically ships with a trailing column of built-in row actions (view, edit, delete) — no registration required. Each icon is automatically disabled when the row's authorization payload denies the operation, so unauthorized users still see the action exists but cannot trigger it. Custom inline actions always render **after** the defaults (never replace them unless opted out).
+
+Nova v5 requires developers to wire up view/edit/delete buttons manually via inline actions. Martis ships it as the default experience, with three layers of customization:
+
+**1. Global config** (`config/martis.php`):
+
+```php
+'index' => [
+    'default_row_actions' => [
+        'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        'view'    => true,
+        'edit'    => true,
+        'delete'  => true,
+    ],
+],
+```
+
+**2. Per-resource override** — use a method, not a property, so the decision can depend on the request:
+
+```php
+class ClientResource extends Resource
+{
+    public function defaultRowActions(Request $request): bool|array
+    {
+        // return false;              // hide the column entirely
+        // return ['view'];           // show only view
+        return ['view', 'edit'];      // pick a subset
+    }
+}
+```
+
+**3. Composition with custom inline actions** — default actions always appear first; any `showInline()` action you define renders to their right.
+
+```
+[ 👁  ✏  🗑 ]  [ custom action 1 ]  [ custom action 2 ]  [ ⋮ grouped ]
+   defaults             your inline actions follow
+```
+
+See [Default Row Actions](default_row_actions.md) for the full guide.
+
 ### Action Icons
 
 Every action can display a Phosphor icon from the 1,512 built-in icons:

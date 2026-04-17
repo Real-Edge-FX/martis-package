@@ -105,6 +105,18 @@ class Dashboard implements DashboardContract
         return false;
     }
 
+    /**
+     * Layout type for the dashboard.
+     *
+     * 'cards' (default) renders the registered metrics grid.
+     * 'default' triggers the built-in Martis landing layout
+     * (stat summary + resource quick-access cards).
+     */
+    public function layoutType(): string
+    {
+        return 'cards';
+    }
+
     // -------------------------------------------------------------------------
     // Authorization
     // -------------------------------------------------------------------------
@@ -163,6 +175,7 @@ class Dashboard implements DashboardContract
             'name' => $this->name(),
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
+            'layout' => $this->layoutType(),
             'showRefreshButton' => $this->showRefreshButton(),
             'meta' => $this->meta(),
         ];

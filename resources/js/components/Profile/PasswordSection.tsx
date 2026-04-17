@@ -6,6 +6,7 @@ import { InputIcon } from 'primereact/inputicon'
 import { LockIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { PasswordChecklist, defaultPasswordRules, allRulesMet } from './PasswordChecklist'
 
 export function PasswordSection() {
   const { t } = useTranslation('profile')
@@ -16,14 +17,18 @@ export function PasswordSection() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
 
+  const rules = defaultPasswordRules(t)
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     const localErrors: Record<string, string> = {}
 
-    if (next.length < 8) localErrors.new_password = t('password_min')
+    if (!allRulesMet(next, rules)) localErrors.new_password = t('password_rules_unmet')
     if (next !== confirm) localErrors.confirm_password = t('password_mismatch')
     if (Object.keys(localErrors).length > 0) {
       setErrors(localErrors)
+      const firstMessage = Object.values(localErrors)[0]
+      if (firstMessage) addToast('error', firstMessage)
       return
     }
 
@@ -40,8 +45,9 @@ export function PasswordSection() {
       setNext('')
       setConfirm('')
     } catch (err) {
-      if (err instanceof ApiError && err.errors) {
-        setErrors(err.errorsByField())
+      if (err instanceof ApiError) {
+        addToast('error', err.message || t('error'))
+        if (err.errors) setErrors(err.errorsByField())
       } else {
         addToast('error', t('error'))
       }
@@ -93,9 +99,13 @@ export function PasswordSection() {
               invalid={!!errors.new_password}
               className="w-full"
               autoComplete="new-password"
+              aria-describedby="new-password-requirements"
               required
             />
           </IconField>
+          <div id="new-password-requirements">
+            <PasswordChecklist value={next} rules={rules} />
+          </div>
           {errors.new_password && <small className="p-error">{errors.new_password}</small>}
         </div>
 

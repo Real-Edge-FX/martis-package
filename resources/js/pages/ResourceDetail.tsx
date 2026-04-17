@@ -46,14 +46,8 @@ export function ResourceDetailPage() {
     enabled: !!resource && !!id,
   })
 
-  // Fetch actions for this resource
-  const actionsQuery = useQuery({
-    queryKey: ["resource-actions", resource],
-    queryFn: () => api.get<{ data: { actions: ActionMeta[] } }>(`/api/resources/${resource}/actions`),
-    enabled: !!resource,
-  })
-
-  const allActions = actionsQuery.data?.data?.actions ?? []
+  // Actions come from the schema payload — no separate query needed.
+  const allActions = (schemaQuery.data?.data?.actions ?? []) as ActionMeta[]
   const detailActions = allActions.filter((a) => a.showOnDetail)
 
   const deleteMutation = useMutation({

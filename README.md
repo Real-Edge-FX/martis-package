@@ -113,6 +113,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Metrics](docs/metrics.md) | Value, trend, partition, and progress metrics — query helpers, ranges, caching, card width, auto-refresh |
 | [Dashboards](docs/dashboards.md) | Multiple dashboards, dashboard filters, refresh button, registration |
 | [Actions](docs/actions.md) | Inline, bulk, standalone, queued, custom components, authorization, audit log |
+| [Default Row Actions](docs/default_row_actions.md) | Built-in view/edit/delete column on every index, auto-disabled per policy, composable with custom inline actions |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer |
 | [Built-in Components](docs/components.md) | UI components, hooks (useEventBus, useError), tooltip standard |
 | [Theming Guide](docs/theming.md) | Complete reference for all 94 CSS variables (colors, typography, radius, shadows, charts) |

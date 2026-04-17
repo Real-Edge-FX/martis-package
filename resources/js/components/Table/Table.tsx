@@ -5,7 +5,7 @@ import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon } from "@phosphor-icons/react"
+import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
@@ -13,6 +13,13 @@ import { createPortal } from "react-dom"
 
 export interface TableColumn {
   field: FieldDefinition
+}
+
+export interface DefaultRowActionsConfig {
+  enabled: boolean
+  view: boolean
+  edit: boolean
+  delete: boolean
 }
 
 export interface TableProps {
@@ -30,6 +37,10 @@ export interface TableProps {
   selectable?: boolean
   inlineActions?: ActionMeta[]
   onInlineAction?: (action: ActionMeta, row: ResourceRecord) => void
+  defaultRowActions?: DefaultRowActionsConfig
+  onDefaultView?: (row: ResourceRecord) => void
+  onDefaultEdit?: (row: ResourceRecord) => void
+  onDefaultDelete?: (row: ResourceRecord) => void
   tableConfig?: {
     striped?: boolean
     showGridlines?: boolean
@@ -239,12 +250,13 @@ function InlineActionMenu({
         ref={btnRef}
         type="button"
         onClick={e => { e.stopPropagation(); setOpen(!open) }}
-        className="martis-action-btn inline-flex items-center justify-center rounded p-1.5 transition-colors hover:opacity-80"
-        style={{ color: "var(--martis-text-muted)", backgroundColor: open ? "var(--martis-hover)" : "transparent" }}
+        className="martis-row-action-btn"
+        style={open ? { backgroundColor: "var(--martis-hover)", color: "var(--martis-text)", borderColor: "var(--martis-border)" } : undefined}
         data-pr-tooltip={tMsg('actions', 'Actions')}
         data-pr-position="top"
+        aria-label={tMsg('actions', 'Actions')}
       >
-        <DotsThreeVerticalIcon size={18} weight="bold" />
+        <DotsThreeVerticalIcon size={16} weight="bold" />
       </button>
       {open && rect && createPortal(
         <div
@@ -298,6 +310,40 @@ function InlineActionMenu({
 
 /* ── Main Table Component ──────────────────────────────────────────── */
 
+function RowActionButton({
+  label,
+  icon,
+  disabled,
+  variant = "primary",
+  onClick,
+}: {
+  label: string
+  icon: React.ReactNode
+  disabled: boolean
+  variant?: "primary" | "destructive" | "neutral"
+  onClick: () => void
+}) {
+  const variantClass =
+    variant === "destructive"
+      ? "martis-row-action-btn--destructive"
+      : variant === "primary"
+        ? "martis-row-action-btn--primary"
+        : ""
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={e => { e.stopPropagation(); if (!disabled) onClick() }}
+      className={`martis-row-action-btn ${variantClass}`.trim()}
+      data-pr-tooltip={label}
+      data-pr-position="top"
+      aria-label={label}
+    >
+      {icon}
+    </button>
+  )
+}
+
 function DefaultTable({
   columns,
   rows,
@@ -313,10 +359,15 @@ function DefaultTable({
   selectable = false,
   inlineActions = [],
   onInlineAction,
+  defaultRowActions,
+  onDefaultView,
+  onDefaultEdit,
+  onDefaultDelete,
   tableConfig,
 }: TableProps) {
   const { t } = useTranslation("resources")
   const { t: tMsg } = useTranslation("messages")
+  const { t: tAct } = useTranslation("actions")
 
   const sortOrder = sortDir === "asc" ? 1 : -1
 
@@ -360,6 +411,13 @@ function DefaultTable({
   const groupedInline = inlineActions.filter(a => !!a.group)
   const hasGroupedInline = groupedInline.length > 0
 
+  const showDefaults = defaultRowActions?.enabled === true
+  const showView = showDefaults && defaultRowActions?.view !== false && !!onDefaultView
+  const showEdit = showDefaults && defaultRowActions?.edit !== false && !!onDefaultEdit
+  const showDelete = showDefaults && defaultRowActions?.delete !== false && !!onDefaultDelete
+  const hasDefaults = showView || showEdit || showDelete
+  const hasActionsColumn = hasDefaults || inlineActions.length > 0
+
   const canRunForRow = useCallback(
     (row: ResourceRecord, action: ActionMeta): boolean => {
       // Per-action canRun from backend
@@ -389,6 +447,7 @@ function DefaultTable({
         onRowClick={e => onClickRow?.(e.data as ResourceRecord)}
         rowClassName={(row: ResourceRecord) => {
           const classes: string[] = []
+          if (!onClickRow) classes.push("martis-row-no-click")
           if (row._authorization?.authorizedToView === false) classes.push("cursor-default opacity-70")
           if ("deleted_at" in row && row["deleted_at"] !== null) classes.push("opacity-60")
           if (selectable && selectedIds.has(row.id)) classes.push("martis-row-selected")
@@ -452,40 +511,74 @@ function DefaultTable({
             sortable={false}
           />
         ))}
-        {inlineActions.length > 0 && (
+        {hasActionsColumn && (
           <Column
             header=""
-            body={(row: ResourceRecord) => (
-              <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                {ungroupedInline.map(action => {
-                  const isDisabled = !canRunForRow(row, action)
-                  return (
-                    <button
-                      key={action.uriKey}
-                      type="button"
-                      disabled={isDisabled}
-                      onClick={e => { e.stopPropagation(); if (!isDisabled) onInlineAction?.(action, row) }}
-                      className="martis-action-btn inline-flex items-center justify-center rounded p-1.5 transition-colors hover:opacity-80 disabled:opacity-30 disabled:cursor-default"
-                      style={{
-                        color: isDisabled ? "var(--martis-text-muted)" : action.destructive ? "#dc2626" : "var(--martis-accent)",
-                        backgroundColor: isDisabled ? "transparent" : action.destructive ? "rgba(220,38,38,0.08)" : "rgba(99,102,241,0.08)",
-                      }}
-                      data-pr-tooltip={action.name}
-                      data-pr-position="top"
-                    >
-                      {action.showIcon !== false && (action.icon ? <ResourceIcon iconName={action.icon} size={18} color={action.iconColor ?? undefined} /> : action.destructive ? <WarningIcon size={18} weight="fill" color={action.iconColor ?? undefined} /> : <LightningIcon size={18} color={action.iconColor ?? undefined} />)}
-                    </button>
-                  )
-                })}
-                {hasGroupedInline && (
-                  <InlineActionMenu
-                    actions={groupedInline}
-                    row={row}
-                    onAction={(action, r) => onInlineAction?.(action, r)}
-                  />
-                )}
-              </div>
-            )}
+            body={(row: ResourceRecord) => {
+              const viewDisabled = row._authorization?.authorizedToView === false
+              const editDisabled = row._authorization?.authorizedToUpdate === false
+              const deleteDisabled = row._authorization?.authorizedToDelete === false
+              const hasInline = ungroupedInline.length > 0 || hasGroupedInline
+              return (
+                <div className="martis-row-actions justify-end" onClick={e => e.stopPropagation()}>
+                  {showView && (
+                    <RowActionButton
+                      label={tAct("view", "View")}
+                      icon={<EyeIcon size={16} />}
+                      disabled={viewDisabled}
+                      onClick={() => onDefaultView?.(row)}
+                    />
+                  )}
+                  {showEdit && (
+                    <RowActionButton
+                      label={tAct("edit", "Edit")}
+                      icon={<PencilSimpleIcon size={16} />}
+                      disabled={editDisabled}
+                      onClick={() => onDefaultEdit?.(row)}
+                    />
+                  )}
+                  {showDelete && (
+                    <RowActionButton
+                      label={tAct("delete", "Delete")}
+                      icon={<TrashIcon size={16} />}
+                      disabled={deleteDisabled}
+                      variant="destructive"
+                      onClick={() => onDefaultDelete?.(row)}
+                    />
+                  )}
+                  {hasDefaults && hasInline && (
+                    <span className="martis-row-actions__divider" aria-hidden="true" />
+                  )}
+                  {ungroupedInline.map(action => {
+                    const isDisabled = !canRunForRow(row, action)
+                    const iconNode = action.showIcon !== false
+                      ? (action.icon
+                          ? <ResourceIcon iconName={action.icon} size={16} color={action.iconColor ?? undefined} />
+                          : action.destructive
+                            ? <WarningIcon size={16} weight="fill" color={action.iconColor ?? undefined} />
+                            : <LightningIcon size={16} color={action.iconColor ?? undefined} />)
+                      : null
+                    return (
+                      <RowActionButton
+                        key={action.uriKey}
+                        label={action.name}
+                        icon={iconNode}
+                        disabled={isDisabled}
+                        variant={action.destructive ? "destructive" : "primary"}
+                        onClick={() => onInlineAction?.(action, row)}
+                      />
+                    )
+                  })}
+                  {hasGroupedInline && (
+                    <InlineActionMenu
+                      actions={groupedInline}
+                      row={row}
+                      onAction={(action, r) => onInlineAction?.(action, r)}
+                    />
+                  )}
+                </div>
+              )
+            }}
             style={{ width: "auto", textAlign: "right" }}
           />
         )}

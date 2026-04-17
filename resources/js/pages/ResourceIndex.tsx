@@ -47,12 +47,19 @@ export function ResourceIndexPage() {
   // Track which row IDs the inline action targets (separate from visual selection)
   const [inlineActionRowIds, setInlineActionRowIds] = useState<(string | number)[]>([])
 
-  // Reset selection and search when navigating between resources
+  // Reset view state when navigating between resources. Without this,
+  // page/sort/filter state leaks across resources (e.g. opening Projects
+  // after browsing Clients page 2 would also open on page 2).
   useEffect(() => {
     setSelectedIds(new Set())
     setSearch('')
     setDebouncedSearch('')
     setActiveFilters({})
+    setPage(1)
+    setPerPage(null)
+    setSortBy(null)
+    setSortDir('asc')
+    setTrashedFilter('')
     clearTimeout(searchTimerRef.current)
   }, [resource])
   // Debounce search
@@ -108,14 +115,10 @@ export function ResourceIndexPage() {
     },
   })
 
-  // Fetch actions for this resource
-  const actionsQuery = useQuery({
-    queryKey: ['resource-actions', resource],
-    queryFn: () => api.get<{ data: { actions: ActionMeta[] } }>(`/api/resources/${resource}/actions`),
-    enabled: !!resource,
-  })
-
-  const allActions = actionsQuery.data?.data?.actions ?? []
+  // Actions are included in the schema payload — no separate query needed.
+  // This eliminates the "inline actions flash" on refresh where buttons
+  // briefly disappear while a secondary query loads.
+  const allActions = (schemaQuery.data?.data?.actions ?? []) as ActionMeta[]
   const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
   const inlineActions = allActions.filter((a) => a.showInline)
   const standaloneActions = allActions.filter((a) => a.standalone)
@@ -452,11 +455,34 @@ export function ResourceIndexPage() {
         onToggleSelect={handleToggleSelect}
         onToggleAll={handleToggleAll}
         onSetSelection={handleSetSelection}
-        onClickRow={(row) => { if (row._authorization?.authorizedToView !== false) navigate(`/resources/${resource}/${row.id}`) }}
+        onClickRow={schema.rowClickOpensDetail === false ? undefined : (row) => {
+          if (row._authorization?.authorizedToView === false) return
+          if (schema.overrides?.detail) {
+            setActionDrawer({ type: 'detail', resource: resource!, recordId: row.id })
+          } else {
+            navigate(`/resources/${resource}/${row.id}`)
+          }
+        }}
         resourceKey={resource}
         selectable={selectable}
         inlineActions={inlineActions}
         onInlineAction={handleInlineAction}
+        defaultRowActions={schema.defaultRowActions}
+        onDefaultView={(row) => {
+          if (schema.overrides?.detail) {
+            setActionDrawer({ type: 'detail', resource: resource!, recordId: row.id })
+          } else {
+            navigate(`/resources/${resource}/${row.id}`)
+          }
+        }}
+        onDefaultEdit={(row) => {
+          if (schema.overrides?.update) {
+            setActionDrawer({ type: 'update', resource: resource!, recordId: row.id })
+          } else {
+            navigate(`/resources/${resource}/${row.id}/edit`)
+          }
+        }}
+        onDefaultDelete={(row) => setDeleteTarget(row)}
         tableConfig={{
           striped: schema.tableStriped,
           showGridlines: schema.tableShowGridlines,

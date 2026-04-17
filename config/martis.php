@@ -150,6 +150,13 @@ return [
     |
     | Configure the dashboard page layout and visible sections.
     |
+    | showGreeting      - Show the personalised greeting ("Hello, {name}") at
+    |                     the top of the dashboard. Set to false to hide it.
+    |
+    | showWelcome       - Show the welcome subtitle below the greeting
+    |                     ("Welcome to Martis Admin Engine."). Set to false
+    |                     to hide just the subtitle while keeping the greeting.
+    |
     | showMetrics       - Show the summary metrics row at the top of the
     |                     dashboard (total resources, groups, active count).
     |                     Set to false to hide the entire metrics section.
@@ -164,6 +171,8 @@ return [
     |
     */
     'dashboard' => [
+        'showGreeting' => env('MARTIS_DASHBOARD_SHOW_GREETING', true),
+        'showWelcome' => env('MARTIS_DASHBOARD_SHOW_WELCOME', true),
         'showMetrics' => true,
         'showResourceCards' => true,
     ],
@@ -198,6 +207,47 @@ return [
     */
     'toast' => [
         'position' => env('MARTIS_TOAST_POSITION', 'bottom-right'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Index (Resource Listing)
+    |--------------------------------------------------------------------------
+    | Defaults for resource index pages.
+    |
+    | default_row_actions - Show a column of default row actions (view, edit,
+    |                       delete) on every resource index. Each action is
+    |                       automatically disabled when the user lacks the
+    |                       corresponding permission on that row. Custom inline
+    |                       actions defined on the resource appear AFTER the
+    |                       defaults (never replace them unless opted out).
+    |
+    | Override per resource via:
+    |   public function defaultRowActions(Request $request): bool|array
+    |   {
+    |       return ['view', 'edit']; // subset
+    |       // return false;          // opt-out entirely
+    |   }
+    */
+    'index' => [
+        'default_row_actions' => [
+            'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+            'view'    => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+            'edit'    => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+            'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
+        ],
+
+        /*
+        | row_click_opens_detail
+        |
+        | When true (default), clicking anywhere on a row opens the detail view.
+        | When false, rows are informational only — the user must use the
+        | default "view" row action to open detail. Useful to avoid redundancy
+        | when default_row_actions.view is enabled.
+        |
+        | Override per resource with: rowClickOpensDetail(Request $request): bool
+        */
+        'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
     ],
 
     /*

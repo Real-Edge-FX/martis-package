@@ -1162,6 +1162,102 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
+    // Default row actions — Martis differential
+    //
+    // Render a column of built-in row actions (view, edit, delete) on the
+    // resource index. Each icon is automatically disabled based on the row's
+    // authorization payload, so unauthorized users see the action but cannot
+    // trigger it. Custom inline actions (defined via actions() with showInline)
+    // always render AFTER the defaults.
+    //
+    // Override in a concrete resource to opt out or pick a subset:
+    //
+    //   public function defaultRowActions(Request $request): bool|array
+    //   {
+    //       return false;              // hide column entirely for this resource
+    //       return ['view', 'edit'];   // show only these two
+    //   }
+    // -------------------------------------------------------------------------
+
+    /**
+     * The default row actions for this resource.
+     *
+     * Returns `true` to use the global config, `false` to opt out, or a list
+     * of action keys ('view', 'edit', 'delete') to show a specific subset.
+     *
+     * @return bool|list<string>
+     */
+    public function defaultRowActions(Request $request): bool|array
+    {
+        return true;
+    }
+
+    /**
+     * Whether clicking on a row in the index opens the detail view.
+     *
+     * Return `null` to fall back to the global config
+     * (`index.row_click_opens_detail`). Set to `false` to avoid redundancy
+     * when the default row actions already expose a "view" icon.
+     */
+    public function rowClickOpensDetail(Request $request): ?bool
+    {
+        return null;
+    }
+
+    /**
+     * Resolve whether row-click opens detail for this resource, merging the
+     * per-resource override with the global config.
+     */
+    public function resolveRowClickOpensDetail(Request $request): bool
+    {
+        $override = $this->rowClickOpensDetail($request);
+
+        if ($override !== null) {
+            return $override;
+        }
+
+        return (bool) config('martis.index.row_click_opens_detail', true);
+    }
+
+    /**
+     * Resolve the default row actions configuration for this resource,
+     * merging the per-resource override with the global config.
+     *
+     * @return array{enabled: bool, view: bool, edit: bool, delete: bool}
+     */
+    public function resolveDefaultRowActions(Request $request): array
+    {
+        $globalConfig = config('martis.index.default_row_actions', [
+            'enabled' => true,
+            'view' => true,
+            'edit' => true,
+            'delete' => true,
+        ]);
+
+        $resourceOverride = $this->defaultRowActions($request);
+
+        if ($resourceOverride === false) {
+            return ['enabled' => false, 'view' => false, 'edit' => false, 'delete' => false];
+        }
+
+        if (is_array($resourceOverride)) {
+            return [
+                'enabled' => true,
+                'view' => in_array('view', $resourceOverride, true),
+                'edit' => in_array('edit', $resourceOverride, true),
+                'delete' => in_array('delete', $resourceOverride, true),
+            ];
+        }
+
+        return [
+            'enabled' => (bool) ($globalConfig['enabled'] ?? true),
+            'view' => (bool) ($globalConfig['view'] ?? true),
+            'edit' => (bool) ($globalConfig['edit'] ?? true),
+            'delete' => (bool) ($globalConfig['delete'] ?? true),
+        ];
+    }
+
+    // -------------------------------------------------------------------------
     // Scout integration — Nova v5 parity
     //
     // When the underlying model uses Laravel\Scout\Searchable, the resource
