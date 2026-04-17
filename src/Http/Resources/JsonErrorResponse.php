@@ -78,6 +78,14 @@ final class JsonErrorResponse
     }
 
     /**
+     * Build a 403 Forbidden response (authorization denied).
+     */
+    public static function forbidden(string $message = 'This action is unauthorized.'): self
+    {
+        return new self($message, [], 403);
+    }
+
+    /**
      * Build a 500 Internal Server Error response.
      * Never exposes internal error details to the client.
      */

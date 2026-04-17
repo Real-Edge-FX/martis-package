@@ -266,7 +266,7 @@ class BelongsToManyController extends MartisController
 
         // Authorization
         if (! $this->canAttach($request, $parentModel, $relatedModel, $ctx)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Check duplicates
@@ -462,7 +462,7 @@ class BelongsToManyController extends MartisController
 
         // Authorization
         if (! $this->canDetach($request, $parentModel, $relatedModel, $ctx)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -500,6 +500,7 @@ class BelongsToManyController extends MartisController
         }
 
         [
+            'parentModel' => $parentModel,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
             'field' => $field,
@@ -517,6 +518,10 @@ class BelongsToManyController extends MartisController
         $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+        }
+
+        if (! $this->canUpdatePivot($request, $parentModel, $relatedModel, $ctx)) {
+            return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
         // Validate pivot fields
@@ -593,7 +598,7 @@ class BelongsToManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Find the BelongsToMany field in the parent resource
@@ -681,6 +686,21 @@ class BelongsToManyController extends MartisController
         $parentInstance = new $ctx['parentResourceClass']($parentModel);
         if (method_exists($parentInstance, 'authorizedToDetach')) {
             return $parentInstance->authorizedToDetach($request, $relatedModel);
+        }
+
+        return $parentInstance->authorizedToUpdate($request); // @phpstan-ignore-line
+    }
+
+    /**
+     * Check pivot-update authorization on the parent resource.
+     *
+     * @param  array<string, mixed>  $ctx
+     */
+    private function canUpdatePivot(Request $request, Model $parentModel, Model $relatedModel, array $ctx): bool
+    {
+        $parentInstance = new $ctx['parentResourceClass']($parentModel);
+        if (method_exists($parentInstance, 'authorizedToUpdatePivot')) {
+            return $parentInstance->authorizedToUpdatePivot($request, $relatedModel);
         }
 
         return $parentInstance->authorizedToUpdate($request); // @phpstan-ignore-line

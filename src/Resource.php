@@ -631,6 +631,25 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Determine whether the user may update pivot data for a related model.
+     *
+     * Martis extension (beyond Nova v5): Policy method `updatePivot{Model}`.
+     * When the policy method is absent, falls back to `update` on the parent
+     * resource, because editing pivot columns is conceptually an edit of the
+     * parent's relationship state.
+     */
+    public function authorizedToUpdatePivot(Request $request, Model $relatedModel): bool
+    {
+        $ability = 'updatePivot'.class_basename($relatedModel);
+
+        if ($this->policyDefinesAbility($ability)) {
+            return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
+        }
+
+        return $this->authorizedToUpdate($request);
+    }
+
+    /**
      * Determine whether the user may add a new record of the given model type
      * (inline creation from a relationship field).
      *
@@ -658,6 +677,22 @@ abstract class Resource implements ResourceContract
      * @param  class-string<Model>  $relatedModelClass
      * @param  Model|null  $relatedModel  Specific instance for attach/detach checks
      */
+    /**
+     * Whether the resolved policy actually implements the given ability.
+     * Used when a relation ability needs to decide between a dedicated
+     * policy method and a fallback to a simpler ability.
+     */
+    protected function policyDefinesAbility(string $ability): bool
+    {
+        if (! static::authorizable()) {
+            return false;
+        }
+
+        $policy = static::resolvePolicy();
+
+        return $policy !== null && method_exists($policy, $ability);
+    }
+
     protected function checkRelationalPolicy(
         string $ability,
         string $relatedModelClass,

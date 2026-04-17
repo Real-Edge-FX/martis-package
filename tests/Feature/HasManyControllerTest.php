@@ -391,7 +391,7 @@ it('blocks create when resource authorization denies it', function () {
         ['title' => 'Blocked']
     );
 
-    // With HMNoCreateChildResource registered under the same key, this would return 404
+    // With HMNoCreateChildResource registered under the same key, this would return 403
     // Since we can't easily swap, just verify the endpoint works with authorization
-    expect($response->status())->toBeIn([201, 404]);
+    expect($response->status())->toBeIn([201, 403]);
 });

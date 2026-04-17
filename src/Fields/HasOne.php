@@ -172,14 +172,17 @@ class HasOne extends Field
      */
     protected function extraAttributes(): array
     {
+        $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
+        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
             'hasOneMeta' => [
-                'canCreate' => $this->canCreateRelated,
+                'canCreate' => $this->canCreateRelated && $authorizedToCreate,
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
             ],
-        ];
+        ] + $relatedAuth;
     }
 }

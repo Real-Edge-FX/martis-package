@@ -168,14 +168,17 @@ class MorphOne extends Field
      */
     protected function extraAttributes(): array
     {
+        $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
+        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
             'morphOneMeta' => [
-                'canCreate' => $this->canCreateRelated,
+                'canCreate' => $this->canCreateRelated && $authorizedToCreate,
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
             ],
-        ];
+        ] + $relatedAuth;
     }
 }

@@ -310,6 +310,37 @@ describe('BelongsToManyController', function () {
         expect($pivot?->notes)->toBe('updated note');
     });
 
+    it('returns 403 when pivot update is denied by policy', function () {
+        // Swap the parent resource for one that denies update.
+        $deniedResourceClass = new class(null) extends BTMParentResource {
+            public static function uriKey(): string
+            {
+                return 'btm-denied-parents';
+            }
+
+            public function authorizedToUpdate(Request $request): bool
+            {
+                return false;
+            }
+        };
+
+        $registry = app(ResourceRegistry::class);
+        $registry->register($deniedResourceClass::class);
+
+        $parent = BTMParentModel::create(['name' => 'Denied parent']);
+        $child = BTMChildModel::create(['title' => 'Denied child']);
+        $parent->children()->attach($child->id, ['notes' => 'initial']);
+
+        $response = $this->putJson(
+            "/martis/api/resources/btm-denied-parents/{$parent->id}/belongs-to-many/children/{$child->id}/pivot",
+            ['notes' => 'attempted']
+        );
+
+        $response->assertStatus(403);
+        $pivot = $parent->fresh()->children()->first()?->pivot;
+        expect($pivot?->notes)->toBe('initial');
+    });
+
     it('returns 404 for unknown resource', function () {
         $response = $this->getJson('/martis/api/resources/nonexistent/1/belongs-to-many/children');
         $response->assertStatus(404);

@@ -2,6 +2,8 @@
 
 namespace Martis\Cards;
 
+use Closure;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\CardContract;
 
@@ -10,6 +12,9 @@ use Martis\Contracts\CardContract;
  */
 class Card implements CardContract
 {
+    /** Authorization callback — Nova v5 parity. */
+    protected ?Closure $canSeeCallback = null;
+
     /**
      * @param  array<string, mixed>  $meta
      */
@@ -21,6 +26,30 @@ class Card implements CardContract
         protected int $width = 4,
         protected bool $framed = false,
     ) {}
+
+    /**
+     * Register a closure that decides whether the card is visible.
+     *
+     * Nova v5 parity: `$card->canSee(fn ($request) => $request->user()?->is_admin)`.
+     */
+    public function canSee(Closure $callback): static
+    {
+        $this->canSeeCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the canSee callback; defaults to true when absent.
+     */
+    public function authorizedToSee(Request $request): bool
+    {
+        if ($this->canSeeCallback === null) {
+            return true;
+        }
+
+        return (bool) call_user_func($this->canSeeCallback, $request);
+    }
 
     public static function make(string $name, ?string $uriKey = null): static
     {

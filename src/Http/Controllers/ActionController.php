@@ -140,7 +140,7 @@ class ActionController extends MartisController
         }
 
         if (! $actionInstance->authorizedToSee($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $models = $this->resolveModels($instance, $request);
@@ -548,7 +548,7 @@ class ActionController extends MartisController
         }
 
         if (! $actionInstance->authorizedToSee($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Resolve pivot columns from the BelongsToMany field definition

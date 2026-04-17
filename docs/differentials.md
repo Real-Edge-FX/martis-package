@@ -207,6 +207,56 @@ SalaryFilter::make('Salary Range')
 
 Hidden filters are excluded from the schema AND ignored on the backend.
 
+### Action Authorization — closure-first, policy-second
+
+Nova relies on a policy ability named after the action
+(`Policy::publish`, `Policy::archive`, …). Martis lets you declare
+authorization inline on the Action while still honouring the policy
+callbacks Nova developers expect:
+
+```php
+class Publish extends Action
+{
+    public function canSee(Request $request): bool
+    {
+        return $request->user()->hasRole('editor');
+    }
+
+    public function canRun(Request $request, Model $model): bool
+    {
+        return $model->state === 'draft';
+    }
+}
+```
+
+Fallback order when executing an action: `canRun()` closure →
+`Policy::runAction` (or `runDestructiveAction` for destructive ones) →
+`Policy::update` (or `delete`). This keeps the standard Nova policy
+story for teams that want pure-policy flows.
+
+### updatePivot{Model} policy ability
+
+BelongsToMany and MorphToMany pivot edits consult a dedicated
+`updatePivot{Model}` policy ability, falling back to `update` on the
+parent. Nova has no equivalent — pivot writes are gated by `update`
+only.
+
+```php
+public function updatePivotTag(User $user, Post $post, Tag $tag): bool
+{
+    return $user->is_editor;
+}
+```
+
+### Relation fields inherit target policy authorization
+
+Relation field payloads (BelongsTo, HasMany, BelongsToMany,
+MorphTo, MorphToMany, MorphMany, MorphOne, HasOne) include
+`authorizedToCreate` / `authorizedToViewAny` computed from the **target
+resource's** policy. The inline "Create Related" button is suppressed
+when the user cannot create the related model, without the developer
+needing to toggle `showCreateRelationButton` by hand.
+
 ### Active Filter Pills
 
 Visual pill tags showing active filters with name and value, visible even when the filter panel is closed. Each pill has an individual clear button (X).

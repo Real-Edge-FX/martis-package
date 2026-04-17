@@ -12,6 +12,7 @@ return [
     'error_create' => 'Erro ao criar registo.',
     'error_delete' => 'Erro ao apagar registo.',
     'error_restore' => 'Erro ao restaurar registo.',
+    'error_forbidden' => 'Não tem permissão para executar esta acção.',
     'invalid_field' => 'Inválido',
     'archived' => 'Arquivado',
     'archive_confirm' => 'Este registo será arquivado e pode ser restaurado mais tarde.',

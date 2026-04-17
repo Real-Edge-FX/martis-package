@@ -206,7 +206,7 @@ it('denies force delete when policy forbids', function () {
 
     $response = $this->deleteJson("/martis/api/resources/{$uriKey}/{$item->id}/force");
 
-    $response->assertStatus(404);
+    $response->assertStatus(403);
     expect(AuthzLockedModel::withTrashed()->find($item->id))->not->toBeNull();
 });
 
@@ -229,7 +229,7 @@ it('denies replicate fields when policy forbids', function () {
 
     $response = $this->getJson("/martis/api/resources/{$uriKey}/{$item->id}/replicate");
 
-    $response->assertStatus(404);
+    $response->assertStatus(403);
 });
 
 // ── Authorization Metadata in Responses ─────────────────────────
@@ -270,7 +270,7 @@ it('denies show when view is not authorized', function () {
 
     $response = $this->getJson("/martis/api/resources/{$uriKey}/{$item->id}");
 
-    $response->assertStatus(404);
+    $response->assertStatus(403);
 });
 
 it('denies store when create is not authorized', function () {

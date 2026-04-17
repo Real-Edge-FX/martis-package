@@ -262,7 +262,7 @@ class MorphToManyController extends MartisController
 
         // Authorization
         if (! $this->canAttachRelated($request, $parentModel, $relatedModel, $ctx)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Check duplicates
@@ -331,7 +331,7 @@ class MorphToManyController extends MartisController
         }
 
         if (! $this->canDetachRelated($request, $parentModel, $relatedModel, $ctx)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -369,6 +369,7 @@ class MorphToManyController extends MartisController
         }
 
         [
+            'parentModel' => $parentModel,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
             'field' => $field,
@@ -386,6 +387,10 @@ class MorphToManyController extends MartisController
         $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+        }
+
+        if (! $this->canUpdatePivotRelated($request, $parentModel, $relatedModel, $ctx)) {
+            return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
         // Validate pivot fields
@@ -460,7 +465,7 @@ class MorphToManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Find the MorphToMany field in the parent resource
@@ -660,6 +665,19 @@ class MorphToManyController extends MartisController
         $parentInstance = new $ctx['parentResourceClass']($parentModel);
         if (method_exists($parentInstance, 'authorizedToDetach')) {
             return $parentInstance->authorizedToDetach($request, $relatedModel);
+        }
+
+        return $parentInstance->authorizedToUpdate($request); // @phpstan-ignore-line
+    }
+
+    /**
+     * @param  array<string, mixed>  $ctx
+     */
+    private function canUpdatePivotRelated(Request $request, Model $parentModel, Model $relatedModel, array $ctx): bool
+    {
+        $parentInstance = new $ctx['parentResourceClass']($parentModel);
+        if (method_exists($parentInstance, 'authorizedToUpdatePivot')) {
+            return $parentInstance->authorizedToUpdatePivot($request, $relatedModel);
         }
 
         return $parentInstance->authorizedToUpdate($request); // @phpstan-ignore-line

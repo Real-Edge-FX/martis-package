@@ -1018,4 +1018,39 @@ abstract class Field implements FieldContract
     {
         return [];
     }
+
+    /**
+     * Resolve authorization flags exposed by a related resource.
+     *
+     * Relation fields (BelongsTo, HasMany, BelongsToMany, MorphTo…) call this
+     * in `extraAttributes()` to tell the frontend whether the current user is
+     * allowed to create/view the target resource. Returns an empty array when
+     * the related resource is not registered, letting the frontend fall back
+     * to its existing defaults.
+     *
+     * @return array<string, bool>
+     */
+    protected function relatedResourceAuthorizations(?string $relatedUriKey): array
+    {
+        if ($relatedUriKey === null || $relatedUriKey === '') {
+            return [];
+        }
+
+        /** @var \Martis\ResourceRegistry $registry */
+        $registry = app(\Martis\ResourceRegistry::class);
+
+        if (! $registry->has($relatedUriKey)) {
+            return [];
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        $resourceClass = $registry->get($relatedUriKey);
+        $instance = new $resourceClass(null);
+        $request = request();
+
+        return [
+            'authorizedToViewAny' => $instance->authorizedToViewAny($request),
+            'authorizedToCreate' => $instance->authorizedToCreate($request),
+        ];
+    }
 }

@@ -12,6 +12,7 @@ return [
     'error_create' => 'Error creating record.',
     'error_delete' => 'Error deleting record.',
     'error_restore' => 'Error restoring record.',
+    'error_forbidden' => 'You are not authorized to perform this action.',
     'invalid_field' => 'Invalid',
     'archived' => 'Archived',
     'archive_confirm' => 'This record will be archived and can be restored later.',
