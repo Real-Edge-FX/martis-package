@@ -110,6 +110,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Fields Reference](docs/fields.md) | All field types — configuration, visibility flags, validation, enums |
 | [Relationships](docs/relationships.md) | BelongsTo, HasOne, HasMany, BelongsToMany (pivot fields), MorphTo, MorphOne, MorphMany, MorphToMany |
 | [Filters](docs/filters.md) | Select, boolean, date, and date-range filters — defining, customizing, and composing index filters |
+| [Lenses](docs/lenses.md) | Alternative resource views (query, fields, filters, polling) + summary rows, query cache, default filters, URL state sync |
 | [Metrics](docs/metrics.md) | Value, trend, partition, and progress metrics — query helpers, ranges, caching, card width, auto-refresh |
 | [Dashboards](docs/dashboards.md) | Multiple dashboards, dashboard filters, refresh button, registration |
 | [Actions](docs/actions.md) | Inline, bulk, standalone, queued, custom components, authorization, audit log |

@@ -9,6 +9,7 @@ use Martis\Http\Controllers\BelongsToManyController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
+use Martis\Http\Controllers\LensController;
 use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\MorphManyController;
 use Martis\Http\Controllers\MorphOneController;
@@ -134,6 +135,10 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Relatable options — Nova v5 parity
                                 Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
                                     ->name('resources.relatable');
+
+                                // Lenses — Nova v5 parity
+                                Route::get('/resources/{resource}/lenses/{lens}', [LensController::class, 'index'])
+                                    ->name('resources.lenses.index');
 
                                 // HasMany relationship CRUD — Nova v5 parity
                                 Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])

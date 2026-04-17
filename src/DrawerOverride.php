@@ -34,19 +34,32 @@ class DrawerOverride extends Override
     /** Create override with the built-in drawer-create component. */
     public static function create(): self
     {
-        return new self('martis:drawer-create');
+        return self::makeWithDefaults('martis:drawer-create');
     }
 
     /** Create override with the built-in drawer-update component. */
     public static function update(): self
     {
-        return new self('martis:drawer-update');
+        return self::makeWithDefaults('martis:drawer-update');
     }
 
     /** Create override with the built-in drawer-detail component. */
     public static function detail(): self
     {
-        return new self('martis:drawer-detail');
+        return self::makeWithDefaults('martis:drawer-detail');
+    }
+
+    /**
+     * Build a drawer override with the package-wide width defaults pre-applied.
+     * Explicit `->width()` / `->expandedWidth()` calls still win.
+     */
+    private static function makeWithDefaults(string $component): self
+    {
+        $instance = new self($component);
+        $instance->params['width'] = (string) config('martis.drawer.width', '520px');
+        $instance->params['expandedWidth'] = (string) config('martis.drawer.expanded_width', '800px');
+
+        return $instance;
     }
 
     // -------------------------------------------------------------------------

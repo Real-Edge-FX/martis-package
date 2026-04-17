@@ -186,6 +186,47 @@ Action::make('Import Data')
 
 ---
 
+## Lens System Extensions
+
+### D1 — Sticky Summary Row
+
+> Nova 5 forces you to build a separate Metric to show totals alongside a lens. Martis ships a `summary()` hook that renders aggregates as a sticky row under the lens table.
+
+```php
+public function summary(Request $request, Builder $query): array
+{
+    return [
+        'revenue' => ['label' => 'Total', 'value' => $query->sum('revenue')],
+        'count'   => ['label' => 'Rows',  'value' => $query->count()],
+    ];
+}
+```
+
+### D2 — Declarative Query Cache
+
+> Nova 5 has no per-lens cache. Aggregations pay the full join every request.
+
+```php
+(new MostValuableClients())->cacheFor(60);                         // seconds
+(new MostValuableClients())->cacheFor(new DateInterval('PT5M'));   // interval
+```
+
+Cache key mixes lens uriKey, filters, search, sort and page so distinct views never collide.
+
+### D3 — Default Filters Pre-Applied
+
+> Nova opens every lens with no filters. Martis lets the lens declare defaults that the URL auto-hydrates on first load.
+
+```php
+(new OverdueInvoices())->withDefaultFilters(['status' => 'overdue']);
+```
+
+### D4 — URL State Sync
+
+> Nova preserves only the lens key in the URL. Martis round-trips filters, search, sort, direction and page through the query string, making every lens view deeplinkable.
+
+---
+
 ## Filter System Extensions
 
 ### DateRangeFilter (Built-in)

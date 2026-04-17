@@ -48,6 +48,32 @@ class Select extends Field
     }
 
     /**
+     * Define options from a stable [value => label] map.
+     *
+     * More ergonomic than `options()` when labels come from i18n, because
+     * the value (what's persisted) stays unchanged while the label can
+     * be translated:
+     *
+     *   Select::make('plan')->optionsFromMap([
+     *       'free'       => __('plan.free'),
+     *       'pro'        => __('plan.pro'),
+     *       'enterprise' => __('plan.enterprise'),
+     *   ]);
+     *
+     * @param  array<int|string, string>  $map  value => label pairs
+     */
+    public function optionsFromMap(array $map): static
+    {
+        $this->options = [];
+
+        foreach ($map as $value => $label) {
+            $this->options[] = ['label' => (string) $label, 'value' => $value];
+        }
+
+        return $this;
+    }
+
+    /**
      * Return the normalized options array.
      *
      * @return list<array{label: string, value: scalar}>

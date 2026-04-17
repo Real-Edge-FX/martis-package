@@ -19,6 +19,7 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
   const options = field.options?.map((o) => ({ label: o.label, value: String(o.value) })) ?? []
   const currentValue = value === null || value === undefined ? '' : String(value)
   const clearTip = t('clear', { defaultValue: 'Clear' })
+  const selectPlaceholder = field.placeholder ?? t('select', { defaultValue: 'Select…' })
 
   return (
     <div className="flex flex-col gap-1">
@@ -30,7 +31,7 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
         onChange={(e) => onChange(e.value as string)}
         disabled={field.readonly}
         invalid={!!error}
-        placeholder={field.placeholder ?? '— Select —'}
+        placeholder={selectPlaceholder}
         showClear={field.nullable}
         pt={{
           clearIcon: { 'data-pr-tooltip': clearTip, 'data-pr-position': 'top' } as Record<string, string>,

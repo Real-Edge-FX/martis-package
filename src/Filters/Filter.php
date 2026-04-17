@@ -33,6 +33,13 @@ abstract class Filter implements FilterContract
     /** Authorization callback — Martis extension. */
     protected ?Closure $canSeeCallback = null;
 
+    /**
+     * Martis extension — when true, this filter is NOT inherited by
+     * lenses that rely on Resource::filters(). Allows a Resource to
+     * keep a filter on the default index while excluding it from lenses.
+     */
+    protected bool $excludeFromLens = false;
+
     public function __construct(
         protected string $name,
         protected ?string $uriKey = null,
@@ -150,6 +157,29 @@ abstract class Filter implements FilterContract
         }
 
         return (bool) call_user_func($this->canSeeCallback, $request);
+    }
+
+    /**
+     * Mark this filter as opt-out from lens inheritance.
+     *
+     * Resource-declared filters are inherited by lenses that do not
+     * override `filters()`. Calling this method on a filter excludes
+     * it from that inheritance chain while keeping it available on
+     * the default index.
+     *
+     * Martis extension (Nova v5 has no lens-level filter toggle).
+     */
+    public function excludeFromLens(bool $value = true): static
+    {
+        $this->excludeFromLens = $value;
+
+        return $this;
+    }
+
+    /** Whether this filter opted out of lens inheritance. */
+    public function isExcludedFromLens(): bool
+    {
+        return $this->excludeFromLens;
     }
 
     // -------------------------------------------------------------------------

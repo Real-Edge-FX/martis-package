@@ -129,6 +129,7 @@ export function TrixFieldInput({
   onChange,
   error,
 }: FieldInputProps) {
+  const { t } = useTranslation('messages')
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLElement | null>(null)
   const hiddenInputRef = useRef<HTMLInputElement | null>(null)
@@ -136,6 +137,35 @@ export function TrixFieldInput({
   const initialized = useRef(false)
   const lastPropValue = useRef<string>("")
   const internalUpdate = useRef(false)
+
+  // Localise the Trix toolbar tooltips by mutating `Trix.config.lang`
+  // before the first editor instantiates. The toolbar uses these strings
+  // for button `title` attributes, which we then migrate to
+  // `data-pr-tooltip` (see the trix-initialize handler below) so the
+  // PrimeReact tooltip surfaces them in the package style.
+  useEffect(() => {
+    const globalTrix = (window as unknown as { Trix?: { config?: { lang?: Record<string, string> } } }).Trix
+    if (!globalTrix?.config?.lang) return
+    Object.assign(globalTrix.config.lang, {
+      attachFiles: t('trix_attach', { defaultValue: 'Attach Files' }),
+      bold: t('trix_bold', { defaultValue: 'Bold' }),
+      bullets: t('trix_bullets', { defaultValue: 'Bullets' }),
+      code: t('trix_code', { defaultValue: 'Code' }),
+      heading1: t('trix_heading', { defaultValue: 'Heading' }),
+      indent: t('trix_indent', { defaultValue: 'Increase Level' }),
+      italic: t('trix_italic', { defaultValue: 'Italic' }),
+      link: t('trix_link', { defaultValue: 'Link' }),
+      numbers: t('trix_numbers', { defaultValue: 'Numbers' }),
+      outdent: t('trix_outdent', { defaultValue: 'Decrease Level' }),
+      quote: t('trix_quote', { defaultValue: 'Quote' }),
+      redo: t('trix_redo', { defaultValue: 'Redo' }),
+      strike: t('trix_strike', { defaultValue: 'Strikethrough' }),
+      undo: t('trix_undo', { defaultValue: 'Undo' }),
+      unlink: t('trix_unlink', { defaultValue: 'Unlink' }),
+      urlPlaceholder: t('trix_url_placeholder', { defaultValue: 'Enter a URL…' }),
+      captionPlaceholder: t('trix_caption_placeholder', { defaultValue: 'Add a caption…' }),
+    })
+  }, [t])
 
   const currentValue =
     value === null || value === undefined ? "" : String(value)
@@ -203,6 +233,21 @@ export function TrixFieldInput({
         if (tb) {
           tb.classList.add("martis-trix-toolbar-" + toolbarSize)
         }
+      }
+
+      // Replace Trix's native `title` tooltips with the package-wide
+      // `data-pr-tooltip` convention so they render through the global
+      // PrimeReact Tooltip (consistent look & feel with clear buttons,
+      // row actions, etc.).
+      if (toolbar) {
+        toolbar.querySelectorAll<HTMLElement>("button[title]").forEach((btn) => {
+          const tip = btn.getAttribute("title")
+          if (tip) {
+            btn.setAttribute("data-pr-tooltip", tip)
+            btn.setAttribute("data-pr-position", "top")
+            btn.removeAttribute("title")
+          }
+        })
       }
     })
 

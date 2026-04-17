@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Martis\Filters\Filter as ResourceFilter;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Http\Requests\LensRequest;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -24,6 +25,14 @@ class PostModel extends Model
     protected $table = 'martis_test_posts';
 
     protected $fillable = ['title', 'body'];
+}
+
+class RecentlyUpdatedLens extends Lens
+{
+    public function query(LensRequest $request, Builder $query): Builder
+    {
+        return $query->orderByDesc('updated_at');
+    }
 }
 
 class PublishedStateFilter extends ResourceFilter
@@ -152,7 +161,7 @@ class SchemaFoundationResource extends Resource
     public function lenses(Request $request): array
     {
         return [
-            Lens::make('Recently Updated')->withMeta([
+            (new RecentlyUpdatedLens())->withMeta([
                 'description' => 'Foundation-only lens descriptor for schema testing.',
             ]),
         ];

@@ -104,12 +104,17 @@ export function DrawerShell({
         />
       )}
 
-      {/* Drawer panel */}
+      {/* Drawer panel — width locked with flexBasis + flexShrink:0 so
+          create / update / detail render at exactly the same size
+          regardless of inner content (Trix, Tabs, etc.) or scrollbar
+          behaviour that could otherwise let flex-shrink trim the panel. */}
       <div
         className="relative flex h-full flex-col shadow-xl transition-all duration-200 ease-out"
         style={{
           width: currentWidth,
+          minWidth: currentWidth,
           maxWidth: '100vw',
+          flex: `0 0 ${currentWidth}`,
           backgroundColor: 'var(--martis-card)',
           borderLeft: isRight ? '1px solid var(--martis-border)' : 'none',
           borderRight: isRight ? 'none' : '1px solid var(--martis-border)',
