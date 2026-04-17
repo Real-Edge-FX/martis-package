@@ -187,7 +187,7 @@ function InlineSubMenu({
           <button key={child.uriKey} type="button" disabled={isDisabled}
             onClick={e => { e.stopPropagation(); if (!isDisabled) onAction(child, row) }}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ color: isDisabled ? "var(--martis-text-muted)" : child.destructive ? "#dc2626" : "var(--martis-text)" }}
+            style={{ color: isDisabled ? "var(--martis-text-muted)" : child.destructive ? "var(--martis-danger)" : "var(--martis-text)" }}
             onMouseEnter={e => { if (!isDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
           >
@@ -292,7 +292,7 @@ function InlineActionMenu({
               <button key={item.uriKey} type="button" disabled={isItemDisabled}
                 onClick={e => { e.stopPropagation(); if (!isItemDisabled) { setOpen(false); onAction(item, row) } }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: isItemDisabled ? "var(--martis-text-muted)" : item.destructive ? "#dc2626" : "var(--martis-text)" }}
+                style={{ color: isItemDisabled ? "var(--martis-text-muted)" : item.destructive ? "var(--martis-danger)" : "var(--martis-text)" }}
                 onMouseEnter={e => { if (!isItemDisabled) e.currentTarget.style.backgroundColor = "var(--martis-hover)" }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent" }}
               >

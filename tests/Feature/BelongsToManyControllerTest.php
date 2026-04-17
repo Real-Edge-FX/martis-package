@@ -77,26 +77,11 @@ class BTMChildResource extends Resource
 // ---------------------------------------------------------------------------
 
 beforeEach(function () {
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => '3306',
-            'database' => 'martis_playground',
-            'username' => 'martis',
-            'password' => 'martis_password',
-            'strict' => false,
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-        ],
-    ]);
-
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::dropIfExists('btm_test_pivot');
     Schema::dropIfExists('btm_test_children');
     Schema::dropIfExists('btm_test_parents');
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 
     Schema::create('btm_test_parents', function ($table) {
         $table->id();
@@ -110,7 +95,7 @@ beforeEach(function () {
         $table->timestamps();
     });
 
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::create('btm_test_pivot', function ($table) {
         $table->foreignId('parent_id')->constrained('btm_test_parents')->onDelete('cascade');
         $table->foreignId('child_id')->constrained('btm_test_children')->onDelete('cascade');
@@ -118,7 +103,7 @@ beforeEach(function () {
         $table->timestamps();
         $table->primary(['parent_id', 'child_id']);
     });
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 
     $registry = app(ResourceRegistry::class);
     $registry->register(BTMParentResource::class);
@@ -130,11 +115,11 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::dropIfExists('btm_test_pivot');
     Schema::dropIfExists('btm_test_children');
     Schema::dropIfExists('btm_test_parents');
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 });
 
 // ---------------------------------------------------------------------------

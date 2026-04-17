@@ -288,7 +288,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         style={{
           backgroundColor: 'var(--martis-card)',
           border: action.destructive ? '1px solid rgba(220,38,38,0.4)' : '1px solid var(--martis-border)',
-          borderTop: action.destructive ? '3px solid #dc2626' : undefined,
+          borderTop: action.destructive ? '3px solid var(--martis-danger)' : undefined,
           maxWidth: modalWidth,
           transform: animVisible ? 'scale(1)' : 'scale(0.95)',
           opacity: animVisible ? 1 : 0,

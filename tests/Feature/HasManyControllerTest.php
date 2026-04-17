@@ -92,28 +92,12 @@ class HMNoCreateChildResource extends Resource
 // ---------------------------------------------------------------------------
 
 beforeEach(function () {
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => '3306',
-            'database' => 'martis_playground',
-            'username' => 'martis',
-            'password' => 'martis_password',
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => false,
-        ],
-    ]);
-
     $this->withoutMiddleware(MartisAuthenticate::class);
 
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::dropIfExists('hm_test_children');
     Schema::dropIfExists('hm_test_parents');
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 
     Schema::create('hm_test_parents', function ($table) {
         $table->id();
@@ -121,7 +105,7 @@ beforeEach(function () {
         $table->timestamps();
     });
 
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::create('hm_test_children', function ($table) {
         $table->id();
         $table->string('title');
@@ -130,7 +114,7 @@ beforeEach(function () {
         $table->timestamps();
         $table->foreign('parent_id')->references('id')->on('hm_test_parents')->onDelete('cascade');
     });
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
@@ -139,10 +123,10 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    Schema::disableForeignKeyConstraints();
     Schema::dropIfExists('hm_test_children');
     Schema::dropIfExists('hm_test_parents');
-    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    Schema::enableForeignKeyConstraints();
 });
 
 // ---------------------------------------------------------------------------

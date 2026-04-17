@@ -71,22 +71,6 @@ class HOChildResource extends Resource
 // ---------------------------------------------------------------------------
 
 beforeEach(function () {
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => '3306',
-            'database' => 'martis_playground',
-            'username' => 'martis',
-            'password' => 'martis_password',
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => false,
-        ],
-    ]);
-
     Schema::dropIfExists('ho_test_children');
     Schema::dropIfExists('ho_test_parents');
 

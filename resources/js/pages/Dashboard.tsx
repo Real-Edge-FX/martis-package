@@ -189,7 +189,23 @@ function DashboardView({
                   const CustomCard = componentRegistry.resolve(card.component)
                   if (CustomCard) {
                     const C = CustomCard as React.ComponentType<{ card: typeof card }>
-                    return <C key={card.uriKey} card={card} />
+                    const span = card.width ?? 4
+                    if (card.framed) {
+                      return (
+                        <MetricCard
+                          key={card.uriKey}
+                          metric={card}
+                          endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
+                          filters={activeFilters}
+                          customContent={<C card={card} />}
+                        />
+                      )
+                    }
+                    return (
+                      <div key={card.uriKey} style={{ gridColumn: `span ${span} / span ${span}` }}>
+                        <C card={card} />
+                      </div>
+                    )
                   }
                 }
                 return (

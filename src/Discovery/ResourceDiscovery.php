@@ -38,7 +38,8 @@ class ResourceDiscovery
      */
     public function __construct(string $resourcesPath, string $namespace = 'App\\Martis')
     {
-        $this->resourcesPath = rtrim($resourcesPath, '/\\');
+        $realPath = realpath($resourcesPath);
+        $this->resourcesPath = rtrim($realPath !== false ? $realPath : $resourcesPath, '/\\');
         $this->namespace = rtrim($namespace, '\\');
     }
 
