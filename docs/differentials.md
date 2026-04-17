@@ -82,6 +82,48 @@ Text::make('status')
 
 ## Action System Extensions
 
+### Default Row Actions (View, Edit, Delete)
+
+Every resource index automatically ships with a trailing column of built-in row actions (view, edit, delete) — no registration required. Each icon is automatically disabled when the row's authorization payload denies the operation, so unauthorized users still see the action exists but cannot trigger it. Custom inline actions always render **after** the defaults (never replace them unless opted out).
+
+Nova v5 requires developers to wire up view/edit/delete buttons manually via inline actions. Martis ships it as the default experience, with three layers of customization:
+
+**1. Global config** (`config/martis.php`):
+
+```php
+'index' => [
+    'default_row_actions' => [
+        'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        'view'    => true,
+        'edit'    => true,
+        'delete'  => true,
+    ],
+],
+```
+
+**2. Per-resource override** — use a method, not a property, so the decision can depend on the request:
+
+```php
+class ClientResource extends Resource
+{
+    public function defaultRowActions(Request $request): bool|array
+    {
+        // return false;              // hide the column entirely
+        // return ['view'];           // show only view
+        return ['view', 'edit'];      // pick a subset
+    }
+}
+```
+
+**3. Composition with custom inline actions** — default actions always appear first; any `showInline()` action you define renders to their right.
+
+```
+[ 👁  ✏  🗑 ]  [ custom action 1 ]  [ custom action 2 ]  [ ⋮ grouped ]
+   defaults             your inline actions follow
+```
+
+See [Default Row Actions](default_row_actions.md) for the full guide.
+
 ### Action Icons
 
 Every action can display a Phosphor icon from the 1,512 built-in icons:
@@ -404,6 +446,98 @@ Customizable loading indicator:
     'disableOn' => ['table' => false, 'search' => true],
 ],
 ```
+
+### Comprehensive Theme System
+
+> Nova 5 has limited theming. Martis exposes 94 CSS variables across 13 categories.
+
+A single theme file controls the entire admin panel:
+
+- **Background layers** (7 vars) — page bg, surfaces, sidebar, topbar, cards, inputs
+- **Text & borders** (3 vars)
+- **Accent / brand** (6 vars) — primary, hover, active, alpha tints, focus ring
+- **Semantic colors solid** (8 vars) — success/warning/danger/info + hover variants
+- **Semantic backgrounds** (8 vars) — for badges, alerts, status
+- **Interactive states** (4 vars) — hover, active, search overlay
+- **Overlays & shadows** (5 vars) — modal backdrop, sm/md/lg shadows, peek
+- **DataTable** (5 vars) — header, rows, borders
+- **Border radius** (5 vars) — from sm to full pill
+- **Typography** (15 vars) — font families (sans/mono/heading), 7-step size scale, 4 weights, 3 line heights
+- **Chart palette** (10 vars) — for partition/trend metrics
+- **File icons** (6 vars) — semantic per file type
+- **Badge variants** (12 vars) — legacy compatibility
+
+```bash
+# Generate a theme scaffold with all variables
+php artisan martis:theme MyTheme
+```
+
+The generated stub includes all 94 variables in both dark mode (`:root`) and light mode (`html:not(.dark)`), with comments and grouping. Edit any value, refresh the browser — no rebuild needed.
+
+See [Theming Guide](theming.md) for the complete variable reference.
+
+### Standardized Clear Button (`<ClearButton />`)
+
+> Nova 5 has inconsistent clear behavior across field types.
+
+Martis ships a reusable `<ClearButton />` component. All input-like fields (Text, Email, URL, Password, Number, Currency, Date, DateTime, Select, Country, MultiSelect, BelongsTo, MorphTo, Tag) use it consistently:
+
+- Always red (`var(--martis-danger)`)
+- Always has `Clear` tooltip (translated)
+- Only renders when `field.nullable === true && hasValue && !field.readonly`
+- Hover: darker red, no background fill
+
+For consumer apps building custom fields:
+
+```tsx
+import { ClearButton } from '@/components/ClearButton'
+
+<ClearButton
+  visible={field.nullable && hasValue && !field.readonly}
+  onClick={() => onChange(null)}
+  style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)' }}
+/>
+```
+
+### Theme-Aware Chart Colors
+
+> Nova 5 charts use fixed Indigo/Cyan palette.
+
+Chart.js can't read CSS variables natively. Martis provides a runtime resolver:
+
+```tsx
+import { chartPalette, accentColor, mutedTextColor, resolveColor } from '@/lib/themeColors'
+
+const colors = chartPalette()              // ['#6366f1', '#22c55e', ...] resolved from --martis-chart-*
+const accent = accentColor()                // resolved --martis-accent
+const muted = mutedTextColor()              // resolved --martis-text-muted
+const safe = resolveColor('var(--my-var)')  // works on var() OR literal hex
+```
+
+Charts re-render with the correct theme colors automatically when the theme changes.
+
+### Per-Metric Color Override
+
+> Nova 5 metrics have a fixed color (cardStyle accent).
+
+Any metric can specify a custom chart color via `->color()`:
+
+```php
+// TrendMetric: line color
+RevenueMetric::make()->color('var(--martis-success)');
+
+// ProgressMetric: bar fill (overrides semantic)
+TaskCompletion::make()->color('var(--martis-warning)');
+
+// PartitionMetric: per-label color map
+ProjectsByStatus::make()->colors([
+    'Active' => 'var(--martis-success)',
+    'Paused' => '#f59e0b',
+    'Done' => 'rgb(59, 130, 246)',
+]);
+```
+
+Accepts any CSS color value — hex, rgb, rgba, hsl, named colors, or `var(--martis-*)`.
 
 ### Component Scaffolding
 

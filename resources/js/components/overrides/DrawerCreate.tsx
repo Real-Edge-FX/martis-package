@@ -30,14 +30,39 @@ function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colS
  * Registered as 'martis:drawer-create' in the component registry.
  */
 export function DrawerCreate(props: OverrideProps) {
-  const { schema, resource, params, onCreated, onClose, addToast } = props
+  const { schema, resource, params, record, onCreated, onClose, addToast } = props
   const qc = useQueryClient()
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
   const allFormFields = useMemo(() => schema.fieldsForCreate ?? [], [schema])
 
-  const [values, setValues] = useState<Record<string, unknown>>({})
+  // If a record is passed (replicate flow), prefill values from it
+  const initialValues = useMemo(() => {
+    if (!record) return {}
+    const init: Record<string, unknown> = {}
+    const walk = (items: Array<Record<string, unknown>>) => {
+      for (const item of items) {
+        if (item.type === 'panel' || item.type === 'section') {
+          const children = item.fields as Array<Record<string, unknown>> | undefined
+          if (children) walk(children)
+        } else if (item.type === 'tab_group') {
+          const tabs = item.tabs as Array<Record<string, unknown>> | undefined
+          if (tabs) for (const tab of tabs) {
+            const tf = tab.fields as Array<Record<string, unknown>> | undefined
+            if (tf) walk(tf)
+          }
+        } else {
+          const attr = item.attribute as string | undefined
+          if (attr && record[attr] !== undefined) init[attr] = record[attr]
+        }
+      }
+    }
+    walk(allFormFields as Array<Record<string, unknown>>)
+    return init
+  }, [record, allFormFields])
+
+  const [values, setValues] = useState<Record<string, unknown>>(initialValues)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const createMutation = useMutation({

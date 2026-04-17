@@ -1,5 +1,6 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputNumber } from 'primereact/inputnumber'
+import { ClearButton } from '@/components/ClearButton'
 
 export function NumberFieldDisplay({ value }: FieldDisplayProps) {
   if (value === null || value === undefined) {
@@ -16,25 +17,34 @@ export function NumberFieldInput({ field, value, onChange, error }: FieldInputPr
   const min = ext.min as number | undefined
   const max = ext.max as number | undefined
   const step = ext.step as number | undefined
+  const showClear = !!field.nullable && numValue !== null && !field.readonly
 
   return (
     <div className="flex flex-col gap-1">
-      <InputNumber
-        inputId={field.attribute}
-        name={field.attribute}
-        value={numValue}
-        onValueChange={(e) => onChange(e.value ?? null)}
-        readOnly={field.readonly}
-        required={field.required}
-        invalid={!!error}
-        disabled={field.readonly}
-        placeholder={field.placeholder ?? undefined}
-        className="w-full"
-        min={min}
-        max={max}
-        step={step ?? 1}
-        inputClassName="w-full font-mono"
-      />
+      <div className="relative">
+        <InputNumber
+          inputId={field.attribute}
+          name={field.attribute}
+          value={numValue}
+          onValueChange={(e) => onChange(e.value ?? null)}
+          readOnly={field.readonly}
+          required={field.required}
+          invalid={!!error}
+          disabled={field.readonly}
+          placeholder={field.placeholder ?? undefined}
+          className="w-full"
+          min={min}
+          max={max}
+          step={step ?? 1}
+          inputClassName="w-full font-mono"
+          inputStyle={showClear ? { paddingRight: '2rem' } : undefined}
+        />
+        <ClearButton
+          visible={showClear}
+          onClick={() => onChange(null)}
+          style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}
+        />
+      </div>
       {error && <small className="text-red-500">{error}</small>}
     </div>
   )

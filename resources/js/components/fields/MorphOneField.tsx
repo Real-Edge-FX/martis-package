@@ -135,9 +135,9 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
               onClick={() => setDeleteOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
               style={{
-                border: '1px solid #fca5a5',
-                backgroundColor: '#fef2f2',
-                color: '#dc2626',
+                border: '1px solid var(--martis-danger)',
+                backgroundColor: 'var(--martis-danger-bg)',
+                color: 'var(--martis-danger-hover)',
               }}
             >
               <TrashIcon size={14} />

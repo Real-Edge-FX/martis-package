@@ -48,6 +48,9 @@ class Badge extends Field
 
     protected bool $withIcons = false;
 
+    /** @var array<string, string> Maps model value → display label */
+    protected array $labels = [];
+
     /** @var array<string, string> Maps badge type → icon name */
     protected array $icons = [];
 
@@ -84,12 +87,39 @@ class Badge extends Field
     }
 
     /**
-     * Override the full badge type map (replaces defaults).
+     * Map model values to translated display labels.
+     *
+     * Without labels(), the badge displays the raw database value (e.g. "active").
+     * With labels(), it displays the translated label (e.g. "Ativo").
      *
      * Example:
+     *   ->labels([
+     *       'active' => __('statuses.active'),
+     *       'inactive' => __('statuses.inactive'),
+     *   ])
+     *
+     * @param  array<string, string>  $labels  value → display label
+     */
+    public function labels(array $labels): static
+    {
+        $this->labels = $labels;
+
+        return $this;
+    }
+
+    /**
+     * Override the full badge type map (replaces defaults).
+     *
+     * Values can be built-in type names (info, success, warning, danger)
+     * OR custom hex/rgb colors for automatic palette generation.
+     *
+     * Example with built-in types:
      *   ->types(['active' => 'success', 'inactive' => 'danger'])
      *
-     * @param  array<string, string>  $types  type → color class
+     * Example with custom colors:
+     *   ->types(['vip' => '#ec4899', 'trial' => '#8b5cf6'])
+     *
+     * @param  array<string, string>  $types  type → color class or hex color
      */
     public function types(array $types): static
     {
@@ -101,7 +131,7 @@ class Badge extends Field
     /**
      * Add extra badge types without replacing the defaults.
      *
-     * @param  array<string, string>  $types  type → color class
+     * @param  array<string, string>  $types  type → color class or hex color
      */
     public function addTypes(array $types): static
     {
@@ -166,6 +196,7 @@ class Badge extends Field
     {
         return array_filter([
             'map' => $this->map,
+            'labels' => $this->labels ?: null,
             'types' => $this->types,
             'withIcons' => $this->withIcons,
             'icons' => $this->icons ?: null,

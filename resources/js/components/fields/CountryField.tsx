@@ -50,6 +50,7 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
   }))
 
   const filterPh = (ext.filterPlaceholder as string | undefined) ?? t('search')
+  const clearTip = t('clear', { defaultValue: 'Clear' })
 
   return (
     <div className="flex flex-col gap-1">
@@ -66,7 +67,10 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
         filter
         filterPlaceholder={filterPh}
         emptyFilterMessage={t('no_results_found')}
-        className="w-full martis-country-dropdown"
+        pt={{
+          clearIcon: { 'data-pr-tooltip': clearTip, 'data-pr-position': 'top' } as Record<string, string>,
+        }}
+        className="w-full"
       />
       {error && <small className="text-red-500">{error}</small>}
     </div>

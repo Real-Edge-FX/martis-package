@@ -112,6 +112,7 @@ export interface MetricDefinition {
   height?: number | null
   style?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   icon?: string | null
+  color?: string | null
   meta: Record<string, unknown>
 }
 
@@ -120,6 +121,8 @@ export interface DashboardDefinition {
   name: string
   uriKey: string
   component: string | null
+  /** Layout type: 'cards' (default metric grid) or 'default' (built-in summary view). */
+  layout?: 'cards' | 'default'
   showRefreshButton: boolean
   meta: Record<string, unknown>
 }
@@ -302,6 +305,40 @@ export interface ResourceSchema extends ResourceEmbedded {
     detail?: OverrideDefinition | null
     index?: OverrideDefinition | null
   }
+  defaultRowActions?: {
+    enabled: boolean
+    view: boolean
+    edit: boolean
+    delete: boolean
+  }
+  rowClickOpensDetail?: boolean
+  /** All actions for this resource. Included in the schema to avoid a second
+   *  round-trip — eliminates the "inline actions flash" on refresh. */
+  actions?: Array<{
+    uriKey: string
+    name: string
+    icon?: string | null
+    showIcon?: boolean
+    iconColor?: string | null
+    group?: string | null
+    destructive?: boolean
+    showOnIndex?: boolean
+    showOnDetail?: boolean
+    showInline?: boolean
+    executionMode?: string
+    standalone?: boolean
+    sole?: boolean
+    queued?: boolean
+    withConfirmation?: boolean
+    confirmText?: string | null
+    confirmButtonText?: string | null
+    cancelButtonText?: string | null
+    modalSize?: string
+    supportsDryRun?: boolean
+    customComponent?: string | null
+    customComponentProps?: Record<string, unknown>
+    logEvents?: boolean
+  }>
 }
 
 export interface ResourceRecord {

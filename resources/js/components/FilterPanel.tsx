@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Dropdown } from 'primereact/dropdown'
 import { Calendar } from 'primereact/calendar'
+import { getCalendarLocale } from '@/lib/calendarLocale'
 import { InputSwitch } from 'primereact/inputswitch'
 import { FunnelIcon, XIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
@@ -27,6 +28,8 @@ function computeDefaults(filters: FilterDefinition[]): ActiveFilters {
   }
   return defaults
 }
+
+const calendarLocale = getCalendarLocale()
 
 export function FilterPanel({ filters, value, onChange, prefix }: FilterPanelProps) {
   const { t } = useTranslation('resources')
@@ -362,6 +365,7 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
           }}
           showIcon
           showButtonBar
+          locale={calendarLocale}
           dateFormat="yy-mm-dd"
           placeholder={filter.name}
           className="w-full"
@@ -386,6 +390,7 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
             }}
             showIcon
             showButtonBar
+            locale={calendarLocale}
             dateFormat="yy-mm-dd"
             placeholder={t('filter_from', 'From')}
             className="flex-1"
@@ -404,6 +409,7 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
             }}
             showIcon
             showButtonBar
+            locale={calendarLocale}
             dateFormat="yy-mm-dd"
             placeholder={t('filter_to', 'To')}
             className="flex-1"

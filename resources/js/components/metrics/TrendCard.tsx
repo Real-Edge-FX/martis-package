@@ -1,10 +1,12 @@
 import { Chart } from 'primereact/chart'
+import { accentColor as getAccent, mutedTextColor, resolveColor } from '@/lib/themeColors'
 
 interface TrendCardProps {
   data: Record<string, unknown>
+  color?: string | null
 }
 
-export function TrendCard({ data }: TrendCardProps) {
+export function TrendCard({ data, color }: TrendCardProps) {
   const labels = (data.labels as string[]) ?? []
   const values = (data.values as number[]) ?? []
   const latestValue = data.latestValue as number | undefined
@@ -17,18 +19,22 @@ export function TrendCard({ data }: TrendCardProps) {
     ? `${prefix}${displayValue.toLocaleString()}${suffix}`
     : null
 
+  // Use developer-provided color or fall back to theme accent
+  const lineColor = color ? resolveColor(color, getAccent()) : getAccent()
+  const tickColor = mutedTextColor()
+
   const chartData = {
     labels,
     datasets: [
       {
         data: values,
         fill: true,
-        borderColor: '#818cf8',
-        backgroundColor: 'rgba(129, 140, 248, 0.2)',
+        borderColor: lineColor,
+        backgroundColor: lineColor + '33',
         tension: 0.4,
         pointRadius: 2,
         pointHoverRadius: 5,
-        pointBackgroundColor: '#818cf8',
+        pointBackgroundColor: lineColor,
         borderWidth: 2.5,
       },
     ],
@@ -45,7 +51,7 @@ export function TrendCard({ data }: TrendCardProps) {
         display: true,
         grid: { display: false },
         ticks: {
-          color: '#9ca3af',
+          color: tickColor,
           font: { size: 10 },
           maxRotation: 0,
           maxTicksLimit: 7,
@@ -58,7 +64,7 @@ export function TrendCard({ data }: TrendCardProps) {
           color: 'rgba(128, 128, 128, 0.15)',
         },
         ticks: {
-          color: '#9ca3af',
+          color: tickColor,
           font: { size: 10 },
         },
         border: { color: 'rgba(128, 128, 128, 0.2)' },

@@ -47,10 +47,10 @@ export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
 
   // Card style accent colors (Martis extension)
   const styleColors: Record<string, string> = {
-    success: '#22c55e',
-    warning: '#f59e0b',
-    danger: '#ef4444',
-    info: '#3b82f6',
+    success: 'var(--martis-success)',
+    warning: 'var(--martis-warning)',
+    danger: 'var(--martis-danger)',
+    info: 'var(--martis-info)',
   }
   const cardStyle = metric.style ?? 'default'
   const accentColor = styleColors[cardStyle] ?? null
@@ -68,17 +68,17 @@ export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
     >
       {/* Card header */}
       <div
-        className="flex items-center justify-between px-4 py-3"
+        className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
         style={{ borderBottom: '1px solid var(--martis-border)' }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {metric.icon && (
-            <span style={{ color: accentColor ?? 'var(--martis-text-muted)' }}>
+            <span className="flex-shrink-0" style={{ color: accentColor ?? 'var(--martis-text-muted)' }}>
               <ResourceIcon iconName={metric.icon} size={16} />
             </span>
           )}
           <h3
-            className="text-sm font-semibold"
+            className="text-sm font-semibold truncate"
             style={{ color: 'var(--martis-text)' }}
           >
             {metric.name}
@@ -87,8 +87,8 @@ export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
             <span
               className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
               style={{
-                backgroundColor: 'rgba(34, 197, 94, 0.15)',
-                color: '#22c55e',
+                backgroundColor: 'var(--martis-success-bg)',
+                color: 'var(--martis-success)',
               }}
               data-pr-tooltip={`${t('auto_refresh', 'Auto-refresh')}: ${metric.refreshEvery}s`}
               data-pr-position="top"
@@ -99,7 +99,7 @@ export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {hasRanges && (
             <select
               value={range}
@@ -137,7 +137,7 @@ export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
             style={{ backgroundColor: 'var(--martis-hover)' }}
           />
         ) : result ? (
-          <MetricContent metricType={metric.metricType} result={result} />
+          <MetricContent metricType={metric.metricType} result={result} color={metric.color ?? null} />
         ) : (
           <p
             className="text-sm text-center py-4"
@@ -154,19 +154,21 @@ export function MetricCard({ metric, endpoint, filters }: MetricCardProps) {
 function MetricContent({
   metricType,
   result,
+  color,
 }: {
   metricType: string
   result: Record<string, unknown>
+  color?: string | null
 }) {
   switch (metricType) {
     case 'value':
       return <ValueCard data={result} />
     case 'trend':
-      return <TrendCard data={result} />
+      return <TrendCard data={result} color={color} />
     case 'partition':
       return <PartitionCard data={result} />
     case 'progress':
-      return <ProgressCard data={result} />
+      return <ProgressCard data={result} color={color} />
     default:
       return null
   }

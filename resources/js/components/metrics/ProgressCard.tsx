@@ -1,8 +1,9 @@
 interface ProgressCardProps {
   data: Record<string, unknown>
+  color?: string | null
 }
 
-export function ProgressCard({ data }: ProgressCardProps) {
+export function ProgressCard({ data, color }: ProgressCardProps) {
   const current = (data.current as number) ?? 0
   const target = (data.target as number) ?? 1
   const percentage = (data.percentage as number) ?? 0
@@ -12,9 +13,15 @@ export function ProgressCard({ data }: ProgressCardProps) {
 
   const clampedPercentage = Math.min(100, Math.max(0, percentage))
 
-  // Color: green when maximizing and close to target, red when avoiding
-  const isGood = avoid ? percentage < 50 : percentage >= 50
-  const barColor = isGood ? '#22c55e' : avoid ? '#ef4444' : '#f59e0b'
+  // If developer specified a custom color, use it (regardless of progress);
+  // otherwise use semantic color based on direction
+  let barColor: string
+  if (color) {
+    barColor = color
+  } else {
+    const isGood = avoid ? percentage < 50 : percentage >= 50
+    barColor = isGood ? 'var(--martis-success)' : avoid ? 'var(--martis-danger)' : 'var(--martis-warning)'
+  }
 
   return (
     <div>

@@ -30,7 +30,7 @@ export function MorphManyFieldDisplay({ field, value }: FieldDisplayProps) {
 /**
  * Index display — shows a configurable count badge with optional icon.
  * Configurable via:
- *   ->badgeColor('#3b82f6')  — custom badge color
+ *   ->badgeColor('var(--martis-info)')  — custom badge color
  *   ->badgeIcon('newspaper') — icon next to count
  */
 export function MorphManyFieldIndexDisplay({ field, value }: FieldDisplayProps) {
@@ -312,7 +312,7 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
                     style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                     data-pr-tooltip={tAct('delete', 'Delete')}
                     data-pr-position="top"
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-danger)')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                   >
                     <TrashIcon size={16} />

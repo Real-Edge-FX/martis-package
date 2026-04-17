@@ -308,7 +308,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                 backgroundColor: action.destructive
                   ? 'rgba(220,38,38,0.1)'
                   : 'rgba(99,102,241,0.1)',
-                color: action.destructive ? '#dc2626' : '#6366f1',
+                color: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)',
               }}
             >
               {renderActionIcon()}
@@ -400,7 +400,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
             disabled={executeMutation.isPending}
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
             style={{
-              backgroundColor: action.destructive ? '#dc2626' : 'var(--martis-accent)',
+              backgroundColor: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)',
             }}
           >
             <LightningIcon size={14} />

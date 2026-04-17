@@ -172,6 +172,8 @@ Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](compo
 
 ```php
 'dashboard' => [
+    'showGreeting' => env('MARTIS_DASHBOARD_SHOW_GREETING', true),
+    'showWelcome' => env('MARTIS_DASHBOARD_SHOW_WELCOME', true),
     'showMetrics' => true,
     'showResourceCards' => true,
 ],
@@ -179,6 +181,8 @@ Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](compo
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| `showGreeting` | `bool` | `true` | Show personalised greeting (`Hello, {name}`). Override with `MARTIS_DASHBOARD_SHOW_GREETING=false`. |
+| `showWelcome` | `bool` | `true` | Show welcome subtitle (`Welcome to Martis Admin Engine.`) below the greeting. Override with `MARTIS_DASHBOARD_SHOW_WELCOME=false`. |
 | `showMetrics` | `bool` | `true` | Show summary metrics row (total resources, groups). |
 | `showResourceCards` | `bool` | `true` | Show resource quick-access cards grid. |
 
@@ -191,6 +195,30 @@ Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](compo
 ```
 
 Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-center'`, `'bottom-center'`.
+
+## Index (Resource Listing)
+
+```php
+'index' => [
+    'default_row_actions' => [
+        'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        'view'    => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+        'edit'    => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+        'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
+    ],
+    'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `default_row_actions.enabled` | `bool` | `true` | Master switch for the default row actions column (view/edit/delete). |
+| `default_row_actions.view` | `bool` | `true` | Show the view icon. |
+| `default_row_actions.edit` | `bool` | `true` | Show the edit icon. |
+| `default_row_actions.delete` | `bool` | `true` | Show the delete icon. |
+| `row_click_opens_detail` | `bool` | `true` | When default row actions expose a "view" icon, clicking the row body becomes redundant. Set to `false` to disable row-click and keep the row informational. Override per resource with `rowClickOpensDetail(Request $request): ?bool`. |
+
+Override per-resource with the `defaultRowActions(Request $request): bool|array` and `rowClickOpensDetail(Request $request): ?bool` methods. See [Default Row Actions](default_row_actions.md) for the full guide.
 
 ## Pagination
 

@@ -1,5 +1,6 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Dropdown } from 'primereact/dropdown'
+import { useTranslation } from 'react-i18next'
 
 export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
   if (value === null || value === undefined || value === '') {
@@ -14,8 +15,10 @@ export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
 }
 
 export function SelectFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t } = useTranslation('messages')
   const options = field.options?.map((o) => ({ label: o.label, value: String(o.value) })) ?? []
   const currentValue = value === null || value === undefined ? '' : String(value)
+  const clearTip = t('clear', { defaultValue: 'Clear' })
 
   return (
     <div className="flex flex-col gap-1">
@@ -29,6 +32,9 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
         invalid={!!error}
         placeholder={field.placeholder ?? '— Select —'}
         showClear={field.nullable}
+        pt={{
+          clearIcon: { 'data-pr-tooltip': clearTip, 'data-pr-position': 'top' } as Record<string, string>,
+        }}
         className="w-full"
       />
       {error && <small className="text-red-500">{error}</small>}

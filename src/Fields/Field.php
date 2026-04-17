@@ -184,7 +184,7 @@ abstract class Field implements FieldContract
     public function toArray(): array
     {
         return array_merge([
-            'attribute' => $this->attribute,
+            'attribute' => $this->attribute(),
             'label' => $this->label,
             'type' => $this->type(),
             'nullable' => $this->nullable,

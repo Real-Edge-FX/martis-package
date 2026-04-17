@@ -26,6 +26,7 @@ export function ResourceDetailPage() {
   const { addToast } = useToast()
   const [showDelete, setShowDelete] = useState(false)
   const [showUpdateOverride, setShowUpdateOverride] = useState(false)
+  const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [showForceDelete, setShowForceDelete] = useState(false)
   const [showRestore, setShowRestore] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
@@ -45,14 +46,8 @@ export function ResourceDetailPage() {
     enabled: !!resource && !!id,
   })
 
-  // Fetch actions for this resource
-  const actionsQuery = useQuery({
-    queryKey: ["resource-actions", resource],
-    queryFn: () => api.get<{ data: { actions: ActionMeta[] } }>(`/api/resources/${resource}/actions`),
-    enabled: !!resource,
-  })
-
-  const allActions = actionsQuery.data?.data?.actions ?? []
+  // Actions come from the schema payload — no separate query needed.
+  const allActions = (schemaQuery.data?.data?.actions ?? []) as ActionMeta[]
   const detailActions = allActions.filter((a) => a.showOnDetail)
 
   const deleteMutation = useMutation({
@@ -75,9 +70,13 @@ export function ResourceDetailPage() {
     onError: () => addToast("error", tMsg("error_restore")),
   })
 
-  /** Navigate to create form with pre-filled data from this record (Nova v5 replicate flow) */
+  /** Open create form with pre-filled data — uses drawer if override exists, else navigates */
   function handleReplicate() {
-    navigate(`/resources/${resource}/create?fromResourceId=${id}`)
+    if (schema?.overrides?.create) {
+      setShowCreateOverride(true)
+    } else {
+      navigate(`/resources/${resource}/create?fromResourceId=${id}`)
+    }
   }
 
   const forceDeleteMutation = useMutation({
@@ -374,6 +373,34 @@ export function ResourceDetailPage() {
           addToast,
         }
         return <C {...updateOverrideProps} />
+      })()}
+
+      {showCreateOverride && schema.overrides?.create && (() => {
+        const OverrideComponent = componentRegistry.resolve(schema.overrides.create.component)
+        if (!OverrideComponent) return null
+        const C = OverrideComponent as React.ComponentType<OverrideProps>
+        const createOverrideProps: OverrideProps = {
+          schema,
+          resource: resource!,
+          params: schema.overrides.create.params ?? {},
+          record,
+          recordId: null,
+          navigate: (to: string) => navigate(to),
+          onClose: () => setShowCreateOverride(false),
+          onCreated: (rec) => {
+            setShowCreateOverride(false)
+            void qc.invalidateQueries({ queryKey: ["resources", resource] })
+            addToast("success", schema.messages?.created ?? "Record created successfully.")
+            const target = resolveRedirect(schema.overrides?.create?.redirectAfter, resource!, rec.id)
+            if (target) navigate(target)
+          },
+          onUpdated: () => {},
+          onDeleted: () => {},
+          onEdit: (editId) => { if (editId) navigate(`/resources/${resource}/${editId}/edit`) },
+          onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
+          addToast,
+        }
+        return <C {...createOverrideProps} />
       })()}
 
       <DeleteModal

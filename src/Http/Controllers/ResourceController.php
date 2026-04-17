@@ -753,6 +753,17 @@ class ResourceController extends MartisController
         $cards = $this->serializeSchemaDescriptors($instance->cards($request));
         $dashboards = $this->serializeSchemaDescriptors($resourceClass::dashboards());
 
+        // Serialize actions inline so the frontend doesn't need a second
+        // round-trip to /api/resources/{res}/actions — this eliminates the
+        // "inline actions flash" where they disappear briefly on refresh.
+        $actions = array_values(array_map(
+            fn (ActionContract $a) => $a->jsonSerialize(),
+            array_filter(
+                $instance->actions($request),
+                fn (ActionContract $a) => $a->authorizedToSee($request),
+            ),
+        ));
+
         $data = [
             'uriKey' => $resourceClass::uriKey(),
             'label' => $resourceClass::label(),
@@ -796,6 +807,9 @@ class ResourceController extends MartisController
             'bulkActionsMenuLabel' => $resourceClass::bulkActionsMenuLabel(),
             'validationMessage' => $resourceClass::validationMessage(),
             'overrides' => $instance->overrides(),
+            'defaultRowActions' => $instance->resolveDefaultRowActions($request),
+            'rowClickOpensDetail' => $instance->resolveRowClickOpensDetail($request),
+            'actions' => $actions,
         ];
 
         return JsonResponse::make($data)->toResponse();

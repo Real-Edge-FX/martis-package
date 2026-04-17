@@ -24,7 +24,7 @@
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},
             userMenu: {!! json_encode(config('martis.user_menu', ['showThemeToggle' => true, 'showProfile' => true, 'showNotifications' => true])) !!},
             search: {!! json_encode(config('martis.search', ['enabled' => true])) !!},
-            dashboard: {!! json_encode(config('martis.dashboard', ['showMetrics' => true, 'showResourceCards' => true])) !!},
+            dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
             layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},

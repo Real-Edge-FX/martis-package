@@ -85,7 +85,8 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
     }
   }
 
-  const displaySrc = preview ?? avatarUrl
+  const [imgError, setImgError] = useState(false)
+  const displaySrc = preview ?? (avatarUrl && avatarUrl.trim() !== '' ? avatarUrl : null)
 
   return (
     <section
@@ -98,11 +99,12 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
 
       <div className="flex items-center gap-6">
         <div className="relative flex-shrink-0">
-          {displaySrc ? (
+          {displaySrc && !imgError ? (
             <img
               src={displaySrc}
               alt={name}
               className="h-20 w-20 rounded-full object-cover border-2 martis-border"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-600 text-white text-2xl font-bold border-2 martis-border">
@@ -161,8 +163,8 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
                     className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
                     style={{
                       backgroundColor: 'var(--martis-surface-alt)',
-                      borderColor: '#dc2626',
-                      color: '#dc2626',
+                      borderColor: 'var(--martis-danger-hover)',
+                      color: 'var(--martis-danger-hover)',
                     }}
                   >
                     <TrashIcon size={14} />

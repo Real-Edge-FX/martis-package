@@ -182,6 +182,15 @@ class BelongsTo extends Field
     }
 
     /**
+     * Return the foreign key as the serialization attribute.
+     * This ensures the JSON key matches the actual DB column when foreignKey() is used.
+     */
+    public function attribute(): string
+    {
+        return $this->foreignKey;
+    }
+
+    /**
      * Customize the attribute on the related model used as the display label.
      * Defaults to "name".
      */

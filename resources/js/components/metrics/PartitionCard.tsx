@@ -1,9 +1,5 @@
 import { Chart } from 'primereact/chart'
-
-const DEFAULT_COLORS = [
-  '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#06b6d4', '#f97316', '#ec4899', '#14b8a6', '#a855f7',
-]
+import { chartPalette, mutedTextColor, resolveColor } from '@/lib/themeColors'
 
 interface PartitionCardProps {
   data: Record<string, unknown>
@@ -12,7 +8,21 @@ interface PartitionCardProps {
 export function PartitionCard({ data }: PartitionCardProps) {
   const labels = (data.labels as string[]) ?? []
   const values = (data.values as number[]) ?? []
-  const colors = (data.colors as string[]) ?? DEFAULT_COLORS.slice(0, labels.length)
+
+  // The metric can supply colors in two formats:
+  // 1. Array (parallel to labels): ['#fff', '#000', ...]
+  // 2. Map (label => color): { 'Active': '#22c55e', 'Paused': '#f59e0b' }
+  const rawColors = data.colors as string[] | Record<string, string> | undefined
+  const palette = chartPalette()
+
+  let colors: string[]
+  if (Array.isArray(rawColors)) {
+    colors = rawColors.map((c, i) => resolveColor(c, palette[i % palette.length]))
+  } else if (rawColors && typeof rawColors === 'object') {
+    colors = labels.map((label, i) => resolveColor(rawColors[label], palette[i % palette.length]))
+  } else {
+    colors = palette.slice(0, labels.length)
+  }
 
   const chartData = {
     labels,
@@ -33,11 +43,13 @@ export function PartitionCard({ data }: PartitionCardProps) {
       legend: {
         position: 'bottom' as const,
         labels: {
-          color: '#9ca3af',
+          color: mutedTextColor(),
           font: { size: 11 },
           padding: 12,
           usePointStyle: true,
-          pointStyleWidth: 8,
+          pointStyle: 'circle',
+          boxWidth: 8,
+          boxHeight: 8,
         },
       },
     },

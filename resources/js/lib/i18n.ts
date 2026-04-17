@@ -42,6 +42,7 @@ export async function initI18n(): Promise<void> {
       interpolation: { escapeValue: false },
       react: { useSuspense: false },
     })
+
   })()
 
   return initPromise
