@@ -39,6 +39,13 @@ export const router = createBrowserRouter([
         },
       },
       {
+        path: 'resources/:resource/lens/:lens',
+        lazy: async () => {
+          const { ResourceLensPage } = await import('@/pages/ResourceLens')
+          return { element: <ResourceLensPage />, handle: { crumb: 'lens' } }
+        },
+      },
+      {
         path: 'resources/:resource/create',
         lazy: async () => {
           const { ResourceCreatePage } = await import('@/pages/ResourceCreate')

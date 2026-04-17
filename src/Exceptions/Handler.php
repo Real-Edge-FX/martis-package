@@ -4,6 +4,7 @@ namespace Martis\Exceptions;
 
 use Illuminate\Contracts\Debug\ExceptionHandler as LaravelExceptionHandler;
 use Illuminate\Foundation\Exceptions\Handler as LaravelHandler;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Martis\Http\Resources\JsonErrorResponse;
@@ -52,6 +53,20 @@ final class Handler
             return JsonErrorResponse::notFound($e->getMessage())->toResponse();
         }
 
+        if ($e instanceof ThrottleRequestsException) {
+            // Localise the default "Too Many Attempts." message and respect
+            // the Retry-After header Laravel already set on the exception.
+            $message = trans('martis::messages.error_throttled');
+            if ($message === 'martis::messages.error_throttled') {
+                $message = $e->getMessage();
+            }
+
+            return response()->json([
+                'message' => $message,
+                'errors' => [],
+            ], 429, $e->getHeaders());
+        }
+
         if ($e instanceof MartisException) {
             return response()->json([
                 'message' => $e->getMessage(),
@@ -77,6 +92,15 @@ final class Handler
 
         /** @var LaravelHandler $handler */
         $handler->renderable(function (MartisException $e, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            return self::render($request, $e);
+        });
+
+        // Localise Laravel's throttle message for API clients (pt_PT/pt_BR).
+        $handler->renderable(function (ThrottleRequestsException $e, Request $request): ?JsonResponse {
             if (! $request->expectsJson()) {
                 return null;
             }

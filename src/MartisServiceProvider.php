@@ -16,6 +16,7 @@ use Martis\Console\TrendMakeCommand;
 use Martis\Console\ValueMakeCommand;
 use Martis\Console\FieldMakeCommand;
 use Martis\Console\InstallCommand;
+use Martis\Console\LensMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\ThemeMakeCommand;
@@ -77,6 +78,7 @@ class MartisServiceProvider extends ServiceProvider
                 PartitionMakeCommand::class,
                 ProgressMakeCommand::class,
                 DashboardMakeCommand::class,
+                LensMakeCommand::class,
             ]);
 
             $this->publishes([

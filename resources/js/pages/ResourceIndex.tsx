@@ -16,6 +16,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
 import { FilterPanel } from '@/components/FilterPanel'
+import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 
 export function ResourceIndexPage() {
@@ -291,6 +292,16 @@ export function ResourceIndexPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Lens selector — Nova v5 parity */}
+          {Array.isArray(schema.lenses) && schema.lenses.length > 0 && (
+            <LensDropdown
+              lenses={schema.lenses}
+              currentUriKey={null}
+              onSelect={(next) => {
+                if (next) navigate(`/resources/${resource}/lens/${next.uriKey}`)
+              }}
+            />
+          )}
           {/* Standalone actions (no selection needed) */}
           {standaloneActions.length > 0 && (
             <ActionDropdown

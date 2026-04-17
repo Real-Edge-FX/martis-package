@@ -279,6 +279,34 @@ export interface CollectionAuthorizationMetadata {
 
 export type DetailItem = FieldDefinition | PanelDefinition | TabGroupDefinition | SectionDefinition
 
+/**
+ * Lens descriptor — produced by `Lens::toArray()` on the backend. The
+ * `summary` payload is attached to the paginated response meta, not to
+ * the schema.
+ */
+export interface LensDefinition {
+  type: 'lens'
+  name: string
+  uriKey: string
+  component: string | null
+  perPageOptions: number[]
+  polling: boolean
+  pollingInterval: number
+  showPollingToggle: boolean
+  /** Martis extension — default filter values applied on first load. */
+  defaultFilters: Record<string, unknown>
+  /** Martis extension — query cache TTL in seconds (0 = disabled). */
+  cacheTtlSeconds: number
+  meta: Record<string, unknown>
+}
+
+/** Martis extension — single cell of the sticky summary row. */
+export interface LensSummaryCell {
+  label: string
+  value: unknown
+  format?: string
+}
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
@@ -288,6 +316,7 @@ export interface ResourceSchema extends ResourceEmbedded {
   fieldsForInlineCreate?: FieldDefinition[]
   fieldsForPreview?: FieldDefinition[]
   filters?: FilterDefinition[]
+  lenses?: LensDefinition[]
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
   actionsMenuLabel?: string | null

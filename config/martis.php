@@ -411,4 +411,20 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Drawer overrides
+    |--------------------------------------------------------------------------
+    |
+    | Package-wide defaults applied to every DrawerOverride (create, update,
+    | detail) that does not override them explicitly. Setting the values
+    | here — instead of chaining ->width('...') on every resource — keeps
+    | the three drawers visually consistent by construction.
+    */
+
+    'drawer' => [
+        'width' => '520px',
+        'expanded_width' => '800px',
+    ],
+
 ];

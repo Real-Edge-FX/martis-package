@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * URL field — renders clickable links on index/detail and a text input on forms.
@@ -64,10 +65,57 @@ class Url extends Field
     }
 
     /**
-     * @return list<string|Rule>
+     * @return list<string|Rule|\Closure>
      */
     public function buildRules(): array
     {
-        return array_merge(parent::buildRules(), ['url']);
+        // Replace Laravel's strict `url` rule with a closure that first
+        // normalises the value — auto-prepending `http://` when no scheme
+        // is present — and then runs FILTER_VALIDATE_URL. This matches
+        // Nova v5's forgiving behaviour.
+        return array_merge(parent::buildRules(), [
+            function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value === null || $value === '' || ! is_string($value)) {
+                    return;
+                }
+                $normalised = self::normaliseUrl($value);
+                if (filter_var($normalised, FILTER_VALIDATE_URL) === false) {
+                    try {
+                        $message = trans('validation.url', ['attribute' => $attribute]);
+                    } catch (\Throwable) {
+                        $message = "The {$attribute} field must be a valid URL.";
+                    }
+                    $fail(is_string($message) ? $message : "The {$attribute} field must be a valid URL.");
+                }
+            },
+        ]);
+    }
+
+    /**
+     * Normalise the stored URL: trim whitespace and auto-prepend `http://`
+     * when the user typed a hostname without a scheme.
+     */
+    public static function normaliseUrl(string $value): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return $trimmed;
+        }
+        if (preg_match('#^[a-z][a-z0-9+\-.]*://#i', $trimmed) === 1) {
+            return $trimmed;
+        }
+
+        return 'http://'.$trimmed;
+    }
+
+    public function fill(Model $model, mixed $value): void
+    {
+        if (is_string($value)) {
+            $value = self::normaliseUrl($value);
+            if ($value === '') {
+                $value = null;
+            }
+        }
+        parent::fill($model, $value);
     }
 }

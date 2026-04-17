@@ -113,10 +113,56 @@ it('Url fill() stores null', function () {
 // Validation
 // ---------------------------------------------------------------------------
 
-it('Url buildRules includes url rule', function () {
+it('Url buildRules includes a URL closure validator', function () {
     $field = Url::make('website_url');
+    $rules = $field->buildRules();
 
-    expect($field->buildRules())->toContain('url');
+    $closure = array_values(array_filter($rules, fn ($r) => $r instanceof Closure));
+    expect($closure)->toHaveCount(1);
+
+    // Exercise the closure: a value missing its scheme should still pass,
+    // because the closure normalises before validating.
+    $failed = false;
+    $closure[0]('website_url', 'www.example.com', function () use (&$failed) {
+        $failed = true;
+    });
+    expect($failed)->toBeFalse();
+});
+
+it('Url buildRules fails on values that cannot be normalised to a URL', function () {
+    $field = Url::make('website_url');
+    $rules = $field->buildRules();
+    $closure = array_values(array_filter($rules, fn ($r) => $r instanceof Closure))[0];
+
+    $messages = [];
+    $closure('website_url', 'not a url at all /@', function (string $msg) use (&$messages) {
+        $messages[] = $msg;
+    });
+    expect($messages)->toHaveCount(1);
+});
+
+// ---------------------------------------------------------------------------
+// Normalisation — Martis divergence (Nova's strict rule would reject these)
+// ---------------------------------------------------------------------------
+
+it('Url::normaliseUrl keeps https:// prefix intact', function () {
+    expect(Url::normaliseUrl('https://example.com'))->toBe('https://example.com');
+});
+
+it('Url::normaliseUrl auto-prepends http:// when no scheme is present', function () {
+    expect(Url::normaliseUrl('www.google.com.br'))->toBe('http://www.google.com.br');
+});
+
+it('Url fill() persists the normalised URL', function () {
+    $model = new UrlTestModel;
+    Url::make('website_url')->fill($model, 'www.example.com');
+    expect($model->getAttribute('website_url'))->toBe('http://www.example.com');
+});
+
+it('Url fill() stores null when only whitespace is submitted', function () {
+    $model = new UrlTestModel;
+    Url::make('website_url')->fill($model, '   ');
+    expect($model->getAttribute('website_url'))->toBeNull();
 });
 
 // ---------------------------------------------------------------------------

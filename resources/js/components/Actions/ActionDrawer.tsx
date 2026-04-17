@@ -45,10 +45,17 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: A
 
   const C = DrawerComponent as React.ComponentType<OverrideProps>
 
+  // Pull the params the resource declared for this override (width,
+  // expandedWidth, subtitle, showIcon, …). Without this, DrawerShell
+  // falls back to its hard-coded defaults and renders at a different
+  // size than the create drawer opened from the index toolbar — which
+  // uses the same override params through OverrideResolver.
+  const overrideParams = (schema.overrides?.[type]?.params ?? {}) as Record<string, unknown>
+
   const overrideProps: OverrideProps = {
     schema,
     resource,
-    params: {},
+    params: overrideParams,
     record: null,
     recordId: recordId != null ? String(recordId) : null,
     navigate: (to: string) => navigate(to),
