@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Martis\Enums\AvatarShape;
+use Martis\Fields\Concerns\ResolvesInitialsPayload;
 
 /**
  * Avatar — image upload specialised for profile/identity pictures.
@@ -13,32 +14,44 @@ use Martis\Enums\AvatarShape;
  * Reference: https://nova.laravel.com/docs/v5/resources/fields#avatar-field
  *
  * Extends {@see Image} so every upload helper (`disk`, `storagePath`,
- * `maxSize`, `thumbnail`, …) carries over. Where Nova only offers a
- * `rounded(bool)` toggle, Martis adds typed shapes, per-row fallbacks
- * and compose-with-Stack identity pills.
+ * `maxSize`, `thumbnail`, …) carries over.
  *
  * ⭐ Martis differentials:
- *  - `fallback($url | Closure)` — per-row fallback URL. Closure receives
- *    the model, so you can derive the fallback from Gravatar, a
- *    UiAvatar route, or any external service. Nova only supports a
- *    static `fallbackUrl`.
+ *  - **Zero-config initials fallback** — when a member has no uploaded
+ *    avatar AND the developer didn't declare an explicit `fallback()`,
+ *    the field renders coloured initials inline (same deterministic
+ *    palette + logic as {@see UiAvatar}, shared via the
+ *    {@see ResolvesInitialsPayload} trait). No external service call,
+ *    no DB column — matches the look of the topbar / profile surfaces.
+ *  - `fallback($url | Closure)` — override the default inline initials
+ *    with a custom URL (static or per-row).
  *  - `shape(AvatarShape)` — typed enum (Circle / Rounded / Squared)
- *    instead of Nova's boolean.
- *  - Renders as a compact pill when used inside a Stack — the frontend
- *    detects the context and shrinks the avatar automatically.
+ *    instead of Nova's boolean rounded() toggle.
+ *  - `initialsFrom('attribute')` — override the seed attribute used to
+ *    compute the initials (default: `name`).
+ *  - `colorFrom('attribute')` — pull the initials background from a
+ *    model attribute (brand colour, etc.).
  */
 class Avatar extends Image
 {
+    use ResolvesInitialsPayload;
+
     protected AvatarShape $shape = AvatarShape::Circle;
 
     protected string|Closure|null $fallback = null;
+
+    protected ?string $initialsSeedAttribute = null;
+
+    protected ?string $colorFromAttribute = null;
+
+    protected ?Closure $initialsCallback = null;
 
     public function type(): string
     {
         return 'avatar';
     }
 
-    /** ⭐ Martis differential — typed shape enum. */
+    /** ⭐ Typed shape enum. */
     public function shape(AvatarShape $shape): static
     {
         $this->shape = $shape;
@@ -62,14 +75,36 @@ class Avatar extends Image
     }
 
     /**
-     * ⭐ Martis differential — per-row fallback URL.
-     *
-     * Accepts a static URL or a Closure receiving the model that
-     * returns the URL to use when the stored avatar is missing.
+     * ⭐ Override the zero-config initials fallback with a custom URL
+     * (static or per-row). Closure receives the model.
      */
     public function fallback(string|Closure $source): static
     {
         $this->fallback = $source;
+
+        return $this;
+    }
+
+    /** Attribute used as the seed for the initials + palette (default: `name`). */
+    public function initialsFrom(string $attribute): static
+    {
+        $this->initialsSeedAttribute = $attribute;
+
+        return $this;
+    }
+
+    /** Pull the initials background colour from a model attribute (hex). */
+    public function colorFrom(string $attribute): static
+    {
+        $this->colorFromAttribute = $attribute;
+
+        return $this;
+    }
+
+    /** Customise the initials computation. Closure receives `($seed, $model)`. */
+    public function initials(Closure $callback): static
+    {
+        $this->initialsCallback = $callback;
 
         return $this;
     }
@@ -87,17 +122,31 @@ class Avatar extends Image
             return $value;
         }
 
+        // Developer-provided URL fallback wins over the built-in initials.
         $fallbackUrl = $this->resolveFallback($model);
-        if ($fallbackUrl === null) {
-            return $value;
+        if ($fallbackUrl !== null) {
+            return [
+                'url' => $fallbackUrl,
+                'name' => null,
+                'path' => null,
+                'thumbnailUrl' => $fallbackUrl,
+                'isFallback' => true,
+            ];
         }
 
+        // Zero-config default: render coloured initials inline.
+        $seedAttr = $this->initialsSeedAttribute ?? 'name';
+        $payload = $this->initialsPayload($model, $seedAttr, $this->colorFromAttribute, $this->initialsCallback);
+
         return [
-            'url' => $fallbackUrl,
+            'url' => null,
             'name' => null,
             'path' => null,
-            'thumbnailUrl' => $fallbackUrl,
-            'isFallback' => true,
+            'thumbnailUrl' => null,
+            'isInitialsFallback' => true,
+            'initials' => $payload['initials'],
+            'color' => $payload['color'],
+            'seed' => $payload['seed'],
         ];
     }
 

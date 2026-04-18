@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Martis\Enums\AvatarShape;
+use Martis\Fields\Concerns\ResolvesInitialsPayload;
 
 /**
  * UiAvatar — auto-generated initials avatar for records that don't
@@ -13,29 +14,22 @@ use Martis\Enums\AvatarShape;
  * Laravel Nova v5 parity: UiAvatar field.
  * Reference: https://nova.laravel.com/docs/v5/resources/fields#ui-avatar-field
  *
- * The value is computed from the model, never stored. The frontend
- * renders the initials inside a coloured pill whose shape matches the
- * {@see Avatar} field so the two can be used interchangeably as row
- * identity pictures.
+ * The value is computed from the model, never stored. Rendering happens
+ * entirely on the client — no external service call, no DB column. The
+ * same colour palette + initials logic backs {@see Avatar}'s default
+ * fallback and the login / topbar / profile surfaces (via the
+ * {@see ResolvesInitialsPayload} trait).
  *
  * ⭐ Martis differentials:
- *  - **Deterministic seed-based colour** — the palette slot is derived
- *    from a stable hash of the seed value. Same name → same colour,
- *    no DB column required, works even for freshly-created records.
- *  - `colorFrom('attribute')` — overrides the seed-based palette with
- *    a colour pulled from another model attribute (brand colour, etc.).
- *    Mirrors the API shape the Icon field uses.
- *  - `initials(Closure)` — compute the initials from any Closure. The
- *    default takes the first letter of each whitespace-separated token
- *    (max 2 letters).
- *  - Honours `shape(AvatarShape::*)` for visual parity with Avatar.
- *
- * By default the seed attribute is the field's own attribute. Override
- * with {@see self::from()} when the display column differs from the
- * seed column (e.g. `UiAvatar::make('avatar')->from('name')`).
+ *  - **Deterministic seed-based colour** from a 16-slot palette hash.
+ *  - `colorFrom('brand_color')` — per-row brand colour override.
+ *  - `initials(Closure)` — custom initials computation.
+ *  - Decoupled seed via `from('other_attr')`.
  */
 class UiAvatar extends Field
 {
+    use ResolvesInitialsPayload;
+
     protected ?string $seedAttribute = null;
 
     protected AvatarShape $shape = AvatarShape::Circle;
@@ -103,14 +97,10 @@ class UiAvatar extends Field
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $seedAttr = $this->seedAttribute ?? $this->attribute();
-        $seed = (string) ($model->getAttribute($seedAttr) ?? '');
-        $initials = $this->computeInitials($seed, $model);
-        $color = $this->resolveColor($seed, $model);
+        $payload = $this->initialsPayload($model, $seedAttr, $this->colorFromAttribute, $this->initialsCallback);
 
         return [
-            'initials' => $initials,
-            'color' => $color,
-            'seed' => $seed,
+            ...$payload,
             'shape' => $this->shape->value,
         ];
     }
@@ -135,64 +125,5 @@ class UiAvatar extends Field
     public function getSeedAttribute(): string
     {
         return $this->seedAttribute ?? $this->attribute();
-    }
-
-    private function computeInitials(string $seed, Model $model): string
-    {
-        if ($this->initialsCallback !== null) {
-            $result = ($this->initialsCallback)($seed, $model);
-
-            return is_string($result) ? mb_strtoupper(mb_substr($result, 0, 3)) : '';
-        }
-
-        $trimmed = trim($seed);
-        if ($trimmed === '') {
-            return '';
-        }
-
-        $tokens = preg_split('/\s+/u', $trimmed) ?: [];
-        $first = mb_substr($tokens[0] ?? '', 0, 1);
-        $last = count($tokens) > 1 ? mb_substr($tokens[count($tokens) - 1], 0, 1) : '';
-
-        return mb_strtoupper($first.$last);
-    }
-
-    private function resolveColor(string $seed, Model $model): string
-    {
-        if ($this->colorFromAttribute !== null) {
-            $custom = $model->getAttribute($this->colorFromAttribute);
-            if (is_string($custom) && $custom !== '') {
-                return $custom;
-            }
-        }
-
-        return $this->deterministicColor($seed);
-    }
-
-    /**
-     * ⭐ Deterministic palette. Stable across requests + migrations, so
-     * the same name always renders the same colour. 16-slot palette
-     * chosen for visual distinctiveness on light and dark surfaces.
-     */
-    private function deterministicColor(string $seed): string
-    {
-        static $palette = [
-            '#2563eb', '#7c3aed', '#db2777', '#dc2626',
-            '#ea580c', '#ca8a04', '#16a34a', '#0d9488',
-            '#0891b2', '#4f46e5', '#c026d3', '#9333ea',
-            '#e11d48', '#059669', '#0284c7', '#475569',
-        ];
-
-        if ($seed === '') {
-            return $palette[0];
-        }
-
-        $hash = 0;
-        $bytes = unpack('C*', $seed) ?: [];
-        foreach ($bytes as $byte) {
-            $hash = (($hash << 5) - $hash + $byte) & 0xFFFFFFFF;
-        }
-
-        return $palette[abs($hash) % count($palette)];
     }
 }

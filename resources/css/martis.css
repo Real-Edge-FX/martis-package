@@ -3149,6 +3149,17 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   font-weight: 400;
   color: var(--martis-text-muted);
 }
+/* Initials text inside the 64px interactive avatar input. */
+.martis-avatar.is-interactive .martis-avatar-initials-text {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.martis-avatar.is-interactive.has-image {
+  border-style: solid;
+  border-color: var(--martis-border);
+  background-color: var(--martis-card);
+}
 .martis-avatar-input-meta {
   display: flex;
   flex-direction: column;

@@ -6,13 +6,20 @@ interface AvatarSchema {
   acceptedTypes?: string[]
 }
 
-type StoredValue = {
+interface StoredPayload {
   url?: string | null
   name?: string | null
   path?: string | null
   thumbnailUrl?: string | null
   isFallback?: boolean
-} | File | null | undefined
+  // Zero-config initials fallback — no external service.
+  isInitialsFallback?: boolean
+  initials?: string
+  color?: string
+  seed?: string
+}
+
+type Value = StoredPayload | File | null | undefined
 
 function resolveShapeClass(shape: string | undefined): string {
   switch (shape) {
@@ -26,7 +33,7 @@ function resolveShapeClass(shape: string | undefined): string {
   }
 }
 
-function resolveUrl(value: StoredValue): string | null {
+function resolveUrl(value: Value): string | null {
   if (!value) return null
   if (value instanceof File) {
     return URL.createObjectURL(value)
@@ -37,11 +44,59 @@ function resolveUrl(value: StoredValue): string | null {
   return null
 }
 
+function asPayload(value: Value): StoredPayload | null {
+  if (!value || value instanceof File) return null
+  return value
+}
+
+/** WCAG-ish contrast pick: return black on pale bg, white otherwise. */
+function readableTextColor(hex: string): string {
+  const h = hex.replace('#', '')
+  if (h.length !== 6) return '#fff'
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.6 ? '#0f172a' : '#ffffff'
+}
+
+function InitialsCircle({
+  initials,
+  color,
+  shapeClass,
+}: {
+  initials: string
+  color: string
+  shapeClass: string
+}) {
+  return (
+    <span
+      className={`martis-avatar ${shapeClass} martis-ui-avatar`}
+      style={{ backgroundColor: color, color: readableTextColor(color) }}
+      aria-hidden="true"
+    >
+      {initials || '?'}
+    </span>
+  )
+}
+
 export function AvatarFieldDisplay({ field, value }: FieldDisplayProps) {
   const schema = field as unknown as AvatarSchema
-  const url = resolveUrl(value as StoredValue)
   const shapeClass = resolveShapeClass(schema.shape)
+  const payload = asPayload(value as Value)
 
+  // Zero-config initials fallback — rendered inline.
+  if (payload?.isInitialsFallback && payload.initials !== undefined) {
+    return (
+      <InitialsCircle
+        initials={payload.initials}
+        color={payload.color ?? '#475569'}
+        shapeClass={shapeClass}
+      />
+    )
+  }
+
+  const url = resolveUrl(value as Value)
   if (!url) {
     return <span className="martis-text-muted">—</span>
   }
@@ -61,23 +116,39 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
     .join(',')
 
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const [preview, setPreview] = useState<string | null>(resolveUrl(value as StoredValue))
+  const payload = asPayload(value as Value)
+  const initialPreview = resolveUrl(value as Value)
+  const [preview, setPreview] = useState<string | null>(initialPreview)
 
   const handleFile = (file: File | null) => {
     onChange(file)
     setPreview(file ? URL.createObjectURL(file) : null)
   }
 
+  const showInitialsFallback =
+    preview === null && payload?.isInitialsFallback && payload.initials !== undefined
+
   return (
     <div className={`martis-avatar-input${error ? ' has-error' : ''}`}>
       <button
         type="button"
-        className={`martis-avatar ${shapeClass} is-interactive`}
+        className={`martis-avatar ${shapeClass} is-interactive${preview || showInitialsFallback ? ' has-image' : ''}`}
         onClick={() => inputRef.current?.click()}
         aria-label="Upload avatar"
+        style={
+          showInitialsFallback
+            ? {
+                backgroundColor: payload?.color ?? '#475569',
+                color: readableTextColor(payload?.color ?? '#475569'),
+                borderStyle: 'solid',
+              }
+            : undefined
+        }
       >
         {preview ? (
           <img src={preview} alt="" />
+        ) : showInitialsFallback ? (
+          <span className="martis-avatar-initials-text">{payload.initials}</span>
         ) : (
           <span className="martis-avatar-placeholder">＋</span>
         )}
