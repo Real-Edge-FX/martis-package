@@ -29,7 +29,7 @@
 
 ---
 
-## Fields (37 Types)
+## Fields (41 Types)
 
 | Field | Nova v5 | Martis | Status | Notes |
 |-------|---------|--------|--------|-------|
@@ -69,6 +69,10 @@
 | Icon | — | Icon::make() + Phosphor picker / palette / colorFrom | DONE | ⭐ 100% Martis |
 | Stack | Stack (detail-only) | Stack::make() + renders on index + divider() | DONE | ⭐ Extended |
 | Line | Line | Line::make() + asHeading/asSmall/asMuted/asCode + subtitleFrom() | DONE | ⭐ Extended |
+| BooleanGroup | BooleanGroup | BooleanGroup::make() + grouped() + minChecked/maxChecked + requireAny/All | DONE | ⭐ Extended |
+| Avatar | Avatar (Image subclass) | Avatar::make() + per-row fallback(Closure) + AvatarShape enum | DONE | ⭐ Extended |
+| UiAvatar | UiAvatar | UiAvatar::make() + deterministic palette + colorFrom() + initials(Closure) | DONE | ⭐ Extended |
+| Audio | Audio | Audio::make() + client-side waveform + downloadable() | DONE | ⭐ Extended |
 | Field Visibility | showOnIndex/hideFromIndex | All 4 contexts supported | DONE | Block 4 |
 | Field Validation | Built-in validation | required/nullable/rules() | DONE | Block 4 |
 | Field Sorting | Sortable columns | sortable() | DONE | Block 4 |
@@ -283,7 +287,12 @@
 
 | Feature | Description | Nova v5 | Martis |
 |---------|-------------|---------|--------|
-| 22 Extended Field Types | Badge, Status, Code, Color, Country, Currency, Icon⭐, Slug⭐, Stack⭐, Timezone⭐, etc. | Separate packages | Built-in |
+| 26 Extended Field Types | Badge, Status, Code, Color, Country, Currency, Icon⭐, Slug⭐, Stack⭐, Timezone⭐, Audio⭐, Avatar⭐, BooleanGroup⭐, UiAvatar⭐, etc. | Separate packages | Built-in |
+| BooleanGroup grouped sections | `grouped([section => keys])` collapsible panels for long flag lists | Flat list only | ⭐ |
+| BooleanGroup min/max counter | Live UI counter + server validation | Not available | ⭐ |
+| Avatar per-row fallback | Closure receives the model; each row picks its own fallback URL | Static URL only | ⭐ |
+| UiAvatar deterministic palette | 16-slot hash palette — same name → same colour, no DB column | Not available | ⭐ |
+| Audio waveform preview | Client-side canvas waveform via Web Audio API | Not available | ⭐ |
 | Stack on Index | Compact identity cell without custom component | Detail-only | `Stack::make(...)` ⭐ |
 | Line `subtitleFrom()` | Emit a second muted line from another attribute | Declare second Line manually | One-liner sugar ⭐ |
 | Icon Picker Field | Phosphor icon picker with palette restriction | Not available | `Icon::make()` ⭐ |

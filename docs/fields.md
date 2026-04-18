@@ -31,6 +31,10 @@ All available field types in Martis, their methods, and configuration options.
   - [Textarea](#textarea)
   - [Number](#number)
   - [Boolean](#boolean)
+  - [BooleanGroup](#booleangroup)
+  - [Avatar](#avatar)
+  - [UiAvatar](#uiavatar)
+  - [Audio](#audio)
   - [Select](#select)
   - [MultiSelect](#multiselect)
   - [Date](#date)
@@ -71,7 +75,10 @@ All available field types in Martis, their methods, and configuration options.
 ```php
 use Martis\Fields\Badge;
 use Martis\Fields\BelongsTo;
+use Martis\Fields\Audio;
+use Martis\Fields\Avatar;
 use Martis\Fields\Boolean;
+use Martis\Fields\BooleanGroup;
 use Martis\Fields\Code;
 use Martis\Fields\Color;
 use Martis\Fields\Country;
@@ -103,6 +110,7 @@ use Martis\Fields\Text;
 use Martis\Fields\Textarea;
 use Martis\Fields\Timezone;
 use Martis\Fields\Trix;
+use Martis\Fields\UiAvatar;
 use Martis\Fields\Url;
 ```
 
@@ -377,6 +385,149 @@ Boolean::make('is_active', 'Active')
 
 **Overrides:** `resolve()` casts to `(bool)`, `fill()` casts incoming to `(bool)`.
 **Extra attributes:** `trueLabel`, `falseLabel`
+
+---
+
+### BooleanGroup
+
+**Type identifier:** `boolean_group`
+**Extends:** `Field`
+**File:** `src/Fields/BooleanGroup.php`
+
+Map of named boolean flags stored as JSON. Ideal for permission grids, feature gates, notification preferences.
+
+```php
+BooleanGroup::make('permissions')
+    ->options([
+        'clients.view' => 'View clients',
+        'clients.edit' => 'Edit clients',
+        'billing.view' => 'View billing',
+    ])
+    ->grouped([
+        'Clients' => ['clients.view', 'clients.edit'],
+        'Billing' => ['billing.view'],
+    ])
+    ->requireAny();
+```
+
+| Method | Description |
+|---|---|
+| `options(array)` | Flag key → label map |
+| `labels(array)` | Override option labels with translations |
+| `grouped(array)` ⭐ | Organise options into collapsible sections (`['Title' => ['key1','key2']]`) |
+| `hideFalseValues(bool)` / `hideTrueValues(bool)` | Display filter for the read-only view |
+| `noValueText(string)` | Placeholder when every flag is off and `hideFalseValues` is on |
+| `minChecked(int)` ⭐ | Minimum number of flags that must be on — shown as a live UI counter |
+| `maxChecked(int)` ⭐ | Maximum number of flags that can be on — disables extra checkboxes live |
+| `requireAny()` ⭐ | Sugar for `minChecked(1)` |
+| `requireAll()` ⭐ | Sugar for `minChecked(count(options))` |
+
+**⭐ Martis differentials vs Nova:** grouped sections, min/max live counter, `requireAny/All` presets. Nova is a flat list only.
+
+---
+
+### Avatar
+
+**Type identifier:** `avatar`
+**Extends:** `Image`
+**File:** `src/Fields/Avatar.php`
+
+Image upload specialised for profile pictures. Inherits every upload helper from `Image` (`disk`, `storagePath`, `maxSize`, `thumbnail`, …).
+
+**Zero configuration needed for the empty state** — when a record has no upload AND the developer didn't declare an explicit `fallback()`, the field renders coloured initials inline using a deterministic 16-slot palette (same look as the topbar user pill). No external service call, no extra DB column, no boilerplate closure.
+
+```php
+// One-liner: uploaded photo when present, coloured initials inline otherwise.
+Avatar::make('avatar_path')
+    ->disk('public')
+    ->storagePath('team-avatars')
+    ->maxSize(2048)
+    ->circle()
+    ->colorFrom('brand_color'); // optional: use a brand attribute instead of the hash palette
+```
+
+**Resolution priority (per row):**
+
+| # | Condition | Output |
+|---|---|---|
+| 1 | Stored file exists | `<img src={uploaded_url}>` |
+| 2 | Developer set `fallback($url \| Closure)` | `<img src={fallback}>` |
+| 3 | Neither of the above | Inline coloured initials — no external request |
+
+| Method | Description |
+|---|---|
+| `shape(AvatarShape)` | Typed enum: `Circle` (default), `Rounded`, `Squared` |
+| `circle()` / `rounded()` / `squared()` | Convenience shortcuts |
+| `fallback($url \| Closure)` ⭐ | Override the default inline initials with a custom URL (static or per-row) — opt-in, usually unnecessary |
+| `initialsFrom(string)` ⭐ | Seed attribute for initials + palette (default: `name`) |
+| `colorFrom(string)` ⭐ | Pull the initials background from a model attribute (e.g. `brand_color`) |
+| `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
+
+**⭐ Martis differentials vs Nova:**
+- **Zero-config inline initials fallback** — no external service, no extra closures, works out of the box. Nova requires a static `fallbackUrl` and has no initials rendering at all.
+- Per-row Closure-aware `fallback()` when you *do* want a custom URL.
+- Typed `AvatarShape` enum instead of a boolean `rounded()`.
+- Deterministic palette shared with `UiAvatar`, login, topbar and profile surfaces via the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait.
+
+---
+
+### UiAvatar
+
+**Type identifier:** `ui_avatar`
+**Extends:** `Field`
+**File:** `src/Fields/UiAvatar.php`
+
+Display-only initials pill. Differs from `Avatar` in one key way: **it never takes an upload** — the value is computed entirely from the model.
+
+**When to pick `UiAvatar` over `Avatar`:**
+
+| Your resource… | Use |
+|---|---|
+| has a photo column and you want users to upload | `Avatar` (initials inline when empty come for free) |
+| has no photo column at all and never will | `UiAvatar` |
+| is read-only / system-generated and an upload input would be noise | `UiAvatar` |
+
+```php
+UiAvatar::make('avatar_initials')
+    ->from('name')
+    ->colorFrom('brand_color')
+    ->circle();
+```
+
+| Method | Description |
+|---|---|
+| `from(string)` | Attribute used as the seed (default: field's own attribute) |
+| `shape(AvatarShape)` / `circle()` / `rounded()` / `squared()` | Visual parity with `Avatar` |
+| `colorFrom(string)` ⭐ | Pull background colour from a model attribute (brand colour) |
+| `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
+
+**⭐ Martis differentials vs Nova:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`. Nova's `UiAvatar` hits the external ui-avatars.com service — Martis's runs entirely client-side with no network call.
+
+---
+
+### Audio
+
+**Type identifier:** `audio`
+**Extends:** `File`
+**File:** `src/Fields/Audio.php`
+
+File upload specialised for audio clips. Renders an inline HTML5 player + a canvas waveform painted client-side (zero server dependencies).
+
+```php
+Audio::make('intro_audio_path')
+    ->disk('public')
+    ->storagePath('team-audio')
+    ->maxSize(10240)
+    ->downloadable(false);
+```
+
+| Method | Description |
+|---|---|
+| `waveform(bool)` ⭐ | Toggle the canvas waveform (default `true`) |
+| `downloadable(bool)` | Toggle the download button on the player |
+| `acceptedTypes(array)` | Override the default `mp3/wav/ogg/m4a/flac/aac` allow-list |
+
+**⭐ Martis differentials vs Nova:** **client-side canvas waveform** (Web Audio API decode + peak sampling — no server rendering, no external dependency), package-native player chrome, `downloadable(bool)` toggle.
 
 ---
 

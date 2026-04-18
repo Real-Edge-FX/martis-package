@@ -2921,3 +2921,288 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   line-height: 1.25;
   font-weight: 400;
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   BooleanGroup — permission matrix with PrimeReact checkboxes,
+   grouped sections, and a live min/max chip counter.
+   (⭐ Task 07 PR B)
+   ──────────────────────────────────────────────────────────────────── */
+.martis-boolgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  position: relative;
+}
+.martis-boolgroup-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Counter chip — pinned top-right, colour shifts with state. */
+.martis-boolgroup-counter {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-card);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--martis-text-muted);
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.martis-boolgroup-counter.state-ok {
+  color: var(--martis-success);
+  background-color: color-mix(in srgb, var(--martis-success) 8%, var(--martis-card));
+  border-color: color-mix(in srgb, var(--martis-success) 30%, var(--martis-border));
+}
+.martis-boolgroup-counter.state-warn {
+  color: var(--martis-warning);
+  background-color: color-mix(in srgb, var(--martis-warning) 10%, var(--martis-card));
+  border-color: color-mix(in srgb, var(--martis-warning) 35%, var(--martis-border));
+}
+.martis-boolgroup.has-error .martis-boolgroup-counter {
+  color: var(--martis-danger);
+  background-color: color-mix(in srgb, var(--martis-danger) 10%, var(--martis-card));
+  border-color: color-mix(in srgb, var(--martis-danger) 35%, var(--martis-border));
+}
+.martis-boolgroup-counter-value { line-height: 1; }
+
+/* Section card — soft border, tight header. */
+.martis-boolgroup-section {
+  border: 1px solid var(--martis-border);
+  border-radius: 0.625rem;
+  background-color: var(--martis-card);
+  padding: 0.75rem 0.875rem 0.625rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.martis-boolgroup-legend {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--martis-border) 60%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--martis-text-muted);
+}
+.martis-boolgroup-section-count {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--martis-text-muted);
+}
+
+/* Options grid — each row becomes an interactive pill. */
+.martis-boolgroup-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.375rem;
+}
+.martis-boolgroup-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4375rem 0.625rem;
+  border-radius: 0.4375rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  color: var(--martis-text);
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  user-select: none;
+}
+.martis-boolgroup-option:hover:not(.is-disabled):not(.is-on) {
+  background-color: var(--martis-hover);
+}
+.martis-boolgroup-option.is-on {
+  background-color: color-mix(in srgb, var(--martis-accent) 7%, var(--martis-card));
+  border-color: color-mix(in srgb, var(--martis-accent) 30%, var(--martis-border));
+  color: var(--martis-text);
+  font-weight: 500;
+}
+.martis-boolgroup-option.is-disabled {
+  color: var(--martis-text-muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.martis-boolgroup-option-label { flex: 1; min-width: 0; }
+
+/* PrimeReact Checkbox — bring its look closer to the package tokens. */
+.martis-boolgroup-option .p-checkbox,
+.martis-boolgroup-option .p-checkbox-box {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.martis-boolgroup-option .p-checkbox-box {
+  border-radius: 0.25rem;
+  border-color: var(--martis-border);
+  background-color: var(--martis-card);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.martis-boolgroup-option .p-checkbox-box.p-highlight {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+}
+.martis-boolgroup-option .p-checkbox-box.p-highlight:hover {
+  background-color: var(--martis-accent-hover);
+  border-color: var(--martis-accent-hover);
+}
+.martis-boolgroup-option .p-checkbox-box .p-checkbox-icon {
+  color: #fff;
+  font-size: 0.75rem;
+}
+.martis-boolgroup-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.martis-boolgroup-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-surface-alt);
+  color: var(--martis-text);
+}
+.martis-boolgroup-pill.is-on { color: var(--martis-text); }
+.martis-boolgroup-pill.is-off { color: var(--martis-text-muted); }
+.martis-boolgroup-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--martis-border);
+}
+.martis-boolgroup-pill.is-on .martis-boolgroup-dot {
+  background-color: var(--martis-success);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   Avatar + UiAvatar — shared shape classes so the two fields are
+   interchangeable as row identity pictures. (⭐ Task 07 PR B)
+   ──────────────────────────────────────────────────────────────────── */
+.martis-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  overflow: hidden;
+  background-color: var(--martis-surface-alt);
+  color: var(--martis-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  user-select: none;
+}
+.martis-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.martis-avatar-circle { border-radius: 999px; }
+.martis-avatar-rounded { border-radius: 0.5rem; }
+.martis-avatar-squared { border-radius: 0.125rem; }
+
+.martis-ui-avatar {
+  /* colour + shape set inline by the component */
+}
+
+.martis-avatar-input {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+.martis-avatar-input.has-error .martis-avatar {
+  outline: 2px solid var(--martis-danger);
+  outline-offset: 2px;
+}
+.martis-avatar.is-interactive {
+  width: 4rem;
+  height: 4rem;
+  cursor: pointer;
+  border: 1px dashed var(--martis-border);
+  background-color: var(--martis-surface-alt);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.martis-avatar.is-interactive:hover {
+  background-color: var(--martis-hover);
+  border-color: var(--martis-text-muted);
+}
+.martis-avatar-placeholder {
+  font-size: 1.75rem;
+  font-weight: 400;
+  color: var(--martis-text-muted);
+}
+/* Initials text inside the 64px interactive avatar input. */
+.martis-avatar.is-interactive .martis-avatar-initials-text {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.martis-avatar.is-interactive.has-image {
+  border-style: solid;
+  border-color: var(--martis-border);
+  background-color: var(--martis-card);
+}
+.martis-avatar-input-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  align-items: flex-start;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   Audio — inline player + canvas waveform (⭐ Task 07 PR B)
+   ──────────────────────────────────────────────────────────────────── */
+.martis-audio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.martis-audio-waveform {
+  width: 100%;
+  height: 52px;
+  display: block;
+  background-color: var(--martis-surface-alt);
+  border-radius: 0.375rem;
+  border: 1px solid var(--martis-border);
+}
+.martis-audio-player {
+  width: 100%;
+  height: 36px;
+}
+.martis-audio-empty {
+  font-size: 0.8125rem;
+  padding: 0.5rem 0;
+}
+.martis-audio-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.martis-audio-input.has-error .martis-audio-waveform {
+  border-color: var(--martis-danger);
+}
+.martis-audio-input-controls {
+  display: flex;
+  gap: 0.5rem;
+}

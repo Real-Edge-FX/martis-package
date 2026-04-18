@@ -346,13 +346,16 @@ CountryFilter::make('Country')->searchable()
 
 ## Field Extensions
 
-### 22 Extended Field Types (Built-in)
+### 26 Extended Field Types (Built-in)
 
 All included without additional packages:
 
 | Field | Description |
 |-------|-------------|
+| `Audio` ⭐ | Audio upload + **client-side canvas waveform** (zero server deps) + `downloadable(bool)` |
+| `Avatar` ⭐ | Image subclass with per-row `fallback($url\|Closure)` + typed `shape(AvatarShape::*)` |
 | `Badge` | Colored status badge — closure-backed map/labels and per-row `resolveBadgeUsing()` (⭐) |
+| `BooleanGroup` ⭐ | Named boolean flags with `grouped([section => keys])` + `minChecked/maxChecked` live counter + `requireAny/All` |
 | `Status` | Status indicator with color mapping |
 | `Code` | Code editor with syntax highlighting |
 | `Color` | Color picker with preview |
@@ -365,6 +368,7 @@ All included without additional packages:
 | `MultiSelect` | Multi-select dropdown |
 | `PasswordConfirmation` | Companion confirmation field that pairs with `Password::new()` |
 | `Slug` | URL-safe auto-generated identifier with live collision check (⭐) |
+| `UiAvatar` ⭐ | Deterministic 16-slot palette from seed hash, `colorFrom('attribute')`, custom `initials(Closure)` |
 | `Sparkline` | Inline mini chart |
 | `Stack` + `Line` ⭐ | Composite display — Martis renders on index too (Nova is detail-only) |
 | `Tag` | Tag input with autocomplete |
@@ -383,6 +387,50 @@ Nova 5 ships no Icon field. Martis provides three complementary modes:
 - **Computed from another attribute** — derive the icon from a model field via a closure; the picker is hidden.
 
 Supports palette whitelisting (restrict to a configured subset), `colorFrom()` to pull the hex colour from another attribute, configurable sizes and tooltips. Full API lives in [Fields Reference](fields.md#icon).
+
+### BooleanGroup — Grouped Sections + Live Counter (⭐)
+
+Nova's `BooleanGroup` is a flat list. Martis adds:
+
+- **`grouped([sectionTitle => keys])`** — renders each section as a collapsible panel with its own legend. Keeps 20+ permission flags manageable.
+- **`minChecked(int)` / `maxChecked(int)`** — enforced server-side AND surfaced as a live counter pill that turns amber when the user hasn't met the minimum or hits the ceiling.
+- **`requireAny()` / `requireAll()`** — convenience presets.
+
+```php
+BooleanGroup::make('permissions')
+    ->options(['clients.view' => 'View clients', /* … */])
+    ->grouped(['Clients' => ['clients.view']])
+    ->requireAny();
+```
+
+### Avatar + UiAvatar — Identity Pictures with Zero Plumbing (⭐)
+
+Both fields share the same palette + initials logic through the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait, keeping the topbar pill, login view, profile page, `Avatar` empty state and `UiAvatar` all visually consistent.
+
+**`Avatar` — upload field with a zero-config empty state:**
+
+- **Out of the box**, `Avatar::make('photo')` renders an `<img>` when the user uploaded one, and **coloured initials inline** when they haven't. No fallback closure required. No external service hit.
+- `fallback($url | Closure)` is still available as an **opt-in** override (per-row Closure-aware) — Nova's `fallbackUrl` is static only.
+- `colorFrom('brand_color')` + `initialsFrom('display_name')` + `initials(Closure)` customise the defaults.
+- Typed `AvatarShape::Circle | Rounded | Squared` enum instead of Nova's `rounded()` boolean.
+
+**`UiAvatar` — always initials, never uploads:**
+
+- Display-only (`hideFromForms()` locked), computed from the model — no DB column.
+- Same deterministic 16-slot palette hash. **Martis ships it client-side; Nova's equivalent calls the external `ui-avatars.com` service on every render.**
+- Same `colorFrom()` / `initials(Closure)` / `from('other_attr')` knobs as `Avatar`.
+
+```php
+// Most common case — one line, inline initials for members without a photo.
+Avatar::make('avatar_path')->circle()->colorFrom('brand_color');
+
+// Read-only resource without a photo column — pure initials pill.
+UiAvatar::make('avatar_initials')->from('name')->colorFrom('brand_color');
+```
+
+### Audio — Canvas Waveform, Zero Server Deps (⭐)
+
+Nova's `Audio` field is a thin wrapper over `File` with an `<audio>` element. Martis adds a **client-side waveform**: we fetch the audio, decode it via `AudioContext`, sample peaks, and paint them onto a `<canvas>`. No server-side image rendering, no ffmpeg, no external service. `downloadable(bool)` toggles the download button.
 
 ### Stack + Line — Index-capable Composite Display (⭐)
 
