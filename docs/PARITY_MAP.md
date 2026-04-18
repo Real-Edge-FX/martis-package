@@ -29,7 +29,7 @@
 
 ---
 
-## Fields (35 Types)
+## Fields (37 Types)
 
 | Field | Nova v5 | Martis | Status | Notes |
 |-------|---------|--------|--------|-------|
@@ -67,6 +67,8 @@
 | PasswordConfirmation | Password confirmation | PasswordConfirmation::make() + live match | DONE | — |
 | Timezone | — | Timezone::make() + grouped dropdown + live clock | DONE | ⭐ Extended |
 | Icon | — | Icon::make() + Phosphor picker / palette / colorFrom | DONE | ⭐ 100% Martis |
+| Stack | Stack (detail-only) | Stack::make() + renders on index + divider() | DONE | ⭐ Extended |
+| Line | Line | Line::make() + asHeading/asSmall/asMuted/asCode + subtitleFrom() | DONE | ⭐ Extended |
 | Field Visibility | showOnIndex/hideFromIndex | All 4 contexts supported | DONE | Block 4 |
 | Field Validation | Built-in validation | required/nullable/rules() | DONE | Block 4 |
 | Field Sorting | Sortable columns | sortable() | DONE | Block 4 |
@@ -281,7 +283,9 @@
 
 | Feature | Description | Nova v5 | Martis |
 |---------|-------------|---------|--------|
-| 20 Extended Field Types | Badge, Status, Code, Color, Country, Currency, Icon⭐, Slug⭐, Timezone⭐, etc. | Separate packages | Built-in |
+| 22 Extended Field Types | Badge, Status, Code, Color, Country, Currency, Icon⭐, Slug⭐, Stack⭐, Timezone⭐, etc. | Separate packages | Built-in |
+| Stack on Index | Compact identity cell without custom component | Detail-only | `Stack::make(...)` ⭐ |
+| Line `subtitleFrom()` | Emit a second muted line from another attribute | Declare second Line manually | One-liner sugar ⭐ |
 | Icon Picker Field | Phosphor icon picker with palette restriction | Not available | `Icon::make()` ⭐ |
 | Slug Field | Live auto-generation + collision check + freeze-after-publish | Not available | `Slug::make()->freezeAfterPublish()` ⭐ |
 | Timezone Field | Grouped IANA dropdown with live clock | Not available | `Timezone::make()` ⭐ |

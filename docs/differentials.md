@@ -346,7 +346,7 @@ CountryFilter::make('Country')->searchable()
 
 ## Field Extensions
 
-### 20 Extended Field Types (Built-in)
+### 22 Extended Field Types (Built-in)
 
 All included without additional packages:
 
@@ -366,6 +366,7 @@ All included without additional packages:
 | `PasswordConfirmation` | Companion confirmation field that pairs with `Password::new()` |
 | `Slug` | URL-safe auto-generated identifier with live collision check (⭐) |
 | `Sparkline` | Inline mini chart |
+| `Stack` + `Line` ⭐ | Composite display — Martis renders on index too (Nova is detail-only) |
 | `Tag` | Tag input with autocomplete |
 | `Timezone` | IANA timezone dropdown with live clock (⭐) |
 | `Trix` | Rich text editor with attachment uploads |
@@ -382,6 +383,19 @@ Nova 5 ships no Icon field. Martis provides three complementary modes:
 - **Computed from another attribute** — derive the icon from a model field via a closure; the picker is hidden.
 
 Supports palette whitelisting (restrict to a configured subset), `colorFrom()` to pull the hex colour from another attribute, configurable sizes and tooltips. Full API lives in [Fields Reference](fields.md#icon).
+
+### Stack + Line — Index-capable Composite Display (⭐)
+
+Nova's Stack field is detail-only. Martis ships `Stack::make(...)` that renders on index as well — ideal for compressing identity columns (name + email + company) into a single table cell without writing a custom component. `Line::subtitleFrom('attribute'|Closure)` emits a second muted line below the first without declaring an extra `Line`, and `Stack::divider()` inserts a thin separator between entries.
+
+```php
+Stack::make('identity', __('fields.identity'), [
+    Line::make('name')->asHeading()->subtitleFrom('email'),
+    Line::make('company')->asMuted(),
+])->divider();
+```
+
+Line variants — `asHeading()`, `asBase()`, `asSmall()`, `asMuted()`, `asCode()` — map to `.martis-line-*` classes so custom themes restyle every Line in the package through a handful of CSS tokens instead of per-field inline styles. See [Fields Reference](fields.md#stack--line).
 
 ### Badge Closures — Schema-time and Per-row (⭐)
 

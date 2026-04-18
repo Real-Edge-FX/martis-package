@@ -2814,3 +2814,110 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-filled:hover:not(:disabled) {
   filter: brightness(0.92);
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   Stack + Line — composite display field (Nova parity + differentials)
+
+   The Stack renders a vertical list of Lines as a single cell/detail
+   slot. Each Line picks one variant → CSS class, so custom themes can
+   restyle every Line in the package by overriding the handful of tokens
+   below without hunting down inline styles.
+
+   Variants → .martis-line-{variant}:
+     heading  — bold, prominent (default first line)
+     base     — regular body weight
+     small    — smaller, de-emphasised
+     muted    — secondary colour
+     code     — INLINE monospace pill, never stretches (⭐ Martis diff)
+   ──────────────────────────────────────────────────────────────────── */
+.martis-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+/* Divider mode is opt-in. Keeps the rule short + faded so the block
+   reads as a single identity card, not a series of disjointed rows. */
+.martis-stack--divided {
+  gap: 0.625rem;
+}
+.martis-stack--divided > .martis-line-row + .martis-line-row {
+  position: relative;
+  padding-top: 0.625rem;
+}
+.martis-stack--divided > .martis-line-row + .martis-line-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--martis-border);
+  opacity: 0.5;
+}
+
+/* Row = (primary line) [+ optional subtitle]. Children shrink to their
+   content width (align-items: flex-start) so inline pills like
+   .martis-line-code never stretch to the full cell width. */
+.martis-line-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.0625rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.martis-line-row > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.martis-line-heading {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--martis-text);
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+.martis-line-base {
+  font-weight: 400;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+  line-height: 1.35;
+}
+.martis-line-small {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--martis-text);
+  line-height: 1.35;
+}
+.martis-line-muted {
+  font-weight: 400;
+  font-size: 0.8125rem;
+  color: var(--martis-text-muted);
+  line-height: 1.35;
+}
+
+/* Compact, inline monospace pill — hugs its text. */
+.martis-line-code {
+  display: inline-flex;
+  align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--martis-text-muted);
+  background-color: var(--martis-surface-alt);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.3125rem;
+  border: 1px solid var(--martis-border);
+  line-height: 1.4;
+}
+
+.martis-line-subtitle {
+  font-size: 0.75rem;
+  color: var(--martis-text-muted);
+  line-height: 1.25;
+  font-weight: 400;
+}

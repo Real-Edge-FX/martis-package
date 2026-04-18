@@ -35,6 +35,7 @@ import { SlugFieldDisplay, SlugFieldInput } from './SlugField'
 import { PasswordConfirmationFieldDisplay, PasswordConfirmationFieldInput } from './PasswordConfirmationField'
 import { TimezoneFieldDisplay, TimezoneFieldInput } from './TimezoneField'
 import { IconFieldDisplay, IconFieldInput } from './IconField'
+import { StackFieldDisplay, StackFieldInput } from './StackField'
 
 const LAZY_FIELD_FALLBACK = <div />
 
@@ -223,6 +224,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   password_confirmation: PasswordConfirmationFieldDisplay,
   timezone: TimezoneFieldDisplay,
   icon: IconFieldDisplay,
+  stack: StackFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -270,6 +272,7 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   password_confirmation: PasswordConfirmationFieldInput,
   timezone: TimezoneFieldInput,
   icon: IconFieldInput,
+  stack: StackFieldInput,
 }
 
 // -------------------------------------------------------------------------
