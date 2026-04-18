@@ -86,6 +86,7 @@ use Martis\Fields\Icon;
 use Martis\Fields\Id;
 use Martis\Fields\Image;
 use Martis\Fields\KeyValue;
+use Martis\Fields\Line;
 use Martis\Fields\Markdown;
 use Martis\Fields\MultiSelect;
 use Martis\Fields\Number;
@@ -94,6 +95,7 @@ use Martis\Fields\PasswordConfirmation;
 use Martis\Fields\Select;
 use Martis\Fields\Slug;
 use Martis\Fields\Sparkline;
+use Martis\Fields\Stack;
 use Martis\Fields\Status;
 use Martis\Fields\Tag;
 use Martis\Fields\Text;
@@ -694,6 +696,62 @@ Icon::make('state')->icon(fn ($model) => $model->is_active ? 'check' : 'x')
 - Mode A defaults to `showOnForms = false`. `->stored()` re-enables form exposure.
 - `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model.
 - Index rendering respects `size()` — put a small Icon at the start of `fieldsForIndex()` to get a visual marker on each row.
+
+---
+
+### Stack + Line
+
+**Type identifier:** `stack` / `line`
+**Extends:** `Field`
+**File:** `src/Fields/Stack.php`, `src/Fields/Line.php`
+
+Composite display field — renders a vertical stack of styled text lines as a single cell/detail slot. Ideal for compressing identity columns (name + email + company) into a single column without writing a custom component.
+
+```php
+Stack::make('identity', __('fields.identity'), [
+    Line::make('name')->asHeading()->subtitleFrom('email'),
+    Line::make('company')->asMuted(),
+])->divider();
+```
+
+**Calling styles:**
+
+```php
+Stack::make('identity', [Line::make('name'), Line::make('email')]);            // attribute + lines
+Stack::make('identity', 'Identity', [Line::make('name')]);                    // attribute + label + lines
+```
+
+**Line API — style variants:**
+
+| Method | Class | When to use |
+|--------|-------|-------------|
+| `asHeading()` | `.martis-line-heading` | primary label (bold, slightly larger) |
+| `asBase()` | `.martis-line-base` | default body copy |
+| `asSmall()` | `.martis-line-small` | compact secondary text |
+| `asMuted()` | `.martis-line-muted` | de-emphasised supporting text |
+| `asCode()` ⭐ | `.martis-line-code` | monospace pill for slugs, IDs, tokens |
+| `subtitleFrom($attrOrClosure)` ⭐ | — | emit a muted second line pulled from another attribute, without declaring a second Line |
+
+**Stack API:**
+
+| Method | Description |
+|--------|-------------|
+| `Stack::make($attribute, $lines)` | Create a Stack from an array of `Line` instances |
+| `Stack::make($attribute, $label, $lines)` | Same, with explicit label |
+| `divider(bool $enabled = true)` ⭐ | Insert a thin separator between Lines |
+| `getLines(): array<Line>` | Inspect configured lines |
+| `hasDivider(): bool` | Introspection helper |
+
+**⭐ Martis differentials vs Nova:**
+
+1. **Works on the index**. Nova's Stack is detail-only; Martis renders it as an index-table cell, perfect for identity columns.
+2. **`->asCode()` variant** — monospace styling for slugs, hashes, tokens.
+3. **`Line::subtitleFrom('attribute' | Closure)`** — one-line sugar to emit a muted secondary row without declaring a second `Line`. Accepts a Closure receiving the model for derived subtitles.
+4. **`Stack::divider()`** — thin `--martis-border` separator between Lines; great for metadata listings.
+
+**Payload shape (per row)**
+
+The Stack emits `{ __martisStack: true, entries: [{ text, variant, subtitle }], divider }`. The frontend `StackField` component detects the wrapper and renders each entry with the appropriate `.martis-line-*` class. Custom themes restyle every Line in the package by overriding the CSS variables used inside `.martis-line-heading/base/small/muted/code`.
 
 ---
 
