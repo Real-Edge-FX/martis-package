@@ -18,6 +18,7 @@ use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
+use Martis\Http\Controllers\SlugController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
 
@@ -141,6 +142,10 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Relatable options — Nova v5 parity
                                 Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
                                     ->name('resources.relatable');
+
+                                // Slug live collision check — Martis differential (D2)
+                                Route::get('/resources/{resource}/slug-check/{field}', [SlugController::class, 'check'])
+                                    ->name('resources.slug.check');
 
                                 // Lenses — Nova v5 parity
                                 Route::get('/resources/{resource}/lenses/{lens}', [LensController::class, 'index'])

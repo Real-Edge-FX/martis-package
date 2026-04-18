@@ -60,20 +60,44 @@ function resolveBadgeType(
 // Display
 // ---------------------------------------------------------------------------
 
-export function BadgeFieldDisplay({ field, value }: FieldDisplayProps) {
-  if (value === null || value === undefined || value === '') {
-    return <span className="martis-text-muted">—</span>
-  }
+/**
+ * Shape emitted by PHP's `Badge::resolveBadgeUsing()` per-row resolver.
+ * When present, we use its keys verbatim; anything null/undefined falls
+ * back to the static maps already serialised on the field schema.
+ */
+interface ResolvedBadgePayload {
+  __martisBadge: true
+  value: unknown
+  type: string | null
+  label: string | null
+  icon: string | null
+}
 
+function isResolvedBadgePayload(v: unknown): v is ResolvedBadgePayload {
+  return typeof v === 'object' && v !== null && (v as { __martisBadge?: unknown }).__martisBadge === true
+}
+
+export function BadgeFieldDisplay({ field, value }: FieldDisplayProps) {
   const map = ((field as Record<string, unknown>).map as Record<string, string> | undefined) ?? {}
   const labels = ((field as Record<string, unknown>).labels as Record<string, string> | undefined) ?? {}
   const types = ((field as Record<string, unknown>).types as Record<string, string> | undefined) ?? {}
   const icons = ((field as Record<string, unknown>).icons as Record<string, string> | undefined) ?? {}
   const withIcons = (field as Record<string, unknown>).withIcons as boolean | undefined
 
-  const { type, style } = resolveBadgeType(value, map, types)
-  const icon = withIcons ? icons[type] : null
-  const label = labels[String(value)] ?? String(value)
+  // Per-row resolver wins: grab its keys, fall back to static maps for any
+  // field the resolver left blank.
+  const resolved = isResolvedBadgePayload(value) ? value : null
+  const rawValue = resolved ? resolved.value : value
+
+  if (rawValue === null || rawValue === undefined || rawValue === '') {
+    if (!resolved || (!resolved.type && !resolved.label)) {
+      return <span className="martis-text-muted">—</span>
+    }
+  }
+
+  const { type, style } = resolveBadgeType(resolved?.type ?? rawValue, map, types)
+  const icon = resolved?.icon ?? (withIcons ? icons[type] : null)
+  const label = resolved?.label ?? labels[String(rawValue)] ?? String(rawValue)
 
   return (
     <span

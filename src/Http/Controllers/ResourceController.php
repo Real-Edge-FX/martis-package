@@ -204,16 +204,19 @@ class ResourceController extends MartisController
 
         // Support ?context=update so edit forms get raw attribute values
         $context = $request->query('context', 'detail');
+        $forDisplay = true;
         if ($context === 'update') {
             $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
+            $forDisplay = false;
         } elseif ($context === 'create') {
             $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
+            $forDisplay = false;
         } else {
             $fields = Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL);
         }
 
         return JsonResponse::make(
-            $this->serializeModel($res, $fields, $model),
+            $this->serializeModel($res, $fields, $model, $forDisplay),
         )->toResponse();
     }
 
@@ -810,7 +813,9 @@ class ResourceController extends MartisController
             ],
             'errorDisplay' => $resourceClass::errorDisplay()->value,
             'actionsMenuLabel' => $resourceClass::actionsMenuLabel(),
+            'actionsColumnLabel' => $resourceClass::actionsColumnLabel(),
             'bulkActionsMenuLabel' => $resourceClass::bulkActionsMenuLabel(),
+            'confirmUnsavedChanges' => $this->serializeUnsavedChangesConfig($resourceClass::confirmUnsavedChanges()),
             'validationMessage' => $resourceClass::validationMessage(),
             'overrides' => $instance->overrides(),
             'defaultRowActions' => $instance->resolveDefaultRowActions($request),
@@ -1106,6 +1111,25 @@ class ResourceController extends MartisController
         return $reflection->getValue($field);
     }
 
+    /**
+     * Serialise the `confirmUnsavedChanges()` return value into the shape
+     * the frontend expects: `false` (disabled), `true` (package defaults),
+     * or an array merged over the defaults.
+     *
+     * @return bool|array<string, mixed>
+     */
+    private function serializeUnsavedChangesConfig(mixed $value): bool|array
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if ($value instanceof \Martis\Contracts\UnsavedChangesConfigContract) {
+            return $value->toArray();
+        }
+
+        return false;
+    }
+
     // Internal helpers
     // -------------------------------------------------------------------------
 
@@ -1331,8 +1355,13 @@ class ResourceController extends MartisController
             $fieldRules = $field->buildRules();
 
             if ($isUpdate) {
-                // On update, fields are optional unless explicitly provided
-                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule $r): bool => is_string($r) && $r !== 'required'));
+                // On update, fields are optional unless explicitly provided.
+                // Rules can be strings, Rule objects, or Closures — we drop
+                // the literal 'required' string and keep everything else.
+                $fieldRules = array_values(array_filter(
+                    $fieldRules,
+                    fn ($r): bool => ! (is_string($r) && $r === 'required')
+                ));
                 if (empty($fieldRules)) {
                     $fieldRules = ['sometimes'];
                 } elseif (! in_array('sometimes', $fieldRules, true)) {

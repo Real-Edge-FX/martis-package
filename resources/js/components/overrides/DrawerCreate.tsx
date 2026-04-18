@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
@@ -8,6 +8,7 @@ import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 
 
@@ -64,6 +65,36 @@ export function DrawerCreate(props: OverrideProps) {
 
   const [values, setValues] = useState<Record<string, unknown>>(initialValues)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // ⭐ Camada B — track dirty state against the initial values so the
+  // drawer can warn before discarding. A live ref for `values` avoids a
+  // stale-closure false positive when popstate fires between setValues()
+  // and React's next render.
+  const initialSnapshot = useRef(JSON.stringify(initialValues))
+  const valuesRef = useRef<Record<string, unknown>>(values)
+  valuesRef.current = values
+  const isDirty = useCallback(
+    () => JSON.stringify(valuesRef.current) !== initialSnapshot.current,
+    [],
+  )
+  // `confirmUnsavedChanges` can be `true` (default config), `false`
+  // (disabled), or a full UnsavedChangesConfig object.
+  const confirmRaw = schema.confirmUnsavedChanges
+  const confirmEnabled = confirmRaw !== false
+  const confirmConfig =
+    confirmRaw && typeof confirmRaw === 'object' ? confirmRaw : null
+
+  // Pending prompt holds BOTH resolvers so cancel explicitly rejects
+  // the beforeClose Promise instead of leaving it dangling (which would
+  // stall the DrawerShell's async guard and break the sentinel re-arm
+  // on repeated back presses).
+  const [dirtyPrompt, setDirtyPrompt] = useState<null | { confirm: () => void; cancel: () => void }>(null)
+  const beforeClose = useCallback(async (): Promise<boolean> => {
+    if (!confirmEnabled || !isDirty()) return true
+    return new Promise<boolean>((resolve) => {
+      setDirtyPrompt({ confirm: () => resolve(true), cancel: () => resolve(false) })
+    })
+  }, [confirmEnabled, isDirty])
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -134,17 +165,18 @@ export function DrawerCreate(props: OverrideProps) {
       position={params.position as 'right' | 'left'}
       backdrop={params.backdrop as boolean}
       onClose={onClose}
+      beforeClose={beforeClose}
       footer={
         <>
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-md border px-4 py-2 text-sm font-medium"
-            style={{
-              borderColor: 'var(--martis-border)',
-              backgroundColor: 'var(--martis-input-bg)',
-              color: 'var(--martis-text-muted)',
+            onClick={() => {
+              void (async () => {
+                const ok = await beforeClose()
+                if (ok) onClose()
+              })()
             }}
+            className="martis-btn-secondary"
           >
             {tAct('cancel')}
           </button>
@@ -152,8 +184,7 @@ export function DrawerCreate(props: OverrideProps) {
             type="submit"
             form="martis-drawer-create-form"
             disabled={createMutation.isPending}
-            className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            style={{ backgroundColor: 'var(--martis-accent)' }}
+            className="martis-btn-primary"
           >
             {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
           </button>
@@ -189,11 +220,27 @@ export function DrawerCreate(props: OverrideProps) {
                 error={errors[field.attribute]}
                 resourceKey={resource}
                 context="create"
+                formValues={values}
               />
             </div>
           )
         })}
       </form>
+
+      <UnsavedChangesDialog
+        open={dirtyPrompt !== null}
+        config={confirmConfig}
+        onCancel={() => {
+          const prompt = dirtyPrompt
+          setDirtyPrompt(null)
+          prompt?.cancel()
+        }}
+        onConfirm={() => {
+          const prompt = dirtyPrompt
+          setDirtyPrompt(null)
+          prompt?.confirm()
+        }}
+      />
     </DrawerShell>
   )
 }

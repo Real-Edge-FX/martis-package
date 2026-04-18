@@ -2689,3 +2689,128 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-multiselect:not(.p-disabled):hover {
   border-color: var(--martis-accent) !important;
 }
+
+
+
+/* ⭐ Standardized button classes used across dialogs, drawers, modals
+   and pages. Every variant shares the same chip shape, typography,
+   subtle resting shadow and deepening hover shadow so the whole
+   package feels cohesive. Colour is the only variant-specific bit. */
+.martis-btn-secondary,
+.martis-btn-primary,
+.martis-btn-danger,
+.martis-btn-warning,
+.martis-btn-filled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  /* Resting chip shadow — shared by every variant for visual consistency. */
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    filter 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+  cursor: pointer;
+}
+.martis-btn-secondary:hover:not(:disabled),
+.martis-btn-primary:hover:not(:disabled),
+.martis-btn-danger:hover:not(:disabled),
+.martis-btn-warning:hover:not(:disabled),
+.martis-btn-filled:hover:not(:disabled) {
+  /* Shared hover elevation — every variant lifts slightly. */
+  box-shadow: 0 3px 6px rgba(15, 23, 42, 0.14);
+  transform: translateY(-1px);
+}
+.martis-btn-secondary:active:not(:disabled),
+.martis-btn-primary:active:not(:disabled),
+.martis-btn-danger:active:not(:disabled),
+.martis-btn-warning:active:not(:disabled),
+.martis-btn-filled:active:not(:disabled) {
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.1);
+  transform: translateY(0);
+}
+.martis-btn-secondary:disabled,
+.martis-btn-primary:disabled,
+.martis-btn-danger:disabled,
+.martis-btn-warning:disabled,
+.martis-btn-filled:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.martis-btn-secondary:focus-visible,
+.martis-btn-primary:focus-visible,
+.martis-btn-danger:focus-visible,
+.martis-btn-warning:focus-visible,
+.martis-btn-filled:focus-visible {
+  outline: 2px solid var(--martis-accent);
+  outline-offset: 2px;
+}
+
+/* Secondary / cancel: neutral chip with a subtle border. Hover keeps
+   the border the same colour (never jumps to a harsh near-black) —
+   feedback comes from the shared elevation and a gentle background
+   wash instead. */
+.martis-btn-secondary {
+  border-color: var(--martis-border);
+  background-color: var(--martis-card);
+  color: var(--martis-text);
+}
+.martis-btn-secondary:hover:not(:disabled) {
+  background-color: var(--martis-hover);
+  border-color: var(--martis-border);
+}
+
+/* Primary / accent: solid brand colour, shifts to accent-hover. */
+.martis-btn-primary {
+  background-color: var(--martis-accent);
+  border-color: var(--martis-accent);
+  color: #fff;
+}
+.martis-btn-primary:hover:not(:disabled) {
+  background-color: var(--martis-accent-hover);
+  border-color: var(--martis-accent-hover);
+}
+
+/* Danger: solid red, shifts to danger-hover. */
+.martis-btn-danger {
+  background-color: var(--martis-danger);
+  border-color: var(--martis-danger);
+  color: #fff;
+}
+.martis-btn-danger:hover:not(:disabled) {
+  background-color: var(--martis-danger-hover);
+  border-color: var(--martis-danger-hover);
+}
+
+/* Warning: solid amber, shifts to warning-hover. */
+.martis-btn-warning {
+  background-color: var(--martis-warning);
+  border-color: var(--martis-warning);
+  color: #fff;
+}
+.martis-btn-warning:hover:not(:disabled) {
+  background-color: var(--martis-warning-hover);
+  border-color: var(--martis-warning-hover);
+}
+
+/* Filled: for buttons whose background is set via inline style (e.g.
+   UnsavedChangesDialog honouring a user-provided confirmColor). The
+   shared hover lift applies; a brightness filter gives the colour
+   shift without us needing to know the underlying hue. */
+.martis-btn-filled {
+  color: #fff;
+}
+.martis-btn-filled:hover:not(:disabled) {
+  filter: brightness(0.92);
+}

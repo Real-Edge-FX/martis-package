@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from 'react'
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
@@ -8,6 +8,7 @@ import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 /** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
 function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
@@ -73,6 +74,19 @@ export function DrawerUpdate(props: OverrideProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [initialized, setInitialized] = useState(false)
 
+  // ⭐ Camada B — snapshot of the values the record loaded with, used to
+  // detect dirty state and warn before discarding edits. We keep a live
+  // ref to `values` so the dirty check reads them synchronously — the
+  // popstate fired by a detail→update swap arrives between setValues()
+  // and the next render, and a stale-closure comparison would show a
+  // spurious diff right as the drawer opens.
+  const initialSnapshot = useRef<string | null>(null)
+  const valuesRef = useRef<Record<string, unknown>>(values)
+  valuesRef.current = values
+  // Pending prompt holds BOTH resolvers so cancel explicitly rejects
+  // the beforeClose Promise instead of leaving it dangling.
+  const [dirtyPrompt, setDirtyPrompt] = useState<null | { confirm: () => void; cancel: () => void }>(null)
+
   // Pre-populate form when record loads
   useEffect(() => {
     if (activeRecord && !initialized) {
@@ -80,10 +94,36 @@ export function DrawerUpdate(props: OverrideProps) {
       scalarFields.forEach((field) => {
         initial[field.attribute] = activeRecord[field.attribute] ?? null
       })
+      // Sync the ref alongside the snapshot so a dirty-check running
+      // before the next React commit still sees matching values and
+      // snapshot (i.e. not dirty).
+      valuesRef.current = initial
+      initialSnapshot.current = JSON.stringify(initial)
       setValues(initial)
       setInitialized(true)
     }
   }, [activeRecord, scalarFields, initialized])
+
+  // `confirmUnsavedChanges` can be `true` (default), `false` (disabled),
+  // or a full UnsavedChangesConfig object returned from PHP.
+  const confirmRaw = schema.confirmUnsavedChanges
+  const confirmEnabled = confirmRaw !== false
+  const confirmConfig =
+    confirmRaw && typeof confirmRaw === 'object' ? confirmRaw : null
+
+  const isDirty = useCallback(() => {
+    // Baseline not captured yet → treat as clean. Protects against the
+    // swap-race where the edit drawer mounts and a popstate fires before
+    // the record finishes loading.
+    if (initialSnapshot.current === null) return false
+    return JSON.stringify(valuesRef.current) !== initialSnapshot.current
+  }, [])
+  const beforeClose = useCallback(async (): Promise<boolean> => {
+    if (!confirmEnabled || !isDirty()) return true
+    return new Promise<boolean>((resolve) => {
+      setDirtyPrompt({ confirm: () => resolve(true), cancel: () => resolve(false) })
+    })
+  }, [confirmEnabled, isDirty])
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -172,17 +212,18 @@ export function DrawerUpdate(props: OverrideProps) {
       position={params.position as 'right' | 'left'}
       backdrop={params.backdrop as boolean}
       onClose={onClose}
+      beforeClose={beforeClose}
       footer={
         <>
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-md border px-4 py-2 text-sm font-medium"
-            style={{
-              borderColor: 'var(--martis-border)',
-              backgroundColor: 'var(--martis-input-bg)',
-              color: 'var(--martis-text-muted)',
+            onClick={() => {
+              void (async () => {
+                const ok = await beforeClose()
+                if (ok) onClose()
+              })()
             }}
+            className="martis-btn-secondary"
           >
             {tAct('cancel')}
           </button>
@@ -190,8 +231,7 @@ export function DrawerUpdate(props: OverrideProps) {
             type="submit"
             form="martis-drawer-update-form"
             disabled={updateMutation.isPending || isLoading}
-            className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            style={{ backgroundColor: 'var(--martis-accent)' }}
+            className="martis-btn-primary"
           >
             {updateMutation.isPending ? tAct('saving') : tAct('save')}
           </button>
@@ -209,13 +249,13 @@ export function DrawerUpdate(props: OverrideProps) {
         <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           {allFormFields.map((item, idx) => {
             if (item.type === 'tab_group') {
-              return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="update" />
+              return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
             }
             if (item.type === 'section') {
-              return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="update" />
+              return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
             }
             if (item.type === 'panel') {
-              return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="update" />
+              return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
             }
             const field = item as FieldDefinition
             return (
@@ -236,12 +276,28 @@ export function DrawerUpdate(props: OverrideProps) {
                   resourceKey={resource}
                   recordId={recordId ?? undefined}
                   context="update"
+                  formValues={values}
                 />
               </div>
             )
           })}
         </form>
       )}
+
+      <UnsavedChangesDialog
+        open={dirtyPrompt !== null}
+        config={confirmConfig}
+        onCancel={() => {
+          const prompt = dirtyPrompt
+          setDirtyPrompt(null)
+          prompt?.cancel()
+        }}
+        onConfirm={() => {
+          const prompt = dirtyPrompt
+          setDirtyPrompt(null)
+          prompt?.confirm()
+        }}
+      />
     </DrawerShell>
   )
 }

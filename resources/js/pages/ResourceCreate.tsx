@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
@@ -13,6 +13,7 @@ import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -52,6 +53,7 @@ export function ResourceCreatePage() {
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [replicateApplied, setReplicateApplied] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const baselineRef = useRef<string | null>(null)
 
   // Pre-fill form with replicated values when data loads
   useEffect(() => {
@@ -60,6 +62,25 @@ export function ResourceCreatePage() {
       setReplicateApplied(true)
     }
   }, [isReplicate, replicateQuery.data, replicateApplied])
+
+  // Capture a baseline once the form has its real starting values
+  // (either an empty object for a plain create, or the replicated
+  // snapshot). The dirty guard compares against this baseline.
+  const initialSnapshot = useMemo(() => {
+    if (!schema) return null
+    if (isReplicate && !replicateApplied) return null
+    if (baselineRef.current === null) {
+      baselineRef.current = JSON.stringify(values)
+    }
+    return baselineRef.current
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema, isReplicate, replicateApplied])
+
+  const { dialog: unsavedGuardDialog, markSaved } = useUnsavedChangesGuard({
+    values,
+    initialSnapshot,
+    schema,
+  })
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -78,6 +99,8 @@ export function ResourceCreatePage() {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res.meta?.message ?? tMsg('record_created'))
+      // Suppress the unsaved-changes guard for the post-save redirect.
+      markSaved()
       // Clear form
       setValues({})
       setErrors({})
@@ -232,6 +255,7 @@ export function ResourceCreatePage() {
                       error={errors[field.attribute]}
                       resourceKey={resource}
                       context="create"
+                      formValues={values}
                     />
                     {field.helpText && (
                       <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
@@ -243,25 +267,24 @@ export function ResourceCreatePage() {
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
             <Link
               to={isViaRelation ? `/resources/${viaResource}/${viaResourceId}` : `/resources/${resource}`}
-              className="rounded-md border px-4 py-2 text-sm font-medium martis-text-muted martis-border"
-              style={{ backgroundColor: 'var(--martis-input-bg)', borderColor: 'var(--martis-border)' }}
+              className="martis-btn-secondary no-underline"
             >
               {tAct('cancel')}
             </Link>
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
+              className="martis-btn-primary"
             >
               {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
             </button>
           </div>
         </div>
       </form>
+      {unsavedGuardDialog}
     </div>
   )
 }

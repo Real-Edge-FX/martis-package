@@ -1,6 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Dropdown } from 'primereact/dropdown'
 import { useTranslation } from 'react-i18next'
+import { dropdownClearIconPt } from './dropdownHelpers'
 
 interface CountryOption {
   label: string
@@ -68,7 +69,7 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
         filterPlaceholder={filterPh}
         emptyFilterMessage={t('no_results_found')}
         pt={{
-          clearIcon: { 'data-pr-tooltip': clearTip, 'data-pr-position': 'top' } as Record<string, string>,
+          clearIcon: dropdownClearIconPt(clearTip),
         }}
         className="w-full"
       />

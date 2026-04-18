@@ -37,6 +37,10 @@ All available field types in Martis, their methods, and configuration options.
   - [DateTime](#datetime)
   - [Email](#email)
   - [Password](#password)
+  - [PasswordConfirmation](#passwordconfirmation)
+  - [Slug](#slug)
+  - [Timezone](#timezone)
+  - [Icon](#icon)
   - [Url](#url)
   - [Color](#color)
   - [Country](#country)
@@ -78,6 +82,7 @@ use Martis\Fields\File;
 use Martis\Fields\Gravatar;
 use Martis\Fields\Heading;
 use Martis\Fields\Hidden;
+use Martis\Fields\Icon;
 use Martis\Fields\Id;
 use Martis\Fields\Image;
 use Martis\Fields\KeyValue;
@@ -85,12 +90,15 @@ use Martis\Fields\Markdown;
 use Martis\Fields\MultiSelect;
 use Martis\Fields\Number;
 use Martis\Fields\Password;
+use Martis\Fields\PasswordConfirmation;
 use Martis\Fields\Select;
+use Martis\Fields\Slug;
 use Martis\Fields\Sparkline;
 use Martis\Fields\Status;
 use Martis\Fields\Tag;
 use Martis\Fields\Text;
 use Martis\Fields\Textarea;
+use Martis\Fields\Timezone;
 use Martis\Fields\Trix;
 use Martis\Fields\Url;
 ```
@@ -503,6 +511,7 @@ Password field. Hashes value with bcrypt, never exposes hashes.
 ```php
 Password::make('password')
     ->nullable()
+    ->withStrengthMeter()
 ```
 
 **Default overrides:**
@@ -513,7 +522,178 @@ Password::make('password')
 - `resolve()` always returns `null` (never expose password hashes).
 - `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank).
 
-**Specific methods:** None.
+**Specific methods:**
+- `withStrengthMeter(bool $enabled = true): static` — ⭐ **Martis extension.** Shows a 0–4 strength meter below the input (length + character-class heuristic). Pairs naturally with `PasswordConfirmation` to share the same UI cue. No extra dependency — zxcvbn-lite is inlined in the React component.
+
+**Declarative complexity requirements (⭐ Martis extension):**
+
+Each requirement method adds a matching Laravel validation rule AND publishes to the frontend so the `showRequirements()` checklist can tick in real time.
+
+- `minLength(int $length): static` — minimum length. Adds `min:N`.
+- `requireUppercase(bool $value = true): static` — adds `regex:/[A-Z]/`.
+- `requireLowercase(bool $value = true): static` — adds `regex:/[a-z]/`.
+- `requireNumber(bool $value = true): static` — adds `regex:/\d/`.
+- `requireSymbol(bool $value = true): static` — adds `regex:/[^A-Za-z0-9]/`.
+- `disallowCommonPasswords(bool $value = true): static` — rejects a small inline list (`password`, `qwerty`, `12345…`, `letmein`, `admin`, `welcome`, `abc123`, `iloveyou`) via a closure rule.
+- `showRequirements(bool $value = true): static` — opt-in. Renders the ✓/✗ checklist under the strength meter. When every requirement passes, the meter is clamped to at least "Good" (score ≥ 3) so "all checks green" never reads as "Weak".
+
+Example:
+
+```php
+Password::make('password')
+    ->withStrengthMeter()
+    ->minLength(10)
+    ->requireUppercase()
+    ->requireNumber()
+    ->requireSymbol()
+    ->disallowCommonPasswords()
+    ->showRequirements()
+```
+
+---
+
+### PasswordConfirmation
+
+**Type identifier:** `password_confirmation`
+**Extends:** `Field`
+**File:** `src/Fields/PasswordConfirmation.php`
+
+Companion field for a paired `Password`. Never persists to the model —
+relies on Laravel's `confirmed` rule on the password field for validation.
+
+```php
+Password::make('password')
+    ->creationRules(['required', 'confirmed', 'min:8'])
+    ->withStrengthMeter(),
+
+PasswordConfirmation::make('password_confirmation')
+    ->confirms('password')
+```
+
+**Default overrides:**
+- `showOnIndex = false`
+- `showOnDetail = false`
+- `fill()` is a no-op (companion fields never hydrate the model).
+- `resolve()` always returns `null`.
+
+**Specific methods:**
+- `confirms(string $attribute): static` — Name the paired password attribute (default: `'password'`). Matches Laravel's `confirmed` rule convention.
+
+**⭐ Martis extensions (UI, automatic):**
+- Live match indicator — green tick / red cross the moment the two inputs match or diverge.
+- Shared strength meter — if the paired `Password` field has `withStrengthMeter()`, the meter is shared.
+- Synchronized visibility toggle — eye icons on both inputs mirror each other.
+
+---
+
+### Slug
+
+**Type identifier:** `slug`
+**Extends:** `Field`
+**File:** `src/Fields/Slug.php`
+
+URL-safe identifier auto-generated from a source attribute.
+
+```php
+Slug::make('slug')
+    ->from('title')                                // source attribute
+    ->separator('-')                               // default: '-'
+    ->reserved(['admin', 'api', 'login'])          // rejected values
+    ->lockAfter(fn ($post) => $post->is_published) // freeze after publish
+```
+
+**Specific methods:**
+- `from(string $attribute): static` — Source attribute to slugify.
+- `separator(string $separator): static` — Token separator (default: `'-'`).
+- `reserved(array $reserved): static` — ⭐ **Martis extension.** Reject these exact values (system paths). Validation emits `slug_reserved` error; the `/slug-check` endpoint returns `{ reserved: true, suggestion }`.
+- `lockAfter(Closure $condition): static` — ⭐ **Martis extension.** Freezes the slug on existing records once the condition holds. `Slug::fill()` becomes a no-op in that case — SEO protection.
+- `generate(string $value): string` — Unicode-safe slugify ("São Paulo" → "sao-paulo"). Exposed for tests/controllers.
+- `isLockedFor(?Model $model): bool` — Query the lock condition directly.
+
+**⭐ Martis extensions (UI, automatic):**
+- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration).
+- **Live collision detection** — debounced probe against
+  `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
+  Response envelope:
+  ```json
+  {
+    "data": {
+      "available": false,
+      "reserved": false,
+      "suggestion": "existing-post-2"
+    }
+  }
+  ```
+  The UI renders a clickable suggestion when `suggestion` is non-null.
+
+**Validation:** a closure rule verifies the submitted value is already in its slugified form (so the server rejects mismatched case / spaces) and that it is not in the `reserved` list.
+
+---
+
+### Timezone
+
+**Type identifier:** `timezone`
+**Extends:** `Field`
+**File:** `src/Fields/Timezone.php`
+
+Dropdown of every IANA timezone PHP knows about, grouped by continent.
+
+```php
+Timezone::make('timezone')->default('Europe/Lisbon')
+```
+
+**Specific methods:**
+- `Timezone::groupedList(): array` — Static. Returns `['Europe' => ['Europe/Lisbon', …], 'America' => [...], …]`.
+
+**⭐ Martis extensions (UI, automatic):**
+- **Live current time** — every option in the dropdown shows the zone's current local time and UTC offset. Ticks once a minute while the dropdown is open.
+- **Auto-detect button** — "Use my timezone" reads `Intl.DateTimeFormat().resolvedOptions().timeZone` and fills the field.
+- **Grouped + filterable** — `Europe`, `America`, `Asia`, … optgroups. The filter matches label, value, or offset (`+01:00`).
+
+---
+
+### Icon
+
+**Type identifier:** `icon`
+**Extends:** `Field`
+**File:** `src/Fields/Icon.php`
+
+⭐ **Martis differential** — Nova 5 does not ship an Icon field. Three modes, one visual output (Phosphor icon).
+
+```php
+// Mode A — display-only (no DB column)
+Icon::make('marker', 'rocket')->color('success')
+
+// Mode B — stored in a DB column, with ⭐ visual picker
+Icon::make('industry_icon')
+    ->stored()
+    ->palette(['rocket', 'buildings', 'briefcase', 'globe'])
+    ->colorFrom('brand_color')
+    ->size(20)
+
+// Mode C — computed from the model
+Icon::make('state')->icon(fn ($model) => $model->is_active ? 'check' : 'x')
+```
+
+**Factory:**
+- `Icon::make(string $attribute, ?string $fixedIcon = null, ?string $label = null)` — when `$fixedIcon` is set, the field is display-only (Mode A) until `->stored()` flips it.
+
+**Specific methods:**
+- `stored(bool $value = true): static` — flip to Mode B. The icon name lives in the DB column named `$attribute`. Forms show a ⭐ visual picker.
+- `color(string $color): static` — sets the icon tint. Accepts:
+  - semantic tokens: `success`, `warning`, `danger`, `info`, `muted`, `accent`
+  - CSS variables: `var(--my-color)`
+  - arbitrary CSS: hex (`#ec4899`), rgb, named (`red`)
+- `colorFrom(string $attribute): static` — read the color per-record from a sibling column on the same model (e.g. `brand_color`). Overrides `->color()` when that column has a value; falls back to `->color()` when empty.
+- `map(array $map): static` — declarative value→icon(+color) mapping for stored fields. Accepts shortcut `['value' => 'iconName']` or full `['value' => ['icon' => '…', 'color' => '…']]`.
+- `palette(array $palette): static` — whitelist for the picker. `fill()` silently drops values outside the palette — the DB never stores an icon the UI refuses to render.
+- `size(int $size): static` — render size in pixels (clamped 8–64; default 16).
+- `icon(Closure $resolver): static` — Mode C. Callback receives the model and returns `string` or `['icon' => '…', 'color' => '…']`.
+
+**Behavioural notes:**
+- Mode A defaults to `showOnForms = false`. `->stored()` re-enables form exposure.
+- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model.
+- Index rendering respects `size()` — put a small Icon at the start of `fieldsForIndex()` to get a visual marker on each row.
 
 ---
 
@@ -1135,18 +1315,44 @@ Badge::make('status')
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| `map` | `map(array $map): static` | `$this` | Map model values to badge types (`['value' => 'type']`). | `[]` |
-| `types` | `types(array $types): static` | `$this` | Override badge type definitions (replaces defaults). | `info, success, warning, danger` |
-| `addTypes` | `addTypes(array $types): static` | `$this` | Add extra badge types to defaults. | — |
+| `map` | `map(array\|Closure $map): static` | `$this` | Value → badge type. Closure resolves once at schema build. | `[]` |
+| `labels` | `labels(array\|Closure $labels): static` | `$this` | Value → translated display label. Closure form supported. | `[]` |
+| `types` | `types(array\|Closure $types): static` | `$this` | Override badge type definitions (replaces defaults). | `info, success, warning, danger` |
+| `addTypes` | `addTypes(array $types): static` | `$this` | Merge extra badge types onto the current set. | — |
 | `withIcons` | `withIcons(): static` | `$this` | Enable icon rendering in badges. | `false` |
-| `icons` | `icons(array $icons): static` | `$this` | Map badge types to icon names (also enables icons). | `[]` |
-| `getMap` | `getMap(): array` | `array` | Get value-to-type map. | — |
-| `getTypes` | `getTypes(): array` | `array` | Get type definitions. | — |
+| `icons` | `icons(array\|Closure $icons): static` | `$this` | Badge type → icon name (also enables icons). | `[]` |
+| `resolveBadgeUsing` ⭐ | `resolveBadgeUsing(Closure $fn): static` | `$this` | Per-row override — closure receives `(value, model)` and returns `['type', 'label', 'icon']`. | — |
+| `getMap` | `getMap(): array` | `array` | Get resolved value-to-type map. | — |
+| `getTypes` | `getTypes(): array` | `array` | Get resolved type definitions. | — |
 | `hasIcons` | `hasIcons(): bool` | `bool` | Check if icons enabled. | — |
-| `getIcons` | `getIcons(): array` | `array` | Get type-to-icon map. | — |
+| `getIcons` | `getIcons(): array` | `array` | Get resolved type-to-icon map. | — |
 
 **Default badge types:** `info` (blue), `success` (green), `warning` (yellow), `danger` (red)
-**Extra attributes:** `map`, `types`, `withIcons`, `icons`
+**Extra attributes:** `map`, `labels`, `types`, `withIcons`, `icons`
+
+#### ⭐ Dynamic maps & per-row resolution (Martis differentials)
+
+All static setters (`map`, `labels`, `types`, `icons`) accept a Closure that's resolved **once** when the schema is serialised — ideal for enum-backed maps and config-driven palettes:
+
+```php
+Badge::make('status')
+    ->map(fn () => StatusEnum::badgeMap())
+    ->labels(fn () => StatusEnum::labels());
+```
+
+For row-specific decisions, use `resolveBadgeUsing()`. The closure runs during per-row serialisation and its return value (any subset of `type`, `label`, `icon`) is shipped verbatim to the frontend. Missing keys fall back to the static `map`/`labels`/`icons` lookup:
+
+```php
+Badge::make('status')
+    ->map(['active' => 'success', 'paused' => 'warning'])
+    ->labels(['active' => 'Active', 'paused' => 'Paused'])
+    ->resolveBadgeUsing(function (?string $value, Model $model) {
+        if ($model->is_vip && $value === 'active') {
+            return ['type' => 'vip-gold', 'label' => 'VIP ⭐', 'icon' => 'crown'];
+        }
+        return []; // fall back to the static map/labels for everyone else
+    });
+```
 
 > [!important] Badge is display-only — use `Select` in forms
 > `Badge` is intentionally filtered out of create/update contexts (`showOnCreation = showOnUpdate = false` by default). It is meant for index/detail display only. If you want the user to **pick** a value that renders as a badge afterwards, use `Select` in `fieldsForCreate`/`fieldsForUpdate` and keep `Badge` in `fieldsForIndex`/`fieldsForDetail`.

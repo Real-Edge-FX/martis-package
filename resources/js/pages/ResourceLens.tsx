@@ -102,14 +102,25 @@ export function ResourceLensPage() {
   }, [setSearchParams])
 
   // D3 — seed default filters the first time the URL has none.
+  // Uses `replace: true` so this automatic mutation does not push an extra
+  // entry to the browser history — otherwise a single back-button press
+  // bounces between the seeded and unseeded lens URL instead of actually
+  // returning to the resource index.
   const [defaultsSeeded, setDefaultsSeeded] = useState(false)
   useEffect(() => {
     if (defaultsSeeded || !lens) return
     if (!searchParams.has('filters') && lens.defaultFilters && Object.keys(lens.defaultFilters).length > 0) {
-      mutateParams((p) => p.set('filters', JSON.stringify(lens.defaultFilters)))
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('filters', JSON.stringify(lens.defaultFilters))
+          return next
+        },
+        { replace: true },
+      )
     }
     setDefaultsSeeded(true)
-  }, [lens, defaultsSeeded, searchParams, mutateParams])
+  }, [lens, defaultsSeeded, searchParams, setSearchParams])
 
   // Debounced search (matches ResourceIndex UX).
   const [searchLocal, setSearchLocal] = useState(search)
@@ -410,6 +421,7 @@ export function ResourceLensPage() {
           }}
           resourceKey={resource}
           selectable={hasBulkActions}
+          actionsColumnLabel={schema.actionsColumnLabel}
           inlineActions={inlineActions}
           onInlineAction={handleInlineAction}
           defaultRowActions={schema.defaultRowActions}
@@ -518,6 +530,7 @@ export function ResourceLensPage() {
             void qc.refetchQueries({ queryKey: ['lens', resource, lensKey], type: 'active' })
             setActionDrawer(null)
           }}
+          onSwitchTo={(next) => setActionDrawer(next)}
         />
       )}
     </div>

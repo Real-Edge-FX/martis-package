@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
@@ -14,6 +14,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -49,6 +50,7 @@ export function ResourceUpdatePage() {
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [initialized, setInitialized] = useState(false)
+  const baselineRef = useRef<string | null>(null)
 
   // Pre-populate form only after BOTH schema and record are loaded.
   // Walks all form items (scalar fields + layout containers) to extract field attributes.
@@ -73,10 +75,17 @@ export function ResourceUpdatePage() {
         }
       }
       extractFields(allFormFields)
+      baselineRef.current = JSON.stringify(initial)
       setValues(initial)
       setInitialized(true)
     }
   }, [record, schema, allFormFields, initialized])
+
+  const { dialog: unsavedGuardDialog, markSaved } = useUnsavedChangesGuard({
+    values,
+    initialSnapshot: initialized ? baselineRef.current : null,
+    schema,
+  })
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -89,6 +98,8 @@ export function ResourceUpdatePage() {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
       addToast('success', res.meta?.message ?? tMsg('record_updated'))
+      // Suppress the unsaved-changes guard for the post-save redirect.
+      markSaved()
       // Navigate back to parent resource detail if editing via HasMany, otherwise to record detail
       if (isViaHasMany && redirectMode === 'parent') {
         void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
@@ -274,7 +285,9 @@ export function ResourceUpdatePage() {
                       onChange={(v) => handleChange(field.attribute, v)}
                       error={errors[field.attribute]}
                       resourceKey={resource}
+                      recordId={id ?? undefined}
                       context="update"
+                      formValues={values}
                     />
                     {field.helpText && (
                       <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
@@ -289,30 +302,25 @@ export function ResourceUpdatePage() {
           <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4"
             style={{
               borderColor: 'var(--martis-border)',
-              backgroundColor: 'var(--martis-hover)',
+              backgroundColor: 'var(--martis-surface-alt)',
             }}>
             <Link
               to={cancelLink}
-              className="rounded-md border px-4 py-2 text-sm font-medium no-underline"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-surface)',
-                color: 'var(--martis-text)',
-              }}
+              className="martis-btn-secondary no-underline"
             >
               {tAct('cancel')}
             </Link>
             <button
               type="submit"
               disabled={updateMutation.isPending}
-              className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
+              className="martis-btn-primary"
             >
               {updateMutation.isPending ? tAct('saving') : tAct('save')}
             </button>
           </div>
         </div>
       </form>
+      {unsavedGuardDialog}
     </div>
   )
 }

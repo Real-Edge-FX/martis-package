@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { registry } from '@/lib/registry'
 import { useTranslation } from 'react-i18next'
 import { WarningIcon, TrashIcon, ArrowCounterClockwiseIcon, XIcon } from '@phosphor-icons/react'
+import { useModalHistoryLock } from '@/lib/historyLock'
 
 export interface DeleteModalProps {
   open: boolean
@@ -47,6 +48,11 @@ function DefaultDeleteModal({
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [open, onCancel])
+
+  // Block the browser back button while the modal is visible — the
+  // user must pick a button. Cooperates with DrawerShell so closing
+  // the modal does not close the drawer underneath.
+  useModalHistoryLock(open)
 
   if (!open) return null
 
@@ -124,12 +130,7 @@ function DefaultDeleteModal({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--martis-input-bg)',
-              borderColor: 'var(--martis-border)',
-              color: 'var(--martis-text)',
-            }}
+            className="martis-btn-secondary"
           >
             <XIcon size={14} />
             {tAct('cancel')}
@@ -138,10 +139,7 @@ function DefaultDeleteModal({
             type="button"
             onClick={() => void handleConfirm()}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: isSoftDelete ? 'var(--martis-warning, #f59e0b)' : 'var(--martis-danger, #dc2626)',
-            }}
+            className={isSoftDelete ? 'martis-btn-warning' : 'martis-btn-danger'}
           >
             {isSoftDelete ? <ArrowCounterClockwiseIcon size={14} /> : <TrashIcon size={14} />}
             {loading
