@@ -41,6 +41,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Slug](#slug)
   - [Timezone](#timezone)
   - [Icon](#icon)
+  - [Stack + Line](#stack--line)
   - [Url](#url)
   - [Color](#color)
   - [Country](#country)
