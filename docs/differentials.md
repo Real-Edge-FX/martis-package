@@ -405,9 +405,28 @@ BooleanGroup::make('permissions')
 
 ### Avatar + UiAvatar — Identity Pictures with Zero Plumbing (⭐)
 
-- `Avatar::fallback($url | Closure)` — **per-row** fallback. Closure receives the model so each row can point to a different service (Gravatar, DiceBear, UI-Avatars). Nova's `fallbackUrl` is static only.
-- `AvatarShape::Circle | Rounded | Squared` — typed enum; Nova exposes only a `rounded()` boolean.
-- `UiAvatar` is a Martis addition over Nova: initials + a **deterministic 16-slot palette computed from a stable seed hash** — no DB column, same colour on every request for the same name. `colorFrom('brand_color')` overrides with a model attribute; `initials(Closure)` customises the letters.
+Both fields share the same palette + initials logic through the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait, keeping the topbar pill, login view, profile page, `Avatar` empty state and `UiAvatar` all visually consistent.
+
+**`Avatar` — upload field with a zero-config empty state:**
+
+- **Out of the box**, `Avatar::make('photo')` renders an `<img>` when the user uploaded one, and **coloured initials inline** when they haven't. No fallback closure required. No external service hit.
+- `fallback($url | Closure)` is still available as an **opt-in** override (per-row Closure-aware) — Nova's `fallbackUrl` is static only.
+- `colorFrom('brand_color')` + `initialsFrom('display_name')` + `initials(Closure)` customise the defaults.
+- Typed `AvatarShape::Circle | Rounded | Squared` enum instead of Nova's `rounded()` boolean.
+
+**`UiAvatar` — always initials, never uploads:**
+
+- Display-only (`hideFromForms()` locked), computed from the model — no DB column.
+- Same deterministic 16-slot palette hash. **Martis ships it client-side; Nova's equivalent calls the external `ui-avatars.com` service on every render.**
+- Same `colorFrom()` / `initials(Closure)` / `from('other_attr')` knobs as `Avatar`.
+
+```php
+// Most common case — one line, inline initials for members without a photo.
+Avatar::make('avatar_path')->circle()->colorFrom('brand_color');
+
+// Read-only resource without a photo column — pure initials pill.
+UiAvatar::make('avatar_initials')->from('name')->colorFrom('brand_color');
+```
 
 ### Audio — Canvas Waveform, Zero Server Deps (⭐)
 

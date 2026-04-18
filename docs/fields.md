@@ -434,22 +434,40 @@ BooleanGroup::make('permissions')
 
 Image upload specialised for profile pictures. Inherits every upload helper from `Image` (`disk`, `storagePath`, `maxSize`, `thumbnail`, …).
 
+**Zero configuration needed for the empty state** — when a record has no upload AND the developer didn't declare an explicit `fallback()`, the field renders coloured initials inline using a deterministic 16-slot palette (same look as the topbar user pill). No external service call, no extra DB column, no boilerplate closure.
+
 ```php
+// One-liner: uploaded photo when present, coloured initials inline otherwise.
 Avatar::make('avatar_path')
     ->disk('public')
     ->storagePath('team-avatars')
     ->maxSize(2048)
     ->circle()
-    ->fallback(fn ($m) => 'https://api.dicebear.com/9.x/initials/svg?seed=' . urlencode($m->name));
+    ->colorFrom('brand_color'); // optional: use a brand attribute instead of the hash palette
 ```
+
+**Resolution priority (per row):**
+
+| # | Condition | Output |
+|---|---|---|
+| 1 | Stored file exists | `<img src={uploaded_url}>` |
+| 2 | Developer set `fallback($url \| Closure)` | `<img src={fallback}>` |
+| 3 | Neither of the above | Inline coloured initials — no external request |
 
 | Method | Description |
 |---|---|
 | `shape(AvatarShape)` | Typed enum: `Circle` (default), `Rounded`, `Squared` |
 | `circle()` / `rounded()` / `squared()` | Convenience shortcuts |
-| `fallback($url \| Closure)` ⭐ | Per-row fallback URL when no file is stored. Closure receives the model |
+| `fallback($url \| Closure)` ⭐ | Override the default inline initials with a custom URL (static or per-row) — opt-in, usually unnecessary |
+| `initialsFrom(string)` ⭐ | Seed attribute for initials + palette (default: `name`) |
+| `colorFrom(string)` ⭐ | Pull the initials background from a model attribute (e.g. `brand_color`) |
+| `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
 
-**⭐ Martis differentials vs Nova:** per-row (Closure-aware) fallback instead of Nova's static `fallbackUrl`; typed `AvatarShape` enum instead of a boolean `rounded()`.
+**⭐ Martis differentials vs Nova:**
+- **Zero-config inline initials fallback** — no external service, no extra closures, works out of the box. Nova requires a static `fallbackUrl` and has no initials rendering at all.
+- Per-row Closure-aware `fallback()` when you *do* want a custom URL.
+- Typed `AvatarShape` enum instead of a boolean `rounded()`.
+- Deterministic palette shared with `UiAvatar`, login, topbar and profile surfaces via the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait.
 
 ---
 
@@ -459,7 +477,15 @@ Avatar::make('avatar_path')
 **Extends:** `Field`
 **File:** `src/Fields/UiAvatar.php`
 
-Auto-generated initials avatar for records without a real profile image. The value is computed from the model — **no DB column needed**.
+Display-only initials pill. Differs from `Avatar` in one key way: **it never takes an upload** — the value is computed entirely from the model.
+
+**When to pick `UiAvatar` over `Avatar`:**
+
+| Your resource… | Use |
+|---|---|
+| has a photo column and you want users to upload | `Avatar` (initials inline when empty come for free) |
+| has no photo column at all and never will | `UiAvatar` |
+| is read-only / system-generated and an upload input would be noise | `UiAvatar` |
 
 ```php
 UiAvatar::make('avatar_initials')
@@ -475,7 +501,7 @@ UiAvatar::make('avatar_initials')
 | `colorFrom(string)` ⭐ | Pull background colour from a model attribute (brand colour) |
 | `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
 
-**⭐ Martis differentials vs Nova:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`.
+**⭐ Martis differentials vs Nova:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`. Nova's `UiAvatar` hits the external ui-avatars.com service — Martis's runs entirely client-side with no network call.
 
 ---
 
