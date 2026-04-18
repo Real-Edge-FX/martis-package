@@ -36,6 +36,10 @@ import { PasswordConfirmationFieldDisplay, PasswordConfirmationFieldInput } from
 import { TimezoneFieldDisplay, TimezoneFieldInput } from './TimezoneField'
 import { IconFieldDisplay, IconFieldInput } from './IconField'
 import { StackFieldDisplay, StackFieldInput } from './StackField'
+import { BooleanGroupFieldDisplay, BooleanGroupFieldInput } from './BooleanGroupField'
+import { AvatarFieldDisplay, AvatarFieldInput } from './AvatarField'
+import { UiAvatarFieldDisplay, UiAvatarFieldInput } from './UiAvatarField'
+import { AudioFieldDisplay, AudioFieldInput } from './AudioField'
 
 const LAZY_FIELD_FALLBACK = <div />
 
@@ -225,6 +229,10 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   timezone: TimezoneFieldDisplay,
   icon: IconFieldDisplay,
   stack: StackFieldDisplay,
+  boolean_group: BooleanGroupFieldDisplay,
+  avatar: AvatarFieldDisplay,
+  ui_avatar: UiAvatarFieldDisplay,
+  audio: AudioFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -273,6 +281,10 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   timezone: TimezoneFieldInput,
   icon: IconFieldInput,
   stack: StackFieldInput,
+  boolean_group: BooleanGroupFieldInput,
+  avatar: AvatarFieldInput,
+  ui_avatar: UiAvatarFieldInput,
+  audio: AudioFieldInput,
 }
 
 // -------------------------------------------------------------------------

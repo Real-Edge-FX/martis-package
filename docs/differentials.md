@@ -346,13 +346,16 @@ CountryFilter::make('Country')->searchable()
 
 ## Field Extensions
 
-### 22 Extended Field Types (Built-in)
+### 26 Extended Field Types (Built-in)
 
 All included without additional packages:
 
 | Field | Description |
 |-------|-------------|
+| `Audio` ⭐ | Audio upload + **client-side canvas waveform** (zero server deps) + `downloadable(bool)` |
+| `Avatar` ⭐ | Image subclass with per-row `fallback($url\|Closure)` + typed `shape(AvatarShape::*)` |
 | `Badge` | Colored status badge — closure-backed map/labels and per-row `resolveBadgeUsing()` (⭐) |
+| `BooleanGroup` ⭐ | Named boolean flags with `grouped([section => keys])` + `minChecked/maxChecked` live counter + `requireAny/All` |
 | `Status` | Status indicator with color mapping |
 | `Code` | Code editor with syntax highlighting |
 | `Color` | Color picker with preview |
@@ -365,6 +368,7 @@ All included without additional packages:
 | `MultiSelect` | Multi-select dropdown |
 | `PasswordConfirmation` | Companion confirmation field that pairs with `Password::new()` |
 | `Slug` | URL-safe auto-generated identifier with live collision check (⭐) |
+| `UiAvatar` ⭐ | Deterministic 16-slot palette from seed hash, `colorFrom('attribute')`, custom `initials(Closure)` |
 | `Sparkline` | Inline mini chart |
 | `Stack` + `Line` ⭐ | Composite display — Martis renders on index too (Nova is detail-only) |
 | `Tag` | Tag input with autocomplete |
@@ -383,6 +387,31 @@ Nova 5 ships no Icon field. Martis provides three complementary modes:
 - **Computed from another attribute** — derive the icon from a model field via a closure; the picker is hidden.
 
 Supports palette whitelisting (restrict to a configured subset), `colorFrom()` to pull the hex colour from another attribute, configurable sizes and tooltips. Full API lives in [Fields Reference](fields.md#icon).
+
+### BooleanGroup — Grouped Sections + Live Counter (⭐)
+
+Nova's `BooleanGroup` is a flat list. Martis adds:
+
+- **`grouped([sectionTitle => keys])`** — renders each section as a collapsible panel with its own legend. Keeps 20+ permission flags manageable.
+- **`minChecked(int)` / `maxChecked(int)`** — enforced server-side AND surfaced as a live counter pill that turns amber when the user hasn't met the minimum or hits the ceiling.
+- **`requireAny()` / `requireAll()`** — convenience presets.
+
+```php
+BooleanGroup::make('permissions')
+    ->options(['clients.view' => 'View clients', /* … */])
+    ->grouped(['Clients' => ['clients.view']])
+    ->requireAny();
+```
+
+### Avatar + UiAvatar — Identity Pictures with Zero Plumbing (⭐)
+
+- `Avatar::fallback($url | Closure)` — **per-row** fallback. Closure receives the model so each row can point to a different service (Gravatar, DiceBear, UI-Avatars). Nova's `fallbackUrl` is static only.
+- `AvatarShape::Circle | Rounded | Squared` — typed enum; Nova exposes only a `rounded()` boolean.
+- `UiAvatar` is a Martis addition over Nova: initials + a **deterministic 16-slot palette computed from a stable seed hash** — no DB column, same colour on every request for the same name. `colorFrom('brand_color')` overrides with a model attribute; `initials(Closure)` customises the letters.
+
+### Audio — Canvas Waveform, Zero Server Deps (⭐)
+
+Nova's `Audio` field is a thin wrapper over `File` with an `<audio>` element. Martis adds a **client-side waveform**: we fetch the audio, decode it via `AudioContext`, sample peaks, and paint them onto a `<canvas>`. No server-side image rendering, no ffmpeg, no external service. `downloadable(bool)` toggles the download button.
 
 ### Stack + Line — Index-capable Composite Display (⭐)
 
