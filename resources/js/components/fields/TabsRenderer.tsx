@@ -207,6 +207,7 @@ export function TabsInput({
                   resourceKey={resourceKey}
                   recordId={recordId}
                   context={context}
+                  formValues={values}
                 />
                 {field.helpText && (
                   <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
 
 export interface DrawerShellProps {
   /** Title displayed in the header. */
@@ -32,9 +33,23 @@ export interface DrawerShellProps {
   footer?: ReactNode
   /** Main content. */
   children: ReactNode
+  /**
+   * Guard fired when the drawer is about to close. When provided and it
+   * returns `false` (or a Promise resolving to `false`), the close is
+   * cancelled. Used by create/update drawers to show an "unsaved changes"
+   * confirmation before discarding user input.
+   */
+  beforeClose?: () => boolean | Promise<boolean>
 }
 
 type DrawerState = 'normal' | 'expanded' | 'fullscreen'
+
+// Module-level counter of drawers currently mounted. Used on unmount to
+// decide whether to roll back the history sentinel: if another drawer has
+// already taken our place (swap flow like detail → update), we must NOT
+// `history.back()` — doing so would emit a popstate that closes the new
+// drawer as soon as it opens.
+let martisDrawerMountedCount = 0
 
 export function DrawerShell({
   title,
@@ -51,6 +66,7 @@ export function DrawerShell({
   onClose,
   footer,
   children,
+  beforeClose,
 }: DrawerShellProps) {
   const { t: tMsg } = useTranslation('messages')
   const [visible, setVisible] = useState(false)
@@ -61,15 +77,139 @@ export function DrawerShell({
     requestAnimationFrame(() => setVisible(true))
   }, [])
 
-  const handleClose = useCallback(() => {
+  // Guard re-entrancy on close (e.g. double-clicking the X, or a popstate
+  // firing while the dirty-check dialog is already open).
+  const closingRef = useRef(false)
+
+  const runClose = useCallback(() => {
+    if (closingRef.current) return
+    closingRef.current = true
     setVisible(false)
     setTimeout(onClose, 200)
   }, [onClose])
 
+  // Keep a live reference to the latest beforeClose callback. The popstate
+  // listener is registered only once (empty deps), so reading the prop
+  // directly would capture a stale closure and miss the current dirty
+  // state when the back button fires.
+  const beforeCloseRef = useRef<(() => boolean | Promise<boolean>) | undefined>(beforeClose)
+  useEffect(() => {
+    beforeCloseRef.current = beforeClose
+  }, [beforeClose])
+
+  const handleClose = useCallback(async () => {
+    const guard = beforeCloseRef.current
+    if (guard) {
+      const ok = await guard()
+      if (!ok) return
+    }
+    runClose()
+  }, [runClose])
+
+  // ⭐ Camada A — integrate with browser history so the back button
+  // closes the drawer instead of navigating away while the drawer is
+  // still open. Pushing a sentinel state on mount means the first
+  // popstate belongs to us; we then consume it by running the normal
+  // close path (which, through beforeCloseRef, still honours the
+  // dirty-check).
+  useEffect(() => {
+    martisDrawerMountedCount += 1
+    const marker = { martisDrawer: true, key: Date.now() }
+    try {
+      window.history.pushState(marker, '')
+    } catch {
+      martisDrawerMountedCount -= 1
+      return
+    }
+
+    // Track whether WE popped our own entry (clean close) vs. the
+    // browser did (user hit back). On a browser pop we don't need
+    // to history.back() again on unmount — the entry is already gone.
+    let browserPopped = false
+    // Skip the NEXT popstate — used when we intentionally call
+    // history.go(-2) after the user confirms discard, so neither our
+    // own listener nor React Router tries to reinterpret it.
+    let skipNextPop = false
+
+    const onPop = () => {
+      if (skipNextPop) {
+        skipNextPop = false
+        return
+      }
+      // A modal on top of the drawer is handling its own back press
+      // (it re-pushes its sentinel inside its own listener). Ignoring
+      // this popstate prevents the drawer from closing underneath.
+      if (getModalLockCount() > 0) return
+      // A modal just closed and silently popped its own sentinel;
+      // consume the suppress flag so the drawer stays put.
+      if (consumeSuppressFlag()) return
+
+      // Re-arm the sentinel IMMEDIATELY so any subsequent back press
+      // while the dirty-check dialog is awaiting the user's decision
+      // still lands on us instead of popping the real drawer entry
+      // and escaping. If the guard resolves clean (no dirty), we pop
+      // this re-armed sentinel + the real entry together below.
+      try {
+        window.history.pushState(marker, '')
+      } catch {
+        /* ignore */
+      }
+      browserPopped = false
+
+      void (async () => {
+        const guard = beforeCloseRef.current
+        let ok = true
+        if (guard) ok = await guard()
+        if (!ok) {
+          // User cancelled — sentinel already in place, stay put.
+          return
+        }
+        // User confirmed discard (or no guard). The drawer's sentinel
+        // shares the parent URL, so a single back() pops the re-armed
+        // entry and lands the user back on the parent page. runClose
+        // takes care of the visual drawer removal.
+        browserPopped = true
+        skipNextPop = true
+        try {
+          window.history.back()
+        } catch {
+          /* ignore */
+        }
+        runClose()
+      })()
+    }
+    window.addEventListener('popstate', onPop)
+
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      martisDrawerMountedCount -= 1
+      // If the drawer closed via UI (X, submit, etc.) our sentinel
+      // entry is still on top of the history stack — remove it so the
+      // user's next Back press goes to wherever they were before the
+      // drawer opened, not to the drawer's URL twin. BUT: during a
+      // drawer-to-drawer swap (detail → update), the new DrawerShell
+      // mounts on the same render pass and would receive the popstate
+      // we emit here, which closes it immediately. Defer the back()
+      // via a microtask and skip it if another drawer is now mounted.
+      if (!browserPopped) {
+        queueMicrotask(() => {
+          if (martisDrawerMountedCount === 0) {
+            try {
+              window.history.back()
+            } catch {
+              // ignore
+            }
+          }
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') handleClose()
+      if (e.key === 'Escape') void handleClose()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
@@ -100,7 +240,7 @@ export function DrawerShell({
           style={{
             backgroundColor: visible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)',
           }}
-          onClick={handleClose}
+          onClick={() => void handleClose()}
         />
       )}
 
@@ -197,7 +337,7 @@ export function DrawerShell({
             {showCloseButton && (
               <button
                 type="button"
-                onClick={handleClose}
+                onClick={() => void handleClose()}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={tMsg('close', 'Close')}

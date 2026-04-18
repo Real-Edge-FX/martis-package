@@ -29,7 +29,7 @@
 
 ---
 
-## Fields (31 Types)
+## Fields (35 Types)
 
 | Field | Nova v5 | Martis | Status | Notes |
 |-------|---------|--------|--------|-------|
@@ -49,7 +49,7 @@
 | Heading | Section divider | Heading::make() + content() | DONE | — |
 | File | File upload | File::make() + disk/path/types/maxSize | DONE | — |
 | Image | Image upload | Image::make() + thumbnail/disk | DONE | — |
-| Badge | Badge display | Badge::make() + colors | DONE | Extended |
+| Badge | Badge display | Badge::make() + colors + closure maps/labels + resolveBadgeUsing() | DONE | ⭐ Extended |
 | Status | Status badge | Status::make() + colors | DONE | Extended |
 | Code | Code editor | Code::make() | DONE | Extended |
 | Color | Color picker | Color::make() | DONE | Extended |
@@ -63,6 +63,10 @@
 | Tag | Tag input | Tag::make() | DONE | Extended |
 | Trix | Rich text editor | Trix::make() | DONE | Extended |
 | Url | URL with validation | Url::make() | DONE | Extended |
+| Slug | — | Slug::make() + live collision check + freezeAfterPublish | DONE | ⭐ Extended |
+| PasswordConfirmation | Password confirmation | PasswordConfirmation::make() + live match | DONE | — |
+| Timezone | — | Timezone::make() + grouped dropdown + live clock | DONE | ⭐ Extended |
+| Icon | — | Icon::make() + Phosphor picker / palette / colorFrom | DONE | ⭐ 100% Martis |
 | Field Visibility | showOnIndex/hideFromIndex | All 4 contexts supported | DONE | Block 4 |
 | Field Validation | Built-in validation | required/nullable/rules() | DONE | Block 4 |
 | Field Sorting | Sortable columns | sortable() | DONE | Block 4 |
@@ -277,7 +281,13 @@
 
 | Feature | Description | Nova v5 | Martis |
 |---------|-------------|---------|--------|
-| 16 Extended Field Types | Badge, Status, Code, Color, Country, Currency, etc. | Separate packages | Built-in |
+| 20 Extended Field Types | Badge, Status, Code, Color, Country, Currency, Icon⭐, Slug⭐, Timezone⭐, etc. | Separate packages | Built-in |
+| Icon Picker Field | Phosphor icon picker with palette restriction | Not available | `Icon::make()` ⭐ |
+| Slug Field | Live auto-generation + collision check + freeze-after-publish | Not available | `Slug::make()->freezeAfterPublish()` ⭐ |
+| Timezone Field | Grouped IANA dropdown with live clock | Not available | `Timezone::make()` ⭐ |
+| Badge Closures | Per-value closures for map/labels + per-row `resolveBadgeUsing()` | Static arrays only | `Badge::make()->labels(fn ($v) => ...)` ⭐ |
+| Unsaved Changes Guard | Uniform dirty protection (drawers + pages + modals) | Not available | `Resource::confirmUnsavedChanges()` ⭐ |
+| Standardised Button Classes | `.martis-btn-primary/secondary/danger/warning/filled` | Not available | CSS primitive ⭐ |
 | Column Span Grid | colSpan/colSpanMd/colSpanLg for form layout | Separate plugin | Built-in |
 | Component Key Override | Any field renders custom React component | Limited | `->component('key')` |
 | Inline Create for BelongsTo | Create related record from dropdown | Modal only | Drawer + Modal |

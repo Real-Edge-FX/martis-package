@@ -31,6 +31,10 @@ import { GravatarFieldDisplay, GravatarFieldInput } from './GravatarField'
 import { MorphToFieldDisplay, MorphToFieldInput } from './MorphToField'
 import { MorphOneFieldDisplay, MorphOneFieldInput } from './MorphOneField'
 import { HasOneFieldDisplay, HasOneFieldInput } from './HasOneField'
+import { SlugFieldDisplay, SlugFieldInput } from './SlugField'
+import { PasswordConfirmationFieldDisplay, PasswordConfirmationFieldInput } from './PasswordConfirmationField'
+import { TimezoneFieldDisplay, TimezoneFieldInput } from './TimezoneField'
+import { IconFieldDisplay, IconFieldInput } from './IconField'
 
 const LAZY_FIELD_FALLBACK = <div />
 
@@ -215,6 +219,10 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   morph_one: MorphOneFieldDisplay,
   morph_to_many: LazyMorphToManyFieldDisplay,
   has_one: HasOneFieldDisplay,
+  slug: SlugFieldDisplay,
+  password_confirmation: PasswordConfirmationFieldDisplay,
+  timezone: TimezoneFieldDisplay,
+  icon: IconFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -258,6 +266,10 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   morph_one: MorphOneFieldInput,
   morph_to_many: LazyMorphToManyFieldInput,
   has_one: HasOneFieldInput,
+  slug: SlugFieldInput,
+  password_confirmation: PasswordConfirmationFieldInput,
+  timezone: TimezoneFieldInput,
+  icon: IconFieldInput,
 }
 
 // -------------------------------------------------------------------------
@@ -345,6 +357,7 @@ export function FieldInput({
   resourceKey,
   recordId,
   context,
+  formValues,
 }: {
   field: FieldDefinition
   value: unknown
@@ -353,6 +366,7 @@ export function FieldInput({
   resourceKey?: string
   recordId?: string | number
   context?: 'create' | 'update'
+  formValues?: Record<string, unknown>
 }) {
   // Tier 0: per-context field override (from PHP field->overrideCreate/Update)
   const contextOverride = context ? field.overrides?.[context] : undefined
@@ -365,5 +379,5 @@ export function FieldInput({
     explicitKey,
     getFallbackInput(field.type),
   )
-  return <Component field={field} value={value} onChange={onChange} error={error} resourceKey={resourceKey} recordId={recordId} />
+  return <Component field={field} value={value} onChange={onChange} error={error} resourceKey={resourceKey} recordId={recordId} formValues={formValues} />
 }

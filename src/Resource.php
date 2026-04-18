@@ -936,6 +936,46 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Controls the "unsaved changes" confirmation dialog shown by the
+     * create/update surfaces (both drawer overrides and full-page
+     * create/update routes) before discarding user input.
+     *
+     * Three return shapes:
+     *   - `false` (default) → fully disabled; the form closes/navigates
+     *     silently. Opt in per-resource.
+     *   - `true` → enabled with the package defaults (generic copy).
+     *   - {@see \Martis\Contracts\UnsavedChangesConfigContract}
+     *     (e.g. {@see \Martis\UnsavedChangesConfig}) → enabled AND
+     *     overrides title / body / icon / colours / button labels.
+     */
+    public static function confirmUnsavedChanges(): bool|\Martis\Contracts\UnsavedChangesConfigContract
+    {
+        return false;
+    }
+
+    /**
+     * Header label for the row-actions column on the resource index.
+     *
+     * Returns the translated default ("Actions" / "Ações") but resources
+     * can override:
+     *   - return `null` to hide the header text (column still appears)
+     *   - return a custom string to rename it
+     */
+    public static function actionsColumnLabel(): ?string
+    {
+        try {
+            $translated = trans('martis::actions.actions');
+            if (is_string($translated) && $translated !== 'martis::actions.actions') {
+                return $translated;
+            }
+        } catch (\Throwable) {
+            // fall through to the hard-coded default
+        }
+
+        return 'Actions';
+    }
+
+    /**
      * The custom label for the bulk actions dropdown.
      *
      * Override this to change "Bulk Actions" to a custom label.

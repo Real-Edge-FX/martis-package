@@ -1,6 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Dropdown } from 'primereact/dropdown'
 import { useTranslation } from 'react-i18next'
+import { dropdownClearIconPt } from './dropdownHelpers'
 
 export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
   if (value === null || value === undefined || value === '') {
@@ -34,7 +35,7 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
         placeholder={selectPlaceholder}
         showClear={field.nullable}
         pt={{
-          clearIcon: { 'data-pr-tooltip': clearTip, 'data-pr-position': 'top' } as Record<string, string>,
+          clearIcon: dropdownClearIconPt(clearTip),
         }}
         className="w-full"
       />

@@ -41,6 +41,13 @@ export interface TableProps {
   onDefaultView?: (row: ResourceRecord) => void
   onDefaultEdit?: (row: ResourceRecord) => void
   onDefaultDelete?: (row: ResourceRecord) => void
+  /**
+   * Header label for the row-actions column.
+   *   - string → render as column header
+   *   - null   → column still appears but the header is blank
+   *   - undef  → fallback to the localised default ("Actions" / "Ações")
+   */
+  actionsColumnLabel?: string | null
   tableConfig?: {
     striped?: boolean
     showGridlines?: boolean
@@ -364,6 +371,7 @@ function DefaultTable({
   onDefaultEdit,
   onDefaultDelete,
   tableConfig,
+  actionsColumnLabel,
 }: TableProps) {
   const { t } = useTranslation("resources")
   const { t: tMsg } = useTranslation("messages")
@@ -513,7 +521,13 @@ function DefaultTable({
         ))}
         {hasActionsColumn && (
           <Column
-            header=""
+            header={
+              // `undefined` → localised fallback; `null` → hidden header.
+              actionsColumnLabel === undefined
+                ? tAct("actions", { defaultValue: "Actions" })
+                : actionsColumnLabel ?? ""
+            }
+            headerClassName="text-right"
             body={(row: ResourceRecord) => {
               const viewDisabled = row._authorization?.authorizedToView === false
               const editDisabled = row._authorization?.authorizedToUpdate === false

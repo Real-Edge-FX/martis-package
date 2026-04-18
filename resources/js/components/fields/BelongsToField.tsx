@@ -44,15 +44,27 @@ interface PeekResponse {
 interface PeekCardProps {
   resourceKey: string
   recordId: number | string
-  top: number
-  left: number
+  /** Bounding rect of the trigger element — the card flips above it when
+   *  there isn't enough room below. */
+  triggerRect: { top: number; bottom: number; left: number }
 }
 
-function renderPeekValue(value: unknown): string {
+function renderPeekValue(value: unknown): React.ReactNode {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'boolean') return value ? '✓' : '✗'
   if (typeof value === 'object') {
     const obj = value as Record<string, unknown>
+    // Icon field — resolveForDisplay returns `{icon, color}`. Render it
+    // inline with the same ResourceIcon component used elsewhere so the
+    // peek card shows the actual glyph, not a dash.
+    if (typeof obj.icon === 'string') {
+      const color = typeof obj.color === 'string' ? obj.color : undefined
+      return (
+        <span className="inline-flex items-center gap-1" style={{ color: color ?? 'var(--martis-text)' }}>
+          <ResourceIcon iconName={obj.icon} size={14} />
+        </span>
+      )
+    }
     if (obj.title != null) return String(obj.title)
     if (obj.id != null) return `#${obj.id}`
     return '—'
@@ -61,9 +73,19 @@ function renderPeekValue(value: unknown): string {
   return str === '' ? '—' : str
 }
 
-function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
+function PeekCard({ resourceKey, recordId, triggerRect }: PeekCardProps) {
+  const { t } = useTranslation('messages')
   const [data, setData] = useState<PeekData | null>(null)
   const [loading, setLoading] = useState(true)
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const [position, setPosition] = useState<{ top: number; left: number }>({
+    top: triggerRect.bottom + 6,
+    left: triggerRect.left,
+  })
+  // Keep the card invisible on the first paint. The position is only
+  // correct AFTER we measure it via useEffect below — rendering visibly
+  // before that produces a tiny "appears wrong → jumps" flicker.
+  const [positioned, setPositioned] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -80,10 +102,34 @@ function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
     return () => { cancelled = true }
   }, [resourceKey, recordId])
 
+  // Once the card is laid out, measure it and flip above the trigger if
+  // there isn't enough room below. Runs again whenever `data` or `loading`
+  // changes because the card grows when the data arrives.
+  useEffect(() => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    const gap = 6
+    const viewportH = window.innerHeight
+    const spaceBelow = viewportH - triggerRect.bottom - gap
+    const spaceAbove = triggerRect.top - gap
+    const needsFlip = rect.height > spaceBelow && spaceAbove > spaceBelow
+
+    // Also clamp horizontally so we don't flow past the right edge.
+    const viewportW = window.innerWidth
+    const clampedLeft = Math.max(8, Math.min(triggerRect.left, viewportW - rect.width - 8))
+
+    setPosition({
+      top: needsFlip ? triggerRect.top - rect.height - gap : triggerRect.bottom + gap,
+      left: clampedLeft,
+    })
+    setPositioned(true)
+  }, [loading, data, triggerRect.top, triggerRect.bottom, triggerRect.left])
+
   const hasAttributes = data && data.attributes.length > 0
 
   return createPortal(
     <div
+      ref={cardRef}
       data-testid="peek-card"
       className="fixed rounded-lg border p-2.5 text-sm pointer-events-none"
       style={{
@@ -92,16 +138,17 @@ function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
         color: 'var(--martis-text)',
         zIndex: 9999,
         boxShadow: 'var(--martis-peek-shadow)',
-        top: `${top}px`,
-        left: `${left}px`,
+        top: `${position.top}px`,
+        left: `${position.left}px`,
         minWidth: '10rem',
         maxWidth: '20rem',
         width: 'max-content',
+        visibility: positioned ? 'visible' : 'hidden',
       }}
     >
       {loading ? (
         <p className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-          ···
+          {t('loading', { defaultValue: 'Loading…' })}
         </p>
       ) : data ? (
         <>
@@ -149,7 +196,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
   const instanceId = useId()
   const peekArrowClass = `peek-arrow-${instanceId.replace(/:/g, '')}`
   const [showPeek, setShowPeek] = useState(false)
-  const [peekPos, setPeekPos] = useState<{ top: number; left: number } | null>(null)
+  const [peekTriggerRect, setPeekTriggerRect] = useState<{ top: number; bottom: number; left: number } | null>(null)
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerSpanRef = useRef<HTMLSpanElement>(null)
   const peekIconRef = useRef<HTMLAnchorElement>(null)
@@ -159,7 +206,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
       const target = peekIconRef.current ?? containerSpanRef.current
       if (target) {
         const rect = target.getBoundingClientRect()
-        setPeekPos({ top: rect.bottom + 6, left: rect.left })
+        setPeekTriggerRect({ top: rect.top, bottom: rect.bottom, left: rect.left })
       }
       setShowPeek(true)
     }, 300)
@@ -168,7 +215,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
   function handleMouseLeave() {
     if (peekTimer.current) clearTimeout(peekTimer.current)
     setShowPeek(false)
-    setPeekPos(null)
+    setPeekTriggerRect(null)
   }
 
   if (value === null || value === undefined || value === '') {
@@ -249,12 +296,11 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
             </a>
           )}
           {/* Tooltip handled by global Layout <Tooltip> */}
-          {peekable && showPeek && peekPos && relatedResource && (
+          {peekable && showPeek && peekTriggerRect && relatedResource && (
             <PeekCard
               resourceKey={relatedResource}
               recordId={value.id}
-              top={peekPos.top}
-              left={peekPos.left}
+              triggerRect={peekTriggerRect}
             />
           )}
         </span>

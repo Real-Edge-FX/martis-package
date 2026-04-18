@@ -41,7 +41,7 @@ return [
     'refresh' => 'Atualizar',
     'auto_refresh' => 'Atualização automática',
     'no_data' => 'Sem dados disponíveis',
-    'live' => 'Ao vivo',
+    'live' => 'Live',
     'vs' => 'vs',
     'showing' => 'Mostrando',
     'of' => 'de',

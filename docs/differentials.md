@@ -50,6 +50,36 @@ public function overrides(): array
 
 Features: slide animation, expand/collapse, fullscreen toggle, ESC close, backdrop click, configurable width and position.
 
+### Unsaved Changes Guard
+
+Uniform protection against discarding unsaved edits across **every** surface — drawers and full-page create/update routes. Intercepts the close button, ESC, backdrop click, the browser back button, and in-app router links.
+
+```php
+use Martis\UnsavedChangesConfig;
+use Martis\Contracts\UnsavedChangesConfigContract;
+
+public static function confirmUnsavedChanges(): bool|UnsavedChangesConfigContract
+{
+    return UnsavedChangesConfig::make()
+        ->title(__('projects.unsaved_title'))
+        ->body(__('projects.unsaved_body'))
+        ->icon('briefcase')
+        ->iconColor('info')
+        ->confirmLabel(__('projects.unsaved_discard'))
+        ->confirmColor('danger')
+        ->cancelLabel(__('projects.unsaved_keep'));
+}
+```
+
+Return `false` (the default) to disable, `true` for the localised package defaults, or an `UnsavedChangesConfig` to override title, body, icon, colours and button labels. The same config applies whether the resource uses a drawer override or the page-based create/update flow.
+
+**Implementation architecture**
+
+- **Browser back/forward** — handled via a history *sentinel* pushed on mount plus a **capture-phase popstate listener** that calls `stopImmediatePropagation()`. This prevents React Router from ever seeing the pop, avoiding the v6 URL-flicker bug. The sentinel is re-armed the moment the dialog opens, so repeated back presses while the dialog is visible stay trapped. On confirm the guard pops the re-armed sentinel (drawer: one `back()`; page: `go(-2)` for sentinel + real entry).
+- **In-app navigation** — `useBlocker` (React Router v6.4 data-router API) intercepts `<Link>` clicks and imperative `navigate()` calls. Popstate-originated navigations are deliberately ignored (`historyAction === 'POP'`) because the browser-level listener already owns that path.
+- **Modals on top of a guarded surface** — `ActionModal` and `DeleteModal` share a module-level `useModalHistoryLock` hook (`lib/historyLock.ts`) that coordinates with `DrawerShell`: while a modal's lock is active, the drawer's popstate handler bails out so closing the modal never closes the drawer underneath.
+- **`beforeunload` is intentionally NOT wired up.** The browser's native "Are you sure?" prompt was producing double prompts alongside the custom dialog and firing erratically when the previous history entry lived outside the SPA origin. Tab-close protection is an explicit trade-off Martis chose against for UX cleanliness.
+
 ### Layout Presets
 
 Three configurable layout presets with runtime hot-swap:
@@ -316,28 +346,52 @@ CountryFilter::make('Country')->searchable()
 
 ## Field Extensions
 
-### 16 Extended Field Types (Built-in)
+### 20 Extended Field Types (Built-in)
 
 All included without additional packages:
 
 | Field | Description |
 |-------|-------------|
-| `Badge` | Colored status badge with configurable colors |
+| `Badge` | Colored status badge — closure-backed map/labels and per-row `resolveBadgeUsing()` (⭐) |
 | `Status` | Status indicator with color mapping |
 | `Code` | Code editor with syntax highlighting |
 | `Color` | Color picker with preview |
 | `Country` | Country selector dropdown |
 | `Currency` | Formatted currency display with symbol |
 | `Gravatar` | Gravatar avatar from email |
+| `Icon` ⭐ | Phosphor icon picker (Martis 100% differential — Nova 5 has no Icon field) |
 | `KeyValue` | Editable key-value pair table |
 | `Markdown` | Markdown editor with preview |
 | `MultiSelect` | Multi-select dropdown |
+| `PasswordConfirmation` | Companion confirmation field that pairs with `Password::new()` |
+| `Slug` | URL-safe auto-generated identifier with live collision check (⭐) |
 | `Sparkline` | Inline mini chart |
 | `Tag` | Tag input with autocomplete |
-| `Trix` | Rich text editor |
-| `Url` | URL field with validation |
+| `Timezone` | IANA timezone dropdown with live clock (⭐) |
+| `Trix` | Rich text editor with attachment uploads |
+| `Url` | URL field with validation and auto-scheme normalisation |
 | `Heading` | Section divider with optional content |
 | `Hidden` | Hidden field for form data |
+
+### Icon Field — Phosphor Picker (⭐ Martis 100% differential)
+
+Nova 5 ships no Icon field. Martis provides three complementary modes:
+
+- **Display-only** — render a named Phosphor icon on the detail/index view. Useful for status cues.
+- **Stored with visual picker** — opens a categorised + searchable picker. Saves the icon *name* to the DB (portable, framework-agnostic).
+- **Computed from another attribute** — derive the icon from a model field via a closure; the picker is hidden.
+
+Supports palette whitelisting (restrict to a configured subset), `colorFrom()` to pull the hex colour from another attribute, configurable sizes and tooltips. Full API lives in [Fields Reference](fields.md#icon).
+
+### Badge Closures — Schema-time and Per-row (⭐)
+
+`Badge::map()`, `->labels()`, `->types()` and `->icons()` accept one of:
+
+- An array — the Nova-compatible static map.
+- **Zero-arg Closure** — resolved once when the schema is serialised. Perfect for enum-backed palettes: `->map(fn () => StatusEnum::badgeMap())`.
+- **One-arg Closure** ⭐ — resolved per row. Receives the raw value (and optionally the model) and returns the single string for that value. Ideal for convention-driven i18n: `->labels(fn (string $v) => __("statuses.$v"))`.
+
+For full control, `->resolveBadgeUsing(fn ($value, $model) => ['type', 'label', 'icon'])` runs per row and returns the resolved payload. Missing keys fall back to the static/closure maps. All per-row results ship to the frontend wrapped in a `__martisBadge` object the Badge component detects transparently.
 
 ### Grid Layout System
 
@@ -352,6 +406,39 @@ Section::make('Details', [
 ```
 
 Supports responsive breakpoints: `colSpan()`, `colSpanMd()`, `colSpanLg()`.
+
+---
+
+## UI Primitives
+
+### Standardised Button Classes
+
+Every confirm/cancel/destructive/secondary button in the admin shares the same chip geometry, shadow and hover choreography. Custom override components can drop in the same classes and inherit the full styling for free.
+
+| Class | Purpose | Background | Hover |
+|-------|---------|------------|-------|
+| `.martis-btn-primary` | Default confirm (save, create, run) | `--martis-accent` | `--martis-accent-hover` |
+| `.martis-btn-secondary` | Cancel / tertiary | `--martis-card` + subtle border | Overlay + lift |
+| `.martis-btn-danger` | Destructive confirm (delete) | `--martis-danger` | `--martis-danger-hover` |
+| `.martis-btn-warning` | Archive / reversible destructive | `--martis-warning` | `--martis-warning-hover` |
+| `.martis-btn-filled` | Dynamic `backgroundColor` via inline style (e.g. `UnsavedChangesDialog` honouring a user-provided `confirmColor`) | inline | `filter: brightness(0.92)` |
+
+Shared across every variant:
+
+- **Resting**: 1px border, `box-shadow: 0 1px 2px rgba(15,23,42,0.08)`, 6px radius, `500` weight, 0.875rem font, `0.5rem 1rem` padding.
+- **Hover** (not `:disabled`): deeper shadow (`0 3px 6px rgba(15,23,42,0.14)`) plus `translateY(-1px)` lift.
+- **Active**: shadow collapses, `translateY(0)`.
+- **Disabled**: no shadow, opacity `0.6`, cursor `not-allowed`.
+- **Focus-visible**: 2px `--martis-accent` outline with 2px offset.
+
+```tsx
+// Inside a custom action or override component
+<button className="martis-btn-primary">Save</button>
+<button className="martis-btn-secondary">Cancel</button>
+<button className="martis-btn-danger">Delete</button>
+```
+
+Where the package uses them already: `DrawerShell` footer, `DrawerCreate`/`DrawerUpdate`, full-page `ResourceCreate`/`ResourceUpdate`, `ActionModal`, `DeleteModal`, `UnsavedChangesDialog`.
 
 ---
 

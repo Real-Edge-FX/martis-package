@@ -476,6 +476,7 @@ export function ResourceIndexPage() {
         }}
         resourceKey={resource}
         selectable={selectable}
+        actionsColumnLabel={schema.actionsColumnLabel}
         inlineActions={inlineActions}
         onInlineAction={handleInlineAction}
         defaultRowActions={schema.defaultRowActions}
@@ -559,6 +560,7 @@ export function ResourceIndexPage() {
             void qc.invalidateQueries({ queryKey: ["resources", resource] })
             setActionDrawer(null)
           }}
+          onSwitchTo={(next) => setActionDrawer(next)}
         />
       )}
     </div>

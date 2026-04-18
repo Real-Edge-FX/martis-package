@@ -10,6 +10,7 @@ import { registry } from '@/lib/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { useModalHistoryLock } from '@/lib/historyLock'
 
 export interface ActionMeta {
   uriKey: string
@@ -104,6 +105,11 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [visible, onHide])
+
+  // Block the browser back button while the modal is visible — the
+  // user must pick a button. Cooperates with DrawerShell so a modal
+  // opened on top of a drawer can close without also closing it.
+  useModalHistoryLock(visible && !!action)
 
   const fieldsQuery = useQuery({
     queryKey: ['action-fields', resource, action?.uriKey],
@@ -370,12 +376,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
               type="button"
               onClick={() => executeMutation.mutate({ dryRun: true })}
               disabled={executeMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-              style={{
-                backgroundColor: 'var(--martis-input-bg)',
-                borderColor: 'var(--martis-border)',
-                color: 'var(--martis-text)',
-              }}
+              className="martis-btn-secondary"
             >
               {t('preview')}
             </button>
@@ -384,12 +385,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
             type="button"
             onClick={onHide}
             disabled={executeMutation.isPending}
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--martis-input-bg)',
-              borderColor: 'var(--martis-border)',
-              color: 'var(--martis-text)',
-            }}
+            className="martis-btn-secondary"
           >
             <XIcon size={14} />
             {cancelButton}
@@ -398,10 +394,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
             type="button"
             onClick={() => executeMutation.mutate({})}
             disabled={executeMutation.isPending}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)',
-            }}
+            className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >
             <LightningIcon size={14} />
             {executeMutation.isPending ? t('please_wait') : confirmButton}

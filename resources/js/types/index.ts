@@ -307,6 +307,16 @@ export interface LensSummaryCell {
   format?: string
 }
 
+export interface UnsavedChangesConfig {
+  title?: string | null
+  body?: string | null
+  icon?: string | null
+  iconColor?: string | null
+  confirmLabel?: string | null
+  confirmColor?: string | null
+  cancelLabel?: string | null
+}
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
@@ -320,7 +330,9 @@ export interface ResourceSchema extends ResourceEmbedded {
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
   actionsMenuLabel?: string | null
+  actionsColumnLabel?: string | null
   bulkActionsMenuLabel?: string | null
+  confirmUnsavedChanges?: boolean | UnsavedChangesConfig
   indexSearchable?: boolean
   perPageOptions?: number[]
   perPage?: number
