@@ -3206,3 +3206,65 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   display: flex;
   gap: 0.5rem;
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   OfMany / Through affordances — pill + aggregate tile + breadcrumb hint
+   (⭐ Task 07 PR D Martis differentials)
+   ──────────────────────────────────────────────────────────────────── */
+.martis-ofmany-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--martis-accent) 35%, var(--martis-border));
+  background-color: color-mix(in srgb, var(--martis-accent) 10%, var(--martis-card));
+  color: var(--martis-accent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.martis-through-hint {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.4375rem;
+  border-radius: 0.25rem;
+  background-color: var(--martis-surface-alt);
+  color: var(--martis-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: help;
+}
+
+.martis-ofmany-tile {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  align-self: flex-start;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-surface-alt);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.martis-ofmany-tile-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--martis-text-muted);
+}
+.martis-ofmany-tile-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--martis-text);
+  line-height: 1.2;
+}
+.martis-ofmany-tile-sub {
+  font-size: 0.6875rem;
+  color: var(--martis-text-muted);
+}

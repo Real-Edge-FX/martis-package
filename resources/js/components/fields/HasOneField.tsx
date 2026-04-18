@@ -9,6 +9,28 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 
+/** ⭐ Martis differential helper — human labels for OfMany aggregate tile. */
+function fnLabel(fn: string): string {
+  switch (fn) {
+    case 'count': return 'Total'
+    case 'sum': return 'Soma'
+    case 'avg': return 'Média'
+    case 'min': return 'Mínimo'
+    case 'max': return 'Máximo'
+    default: return fn
+  }
+}
+
+function formatAggregate(agg: { fn: string; column: string; value: number | null }): string {
+  if (agg.value === null) return '—'
+  if (agg.fn === 'count') return String(Math.round(agg.value))
+  // Heuristic: columns that look like money render with 2 decimals.
+  if (/amount|revenue|price|cost|total/i.test(agg.column)) {
+    return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(agg.value)
+  }
+  return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 }).format(agg.value)
+}
+
 /**
  * HasOne field display.
  *
@@ -53,11 +75,20 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
     enabled: !!relatedResource,
   })
 
-  // Fetch the single related record
+  // Fetch the single related record (plus Martis-diff meta: ofMany + throughBreadcrumb).
   const recordQuery = useQuery({
     queryKey: ['has-one', parentResource, parentId, relationship],
     queryFn: () =>
-      api.get<{ data: ResourceRecord | null }>(
+      api.get<{
+        data: ResourceRecord | null
+        meta?: {
+          ofMany?: {
+            totalCount?: number
+            aggregate?: { fn: string; column: string; value: number | null }
+          }
+          throughBreadcrumb?: { enabled?: boolean; relationship?: string }
+        }
+      }>(
         `/api/resources/${parentResource}/${parentId}/has-one/${relationship}`
       ),
     enabled: !!parentResource && !!parentId && !!relationship,
@@ -76,6 +107,9 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data ?? null
+  const relMeta = recordQuery.data?.meta
+  const ofMany = relMeta?.ofMany
+  const breadcrumb = relMeta?.throughBreadcrumb
   const detailFields: FieldDefinition[] = (schema as { fieldsForDetail?: FieldDefinition[] } | undefined)?.fieldsForDetail ?? []
 
   const viaParams = `?viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}&viaRelationshipType=has-one`
@@ -92,9 +126,23 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
     <div className="mt-6 space-y-3">
       {/* Section header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-          {field.label}
-        </h3>
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+            {field.label}
+          </h3>
+          {/* ⭐ Martis differential — Latest-of-N pill on HasOne::ofMany */}
+          {record !== null && typeof ofMany?.totalCount === 'number' && ofMany.totalCount > 1 && (
+            <span className="martis-ofmany-pill" title={`${ofMany.totalCount} registos no total`}>
+              1 de {ofMany.totalCount}
+            </span>
+          )}
+          {/* ⭐ Through breadcrumb tooltip marker */}
+          {breadcrumb?.enabled && (
+            <span className="martis-through-hint" title={`Via ${breadcrumb.relationship ?? 'intermediate'}`}>
+              ↳ through
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {record === null && meta?.canCreate && (
             <button
@@ -141,6 +189,15 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           )}
         </div>
       </div>
+
+      {/* ⭐ Martis differential — aggregate tile (OfMany) */}
+      {record !== null && ofMany?.aggregate && ofMany.aggregate.value !== null && (
+        <div className="martis-ofmany-tile">
+          <span className="martis-ofmany-tile-label">{fnLabel(ofMany.aggregate.fn)}</span>
+          <span className="martis-ofmany-tile-value">{formatAggregate(ofMany.aggregate)}</span>
+          <span className="martis-ofmany-tile-sub">{ofMany.aggregate.column === '*' ? 'total' : ofMany.aggregate.column}</span>
+        </div>
+      )}
 
       {/* Content */}
       {record === null ? (

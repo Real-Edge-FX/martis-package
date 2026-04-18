@@ -218,12 +218,16 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   sparkline: SparklineFieldDisplay,
   gravatar: GravatarFieldDisplay,
   has_many: LazyHasManyFieldDisplay,
+  has_many_through: LazyHasManyFieldDisplay, // Visually identical to HasMany; read-only flags are in the schema
   belongs_to_many: LazyBelongsToManyFieldDisplay,
   morph_to: MorphToFieldDisplay,
   morph_many: LazyMorphManyFieldDisplay,
   morph_one: MorphOneFieldDisplay,
+  morph_one_of_many: MorphOneFieldDisplay, // Visually identical to MorphOne
   morph_to_many: LazyMorphToManyFieldDisplay,
   has_one: HasOneFieldDisplay,
+  has_one_of_many: HasOneFieldDisplay, // Visually identical to HasOne
+  has_one_through: HasOneFieldDisplay, // Visually identical to HasOne; read-only flags are in the schema
   slug: SlugFieldDisplay,
   password_confirmation: PasswordConfirmationFieldDisplay,
   timezone: TimezoneFieldDisplay,
@@ -270,6 +274,10 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   sparkline: SparklineFieldInput,
   gravatar: GravatarFieldInput,
   has_many: LazyHasManyFieldInput,
+  has_many_through: LazyHasManyFieldInput,
+  morph_one_of_many: MorphOneFieldInput,
+  has_one_of_many: HasOneFieldInput,
+  has_one_through: HasOneFieldInput,
   belongs_to_many: LazyBelongsToManyFieldInput,
   morph_to: MorphToFieldInput,
   morph_many: LazyMorphManyFieldInput,
