@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Checkbox } from 'primereact/checkbox'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface BooleanGroupSchema {
@@ -62,7 +63,8 @@ export function BooleanGroupFieldDisplay({ field, value }: FieldDisplayProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Input — grouped sections (⭐) + live min/max counter (⭐).
+// Input — grouped sections (⭐) + live min/max counter (⭐)
+// using the package-standard PrimeReact Checkbox chrome.
 // ─────────────────────────────────────────────────────────────────────
 export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const schema = field as unknown as BooleanGroupSchema
@@ -81,6 +83,7 @@ export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldI
   }, [value, options])
 
   const checked = countChecked(v)
+  const total = Object.keys(options).length
   const { minChecked, maxChecked } = schema
 
   const toggle = (key: string) => {
@@ -101,41 +104,60 @@ export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldI
         ? 'warn'
         : 'ok'
 
+  const counterLabel = (() => {
+    if (maxChecked !== undefined) {
+      return `${checked} / ${maxChecked}` + (minChecked !== undefined && minChecked > 0 ? ` · min ${minChecked}` : '')
+    }
+    if (minChecked !== undefined) {
+      return `${checked} / ${total}` + ` · min ${minChecked}`
+    }
+    return null
+  })()
+
   return (
     <div className={`martis-boolgroup${error ? ' has-error' : ''}`}>
-      {(minChecked !== undefined || maxChecked !== undefined) && (
+      {counterLabel !== null && (
         <div className={`martis-boolgroup-counter state-${counterState}`}>
-          {checked}
-          {maxChecked !== undefined ? ` / ${maxChecked}` : ''}
-          {minChecked !== undefined && ` (min ${minChecked})`}
+          <span className="martis-boolgroup-counter-value">{counterLabel}</span>
         </div>
       )}
-      {sections.map((section, idx) => (
-        <fieldset key={idx} className="martis-boolgroup-section">
-          {section.title && <legend className="martis-boolgroup-legend">{section.title}</legend>}
-          <div className="martis-boolgroup-options">
-            {section.keys.map((key) => {
-              const on = !!v[key]
-              const disabled =
-                !on && maxChecked !== undefined && checked >= maxChecked
-              return (
-                <label
-                  key={key}
-                  className={`martis-boolgroup-option${disabled ? ' is-disabled' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={disabled}
-                    onChange={() => toggle(key)}
-                  />
-                  <span>{labelFor(schema, key)}</span>
-                </label>
-              )
-            })}
-          </div>
-        </fieldset>
-      ))}
+      <div className="martis-boolgroup-stack">
+        {sections.map((section, idx) => (
+          <section key={idx} className="martis-boolgroup-section">
+            {section.title && (
+              <header className="martis-boolgroup-legend">
+                <span>{section.title}</span>
+                <span className="martis-boolgroup-section-count">
+                  {section.keys.filter((k) => v[k]).length} / {section.keys.length}
+                </span>
+              </header>
+            )}
+            <div className="martis-boolgroup-options">
+              {section.keys.map((key) => {
+                const on = !!v[key]
+                const disabled =
+                  !on && maxChecked !== undefined && checked >= maxChecked
+                const inputId = `mbg-${key.replace(/[^a-z0-9]/gi, '-')}`
+                return (
+                  <label
+                    key={key}
+                    htmlFor={inputId}
+                    className={`martis-boolgroup-option${on ? ' is-on' : ''}${disabled ? ' is-disabled' : ''}`}
+                  >
+                    <Checkbox
+                      inputId={inputId}
+                      checked={on}
+                      disabled={disabled}
+                      onChange={() => toggle(key)}
+                    />
+                    <span className="martis-boolgroup-option-label">{labelFor(schema, key)}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
       {error && <p className="martis-field-error">{error}</p>}
     </div>
   )
