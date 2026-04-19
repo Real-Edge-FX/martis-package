@@ -102,6 +102,13 @@ abstract class Field implements FieldContract
 
     protected ?string $helpText = null;
 
+    /**
+     * Inline tooltip content shown when the user hovers the (?) icon next to
+     * the field label. Supports raw HTML (line breaks, bold, lists) so the
+     * caller can build richer hints than a single-line help string.
+     */
+    protected ?string $tooltip = null;
+
     /** Whether the field spans the full width of the form. Nova v5 parity. */
     protected bool $fullWidth = false;
 
@@ -201,6 +208,7 @@ abstract class Field implements FieldContract
             'component' => $this->componentKey,
             'placeholder' => $this->placeholder,
             'helpText' => $this->helpText,
+            'tooltip' => $this->tooltip,
             'fullWidth' => $this->fullWidth,
             'stacked' => $this->stacked,
             'colSpan' => $this->colSpan,
@@ -263,6 +271,31 @@ abstract class Field implements FieldContract
         $this->helpText = $text;
 
         return $this;
+    }
+
+    /**
+     * Set the tooltip shown next to the field label via a (?) icon.
+     *
+     * Unlike `help()`, which renders inline below the input, the tooltip
+     * only appears on hover — use it for context that is valuable but
+     * would clutter the form if always visible.
+     *
+     * Raw HTML is allowed (line breaks, bold, lists) so callers can build
+     * multi-line, formatted hints. The frontend opts in via the
+     * `data-pr-tooltip-html` attribute on the trigger.
+     *
+     * ⭐ Martis differential — Nova v5 has no tooltip-on-label API.
+     */
+    public function tooltip(?string $text): static
+    {
+        $this->tooltip = $text;
+
+        return $this;
+    }
+
+    public function getTooltip(): ?string
+    {
+        return $this->tooltip;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
@@ -158,7 +159,14 @@ class BelongsTo extends Field
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
      * @param  string|null  $label  Human-readable label
      */
-    public static function make(string $relationship, ?string $label = null): static
+    /**
+     * @param  string  $relationship  Relationship method name (e.g. "author") or FK column ("user_id").
+     * @param  string|null  $label  Human-readable label. Derived from the relationship name if null.
+     * @param  class-string|null  $resource  Related resource class (e.g. UserResource::class).
+     *   Nova parity: when provided, automatically applies ->relatedResource(uriKey)
+     *   so callers don't need a separate call.
+     */
+    public static function make(string $relationship, ?string $label = null, ?string $resource = null): static
     {
         // If caller passes the FK column (e.g. "user_id"), derive relationship name
         if (str_ends_with($relationship, '_id')) {
@@ -170,7 +178,14 @@ class BelongsTo extends Field
 
         $label = $label ?? Str::title(str_replace('_', ' ', $relationship));
 
-        return new static($foreignKey, $label, $relationship, $foreignKey);
+        $field = new static($foreignKey, $label, $relationship, $foreignKey);
+
+        if ($resource !== null) {
+            /** @var class-string<\Martis\Resource> $resource */
+            $field->relatedResource($resource::uriKey());
+        }
+
+        return $field;
     }
 
     /**
@@ -265,12 +280,33 @@ class BelongsTo extends Field
         // Attempt to load the related model via the relationship method.
         // Try both snake_case (e.g. current_team) and camelCase (e.g. currentTeam)
         // since Eloquent conventions use camelCase for relationship methods.
+        //
+        // When the related model uses SoftDeletes, explicitly include trashed
+        // records so rows pointing to soft-deleted parents still resolve the
+        // title in the UI (instead of falling back to the numeric ID).
+        // Without this an invoice whose client was soft-deleted would show
+        // "19" instead of "Hiro Satou".
         $related = null;
+        $relationshipName = null;
         $camelRelationship = Str::camel($this->relationship);
         if (method_exists($model, $this->relationship)) {
-            $related = $model->{$this->relationship};
+            $relationshipName = $this->relationship;
         } elseif ($camelRelationship !== $this->relationship && method_exists($model, $camelRelationship)) {
-            $related = $model->{$camelRelationship};
+            $relationshipName = $camelRelationship;
+        }
+        if ($relationshipName !== null) {
+            $relation = $model->{$relationshipName}();
+            $relatedClass = get_class($relation->getRelated());
+            $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($relatedClass), true);
+            if ($usesSoftDeletes) {
+                // withTrashed() is provided at runtime by SoftDeletingScope via
+                // __call — method_exists() returns false but the call still
+                // resolves. Checking whether the related model uses the trait
+                // is enough.
+                $related = $relation->withTrashed()->first();
+            } else {
+                $related = $model->{$relationshipName};
+            }
         }
 
         /** @var array<string, mixed> $data */

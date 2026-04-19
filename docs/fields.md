@@ -25,6 +25,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Component Override](#component-override)
   - [Metadata](#metadata)
   - [Serialization](#serialization)
+- [Tooltips (Martis differential)](#tooltips-martis-differential)
 - [Field Types](#field-types)
   - [Id](#id)
   - [Text](#text)
@@ -156,6 +157,7 @@ Text::make('first_name', 'First Name') // explicit label
 | `required` | `required(): static` | `$this` | Require a non-null value (adds `required` validation rule). |
 | `placeholder` | `placeholder(string $text): static` | `$this` | Set placeholder text for the input. |
 | `help` | `help(string $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). |
+| `tooltip` | `tooltip(?string $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br>`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Nova v5 has no equivalent. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. Nova v5 parity. |
 | `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). Nova v5 parity. |
 | `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. |
@@ -264,6 +266,88 @@ Email::make('email')
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `toArray` | `toArray(): array` | Serialize field to array for JSON API. Includes: `attribute`, `label`, `type`, `nullable`, `readonly`, `required`, `sortable`, `searchable`, `showOnIndex`, `showOnDetail`, `showOnForms`, `rules`, `component`, plus `extraAttributes()` and `meta`. |
+
+---
+
+## Tooltips (Martis differential)
+
+⭐ **Martis-exclusive.** Nova v5 has no equivalent — it ships only `help()` (plain
+text under the input). Martis adds **label tooltips** as a separate channel so
+authors can surface contextual guidance without committing valuable real estate
+to permanent inline text.
+
+### Why it matters
+
+- `help()` is always visible. It costs vertical space on every form render, for
+  every user, regardless of how long they've been using the resource.
+- A **tooltip** is opt-in: the hint shows only when the user hovers the
+  discreet `(?)` icon next to the label. Experienced users never see it;
+  new users have it one hover away.
+- HTML support means you can pack **rich, multi-line guidance** (lists, bold,
+  line breaks) into a single call without bloating the form.
+
+### API
+
+```php
+Text::make('name', 'Full name')
+    ->tooltip('<strong>Full legal name</strong>.<br>Examples:<br>• John Smith<br>• Ana Pereira<br><br><em>Avoid abbreviations.</em>');
+```
+
+| Signature | Notes |
+|-----------|-------|
+| `tooltip(?string $text): static` | Sets the tooltip. Pass `null` to clear. |
+| `getTooltip(): ?string` | Returns the current tooltip text (or `null`). |
+
+The tooltip string ships to the frontend in the serialized field under the key
+`tooltip` and is rendered by the global `MartisTooltip` component behind the
+`(?)` label icon on any form renderer (Panel, Section, TabGroup, ResourceCreate,
+ResourceUpdate) **and** on detail labels rendered inside Sections/TabGroups.
+
+### HTML support
+
+The frontend opts in via the `data-pr-tooltip-html="true"` attribute, so only
+field tooltips render as HTML — every other `data-pr-tooltip` trigger in the
+app keeps the default plain-text escape. Allowed markup: any inline HTML
+(`<br>`, `<strong>`, `<em>`, `<ul>`/`<li>`, `<code>`, `<a>`). The author is
+responsible for producing safe markup; prefer localised strings from
+`__()` / i18n dictionaries to keep content reviewable.
+
+### When to use `tooltip()` vs `help()`
+
+| Situation | Use |
+|-----------|-----|
+| Short, essential instruction that every user should read (e.g. "Must be unique") | `help()` |
+| Long-form, rarely-needed context (examples, edge cases, links to docs) | `tooltip()` |
+| Multi-line rich guidance (bullet lists, bold headings) | `tooltip()` |
+| Validation hint that depends on input state | `help()` |
+
+Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>Uniqueness rules</strong><br>...')`.
+
+### Frontend behaviour
+
+- The `(?)` icon uses the muted text colour so it reads as a quiet affordance.
+- Hover delay is **500 ms** — long enough that a cursor skimming the form
+  doesn't flash tooltips, short enough that intentional hover feels responsive.
+- Tooltip content falls back to `white-space: nowrap` for plain text and
+  `white-space: normal` for HTML content so `<br>` and wrapping actually work.
+- Position respects the trigger's `data-pr-position` (defaults to `top`).
+
+### Why NOT a `Tooltip` field class
+
+We deliberately rejected adding a `Tooltip::make()` field. Reasons:
+
+1. A `Field` represents a **column or value**. A pure tooltip has nothing to
+   read, write, validate, or serialise — it breaks the contract.
+2. Tooltips are a **presentation concern that applies to fields**, not a field
+   type of their own. Inverting that relationship forces authors to position
+   an empty "tooltip field" inside the form, competing with real fields for
+   `colSpan` and layout placement.
+3. The `->tooltip()` modifier is **universal**: it applies to every existing
+   and future field without touching the UI layer.
+
+If you need a hint unrelated to any single field (e.g. a section intro), use
+`Panel::make('', [])->description(...)` or `Section::make(...)->description(...)`
+— not a field.
 
 ---
 

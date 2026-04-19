@@ -191,7 +191,23 @@ export function DrawerShell({
       // mounts on the same render pass and would receive the popstate
       // we emit here, which closes it immediately. Defer the back()
       // via a microtask and skip it if another drawer is now mounted.
+      //
+      // Also skip the back() if history.state no longer points at our
+      // sentinel — this means the user navigated FORWARD via a click
+      // inside the drawer (e.g. the HasMany "Criar" button routes to
+      // /resources/{related}/create). In that case React Router
+      // already pushed a new entry on top of our sentinel; backing up
+      // would ping-pong the user right back into the drawer page.
       if (!browserPopped) {
+        const currentStateIsOurs = (() => {
+          try {
+            const s = window.history.state as { martisDrawer?: boolean } | null
+            return s?.martisDrawer === true
+          } catch {
+            return false
+          }
+        })()
+        if (!currentStateIsOurs) return
         queueMicrotask(() => {
           if (martisDrawerMountedCount === 0) {
             try {

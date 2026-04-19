@@ -6,6 +6,8 @@ import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
+import { NestedParentProvider, useNestedParent } from './NestedParentContext'
+import { buildViaParams } from '@/lib/relationViaParams'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 
@@ -17,7 +19,8 @@ import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
  *   - If no record exists: shows an empty state with a "Create" button
  *   - If a record exists: shows all detail fields in a card with "Edit" / "Delete" buttons
  *
- * Not shown on index or forms (consistent with Nova v5 behavior).
+ * Visual chrome aligned with HasOneField: bordered wrapper + header area
+ * with bg-hover + padded content. Splits scalar from nested relations.
  */
 export function MorphOneFieldDisplay({ field }: FieldDisplayProps) {
   return <MorphOneDetailPanel field={field} />
@@ -38,11 +41,12 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const relationship = field.relationship as string
   const relatedResource = field.relatedResource as string
 
-  // Extract parent context from current URL
+  // Parent context: read from NestedParent when inside another relationship.
+  const nested = useNestedParent()
   const pathParts = window.location.pathname.split('/')
   const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = resourcesIdx >= 0 ? pathParts[resourcesIdx + 1] : ''
-  const parentId = resourcesIdx >= 0 ? pathParts[resourcesIdx + 2] : ''
+  const parentResource = nested?.resource ?? (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 1] ?? '') : '')
+  const parentId = nested?.id !== undefined ? String(nested.id) : (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 2] ?? '') : '')
 
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -76,40 +80,55 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data ?? null
-  const detailFields: FieldDefinition[] = (schema as { fieldsForDetail?: FieldDefinition[] } | undefined)?.fieldsForDetail ?? []
+  // Flatten panels/sections/tabs so nested fields render flat in the
+  // card (same logic as HasOneField). Without this, Panels would render
+  // as "—".
+  const rawDetailFields: FieldDefinition[] = (schema as { fieldsForDetail?: FieldDefinition[] } | undefined)?.fieldsForDetail ?? []
+  const flattenFields = (fields: FieldDefinition[]): FieldDefinition[] =>
+    fields.flatMap((f) => {
+      if (f.type === 'panel' || f.type === 'section') {
+        const inner = ((f as unknown as { fields?: FieldDefinition[] }).fields) ?? []
+        return flattenFields(inner)
+      }
+      if (f.type === 'tab_group') {
+        const tabs = ((f as unknown as { tabs?: { fields?: FieldDefinition[] }[] }).tabs) ?? []
+        return tabs.flatMap((t) => flattenFields(t.fields ?? []))
+      }
+      return [f]
+    })
+  const detailFields = flattenFields(rawDetailFields)
 
-  const viaParams = `?viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}&viaRelationshipType=morph-one`
+  const viaParams = buildViaParams({
+    parentResource,
+    parentId,
+    relationship,
+    relationshipType: 'morph-one',
+  })
 
   if (recordQuery.isLoading) {
     return (
-      <div className="mt-6 py-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+      <div className="py-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
         {tMsg('loading', 'Loading…')}
       </div>
     )
   }
 
   return (
-    <div className="mt-6 space-y-3">
-      {/* Section header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+    <div
+      className="rounded-lg"
+      style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
+    >
+      {/* Header */}
+      <div
+        className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
+      >
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>
           {field.label}
         </h3>
-        <div className="flex items-center gap-2">
-          {record === null && meta?.canCreate && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate(`/resources/${relatedResource}/create${viaParams}`)
-              }
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
-            >
-              <PlusIcon size={14} weight="bold" />
-              {tAct('create', 'Create')}
-            </button>
-          )}
-          {record !== null && meta?.canUpdate && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Create is only rendered in the empty-state card to avoid duplication */}
+          {record !== null && meta?.canUpdate && viaParams !== null && (
             <button
               type="button"
               onClick={() =>
@@ -117,13 +136,14 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
                   `/resources/${relatedResource}/${record.id as string | number}/edit${viaParams}`
                 )
               }
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
               style={{
                 borderColor: 'var(--martis-border)',
-                border: '1px solid var(--martis-border)',
                 backgroundColor: 'var(--martis-surface)',
                 color: 'var(--martis-text)',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-surface)')}
             >
               <PencilSimpleIcon size={14} />
               {tAct('edit', 'Edit')}
@@ -133,12 +153,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
-              style={{
-                border: '1px solid var(--martis-danger)',
-                backgroundColor: 'var(--martis-danger-bg)',
-                color: 'var(--martis-danger-hover)',
-              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
             >
               <TrashIcon size={14} />
               {tAct('delete', 'Delete')}
@@ -147,68 +162,87 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
         </div>
       </div>
 
-      {/* Content */}
-      {record === null ? (
-        <div
-          className="rounded-xl border border-dashed py-10 text-center text-sm"
-          style={{
-            borderColor: 'var(--martis-border)',
-            color: 'var(--martis-text-muted)',
-            backgroundColor: 'var(--martis-surface)',
-          }}
-        >
-          {tMsg('morph_one_empty', 'No related record exists yet.')}
-          {meta?.canCreate && (
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(`/resources/${relatedResource}/create${viaParams}`)
-                }
-                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
-                style={{ backgroundColor: 'var(--martis-accent)' }}
-              >
-                <PlusIcon size={14} weight="bold" />
-                {tAct('create', 'Create')}
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div
-          className="rounded-xl border"
-          style={{
-            borderColor: 'var(--martis-border)',
-            backgroundColor: 'var(--martis-card)',
-          }}
-        >
-          <dl className="divide-y" style={{ borderColor: 'var(--martis-border)' }}>
-            {detailFields
-              .filter((f) => f.attribute !== 'id')
-              .map((f) => (
-                <div
-                  key={f.attribute}
-                  className="grid grid-cols-3 gap-4 px-5 py-3"
+      <div className="p-4 space-y-3">
+        {record === null ? (
+          <div
+            className="rounded-xl border border-dashed py-10 text-center text-sm"
+            style={{
+              borderColor: 'var(--martis-border)',
+              color: 'var(--martis-text-muted)',
+              backgroundColor: 'var(--martis-surface)',
+            }}
+          >
+            {tMsg('morph_one_empty', 'No related record exists yet.')}
+            {meta?.canCreate && viaParams !== null && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/resources/${relatedResource}/create${viaParams}`)
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
+                  style={{ backgroundColor: 'var(--martis-accent)' }}
                 >
-                  <dt
-                    className="text-sm font-medium"
-                    style={{ color: 'var(--martis-text-muted)' }}
-                  >
-                    {f.label}
-                  </dt>
-                  <dd className="col-span-2 text-sm" style={{ color: 'var(--martis-text)' }}>
-                    <FieldDisplay
-                      field={f}
-                      value={record[f.attribute]}
-                      resourceKey={relatedResource}
-                      context="detail"
-                    />
-                  </dd>
-                </div>
-              ))}
-          </dl>
-        </div>
-      )}
+                  <PlusIcon size={14} weight="bold" />
+                  {tAct('create', 'Create')}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          (() => {
+            const standaloneTypes = new Set([
+              'has_many', 'has_many_through',
+              'has_one', 'has_one_of_many', 'has_one_through',
+              'morph_one', 'morph_one_of_many', 'morph_many',
+            ])
+            const scalar = detailFields.filter((f) => f.attribute !== 'id' && !standaloneTypes.has(f.type))
+            const relations = detailFields.filter((f) => standaloneTypes.has(f.type))
+            return (
+              <>
+                {scalar.length > 0 && (
+                  <dl className="martis-divide" style={{ borderColor: 'var(--martis-border)' }}>
+                    {scalar.map((f) => (
+                      <div
+                        key={f.attribute}
+                        className="flex flex-col gap-1 py-3 sm:grid sm:grid-cols-3 sm:gap-4"
+                      >
+                        <dt
+                          className="text-sm font-medium"
+                          style={{ color: 'var(--martis-text-muted)', wordBreak: 'break-word' }}
+                        >
+                          {f.label}
+                        </dt>
+                        <dd className="col-span-2 text-sm" style={{ color: 'var(--martis-text)' }}>
+                          <FieldDisplay
+                            field={f}
+                            value={record[f.attribute]}
+                            resourceKey={relatedResource}
+                            context="detail"
+                          />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {relations.length > 0 && (
+                  <NestedParentProvider value={{ resource: relatedResource, id: record.id as string | number }}>
+                    {relations.map((f) => (
+                      <FieldDisplay
+                        key={f.attribute}
+                        field={f}
+                        value={null}
+                        resourceKey={relatedResource}
+                        context="detail"
+                      />
+                    ))}
+                  </NestedParentProvider>
+                )}
+              </>
+            )
+          })()
+        )}
+      </div>
 
       {/* Delete confirmation modal */}
       <DeleteModal

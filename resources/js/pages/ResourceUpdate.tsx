@@ -7,6 +7,7 @@ import { FieldInput } from '@/components/fields/FieldRenderer'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
+import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
@@ -27,7 +28,12 @@ export function ResourceUpdatePage() {
   const viaResource = searchParams.get('viaResource')
   const viaResourceId = searchParams.get('viaResourceId')
   const viaRelationship = searchParams.get('viaRelationship')
-  const isViaHasMany = !!(viaResource && viaResourceId && viaRelationship)
+  const viaRelationshipType = searchParams.get('viaRelationshipType')
+  const isViaRelation = !!(viaResource && viaResourceId && viaRelationship)
+  // Backwards-compat alias — some code below still uses this flag to
+  // decide the "back to parent" redirect. Preserves the semantics (any
+  // relationship, not just HasMany) but keeps the original name.
+  const isViaHasMany = isViaRelation
   const redirectMode = searchParams.get('redirectMode') ?? 'parent'
 
   const schemaQuery = useQuery({
@@ -100,9 +106,25 @@ export function ResourceUpdatePage() {
       addToast('success', res.meta?.message ?? tMsg('record_updated'))
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
-      // Navigate back to parent resource detail if editing via HasMany, otherwise to record detail
-      if (isViaHasMany && redirectMode === 'parent') {
-        void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
+      // Navigate back to parent resource detail if editing via a
+      // relationship, otherwise to record detail. Invalidate the matching
+      // query (has-many or has-one depending on viaRelationshipType),
+      // otherwise the parent's panel would keep stale data and the user
+      // would need a manual refresh.
+      if (isViaRelation) {
+        if (viaRelationshipType === 'has-one') {
+          void qc.invalidateQueries({ queryKey: ['has-one', viaResource, viaResourceId, viaRelationship] })
+        } else {
+          void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
+        }
+      }
+      // Prefer the explicit `from` URL so the user returns to the exact
+      // page they clicked from, even when that page sits above the
+      // immediate parent in the resource tree.
+      const fromParam = searchParams.get('from')
+      if (fromParam) {
+        navigate(fromParam)
+      } else if (isViaRelation && redirectMode === 'parent') {
         navigate(`/resources/${viaResource}/${viaResourceId}`)
       } else {
         navigate(`/resources/${resource}/${id}`)
@@ -276,6 +298,7 @@ export function ResourceUpdatePage() {
                       {field.required && (
                         <span className="ml-1 text-red-500" aria-hidden="true">*</span>
                       )}
+                      <FieldLabelTooltip text={field.tooltip} />
                     </label>
                   </div>
                   <div className="col-span-2">
@@ -304,12 +327,24 @@ export function ResourceUpdatePage() {
               borderColor: 'var(--martis-border)',
               backgroundColor: 'var(--martis-surface-alt)',
             }}>
-            <Link
-              to={cancelLink}
-              className="martis-btn-secondary no-underline"
+            <button
+              type="button"
+              onClick={() => {
+                // See ResourceCreate cancel handler — same rationale for
+                // preferring the `from` param over navigate(-1).
+                const fromParam = searchParams.get('from')
+                if (fromParam) {
+                  navigate(fromParam)
+                } else if (window.history.length > 1) {
+                  navigate(-1)
+                } else {
+                  navigate(cancelLink)
+                }
+              }}
+              className="martis-btn-secondary"
             >
               {tAct('cancel')}
-            </Link>
+            </button>
             <button
               type="submit"
               disabled={updateMutation.isPending}

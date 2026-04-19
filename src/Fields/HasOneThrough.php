@@ -30,13 +30,16 @@ class HasOneThrough extends HasOne
 {
     protected bool $showThroughBreadcrumb = false;
 
+    protected ?string $throughBreadcrumbText = null;
+
     public function __construct(string $attribute, string $label, string $relationship = '')
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Through relationships are traversal-only — the parent resource
-        // cannot create the intermediate, so Create/Edit/Delete have
-        // no meaningful target.
+        // Read-only by default, aligned with Nova: a Through relationship is
+        // a traversal — there is no direct FK to populate on create (the
+        // intermediate model is ambiguous). Callers can re-enable mutations
+        // explicitly via ->canCreate(true) etc. when they have custom logic.
         $this->canCreateRelated = false;
         $this->canUpdateRelated = false;
         $this->canDeleteRelated = false;
@@ -48,12 +51,19 @@ class HasOneThrough extends HasOne
     }
 
     /**
-     * ⭐ Martis differential — enable the "through" breadcrumb tooltip
-     * on the detail panel.
+     * ⭐ Martis differential — enable the breadcrumb tooltip on the
+     * detail panel. Optionally accepts a custom text that overrides the
+     * default "Indirect relationship accessed through :relationship".
+     *
+     * Usage:
+     *   ->throughBreadcrumb()                           // default i18n string
+     *   ->throughBreadcrumb(true, 'Via client')         // fixed text
+     *   ->throughBreadcrumb(false)                      // disabled
      */
-    public function throughBreadcrumb(bool $enabled = true): static
+    public function throughBreadcrumb(bool $enabled = true, ?string $text = null): static
     {
         $this->showThroughBreadcrumb = $enabled;
+        $this->throughBreadcrumbText = $text;
 
         return $this;
     }
@@ -61,6 +71,11 @@ class HasOneThrough extends HasOne
     public function hasThroughBreadcrumb(): bool
     {
         return $this->showThroughBreadcrumb;
+    }
+
+    public function getThroughBreadcrumbText(): ?string
+    {
+        return $this->throughBreadcrumbText;
     }
 
     public function validateRelationship(Model $model): void

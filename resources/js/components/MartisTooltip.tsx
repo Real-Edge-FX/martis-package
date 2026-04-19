@@ -14,6 +14,10 @@ import { createPortal } from 'react-dom'
 export function MartisTooltip() {
   const [visible, setVisible] = useState(false)
   const [text, setText] = useState('')
+  // When the trigger sets `data-pr-tooltip-html="true"` the content is rendered
+  // via dangerouslySetInnerHTML so authors can use line breaks, bold, lists,
+  // etc. Kept as a separate state so plain-text triggers stay safely escaped.
+  const [isHtml, setIsHtml] = useState(false)
   const [position, setPosition] = useState<'top' | 'bottom' | 'left' | 'right'>('top')
   const [coords, setCoords] = useState({ x: 0, y: 0 })
   const showTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -25,6 +29,7 @@ export function MartisTooltip() {
 
     currentTarget.current = target
     const pos = (target.getAttribute('data-pr-position') as 'top' | 'bottom' | 'left' | 'right') || 'top'
+    const htmlOptIn = target.getAttribute('data-pr-tooltip-html') === 'true'
 
     const rect = target.getBoundingClientRect()
     let x: number, y: number
@@ -49,6 +54,7 @@ export function MartisTooltip() {
     }
 
     setText(tooltipText)
+    setIsHtml(htmlOptIn)
     setPosition(pos)
     setCoords({ x, y })
     setVisible(true)
@@ -73,8 +79,10 @@ export function MartisTooltip() {
         return
       }
 
-      // First hover: show with delay
-      showTimer.current = setTimeout(() => show(target), 300)
+      // First hover: show with delay. 500 ms is long enough that skimming
+      // over an icon doesn't flash the tooltip, and short enough that
+      // intentional hover still feels responsive.
+      showTimer.current = setTimeout(() => show(target), 500)
     }
 
     const handleMouseLeave = (e: MouseEvent) => {
@@ -196,13 +204,20 @@ export function MartisTooltip() {
           fontSize: '0.75rem',
           padding: '0.25rem 0.5rem',
           borderRadius: '0.375rem',
-          whiteSpace: 'nowrap',
+          // HTML tooltips may contain <br>, <ul>, etc. — they need `normal`
+          // wrapping so those line breaks actually render. Plain tooltips
+          // keep `nowrap` so short labels don't word-wrap next to edges.
+          whiteSpace: isHtml ? 'normal' : 'nowrap',
           maxWidth: 300,
           position: 'relative',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -2px rgba(0, 0, 0, 0.08)',
         }}
       >
-        {text}
+        {isHtml ? (
+          <span dangerouslySetInnerHTML={{ __html: text }} />
+        ) : (
+          text
+        )}
         <div style={arrowStyle} />
       </div>
     </div>,

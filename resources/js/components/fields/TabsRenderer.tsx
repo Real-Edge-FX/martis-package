@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { TabGroupDefinition, TabDefinition, FieldDefinition, PanelDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { PanelDisplay, PanelInput } from './PanelRenderer'
+import { FieldLabelTooltip } from './FieldLabelTooltip'
 
 // -------------------------------------------------------------------------
 // Tab navigation bar
@@ -109,7 +110,7 @@ export function TabsDisplay({
                 style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
               >
                 <dl>
-                  <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
+                  <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
                   <dd>
                     <FieldDisplay
                       field={field}
@@ -198,6 +199,7 @@ export function TabsInput({
                   {field.required && (
                     <span className="ml-1 text-red-500" aria-hidden="true">*</span>
                   )}
+                  <FieldLabelTooltip text={field.tooltip} />
                 </label>
                 <FieldInput
                   field={field}

@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 use Martis\Resource;
@@ -259,13 +260,30 @@ class MorphTo extends Field
             return null;
         }
 
-        // Load the related model
+        // Load the related model. When the related model uses SoftDeletes,
+        // include trashed rows so the title keeps resolving even when the
+        // parent was soft-deleted — otherwise the UI would fall back to the
+        // numeric ID.
         $camelRelationship = Str::camel($this->relationship);
         $related = null;
+        $relationshipName = null;
         if (method_exists($model, $this->relationship)) {
-            $related = $model->{$this->relationship};
+            $relationshipName = $this->relationship;
         } elseif ($camelRelationship !== $this->relationship && method_exists($model, $camelRelationship)) {
-            $related = $model->{$camelRelationship};
+            $relationshipName = $camelRelationship;
+        }
+        if ($relationshipName !== null) {
+            $relation = $model->{$relationshipName}();
+            $relatedClass = get_class($relation->getRelated());
+            $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($relatedClass), true);
+            if ($usesSoftDeletes) {
+                // withTrashed() is provided at runtime by SoftDeletingScope
+                // via __call — method_exists() cannot see it but the call
+                // still works.
+                $related = $relation->withTrashed()->first();
+            } else {
+                $related = $model->{$relationshipName};
+            }
         }
 
         // Resolve the resource URI key for the morph type

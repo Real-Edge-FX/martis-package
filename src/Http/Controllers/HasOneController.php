@@ -142,9 +142,10 @@ class HasOneController extends MartisController
         return [
             'enabled' => true,
             'relationship' => $field->getRelationship(),
-            // The frontend renders "Parent → Intermediate → Target" from
-            // the related resource labels; we just flag that the tooltip
-            // should show.
+            // Custom text supplied by the developer via
+            // ->throughBreadcrumb(true, 'Custom text'). Null = frontend
+            // falls back to the default i18n string "through_tooltip".
+            'text' => $field->getThroughBreadcrumbText(),
         ];
     }
 
@@ -431,8 +432,10 @@ class HasOneController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
-        // Block mutations on HasOneThrough — the relation is a traversal
-        // and Eloquent has no create/update/delete path on it.
+        // Block mutations on HasOneThrough — the relationship is a traversal,
+        // there is no direct FK for Eloquent to create/update/delete on.
+        // Defence in depth: even if someone bypasses the UI, the backend
+        // refuses. Aligned with the Nova default.
         if ($action !== null && $hasOneField instanceof HasOneThroughField) {
             return JsonErrorResponse::forbidden("hasOneThrough relationships are read-only.")->toResponse();
         }

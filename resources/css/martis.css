@@ -2421,21 +2421,28 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ── Table horizontal scrollbar — visible on hover (REA-1188) ───── */
-/* Permite scroll horizontal quando a tabela excede a largura do viewport */
+/* `overflow-x: scroll` (não `auto`) força o browser a reservar a barra
+ * mesmo em macOS com "Mostrar scroll bars automaticamente" — de outro
+ * modo o SO esconde a barra em trackpad e o `:hover` nunca a revela. */
 .martis-datatable .p-datatable-wrapper {
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox: oculto por defeito */
+  /* PrimeReact aplica `style="overflow: auto"` inline no wrapper, o que
+   * bate qualquer regra de stylesheet sem `!important`. Forçamos
+   * `overflow-x: scroll` para reservar a barra de scroll mesmo quando
+   * o macOS está em modo overlay (trackpad). */
+  overflow-x: scroll !important;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
 }
 .martis-datatable:hover .p-datatable-wrapper {
-  scrollbar-width: thin; /* Firefox: visivel no hover */
   scrollbar-color: var(--martis-border) transparent;
 }
 .martis-datatable .p-datatable-wrapper::-webkit-scrollbar {
-  height: 6px;
+  height: 8px;
 }
 .martis-datatable .p-datatable-wrapper::-webkit-scrollbar-thumb {
   background-color: transparent;
-  border-radius: 3px;
+  border-radius: 4px;
   transition: background-color 0.2s ease;
 }
 .martis-datatable:hover .p-datatable-wrapper::-webkit-scrollbar-thumb {

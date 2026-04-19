@@ -32,13 +32,18 @@ class HasManyThrough extends HasMany
 {
     protected bool $showThroughBreadcrumb = false;
 
+    protected ?string $throughBreadcrumbText = null;
+
     protected bool $countBadge = true;
 
     public function __construct(string $attribute, string $label, string $relationship = '')
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Through relationships are traversal-only.
+        // Read-only by default, aligned with Nova: a Through relationship is
+        // a traversal — there is no direct FK to populate on create (the
+        // intermediate model is ambiguous). Callers can re-enable mutations
+        // explicitly via ->canCreate(true) etc. when they have custom logic.
         $this->canCreateRelated = false;
         $this->canUpdateRelated = false;
         $this->canDeleteRelated = false;
@@ -49,10 +54,16 @@ class HasManyThrough extends HasMany
         return 'has_many_through';
     }
 
-    /** ⭐ Martis differential — enable the "through" breadcrumb tooltip. */
-    public function throughBreadcrumb(bool $enabled = true): static
+    /**
+     * ⭐ Martis differential — enable the breadcrumb tooltip. Accepts an
+     * optional custom text that overrides the default i18n string.
+     *
+     * Usage: ->throughBreadcrumb(true, 'Projects managed through the clients of this team member')
+     */
+    public function throughBreadcrumb(bool $enabled = true, ?string $text = null): static
     {
         $this->showThroughBreadcrumb = $enabled;
+        $this->throughBreadcrumbText = $text;
 
         return $this;
     }
@@ -60,6 +71,11 @@ class HasManyThrough extends HasMany
     public function hasThroughBreadcrumb(): bool
     {
         return $this->showThroughBreadcrumb;
+    }
+
+    public function getThroughBreadcrumbText(): ?string
+    {
+        return $this->throughBreadcrumbText;
     }
 
     /** ⭐ Martis differential — toggle the count pill on the parent's index. */

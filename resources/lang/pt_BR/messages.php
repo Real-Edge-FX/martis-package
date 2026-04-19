@@ -154,4 +154,6 @@ return [
     'close' => 'Fechar',
     'actions' => 'Ações',
     'remove_row' => 'Remover linha',
+    'through_label' => 'indireta',
+    'through_tooltip' => 'Relação indireta acessada através de :relationship',
 ];

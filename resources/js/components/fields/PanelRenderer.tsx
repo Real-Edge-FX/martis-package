@@ -3,6 +3,7 @@ import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { PanelDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
+import { FieldLabelTooltip } from './FieldLabelTooltip'
 
 // -------------------------------------------------------------------------
 // Panel — shared internal container
@@ -166,6 +167,7 @@ export function PanelInput({
                 {field.required && (
                   <span className="ml-1 text-red-500" aria-hidden="true">*</span>
                 )}
+                <FieldLabelTooltip text={field.tooltip} />
               </label>
               <FieldInput
                 field={field}

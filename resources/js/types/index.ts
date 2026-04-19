@@ -224,6 +224,11 @@ export interface FieldDefinition {
   colSpanLg?: number | null
   /** Help text displayed below the field input. Supports inline HTML (Martis extension). */
   helpText?: string | null
+  /**
+   * Tooltip content shown on hover of the (?) icon next to the field label.
+   * Supports inline HTML (line breaks, bold, lists). ⭐ Martis differential.
+   */
+  tooltip?: string | null
   /** Whether the field spans the full width of the form. Nova v5 parity. */
   fullWidth?: boolean
   /** Whether the label is stacked above (true) or inline (false). Nova v5 parity. */
