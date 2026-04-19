@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { WarningIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import type { UnsavedChangesConfig } from '@/types'
+import { useModalHistoryLock } from '@/lib/historyLock'
 
 interface Props {
   open: boolean
@@ -41,6 +42,8 @@ function resolveColor(input?: string | null, fallback?: string): string | undefi
  */
 export function UnsavedChangesDialog({ open, onConfirm, onCancel, config }: Props) {
   const { t } = useTranslation('messages')
+
+  useModalHistoryLock(open)
 
   // Escape cancels (i.e. keeps editing) to avoid "accidentally discard".
   useEffect(() => {

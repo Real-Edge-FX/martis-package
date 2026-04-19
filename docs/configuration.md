@@ -227,6 +227,7 @@ Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-c
         'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
     ],
     'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
+    'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
 ],
 ```
 
@@ -237,6 +238,7 @@ Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-c
 | `default_row_actions.edit` | `bool` | `true` | Show the edit icon. |
 | `default_row_actions.delete` | `bool` | `true` | Show the delete icon. |
 | `row_click_opens_detail` | `bool` | `true` | When default row actions expose a "view" icon, clicking the row body becomes redundant. Set to `false` to disable row-click and keep the row informational. Override per resource with `rowClickOpensDetail(Request $request): ?bool`. |
+| `default_trashed_filter` | `string` | `'active'` | Initial state of the trashed-filter dropdown on soft-delete resources (main index **and** relationship panels). One of `'active'` (hide deleted), `'with'` (include deleted alongside live), `'only'` (only deleted). Visibility of the dropdown itself is gated by [`Resource::canViewTrashed()`](resources.md#restricting-trashed-visibility-by-role). |
 
 Override per-resource with the `defaultRowActions(Request $request): bool|array` and `rowClickOpensDetail(Request $request): ?bool` methods. See [Default Row Actions](default_row_actions.md) for the full guide.
 
@@ -249,7 +251,12 @@ Override per-resource with the `defaultRowActions(Request $request): bool|array`
 ],
 ```
 
-Override per-resource via `perPage()` and `perPageOptions()` on the resource class.
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `default_per_page` | `int` | `25` | Fallback for `Resource::perPage()` and `Lens::perPage()` when the resource/lens does not override the method. |
+| `max_per_page` | `int` | `100` | Upper bound enforced by the ResourceController when the client passes `?perPage=N` on the URL. Protects against pathological page sizes. |
+
+Override per-resource via `perPage()` and `perPageOptions()` on the resource class. When the returned `perPage()` is not present in `perPageOptions()`, Martis silently clamps to `perPageOptions()[0]` — see [resources.md — Effective per-page](resources.md#effective-per-page).
 
 ## Storage
 
@@ -351,6 +358,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_THEME_NAME` | `theme.name` | `null` |
 | `MARTIS_SEARCH_MODE` | `search.mode` | `bar` |
 | `MARTIS_TOAST_POSITION` | `toast.position` | `bottom-right` |
+| `MARTIS_DEFAULT_TRASHED_FILTER` | `index.default_trashed_filter` | `active` |
 | `MARTIS_STORAGE_DISK` | `storage.disk` | `public` |
 | `MARTIS_ATTACHMENT_MIMES` | `attachments.allowed_mimes` | (see config) |
 | `MARTIS_ATTACHMENT_MAX_SIZE` | `attachments.max_size` | `10240` |

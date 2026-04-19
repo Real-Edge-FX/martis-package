@@ -4,10 +4,13 @@ import type { FieldDisplayProps, FieldInputProps } from "./types"
 import { EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
 import { BASE_PATH } from "@/lib/config"
 import { useTranslation } from 'react-i18next'
+import { useModalHistoryBackToClose } from "@/lib/historyLock"
 import "trix/dist/trix.css"
 import "trix"
 
 function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
+  useModalHistoryBackToClose(true, onClose)
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return

@@ -158,6 +158,24 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Resolve the effective per-page for this resource. When the developer's
+     * declared `perPage()` is not present in `perPageOptions()`, clamp to
+     * the first option so the dropdown and the actual filter stay in sync
+     * (Option A — "options list is the source of truth").
+     */
+    public static function resolvedPerPage(): int
+    {
+        $options = static::perPageOptions();
+        $perPage = static::perPage();
+
+        if ($options === [] || in_array($perPage, $options, true)) {
+            return $perPage;
+        }
+
+        return $options[0];
+    }
+
+    /**
      * Return the default sort column for the index listing.
      *
      * Override in concrete resources to sort by a specific column on load.

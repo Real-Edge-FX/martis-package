@@ -43,6 +43,11 @@ class MorphMany extends Field
      */
     protected array $relationPerPageOptions = [5, 10, 25, 50];
 
+    /** Tracks whether the developer explicitly called `->perPageOptions([...])`.
+     *  When false, the panel falls back to the related resource's own
+     *  `perPageOptions()` — Nova-style "resource is the single source of truth". */
+    protected bool $perPageOptionsSet = false;
+
     /** Whether to show a "Create" button for related records. */
     protected bool $canCreateRelated = true;
 
@@ -139,8 +144,57 @@ class MorphMany extends Field
     public function perPageOptions(array $options): static
     {
         $this->relationPerPageOptions = $options;
+        $this->perPageOptionsSet = true;
 
         return $this;
+    }
+
+    /**
+     * Resolve the per-page options for the inline listing. Priority:
+     *   1. Developer-supplied via `->perPageOptions([...])` on the field.
+     *   2. The related resource's own `perPageOptions()` method.
+     *   3. The field's hardcoded default `[5, 10, 25, 50]`.
+     *
+     * @return list<int>
+     */
+    protected function resolvePerPageOptions(): array
+    {
+        if ($this->perPageOptionsSet) {
+            return $this->relationPerPageOptions;
+        }
+
+        $uriKey = $this->getRelatedResourceKey();
+        if ($uriKey !== null) {
+            try {
+                /** @var \Martis\ResourceRegistry $registry */
+                $registry = app(\Martis\ResourceRegistry::class);
+                if ($registry->has($uriKey)) {
+                    /** @var class-string<\Martis\Resource> $class */
+                    $class = $registry->get($uriKey);
+
+                    return $class::perPageOptions();
+                }
+            } catch (\Throwable) {
+                // Registry unavailable (rare) — fall through to field default.
+            }
+        }
+
+        return $this->relationPerPageOptions;
+    }
+
+    /**
+     * Resolve the effective per-page for the inline listing. Clamps to
+     * the resolved `perPageOptions` when the configured `perPage` is
+     * missing from the option list (Option A).
+     */
+    protected function resolvePerPage(): int
+    {
+        $options = $this->resolvePerPageOptions();
+        if ($options === [] || in_array($this->relationPerPage, $options, true)) {
+            return $this->relationPerPage;
+        }
+
+        return $options[0];
     }
 
     /** Configure whether the "Create" button is shown. */
@@ -298,8 +352,8 @@ class MorphMany extends Field
             'badgeIcon' => $this->badgeIconValue,
             'redirectAfterSave' => $this->redirectMode->value,
             'morphManyMeta' => [
-                'perPage' => $this->relationPerPage,
-                'perPageOptions' => $this->relationPerPageOptions,
+                'perPage' => $this->resolvePerPage(),
+                'perPageOptions' => $this->resolvePerPageOptions(),
                 'searchable' => $this->relationSearchable,
                 'canCreate' => $this->canCreateRelated && $authorizedToCreate,
                 'canUpdate' => $this->canUpdateRelated,

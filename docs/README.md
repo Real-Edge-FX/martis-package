@@ -9,7 +9,10 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 ### Key Features
 
 - **Resource-driven CRUD** — Define fields once, get index/detail/create/edit views automatically
-- **32 Field Types** — Text, Number, Boolean, Select, Date, BelongsTo, HasMany, File, Image, Code, Markdown, and more
+- **50 Field Types** — Text, Number, Boolean, Select, Date, File, Image, Code, Markdown, Badge, Avatar, Icon, Slug, Timezone, Audio, and more
+- **12 Relationship Fields** — `BelongsTo`, `HasOne`, `HasOneOfMany`, `HasOneThrough`, `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany` — all with inline CRUD, attach/detach, pivot fields and per-field toolbar controls (see [fields.md](fields.md) and [relationships.md](relationships.md))
+- **Lenses & Metrics & Dashboards** — Custom filtered views (`src/Lenses/`), Value/Trend/Partition/Progress metrics (`src/Metrics/`), and multi-dashboard layouts (`src/Dashboards/`) with polling, caching, and filters
+- **Declarative Navigation** — `Menu`, `MenuSection`, `MenuItem` (`src/Menu/`) with per-resource `menuItem()` overrides
 - **Override System** — Replace any component at 4 granularity levels (explicit key, per-resource, per-type, global)
 - **React + TypeScript Frontend** — Modern SPA with React 18, TypeScript, React Router, TanStack Query
 - **Internationalization** — Built-in i18n with dynamic translation loading (EN, PT-BR, PT-PT)
@@ -19,6 +22,17 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 - **Artisan Commands** — Scaffold resources and custom components from the CLI
 - **Auto-Discovery** — Resources are registered automatically, no manual configuration needed
 - **API-First** — Full REST API with automatic Swagger documentation via Scramble
+
+### Highlights since v0.3
+
+- **Lenses** — custom filtered views with sticky summary rows, per-lens query cache, default filters pre-applied, URL state sync ([lenses.md](lenses.md))
+- **Metrics & Dashboards** — Value / Trend / Partition / Progress cards, dashboard-level filters, 12-column responsive grid, polling with LIVE indicator ([metrics.md](metrics.md), [dashboards.md](dashboards.md))
+- **Declarative menus** — `Martis::mainMenu(...)` with `Menu`, `MenuSection`, `MenuItem` and per-resource overrides ([menus.md](menus.md))
+- **Relationship toolbar hide flags** — 9 per-field toggles (`hideSearch`, `hideCreateButton`, `hidePerPageSelector`, `hideSoftDeleteToggle`, `hideViewAction`, `hideEditAction`, `hideDeleteAction`, `hideRestoreAction`, `hideForceDeleteAction`) via `src/Fields/Concerns/ControlsRelationshipToolbar.php`
+- **Soft-delete filter dropdown in relation panels** — `HasMany` / `MorphMany` relation toolbars now expose the same `?trashed=with|only` filter used on the resource index (Option A clamp shared with `resolvedPerPage()`)
+- **Modal history locks** — two hooks in `resources/js/lib/historyLock.ts`: `useModalHistoryLock` (hard — absorbs browser back until UI closes the modal) and `useModalHistoryBackToClose` (soft — first back closes, second navigates). See [differentials.md](differentials.md#modal-history-locks)
+- **`resolvedPerPage()` clamp** — if a resource declares a `perPage()` that is not present in `perPageOptions()`, the effective value clamps to the first option so the dropdown and the actual filter stay in sync
+- **`BelongsToMany` / `MorphToMany` shell migration** — both fields now share `RelationshipTableShell` with `HasMany`, unifying search, pagination, toolbar controls and modal stack (AttachModal, DetachConfirmModal, EditPivotModal, PivotActionModal)
 
 ### Architecture Philosophy
 
@@ -46,9 +60,9 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 4 | **[Resources](resources.md)** | Resource classes — model binding, field definitions, context-aware resolution, lifecycle hooks, authorization, search configuration, pagination, soft deletes, table customization |
-| 4.5 | **[Panels & Tabs](panels-and-tabs.md)** | Panel e Tab layouts — Panel básico, collapsible, collapsedByDefault, limit; TabGroup com múltiplas abas; combinação de Panels dentro de Tabs; showcase no playground; serialização JSON |
-| 5 | **[Fields Reference](fields.md)** | All 32 field types — configuration options, visibility flags, validation rules, relationship fields (BelongsTo, HasMany, BelongsToMany, MorphTo), enums, PrimeReact prop passthrough |
-| 6 | **[Relationships](relationships.md)** | Relationship fields — BelongsTo, HasMany, BelongsToMany (pivot fields, attach/detach), MorphTo, choosing the right field |
+| 4.5 | **[Panels & Tabs](panels-and-tabs.md)** | Panel and Tab layouts — basic Panel, collapsible, collapsedByDefault, limit; TabGroup with multiple tabs; nesting Panels inside Tabs; playground showcase; JSON serialization |
+| 5 | **[Fields Reference](fields.md)** | All 50 field types — configuration options, visibility flags, validation rules, relationship fields (all 12 relation types), enums, PrimeReact prop passthrough |
+| 6 | **[Relationships](relationships.md)** | Relationship fields — 12 types (`BelongsTo`, `HasOne`, `HasOneOfMany`, `HasOneThrough`, `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany`), pivot fields, attach/detach, toolbar hide flags, soft-delete filter dropdown |
 | 6.5 | **[Filters](filters.md)** | Filters framework — SelectFilter, BooleanFilter, DateFilter, DateRangeFilter, custom filters, default values, dynamic filters, API reference |
 | 6.6 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
 | 6.7 | **[Dashboards](dashboards.md)** | Dashboard system — multiple dashboards, dashboard filters, refresh button, registration, fallback |
@@ -86,7 +100,7 @@ docs/
 ├── installation-guide.md ........... Installation & setup
 ├── resources.md .................... Resources reference
 ├── panels-and-tabs.md .............. Panels & Tabs layout guide
-├── fields.md ....................... Fields reference (32 types)
+├── fields.md ....................... Fields reference (50 types)
 ├── relationships.md ................ Relationship fields guide
 ├── filters.md ...................... Filters framework
 ├── actions.md ...................... Actions system
@@ -143,13 +157,20 @@ The playground application ships with pre-configured resources for development a
 
 ## Current State
 
-- **32 field types** implemented and tested
+- **50 field types** implemented and tested (including 12 relation field types)
 - **Full CRUD** — Index, Detail, Create, Edit, Delete with soft-delete support
 - **Override System v1** — componentRegistry + layoutRegistry + drawer overrides
 - **i18n** — EN + PT-BR + PT-PT, dynamic translation endpoint
-- **HasMany relationships** — Inline tables with full CRUD on detail pages
+- **Relationship panels** — Inline tables with full CRUD on detail pages for `HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany`, including shared toolbar, soft-delete dropdown, and per-field hide flags
 - **File/Image uploads** — Configurable disk, thumbnails, drag-drop, validation
 - **Phosphor Icons** — 1,512 icons available via `icon()`
 - **Global Search** — Cross-resource search from the top bar
+- **Lenses, Metrics, Dashboards, Menus** — full implementations (see [lenses.md](lenses.md), [metrics.md](metrics.md), [dashboards.md](dashboards.md), [menus.md](menus.md))
 - **Test Coverage** — 180+ PHP tests, 43 TypeScript tests, 13 E2E tests
 - **CI/CD** — Automated via GitHub Actions self-hosted runner
+
+---
+
+## Releases
+
+The canonical record for the current alpha line is [release-v0.3.0-alpha.md](release-v0.3.0-alpha.md). More detailed release notes and the full delta history live on the repository tags and in the internal `knowledge/RELEASE_HISTORY.md` tracker. Individual release record files in `docs/` are produced only by the release owner — feature work and docs audits do not create them.

@@ -95,6 +95,10 @@ class LensController extends MartisController
         $defaultPerPage = $lensInstance->hasOverride('perPage')
             ? $lensClass::perPage()
             : $resourceClass::perPage();
+        // Clamp to options (Option A) so the dropdown and the real filter stay in sync.
+        if ($perPageOptions !== [] && ! in_array($defaultPerPage, $perPageOptions, true)) {
+            $defaultPerPage = $perPageOptions[0];
+        }
         $perPage = max(1, min((int) $request->query('per_page', (string) $defaultPerPage), 100));
         $page = max(1, (int) $request->query('page', '1'));
 

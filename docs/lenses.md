@@ -90,6 +90,22 @@ public static int $pollingInterval = 60;
 public static bool $showPollingToggle = true;
 ```
 
+### Effective per-page
+
+Lenses follow the same clamp rule as resources: when the value returned by `perPage()` is not in `perPageOptions()`, Martis silently clamps to `perPageOptions()[0]`. The clamped value is what the lens schema payload (`meta.perPage`) actually exposes to the UI.
+
+```php
+public static function perPageOptions(): array { return [10, 25, 50, 100]; }
+public static function perPage(): int          { return 7; } // not in options
+
+// Lens::resolvedPerPage() === 10 — clamped to first option.
+```
+
+Use `Lens::resolvedPerPage(): int` when the backend needs the single
+"effective" per-page value; never call `perPage()` directly if you want
+the clamped result. See [resources.md — Effective per-page](resources.md#effective-per-page)
+for the full ruleset (Rules 1–3 apply identically here).
+
 ### Query composition helpers
 
 `LensRequest` exposes two composition helpers matching the Nova API:

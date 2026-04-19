@@ -102,3 +102,61 @@ export function useModalHistoryLock(open: boolean): void {
     }
   }, [open])
 }
+
+/**
+ * Soft history lock for modals that should intercept the first back
+ * press to close themselves, while letting a second back press navigate
+ * normally. Useful for non-destructive modals (rich-text editor,
+ * previews, filter panels) where users expect back to mean "close the
+ * overlay" rather than "exit the page".
+ *
+ * Unlike {@link useModalHistoryLock}, this hook does NOT re-push the
+ * sentinel on popstate — it calls `onClose` and lets the user decide
+ * whether to press back again.
+ */
+export function useModalHistoryBackToClose(open: boolean, onClose: () => void): void {
+  // Latest onClose without re-running the effect when the caller passes
+  // an inline arrow (common React pattern). Without this, every parent
+  // re-render would tear down and re-install the popstate listener,
+  // which races with the actual back press and can drop the event.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  useEffect(() => {
+    if (!open) return
+    if (typeof window === 'undefined') return
+
+    incrementModalLock()
+    const marker = { martisModalSoftLock: true as const, key: Date.now() + Math.random() }
+    try {
+      window.history.pushState(marker, '')
+    } catch {
+      decrementModalLock()
+      return
+    }
+
+    const onPop = () => {
+      // First back press — browser already popped our sentinel. Tell
+      // DrawerShell to ignore this pop (it happened because *we* pushed
+      // the state) and close the modal via the UI handler.
+      suppressNextPop()
+      onCloseRef.current()
+    }
+    window.addEventListener('popstate', onPop)
+
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      decrementModalLock()
+      // If the modal is closing via a UI action (not via back), pop the
+      // sentinel we pushed so the URL state stays clean.
+      if (window.history.state && (window.history.state as { martisModalSoftLock?: true }).martisModalSoftLock) {
+        suppressNextPop()
+        try {
+          window.history.back()
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }, [open])
+}
