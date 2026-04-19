@@ -233,9 +233,9 @@ public static function defaultSort(): ?string
     return 'created_at';
 }
 
-public static function defaultSortDirection(): string
+public static function defaultSortDirection(): SortDirection
 {
-    return 'desc'; // 'asc' or 'desc'
+    return SortDirection::Desc; // SortDirection::Asc or SortDirection::Desc
 }
 ```
 
@@ -809,7 +809,7 @@ class PostResource extends Resource
     public function group(): ?string { return 'Content'; }
     public static function perPageOptions(): array { return [10, 25, 50]; }
     public static function defaultSort(): ?string { return 'created_at'; }
-    public static function defaultSortDirection(): string { return 'desc'; }
+    public static function defaultSortDirection(): SortDirection { return SortDirection::Desc; }
 
     public function fields(Request $request): array
     {

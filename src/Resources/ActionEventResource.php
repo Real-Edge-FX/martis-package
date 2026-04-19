@@ -3,6 +3,7 @@
 namespace Martis\Resources;
 
 use Illuminate\Http\Request;
+use Martis\Enums\SortDirection;
 use Martis\Fields\DateTime;
 use Martis\Fields\Id;
 use Martis\Fields\Text;
@@ -74,9 +75,9 @@ class ActionEventResource extends Resource
     /**
      * Default sort direction.
      */
-    public static function defaultSortDirection(): string
+    public static function defaultSortDirection(): SortDirection
     {
-        return 'desc';
+        return SortDirection::Desc;
     }
 
     /**

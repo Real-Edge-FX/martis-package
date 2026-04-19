@@ -41,7 +41,7 @@ disabled when Nova v5 does so).
 | `->hideSearch()` | Search input in the panel toolbar |
 | `->hideCreateButton()` | Create / Attach button |
 | `->hidePerPageSelector()` | "Per page" dropdown |
-| `->hideSoftDeleteToggle()` | Ativos / Com apagados / Apenas apagados dropdown |
+| `->hideSoftDeleteToggle()` | Active / With trashed / Only trashed dropdown |
 | `->hideViewAction()` | Eye icon in the actions column |
 | `->hideEditAction()` | Pencil icon in the actions column |
 | `->hideDeleteAction()` | Trash icon in the actions column |
@@ -134,8 +134,8 @@ Keep in mind: visible = authorized AND NOT hidden. The shell never
 ## Soft-delete filter (Nova v5 parity)
 
 Relationship panels whose related resource uses `SoftDeletes` automatically
-render a three-state filter in the toolbar — **Ativos / Com apagados /
-Apenas apagados**. Trashed rows show **Restore** and **Force-delete** actions
+render a three-state filter in the toolbar — **Active / With trashed /
+Only trashed**. Trashed rows show **Restore** and **Force-delete** actions
 instead of Edit/Delete.
 
 The default state comes from `config/martis.php`:

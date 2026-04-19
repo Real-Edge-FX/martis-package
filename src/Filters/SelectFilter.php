@@ -2,6 +2,8 @@
 
 namespace Martis\Filters;
 
+use Martis\Enums\FilterType;
+
 /**
  * A dropdown filter that lets users pick a single value from a list.
  *
@@ -22,9 +24,9 @@ abstract class SelectFilter extends Filter
     /** Whether the dropdown supports searching through options. */
     protected bool $searchable = false;
 
-    public function filterType(): string
+    public function filterType(): FilterType
     {
-        return 'select';
+        return FilterType::Select;
     }
 
     /**

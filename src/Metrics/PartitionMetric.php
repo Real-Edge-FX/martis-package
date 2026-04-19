@@ -5,6 +5,8 @@ namespace Martis\Metrics;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Martis\Enums\AggregateFunction;
+use Martis\Enums\MetricType;
 
 /**
  * A metric that displays grouped data as a pie or donut chart.
@@ -15,9 +17,9 @@ use Illuminate\Support\Facades\DB;
  */
 abstract class PartitionMetric extends Metric
 {
-    public function metricType(): string
+    public function metricType(): MetricType
     {
-        return 'partition';
+        return MetricType::Partition;
     }
 
     /**
@@ -39,7 +41,7 @@ abstract class PartitionMetric extends Metric
      */
     protected function count(Request $request, string $model, string $groupBy): PartitionResult
     {
-        return $this->aggregate($request, $model, 'count', null, $groupBy);
+        return $this->aggregate($request, $model, AggregateFunction::Count, null, $groupBy);
     }
 
     /**
@@ -49,7 +51,7 @@ abstract class PartitionMetric extends Metric
      */
     protected function sum(Request $request, string $model, string $column, string $groupBy): PartitionResult
     {
-        return $this->aggregate($request, $model, 'sum', $column, $groupBy);
+        return $this->aggregate($request, $model, AggregateFunction::Sum, $column, $groupBy);
     }
 
     /**
@@ -59,7 +61,7 @@ abstract class PartitionMetric extends Metric
      */
     protected function average(Request $request, string $model, string $column, string $groupBy): PartitionResult
     {
-        return $this->aggregate($request, $model, 'avg', $column, $groupBy);
+        return $this->aggregate($request, $model, AggregateFunction::Avg, $column, $groupBy);
     }
 
     /**
@@ -75,11 +77,11 @@ abstract class PartitionMetric extends Metric
     /**
      * @param  class-string<Model>  $model
      */
-    protected function aggregate(Request $request, string $model, string $function, ?string $column, string $groupBy): PartitionResult
+    protected function aggregate(Request $request, string $model, AggregateFunction $function, ?string $column, string $groupBy): PartitionResult
     {
-        $expression = $function === 'count'
+        $expression = $function === AggregateFunction::Count
             ? DB::raw('count(*) as aggregate')
-            : DB::raw("{$function}({$column}) as aggregate");
+            : DB::raw("{$function->value}({$column}) as aggregate");
 
         /** @var array<string, float|int> $results */
         $results = $this->applyFilterScope($model::query())

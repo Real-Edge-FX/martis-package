@@ -213,8 +213,8 @@ interface ResourceContract
     /** Return the default sort column for the index listing, or null for no default. */
     public static function defaultSort(): ?string;
 
-    /** Return the default sort direction for the index listing ('asc' or 'desc'). */
-    public static function defaultSortDirection(): string;
+    /** Return the default sort direction for the index listing. */
+    public static function defaultSortDirection(): \Martis\Enums\SortDirection;
 
     /** Determine whether this resource should appear in the navigation menu. */
     public static function displayInNavigation(): bool;

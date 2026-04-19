@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\LineVariant;
 
 /**
  * Line — a single text line inside a {@see Stack}.
@@ -35,7 +36,7 @@ class Line extends Field
     /**
      * Style variant applied via the `.martis-line-{variant}` CSS class.
      */
-    protected string $variant = 'base';
+    protected LineVariant $variant = LineVariant::Base;
 
     /** Optional attribute whose value is rendered as a subtitle below this line. */
     protected ?string $subtitleAttribute = null;
@@ -57,40 +58,40 @@ class Line extends Field
         return parent::make($attribute, $label)->hideFromForms();
     }
 
-    public function asHeading(): static
+    /**
+     * Explicitly set the style variant.
+     */
+    public function variant(LineVariant $variant): static
     {
-        $this->variant = 'heading';
+        $this->variant = $variant;
 
         return $this;
+    }
+
+    public function asHeading(): static
+    {
+        return $this->variant(LineVariant::Heading);
     }
 
     public function asBase(): static
     {
-        $this->variant = 'base';
-
-        return $this;
+        return $this->variant(LineVariant::Base);
     }
 
     public function asSmall(): static
     {
-        $this->variant = 'small';
-
-        return $this;
+        return $this->variant(LineVariant::Small);
     }
 
     public function asMuted(): static
     {
-        $this->variant = 'muted';
-
-        return $this;
+        return $this->variant(LineVariant::Muted);
     }
 
     /** ⭐ Martis differential — render the line in a monospace typeface. */
     public function asCode(): static
     {
-        $this->variant = 'code';
-
-        return $this;
+        return $this->variant(LineVariant::Code);
     }
 
     /**
@@ -136,7 +137,7 @@ class Line extends Field
         return null;
     }
 
-    public function getVariant(): string
+    public function getVariant(): LineVariant
     {
         return $this->variant;
     }
@@ -147,7 +148,7 @@ class Line extends Field
     protected function extraAttributes(): array
     {
         return array_filter([
-            'variant' => $this->variant,
+            'variant' => $this->variant->value,
             'subtitleAttribute' => $this->subtitleAttribute,
             'hasSubtitleCallback' => $this->subtitleCallback !== null,
         ], fn (mixed $v): bool => $v !== null && $v !== false && $v !== '');

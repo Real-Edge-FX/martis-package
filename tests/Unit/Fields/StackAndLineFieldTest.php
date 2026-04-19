@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\LineVariant;
 use Martis\FieldContext;
 use Martis\Fields\Line;
 use Martis\Fields\Stack;
@@ -34,15 +35,15 @@ it('Line::make creates a line field hidden from forms', function () {
 });
 
 it('Line default variant is base', function () {
-    expect(Line::make('name')->getVariant())->toBe('base');
+    expect(Line::make('name')->getVariant())->toBe(LineVariant::Base);
 });
 
 it('Line variant setters are mutually exclusive', function () {
-    expect(Line::make('name')->asHeading()->getVariant())->toBe('heading')
-        ->and(Line::make('name')->asSmall()->getVariant())->toBe('small')
-        ->and(Line::make('name')->asMuted()->getVariant())->toBe('muted')
-        ->and(Line::make('name')->asCode()->getVariant())->toBe('code')
-        ->and(Line::make('name')->asHeading()->asBase()->getVariant())->toBe('base');
+    expect(Line::make('name')->asHeading()->getVariant())->toBe(LineVariant::Heading)
+        ->and(Line::make('name')->asSmall()->getVariant())->toBe(LineVariant::Small)
+        ->and(Line::make('name')->asMuted()->getVariant())->toBe(LineVariant::Muted)
+        ->and(Line::make('name')->asCode()->getVariant())->toBe(LineVariant::Code)
+        ->and(Line::make('name')->asHeading()->asBase()->getVariant())->toBe(LineVariant::Base);
 });
 
 it('Line serialises its variant in extraAttributes', function () {
@@ -109,8 +110,8 @@ it('Stack::make accepts an array of Lines and exposes them', function () {
 
     expect($stack->type())->toBe('stack')
         ->and($lines)->toHaveCount(2)
-        ->and($lines[0]->getVariant())->toBe('heading')
-        ->and($lines[1]->getVariant())->toBe('muted');
+        ->and($lines[0]->getVariant())->toBe(LineVariant::Heading)
+        ->and($lines[1]->getVariant())->toBe(LineVariant::Muted);
 });
 
 it('Stack::make supports the 3-arg (attribute, label, lines) signature', function () {

@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Martis\Enums\FilterType;
 use Martis\Fields\Number;
 use Martis\Fields\Text;
 use Martis\Filters\Filter as ResourceFilter;
@@ -34,9 +35,9 @@ class LensTestStatusFilter extends ResourceFilter
         return $query->where('status', $value);
     }
 
-    public function filterType(): string
+    public function filterType(): FilterType
     {
-        return 'select';
+        return FilterType::Select;
     }
 }
 

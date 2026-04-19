@@ -60,6 +60,12 @@ class MorphMany extends Field
     /** Whether the inline listing supports search. */
     protected bool $relationSearchable = true;
 
+    /** Whether the panel section header is collapsable. */
+    protected bool $collapsable = false;
+
+    /** Whether the panel starts collapsed. */
+    protected bool $collapsedByDefault = false;
+
     /** How to display the field on the index page. */
     protected HasManyIndexDisplay $indexDisplayMode = HasManyIndexDisplay::Count;
 
@@ -279,6 +285,31 @@ class MorphMany extends Field
         return $this;
     }
 
+    /**
+     * Make the MorphMany panel collapsable.
+     *
+     * Nova v5 parity: ->collapsable()
+     */
+    public function collapsable(bool $value = true): static
+    {
+        $this->collapsable = $value;
+
+        return $this;
+    }
+
+    /**
+     * Start the panel collapsed by default.
+     *
+     * Nova v5 parity: ->collapsedByDefault()
+     */
+    public function collapsedByDefault(bool $value = true): static
+    {
+        $this->collapsable = true;
+        $this->collapsedByDefault = $value;
+
+        return $this;
+    }
+
     /** Return the Eloquent relationship method name. */
     public function getRelationship(): string
     {
@@ -351,6 +382,8 @@ class MorphMany extends Field
             'badgeColor' => $this->badgeColorValue,
             'badgeIcon' => $this->badgeIconValue,
             'redirectAfterSave' => $this->redirectMode->value,
+            'collapsable' => $this->collapsable ?: null,
+            'collapsedByDefault' => $this->collapsedByDefault ?: null,
             'morphManyMeta' => [
                 'perPage' => $this->resolvePerPage(),
                 'perPageOptions' => $this->resolvePerPageOptions(),

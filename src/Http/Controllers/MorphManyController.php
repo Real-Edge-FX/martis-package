@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
@@ -70,11 +71,12 @@ class MorphManyController extends MartisController
 
         // Soft-delete filter — Nova v5 parity
         if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
-            $trashed = $request->query('trashed', '');
-            if ($trashed === 'with') {
+            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
+                ?? TrashedFilter::Active;
+            if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query->withTrashed();
-            } elseif ($trashed === 'only') {
+            } elseif ($trashed === TrashedFilter::Only) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query->onlyTrashed();
             }

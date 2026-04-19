@@ -7,6 +7,9 @@ use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Martis\Enums\AggregateFunction;
+use Martis\Enums\MetricType;
+use Martis\Enums\TrendPeriod;
 
 /**
  * A metric that displays time-series data as a line or bar chart.
@@ -17,9 +20,9 @@ use Illuminate\Support\Facades\DB;
  */
 abstract class TrendMetric extends Metric
 {
-    public function metricType(): string
+    public function metricType(): MetricType
     {
-        return 'trend';
+        return MetricType::Trend;
     }
 
     // -------------------------------------------------------------------------
@@ -31,7 +34,7 @@ abstract class TrendMetric extends Metric
      */
     protected function countByDays(Request $request, string $model, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'count', null, $dateColumn, 'day');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Count, null, $dateColumn, TrendPeriod::Day);
     }
 
     /**
@@ -39,7 +42,7 @@ abstract class TrendMetric extends Metric
      */
     protected function countByWeeks(Request $request, string $model, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'count', null, $dateColumn, 'week');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Count, null, $dateColumn, TrendPeriod::Week);
     }
 
     /**
@@ -47,7 +50,7 @@ abstract class TrendMetric extends Metric
      */
     protected function countByMonths(Request $request, string $model, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'count', null, $dateColumn, 'month');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Count, null, $dateColumn, TrendPeriod::Month);
     }
 
     // -------------------------------------------------------------------------
@@ -59,7 +62,7 @@ abstract class TrendMetric extends Metric
      */
     protected function sumByDays(Request $request, string $model, string $column, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'sum', $column, $dateColumn, 'day');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Sum, $column, $dateColumn, TrendPeriod::Day);
     }
 
     /**
@@ -67,7 +70,7 @@ abstract class TrendMetric extends Metric
      */
     protected function sumByWeeks(Request $request, string $model, string $column, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'sum', $column, $dateColumn, 'week');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Sum, $column, $dateColumn, TrendPeriod::Week);
     }
 
     /**
@@ -75,7 +78,7 @@ abstract class TrendMetric extends Metric
      */
     protected function sumByMonths(Request $request, string $model, string $column, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'sum', $column, $dateColumn, 'month');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Sum, $column, $dateColumn, TrendPeriod::Month);
     }
 
     // -------------------------------------------------------------------------
@@ -87,7 +90,7 @@ abstract class TrendMetric extends Metric
      */
     protected function averageByDays(Request $request, string $model, string $column, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'avg', $column, $dateColumn, 'day');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Avg, $column, $dateColumn, TrendPeriod::Day);
     }
 
     /**
@@ -95,7 +98,7 @@ abstract class TrendMetric extends Metric
      */
     protected function averageByMonths(Request $request, string $model, string $column, ?string $dateColumn = null): TrendResult
     {
-        return $this->aggregateByPeriod($request, $model, 'avg', $column, $dateColumn, 'month');
+        return $this->aggregateByPeriod($request, $model, AggregateFunction::Avg, $column, $dateColumn, TrendPeriod::Month);
     }
 
     /**
@@ -119,32 +122,30 @@ abstract class TrendMetric extends Metric
     protected function aggregateByPeriod(
         Request $request,
         string $model,
-        string $function,
+        AggregateFunction $function,
         ?string $column,
         ?string $dateColumn,
-        string $unit,
+        TrendPeriod $unit,
     ): TrendResult {
         $dateColumn = $dateColumn ?? 'created_at';
         $range = (int) $request->query('range', '30');
         $now = CarbonImmutable::now();
 
         $startDate = match ($unit) {
-            'day' => $now->subDays($range)->startOfDay(),
-            'week' => $now->subWeeks($range)->startOfWeek(),
-            'month' => $now->subMonths($range)->startOfMonth(),
-            default => $now->subDays($range)->startOfDay(),
+            TrendPeriod::Day => $now->subDays($range)->startOfDay(),
+            TrendPeriod::Week => $now->subWeeks($range)->startOfWeek(),
+            TrendPeriod::Month => $now->subMonths($range)->startOfMonth(),
         };
 
         $dateFormat = match ($unit) {
-            'day' => '%Y-%m-%d',
-            'week' => '%x-%v',
-            'month' => '%Y-%m',
-            default => '%Y-%m-%d',
+            TrendPeriod::Day => '%Y-%m-%d',
+            TrendPeriod::Week => '%x-%v',
+            TrendPeriod::Month => '%Y-%m',
         };
 
-        $expression = $function === 'count'
+        $expression = $function === AggregateFunction::Count
             ? DB::raw('count(*) as aggregate')
-            : DB::raw("{$function}({$column}) as aggregate");
+            : DB::raw("{$function->value}({$column}) as aggregate");
 
         $baseQuery = $this->applyFilterScope($model::query());
 
@@ -160,21 +161,19 @@ abstract class TrendMetric extends Metric
         // Build complete series with zeroes for missing periods
         $labels = [];
         $values = [];
-        $period = CarbonPeriod::create($startDate, "1 {$unit}", $now);
+        $period = CarbonPeriod::create($startDate, "1 {$unit->value}", $now);
 
         foreach ($period as $date) {
             $key = match ($unit) {
-                'day' => $date->format('Y-m-d'),
-                'week' => $date->format('o-W'),
-                'month' => $date->format('Y-m'),
-                default => $date->format('Y-m-d'),
+                TrendPeriod::Day => $date->format('Y-m-d'),
+                TrendPeriod::Week => $date->format('o-W'),
+                TrendPeriod::Month => $date->format('Y-m'),
             };
 
             $labelFormat = match ($unit) {
-                'day' => $date->format('M d'),
-                'week' => 'W'.$date->format('W'),
-                'month' => $date->format('M Y'),
-                default => $date->format('M d'),
+                TrendPeriod::Day => $date->format('M d'),
+                TrendPeriod::Week => 'W'.$date->format('W'),
+                TrendPeriod::Month => $date->format('M Y'),
             };
 
             $labels[] = $labelFormat;

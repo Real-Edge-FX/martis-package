@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Martis\Enums\ComparisonOperator;
+use Martis\Enums\FilterType;
 use Martis\Filters\BooleanFilter;
 use Martis\Filters\DateFilter;
 use Martis\Filters\DateRangeFilter;
@@ -61,7 +62,7 @@ it('SelectFilter::make creates a filter with correct name and type', function ()
     $filter = TestStatusFilter::make('Status');
 
     expect($filter->name())->toBe('Status')
-        ->and($filter->filterType())->toBe('select')
+        ->and($filter->filterType())->toBe(FilterType::Select)
         ->and($filter->uriKey())->toBe('status');
 });
 
@@ -112,7 +113,7 @@ it('SelectFilter toArray includes all required keys', function () {
 it('BooleanFilter::make creates a filter with correct type', function () {
     $filter = TestRolesFilter::make('Roles');
 
-    expect($filter->filterType())->toBe('boolean')
+    expect($filter->filterType())->toBe(FilterType::Boolean)
         ->and($filter->name())->toBe('Roles');
 });
 
@@ -133,7 +134,7 @@ it('BooleanFilter resolves options for schema', function () {
 it('DateFilter has correct type', function () {
     $filter = DateFilter::make('Created At');
 
-    expect($filter->filterType())->toBe('date')
+    expect($filter->filterType())->toBe(FilterType::Date)
         ->and($filter->uriKey())->toBe('created-at');
 });
 
@@ -148,7 +149,7 @@ it('DateFilter accepts custom column', function () {
 
 it('DateFilter accepts custom operator', function () {
     $filter = DateFilter::make('After Date')->operator(ComparisonOperator::GreaterThanOrEqual);
-    expect($filter->filterType())->toBe('date');
+    expect($filter->filterType())->toBe(FilterType::Date);
 });
 
 // ---------------------------------------------------------------------------
@@ -158,7 +159,7 @@ it('DateFilter accepts custom operator', function () {
 it('DateRangeFilter has correct type', function () {
     $filter = DateRangeFilter::make('Date Range');
 
-    expect($filter->filterType())->toBe('date-range')
+    expect($filter->filterType())->toBe(FilterType::DateRange)
         ->and($filter->uriKey())->toBe('date-range');
 });
 

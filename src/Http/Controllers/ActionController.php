@@ -14,6 +14,7 @@ use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
 use Martis\Contracts\ActionContract;
+use Martis\Enums\ActionVisibility;
 use Martis\Contracts\FieldContract;
 use Martis\Exceptions\MartisException;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
@@ -73,14 +74,13 @@ class ActionController extends MartisController
         $instance = new $resourceClass;
         $actions = $this->resolveActions($instance, $request);
 
-        /** @var string $context */
-        $context = $request->query('context', 'index');
+        $context = ActionVisibility::tryFrom((string) $request->query('context', 'index'));
         $filtered = array_values(array_filter($actions, function (ActionContract $action) use ($context) {
             return match ($context) {
-                'index' => $action->isShownOnIndex(),
-                'detail' => $action->isShownOnDetail(),
-                'inline' => $action->isShownInline(),
-                default => true,
+                ActionVisibility::Index => $action->isShownOnIndex(),
+                ActionVisibility::Detail => $action->isShownOnDetail(),
+                ActionVisibility::Inline => $action->isShownInline(),
+                null => true,
             };
         }));
 
@@ -501,10 +501,8 @@ class ActionController extends MartisController
         $instance = new $resourceClass;
         $allActions = $this->resolveActions($instance, $request);
 
-        $context = $request->query('context', 'detail');
-        if (! is_string($context)) {
-            $context = 'detail';
-        }
+        $context = ActionVisibility::tryFrom((string) $request->query('context', 'detail'))
+            ?? ActionVisibility::Detail;
 
         $pivotActions = array_values(array_filter($allActions, function (ActionContract $action) use ($context) {
             if (! ($action instanceof Action) || ! $action->isPivotAction()) {
@@ -512,10 +510,9 @@ class ActionController extends MartisController
             }
 
             return match ($context) {
-                'index' => $action->isShownOnIndex(),
-                'detail' => $action->isShownOnDetail(),
-                'inline' => $action->isShownInline(),
-                default => true,
+                ActionVisibility::Index => $action->isShownOnIndex(),
+                ActionVisibility::Detail => $action->isShownOnDetail(),
+                ActionVisibility::Inline => $action->isShownInline(),
             };
         }));
 

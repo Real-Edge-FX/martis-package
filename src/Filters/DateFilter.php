@@ -5,6 +5,7 @@ namespace Martis\Filters;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Martis\Enums\ComparisonOperator;
+use Martis\Enums\FilterType;
 
 /**
  * A date picker filter for filtering records by a single date.
@@ -35,9 +36,9 @@ class DateFilter extends Filter
         return new static($name, $uriKey);
     }
 
-    public function filterType(): string
+    public function filterType(): FilterType
     {
-        return 'date';
+        return FilterType::Date;
     }
 
     /**

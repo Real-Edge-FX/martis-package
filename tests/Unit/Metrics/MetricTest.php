@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Http\Request;
+use Martis\Enums\MetricType;
 use Martis\Metrics\PartitionResult;
 use Martis\Metrics\ProgressResult;
 use Martis\Metrics\TrendResult;
@@ -59,7 +60,7 @@ class TestMonthlyGoalMetric extends ProgressMetric
 
 it('ValueMetric has correct metricType', function () {
     $metric = TestTotalUsersMetric::make('Total Users');
-    expect($metric->metricType())->toBe('value');
+    expect($metric->metricType())->toBe(MetricType::Value);
 });
 
 it('ValueMetric resolves result with prefix and previous', function () {
@@ -100,7 +101,7 @@ it('ValueResult handles zero previous without division error', function () {
 
 it('TrendMetric has correct metricType', function () {
     $metric = TestUsersPerDayMetric::make('Users Per Day');
-    expect($metric->metricType())->toBe('trend');
+    expect($metric->metricType())->toBe(MetricType::Trend);
 });
 
 it('TrendMetric resolves with labels, values, and latestValue', function () {
@@ -126,7 +127,7 @@ it('TrendResult supports showSumValue', function () {
 
 it('PartitionMetric has correct metricType', function () {
     $metric = TestUsersByRoleMetric::make('Users By Role');
-    expect($metric->metricType())->toBe('partition');
+    expect($metric->metricType())->toBe(MetricType::Partition);
 });
 
 it('PartitionMetric resolves with labels, values, and colors', function () {
@@ -157,7 +158,7 @@ it('PartitionMetric has empty ranges', function () {
 
 it('ProgressMetric has correct metricType', function () {
     $metric = TestMonthlyGoalMetric::make('Monthly Goal');
-    expect($metric->metricType())->toBe('progress');
+    expect($metric->metricType())->toBe(MetricType::Progress);
 });
 
 it('ProgressMetric resolves with current, target, percentage', function () {

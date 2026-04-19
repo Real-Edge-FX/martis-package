@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Cards\Card;
 use Martis\Dashboards\Dashboard;
 use Illuminate\Database\Eloquent\Builder;
+use Martis\Enums\FilterType;
 use Martis\Filters\Filter as ResourceFilter;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -42,9 +43,9 @@ class PublishedStateFilter extends ResourceFilter
         return $query->where('status', $value);
     }
 
-    public function filterType(): string
+    public function filterType(): FilterType
     {
-        return 'select';
+        return FilterType::Select;
     }
 }
 

@@ -2,6 +2,8 @@
 
 namespace Martis\Filters;
 
+use Martis\Enums\FilterType;
+
 /**
  * A multi-checkbox filter that lets users toggle multiple boolean options.
  *
@@ -22,8 +24,8 @@ namespace Martis\Filters;
  */
 abstract class BooleanFilter extends Filter
 {
-    public function filterType(): string
+    public function filterType(): FilterType
     {
-        return 'boolean';
+        return FilterType::Boolean;
     }
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FilterContract;
+use Martis\Enums\FilterType;
 
 /**
  * Base class for all Martis filters.
@@ -60,7 +61,7 @@ abstract class Filter implements FilterContract
     /**
      * The filter type identifier sent to the frontend.
      */
-    abstract public function filterType(): string;
+    abstract public function filterType(): FilterType;
 
     public function name(): string
     {
@@ -255,7 +256,7 @@ abstract class Filter implements FilterContract
     {
         return [
             'type' => 'filter',
-            'filterType' => $this->filterType(),
+            'filterType' => $this->filterType()->value,
             'name' => $this->name(),
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
