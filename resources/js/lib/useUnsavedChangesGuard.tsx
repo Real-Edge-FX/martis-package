@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBlocker } from 'react-router-dom'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
+import { consumeSuppressFlag } from '@/lib/historyLock'
 import type { ResourceSchema, UnsavedChangesConfig } from '@/types'
 
 interface Options {
@@ -138,6 +139,16 @@ export function useUnsavedChangesGuard({
         return
       }
 
+      // If a nested modal lock (e.g. the UnsavedChangesDialog itself)
+      // just popped its own sentinel on unmount, it set the shared
+      // suppress flag. Consume it here so we don't mistake that
+      // cleanup-driven popstate for a real user back press and re-open
+      // the dialog we just closed.
+      if (consumeSuppressFlag()) {
+        e.stopImmediatePropagation()
+        return
+      }
+
       // Prevent React Router (and anyone else) from reacting to this
       // pop — we are going to either cancel it (re-push) or let it
       // through only after the user confirms.
@@ -213,6 +224,7 @@ export function useUnsavedChangesGuard({
     <UnsavedChangesDialog
       open={dialogOpen}
       config={config}
+      skipHistoryLock
       onCancel={() => {
         setDialogOpen(false)
         const run = pendingCancelRef.current

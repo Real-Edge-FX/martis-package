@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
@@ -546,12 +547,9 @@ class MorphManyController extends MartisController
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
         $rawSort = $request->query('sort');
-        $rawDirection = $request->query('direction', 'asc');
-        $direction = strtolower(is_string($rawDirection) ? $rawDirection : 'asc');
-
-        if (! in_array($direction, ['asc', 'desc'], true)) {
-            $direction = 'asc';
-        }
+        $rawDirection = $request->query('direction', SortDirection::Asc->value);
+        $direction = SortDirection::tryFrom(strtolower(is_string($rawDirection) ? $rawDirection : SortDirection::Asc->value))
+            ?? SortDirection::Asc;
 
         if (! is_string($rawSort) || $rawSort === '') {
             return;
@@ -571,6 +569,6 @@ class MorphManyController extends MartisController
             return;
         }
 
-        $query->orderBy($sort, $direction);
+        $query->orderBy($sort, $direction->value);
     }
 }

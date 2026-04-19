@@ -2249,6 +2249,35 @@ Sparkline::make('trend', 'Revenue Trend')
 
 ---
 
+### Repeater
+
+**File:** `src/Fields/Repeater.php` + `src/Fields/Repeatable.php`
+
+Repeatable row widget backed by JSON, HasMany or ⭐ polymorphic (single child table
+with a `type` discriminator). See the dedicated [Repeater guide](repeater.md) for the
+full API. Highlights:
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `repeatables` | `repeatables(array<Repeatable>)` | Register the row types available in the Add menu |
+| `asJson` | `asJson(): static` | Persist on a JSON-cast parent attribute |
+| `asHasMany` | `asHasMany(): static` | Persist via a child table with 3-way upsert |
+| `asPolymorphic` ⭐ | `asPolymorphic(string $type = 'type', string $payload = 'payload')` | One child table for every row type |
+| `uniqueField` | `uniqueField(string)` | Column used to identify rows across saves |
+| `confirmRemoval` | `confirmRemoval(bool = true)` | Open a confirmation modal on remove |
+| `minRows` / `maxRows` ⭐ | `minRows(int)` / `maxRows(int)` | Cardinality limits enforced in the UI |
+| `collapsible` ⭐ | `collapsible(bool = true)` | Add collapse chevron to every row |
+| `collapsedByDefault` ⭐ | `collapsedByDefault(bool = true)` | Start collapsed |
+| `reorderable` ⭐ | `reorderable(bool = true, ?string $column = null)` | Drag-and-drop reorder |
+| `dependsOn` ⭐ | `dependsOn(array<string>)` | Expose parent attributes to every inner field |
+| `rowTemplates` ⭐ | `rowTemplates(array)` | Pre-filled rows available in the Add menu |
+
+**Repeatable** header decorations (⭐): `icon`, `color`, `title` (template or closure),
+`badgeCount`. Row-level UX extras: duplicate button per row, bulk-paste modal that
+parses TSV/CSV/JSON.
+
+---
+
 ## Utility Classes
 
 ### DeferredRelationSync

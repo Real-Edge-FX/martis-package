@@ -91,13 +91,19 @@ export function useModalHistoryLock(open: boolean): void {
       window.removeEventListener('popstate', onPop)
       decrementModalLock()
       // Pop our sentinel off the history stack so the URL state is
-      // clean after the modal closes. Tell the DrawerShell listener
-      // to skip this particular popstate event.
-      suppressNextPop()
-      try {
-        window.history.back()
-      } catch {
-        /* ignore */
+      // clean after the modal closes. Skip this if the user has
+      // already navigated away (e.g. via blocker.proceed in the
+      // unsaved-changes guard) — in that case the sentinel is buried
+      // under the new page entry and popping here would land the user
+      // back on the old page.
+      const current = window.history.state as { martisModalLock?: true } | null
+      if (current?.martisModalLock) {
+        suppressNextPop()
+        try {
+          window.history.back()
+        } catch {
+          /* ignore */
+        }
       }
     }
   }, [open])

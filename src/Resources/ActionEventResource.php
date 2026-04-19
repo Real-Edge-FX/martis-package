@@ -4,6 +4,7 @@ namespace Martis\Resources;
 
 use Illuminate\Http\Request;
 use Martis\Enums\SortDirection;
+use Martis\Fields\Code;
 use Martis\Fields\DateTime;
 use Martis\Fields\Id;
 use Martis\Fields\Text;
@@ -167,15 +168,15 @@ class ActionEventResource extends Resource
                 ->hideFromIndex()
                 ->nullable(),
 
-            Textarea::make('original', 'Original')
+            Code::make('original', 'Original')
+                ->json()
                 ->hideFromIndex()
-                ->nullable()
-                ->displayUsing(fn ($value) => is_array($value) ? json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : (string) ($value ?? '')),
+                ->nullable(),
 
-            Textarea::make('changes', 'Changes')
+            Code::make('changes', 'Changes')
+                ->json()
                 ->hideFromIndex()
-                ->nullable()
-                ->displayUsing(fn ($value) => is_array($value) ? json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : (string) ($value ?? '')),
+                ->nullable(),
 
             DateTime::make('created_at', 'Executed At')
                 ->sortable()

@@ -63,6 +63,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 4.5 | **[Panels & Tabs](panels-and-tabs.md)** | Panel and Tab layouts — basic Panel, collapsible, collapsedByDefault, limit; TabGroup with multiple tabs; nesting Panels inside Tabs; playground showcase; JSON serialization |
 | 5 | **[Fields Reference](fields.md)** | All 50 field types — configuration options, visibility flags, validation rules, relationship fields (all 12 relation types), enums, PrimeReact prop passthrough |
 | 6 | **[Relationships](relationships.md)** | Relationship fields — 12 types (`BelongsTo`, `HasOne`, `HasOneOfMany`, `HasOneThrough`, `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany`), pivot fields, attach/detach, toolbar hide flags, soft-delete filter dropdown |
+| 6.1 | **[Repeater](repeater.md)** | Repeatable row widget — JSON / HasMany / ⭐ Polymorphic storage, multi-type, row templates, duplicate, bulk paste, collapse, drag-and-drop reorder, min/max, dependsOn |
 | 6.5 | **[Filters](filters.md)** | Filters framework — SelectFilter, BooleanFilter, DateFilter, DateRangeFilter, custom filters, default values, dynamic filters, API reference |
 | 6.6 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
 | 6.7 | **[Dashboards](dashboards.md)** | Dashboard system — multiple dashboards, dashboard filters, refresh button, registration, fallback |

@@ -104,6 +104,23 @@ export function DrawerUpdate(props: OverrideProps) {
     }
   }, [activeRecord, scalarFields, initialized])
 
+  // Some fields (BelongsTo, Icon, Timezone, …) normalise their value on
+  // mount via onChange, which would otherwise spuriously mark the drawer
+  // dirty the moment it opens. Rebase the baseline once the mount wave
+  // has settled — a separate effect (keyed only on `initialized`) so the
+  // timer isn't cancelled by unrelated re-renders.
+  useEffect(() => {
+    if (!initialized) return
+    const rebase = window.setTimeout(() => {
+      const settled: Record<string, unknown> = {}
+      scalarFields.forEach((field) => {
+        settled[field.attribute] = valuesRef.current[field.attribute] ?? null
+      })
+      initialSnapshot.current = JSON.stringify(settled)
+    }, 250)
+    return () => window.clearTimeout(rebase)
+  }, [initialized, scalarFields])
+
   // `confirmUnsavedChanges` can be `true` (default), `false` (disabled),
   // or a full UnsavedChangesConfig object returned from PHP.
   const confirmRaw = schema.confirmUnsavedChanges
@@ -112,12 +129,17 @@ export function DrawerUpdate(props: OverrideProps) {
     confirmRaw && typeof confirmRaw === 'object' ? confirmRaw : null
 
   const isDirty = useCallback(() => {
-    // Baseline not captured yet → treat as clean. Protects against the
-    // swap-race where the edit drawer mounts and a popstate fires before
-    // the record finishes loading.
     if (initialSnapshot.current === null) return false
-    return JSON.stringify(valuesRef.current) !== initialSnapshot.current
-  }, [])
+    // Compare only the scalar fields captured in the baseline — fields
+    // that manage their own state outside `values` (e.g. Trix, tag
+    // widgets) may write back after mount without representing a user
+    // edit, and would otherwise flip the drawer into a false-dirty state.
+    const current: Record<string, unknown> = {}
+    scalarFields.forEach((field) => {
+      current[field.attribute] = valuesRef.current[field.attribute] ?? null
+    })
+    return JSON.stringify(current) !== initialSnapshot.current
+  }, [scalarFields])
   const beforeClose = useCallback(async (): Promise<boolean> => {
     if (!confirmEnabled || !isDirty()) return true
     return new Promise<boolean>((resolve) => {

@@ -264,7 +264,7 @@ class LensController extends MartisController
             $tableVersion,
             $lensRequest->search,
             $lensRequest->sortColumn ?? '',
-            $lensRequest->sortDirection,
+            $lensRequest->sortDirection->value,
             md5(json_encode($lensRequest->selectedFilters) ?: ''),
             $trashed,
             $perPage,

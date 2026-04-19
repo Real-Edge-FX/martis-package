@@ -536,6 +536,47 @@ Supports responsive breakpoints: `colSpan()`, `colSpanMd()`, `colSpanLg()`.
 
 ---
 
+### Repeater — Polymorphic storage, templates, duplicate, bulk paste
+
+On top of Nova 5's Repeater API, Martis ships five differentials that
+address Nova's published gaps. Full documentation in [repeater.md](repeater.md).
+
+**D1 — `dependsOn([parent attributes])`**
+Every field inside every row receives the parent record's attributes in
+`formValues`, so conditional logic can react to the record state without
+leaving the row. Closes [laravel/nova-issues#5669](https://github.com/laravel/nova-issues/discussions/5669).
+
+**D2 — Cardinality + collapse + reorder**
+`minRows()`, `maxRows()`, `collapsible()`, `collapsedByDefault()`,
+`reorderable()` with an auto-managed `position` column in HasMany /
+Polymorphic mode. Native HTML5 drag-and-drop — zero extra dependency.
+
+**D3 — Row header affordances**
+`Repeatable::icon()`, `->color()`, `->title('{field} · {field}')`
+(template resolved per row) and `->badgeCount()`. Nova displays only the
+class basename; Martis surfaces real row context.
+
+**D4 — `rowTemplates()`, duplicate row, bulk paste**
+Pre-filled row templates group beneath the Add button, each row header
+gets a one-click duplicate, and a "Colar linhas" footer button parses
+TSV / CSV / JSON clipboard content into rows (header auto-detection when
+the first line matches field attribute names).
+
+**D5 — `asPolymorphic()`**
+Single child table shared by every row type, discriminated by a `type`
+column and a JSON `payload`. Fills the page-builder gap Nova leaves open
+(Nova requires one table per Repeatable type).
+
+```php
+Repeater::make('blocks')
+    ->asPolymorphic('type', 'payload')
+    ->uniqueField('uuid')
+    ->reorderable()
+    ->repeatables([HeroBlock::make(), TextBlock::make(), GalleryBlock::make()]);
+```
+
+---
+
 ## UI Primitives
 
 ### Standardised Button Classes

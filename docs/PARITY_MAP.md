@@ -197,7 +197,7 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | Impersonation | Admin impersonation | TODO | Low priority |
 | Notifications | In-app notifications | TODO | Medium priority |
 | Custom Tools | Sidebar tools/pages | TODO | Medium priority |
-| Repeater | Dynamic field groups | TODO | Low priority |
+| Repeater | Dynamic field groups | DONE | ⭐ asPolymorphic() + rowTemplates + duplicate row + bulk-paste CSV/JSON + collapse/reorder/min-max + dependsOn |
 
 ---
 

@@ -1495,6 +1495,7 @@ class ResourceController extends MartisController
     private function syncDeferredRelations(Model $model): void
     {
         DeferredRelationSync::sync($model);
+        \Martis\Fields\DeferredRepeaterSync::sync($model);
     }
 
     /**

@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'add_row' => 'Add row',
+    'remove' => 'Remove',
+    'reorder' => 'Reorder',
+    'duplicate_row' => 'Duplicate row',
+    'paste_rows' => 'Paste rows',
     'create' => 'Create',
     'edit' => 'Edit',
     'delete' => 'Delete',
