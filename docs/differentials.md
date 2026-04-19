@@ -378,6 +378,49 @@ All included without additional packages:
 | `Heading` | Section divider with optional content |
 | `Hidden` | Hidden field for form data |
 
+### Label Tooltips on Any Field (⭐ Martis 100% differential)
+
+Nova 5 exposes only `help()` — plain text always visible under the input. Martis
+adds a **second channel** for contextual guidance that is opt-in by hover:
+`->tooltip('<strong>...</strong>')` attaches a `(?)` icon to the field label
+and renders **raw HTML** on hover, so authors can pack multi-line, rich hints
+(line breaks, bold, lists, inline links) into a single call without bloating
+the form.
+
+```php
+Text::make('name', 'Full name')
+    ->help('Must be unique')
+    ->tooltip(
+        '<strong>Full legal name</strong>.<br>Examples:<br>'
+        .'• John Smith<br>• Ana Pereira<br><br>'
+        .'<em>Avoid abbreviations.</em>'
+    );
+```
+
+**Why it matters**
+
+- `help()` costs permanent vertical space; `tooltip()` costs **zero pixels**
+  until the user asks for it by hovering the icon.
+- HTML support means rich, localised, multi-line guidance in one string —
+  no custom field classes, no side panels.
+- Applies **uniformly** to every existing and future field (base-class
+  modifier). Renders on Panel, Section, TabGroup, ResourceCreate,
+  ResourceUpdate, and detail labels rendered inside Sections/TabGroups.
+
+**Security model**
+
+Only field tooltips render as HTML — every other `data-pr-tooltip` trigger in
+the app keeps the default plain-text escape via an explicit
+`data-pr-tooltip-html="true"` opt-in set only by the label renderer. Authors
+are responsible for producing safe markup, the same way they are for `help()`.
+
+**Why NOT a `Tooltip` field class**
+
+Discussed and deliberately rejected — a `Field` represents a value, not a
+decoration; tooltips are a presentation modifier that applies *to* fields, not
+a field type of their own. See [Fields → Tooltips](fields.md#tooltips-martis-differential)
+for the full rationale and the `tooltip()` vs `help()` decision matrix.
+
 ### Icon Field — Phosphor Picker (⭐ Martis 100% differential)
 
 Nova 5 ships no Icon field. Martis provides three complementary modes:

@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ResolvesRelatableOptions;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
 
@@ -31,6 +32,8 @@ use Martis\Enums\HasManyRedirectMode;
  */
 class HasMany extends Field
 {
+    use ResolvesRelatableOptions;
+
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
 
@@ -343,6 +346,6 @@ class HasMany extends Field
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
             ],
-        ] + $relatedAuth;
+        ] + $relatedAuth + $this->relatableOptionsMeta();
     }
 }

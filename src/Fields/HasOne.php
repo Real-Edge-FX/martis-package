@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ResolvesRelatableOptions;
 
 /**
  * HasOne relationship field.
@@ -26,6 +27,8 @@ use Illuminate\Support\Str;
  */
 class HasOne extends Field
 {
+    use ResolvesRelatableOptions;
+
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
 
@@ -72,6 +75,25 @@ class HasOne extends Field
         if ($relatedResourceClass !== null && method_exists($relatedResourceClass, 'uriKey')) {
             $instance->relatedResourceKey = $relatedResourceClass::uriKey();
         }
+
+        return $instance;
+    }
+
+    /**
+     * Nova v5 parity — promote a `hasMany(...)->latestOfMany()` style
+     * relationship into a `HasOneOfMany` field. Signature matches
+     * Nova's `HasOne::ofMany($name, $relationship, $resourceClass)`.
+     *
+     * Usage:
+     *   HasOne::ofMany('Latest Post', 'latestPost', PostResource::class)
+     *
+     * The third argument is a Martis Resource class (not an Eloquent
+     * model) — matches Nova.
+     */
+    public static function ofMany(string $name, string $relationship, string $relatedResourceClass): HasOneOfMany
+    {
+        /** @var HasOneOfMany $instance */
+        $instance = HasOneOfMany::make($name, $relationship, $relatedResourceClass);
 
         return $instance;
     }
@@ -183,6 +205,6 @@ class HasOne extends Field
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
             ],
-        ] + $relatedAuth;
+        ] + $relatedAuth + $this->relatableOptionsMeta();
     }
 }

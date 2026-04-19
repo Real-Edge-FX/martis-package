@@ -47,6 +47,10 @@ interface PeekCardProps {
   /** Bounding rect of the trigger element — the card flips above it when
    *  there isn't enough room below. */
   triggerRect: { top: number; bottom: number; left: number }
+  /** Notifica o pai quando o card foi virado acima do trigger. Permite
+   *  that the trigger's tooltip is repositioned to "bottom" and does not
+   *  fique sobreposto pelo próprio card. */
+  onFlipChange?: (flipped: boolean) => void
 }
 
 function renderPeekValue(value: unknown): React.ReactNode {
@@ -73,7 +77,7 @@ function renderPeekValue(value: unknown): React.ReactNode {
   return str === '' ? '—' : str
 }
 
-function PeekCard({ resourceKey, recordId, triggerRect }: PeekCardProps) {
+function PeekCard({ resourceKey, recordId, triggerRect, onFlipChange }: PeekCardProps) {
   const { t } = useTranslation('messages')
   const [data, setData] = useState<PeekData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -103,10 +107,13 @@ function PeekCard({ resourceKey, recordId, triggerRect }: PeekCardProps) {
   }, [resourceKey, recordId])
 
   // Once the card is laid out, measure it and flip above the trigger if
-  // there isn't enough room below. Runs again whenever `data` or `loading`
-  // changes because the card grows when the data arrives.
+  // there isn't enough room below. Only decides after loading finishes to
+  // avoid oscillation: during loading the card is ~50px and would fit
+  // below; when data arrives it grows and may no longer fit. Waiting for
+  // the final measurement guarantees a single stable decision.
   useEffect(() => {
     if (!cardRef.current) return
+    if (loading) return
     const rect = cardRef.current.getBoundingClientRect()
     const gap = 6
     const viewportH = window.innerHeight
@@ -123,7 +130,8 @@ function PeekCard({ resourceKey, recordId, triggerRect }: PeekCardProps) {
       left: clampedLeft,
     })
     setPositioned(true)
-  }, [loading, data, triggerRect.top, triggerRect.bottom, triggerRect.left])
+    onFlipChange?.(needsFlip)
+  }, [loading, data, triggerRect.top, triggerRect.bottom, triggerRect.left, onFlipChange])
 
   const hasAttributes = data && data.attributes.length > 0
 
@@ -197,15 +205,38 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
   const peekArrowClass = `peek-arrow-${instanceId.replace(/:/g, '')}`
   const [showPeek, setShowPeek] = useState(false)
   const [peekTriggerRect, setPeekTriggerRect] = useState<{ top: number; bottom: number; left: number } | null>(null)
+  // true when the peek card didn't fit below and flipped above; in that
+  // case the "Preview" tooltip must flip down so it isn't overlapped by
+  // the card.
+  const [peekFlipped, setPeekFlipped] = useState(false)
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerSpanRef = useRef<HTMLSpanElement>(null)
   const peekIconRef = useRef<HTMLAnchorElement>(null)
 
   function handleMouseEnter() {
+    // Predict the flip IMMEDIATELY (synchronously) so data-pr-position is
+    // already correct when MartisTooltip fires after 300ms. If we wait
+    // for the setTimeout below, there's a race: the tooltip reads
+    // data-pr-position="top" before React applies the re-render, picks up
+    // the old value, and only corrects later via the observer — which
+    // the user sees as "opens above and jumps below".
+    const target = peekIconRef.current ?? containerSpanRef.current
+    if (target) {
+      const rect = target.getBoundingClientRect()
+      const gap = 6
+      const spaceBelow = window.innerHeight - rect.bottom - gap
+      const spaceAbove = rect.top - gap
+      // Conservative prediction: open downward by default; only consider
+      // flipping when space below is small (< 200px — enough for a
+      // typical 3-6 field card) AND there is more space above. This
+      // avoids flipping up on rows in the middle of the viewport where
+      // the card fits perfectly below.
+      setPeekFlipped(spaceBelow < 200 && spaceAbove > spaceBelow)
+    }
     peekTimer.current = setTimeout(() => {
-      const target = peekIconRef.current ?? containerSpanRef.current
-      if (target) {
-        const rect = target.getBoundingClientRect()
+      const t2 = peekIconRef.current ?? containerSpanRef.current
+      if (t2) {
+        const rect = t2.getBoundingClientRect()
         setPeekTriggerRect({ top: rect.top, bottom: rect.bottom, left: rect.left })
       }
       setShowPeek(true)
@@ -216,6 +247,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
     if (peekTimer.current) clearTimeout(peekTimer.current)
     setShowPeek(false)
     setPeekTriggerRect(null)
+    setPeekFlipped(false)
   }
 
   if (value === null || value === undefined || value === '') {
@@ -286,7 +318,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               href="#"
               onClick={(e) => e.preventDefault()}
               data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
-              data-pr-position="top"
+              data-pr-position={peekFlipped ? 'bottom' : 'top'}
               style={{ color: 'var(--martis-text-muted)' }}
               className={`inline-flex items-center opacity-60 hover:opacity-100 transition-opacity ${peekArrowClass}`}
               onMouseEnter={handleMouseEnter}
@@ -301,6 +333,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               resourceKey={relatedResource}
               recordId={value.id}
               triggerRect={peekTriggerRect}
+              onFlipChange={setPeekFlipped}
             />
           )}
         </span>
@@ -458,14 +491,35 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   }
 
   function getOptionLabel(record: RelatedRecord): string {
-    if (titleAttribute && record[titleAttribute] !== undefined && record[titleAttribute] !== null) {
-      return String(record[titleAttribute])
+    // Extract text even when the attribute was serialized as a Stack
+    // (`{ __martisStack: true, entries: [...] }`) — otherwise the dropdown
+    // would render "[object Object]" for every option.
+    const extract = (v: unknown): string | null => {
+      if (v === undefined || v === null) return null
+      if (typeof v === 'string') return v
+      if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+      if (typeof v === 'object') {
+        const obj = v as Record<string, unknown>
+        if (obj.__martisStack && Array.isArray(obj.entries)) {
+          const heading = obj.entries.find((e: unknown) => (e as { variant?: string }).variant === 'heading') as { text?: unknown } | undefined
+          const first = obj.entries[0] as { text?: unknown } | undefined
+          const text = heading?.text ?? first?.text
+          return text != null ? String(text) : null
+        }
+        // Um objecto genérico sem estrutura conhecida — prefere o
+        // fallback para _title em vez de devolver "[object Object]".
+        return null
+      }
+      return null
+    }
+    if (titleAttribute) {
+      const fromAttr = extract(record[titleAttribute])
+      if (fromAttr !== null) return fromAttr
     }
     if (record._title) return record._title
     for (const attr of ['name', 'title', 'label', 'email']) {
-      if (record[attr] !== undefined && record[attr] !== null) {
-        return String(record[attr])
-      }
+      const fromAttr = extract(record[attr])
+      if (fromAttr !== null) return fromAttr
     }
     return `#${record.id}`
   }

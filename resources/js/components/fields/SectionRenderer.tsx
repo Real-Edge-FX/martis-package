@@ -3,6 +3,7 @@ import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { SectionDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
+import { FieldLabelTooltip } from './FieldLabelTooltip'
 
 // -------------------------------------------------------------------------
 // Section — shared internal container
@@ -145,6 +146,7 @@ export function SectionInput({
                 {field.required && (
                   <span className="ml-1 text-red-500" aria-hidden="true">*</span>
                 )}
+                <FieldLabelTooltip text={field.tooltip} />
               </label>
               <FieldInput
                 field={field}
@@ -192,7 +194,7 @@ export function SectionDisplay({
               key={field.attribute}
               style={{ gridColumn: fieldGridColumn(field, section.columns) }}
             >
-              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
+              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
               <dd>
                 <FieldDisplay
                   field={field}

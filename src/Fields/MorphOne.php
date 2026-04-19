@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ResolvesRelatableOptions;
 
 /**
  * MorphOne relationship field.
@@ -24,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class MorphOne extends Field
 {
+    use ResolvesRelatableOptions;
+
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
 
@@ -69,6 +72,19 @@ class MorphOne extends Field
         if ($relatedResourceClass !== null && method_exists($relatedResourceClass, 'uriKey')) {
             $instance->relatedResourceKey = $relatedResourceClass::uriKey();
         }
+
+        return $instance;
+    }
+
+    /**
+     * Nova v5 parity — promote a `morphMany(...)->latestOfMany()` style
+     * relationship into a `MorphOneOfMany` field. Signature matches
+     * Nova's `MorphOne::ofMany($name, $relationship, $resourceClass)`.
+     */
+    public static function ofMany(string $name, string $relationship, string $relatedResourceClass): MorphOneOfMany
+    {
+        /** @var MorphOneOfMany $instance */
+        $instance = MorphOneOfMany::make($name, $relationship, $relatedResourceClass);
 
         return $instance;
     }
@@ -179,6 +195,6 @@ class MorphOne extends Field
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
             ],
-        ] + $relatedAuth;
+        ] + $relatedAuth + $this->relatableOptionsMeta();
     }
 }

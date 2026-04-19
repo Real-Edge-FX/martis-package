@@ -741,7 +741,24 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = $instance->fields($request);
+        // Flatten layout containers (Panel/Section/TabGroup) a resource may
+        // have placed inside fields(). The schema/fieldData endpoint wants
+        // FieldContract instances only — Sections exist for rendering,
+        // not for the field catalogue.
+        $flattenFields = function (array $items) use (&$flattenFields): array {
+            $out = [];
+            foreach ($items as $item) {
+                if ($item instanceof FieldContract) {
+                    $out[] = $item;
+                } elseif (method_exists($item, 'getFields')) {
+                    $out = array_merge($out, $flattenFields($item->getFields()));
+                } elseif (method_exists($item, 'fields')) {
+                    $out = array_merge($out, $flattenFields($item->fields()));
+                }
+            }
+            return $out;
+        };
+        $fields = $flattenFields($instance->fields($request));
         $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
 
         // Context-specific field arrays — resolved then filtered by visibility

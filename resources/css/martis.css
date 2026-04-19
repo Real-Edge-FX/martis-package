@@ -2421,21 +2421,28 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ── Table horizontal scrollbar — visible on hover (REA-1188) ───── */
-/* Permite scroll horizontal quando a tabela excede a largura do viewport */
+/* `overflow-x: scroll` (não `auto`) força o browser a reservar a barra
+ * mesmo em macOS com "Mostrar scroll bars automaticamente" — de outro
+ * modo o SO esconde a barra em trackpad e o `:hover` nunca a revela. */
 .martis-datatable .p-datatable-wrapper {
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox: oculto por defeito */
+  /* PrimeReact aplica `style="overflow: auto"` inline no wrapper, o que
+   * bate qualquer regra de stylesheet sem `!important`. Forçamos
+   * `overflow-x: scroll` para reservar a barra de scroll mesmo quando
+   * o macOS está em modo overlay (trackpad). */
+  overflow-x: scroll !important;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
 }
 .martis-datatable:hover .p-datatable-wrapper {
-  scrollbar-width: thin; /* Firefox: visivel no hover */
   scrollbar-color: var(--martis-border) transparent;
 }
 .martis-datatable .p-datatable-wrapper::-webkit-scrollbar {
-  height: 6px;
+  height: 8px;
 }
 .martis-datatable .p-datatable-wrapper::-webkit-scrollbar-thumb {
   background-color: transparent;
-  border-radius: 3px;
+  border-radius: 4px;
   transition: background-color 0.2s ease;
 }
 .martis-datatable:hover .p-datatable-wrapper::-webkit-scrollbar-thumb {
@@ -3205,4 +3212,66 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-audio-input-controls {
   display: flex;
   gap: 0.5rem;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   OfMany / Through affordances — pill + aggregate tile + breadcrumb hint
+   (⭐ Task 07 PR D Martis differentials)
+   ──────────────────────────────────────────────────────────────────── */
+.martis-ofmany-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--martis-accent) 35%, var(--martis-border));
+  background-color: color-mix(in srgb, var(--martis-accent) 10%, var(--martis-card));
+  color: var(--martis-accent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.martis-through-hint {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.4375rem;
+  border-radius: 0.25rem;
+  background-color: var(--martis-surface-alt);
+  color: var(--martis-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: help;
+}
+
+.martis-ofmany-tile {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  align-self: flex-start;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--martis-border);
+  background-color: var(--martis-surface-alt);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.martis-ofmany-tile-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--martis-text-muted);
+}
+.martis-ofmany-tile-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--martis-text);
+  line-height: 1.2;
+}
+.martis-ofmany-tile-sub {
+  font-size: 0.6875rem;
+  color: var(--martis-text-muted);
 }

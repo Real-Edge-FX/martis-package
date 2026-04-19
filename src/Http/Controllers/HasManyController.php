@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -386,8 +387,8 @@ class HasManyController extends MartisController
 
         $relation = $parentModel->{$relationship}();
 
-        if (! $relation instanceof EloquentHasMany) {
-            return JsonErrorResponse::notFound("'{$relationship}' is not a hasMany relationship.")->toResponse();
+        if (! $relation instanceof EloquentHasMany && ! $relation instanceof EloquentHasManyThrough) {
+            return JsonErrorResponse::notFound("'{$relationship}' is not a hasMany or hasManyThrough relationship.")->toResponse();
         }
 
         // Resolve the related resource class

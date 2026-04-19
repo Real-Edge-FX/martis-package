@@ -220,6 +220,86 @@ HasOne::make('Profile', 'profile', ProfileResource::class)
 | `canCreate(bool $value = true)` | Show/hide the Create button when no related record exists |
 | `canUpdate(bool $value = true)` | Show/hide the Edit button for the existing related record |
 | `canDelete(bool $value = true)` | Show/hide the Delete button for the existing related record |
+| `withSubtitles()` / `subtitleAttribute('attr')` | Show a muted secondary line under the related-record options |
+| `peekable(bool)` / `noPeeking()` | Toggle the hover-preview affordance (default: on) |
+| `relatableQueryUsing(fn ($req, $q) => …)` | Closure that scopes the relatable-records query |
+| `HasOne::ofMany($name, $relationship, $resourceClass)` | Promotes a `hasMany()->latestOfMany()` into a `HasOneOfMany` — see [HasOneOfMany](#hasoneofmany) |
+
+---
+
+## HasOneOfMany
+
+⭐ **Nova parity** — promotes a `hasMany()->latestOfMany()` (or `->ofMany(column, aggregate)`) relationship so the admin shows the **latest / oldest of many** as if it were a plain `HasOne`. Visually identical to `HasOne`.
+
+```php
+use Martis\Enums\AggregateFunction;
+use Martis\Fields\HasOne;
+
+// Two equivalent ways to declare the field (Nova parity):
+HasOne::ofMany('Latest Invoice', 'latestInvoice', InvoiceResource::class)
+HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
+    ->latestByTimestamp('paid_at')                        // ⭐
+    ->aggregateVia(AggregateFunction::Sum, 'amount');    // ⭐
+```
+
+**Model side:**
+
+```php
+// App\Models\Project
+public function latestInvoice(): HasOne
+{
+    return $this->hasOne(Invoice::class)->latestOfMany();
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| `latestByTimestamp(string $column = 'created_at')` ⭐ | One-liner sugar — orders the relation by the timestamp descending before picking the first row |
+| `oldestByTimestamp(string $column = 'created_at')` ⭐ | Same in ascending order |
+| `aggregateVia(AggregateFunction $fn, string $column = '*')` ⭐ | Ships a metric tile alongside the promoted record (count/sum/min/max/avg). Rendered on the detail panel next to the "1 of N" pill |
+
+**⭐ Martis differentials vs Nova:**
+
+- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`). Nova doesn't surface the size of the underlying collection.
+- `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
+- `aggregateVia()` surfaces a metric tile with the full collection aggregate — Nova has no equivalent affordance on this field.
+
+---
+
+## HasOneThrough
+
+⭐ **Nova parity** — shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but **read-only** (Create/Edit/Delete default to `false`; the UI hides those buttons).
+
+```php
+use Martis\Fields\HasOneThrough;
+
+HasOneThrough::make('Account Manager', 'accountManager', TeamMemberResource::class)
+    ->throughBreadcrumb(); // ⭐
+```
+
+**Model side:**
+
+```php
+// App\Models\Project
+public function accountManager(): HasOneThrough
+{
+    return $this->hasOneThrough(
+        TeamMember::class,       // target
+        Client::class,           // intermediate
+        // … FK / PK hints if the defaults don't match
+    );
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| All `HasOne` methods | Inherited; `canCreate/canUpdate/canDelete` default to `false` |
+| `throughBreadcrumb(bool $enabled = true)` ⭐ | Shows a "through" hint next to the section heading |
+
+**⭐ Martis differentials:**
+
+- Read-only defaults prevent misleading Create/Edit/Delete UI (Nova relies on the developer to remember).
+- `throughBreadcrumb()` hint describes the intermediate hop without a custom tooltip.
 
 ---
 
@@ -242,6 +322,74 @@ MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
 | `canCreate(bool $value = true)` | Show/hide the Create button |
 | `canUpdate(bool $value = true)` | Show/hide the Edit button |
 | `canDelete(bool $value = true)` | Show/hide the Delete button |
+
+---
+
+## MorphOneOfMany
+
+⭐ **Nova parity** — polymorphic counterpart of [HasOneOfMany](#hasoneofmany). Promotes `morphMany()->latestOfMany()` (or `->ofMany(...)`).
+
+```php
+use Martis\Fields\MorphOne;
+
+MorphOne::ofMany('Latest Note', 'latestNote', NoteResource::class)
+    ->latestByTimestamp()                                 // ⭐
+    ->aggregateVia(AggregateFunction::Count, '*');       // ⭐
+```
+
+**Model side:**
+
+```php
+// App\Models\Client
+public function latestNote(): MorphOne
+{
+    return $this->morphOne(Note::class, 'noteable')->latestOfMany();
+}
+```
+
+Inherits every `MorphOne` method plus the OfMany extras (`latestByTimestamp` / `oldestByTimestamp` / `aggregateVia`). Same "Latest of N" pill + aggregate tile as HasOneOfMany.
+
+---
+
+## HasManyThrough
+
+⭐ **Nova parity** — inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`).
+
+```php
+use Martis\Fields\HasManyThrough;
+
+HasManyThrough::make('Managed Projects', 'managedProjects', ProjectResource::class)
+    ->throughBreadcrumb()  // ⭐
+    ->countBadge();        // ⭐ on by default
+```
+
+**Model side:**
+
+```php
+// App\Models\TeamMember
+public function managedProjects(): HasManyThrough
+{
+    return $this->hasManyThrough(
+        Project::class,
+        Client::class,
+        'account_manager_id',
+        'client_id',
+        'id',
+        'id',
+    );
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| All `HasMany` methods | Inherited; `canCreate/canUpdate/canDelete` default to `false`, everything else (pagination, `collapsable`, `searchable`, `indexDisplay`, `showRelationIcon`, `showRelationCount`, `badgeColor`, etc.) carries over |
+| `throughBreadcrumb(bool $enabled = true)` ⭐ | Adds a "through" hint to the section heading |
+| `countBadge(bool $enabled = true)` ⭐ | Count pill on the parent's index cell (default: on) |
+
+**⭐ Martis differentials:**
+
+- Read-only defaults.
+- `countBadge` brings the count affordance to Through fields (Nova exposes `showRelationCount` only on `HasMany`).
 
 ---
 

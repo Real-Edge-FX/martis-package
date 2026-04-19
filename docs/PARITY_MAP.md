@@ -29,7 +29,7 @@
 
 ---
 
-## Fields (41 Types)
+## Fields (45 Types)
 
 | Field | Nova v5 | Martis | Status | Notes |
 |-------|---------|--------|--------|-------|
@@ -73,6 +73,10 @@
 | Avatar | Avatar (Image subclass) | Avatar::make() + per-row fallback(Closure) + AvatarShape enum | DONE | ⭐ Extended |
 | UiAvatar | UiAvatar | UiAvatar::make() + deterministic palette + colorFrom() + initials(Closure) | DONE | ⭐ Extended |
 | Audio | Audio | Audio::make() + client-side waveform + downloadable() | DONE | ⭐ Extended |
+| HasOneOfMany | HasOneOfMany | HasOne::ofMany() / HasOneOfMany::make() + latestByTimestamp + aggregateVia + Latest-of-N pill | DONE | ⭐ Extended |
+| MorphOneOfMany | MorphOneOfMany | MorphOne::ofMany() / MorphOneOfMany::make() + latestByTimestamp + aggregateVia | DONE | ⭐ Extended |
+| HasOneThrough | HasOneThrough | HasOneThrough::make() + read-only defaults + throughBreadcrumb() | DONE | ⭐ Extended |
+| HasManyThrough | HasManyThrough | HasManyThrough::make() + read-only defaults + throughBreadcrumb() + countBadge() | DONE | ⭐ Extended |
 | Field Visibility | showOnIndex/hideFromIndex | All 4 contexts supported | DONE | Block 4 |
 | Field Validation | Built-in validation | required/nullable/rules() | DONE | Block 4 |
 | Field Sorting | Sortable columns | sortable() | DONE | Block 4 |

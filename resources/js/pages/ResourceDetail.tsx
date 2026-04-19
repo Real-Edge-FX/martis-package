@@ -165,11 +165,31 @@ export function ResourceDetailPage() {
   }
 
   const detailFields = schema.fieldsForDetail ?? []
+  // Relationship fields render as full-width panels with their own heading
+  // and action buttons — they must NOT be wrapped in the scalar dl/dt/dd
+  // layout, otherwise the field label appears twice (once from <dt>, once
+  // from the panel's own <h3>). This covers the whole has/morph family
+  // including OfMany and Through variants.
+  const standaloneRelationshipTypes = new Set([
+    'has_many',
+    'has_many_through',
+    'has_one',
+    'has_one_of_many',
+    'has_one_through',
+    'morph_one',
+    'morph_one_of_many',
+    'morph_many',
+  ])
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
   const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
   const sectionItems = detailFields.filter(f => f.type === 'section') as SectionDefinition[]
-  const scalarFields = detailFields.filter(f => f.type !== 'has_many' && f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[]
-  const hasManyFields = detailFields.filter(f => f.type === 'has_many') as FieldDefinition[]
+  const scalarFields = detailFields.filter(f =>
+    !standaloneRelationshipTypes.has(f.type) &&
+    f.type !== 'panel' &&
+    f.type !== 'tab_group' &&
+    f.type !== 'section'
+  ) as FieldDefinition[]
+  const relationshipFields = detailFields.filter(f => standaloneRelationshipTypes.has(f.type)) as FieldDefinition[]
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
   const auth = record._authorization
   const canUpdate = auth?.authorizedToUpdate !== false
@@ -300,12 +320,14 @@ export function ResourceDetailPage() {
         <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
       ))}
 
-      {/* Fields card — only shown when there are scalar fields */}
+      {/* Fields card — only shown when there are scalar fields.
+       *  Uses the same visual chrome as PanelContainer for consistency
+       *  with sections that are explicitly inside Panel::make(). */}
       {scalarFields.length > 0 && <div
-        className="rounded-xl border"
+        className="rounded-lg"
         style={{
-          borderColor: "var(--martis-border)",
-          backgroundColor: "var(--martis-card)",
+          border: "1px solid var(--martis-border)",
+          backgroundColor: "var(--martis-surface)",
         }}
       >
         <dl
@@ -329,8 +351,11 @@ export function ResourceDetailPage() {
         </dl>
       </div>}
 
-      {/* HasMany relationship tables */}
-      {hasManyFields.map((field) => (
+      {/* Relationship fields (HasMany, HasOne, variants) render standalone
+       * — each is a full-width panel with its own heading. They are NOT
+       * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
+       * labels. */}
+      {relationshipFields.map((field) => (
         <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
       ))}
 

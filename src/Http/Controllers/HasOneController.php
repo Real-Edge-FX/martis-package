@@ -5,6 +5,8 @@ namespace Martis\Http\Controllers;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
+use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,8 @@ use Martis\Contracts\FieldContract;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\HasOne;
+use Martis\Fields\HasOneOfMany;
+use Martis\Fields\HasOneThrough as HasOneThroughField;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
@@ -51,11 +55,25 @@ class HasOneController extends MartisController
         }
 
         [
+            'parentModel' => $parentModel,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'hasOneField' => $hasOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // ⭐ OfMany runtime scope (Martis differential — latestByTimestamp / oldestByTimestamp).
+        if ($hasOneField instanceof HasOneOfMany) {
+            $scope = $hasOneField->getRuntimeScope();
+            if ($scope !== null) {
+                // Apply the scope to the relation's query and pick the first row.
+                $scopedQuery = $scope(clone $relation->getQuery());
+                $relatedModel = $scopedQuery->first();
+            } else {
+                $relatedModel = $relation->first();
+            }
+        } else {
+            $relatedModel = $relation->first();
+        }
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -63,13 +81,72 @@ class HasOneController extends MartisController
 
         $resInstance = new $relatedResourceClass($relatedModel);
 
-        return JsonResponse::make(
-            $this->serializeModel(
-                $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
-                $relatedModel,
-            )
-        )->toResponse();
+        // ⭐ Build OfMany meta bag — "Latest of N" affordance + optional aggregate tile.
+        // IMPORTANT: `$relation` for a `hasOne()->latestOfMany()` relationship
+        // is already narrowed to a single row — calling ->count() on it
+        // returns 1. We need the count across the UNDERLYING hasMany, so
+        // we rebuild a clean query from the related model + FK.
+        $ofManyMeta = null;
+        if ($hasOneField instanceof HasOneOfMany) {
+            $relatedClass = get_class($relation->getRelated());
+            $fk = $relation->getForeignKeyName();
+            $parentKey = $parentModel->getKey();
+            $baseQuery = fn () => $relatedClass::query()->where($fk, $parentKey);
+
+            $ofManyMeta = [
+                'totalCount' => $baseQuery()->count(),
+            ];
+
+            $fn = $hasOneField->getAggregateFunction();
+            $col = $hasOneField->getAggregateColumn();
+            if ($fn !== null && $col !== null) {
+                $agg = match ($fn->value) {
+                    'count' => (int) $baseQuery()->count($col === '*' ? '*' : $col),
+                    'sum' => $baseQuery()->sum($col),
+                    'min' => $baseQuery()->min($col),
+                    'max' => $baseQuery()->max($col),
+                    'avg' => $baseQuery()->avg($col),
+                    default => null,
+                };
+                $ofManyMeta['aggregate'] = [
+                    'fn' => $fn->value,
+                    'column' => $col,
+                    'value' => $agg,
+                ];
+            }
+        }
+
+        $data = $this->serializeModel(
+            $resInstance,
+            Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            $relatedModel,
+        );
+
+        $meta = [];
+        if ($ofManyMeta !== null) {
+            $meta['ofMany'] = $ofManyMeta;
+        }
+        if ($hasOneField instanceof HasOneThroughField && $hasOneField->hasThroughBreadcrumb()) {
+            $meta['throughBreadcrumb'] = $this->buildThroughBreadcrumb($hasOneField);
+        }
+
+        return JsonResponse::make($data, $meta)->toResponse();
+    }
+
+    /**
+     * ⭐ Martis differential — compose a human-readable hop string for
+     * the detail panel tooltip on HasOneThrough fields.
+     */
+    private function buildThroughBreadcrumb(HasOneThroughField $field): array
+    {
+        return [
+            'enabled' => true,
+            'relationship' => $field->getRelationship(),
+            // Custom text supplied by the developer via
+            // ->throughBreadcrumb(true, 'Custom text'). Null = frontend
+            // falls back to the default i18n string "through_tooltip".
+            'text' => $field->getThroughBreadcrumbText(),
+        ];
     }
 
     /**
@@ -334,8 +411,15 @@ class HasOneController extends MartisController
 
         $relation = $parentModel->{$relationship}();
 
-        if (! $relation instanceof EloquentHasOne) {
-            return JsonErrorResponse::notFound("'{$relationship}' is not a hasOne relationship.")->toResponse();
+        // Accept plain HasOne (Nova parity), HasMany when the field is
+        // HasOneOfMany using latestByTimestamp() / oldestByTimestamp()
+        // at runtime, and HasOneThrough for the Through variant.
+        if (
+            ! $relation instanceof EloquentHasOne
+            && ! $relation instanceof EloquentHasOneThrough
+            && ! $relation instanceof EloquentHasMany
+        ) {
+            return JsonErrorResponse::notFound("'{$relationship}' is not a compatible hasOne / hasOneThrough / hasMany-of-many relationship.")->toResponse();
         }
 
         // Resolve the related resource class
@@ -347,6 +431,14 @@ class HasOneController extends MartisController
 
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
+
+        // Block mutations on HasOneThrough — the relationship is a traversal,
+        // there is no direct FK for Eloquent to create/update/delete on.
+        // Defence in depth: even if someone bypasses the UI, the backend
+        // refuses. Aligned with the Nova default.
+        if ($action !== null && $hasOneField instanceof HasOneThroughField) {
+            return JsonErrorResponse::forbidden("hasOneThrough relationships are read-only.")->toResponse();
+        }
 
         // Check authorization for the action
         if ($action === 'create') {

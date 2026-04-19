@@ -88,10 +88,13 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
   const withSubtitles = !!(field.withSubtitles as boolean | undefined)
   const subtitleAttribute = (field.subtitleAttribute as string | undefined) ?? 'subtitle'
 
+  // `?? ''` on each split slot stops `undefined` from bleeding into template
+  // literals and API URLs when the field is mounted outside a resource detail
+  // (transient renders during navigation, or on non-detail parents).
   const pathParts = window.location.pathname.split('/')
   const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = resourcesIdx >= 0 ? pathParts[resourcesIdx + 1] : ''
-  const parentId = resourcesIdx >= 0 ? pathParts[resourcesIdx + 2] : ''
+  const parentResource = resourcesIdx >= 0 ? (pathParts[resourcesIdx + 1] ?? '') : ''
+  const parentId = resourcesIdx >= 0 ? (pathParts[resourcesIdx + 2] ?? '') : ''
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
