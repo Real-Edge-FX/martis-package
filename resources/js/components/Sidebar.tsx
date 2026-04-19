@@ -19,10 +19,12 @@ function getLogoSrc(): string {
 }
 
 function navClass({ isActive }: { isActive: boolean }) {
+  // Design-system spec: active sidebar item picks up the current accent
+  // (bg-light tint + accent text) so it reacts live to `html[data-accent]`.
   return [
     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all no-underline",
     isActive
-      ? "bg-[var(--martis-active)]" + " " + "martis-text"
+      ? "bg-[var(--martis-accent-bg-light)] text-[color:var(--martis-accent)]"
       : "martis-text-muted hover:bg-[var(--martis-hover)]",
   ].join(" ")
 }
