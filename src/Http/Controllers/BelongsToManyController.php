@@ -269,9 +269,13 @@ class BelongsToManyController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Check duplicates
+        // Check duplicates — qualify the column to avoid ambiguity between
+        // skills.id and the pivot table's id when both are present in the
+        // join produced by BelongsToMany relations.
         if (! $field->isAllowDuplicates()) {
-            $alreadyAttached = $relation->where($relatedModel->getKeyName(), $relatedModel->getKey())->exists();
+            $alreadyAttached = $relation
+                ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
+                ->exists();
             if ($alreadyAttached) {
                 return JsonErrorResponse::validation(
                     ['related_id' => ['This record is already attached.']],
@@ -350,7 +354,9 @@ class BelongsToManyController extends MartisController
             }
 
             if (! $field->isAllowDuplicates()) {
-                $alreadyAttached = $relation->where($relatedModel->getKeyName(), $relatedModel->getKey())->exists();
+                $alreadyAttached = $relation
+                    ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
+                    ->exists();
                 if ($alreadyAttached) {
                     continue; // Skip silently for batch
                 }
@@ -401,13 +407,15 @@ class BelongsToManyController extends MartisController
         $pivotFields = $field->getPivotFields();
         if (! empty($pivotFields)) {
             $pivotRules = [];
+            $pivotAttributes = [];
             foreach ($pivotFields as $pf) {
                 if ($pf instanceof Field) {
                     $pivotRules[$pf->attribute()] = $pf->buildRules();
+                    $pivotAttributes[$pf->attribute()] = $pf->label();
                 }
             }
             if (! empty($pivotRules)) {
-                $validator = Validator::make($request->all(), $pivotRules);
+                $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
                 if ($validator->fails()) {
                     return JsonErrorResponse::validation(
                         $validator->errors()->toArray(),
@@ -526,14 +534,16 @@ class BelongsToManyController extends MartisController
 
         // Validate pivot fields
         $pivotRules = [];
+        $pivotAttributes = [];
         foreach ($pivotFields as $pf) {
             if ($pf instanceof Field) {
                 $fieldRules = array_values(array_filter($pf->buildRules(), fn ($r) => is_string($r) && $r !== 'required'));
                 $pivotRules[$pf->attribute()] = empty($fieldRules) ? ['sometimes'] : array_merge(['sometimes'], $fieldRules);
+                $pivotAttributes[$pf->attribute()] = $pf->label();
             }
         }
 
-        $validator = Validator::make($request->all(), $pivotRules);
+        $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
         if ($validator->fails()) {
             return JsonErrorResponse::validation(
                 $validator->errors()->toArray(),

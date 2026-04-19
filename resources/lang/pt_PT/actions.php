@@ -38,4 +38,9 @@ return [
     'pivot_fields' => 'Campos Pivot',
     'attach_related' => 'Associar Registo',
     'select_all' => 'Selecionar todos',
+    'restore' => 'Restaurar',
+    'force_delete' => 'Apagar permanentemente',
+    'trashed_active' => 'Ativos',
+    'trashed_with' => 'Com apagados',
+    'trashed_only' => 'Apenas apagados',
 ];

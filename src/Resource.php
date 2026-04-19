@@ -1296,18 +1296,29 @@ abstract class Resource implements ResourceContract
 
     /**
      * Resolve the default row actions configuration for this resource,
-     * merging the per-resource override with the global config.
+     * merging the per-resource override with the global `enabled` switch.
+     *
+     * Visibility follows the Nova 5 convention:
+     *  - Global `enabled=false` in config/martis.php removes the whole
+     *    actions column across the app.
+     *  - Per-resource `defaultRowActions()` returning `false` opts out for
+     *    that resource.
+     *  - Per-resource `defaultRowActions()` returning an array whitelists
+     *    which actions are eligible to appear (they still must pass policy).
+     *  - When none of the above restricts, all three actions are eligible —
+     *    per-row authorization decides whether each appears enabled,
+     *    disabled, or hidden. The `hide*Action()` per-instance overrides on
+     *    relationship fields are applied in the frontend shell, after this.
      *
      * @return array{enabled: bool, view: bool, edit: bool, delete: bool}
      */
     public function resolveDefaultRowActions(Request $request): array
     {
-        $globalConfig = config('martis.index.default_row_actions', [
-            'enabled' => true,
-            'view' => true,
-            'edit' => true,
-            'delete' => true,
-        ]);
+        $globallyEnabled = (bool) config('martis.index.default_row_actions.enabled', true);
+
+        if (! $globallyEnabled) {
+            return ['enabled' => false, 'view' => false, 'edit' => false, 'delete' => false];
+        }
 
         $resourceOverride = $this->defaultRowActions($request);
 
@@ -1324,12 +1335,7 @@ abstract class Resource implements ResourceContract
             ];
         }
 
-        return [
-            'enabled' => (bool) ($globalConfig['enabled'] ?? true),
-            'view' => (bool) ($globalConfig['view'] ?? true),
-            'edit' => (bool) ($globalConfig['edit'] ?? true),
-            'delete' => (bool) ($globalConfig['delete'] ?? true),
-        ];
+        return ['enabled' => true, 'view' => true, 'edit' => true, 'delete' => true];
     }
 
     // -------------------------------------------------------------------------

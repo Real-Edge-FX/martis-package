@@ -267,7 +267,9 @@ class MorphToManyController extends MartisController
 
         // Check duplicates
         if (! $field->isAllowDuplicates()) {
-            $alreadyAttached = $relation->where($relatedModel->getKeyName(), $relatedModel->getKey())->exists();
+            $alreadyAttached = $relation
+                ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
+                ->exists();
             if ($alreadyAttached) {
                 return JsonErrorResponse::validation(
                     ['related_id' => ['This record is already attached.']],
@@ -395,12 +397,14 @@ class MorphToManyController extends MartisController
 
         // Validate pivot fields
         $pivotRules = [];
+        $pivotAttributes = [];
         foreach ($pivotFields as $pf) {
             $fieldRules = array_values(array_filter($pf->buildRules(), fn ($r) => is_string($r) && $r !== 'required'));
             $pivotRules[$pf->attribute()] = $fieldRules === [] ? ['sometimes'] : array_merge(['sometimes'], $fieldRules);
+            $pivotAttributes[$pf->attribute()] = $pf->label();
         }
 
-        $validator = Validator::make($request->all(), $pivotRules);
+        $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
         if ($validator->fails()) {
             return JsonErrorResponse::validation(
                 $validator->errors()->toArray(),
@@ -558,7 +562,9 @@ class MorphToManyController extends MartisController
             }
 
             if (! $field->isAllowDuplicates()) {
-                $alreadyAttached = $relation->where($relatedModel->getKeyName(), $relatedModel->getKey())->exists();
+                $alreadyAttached = $relation
+                ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
+                ->exists();
                 if ($alreadyAttached) {
                     continue;
                 }
@@ -609,10 +615,12 @@ class MorphToManyController extends MartisController
         $pivotFields = $field->getPivotFields();
         if (! empty($pivotFields)) {
             $pivotRules = [];
+            $pivotAttributes = [];
             foreach ($pivotFields as $pf) {
                 $pivotRules[$pf->attribute()] = $pf->buildRules();
+                $pivotAttributes[$pf->attribute()] = $pf->label();
             }
-            $validator = Validator::make($request->all(), $pivotRules);
+            $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
             if ($validator->fails()) {
                 return JsonErrorResponse::validation(
                     $validator->errors()->toArray(),

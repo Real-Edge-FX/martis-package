@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
 
 /**
@@ -27,6 +28,7 @@ use Martis\Fields\Concerns\ResolvesRelatableOptions;
  */
 class HasOne extends Field
 {
+    use ControlsRelationshipToolbar;
     use ResolvesRelatableOptions;
 
     /** Eloquent relationship method name on the parent model. */
@@ -204,7 +206,7 @@ class HasOne extends Field
                 'canCreate' => $this->canCreateRelated && $authorizedToCreate,
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
-            ],
+            ] + $this->relationshipToolbarControls(),
         ] + $relatedAuth + $this->relatableOptionsMeta();
     }
 }

@@ -36,6 +36,8 @@ export function ResourceIndexPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null)
+  const [restoreTarget, setRestoreTarget] = useState<ResourceRecord | null>(null)
+  const [forceDeleteTarget, setForceDeleteTarget] = useState<ResourceRecord | null>(null)
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
@@ -138,6 +140,30 @@ export function ResourceIndexPage() {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setDeleteTarget(null)
+    },
+    onError: () => {
+      addToast('error', tMsg('error_delete'))
+    },
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: string | number) => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      addToast('success', res?.meta?.message ?? tMsg('record_restored', 'Record restored.'))
+      setRestoreTarget(null)
+    },
+    onError: () => {
+      addToast('error', tMsg('error_restore', 'Failed to restore record.'))
+    },
+  })
+
+  const forceDeleteMutation = useMutation({
+    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
+      setForceDeleteTarget(null)
     },
     onError: () => {
       addToast('error', tMsg('error_delete'))
@@ -468,11 +494,10 @@ export function ResourceIndexPage() {
         onSetSelection={handleSetSelection}
         onClickRow={schema.rowClickOpensDetail === false ? undefined : (row) => {
           if (row._authorization?.authorizedToView === false) return
-          if (schema.overrides?.detail) {
-            setActionDrawer({ type: 'detail', resource: resource!, recordId: row.id })
-          } else {
-            navigate(`/resources/${resource}/${row.id}`)
-          }
+          // Always navigate — see `onDefaultView` for the rationale. Short
+          // version: drawer overlay needs the record id in the URL so
+          // nested has-many/morph-many queries can resolve their parent.
+          navigate(`/resources/${resource}/${row.id}`)
         }}
         resourceKey={resource}
         selectable={selectable}
@@ -481,11 +506,12 @@ export function ResourceIndexPage() {
         onInlineAction={handleInlineAction}
         defaultRowActions={schema.defaultRowActions}
         onDefaultView={(row) => {
-          if (schema.overrides?.detail) {
-            setActionDrawer({ type: 'detail', resource: resource!, recordId: row.id })
-          } else {
-            navigate(`/resources/${resource}/${row.id}`)
-          }
+          // Always navigate to the detail URL. When a drawer detail override
+          // exists, the ResourceDetailPage renders the index as backdrop
+          // plus the drawer on top — same visual, but now the URL carries
+          // the record id which the nested relationship fields parse to
+          // fire their has-many queries.
+          navigate(`/resources/${resource}/${row.id}`)
         }}
         onDefaultEdit={(row) => {
           if (schema.overrides?.update) {
@@ -495,6 +521,8 @@ export function ResourceIndexPage() {
           }
         }}
         onDefaultDelete={(row) => setDeleteTarget(row)}
+        onDefaultRestore={(row) => setRestoreTarget(row)}
+        onDefaultForceDelete={(row) => setForceDeleteTarget(row)}
         tableConfig={{
           striped: schema.tableStriped,
           showGridlines: schema.tableShowGridlines,
@@ -535,6 +563,29 @@ export function ResourceIndexPage() {
         }}
         onCancel={() => setDeleteTarget(null)}
         confirmMessage={isSoftDelete ? schema.messages?.archiveConfirm : schema.messages?.deleteConfirm}
+      />
+
+      {/* Restore modal */}
+      <DeleteModal
+        open={restoreTarget !== null}
+        resourceLabel={schema.singularLabel}
+        isSoftDelete={false}
+        variant="restore"
+        onConfirm={async () => {
+          if (restoreTarget) await restoreMutation.mutateAsync(restoreTarget.id)
+        }}
+        onCancel={() => setRestoreTarget(null)}
+      />
+
+      {/* Force-delete modal */}
+      <DeleteModal
+        open={forceDeleteTarget !== null}
+        resourceLabel={schema.singularLabel}
+        isSoftDelete={false}
+        onConfirm={async () => {
+          if (forceDeleteTarget) await forceDeleteMutation.mutateAsync(forceDeleteTarget.id)
+        }}
+        onCancel={() => setForceDeleteTarget(null)}
       />
 
       {/* Action execution modal */}

@@ -156,4 +156,5 @@ return [
     'remove_row' => 'Remove row',
     'through_label' => 'indirect',
     'through_tooltip' => 'Indirect relationship accessed through :relationship',
+    'trashed_filter_tooltip' => 'Soft-delete filter',
 ];

@@ -32,11 +32,18 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
 
-  const meta = field.hasOneMeta as {
+  const meta = field.morphOneMeta as {
     canCreate: boolean
     canUpdate: boolean
     canDelete: boolean
+    hideCreateButton?: boolean
+    hideEditAction?: boolean
+    hideDeleteAction?: boolean
   } | undefined
+
+  const showCreate = !!meta?.canCreate && !meta?.hideCreateButton
+  const showEdit = !!meta?.canUpdate && !meta?.hideEditAction
+  const showDelete = !!meta?.canDelete && !meta?.hideDeleteAction
 
   const relationship = field.relationship as string
   const relatedResource = field.relatedResource as string
@@ -128,7 +135,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
         </h3>
         <div className="flex flex-wrap items-center gap-2">
           {/* Create is only rendered in the empty-state card to avoid duplication */}
-          {record !== null && meta?.canUpdate && viaParams !== null && (
+          {record !== null && showEdit && viaParams !== null && (
             <button
               type="button"
               onClick={() =>
@@ -149,7 +156,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
               {tAct('edit', 'Edit')}
             </button>
           )}
-          {record !== null && meta?.canDelete && (
+          {record !== null && showDelete && (
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
@@ -173,7 +180,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
             }}
           >
             {tMsg('morph_one_empty', 'No related record exists yet.')}
-            {meta?.canCreate && viaParams !== null && (
+            {showCreate && viaParams !== null && (
               <div className="mt-3">
                 <button
                   type="button"
@@ -195,6 +202,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
               'has_many', 'has_many_through',
               'has_one', 'has_one_of_many', 'has_one_through',
               'morph_one', 'morph_one_of_many', 'morph_many',
+              'belongs_to_many', 'morph_to_many',
             ])
             const scalar = detailFields.filter((f) => f.attribute !== 'id' && !standaloneTypes.has(f.type))
             const relations = detailFields.filter((f) => standaloneTypes.has(f.type))

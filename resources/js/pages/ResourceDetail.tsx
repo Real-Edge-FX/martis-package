@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next"
 import { ArrowLeftIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, CopyIcon, TrashSimpleIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
+import { ResourceIndexPage } from "@/pages/ResourceIndex"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
 import { MartisLoader } from "@/components/Loader"
@@ -151,7 +152,16 @@ export function ResourceDetailPage() {
         onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
         addToast,
       }
-      return <C {...overrideProps} />
+      // Deep-linking to `/resources/:resource/:id` with a drawer detail
+       // override used to render the drawer floating over an empty page.
+       // Mount the index page behind so the drawer has context, and the
+       // Close button/Esc fades back into the list the user would expect.
+       return (
+         <>
+           <ResourceIndexPage />
+           <C {...overrideProps} />
+         </>
+       )
     }
   }
 
@@ -179,6 +189,8 @@ export function ResourceDetailPage() {
     'morph_one',
     'morph_one_of_many',
     'morph_many',
+    'belongs_to_many',
+    'morph_to_many',
   ])
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
   const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]

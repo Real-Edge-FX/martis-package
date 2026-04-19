@@ -5,7 +5,7 @@ import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react"
+import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
@@ -41,6 +41,8 @@ export interface TableProps {
   onDefaultView?: (row: ResourceRecord) => void
   onDefaultEdit?: (row: ResourceRecord) => void
   onDefaultDelete?: (row: ResourceRecord) => void
+  onDefaultRestore?: (row: ResourceRecord) => void
+  onDefaultForceDelete?: (row: ResourceRecord) => void
   /**
    * Header label for the row-actions column.
    *   - string → render as column header
@@ -370,6 +372,8 @@ function DefaultTable({
   onDefaultView,
   onDefaultEdit,
   onDefaultDelete,
+  onDefaultRestore,
+  onDefaultForceDelete,
   tableConfig,
   actionsColumnLabel,
 }: TableProps) {
@@ -423,6 +427,8 @@ function DefaultTable({
   const showView = showDefaults && defaultRowActions?.view !== false && !!onDefaultView
   const showEdit = showDefaults && defaultRowActions?.edit !== false && !!onDefaultEdit
   const showDelete = showDefaults && defaultRowActions?.delete !== false && !!onDefaultDelete
+  const showRestore = showDefaults && !!onDefaultRestore
+  const showForceDelete = showDefaults && !!onDefaultForceDelete
   const hasDefaults = showView || showEdit || showDelete
   const hasActionsColumn = hasDefaults || inlineActions.length > 0
 
@@ -532,6 +538,7 @@ function DefaultTable({
               const viewDisabled = row._authorization?.authorizedToView === false
               const editDisabled = row._authorization?.authorizedToUpdate === false
               const deleteDisabled = row._authorization?.authorizedToDelete === false
+              const isTrashed = "deleted_at" in row && row["deleted_at"] != null
               const hasInline = ungroupedInline.length > 0 || hasGroupedInline
               return (
                 <div className="martis-row-actions justify-end" onClick={e => e.stopPropagation()}>
@@ -543,7 +550,7 @@ function DefaultTable({
                       onClick={() => onDefaultView?.(row)}
                     />
                   )}
-                  {showEdit && (
+                  {!isTrashed && showEdit && (
                     <RowActionButton
                       label={tAct("edit", "Edit")}
                       icon={<PencilSimpleIcon size={16} />}
@@ -551,13 +558,28 @@ function DefaultTable({
                       onClick={() => onDefaultEdit?.(row)}
                     />
                   )}
-                  {showDelete && (
+                  {!isTrashed && showDelete && (
                     <RowActionButton
                       label={tAct("delete", "Delete")}
                       icon={<TrashIcon size={16} />}
                       disabled={deleteDisabled}
                       variant="destructive"
                       onClick={() => onDefaultDelete?.(row)}
+                    />
+                  )}
+                  {isTrashed && showRestore && (
+                    <RowActionButton
+                      label={tAct("restore", "Restore")}
+                      icon={<ArrowCounterClockwiseIcon size={16} />}
+                      onClick={() => onDefaultRestore?.(row)}
+                    />
+                  )}
+                  {isTrashed && showForceDelete && (
+                    <RowActionButton
+                      label={tAct("force_delete", "Force delete")}
+                      icon={<SkullIcon size={16} />}
+                      variant="destructive"
+                      onClick={() => onDefaultForceDelete?.(row)}
                     />
                   )}
                   {hasDefaults && hasInline && (
