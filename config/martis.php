@@ -213,41 +213,48 @@ return [
     |--------------------------------------------------------------------------
     | Index (Resource Listing)
     |--------------------------------------------------------------------------
-    | Defaults for resource index pages.
+    | Defaults for resource index pages and for the inline tables rendered by
+    | `HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany` fields.
     |
-    | default_row_actions - Show a column of default row actions (view, edit,
-    |                       delete) on every resource index. Each action is
-    |                       automatically disabled when the user lacks the
-    |                       corresponding permission on that row. Custom inline
-    |                       actions defined on the resource appear AFTER the
-    |                       defaults (never replace them unless opted out).
+    | default_row_actions.enabled
+    |     Master kill-switch for the View/Edit/Delete (and Restore/ForceDelete
+    |     when soft-deletes apply) actions column. When `true`, Martis renders
+    |     these actions gated by per-row policies — authorized actions show
+    |     enabled, unauthorized ones show disabled (greyed-out, non-clickable),
+    |     consistent with Nova 5 behaviour. When `false`, Martis never renders
+    |     the default actions anywhere (custom resource actions still appear).
     |
-    | Override per resource via:
-    |   public function defaultRowActions(Request $request): bool|array
-    |   {
-    |       return ['view', 'edit']; // subset
-    |       // return false;          // opt-out entirely
-    |   }
+    |     Per-action visibility is NOT configurable here — it is determined by
+    |     the per-row authorization plus optional per-instance overrides on
+    |     relationship fields (e.g. `HasMany::make()->hideDeleteAction()`),
+    |     plus per-resource via the `defaultRowActions(Request)` method:
+    |
+    |         public function defaultRowActions(Request $request): bool|array
+    |         {
+    |             return ['view', 'edit']; // allowed subset
+    |             // return false;         // opt out entirely
+    |         }
+    |
+    | row_click_opens_detail
+    |     When true (default), clicking a row opens the detail view. When
+    |     false, rows are informational and users must use the View action.
+    |     Override per resource via `rowClickOpensDetail(Request): bool`.
+    |
+    | default_trashed_filter
+    |     Starting value of the "Incluir apagados" filter on resources that
+    |     use soft deletes, matching Nova 5's default. Valid values:
+    |         - 'active'  (default) : list only non-deleted records.
+    |         - 'with'              : include deleted records alongside live.
+    |         - 'only'              : only deleted records.
     */
     'index' => [
         'default_row_actions' => [
             'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
-            'view'    => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
-            'edit'    => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
-            'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
         ],
 
-        /*
-        | row_click_opens_detail
-        |
-        | When true (default), clicking anywhere on a row opens the detail view.
-        | When false, rows are informational only — the user must use the
-        | default "view" row action to open detail. Useful to avoid redundancy
-        | when default_row_actions.view is enabled.
-        |
-        | Override per resource with: rowClickOpensDetail(Request $request): bool
-        */
         'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
+
+        'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
     ],
 
     /*

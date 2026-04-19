@@ -38,4 +38,9 @@ return [
     'pivot_fields' => 'Pivot Fields',
     'attach_related' => 'Attach Record',
     'select_all' => 'Select all',
+    'restore' => 'Restore',
+    'force_delete' => 'Force delete',
+    'trashed_active' => 'Active',
+    'trashed_with' => 'With trashed',
+    'trashed_only' => 'Only trashed',
 ];

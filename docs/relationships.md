@@ -20,6 +20,56 @@ Martis provides nine relationship field types that map 1:1 to Laravel Eloquent r
 
 ---
 
+## Toolbar hide flags (cross-cutting)
+
+All relationship fields share the `ControlsRelationshipToolbar` trait, which
+exposes nine `->hideXxx()` setters that let a programmer **hide** a piece of
+the panel's UI. Visibility composes with authorization as:
+
+    visible = authorized AND NOT hidden
+
+Authorization is always the source of truth — the setters cannot *force*
+something to appear. Unauthorized actions are never shown (or are rendered
+disabled when Nova v5 does so).
+
+| Setter | Hides |
+|--------|-------|
+| `->hideSearch()` | Search input in the panel toolbar |
+| `->hideCreateButton()` | Create / Attach button |
+| `->hidePerPageSelector()` | "Per page" dropdown |
+| `->hideSoftDeleteToggle()` | Ativos / Com apagados / Apenas apagados dropdown |
+| `->hideViewAction()` | Eye icon in the actions column |
+| `->hideEditAction()` | Pencil icon in the actions column |
+| `->hideDeleteAction()` | Trash icon in the actions column |
+| `->hideRestoreAction()` | Restore icon on trashed rows |
+| `->hideForceDeleteAction()` | Force-delete icon on trashed rows |
+
+```php
+HasMany::make('Comments', 'comments')
+    ->hideSoftDeleteToggle()       // never show trashed filter
+    ->hideForceDeleteAction()      // permanent deletion is never exposed
+```
+
+---
+
+## Soft-delete filter (Nova v5 parity)
+
+Relationship panels whose related resource uses `SoftDeletes` automatically
+render a three-state filter in the toolbar — **Ativos / Com apagados /
+Apenas apagados**. Trashed rows show **Restore** and **Force-delete** actions
+instead of Edit/Delete.
+
+The default state comes from `config/martis.php`:
+
+```php
+'default_trashed_filter' => 'active', // 'active' | 'with' | 'only'
+```
+
+Visibility follows the usual gate — `Resource::canViewTrashed()` must return
+`true` (default) AND the programmer must not call `->hideSoftDeleteToggle()`.
+
+---
+
 ## BelongsTo
 
 A many-to-one relationship. Stores a foreign key on the parent model and displays the related record's title.

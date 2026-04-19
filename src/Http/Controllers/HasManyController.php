@@ -52,6 +52,7 @@ class HasManyController extends MartisController
     #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
     #[QueryParameter('sort', description: 'Column to sort by.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc.', required: false, type: 'string')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string')]
     public function index(
         Request $request,
         string $resource,
@@ -71,6 +72,18 @@ class HasManyController extends MartisController
 
         /** @var Builder<Model> $query */
         $query = $relation->getQuery();
+
+        // Soft-delete filter — Nova v5 parity
+        if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
+            $trashed = $request->query('trashed', '');
+            if ($trashed === 'with') {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query->withTrashed();
+            } elseif ($trashed === 'only') {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query->onlyTrashed();
+            }
+        }
 
         // Apply search using the related resource's search pipeline
         $rawSearch = $request->query('search', '');
@@ -443,6 +456,10 @@ class HasManyController extends MartisController
             $data[$field->attribute()] = $field->resolve($model);
         }
 
+        if ($resource::softDeletes() && $model->getAttribute('deleted_at') !== null) {
+            $data['deleted_at'] = $model->getAttribute('deleted_at');
+        }
+
         return $data;
     }
 
@@ -491,6 +508,7 @@ class HasManyController extends MartisController
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
     {
         $rules = [];
+        $attributes = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
@@ -505,9 +523,12 @@ class HasManyController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+            if ($field instanceof Field) {
+                $attributes[$field->attribute()] = $field->label();
+            }
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($request->all(), $rules, [], $attributes);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(

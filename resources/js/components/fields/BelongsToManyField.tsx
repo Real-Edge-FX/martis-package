@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '@/lib/api'
@@ -6,10 +7,11 @@ import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import { Pagination } from '@/components/Pagination'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/contexts/ToastContext'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
-import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, MagnifyingGlassIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, XIcon, LightningIcon } from '@phosphor-icons/react'
+import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretUpIcon, CaretDownIcon, CaretUpDownIcon, XIcon, LightningIcon, FloppyDiskIcon } from '@phosphor-icons/react'
 import { DataTable, type DataTableSortEvent, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -39,8 +41,10 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
     return <BelongsToManyCountBadge count={value} />
   }
 
-  // Detail page — render the full panel in read-only mode (no attach/detach/pivot actions)
-  return <BelongsToManyDetailPanel field={field} readOnly />
+  // Detail page — render the full panel with attach/detach/pivot actions
+  // (Nova v5 parity). Programmers hide individual actions via ->hideCreateButton()
+  // or ->hideDeleteAction() when authorization alone isn't enough.
+  return <BelongsToManyDetailPanel field={field} />
 }
 
 function BelongsToManyCountBadge({ count }: { count: number }) {
@@ -68,6 +72,11 @@ interface BtmMeta {
   perPageOptions: number[]
   canAttach: boolean
   canDetach: boolean
+  hideSearch?: boolean
+  hideCreateButton?: boolean
+  hidePerPageSelector?: boolean
+  hideEditAction?: boolean
+  hideDeleteAction?: boolean
 }
 
 function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDisplayProps['field']; readOnly?: boolean }) {
@@ -98,6 +107,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
   const [collapsed, setCollapsed] = useState(collapsedByDefault)
   const [showAttachModal, setShowAttachModal] = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string | number; title?: string } | null>(null)
+  const [editTarget, setEditTarget] = useState<{ id: string | number; title?: string; pivot: Record<string, unknown> } | null>(null)
   const [selectedRows, setSelectedRows] = useState<ResourceRecord[]>([])
   const [activePivotAction, setActivePivotAction] = useState<ActionMeta | null>(null)
   const [pivotDropdownOpen, setPivotDropdownOpen] = useState(false)
@@ -207,11 +217,13 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
     return acc
   }, {})
 
+  const showPerPage = !collapsed && !!meta?.perPageOptions && meta.perPageOptions.length > 1 && !meta?.hidePerPageSelector
+
   return (
     <div className="space-y-3">
-      {/* Header — all controls on one line: title + search + per-page + attach */}
-      <div className="flex flex-wrap items-center gap-3">
-        <h3 className="flex items-center gap-2 text-lg font-semibold flex-shrink-0" style={{ color: 'var(--martis-text)' }}>
+      {/* Toolbar — single-row at wide containers, two-row below 48rem. */}
+      <div className="martis-relation-toolbar">
+        <h3 className="martis-relation-heading flex items-center gap-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
           {collapsable && (
             <button
               type="button"
@@ -222,7 +234,9 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
               {collapsed ? <CaretDownIcon size={16} /> : <CaretUpIcon size={16} />}
             </button>
           )}
-          <LinkSimpleIcon size={18} style={{ color: 'var(--martis-accent)' }} />
+          {(schema as unknown as { icon?: string })?.icon && (
+            <ResourceIcon iconName={(schema as unknown as { icon?: string }).icon!} size={20} />
+          )}
           <span>{field.label}</span>
           <span
             className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
@@ -235,38 +249,36 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
             {totalCount}
           </span>
         </h3>
-        {!collapsed && searchable && (
-          <div className="relative flex-1 min-w-[120px]">
-            <MagnifyingGlassIcon
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 martis-text-muted"
-            />
+        <div className="martis-relation-primary">
+        {!collapsed && searchable && !meta?.hideSearch && (
+          <div className="relative flex-shrink-0" style={{ width: '16rem' }}>
+            <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)' }} />
+            </span>
             <input
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               placeholder={tMsg('search', 'Search…')}
-              className="btm-search-input block w-full rounded-md border py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-1"
+              className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-1"
               style={{
-                borderColor: 'var(--martis-border)',
                 backgroundColor: 'var(--martis-input-bg)',
+                border: '1px solid var(--martis-border)',
                 color: 'var(--martis-text)',
               }}
             />
-          </div>
-        )}
-        {!collapsed && meta?.perPageOptions && meta.perPageOptions.length > 1 && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
-            <select
-              value={perPage}
-              onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-              className="martis-perpage-select"
-            >
-              {meta.perPageOptions.map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
+            {search && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setPage(1) }}
+                className="absolute inset-y-0 right-2 flex items-center"
+                style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+                data-pr-tooltip={tMsg('clear', 'Clear')}
+                data-pr-position="top"
+              >
+                <XIcon size={14} weight="bold" style={{ color: 'var(--martis-danger)' }} />
+              </button>
+            )}
           </div>
         )}
         {/* Pivot action dropdowns — one per label group */}
@@ -336,7 +348,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
             )}
           </div>
         ))}
-        {!readOnly && !collapsed && meta?.canAttach && (
+        {!readOnly && !collapsed && meta?.canAttach && !meta?.hideCreateButton && (
           <button
             type="button"
             onClick={() => setShowAttachModal(true)}
@@ -346,6 +358,23 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
             <PlusIcon size={14} weight="bold" />
             {tAct('attach', 'Attach')}
           </button>
+        )}
+        </div>
+        {showPerPage && (
+          <div className="martis-relation-meta" data-has-trashed="false">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
+              <select
+                value={perPage}
+                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+                className="martis-perpage-select"
+              >
+                {meta!.perPageOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         )}
       </div>
 
@@ -438,39 +467,61 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
             ))}
 
             {/* Actions column */}
-            {!readOnly && meta?.canDetach && (
+            {!readOnly && ((meta?.canDetach && !meta?.hideDeleteAction) || (pivotFields.length > 0 && !meta?.hideEditAction)) && (
               <Column
                 header={
                   <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
                     {tAct('actions', 'Actions')}
                   </span>
                 }
-                body={(row: ResourceRecord) => (
-                  <div className="flex items-center justify-end gap-1">
-                    {meta?.canDetach && (
-                      <button
-                        type="button"
-                        onClick={() => setDetachTarget({ id: row.id as string | number, title: row._title as string })}
-                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
-                        style={{ color: 'var(--martis-text-muted)', background: 'none', border: '1px solid var(--martis-border)', cursor: 'pointer' }}
-                        data-pr-tooltip={tAct('detach', 'Detach')}
-                        data-pr-position="top"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = 'var(--martis-danger)'
-                          e.currentTarget.style.borderColor = 'var(--martis-danger)'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = 'var(--martis-text-muted)'
-                          e.currentTarget.style.borderColor = 'var(--martis-border)'
-                        }}
-                      >
-                        <LinkBreakIcon size={14} />
-                        {tAct('detach', 'Detach')}
-                      </button>
-                    )}
-                  </div>
-                )}
-                style={{ width: '8rem', textAlign: 'right' }}
+                body={(row: ResourceRecord) => {
+                  const showEditPivot = pivotFields.length > 0 && !meta?.hideEditAction
+                  const showDetach = !!meta?.canDetach && !meta?.hideDeleteAction
+                  return (
+                    <div className="flex items-center justify-end gap-1">
+                      {showEditPivot && (
+                        <button
+                          type="button"
+                          onClick={() => setEditTarget({
+                            id: row.id as string | number,
+                            title: row._title as string,
+                            pivot: (row._pivot as Record<string, unknown>) ?? {},
+                          })}
+                          className="rounded p-1.5 transition-colors"
+                          style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+                          data-pr-tooltip={tAct('edit', 'Edit')}
+                          data-pr-position="top"
+                          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
+                        >
+                          <PencilSimpleIcon size={16} />
+                        </button>
+                      )}
+                      {showDetach && (
+                        <button
+                          type="button"
+                          onClick={() => setDetachTarget({ id: row.id as string | number, title: row._title as string })}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
+                          style={{ color: 'var(--martis-text-muted)', background: 'none', border: '1px solid var(--martis-border)', cursor: 'pointer' }}
+                          data-pr-tooltip={tAct('detach', 'Detach')}
+                          data-pr-position="top"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = 'var(--martis-danger)'
+                            e.currentTarget.style.borderColor = 'var(--martis-danger)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = 'var(--martis-text-muted)'
+                            e.currentTarget.style.borderColor = 'var(--martis-border)'
+                          }}
+                        >
+                          <LinkBreakIcon size={14} />
+                          {tAct('detach', 'Detach')}
+                        </button>
+                      )}
+                    </div>
+                  )
+                }}
+                style={{ width: '10rem', textAlign: 'right' }}
               />
             )}
           </DataTable>
@@ -498,6 +549,21 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
           onConfirm={async () => { await detachMutation.mutateAsync(detachTarget.id) }}
           onCancel={() => setDetachTarget(null)}
           loading={detachMutation.isPending}
+        />
+      )}
+
+      {/* Edit pivot modal — opens for an attached row to update its pivot data. */}
+      {editTarget && (
+        <EditPivotModal
+          title={editTarget.title ?? String(editTarget.id)}
+          endpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/${editTarget.id}/pivot`}
+          pivotFields={pivotFields}
+          initialValues={editTarget.pivot}
+          onSuccess={() => {
+            setEditTarget(null)
+            void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
+          }}
+          onCancel={() => setEditTarget(null)}
         />
       )}
 
@@ -806,48 +872,81 @@ function DetachConfirmModal({
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
-  return (
+  return createPortal((
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9990 }}
+      className="flex items-center justify-center"
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-xl p-6 shadow-xl"
-        style={{ backgroundColor: 'var(--martis-card)', border: '1px solid var(--martis-border)' }}
+        className="absolute inset-0"
+        style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+        onClick={onCancel}
+      />
+
+      <div
+        role="dialog"
+        className="relative w-full max-w-md rounded-xl shadow-xl"
+        style={{
+          backgroundColor: 'var(--martis-card)',
+          border: '1px solid var(--martis-border)',
+        }}
       >
-        <h3 className="mb-2 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-          {tAct('detach', 'Detach')}
-        </h3>
-        <p className="mb-6 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-          {tMsg('detach_confirm', 'This record will be detached from the relationship. No data will be deleted. Continue?')}
-        </p>
-        <p className="mb-6 text-sm font-medium" style={{ color: 'var(--martis-text)' }}>"{title}"</p>
-        <div className="flex justify-end gap-3">
+        {/* Header */}
+        <div
+          className="flex items-center justify-between border-b px-6 py-4"
+          style={{ borderColor: 'var(--martis-border)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+              <LinkBreakIcon size={20} className="text-red-600 dark:text-red-400" weight="bold" />
+            </div>
+            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+              {tAct('detach', 'Detach')} {title ? `"${title}"` : ''}
+            </span>
+          </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-sm font-medium"
-            style={{
-              backgroundColor: 'var(--martis-surface)',
-              color: 'var(--martis-text)',
-              border: '1px solid var(--martis-border)',
-            }}
+            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+            style={{ color: 'var(--martis-text-muted)' }}
           >
+            <XIcon size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4">
+          <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+            {tMsg('detach_confirm', 'This record will be detached from the relationship. No data will be deleted. Continue?')}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end gap-3 border-t px-6 py-4"
+          style={{
+            borderColor: 'var(--martis-border)',
+            backgroundColor: 'var(--martis-surface)',
+            borderRadius: '0 0 0.75rem 0.75rem',
+          }}
+        >
+          <button type="button" onClick={onCancel} disabled={loading} className="martis-btn-secondary">
+            <XIcon size={14} />
             {tAct('cancel', 'Cancel')}
           </button>
           <button
             type="button"
             disabled={loading}
             onClick={() => { void onConfirm() }}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            style={{ backgroundColor: 'var(--martis-danger)' }}
+            className="martis-btn-danger"
           >
+            <LinkBreakIcon size={14} />
             {loading ? tAct('please_wait', 'Please wait…') : tAct('detach', 'Detach')}
           </button>
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 // -------------------------------------------------------------------------
@@ -912,6 +1011,7 @@ function AttachModal({
     return defaults
   })
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [attachPage, setAttachPage] = useState(1)
   const [attachPerPage, setAttachPerPage] = useState(15)
 
@@ -945,8 +1045,18 @@ function AttachModal({
       ),
     onSuccess: () => { onSuccess() },
     onError: (e: unknown) => {
-      const msg = (e as { message?: string })?.message ?? 'Failed to attach.'
-      setError(msg)
+      if (e instanceof ApiError) {
+        const byField = e.errorsByField()
+        setFieldErrors(byField)
+        // Banner is reserved for errors that aren't attached to a specific
+        // field (403, 500, network, or a generic message with no per-field
+        // breakdown). When we already show inline errors, repeating them
+        // above the buttons just adds noise.
+        setError(Object.keys(byField).length === 0 ? e.message : null)
+      } else {
+        setFieldErrors({})
+        setError((e as { message?: string })?.message ?? 'Failed to attach.')
+      }
     },
   })
 
@@ -958,6 +1068,7 @@ function AttachModal({
   function handleAttach() {
     if (selected.length === 0) return
     setError(null)
+    setFieldErrors({})
     if (selected.length === 1) {
       const payload: Record<string, unknown> = { related_id: selected[0].id, ...pivotValues }
       void attachMutation.mutateAsync(payload)
@@ -969,10 +1080,10 @@ function AttachModal({
 
   const modalMaxWidth = MODAL_SIZE_MAP[modalSize] ?? MODAL_SIZE_MAP['2xl']
 
-  return (
+  return createPortal((
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9990, backgroundColor: 'rgba(0,0,0,0.5)' }}
+      className="flex items-center justify-center p-4"
     >
       <div
         className="flex w-full flex-col overflow-hidden rounded-xl shadow-xl"
@@ -1015,24 +1126,34 @@ function AttachModal({
         <div className="shrink-0 border-b px-6 py-3" style={{ borderColor: 'var(--martis-border)' }}>
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
-              <MagnifyingGlassIcon
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2"
-                style={{ color: 'var(--martis-text-muted)' }}
-              />
+              <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)' }} />
+              </span>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setAttachPage(1) }}
                 placeholder={tMsg('search', 'Search…')}
-                className="w-full rounded-md border py-2 pl-9 pr-3 text-sm btm-modal-search focus:outline-none focus:ring-1"
+                className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-1"
                 style={{
-                  borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-input-bg)',
+                  border: '1px solid var(--martis-border)',
                   color: 'var(--martis-text)',
                 }}
                 autoFocus
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setAttachPage(1) }}
+                  className="absolute inset-y-0 right-2 flex items-center"
+                  style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+                  data-pr-tooltip={tMsg('clear', 'Clear')}
+                  data-pr-position="top"
+                >
+                  <XIcon size={14} weight="bold" style={{ color: 'var(--martis-danger)' }} />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
@@ -1115,18 +1236,26 @@ function AttachModal({
             <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--martis-text-muted)' }}>
               {tAct('pivot_fields', 'Pivot Fields')}
             </p>
-            {pivotFields.map((pf) => (
-              <div key={pf.attribute}>
-                <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
-                  {pf.label}
-                </label>
-                <FieldInput
-                  field={pf}
-                  value={pivotValues[pf.attribute] ?? null}
-                  onChange={(v) => setPivotValues((prev) => ({ ...prev, [pf.attribute]: v }))}
-                />
-              </div>
-            ))}
+            {pivotFields.map((pf) => {
+              const isRequired = !!(pf as unknown as { required?: boolean }).required
+              const fieldError = fieldErrors[pf.attribute]
+              return (
+                <div key={pf.attribute}>
+                  <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
+                    {pf.label}
+                    {isRequired && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
+                  </label>
+                  <FieldInput
+                    field={pf}
+                    value={pivotValues[pf.attribute] ?? null}
+                    onChange={(v) => setPivotValues((prev) => ({ ...prev, [pf.attribute]: v }))}
+                  />
+                  {fieldError && (
+                    <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -1142,24 +1271,15 @@ function AttachModal({
           className="flex shrink-0 items-center justify-end gap-3 border-t px-6 py-4"
           style={{ borderColor: 'var(--martis-border)' }}
         >
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium"
-            style={{
-              backgroundColor: 'var(--martis-surface)',
-              color: 'var(--martis-text)',
-              border: '1px solid var(--martis-border)',
-            }}
-          >
+          <button type="button" onClick={onClose} className="martis-btn-secondary">
+            <XIcon size={14} />
             {tAct('cancel', 'Cancel')}
           </button>
           <button
             type="button"
             disabled={selected.length === 0 || attachMutation.isPending}
             onClick={handleAttach}
-            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            style={{ backgroundColor: 'var(--martis-accent)' }}
+            className="martis-btn-primary"
           >
             <LinkSimpleIcon size={14} />
             {attachMutation.isPending
@@ -1171,11 +1291,8 @@ function AttachModal({
         </div>
       </div>
 
-      <style>{`
-        .btm-modal-search::placeholder { color: var(--martis-text-muted); opacity: 0.7; }
-      `}</style>
     </div>
-  )
+  ), document.body)
 }
 
 // -------------------------------------------------------------------------
@@ -1184,4 +1301,153 @@ function AttachModal({
 
 export function BelongsToManyFieldInput({ field }: FieldInputProps) {
   return <BelongsToManyDetailPanel field={field} />
+}
+
+// -------------------------------------------------------------------------
+// Edit pivot modal — updates the pivot row for an already-attached record.
+// Shared by BelongsToMany and MorphToMany via direct reuse (the endpoint
+// shape is identical: PUT {parent}/{id}/<rel-type>/{rel}/{relatedId}/pivot).
+// -------------------------------------------------------------------------
+
+export function EditPivotModal({
+  title,
+  endpoint,
+  pivotFields,
+  initialValues,
+  onSuccess,
+  onCancel,
+}: {
+  title: string
+  endpoint: string
+  pivotFields: FieldDefinition[]
+  initialValues: Record<string, unknown>
+  onSuccess: () => void
+  onCancel: () => void
+}) {
+  const { t: tAct } = useTranslation('actions')
+  const [values, setValues] = useState<Record<string, unknown>>(() => {
+    const seeded: Record<string, unknown> = {}
+    for (const pf of pivotFields) {
+      seeded[pf.attribute] = initialValues[pf.attribute] ?? null
+    }
+    return seeded
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => api.put(endpoint, payload),
+    onSuccess: () => { onSuccess() },
+    onError: (e: unknown) => {
+      if (e instanceof ApiError) {
+        const byField = e.errorsByField()
+        setFieldErrors(byField)
+        setError(Object.keys(byField).length === 0 ? e.message : null)
+      } else {
+        setFieldErrors({})
+        setError((e as { message?: string })?.message ?? 'Failed to update.')
+      }
+    },
+  })
+
+  function handleSave() {
+    setError(null)
+    setFieldErrors({})
+    void updateMutation.mutateAsync(values)
+  }
+
+  return createPortal((
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9990 }}
+      className="flex items-center justify-center"
+    >
+      <div
+        className="absolute inset-0"
+        style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+        onClick={onCancel}
+      />
+
+      <div
+        role="dialog"
+        className="relative w-full max-w-md rounded-xl shadow-xl"
+        style={{
+          backgroundColor: 'var(--martis-card)',
+          border: '1px solid var(--martis-border)',
+        }}
+      >
+        <div
+          className="flex items-center justify-between border-b px-6 py-4"
+          style={{ borderColor: 'var(--martis-border)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+              <PencilSimpleIcon size={20} className="text-indigo-600 dark:text-indigo-400" weight="bold" />
+            </div>
+            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+              {tAct('edit', 'Edit')} {title ? `"${title}"` : ''}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+            style={{ color: 'var(--martis-text-muted)' }}
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+
+        <div className="px-6 py-4 space-y-4">
+          {pivotFields.map((pf) => {
+            const isRequired = !!(pf as unknown as { required?: boolean }).required
+            const fieldError = fieldErrors[pf.attribute]
+            return (
+              <div key={pf.attribute}>
+                <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
+                  {pf.label}
+                  {isRequired && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
+                </label>
+                <FieldInput
+                  field={pf}
+                  value={values[pf.attribute] ?? null}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [pf.attribute]: v }))}
+                />
+                {fieldError && (
+                  <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>
+                )}
+              </div>
+            )
+          })}
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div
+          className="flex items-center justify-end gap-3 border-t px-6 py-4"
+          style={{
+            borderColor: 'var(--martis-border)',
+            backgroundColor: 'var(--martis-surface)',
+            borderRadius: '0 0 0.75rem 0.75rem',
+          }}
+        >
+          <button type="button" onClick={onCancel} disabled={updateMutation.isPending} className="martis-btn-secondary">
+            <XIcon size={14} />
+            {tAct('cancel', 'Cancel')}
+          </button>
+          <button
+            type="button"
+            disabled={updateMutation.isPending}
+            onClick={handleSave}
+            className="martis-btn-primary"
+          >
+            <FloppyDiskIcon size={14} />
+            {updateMutation.isPending ? tAct('please_wait', 'Please wait…') : tAct('save', 'Save')}
+          </button>
+        </div>
+      </div>
+    </div>
+  ), document.body)
 }

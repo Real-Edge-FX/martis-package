@@ -1367,6 +1367,7 @@ class ResourceController extends MartisController
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?string $validationMessage = null): ?IlluminateJsonResponse
     {
         $rules = [];
+        $attributes = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
@@ -1387,6 +1388,10 @@ class ResourceController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+
+            if ($field instanceof Field) {
+                $attributes[$field->attribute()] = $field->label();
+            }
 
             // Add item-level validation rules for multiple file fields
             if (method_exists($field, 'buildItemRules')) {
@@ -1409,7 +1414,7 @@ class ResourceController extends MartisController
             }
         }
 
-        $validator = Validator::make($request->all(), $rules, $customMessages);
+        $validator = Validator::make($request->all(), $rules, $customMessages, $attributes);
 
         if ($validator->fails()) {
             $msg = $validationMessage ?? 'The given data was invalid.';

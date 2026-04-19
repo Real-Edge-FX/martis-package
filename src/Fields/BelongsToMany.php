@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 
 /**
@@ -27,6 +28,8 @@ use Martis\Enums\ModalSize;
  */
 class BelongsToMany extends Field
 {
+    use ControlsRelationshipToolbar;
+
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
 
@@ -43,7 +46,7 @@ class BelongsToMany extends Field
     protected ?\Closure $pivotActionsClosure = null;
 
     /** Whether the inline list supports search on attachable records. */
-    protected bool $relationSearchable = false;
+    protected bool $relationSearchable = true;
 
     /** Whether the panel is collapsable. */
     protected bool $collapsable = false;
@@ -462,7 +465,7 @@ class BelongsToMany extends Field
                 'perPageOptions' => $this->relationPerPageOptions,
                 'canAttach' => $this->canAttach,
                 'canDetach' => $this->canDetach,
-            ],
+            ] + $this->relationshipToolbarControls(),
         ] + $relatedAuth;
     }
 }

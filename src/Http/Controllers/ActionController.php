@@ -175,7 +175,7 @@ class ActionController extends MartisController
             $rules = $this->buildFieldValidationRules($actionFields);
             /** @var array<string, mixed> $fieldData */
             $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules);
+            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
 
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
@@ -340,6 +340,25 @@ class ActionController extends MartisController
         }
 
         return $rules;
+    }
+
+    /**
+     * Build attribute-name map so validation `:attribute` uses the field
+     * label instead of the technical name.
+     *
+     * @param  list<FieldContract>  $fields
+     * @return array<string, string>
+     */
+    private function buildFieldAttributeMap(array $fields): array
+    {
+        $attributes = [];
+        foreach ($fields as $field) {
+            if ($field instanceof MartisField) {
+                $attributes[$field->attribute()] = $field->label();
+            }
+        }
+
+        return $attributes;
     }
 
     /**
@@ -584,7 +603,7 @@ class ActionController extends MartisController
             $rules = $this->buildFieldValidationRules($actionFields);
             /** @var array<string, mixed> $fieldData */
             $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules);
+            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
             }

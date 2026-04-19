@@ -423,7 +423,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     void qc.invalidateQueries({ queryKey: ['relatable'] })
   }
 
-  const canShowCreateButton = showCreateRelationButton && !!selectedType
+  const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
+  const canShowCreateButton = showCreateRelationButton && !!selectedType && !hideCreateButton
   const selectedTypeLabel = morphTypes?.find(t => t.value === selectedType)?.label ?? selectedType
 
   return (

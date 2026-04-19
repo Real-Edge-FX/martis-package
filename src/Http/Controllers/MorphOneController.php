@@ -434,6 +434,7 @@ class MorphOneController extends MartisController
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
     {
         $rules = [];
+        $attributes = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
@@ -448,9 +449,12 @@ class MorphOneController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+            if ($field instanceof Field) {
+                $attributes[$field->attribute()] = $field->label();
+            }
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($request->all(), $rules, [], $attributes);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(

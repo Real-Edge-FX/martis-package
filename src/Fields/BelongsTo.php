@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 use Martis\Enums\PhosphorIcon;
 
@@ -26,6 +27,8 @@ use Martis\Enums\PhosphorIcon;
  */
 class BelongsTo extends Field
 {
+    use ControlsRelationshipToolbar;
+
     protected string $relationship;
 
     protected string $titleAttribute = 'name';
@@ -646,6 +649,6 @@ class BelongsTo extends Field
             'resourceSubtitle' => $this->resourceSubtitleValue !== false ? $this->resourceSubtitleValue : null,
             'createButtonIcon' => $this->createButtonIconValue?->value,
             'createButtonColor' => $this->createButtonColorValue,
-        ], fn (mixed $v): bool => $v !== null) + $this->relatedResourceAuthorizations($this->relatedUriKey);
+        ], fn (mixed $v): bool => $v !== null) + $this->relatedResourceAuthorizations($this->relatedUriKey) + $this->relationshipToolbarControls();
     }
 }

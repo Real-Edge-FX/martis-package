@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 use Martis\Resource;
 
@@ -34,6 +35,8 @@ use Martis\Resource;
  */
 class MorphTo extends Field
 {
+    use ControlsRelationshipToolbar;
+
     /** Eloquent relationship method name. */
     protected string $relationship;
 
@@ -492,6 +495,6 @@ class MorphTo extends Field
             'withSubtitles' => $this->withSubtitles,
             'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
             'peekable' => $this->peekable,
-        ];
+        ] + $this->relationshipToolbarControls();
     }
 }

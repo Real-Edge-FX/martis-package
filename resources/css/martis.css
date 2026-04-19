@@ -2707,6 +2707,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-primary,
 .martis-btn-danger,
 .martis-btn-warning,
+.martis-btn-success,
 .martis-btn-filled {
   display: inline-flex;
   align-items: center;
@@ -2733,6 +2734,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-primary:hover:not(:disabled),
 .martis-btn-danger:hover:not(:disabled),
 .martis-btn-warning:hover:not(:disabled),
+.martis-btn-success:hover:not(:disabled),
 .martis-btn-filled:hover:not(:disabled) {
   /* Shared hover elevation — every variant lifts slightly. */
   box-shadow: 0 3px 6px rgba(15, 23, 42, 0.14);
@@ -2742,6 +2744,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-primary:active:not(:disabled),
 .martis-btn-danger:active:not(:disabled),
 .martis-btn-warning:active:not(:disabled),
+.martis-btn-success:active:not(:disabled),
 .martis-btn-filled:active:not(:disabled) {
   box-shadow: 0 1px 1px rgba(15, 23, 42, 0.1);
   transform: translateY(0);
@@ -2750,6 +2753,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-primary:disabled,
 .martis-btn-danger:disabled,
 .martis-btn-warning:disabled,
+.martis-btn-success:disabled,
 .martis-btn-filled:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -2759,6 +2763,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-primary:focus-visible,
 .martis-btn-danger:focus-visible,
 .martis-btn-warning:focus-visible,
+.martis-btn-success:focus-visible,
 .martis-btn-filled:focus-visible {
   outline: 2px solid var(--martis-accent);
   outline-offset: 2px;
@@ -2809,6 +2814,58 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-warning:hover:not(:disabled) {
   background-color: var(--martis-warning-hover);
   border-color: var(--martis-warning-hover);
+}
+
+/* Success: solid green, used for Restore confirmations. */
+.martis-btn-success {
+  background-color: var(--martis-success);
+  border-color: var(--martis-success);
+  color: #fff;
+}
+.martis-btn-success:hover:not(:disabled) {
+  filter: brightness(0.93);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Relationship panel toolbar — responsive with container queries.
+   Narrow (< 48rem container): heading + search + criar on row 1;
+     per-page (left) + trashed (right) on row 2. When only one of the
+     two metas is visible, it aligns right alone.
+   Wide  (>= 48rem container): all controls inline on a single row,
+     heading left, [search + criar + per-page + trashed] right.
+   ────────────────────────────────────────────────────────────────── */
+.martis-relation-toolbar {
+  container-type: inline-size;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.martis-relation-toolbar > .martis-relation-heading {
+  flex: 0 0 auto;
+}
+.martis-relation-toolbar > .martis-relation-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.martis-relation-toolbar > .martis-relation-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-basis: 100%;
+  justify-content: space-between;
+}
+.martis-relation-toolbar > .martis-relation-meta[data-has-trashed="false"] {
+  justify-content: flex-end;
+}
+@container (min-width: 48rem) {
+  .martis-relation-toolbar > .martis-relation-meta {
+    flex-basis: auto;
+    margin-left: 0;
+  }
 }
 
 /* Filled: for buttons whose background is set via inline style (e.g.

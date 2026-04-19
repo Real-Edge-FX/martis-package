@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
 
 /**
@@ -25,6 +26,7 @@ use Martis\Fields\Concerns\ResolvesRelatableOptions;
  */
 class MorphOne extends Field
 {
+    use ControlsRelationshipToolbar;
     use ResolvesRelatableOptions;
 
     /** Eloquent relationship method name on the parent model. */
@@ -194,7 +196,7 @@ class MorphOne extends Field
                 'canCreate' => $this->canCreateRelated && $authorizedToCreate,
                 'canUpdate' => $this->canUpdateRelated,
                 'canDelete' => $this->canDeleteRelated,
-            ],
+            ] + $this->relationshipToolbarControls(),
         ] + $relatedAuth + $this->relatableOptionsMeta();
     }
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany as EloquentMorphToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 
 /**
@@ -32,6 +33,8 @@ use Martis\Enums\ModalSize;
  */
 class MorphToMany extends Field
 {
+    use ControlsRelationshipToolbar;
+
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
 
@@ -48,7 +51,7 @@ class MorphToMany extends Field
     protected ?\Closure $pivotActionsClosure = null;
 
     /** Whether the inline list supports search on attachable records. */
-    protected bool $relationSearchable = false;
+    protected bool $relationSearchable = true;
 
     /** Whether the panel is collapsable. */
     protected bool $collapsable = false;
@@ -461,7 +464,7 @@ class MorphToMany extends Field
                 'perPageOptions' => $this->relationPerPageOptions,
                 'canAttach' => $this->canAttachRelated,
                 'canDetach' => $this->canDetachRelated,
-            ],
+            ] + $this->relationshipToolbarControls(),
         ] + $relatedAuth;
     }
 }

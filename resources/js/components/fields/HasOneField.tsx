@@ -57,7 +57,14 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
     canCreate: boolean
     canUpdate: boolean
     canDelete: boolean
+    hideCreateButton?: boolean
+    hideEditAction?: boolean
+    hideDeleteAction?: boolean
   } | undefined
+
+  const showCreate = !!meta?.canCreate && !meta?.hideCreateButton
+  const showEdit = !!meta?.canUpdate && !meta?.hideEditAction
+  const showDelete = !!meta?.canDelete && !meta?.hideDeleteAction
 
   const relationship = field.relationship as string
   const relatedResource = field.relatedResource as string
@@ -191,7 +198,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           {/* O bot\u00e3o Criar do header foi removido quando record === null
            *  para evitar duplica\u00e7\u00e3o com o Criar prominente dentro do
            *  empty-state card abaixo. */}
-          {record !== null && meta?.canUpdate && viaParams !== null && (
+          {record !== null && showEdit && viaParams !== null && (
             <button
               type="button"
               onClick={() =>
@@ -212,7 +219,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
               {tAct('edit', 'Edit')}
             </button>
           )}
-          {record !== null && meta?.canDelete && (
+          {record !== null && showDelete && (
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
@@ -252,7 +259,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
             }}
           >
             {tMsg('has_one_empty', 'No related record exists yet.')}
-            {meta?.canCreate && viaParams !== null && (
+            {showCreate && viaParams !== null && (
               <div className="mt-3">
                 <button
                   type="button"
@@ -279,6 +286,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
               'has_many', 'has_many_through',
               'has_one', 'has_one_of_many', 'has_one_through',
               'morph_one', 'morph_one_of_many', 'morph_many',
+              'belongs_to_many', 'morph_to_many',
             ])
             const scalar = detailFields.filter((f) => f.attribute !== 'id' && !standaloneTypes.has(f.type))
             const relations = detailFields.filter((f) => standaloneTypes.has(f.type))

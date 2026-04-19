@@ -364,7 +364,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const isMultiple = (field as unknown as Record<string, unknown>).multiple === true
   const showCreateRelationButton = (field as unknown as Record<string, unknown>).showCreateRelationButton === true
   const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
-  const canShowCreateButton = showCreateRelationButton && !!relatedResource
+  const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
+  const canShowCreateButton = showCreateRelationButton && !!relatedResource && !hideCreateButton
   const withSubtitles = (field as unknown as Record<string, unknown>).withSubtitles === true
   const subtitleAttribute = ((field as unknown as Record<string, unknown>).subtitleAttribute as string) || 'subtitle'
   const showResourceIcon = (field as unknown as Record<string, unknown>).showResourceIcon === true
