@@ -14,6 +14,7 @@ use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
 use Martis\Contracts\ActionContract;
+use Martis\Enums\ActionVisibility;
 use Martis\Contracts\FieldContract;
 use Martis\Exceptions\MartisException;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
@@ -73,14 +74,13 @@ class ActionController extends MartisController
         $instance = new $resourceClass;
         $actions = $this->resolveActions($instance, $request);
 
-        /** @var string $context */
-        $context = $request->query('context', 'index');
+        $context = ActionVisibility::tryFrom((string) $request->query('context', 'index'));
         $filtered = array_values(array_filter($actions, function (ActionContract $action) use ($context) {
             return match ($context) {
-                'index' => $action->isShownOnIndex(),
-                'detail' => $action->isShownOnDetail(),
-                'inline' => $action->isShownInline(),
-                default => true,
+                ActionVisibility::Index => $action->isShownOnIndex(),
+                ActionVisibility::Detail => $action->isShownOnDetail(),
+                ActionVisibility::Inline => $action->isShownInline(),
+                null => true,
             };
         }));
 
@@ -140,7 +140,7 @@ class ActionController extends MartisController
         }
 
         if (! $actionInstance->authorizedToSee($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $models = $this->resolveModels($instance, $request);
@@ -175,7 +175,7 @@ class ActionController extends MartisController
             $rules = $this->buildFieldValidationRules($actionFields);
             /** @var array<string, mixed> $fieldData */
             $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules);
+            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
 
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
@@ -343,6 +343,25 @@ class ActionController extends MartisController
     }
 
     /**
+     * Build attribute-name map so validation `:attribute` uses the field
+     * label instead of the technical name.
+     *
+     * @param  list<FieldContract>  $fields
+     * @return array<string, string>
+     */
+    private function buildFieldAttributeMap(array $fields): array
+    {
+        $attributes = [];
+        foreach ($fields as $field) {
+            if ($field instanceof MartisField) {
+                $attributes[$field->attribute()] = $field->label();
+            }
+        }
+
+        return $attributes;
+    }
+
+    /**
      * Dispatch a queued action as a Laravel job.
      *
      * @param  Collection<int, Model>  $models
@@ -482,10 +501,8 @@ class ActionController extends MartisController
         $instance = new $resourceClass;
         $allActions = $this->resolveActions($instance, $request);
 
-        $context = $request->query('context', 'detail');
-        if (! is_string($context)) {
-            $context = 'detail';
-        }
+        $context = ActionVisibility::tryFrom((string) $request->query('context', 'detail'))
+            ?? ActionVisibility::Detail;
 
         $pivotActions = array_values(array_filter($allActions, function (ActionContract $action) use ($context) {
             if (! ($action instanceof Action) || ! $action->isPivotAction()) {
@@ -493,10 +510,9 @@ class ActionController extends MartisController
             }
 
             return match ($context) {
-                'index' => $action->isShownOnIndex(),
-                'detail' => $action->isShownOnDetail(),
-                'inline' => $action->isShownInline(),
-                default => true,
+                ActionVisibility::Index => $action->isShownOnIndex(),
+                ActionVisibility::Detail => $action->isShownOnDetail(),
+                ActionVisibility::Inline => $action->isShownInline(),
             };
         }));
 
@@ -548,7 +564,7 @@ class ActionController extends MartisController
         }
 
         if (! $actionInstance->authorizedToSee($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Resolve pivot columns from the BelongsToMany field definition
@@ -584,7 +600,7 @@ class ActionController extends MartisController
             $rules = $this->buildFieldValidationRules($actionFields);
             /** @var array<string, mixed> $fieldData */
             $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules);
+            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
             }

@@ -31,6 +31,16 @@ import { GravatarFieldDisplay, GravatarFieldInput } from './GravatarField'
 import { MorphToFieldDisplay, MorphToFieldInput } from './MorphToField'
 import { MorphOneFieldDisplay, MorphOneFieldInput } from './MorphOneField'
 import { HasOneFieldDisplay, HasOneFieldInput } from './HasOneField'
+import { SlugFieldDisplay, SlugFieldInput } from './SlugField'
+import { PasswordConfirmationFieldDisplay, PasswordConfirmationFieldInput } from './PasswordConfirmationField'
+import { TimezoneFieldDisplay, TimezoneFieldInput } from './TimezoneField'
+import { IconFieldDisplay, IconFieldInput } from './IconField'
+import { StackFieldDisplay, StackFieldInput } from './StackField'
+import { BooleanGroupFieldDisplay, BooleanGroupFieldInput } from './BooleanGroupField'
+import { AvatarFieldDisplay, AvatarFieldInput } from './AvatarField'
+import { UiAvatarFieldDisplay, UiAvatarFieldInput } from './UiAvatarField'
+import { AudioFieldDisplay, AudioFieldInput } from './AudioField'
+import { RepeaterFieldDisplay, RepeaterFieldInput } from './RepeaterField'
 
 const LAZY_FIELD_FALLBACK = <div />
 
@@ -209,12 +219,26 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   sparkline: SparklineFieldDisplay,
   gravatar: GravatarFieldDisplay,
   has_many: LazyHasManyFieldDisplay,
+  has_many_through: LazyHasManyFieldDisplay, // Visually identical to HasMany; read-only flags are in the schema
   belongs_to_many: LazyBelongsToManyFieldDisplay,
   morph_to: MorphToFieldDisplay,
   morph_many: LazyMorphManyFieldDisplay,
   morph_one: MorphOneFieldDisplay,
+  morph_one_of_many: MorphOneFieldDisplay, // Visually identical to MorphOne
   morph_to_many: LazyMorphToManyFieldDisplay,
   has_one: HasOneFieldDisplay,
+  has_one_of_many: HasOneFieldDisplay, // Visually identical to HasOne
+  has_one_through: HasOneFieldDisplay, // Visually identical to HasOne; read-only flags are in the schema
+  slug: SlugFieldDisplay,
+  password_confirmation: PasswordConfirmationFieldDisplay,
+  timezone: TimezoneFieldDisplay,
+  icon: IconFieldDisplay,
+  stack: StackFieldDisplay,
+  boolean_group: BooleanGroupFieldDisplay,
+  avatar: AvatarFieldDisplay,
+  ui_avatar: UiAvatarFieldDisplay,
+  audio: AudioFieldDisplay,
+  repeater: RepeaterFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -252,12 +276,26 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   sparkline: SparklineFieldInput,
   gravatar: GravatarFieldInput,
   has_many: LazyHasManyFieldInput,
+  has_many_through: LazyHasManyFieldInput,
+  morph_one_of_many: MorphOneFieldInput,
+  has_one_of_many: HasOneFieldInput,
+  has_one_through: HasOneFieldInput,
   belongs_to_many: LazyBelongsToManyFieldInput,
   morph_to: MorphToFieldInput,
   morph_many: LazyMorphManyFieldInput,
   morph_one: MorphOneFieldInput,
   morph_to_many: LazyMorphToManyFieldInput,
   has_one: HasOneFieldInput,
+  slug: SlugFieldInput,
+  password_confirmation: PasswordConfirmationFieldInput,
+  timezone: TimezoneFieldInput,
+  icon: IconFieldInput,
+  stack: StackFieldInput,
+  boolean_group: BooleanGroupFieldInput,
+  avatar: AvatarFieldInput,
+  ui_avatar: UiAvatarFieldInput,
+  audio: AudioFieldInput,
+  repeater: RepeaterFieldInput,
 }
 
 // -------------------------------------------------------------------------
@@ -345,6 +383,7 @@ export function FieldInput({
   resourceKey,
   recordId,
   context,
+  formValues,
 }: {
   field: FieldDefinition
   value: unknown
@@ -353,6 +392,7 @@ export function FieldInput({
   resourceKey?: string
   recordId?: string | number
   context?: 'create' | 'update'
+  formValues?: Record<string, unknown>
 }) {
   // Tier 0: per-context field override (from PHP field->overrideCreate/Update)
   const contextOverride = context ? field.overrides?.[context] : undefined
@@ -365,5 +405,5 @@ export function FieldInput({
     explicitKey,
     getFallbackInput(field.type),
   )
-  return <Component field={field} value={value} onChange={onChange} error={error} resourceKey={resourceKey} recordId={recordId} />
+  return <Component field={field} value={value} onChange={onChange} error={error} resourceKey={resourceKey} recordId={recordId} formValues={formValues} />
 }

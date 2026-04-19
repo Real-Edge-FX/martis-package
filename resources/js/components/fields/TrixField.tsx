@@ -1,29 +1,45 @@
 import { useState, useEffect, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
 import { EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
 import { BASE_PATH } from "@/lib/config"
 import { useTranslation } from 'react-i18next'
+import { useModalHistoryBackToClose } from "@/lib/historyLock"
 import "trix/dist/trix.css"
 import "trix"
 
 function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
+  useModalHistoryBackToClose(true, onClose)
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      // Stop the keystroke here so the enclosing drawer's own Escape handler
+      // (DrawerShell) doesn't also fire and close the whole drawer.
+      e.stopImmediatePropagation()
+      e.preventDefault()
+      onClose()
     }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    // Capture phase so we run BEFORE listeners attached higher up (like the
+    // drawer's keydown listener on document).
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
   }, [onClose])
 
-  return (
+  // Portal to <body> so the modal escapes the drawer/dialog stacking context
+  // (the drawer is itself portal'd with its own z-50; rendering the modal
+  // inside the drawer tree traps it behind the drawer's backdrop).
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="fixed inset-0 flex items-center justify-center bg-black/70"
+      style={{ zIndex: 9999 }}
       onClick={onClose}
     >
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 text-white hover:text-gray-300 z-50"
+        className="absolute top-4 right-4 text-white hover:text-gray-300"
+        style={{ zIndex: 10000 }}
         aria-label="Close"
       >
         <XIcon size={28} weight="bold" />
@@ -34,7 +50,8 @@ function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
         className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       />
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -54,38 +71,103 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
   const alwaysShow = (ext.alwaysShow as boolean) ?? false
   const [expanded, setExpanded] = useState(alwaysShow)
 
-  // Intercept image clicks inside trix content
+  // Intercept image + attachment link clicks inside trix content
   useEffect(() => {
     if (!expanded || !contentRef.current) return
 
     function handleClick(e: MouseEvent) {
       const target = e.target as HTMLElement
-      // Check if clicked element is an image or an anchor wrapping an image
-      let img: HTMLImageElement | null = null
-      if (target.tagName === 'IMG') {
-        img = target as HTMLImageElement
-      } else if (target.tagName === 'A' && target.querySelector('img')) {
-        img = target.querySelector('img')
+
+      // 0) Any click inside a Trix attachment figure — regardless of whether
+      //    the user hit the image, the caption text, or whitespace — should
+      //    open according to the configured behaviour. Trix stores the
+      //    original file URL in `data-trix-attachment` JSON, so read from
+      //    there as the canonical source.
+      const fig = target.closest('figure.attachment') as HTMLElement | null
+      if (fig) {
+        let attachmentUrl: string | null = null
+        const raw = fig.getAttribute('data-trix-attachment')
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as { url?: string; href?: string }
+            attachmentUrl = parsed.url || parsed.href || null
+          } catch {
+            // fall through
+          }
+        }
+        // Preview figures may embed an <img>; fall back to its `src` when
+        // the JSON is missing (e.g. for inline-pasted images).
+        const inlineImg = fig.querySelector('img') as HTMLImageElement | null
+        if (!attachmentUrl && inlineImg) attachmentUrl = inlineImg.src
+
+        if (attachmentUrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          const isImage = fig.classList.contains('attachment--preview')
+          if (isImage && imageClickBehavior === 'modal') {
+            setModalSrc(attachmentUrl)
+          } else if (linkClickBehavior === 'same_page') {
+            window.location.href = attachmentUrl
+          } else {
+            window.open(attachmentUrl, '_blank', 'noopener,noreferrer')
+          }
+          return
+        }
       }
 
-      if (!img) return
-
-      e.preventDefault()
-      e.stopPropagation()
-
-      const src = img.src
-      if (imageClickBehavior === 'modal') {
-        setModalSrc(src)
-      } else if (imageClickBehavior === 'new_tab') {
-        window.open(src, '_blank', 'noopener')
+      // 1) Bare <a href> outside any attachment figure (plain inline links).
+      const anchor = target.closest('a[href]') as HTMLAnchorElement | null
+      if (anchor && linkClickBehavior !== 'same_page') {
+        e.preventDefault()
+        e.stopPropagation()
+        window.open(anchor.href, '_blank', 'noopener,noreferrer')
       }
-      // 'same_page' — default browser behavior (do nothing, let link navigate)
     }
 
     const el = contentRef.current
     el.addEventListener('click', handleClick)
+
+    // Ensure every attachment / inline link opens in a new tab (unless the
+    // resource explicitly opted for `same_page`). Keeps middle-click /
+    // cmd-click consistent with the click handler above.
+    if (linkClickBehavior !== 'same_page') {
+      el.querySelectorAll('a[href]').forEach((a) => {
+        const anchor = a as HTMLAnchorElement
+        anchor.setAttribute('target', '_blank')
+        anchor.setAttribute('rel', 'noopener noreferrer')
+      })
+    }
+
+    // Restore per-attachment size (persisted in `data-trix-attachment` JSON
+    // by the editor's resize handle). Trix doesn't stamp the `<img>` width
+    // itself on save — without this loop the display always renders at the
+    // image's intrinsic size.
+    el.querySelectorAll('figure.attachment').forEach((figNode) => {
+      const fig = figNode as HTMLElement
+      const raw = fig.getAttribute('data-trix-attachment')
+      if (!raw) return
+      try {
+        const meta = JSON.parse(raw) as { width?: number; height?: number }
+        if (typeof meta.width === 'number' && meta.width > 0) {
+          fig.style.width = `${meta.width}px`
+          fig.style.maxWidth = '100%'
+          const img = fig.querySelector('img') as HTMLImageElement | null
+          if (img) {
+            img.setAttribute('width', String(meta.width))
+            if (typeof meta.height === 'number' && meta.height > 0) {
+              img.setAttribute('height', String(meta.height))
+            }
+            img.style.width = '100%'
+            img.style.height = 'auto'
+          }
+        }
+      } catch {
+        // ignore malformed attachment JSON
+      }
+    })
+
     return () => el.removeEventListener('click', handleClick)
-  }, [expanded, imageClickBehavior, linkClickBehavior])
+  }, [expanded, imageClickBehavior, linkClickBehavior, value])
 
   if (!expanded) {
     return (
@@ -129,6 +211,7 @@ export function TrixFieldInput({
   onChange,
   error,
 }: FieldInputProps) {
+  const { t } = useTranslation('messages')
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLElement | null>(null)
   const hiddenInputRef = useRef<HTMLInputElement | null>(null)
@@ -136,6 +219,35 @@ export function TrixFieldInput({
   const initialized = useRef(false)
   const lastPropValue = useRef<string>("")
   const internalUpdate = useRef(false)
+
+  // Localise the Trix toolbar tooltips by mutating `Trix.config.lang`
+  // before the first editor instantiates. The toolbar uses these strings
+  // for button `title` attributes, which we then migrate to
+  // `data-pr-tooltip` (see the trix-initialize handler below) so the
+  // PrimeReact tooltip surfaces them in the package style.
+  useEffect(() => {
+    const globalTrix = (window as unknown as { Trix?: { config?: { lang?: Record<string, string> } } }).Trix
+    if (!globalTrix?.config?.lang) return
+    Object.assign(globalTrix.config.lang, {
+      attachFiles: t('trix_attach', { defaultValue: 'Attach Files' }),
+      bold: t('trix_bold', { defaultValue: 'Bold' }),
+      bullets: t('trix_bullets', { defaultValue: 'Bullets' }),
+      code: t('trix_code', { defaultValue: 'Code' }),
+      heading1: t('trix_heading', { defaultValue: 'Heading' }),
+      indent: t('trix_indent', { defaultValue: 'Increase Level' }),
+      italic: t('trix_italic', { defaultValue: 'Italic' }),
+      link: t('trix_link', { defaultValue: 'Link' }),
+      numbers: t('trix_numbers', { defaultValue: 'Numbers' }),
+      outdent: t('trix_outdent', { defaultValue: 'Decrease Level' }),
+      quote: t('trix_quote', { defaultValue: 'Quote' }),
+      redo: t('trix_redo', { defaultValue: 'Redo' }),
+      strike: t('trix_strike', { defaultValue: 'Strikethrough' }),
+      undo: t('trix_undo', { defaultValue: 'Undo' }),
+      unlink: t('trix_unlink', { defaultValue: 'Unlink' }),
+      urlPlaceholder: t('trix_url_placeholder', { defaultValue: 'Enter a URL…' }),
+      captionPlaceholder: t('trix_caption_placeholder', { defaultValue: 'Add a caption…' }),
+    })
+  }, [t])
 
   const currentValue =
     value === null || value === undefined ? "" : String(value)
@@ -204,6 +316,22 @@ export function TrixFieldInput({
           tb.classList.add("martis-trix-toolbar-" + toolbarSize)
         }
       }
+
+      // Replace Trix's native `title` tooltips with the package-wide
+      // `data-pr-tooltip` convention so they render through the global
+      // PrimeReact Tooltip (consistent look & feel with clear buttons,
+      // row actions, etc.).
+      if (toolbar) {
+        toolbar.querySelectorAll<HTMLElement>("button[title]").forEach((btn) => {
+          const tip = btn.getAttribute("title")
+          if (tip) {
+            btn.setAttribute("data-pr-tooltip", tip)
+            btn.setAttribute("data-pr-position", "top")
+            btn.removeAttribute("title")
+          }
+        })
+      }
+
     })
 
     // Handle file attachments
@@ -217,10 +345,11 @@ export function TrixFieldInput({
               file: File | null
               remove: () => void
               setUploadProgress: (progress: number) => void
-              setAttributes: (attrs: Record<string, string>) => void
+              setAttributes: (attrs: Record<string, string | number>) => void
             }
           }
         ).attachment
+
         if (!attachment.file) return
 
         if (!withFiles) {
@@ -236,13 +365,13 @@ export function TrixFieldInput({
         ) as HTMLMetaElement | null
         const csrfMatch = document.cookie.match(/XSRF-TOKEN=([^;]+)/)
         const headers: Record<string, string> = {
-          "XIcon-Requested-With": "XMLHttpRequest",
+          "X-Requested-With": "XMLHttpRequest",
           Accept: "application/json",
         }
         if (csrfMeta) {
-          headers["XIcon-CSRF-TOKEN"] = csrfMeta.content
+          headers["X-CSRF-TOKEN"] = csrfMeta.content
         } else if (csrfMatch) {
-          headers["XIcon-XSRF-TOKEN"] = decodeURIComponent(csrfMatch[1])
+          headers["X-XSRF-TOKEN"] = decodeURIComponent(csrfMatch[1])
         }
 
         attachment.setUploadProgress(10)

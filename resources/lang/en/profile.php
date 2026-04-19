@@ -21,6 +21,12 @@ return [
     'password_updated' => 'Password updated successfully.',
     'password_mismatch' => 'Passwords do not match.',
     'password_min' => 'Password must be at least 8 characters.',
+    'password_rules_unmet' => 'Password does not meet the minimum requirements.',
+    'password_requirements' => 'Password requirements',
+    'password_rule_min' => 'At least 8 characters',
+    'password_rule_upper' => 'One uppercase letter',
+    'password_rule_lower' => 'One lowercase letter',
+    'password_rule_number' => 'One number',
     'update_password' => 'Update Password',
     'updating_password' => 'Updating…',
 

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { registry } from '@/lib/registry'
 import { useTranslation } from 'react-i18next'
 import { WarningIcon, TrashIcon, ArrowCounterClockwiseIcon, XIcon } from '@phosphor-icons/react'
+import { useModalHistoryLock } from '@/lib/historyLock'
 
 export interface DeleteModalProps {
   open: boolean
@@ -11,6 +12,8 @@ export interface DeleteModalProps {
   onConfirm: () => Promise<void>
   onCancel: () => void
   confirmMessage?: string
+  /** When 'restore', renders confirm UI tuned for restoring a trashed record. */
+  variant?: 'delete' | 'restore'
 }
 
 function DefaultDeleteModal({
@@ -20,6 +23,7 @@ function DefaultDeleteModal({
   onConfirm,
   onCancel,
   confirmMessage,
+  variant = 'delete',
 }: DeleteModalProps) {
   const [loading, setLoading] = useState(false)
   const [visible, setVisible] = useState(false)
@@ -47,6 +51,11 @@ function DefaultDeleteModal({
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [open, onCancel])
+
+  // Block the browser back button while the modal is visible — the
+  // user must pick a button. Cooperates with DrawerShell so closing
+  // the modal does not close the drawer underneath.
+  useModalHistoryLock(open)
 
   if (!open) return null
 
@@ -87,11 +96,19 @@ function DefaultDeleteModal({
           style={{ borderColor: 'var(--martis-border)' }}
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-              <WarningIcon size={20} className="text-red-600 dark:text-red-400" weight="fill" />
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                variant === 'restore' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-red-100 dark:bg-red-900/30'
+              }`}
+            >
+              {variant === 'restore'
+                ? <ArrowCounterClockwiseIcon size={20} className="text-emerald-600 dark:text-emerald-400" weight="bold" />
+                : <WarningIcon size={20} className="text-red-600 dark:text-red-400" weight="fill" />}
             </div>
             <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-              {isSoftDelete ? tAct('archive') : tAct('delete')} {resourceLabel}
+              {variant === 'restore'
+                ? tAct('restore')
+                : (isSoftDelete ? tAct('archive') : tAct('delete'))} {resourceLabel}
             </span>
           </div>
           <button
@@ -107,7 +124,11 @@ function DefaultDeleteModal({
         {/* Body */}
         <div className="px-6 py-4">
           <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-            {confirmMessage ?? (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))}
+            {confirmMessage ?? (
+              variant === 'restore'
+                ? tMsg('restore_confirm', 'Are you sure you want to restore this record?')
+                : (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))
+            )}
           </p>
         </div>
 
@@ -124,12 +145,7 @@ function DefaultDeleteModal({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--martis-input-bg)',
-              borderColor: 'var(--martis-border)',
-              color: 'var(--martis-text)',
-            }}
+            className="martis-btn-secondary"
           >
             <XIcon size={14} />
             {tAct('cancel')}
@@ -138,17 +154,20 @@ function DefaultDeleteModal({
             type="button"
             onClick={() => void handleConfirm()}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: isSoftDelete ? '#f59e0b' : '#dc2626',
-            }}
+            className={
+              variant === 'restore'
+                ? 'martis-btn-success'
+                : (isSoftDelete ? 'martis-btn-warning' : 'martis-btn-danger')
+            }
           >
-            {isSoftDelete ? <ArrowCounterClockwiseIcon size={14} /> : <TrashIcon size={14} />}
+            {variant === 'restore'
+              ? <ArrowCounterClockwiseIcon size={14} />
+              : (isSoftDelete ? <ArrowCounterClockwiseIcon size={14} /> : <TrashIcon size={14} />)}
             {loading
               ? tAct('please_wait')
-              : isSoftDelete
-                ? tAct('archive')
-                : tAct('delete_permanent')}
+              : variant === 'restore'
+                ? tAct('restore')
+                : (isSoftDelete ? tAct('archive') : tAct('delete_permanent'))}
           </button>
         </div>
       </div>

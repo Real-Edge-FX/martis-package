@@ -130,7 +130,7 @@ export function SparklineFieldInput({ field, value, onChange, error }: FieldInpu
         style={{
           backgroundColor: "var(--martis-input-bg)",
           color: "var(--martis-text)",
-          border: `1px solid ${parseError ? "#ef4444" : "var(--martis-border)"}`,
+          border: `1px solid ${parseError ? "var(--martis-danger)" : "var(--martis-border)"}`,
           padding: "0.5rem 0.75rem",
         }}
       />

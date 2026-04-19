@@ -1,6 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Dropdown } from 'primereact/dropdown'
 import { useTranslation } from 'react-i18next'
+import { dropdownClearIconPt } from './dropdownHelpers'
 
 interface CountryOption {
   label: string
@@ -50,6 +51,7 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
   }))
 
   const filterPh = (ext.filterPlaceholder as string | undefined) ?? t('search')
+  const clearTip = t('clear', { defaultValue: 'Clear' })
 
   return (
     <div className="flex flex-col gap-1">
@@ -66,7 +68,10 @@ export function CountryFieldInput({ field, value, onChange, error }: FieldInputP
         filter
         filterPlaceholder={filterPh}
         emptyFilterMessage={t('no_results_found')}
-        className="w-full martis-country-dropdown"
+        pt={{
+          clearIcon: dropdownClearIconPt(clearTip),
+        }}
+        className="w-full"
       />
       {error && <small className="text-red-500">{error}</small>}
     </div>

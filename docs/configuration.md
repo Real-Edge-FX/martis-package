@@ -44,7 +44,27 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 |-----|------|---------|-------------|
 | `name` | `string` | `'Martis'` | Displayed in the sidebar header and browser title. |
 | `logo` | `?string` | `null` | Path to a custom logo image (relative to public/). |
-| `favicon` | `?string` | `null` | Path to a custom favicon. |
+| `favicon` | `?string` | `null` | Path to a custom favicon (relative to `public/`). When `null`, Martis serves its own default favicon from the package — no `vendor:publish` step required. |
+
+### Customising the favicon
+
+1. Drop the file into your app's `public/` directory — any filename and extension are accepted (`.ico`, `.png`, `.svg`). Example: `public/brand/favicon.ico`.
+2. Point the config at it, relative to `public/`:
+
+   ```env
+   MARTIS_FAVICON=brand/favicon.ico
+   ```
+
+   Or set it directly in `config/martis.php`:
+
+   ```php
+   'brand' => [
+       'favicon' => 'brand/favicon.ico',
+   ],
+   ```
+3. Visit `/{martis-path}/favicon.ico` — the configured file is served. If the file is missing, the route falls back to the package default, so broken paths never 404.
+
+> Path rules: values must stay inside `public/`. Absolute paths (`/etc/...`) and traversal (`../`) are rejected with `400 Bad Request`.
 
 ## Footer
 
@@ -172,6 +192,8 @@ Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](compo
 
 ```php
 'dashboard' => [
+    'showGreeting' => env('MARTIS_DASHBOARD_SHOW_GREETING', true),
+    'showWelcome' => env('MARTIS_DASHBOARD_SHOW_WELCOME', true),
     'showMetrics' => true,
     'showResourceCards' => true,
 ],
@@ -179,6 +201,8 @@ Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](compo
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| `showGreeting` | `bool` | `true` | Show personalised greeting (`Hello, {name}`). Override with `MARTIS_DASHBOARD_SHOW_GREETING=false`. |
+| `showWelcome` | `bool` | `true` | Show welcome subtitle (`Welcome to Martis Admin Engine.`) below the greeting. Override with `MARTIS_DASHBOARD_SHOW_WELCOME=false`. |
 | `showMetrics` | `bool` | `true` | Show summary metrics row (total resources, groups). |
 | `showResourceCards` | `bool` | `true` | Show resource quick-access cards grid. |
 
@@ -192,6 +216,32 @@ Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](compo
 
 Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-center'`, `'bottom-center'`.
 
+## Index (Resource Listing)
+
+```php
+'index' => [
+    'default_row_actions' => [
+        'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        'view'    => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+        'edit'    => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+        'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
+    ],
+    'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
+    'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `default_row_actions.enabled` | `bool` | `true` | Master switch for the default row actions column (view/edit/delete). |
+| `default_row_actions.view` | `bool` | `true` | Show the view icon. |
+| `default_row_actions.edit` | `bool` | `true` | Show the edit icon. |
+| `default_row_actions.delete` | `bool` | `true` | Show the delete icon. |
+| `row_click_opens_detail` | `bool` | `true` | When default row actions expose a "view" icon, clicking the row body becomes redundant. Set to `false` to disable row-click and keep the row informational. Override per resource with `rowClickOpensDetail(Request $request): ?bool`. |
+| `default_trashed_filter` | `string` | `'active'` | Initial state of the trashed-filter dropdown on soft-delete resources (main index **and** relationship panels). One of `'active'` (hide deleted), `'with'` (include deleted alongside live), `'only'` (only deleted). Visibility of the dropdown itself is gated by [`Resource::canViewTrashed()`](resources.md#restricting-trashed-visibility-by-role). |
+
+Override per-resource with the `defaultRowActions(Request $request): bool|array` and `rowClickOpensDetail(Request $request): ?bool` methods. See [Default Row Actions](default_row_actions.md) for the full guide.
+
 ## Pagination
 
 ```php
@@ -201,7 +251,12 @@ Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-c
 ],
 ```
 
-Override per-resource via `perPage()` and `perPageOptions()` on the resource class.
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `default_per_page` | `int` | `25` | Fallback for `Resource::perPage()` and `Lens::perPage()` when the resource/lens does not override the method. |
+| `max_per_page` | `int` | `100` | Upper bound enforced by the ResourceController when the client passes `?perPage=N` on the URL. Protects against pathological page sizes. |
+
+Override per-resource via `perPage()` and `perPageOptions()` on the resource class. When the returned `perPage()` is not present in `perPageOptions()`, Martis silently clamps to `perPageOptions()[0]` — see [resources.md — Effective per-page](resources.md#effective-per-page).
 
 ## Storage
 
@@ -303,6 +358,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_THEME_NAME` | `theme.name` | `null` |
 | `MARTIS_SEARCH_MODE` | `search.mode` | `bar` |
 | `MARTIS_TOAST_POSITION` | `toast.position` | `bottom-right` |
+| `MARTIS_DEFAULT_TRASHED_FILTER` | `index.default_trashed_filter` | `active` |
 | `MARTIS_STORAGE_DISK` | `storage.disk` | `public` |
 | `MARTIS_ATTACHMENT_MIMES` | `attachments.allowed_mimes` | (see config) |
 | `MARTIS_ATTACHMENT_MAX_SIZE` | `attachments.max_size` | `10240` |

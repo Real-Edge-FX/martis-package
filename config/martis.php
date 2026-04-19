@@ -150,6 +150,13 @@ return [
     |
     | Configure the dashboard page layout and visible sections.
     |
+    | showGreeting      - Show the personalised greeting ("Hello, {name}") at
+    |                     the top of the dashboard. Set to false to hide it.
+    |
+    | showWelcome       - Show the welcome subtitle below the greeting
+    |                     ("Welcome to Martis Admin Engine."). Set to false
+    |                     to hide just the subtitle while keeping the greeting.
+    |
     | showMetrics       - Show the summary metrics row at the top of the
     |                     dashboard (total resources, groups, active count).
     |                     Set to false to hide the entire metrics section.
@@ -164,6 +171,8 @@ return [
     |
     */
     'dashboard' => [
+        'showGreeting' => env('MARTIS_DASHBOARD_SHOW_GREETING', true),
+        'showWelcome' => env('MARTIS_DASHBOARD_SHOW_WELCOME', true),
         'showMetrics' => true,
         'showResourceCards' => true,
     ],
@@ -198,6 +207,54 @@ return [
     */
     'toast' => [
         'position' => env('MARTIS_TOAST_POSITION', 'bottom-right'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Index (Resource Listing)
+    |--------------------------------------------------------------------------
+    | Defaults for resource index pages and for the inline tables rendered by
+    | `HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany` fields.
+    |
+    | default_row_actions.enabled
+    |     Master kill-switch for the View/Edit/Delete (and Restore/ForceDelete
+    |     when soft-deletes apply) actions column. When `true`, Martis renders
+    |     these actions gated by per-row policies — authorized actions show
+    |     enabled, unauthorized ones show disabled (greyed-out, non-clickable),
+    |     consistent with Nova 5 behaviour. When `false`, Martis never renders
+    |     the default actions anywhere (custom resource actions still appear).
+    |
+    |     Per-action visibility is NOT configurable here — it is determined by
+    |     the per-row authorization plus optional per-instance overrides on
+    |     relationship fields (e.g. `HasMany::make()->hideDeleteAction()`),
+    |     plus per-resource via the `defaultRowActions(Request)` method:
+    |
+    |         public function defaultRowActions(Request $request): bool|array
+    |         {
+    |             return ['view', 'edit']; // allowed subset
+    |             // return false;         // opt out entirely
+    |         }
+    |
+    | row_click_opens_detail
+    |     When true (default), clicking a row opens the detail view. When
+    |     false, rows are informational and users must use the View action.
+    |     Override per resource via `rowClickOpensDetail(Request): bool`.
+    |
+    | default_trashed_filter
+    |     Starting value of the "Incluir apagados" filter on resources that
+    |     use soft deletes, matching Nova 5's default. Valid values:
+    |         - 'active'  (default) : list only non-deleted records.
+    |         - 'with'              : include deleted records alongside live.
+    |         - 'only'              : only deleted records.
+    */
+    'index' => [
+        'default_row_actions' => [
+            'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        ],
+
+        'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
+
+        'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
     ],
 
     /*
@@ -323,7 +380,7 @@ return [
             'enabled' => env('MARTIS_2FA_ENABLED', true),
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
         ],
-        'sections' => ['account', 'password', 'avatar', 'security'],
+        'sections' => ['avatar', 'account', 'password', 'security'],
     ],
 
     /*
@@ -359,6 +416,22 @@ return [
             'search' => false,
             'components' => false,
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Drawer overrides
+    |--------------------------------------------------------------------------
+    |
+    | Package-wide defaults applied to every DrawerOverride (create, update,
+    | detail) that does not override them explicitly. Setting the values
+    | here — instead of chaining ->width('...') on every resource — keeps
+    | the three drawers visually consistent by construction.
+    */
+
+    'drawer' => [
+        'width' => '520px',
+        'expanded_width' => '800px',
     ],
 
 ];

@@ -80,8 +80,6 @@ class Action implements ActionContract
 
     protected ?ModalSize $modalSize = null;
 
-    protected bool $fullscreen = false;
-
     // -------------------------------------------------------------------------
     // Then callback (non-queued actions)
     // -------------------------------------------------------------------------
@@ -393,7 +391,7 @@ class Action implements ActionContract
     /** {@inheritDoc} */
     public function fullscreen(): static
     {
-        $this->fullscreen = true;
+        $this->modalSize = ModalSize::Fullscreen;
 
         return $this;
     }
@@ -642,7 +640,7 @@ class Action implements ActionContract
             'confirmText' => $this->confirmText,
             'confirmButtonText' => $this->confirmButtonText,
             'cancelButtonText' => $this->cancelButtonText,
-            'modalSize' => $this->fullscreen ? 'fullscreen' : (($this->modalSize !== null ? $this->modalSize->value : 'md')),
+            'modalSize' => ($this->modalSize ?? ModalSize::Medium)->value,
             'supportsDryRun' => $this->supportsDryRun,
             'customComponent' => $this->customComponent,
             'customComponentProps' => $this->customComponentProps,

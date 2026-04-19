@@ -16,6 +16,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
 import { FilterPanel } from '@/components/FilterPanel'
+import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 
 export function ResourceIndexPage() {
@@ -35,6 +36,8 @@ export function ResourceIndexPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null)
+  const [restoreTarget, setRestoreTarget] = useState<ResourceRecord | null>(null)
+  const [forceDeleteTarget, setForceDeleteTarget] = useState<ResourceRecord | null>(null)
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
@@ -47,12 +50,19 @@ export function ResourceIndexPage() {
   // Track which row IDs the inline action targets (separate from visual selection)
   const [inlineActionRowIds, setInlineActionRowIds] = useState<(string | number)[]>([])
 
-  // Reset selection and search when navigating between resources
+  // Reset view state when navigating between resources. Without this,
+  // page/sort/filter state leaks across resources (e.g. opening Projects
+  // after browsing Clients page 2 would also open on page 2).
   useEffect(() => {
     setSelectedIds(new Set())
     setSearch('')
     setDebouncedSearch('')
     setActiveFilters({})
+    setPage(1)
+    setPerPage(null)
+    setSortBy(null)
+    setSortDir('asc')
+    setTrashedFilter('')
     clearTimeout(searchTimerRef.current)
   }, [resource])
   // Debounce search
@@ -108,14 +118,10 @@ export function ResourceIndexPage() {
     },
   })
 
-  // Fetch actions for this resource
-  const actionsQuery = useQuery({
-    queryKey: ['resource-actions', resource],
-    queryFn: () => api.get<{ data: { actions: ActionMeta[] } }>(`/api/resources/${resource}/actions`),
-    enabled: !!resource,
-  })
-
-  const allActions = actionsQuery.data?.data?.actions ?? []
+  // Actions are included in the schema payload — no separate query needed.
+  // This eliminates the "inline actions flash" on refresh where buttons
+  // briefly disappear while a secondary query loads.
+  const allActions = (schemaQuery.data?.data?.actions ?? []) as ActionMeta[]
   const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
   const inlineActions = allActions.filter((a) => a.showInline)
   const standaloneActions = allActions.filter((a) => a.standalone)
@@ -134,6 +140,30 @@ export function ResourceIndexPage() {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setDeleteTarget(null)
+    },
+    onError: () => {
+      addToast('error', tMsg('error_delete'))
+    },
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: string | number) => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      addToast('success', res?.meta?.message ?? tMsg('record_restored', 'Record restored.'))
+      setRestoreTarget(null)
+    },
+    onError: () => {
+      addToast('error', tMsg('error_restore', 'Failed to restore record.'))
+    },
+  })
+
+  const forceDeleteMutation = useMutation({
+    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
+      setForceDeleteTarget(null)
     },
     onError: () => {
       addToast('error', tMsg('error_delete'))
@@ -288,6 +318,16 @@ export function ResourceIndexPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Lens selector — Nova v5 parity */}
+          {Array.isArray(schema.lenses) && schema.lenses.length > 0 && (
+            <LensDropdown
+              lenses={schema.lenses}
+              currentUriKey={null}
+              onSelect={(next) => {
+                if (next) navigate(`/resources/${resource}/lens/${next.uriKey}`)
+              }}
+            />
+          )}
           {/* Standalone actions (no selection needed) */}
           {standaloneActions.length > 0 && (
             <ActionDropdown
@@ -337,7 +377,7 @@ export function ResourceIndexPage() {
             continue
           }
           const allDisabled = selectedRows.length > 0 && selectedRows.every(row => {
-            const perAction = (row as Record<string, unknown>)._actionAuthorization as Record<string, boolean> | undefined
+            const perAction = row._actionAuthorization
             if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
             return false
           })
@@ -452,11 +492,37 @@ export function ResourceIndexPage() {
         onToggleSelect={handleToggleSelect}
         onToggleAll={handleToggleAll}
         onSetSelection={handleSetSelection}
-        onClickRow={(row) => { if (row._authorization?.authorizedToView !== false) navigate(`/resources/${resource}/${row.id}`) }}
+        onClickRow={schema.rowClickOpensDetail === false ? undefined : (row) => {
+          if (row._authorization?.authorizedToView === false) return
+          // Always navigate — see `onDefaultView` for the rationale. Short
+          // version: drawer overlay needs the record id in the URL so
+          // nested has-many/morph-many queries can resolve their parent.
+          navigate(`/resources/${resource}/${row.id}`)
+        }}
         resourceKey={resource}
         selectable={selectable}
+        actionsColumnLabel={schema.actionsColumnLabel}
         inlineActions={inlineActions}
         onInlineAction={handleInlineAction}
+        defaultRowActions={schema.defaultRowActions}
+        onDefaultView={(row) => {
+          // Always navigate to the detail URL. When a drawer detail override
+          // exists, the ResourceDetailPage renders the index as backdrop
+          // plus the drawer on top — same visual, but now the URL carries
+          // the record id which the nested relationship fields parse to
+          // fire their has-many queries.
+          navigate(`/resources/${resource}/${row.id}`)
+        }}
+        onDefaultEdit={(row) => {
+          if (schema.overrides?.update) {
+            setActionDrawer({ type: 'update', resource: resource!, recordId: row.id })
+          } else {
+            navigate(`/resources/${resource}/${row.id}/edit`)
+          }
+        }}
+        onDefaultDelete={(row) => setDeleteTarget(row)}
+        onDefaultRestore={(row) => setRestoreTarget(row)}
+        onDefaultForceDelete={(row) => setForceDeleteTarget(row)}
         tableConfig={{
           striped: schema.tableStriped,
           showGridlines: schema.tableShowGridlines,
@@ -499,6 +565,29 @@ export function ResourceIndexPage() {
         confirmMessage={isSoftDelete ? schema.messages?.archiveConfirm : schema.messages?.deleteConfirm}
       />
 
+      {/* Restore modal */}
+      <DeleteModal
+        open={restoreTarget !== null}
+        resourceLabel={schema.singularLabel}
+        isSoftDelete={false}
+        variant="restore"
+        onConfirm={async () => {
+          if (restoreTarget) await restoreMutation.mutateAsync(restoreTarget.id)
+        }}
+        onCancel={() => setRestoreTarget(null)}
+      />
+
+      {/* Force-delete modal */}
+      <DeleteModal
+        open={forceDeleteTarget !== null}
+        resourceLabel={schema.singularLabel}
+        isSoftDelete={false}
+        onConfirm={async () => {
+          if (forceDeleteTarget) await forceDeleteMutation.mutateAsync(forceDeleteTarget.id)
+        }}
+        onCancel={() => setForceDeleteTarget(null)}
+      />
+
       {/* Action execution modal */}
       <ActionModal
         resource={resource!}
@@ -522,6 +611,7 @@ export function ResourceIndexPage() {
             void qc.invalidateQueries({ queryKey: ["resources", resource] })
             setActionDrawer(null)
           }}
+          onSwitchTo={(next) => setActionDrawer(next)}
         />
       )}
     </div>

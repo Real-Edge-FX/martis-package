@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next"
 import { ArrowLeftIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, CopyIcon, TrashSimpleIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
+import { ResourceIndexPage } from "@/pages/ResourceIndex"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
 import { MartisLoader } from "@/components/Loader"
@@ -26,6 +27,7 @@ export function ResourceDetailPage() {
   const { addToast } = useToast()
   const [showDelete, setShowDelete] = useState(false)
   const [showUpdateOverride, setShowUpdateOverride] = useState(false)
+  const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [showForceDelete, setShowForceDelete] = useState(false)
   const [showRestore, setShowRestore] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
@@ -45,14 +47,8 @@ export function ResourceDetailPage() {
     enabled: !!resource && !!id,
   })
 
-  // Fetch actions for this resource
-  const actionsQuery = useQuery({
-    queryKey: ["resource-actions", resource],
-    queryFn: () => api.get<{ data: { actions: ActionMeta[] } }>(`/api/resources/${resource}/actions`),
-    enabled: !!resource,
-  })
-
-  const allActions = actionsQuery.data?.data?.actions ?? []
+  // Actions come from the schema payload — no separate query needed.
+  const allActions = (schemaQuery.data?.data?.actions ?? []) as ActionMeta[]
   const detailActions = allActions.filter((a) => a.showOnDetail)
 
   const deleteMutation = useMutation({
@@ -75,9 +71,13 @@ export function ResourceDetailPage() {
     onError: () => addToast("error", tMsg("error_restore")),
   })
 
-  /** Navigate to create form with pre-filled data from this record (Nova v5 replicate flow) */
+  /** Open create form with pre-filled data — uses drawer if override exists, else navigates */
   function handleReplicate() {
-    navigate(`/resources/${resource}/create?fromResourceId=${id}`)
+    if (schema?.overrides?.create) {
+      setShowCreateOverride(true)
+    } else {
+      navigate(`/resources/${resource}/create?fromResourceId=${id}`)
+    }
   }
 
   const forceDeleteMutation = useMutation({
@@ -147,12 +147,56 @@ export function ResourceDetailPage() {
         },
         onEdit: (editId) => {
           const targetId = editId ?? id
-          if (targetId) navigate(`/resources/${resource}/${targetId}/edit`)
+          if (!targetId) return
+          // Swap the detail drawer for the update drawer in place when
+          // both overrides exist. This keeps the index behind the drawer
+          // and avoids navigating the URL to `/edit` (which would trigger
+          // a full-page remount and lose the backdrop).
+          if (schema.overrides?.update && String(targetId) === String(id)) {
+            setShowUpdateOverride(true)
+            return
+          }
+          navigate(`/resources/${resource}/${targetId}/edit`)
         },
         onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
         addToast,
       }
-      return <C {...overrideProps} />
+      // Deep-linking to `/resources/:resource/:id` with a drawer detail
+       // override used to render the drawer floating over an empty page.
+       // Mount the index page behind so the drawer has context, and the
+       // Close button/Esc fades back into the list the user would expect.
+       // When the user clicked Edit inside the detail drawer we swap to
+       // the update override in place (see onEdit above).
+       if (showUpdateOverride && schema.overrides?.update) {
+         const UpdateComponent = componentRegistry.resolve(schema.overrides.update.component)
+         if (UpdateComponent) {
+           const U = UpdateComponent as React.ComponentType<OverrideProps>
+           const updateProps: OverrideProps = {
+             ...overrideProps,
+             params: schema.overrides.update.params ?? {},
+             onClose: () => setShowUpdateOverride(false),
+             onUpdated: (rec) => {
+               void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
+               addToast("success", schema.messages?.updated ?? "Record updated successfully.")
+               setShowUpdateOverride(false)
+               const target = resolveRedirect(schema.overrides?.update?.redirectAfter, resource!, rec.id)
+               if (target) navigate(target)
+             },
+           }
+           return (
+             <>
+               <ResourceIndexPage />
+               <U {...updateProps} />
+             </>
+           )
+         }
+       }
+       return (
+         <>
+           <ResourceIndexPage />
+           <C {...overrideProps} />
+         </>
+       )
     }
   }
 
@@ -166,11 +210,33 @@ export function ResourceDetailPage() {
   }
 
   const detailFields = schema.fieldsForDetail ?? []
+  // Relationship fields render as full-width panels with their own heading
+  // and action buttons — they must NOT be wrapped in the scalar dl/dt/dd
+  // layout, otherwise the field label appears twice (once from <dt>, once
+  // from the panel's own <h3>). This covers the whole has/morph family
+  // including OfMany and Through variants.
+  const standaloneRelationshipTypes = new Set([
+    'has_many',
+    'has_many_through',
+    'has_one',
+    'has_one_of_many',
+    'has_one_through',
+    'morph_one',
+    'morph_one_of_many',
+    'morph_many',
+    'belongs_to_many',
+    'morph_to_many',
+  ])
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
   const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
   const sectionItems = detailFields.filter(f => f.type === 'section') as SectionDefinition[]
-  const scalarFields = detailFields.filter(f => f.type !== 'has_many' && f.type !== 'panel' && f.type !== 'tab_group' && f.type !== 'section') as FieldDefinition[]
-  const hasManyFields = detailFields.filter(f => f.type === 'has_many') as FieldDefinition[]
+  const scalarFields = detailFields.filter(f =>
+    !standaloneRelationshipTypes.has(f.type) &&
+    f.type !== 'panel' &&
+    f.type !== 'tab_group' &&
+    f.type !== 'section'
+  ) as FieldDefinition[]
+  const relationshipFields = detailFields.filter(f => standaloneRelationshipTypes.has(f.type)) as FieldDefinition[]
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
   const auth = record._authorization
   const canUpdate = auth?.authorizedToUpdate !== false
@@ -301,12 +367,14 @@ export function ResourceDetailPage() {
         <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
       ))}
 
-      {/* Fields card — only shown when there are scalar fields */}
+      {/* Fields card — only shown when there are scalar fields.
+       *  Uses the same visual chrome as PanelContainer for consistency
+       *  with sections that are explicitly inside Panel::make(). */}
       {scalarFields.length > 0 && <div
-        className="rounded-xl border"
+        className="rounded-lg"
         style={{
-          borderColor: "var(--martis-border)",
-          backgroundColor: "var(--martis-card)",
+          border: "1px solid var(--martis-border)",
+          backgroundColor: "var(--martis-surface)",
         }}
       >
         <dl
@@ -330,8 +398,11 @@ export function ResourceDetailPage() {
         </dl>
       </div>}
 
-      {/* HasMany relationship tables */}
-      {hasManyFields.map((field) => (
+      {/* Relationship fields (HasMany, HasOne, variants) render standalone
+       * — each is a full-width panel with its own heading. They are NOT
+       * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
+       * labels. */}
+      {relationshipFields.map((field) => (
         <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
       ))}
 
@@ -374,6 +445,34 @@ export function ResourceDetailPage() {
           addToast,
         }
         return <C {...updateOverrideProps} />
+      })()}
+
+      {showCreateOverride && schema.overrides?.create && (() => {
+        const OverrideComponent = componentRegistry.resolve(schema.overrides.create.component)
+        if (!OverrideComponent) return null
+        const C = OverrideComponent as React.ComponentType<OverrideProps>
+        const createOverrideProps: OverrideProps = {
+          schema,
+          resource: resource!,
+          params: schema.overrides.create.params ?? {},
+          record,
+          recordId: null,
+          navigate: (to: string) => navigate(to),
+          onClose: () => setShowCreateOverride(false),
+          onCreated: (rec) => {
+            setShowCreateOverride(false)
+            void qc.invalidateQueries({ queryKey: ["resources", resource] })
+            addToast("success", schema.messages?.created ?? "Record created successfully.")
+            const target = resolveRedirect(schema.overrides?.create?.redirectAfter, resource!, rec.id)
+            if (target) navigate(target)
+          },
+          onUpdated: () => {},
+          onDeleted: () => {},
+          onEdit: (editId) => { if (editId) navigate(`/resources/${resource}/${editId}/edit`) },
+          onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
+          addToast,
+        }
+        return <C {...createOverrideProps} />
       })()}
 
       <DeleteModal

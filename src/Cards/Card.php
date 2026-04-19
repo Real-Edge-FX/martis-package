@@ -2,6 +2,8 @@
 
 namespace Martis\Cards;
 
+use Closure;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\CardContract;
 
@@ -10,6 +12,9 @@ use Martis\Contracts\CardContract;
  */
 class Card implements CardContract
 {
+    /** Authorization callback — Nova v5 parity. */
+    protected ?Closure $canSeeCallback = null;
+
     /**
      * @param  array<string, mixed>  $meta
      */
@@ -18,7 +23,33 @@ class Card implements CardContract
         protected ?string $uriKey = null,
         protected ?string $component = null,
         protected array $meta = [],
+        protected int $width = 4,
+        protected bool $framed = false,
     ) {}
+
+    /**
+     * Register a closure that decides whether the card is visible.
+     *
+     * Nova v5 parity: `$card->canSee(fn ($request) => $request->user()?->is_admin)`.
+     */
+    public function canSee(Closure $callback): static
+    {
+        $this->canSeeCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the canSee callback; defaults to true when absent.
+     */
+    public function authorizedToSee(Request $request): bool
+    {
+        if ($this->canSeeCallback === null) {
+            return true;
+        }
+
+        return (bool) call_user_func($this->canSeeCallback, $request);
+    }
 
     public static function make(string $name, ?string $uriKey = null): static
     {
@@ -58,6 +89,28 @@ class Card implements CardContract
     }
 
     /**
+     * Grid column span in the 12-column dashboard grid (1-12).
+     */
+    public function width(int $span): static
+    {
+        $this->width = max(1, min(12, $span));
+
+        return $this;
+    }
+
+    /**
+     * Wrap the custom component inside the Martis MetricCard chrome
+     * (border, header with title/icon, padded body). Off by default
+     * so that hero-style cards can render full-bleed.
+     */
+    public function framed(bool $framed = true): static
+    {
+        $this->framed = $framed;
+
+        return $this;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function meta(): array
@@ -72,6 +125,8 @@ class Card implements CardContract
             'name' => $this->name(),
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
+            'width' => $this->width,
+            'framed' => $this->framed,
             'meta' => $this->meta(),
         ];
     }

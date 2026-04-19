@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany as EloquentMorphToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 
 /**
@@ -32,6 +33,8 @@ use Martis\Enums\ModalSize;
  */
 class MorphToMany extends Field
 {
+    use ControlsRelationshipToolbar;
+
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
 
@@ -48,7 +51,7 @@ class MorphToMany extends Field
     protected ?\Closure $pivotActionsClosure = null;
 
     /** Whether the inline list supports search on attachable records. */
-    protected bool $relationSearchable = false;
+    protected bool $relationSearchable = true;
 
     /** Whether the panel is collapsable. */
     protected bool $collapsable = false;
@@ -87,6 +90,11 @@ class MorphToMany extends Field
      * @var list<int>
      */
     protected array $relationPerPageOptions = [5, 10, 25, 50];
+
+    /** Tracks whether the developer explicitly called `->perPageOptions([...])`.
+     *  When false, the panel falls back to the related resource's own
+     *  `perPageOptions()` — Nova-style "resource is the single source of truth". */
+    protected bool $perPageOptionsSet = false;
 
     /** Whether to show attach button. */
     protected bool $canAttachRelated = true;
@@ -439,6 +447,9 @@ class MorphToMany extends Field
             $pivotFields[] = $pf->toArray();
         }
 
+        $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
+        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
@@ -447,18 +458,81 @@ class MorphToMany extends Field
             'collapsable' => $this->collapsable,
             'collapsedByDefault' => $this->collapsedByDefault,
             'allowDuplicateRelations' => $this->allowDuplicates,
-            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
+            'showCreateRelationButton' => $this->isShowCreateRelationButton() && $authorizedToCreate,
             'modalSize' => $this->modalSize->value,
             'modalHeight' => $this->modalHeight,
             'withSubtitles' => $this->withSubtitles,
             'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
             'pivotFields' => $pivotFields,
             'morphToManyMeta' => [
-                'perPage' => $this->relationPerPage,
-                'perPageOptions' => $this->relationPerPageOptions,
+                'perPage' => $this->resolvePerPage(),
+                'perPageOptions' => $this->resolvePerPageOptions(),
                 'canAttach' => $this->canAttachRelated,
                 'canDetach' => $this->canDetachRelated,
-            ],
-        ];
+            ] + $this->relationshipToolbarControls(),
+        ] + $relatedAuth;
+    }
+
+    /**
+     * Per-page options for the inline listing.
+     *
+     * Nova v5 parity: ->perPageOptions([10, 25, 50])
+     *
+     * @param  list<int>  $options
+     */
+    public function perPageOptions(array $options): static
+    {
+        $this->relationPerPageOptions = $options;
+        $this->perPageOptionsSet = true;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the per-page options for the inline listing. Priority:
+     *   1. Developer-supplied via `->perPageOptions([...])` on the field.
+     *   2. The related resource's own `perPageOptions()` method.
+     *   3. The field's hardcoded default `[5, 10, 25, 50]`.
+     *
+     * @return list<int>
+     */
+    protected function resolvePerPageOptions(): array
+    {
+        if ($this->perPageOptionsSet) {
+            return $this->relationPerPageOptions;
+        }
+
+        $uriKey = $this->getRelatedResourceKey();
+        if ($uriKey !== null) {
+            try {
+                /** @var \Martis\ResourceRegistry $registry */
+                $registry = app(\Martis\ResourceRegistry::class);
+                if ($registry->has($uriKey)) {
+                    /** @var class-string<\Martis\Resource> $class */
+                    $class = $registry->get($uriKey);
+
+                    return $class::perPageOptions();
+                }
+            } catch (\Throwable) {
+                // Registry unavailable (rare) — fall through to field default.
+            }
+        }
+
+        return $this->relationPerPageOptions;
+    }
+
+    /**
+     * Resolve the effective per-page for the inline listing. Clamps to
+     * the resolved `perPageOptions` when the configured `perPage` is
+     * missing from the option list (Option A).
+     */
+    protected function resolvePerPage(): int
+    {
+        $options = $this->resolvePerPageOptions();
+        if ($options === [] || in_array($this->relationPerPage, $options, true)) {
+            return $this->relationPerPage;
+        }
+
+        return $options[0];
     }
 }

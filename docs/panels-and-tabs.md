@@ -1,30 +1,30 @@
-# Panels e Tabs
+# Panels and Tabs
 
-Martis suporta dois mecanismos de layout avançado para organizar campos em formulários
-e páginas de detalhe: **Panels** e **Tabs**. Ambos são inspirados diretamente no
-[Laravel Nova 5](https://nova.laravel.com/docs/v5/resources/panels) e seguem a mesma
-ergonomia de API.
+Martis supports two advanced layout mechanisms for organising fields on forms and
+detail pages: **Panels** and **Tabs**. Both are directly inspired by
+[Laravel Nova 5](https://nova.laravel.com/docs/v5/resources/panels) and follow the
+same API ergonomics.
 
 ---
 
 ## Panels
 
-Um `Panel` agrupa campos relacionados numa secção visual com título, fundo diferenciado
-e separador horizontal. Pode ser recolhido pelo utilizador e suporta limite de campos
-visíveis antes de um botão "Show more".
+A `Panel` groups related fields into a visual section with a title, a differentiated
+background and a horizontal separator. It can be collapsed by the user and supports
+a limit of visible fields before a "Show more" button.
 
 ### API
 
 ```php
 use Martis\Layout\Panel;
 
-Panel::make('Título do Panel', [
-    // campos...
+Panel::make('Panel Title', [
+    // fields...
 ])
-->description('Texto descritivo')  // Martis extension — subtítulo abaixo do título
-->collapsible()        // opcional — permite recolher
-->collapsedByDefault() // opcional — começa recolhido (implica collapsible)
-->limit(int $n)        // opcional — mostra apenas os primeiros N campos
+->description('Descriptive text')  // Martis extension — subtitle below the title
+->collapsible()        // optional — allows the user to collapse the panel
+->collapsedByDefault() // optional — starts collapsed (implies collapsible)
+->limit(int $n)        // optional — only shows the first N fields
 ```
 
 > **Martis extension:** `->description()` adds a subtitle below the Panel title. Nova 5 does not support this.
@@ -41,15 +41,15 @@ Panel::make('Security', [
 ])
 ```
 
-### Exemplos
+### Examples
 
-#### Panel básico
+#### Basic Panel
 
-O caso mais simples: agrupa campos num contentor visual com título. O utilizador
-não pode recolher.
+The simplest case: groups fields in a visual container with a title. The user
+cannot collapse it.
 
 ```php
-Panel::make('Publicação', [
+Panel::make('Publication', [
     Select::make('status')
         ->options(['draft', 'published', 'archived'])
         ->required(),
@@ -59,13 +59,13 @@ Panel::make('Publicação', [
 ]),
 ```
 
-#### Panel collapsible
+#### Collapsible Panel
 
-O utilizador pode clicar no cabeçalho para recolher ou expandir o panel.
-Começa expandido por omissão.
+The user can click the header to collapse or expand the panel.
+Starts expanded by default.
 
 ```php
-Panel::make('Autor & Categoria', [
+Panel::make('Author & Category', [
     BelongsTo::make('category')
         ->relatedResource('categories')
         ->nullable(),
@@ -78,24 +78,23 @@ Panel::make('Autor & Categoria', [
 
 #### Panel collapsedByDefault
 
-Começa recolhido. Útil para campos avançados ou raramente editados — ficam
-fora do caminho sem desaparecer completamente.
+Starts collapsed. Useful for advanced or rarely edited fields — they stay
+out of the way without disappearing entirely.
 
 ```php
-Panel::make('Conteúdo Avançado', [
+Panel::make('Advanced Content', [
     Markdown::make('excerpt', 'Excerpt')->nullable(),
     Textarea::make('body')->nullable(),
 ])->collapsedByDefault(),
 ```
 
-#### Panel com limit
+#### Panel with limit
 
-Mostra apenas os primeiros N campos. Os restantes ficam atrás de um botão
-"Show more / Show less". Ideal quando um panel tem muitos campos e queremos
-reduzir o scroll inicial.
+Shows only the first N fields. The rest are tucked behind a "Show more / Show less"
+button. Ideal when a panel has many fields and we want to reduce the initial scroll.
 
 ```php
-Panel::make('Tags & Etiquetas', [
+Panel::make('Tags & Labels', [
     Tag::make('tags', 'Tags')
         ->relatedResource('tags'),
 
@@ -104,35 +103,35 @@ Panel::make('Tags & Etiquetas', [
 
     Text::make('source_url', 'Source URL')
         ->nullable(),
-])->limit(1), // só mostra o primeiro campo inicialmente
+])->limit(1), // only shows the first field initially
 ```
 
-### Onde usar Panels
+### Where to use Panels
 
-Panels podem aparecer em:
+Panels may appear in:
 
 - `fieldsForCreate()`
 - `fieldsForUpdate()`
 - `fieldsForDetail()`
-- **Dentro de Tabs** (ver secção abaixo)
+- **Inside Tabs** (see the section below)
 
-Não aparecem em `fields()` (index) — nesse contexto os campos são sempre achatados.
+They do not appear in `fields()` (index) — in that context fields are always flattened.
 
 ---
 
 ## Tabs
 
-Tabs organizam campos e panels em abas navegáveis. São úteis para resources complexas
-com muitos campos, permitindo agrupar temas diferentes (Geral, Conteúdo, Organização,
-Avançado) sem sobrecarregar o formulário.
+Tabs organise fields and panels into navigable sections. They are useful for
+complex resources with many fields, allowing different themes (General, Content,
+Organisation, Advanced) to be grouped without overloading the form.
 
-### Estrutura
+### Structure
 
 ```
-TabGroup          ← contentor de topo (implements LayoutContract)
-  └── Tab         ← aba individual
-        ├── Field ← campo directo dentro da aba
-        └── Panel ← panel aninhado dentro da aba
+TabGroup          ← top-level container (implements LayoutContract)
+  └── Tab         ← individual tab
+        ├── Field ← field directly inside the tab
+        └── Panel ← panel nested inside the tab
 ```
 
 ### API
@@ -142,44 +141,44 @@ use Martis\Layout\Tab;
 use Martis\Layout\TabGroup;
 
 TabGroup::make([
-    Tab::make('Nome da Aba', [
-        // campos e/ou panels...
+    Tab::make('Tab Name', [
+        // fields and/or panels...
     ]),
-    Tab::make('Outra Aba', [
-        // campos e/ou panels...
+    Tab::make('Another Tab', [
+        // fields and/or panels...
     ]),
 ])
 ```
 
-### Exemplos
+### Examples
 
-#### Tabs simples (só campos)
+#### Simple Tabs (fields only)
 
 ```php
 TabGroup::make([
-    Tab::make('Geral', [
+    Tab::make('General', [
         Text::make('title')->required(),
         Select::make('status')->options(['draft', 'published']),
         DateTime::make('published_at')->nullable(),
     ]),
 
-    Tab::make('Conteúdo', [
+    Tab::make('Content', [
         Markdown::make('excerpt')->nullable(),
         Textarea::make('body')->nullable(),
     ]),
 ]),
 ```
 
-#### Tabs com Panels aninhados
+#### Tabs with Nested Panels
 
-Cada `Tab` pode conter um ou mais `Panel`. Os panels dentro de tabs funcionam
-independentemente — um panel collapsible dentro de uma aba pode ser recolhido
-sem afectar as outras abas.
+Each `Tab` can contain one or more `Panel`. Panels inside tabs work
+independently — a collapsible panel inside one tab can be collapsed without
+affecting the other tabs.
 
 ```php
 TabGroup::make([
-    Tab::make('Organização', [
-        Panel::make('Relações', [
+    Tab::make('Organisation', [
+        Panel::make('Relations', [
             BelongsTo::make('category')->relatedResource('categories'),
             BelongsTo::make('user', 'Author')->relatedResource('users'),
         ])->collapsible(),
@@ -187,22 +186,22 @@ TabGroup::make([
         Tag::make('tags', 'Tags')->relatedResource('tags'),
     ]),
 
-    Tab::make('Avançado', [
-        Panel::make('SEO & Referências', [
+    Tab::make('Advanced', [
+        Panel::make('SEO & References', [
             Text::make('source_url', 'Source URL')->nullable(),
         ])->collapsedByDefault(),
     ]),
 ]),
 ```
 
-#### TabGroup completo (exemplo de uso real)
+#### Full TabGroup (real-world example)
 
 ```php
 public function fieldsForUpdate(Request $request): array
 {
     return [
         TabGroup::make([
-            Tab::make('Geral', [
+            Tab::make('General', [
                 Text::make('title')->required(),
                 Badge::make('status')->addTypes([
                     'published' => 'success',
@@ -212,13 +211,13 @@ public function fieldsForUpdate(Request $request): array
                 DateTime::make('published_at', 'Published At')->nullable(),
             ]),
 
-            Tab::make('Conteúdo', [
+            Tab::make('Content', [
                 Markdown::make('excerpt', 'Excerpt')->nullable(),
                 Textarea::make('body')->nullable(),
             ]),
 
-            Tab::make('Organização', [
-                Panel::make('Relações', [
+            Tab::make('Organisation', [
+                Panel::make('Relations', [
                     BelongsTo::make('category')->relatedResource('categories')->nullable(),
                     BelongsTo::make('user', 'Author')->relatedResource('users')->nullable(),
                 ])->collapsible(),
@@ -228,8 +227,8 @@ public function fieldsForUpdate(Request $request): array
                     ->nullable(),
             ]),
 
-            Tab::make('Avançado', [
-                Panel::make('SEO & Referências', [
+            Tab::make('Advanced', [
+                Panel::make('SEO & References', [
                     Text::make('source_url', 'Source URL')->nullable(),
                 ])->collapsedByDefault(),
             ]),
@@ -238,71 +237,71 @@ public function fieldsForUpdate(Request $request): array
 }
 ```
 
-### Onde usar TabGroup
+### Where to use TabGroup
 
-TabGroup pode aparecer em:
+TabGroup may appear in:
 
 - `fieldsForCreate()`
 - `fieldsForUpdate()`
 - `fieldsForDetail()`
 
-Não aparece em `fields()` (index) — os campos são sempre achatados para a listagem.
+It does not appear in `fields()` (index) — fields are always flattened for the listing.
 
 ---
 
-## Combinações possíveis
+## Possible Combinations
 
-| Contexto           | Panel | TabGroup | Tab dentro de TabGroup | Panel dentro de Tab |
-|--------------------|-------|----------|------------------------|---------------------|
-| `fields()` (index) | ✗     | ✗        | ✗                      | ✗                   |
-| `fieldsForCreate`  | ✅    | ✅       | ✅                     | ✅                  |
-| `fieldsForUpdate`  | ✅    | ✅       | ✅                     | ✅                  |
-| `fieldsForDetail`  | ✅    | ✅       | ✅                     | ✅                  |
-
----
-
-## Comparação com Laravel Nova 5
-
-| Feature                    | Laravel Nova 5              | Martis                             |
-|----------------------------|-----------------------------|------------------------------------|
-| Panel básico               | `Panel::make('T', [...])`   | `Panel::make('T', [...])`          |
-| Panel collapsible          | `->collapsible()`           | `->collapsible()`                  |
-| Panel collapsed by default | `->collapsedByDefault()`    | `->collapsedByDefault()`           |
-| Panel com limite           | `->limit(n)`                | `->limit(n)`                       |
-| Tab individual             | `Tab::make('T', [...])`     | `Tab::make('T', [...])`            |
-| Agrupamento de tabs        | `Tab::group([...])`         | `TabGroup::make([...])`            |
-| Tabs com panels            | ✅ suportado                | ✅ suportado                       |
-| Tabs com relationships     | ✅ suportado                | ✅ (via campos BelongsTo/Tag/etc.) |
-
-> **Diferença de API:** Nova 5 usa `Tab::group(...)` como método estático da classe `Tab`.
-> Martis usa `TabGroup::make(...)` como uma classe separada. A semântica é equivalente.
+| Context            | Panel | TabGroup | Tab inside TabGroup | Panel inside Tab |
+|--------------------|-------|----------|---------------------|------------------|
+| `fields()` (index) | ✗     | ✗        | ✗                   | ✗                |
+| `fieldsForCreate`  | ✅    | ✅       | ✅                  | ✅               |
+| `fieldsForUpdate`  | ✅    | ✅       | ✅                  | ✅               |
+| `fieldsForDetail`  | ✅    | ✅       | ✅                  | ✅               |
 
 ---
 
-## Showcase no Playground
+## Comparison with Laravel Nova 5
 
-O resource **Layout Showcase** em `playground/app/Martis/Resources/LayoutShowcaseResource.php`
-demonstra todas as combinações descritas neste documento:
+| Feature                    | Laravel Nova 5              | Martis                                   |
+|----------------------------|-----------------------------|------------------------------------------|
+| Basic Panel                | `Panel::make('T', [...])`   | `Panel::make('T', [...])`                |
+| Collapsible Panel          | `->collapsible()`           | `->collapsible()`                        |
+| Panel collapsed by default | `->collapsedByDefault()`    | `->collapsedByDefault()`                 |
+| Panel with limit           | `->limit(n)`                | `->limit(n)`                             |
+| Individual Tab             | `Tab::make('T', [...])`     | `Tab::make('T', [...])`                  |
+| Tab grouping               | `Tab::group([...])`         | `TabGroup::make([...])`                  |
+| Tabs with panels           | ✅ supported                | ✅ supported                             |
+| Tabs with relationships    | ✅ supported                | ✅ (through BelongsTo/Tag/etc. fields)   |
 
-- **Create** — demonstra os 5 tipos de Panel (básico, collapsible, collapsedByDefault, limit, campos fora de panel)
-- **Edit** — demonstra TabGroup com 4 abas (Geral, Conteúdo, Organização com Panel aninhado, Avançado)
-- **Detail** — usa a mesma estrutura do Edit
-
-Para aceder ao showcase, navegar para `/showcase/layout-showcase/create` e `/showcase/layout-showcase/{id}/edit` no playground.
+> **API difference:** Nova 5 uses `Tab::group(...)` as a static method on the `Tab` class.
+> Martis uses `TabGroup::make(...)` as a separate class. The semantics are equivalent.
 
 ---
 
-## Serialização JSON
+## Playground Showcase
 
-O backend serializa Panels e TabGroups como parte do schema de fields da resource.
-O formato é estável e pode ser inspeccionado via `GET /api/{resource}/schema`.
+The **Layout Showcase** resource at `playground/app/Martis/Resources/LayoutShowcaseResource.php`
+demonstrates every combination described in this document:
+
+- **Create** — demonstrates the 5 Panel variants (basic, collapsible, collapsedByDefault, limit, fields outside panels)
+- **Edit** — demonstrates a TabGroup with 4 tabs (General, Content, Organisation with a nested Panel, Advanced)
+- **Detail** — uses the same structure as Edit
+
+To reach the showcase, navigate to `/showcase/layout-showcase/create` and `/showcase/layout-showcase/{id}/edit` on the playground.
+
+---
+
+## JSON Serialization
+
+The backend serialises Panels and TabGroups as part of the resource's field schema.
+The format is stable and can be inspected via `GET /api/{resource}/schema`.
 
 ### Panel
 
 ```json
 {
   "type": "panel",
-  "title": "Publicação",
+  "title": "Publication",
   "collapsible": false,
   "collapsedByDefault": false,
   "limit": null,
@@ -321,18 +320,18 @@ O formato é estável e pode ser inspeccionado via `GET /api/{resource}/schema`.
   "tabs": [
     {
       "type": "tab",
-      "title": "Geral",
+      "title": "General",
       "fields": [
         { "type": "text", "attribute": "title", ... }
       ]
     },
     {
       "type": "tab",
-      "title": "Organização",
+      "title": "Organisation",
       "fields": [
         {
           "type": "panel",
-          "title": "Relações",
+          "title": "Relations",
           "fields": [ ... ]
         }
       ]

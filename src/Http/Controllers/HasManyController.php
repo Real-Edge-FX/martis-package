@@ -7,12 +7,15 @@ use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\SortDirection;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
@@ -51,6 +54,7 @@ class HasManyController extends MartisController
     #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
     #[QueryParameter('sort', description: 'Column to sort by.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc.', required: false, type: 'string')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string')]
     public function index(
         Request $request,
         string $resource,
@@ -70,6 +74,19 @@ class HasManyController extends MartisController
 
         /** @var Builder<Model> $query */
         $query = $relation->getQuery();
+
+        // Soft-delete filter — Nova v5 parity
+        if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
+            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
+                ?? TrashedFilter::Active;
+            if ($trashed === TrashedFilter::With) {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query->withTrashed();
+            } elseif ($trashed === TrashedFilter::Only) {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query->onlyTrashed();
+            }
+        }
 
         // Apply search using the related resource's search pipeline
         $rawSearch = $request->query('search', '');
@@ -151,7 +168,7 @@ class HasManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
         if (! $parentInstance->authorizedToAdd($request, $relatedModelClass)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $relatedInstance = new $relatedResourceClass;
@@ -229,7 +246,7 @@ class HasManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
@@ -305,7 +322,7 @@ class HasManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -361,7 +378,7 @@ class HasManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Find the HasMany field in the parent resource
@@ -386,8 +403,8 @@ class HasManyController extends MartisController
 
         $relation = $parentModel->{$relationship}();
 
-        if (! $relation instanceof EloquentHasMany) {
-            return JsonErrorResponse::notFound("'{$relationship}' is not a hasMany relationship.")->toResponse();
+        if (! $relation instanceof EloquentHasMany && ! $relation instanceof EloquentHasManyThrough) {
+            return JsonErrorResponse::notFound("'{$relationship}' is not a hasMany or hasManyThrough relationship.")->toResponse();
         }
 
         // Resolve the related resource class
@@ -404,7 +421,7 @@ class HasManyController extends MartisController
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;
             if (! $relatedCheck->authorizedToCreate($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 
@@ -442,6 +459,10 @@ class HasManyController extends MartisController
             $data[$field->attribute()] = $field->resolve($model);
         }
 
+        if ($resource::softDeletes() && $model->getAttribute('deleted_at') !== null) {
+            $data['deleted_at'] = $model->getAttribute('deleted_at');
+        }
+
         return $data;
     }
 
@@ -454,12 +475,9 @@ class HasManyController extends MartisController
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
         $rawSort = $request->query('sort');
-        $rawDirection = $request->query('direction', 'asc');
-        $direction = strtolower(is_string($rawDirection) ? $rawDirection : 'asc');
-
-        if (! in_array($direction, ['asc', 'desc'], true)) {
-            $direction = 'asc';
-        }
+        $rawDirection = $request->query('direction', SortDirection::Asc->value);
+        $direction = SortDirection::tryFrom(strtolower(is_string($rawDirection) ? $rawDirection : SortDirection::Asc->value))
+            ?? SortDirection::Asc;
 
         if (! is_string($rawSort) || $rawSort === '') {
             return;
@@ -479,7 +497,7 @@ class HasManyController extends MartisController
             return;
         }
 
-        $query->orderBy($sort, $direction);
+        $query->orderBy($sort, $direction->value);
     }
 
     /**
@@ -490,6 +508,7 @@ class HasManyController extends MartisController
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
     {
         $rules = [];
+        $attributes = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
@@ -504,9 +523,12 @@ class HasManyController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+            if ($field instanceof Field) {
+                $attributes[$field->attribute()] = $field->label();
+            }
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($request->all(), $rules, [], $attributes);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(

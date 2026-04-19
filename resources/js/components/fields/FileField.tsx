@@ -25,24 +25,24 @@ function getFileTypeIcon(filename: string, size: number) {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
   switch (ext) {
     case 'pdf':
-      return <FilePdfIcon size={size} style={{ color: '#ef4444' }} />
+      return <FilePdfIcon size={size} style={{ color: 'var(--martis-danger)' }} />
     case 'doc':
     case 'docx':
-      return <FileDocIcon size={size} style={{ color: '#3b82f6' }} />
+      return <FileDocIcon size={size} style={{ color: 'var(--martis-info)' }} />
     case 'xls':
     case 'xlsx':
-      return <FileXlsIcon size={size} style={{ color: '#22c55e' }} />
+      return <FileXlsIcon size={size} style={{ color: 'var(--martis-success)' }} />
     case 'ppt':
     case 'pptx':
-      return <FilePptIcon size={size} style={{ color: '#f97316' }} />
+      return <FilePptIcon size={size} style={{ color: 'var(--martis-file-icon-ppt)' }} />
     case 'zip':
     case 'rar':
     case 'gz':
     case '7z':
     case 'tar':
-      return <FileZipIcon size={size} style={{ color: '#a855f7' }} />
+      return <FileZipIcon size={size} style={{ color: 'var(--martis-file-icon-zip)' }} />
     case 'csv':
-      return <FileCsvIcon size={size} style={{ color: '#22c55e' }} />
+      return <FileCsvIcon size={size} style={{ color: 'var(--martis-success)' }} />
     case 'txt':
     case 'md':
     case 'rtf':
@@ -59,7 +59,7 @@ function getFileTypeIcon(filename: string, size: number) {
     case 'xml':
     case 'yaml':
     case 'yml':
-      return <FileCodeIcon size={size} style={{ color: '#6366f1' }} />
+      return <FileCodeIcon size={size} style={{ color: 'var(--martis-accent)' }} />
     default:
       return <FileIcon size={size} style={{ color: 'var(--martis-text-muted)' }} />
   }
@@ -175,7 +175,7 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
         className={`martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? '#ef4444' : 'var(--martis-border)',
+          borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
         }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
@@ -375,7 +375,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
         className={`martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? '#ef4444' : 'var(--martis-border)',
+          borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
         }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}

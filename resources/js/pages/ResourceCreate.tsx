@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
@@ -7,12 +7,14 @@ import { FieldInput } from '@/components/fields/FieldRenderer'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
+import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -47,11 +49,40 @@ export function ResourceCreatePage() {
   })
 
   const schema = schemaQuery.data?.data
-  const allFormFields = (schema?.fieldsForCreate ?? [])
+  const rawFormFields = (schema?.fieldsForCreate ?? [])
+
+  // Marca a FK do pai como readonly quando criamos via rela\u00e7\u00e3o
+  // aninhada (Nova behavior): o utilizador n\u00e3o deve poder mudar o
+  // pai — s\u00f3 ver o seu nome. Deep-walk para apanhar o campo mesmo
+  // dentro de Panel/Section/TabGroup.
+  const allFormFields = useMemo(() => {
+    if (!isViaRelation) return rawFormFields
+    const walk = (fields: unknown[]): unknown[] =>
+      fields.map((item) => {
+        const f = item as Record<string, unknown>
+        if (f.type === 'panel' || f.type === 'section') {
+          return { ...f, fields: walk((f.fields as unknown[]) ?? []) }
+        }
+        if (f.type === 'tab_group') {
+          const tabs = ((f.tabs as { fields?: unknown[] }[]) ?? []).map((t) => ({
+            ...t,
+            fields: walk(t.fields ?? []),
+          }))
+          return { ...f, tabs }
+        }
+        if (f.type === 'belongs_to' && f.relatedResource === viaResource) {
+          return { ...f, readonly: true }
+        }
+        return f
+      })
+    return walk(rawFormFields)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawFormFields, isViaRelation, viaResource])
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [replicateApplied, setReplicateApplied] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const baselineRef = useRef<string | null>(null)
 
   // Pre-fill form with replicated values when data loads
   useEffect(() => {
@@ -60,6 +91,86 @@ export function ResourceCreatePage() {
       setReplicateApplied(true)
     }
   }, [isReplicate, replicateQuery.data, replicateApplied])
+
+  // Pre-fill the FK when creating via a relationship (viaResource points
+  // to the parent). Finds a BelongsTo field whose relatedResource matches
+  // viaResource and fills it with the parent ID. The nested endpoint
+  // already injects the FK server-side, but without the pre-fill the
+  // user would see an empty field and might pick the wrong parent.
+  const [viaFkApplied, setViaFkApplied] = useState(false)
+  useEffect(() => {
+    if (!isViaRelation || viaFkApplied || !schema) return
+    const findFk = (fields: unknown[]): string | null => {
+      for (const f of fields as Record<string, unknown>[]) {
+        if (f.type === 'panel' || f.type === 'section') {
+          const inner = (f.fields as unknown[]) ?? []
+          const hit = findFk(inner)
+          if (hit) return hit
+        } else if (f.type === 'tab_group') {
+          const tabs = (f.tabs as { fields?: unknown[] }[]) ?? []
+          for (const t of tabs) {
+            const hit = findFk(t.fields ?? [])
+            if (hit) return hit
+          }
+        } else if (f.type === 'belongs_to' && f.relatedResource === viaResource) {
+          return f.attribute as string
+        }
+      }
+      return null
+    }
+    const fkAttr = findFk(allFormFields)
+    if (!fkAttr) {
+      setViaFkApplied(true)
+      return
+    }
+    let cancelled = false
+    // Busca o _title do pai para mostrar o nome em vez de "#id" no dropdown.
+    api
+      .get<{ data: { id: string | number; _title?: string } }>(
+        `/api/resources/${viaResource}/${viaResourceId}`,
+      )
+      .then((res) => {
+        if (cancelled) return
+        const title = res.data?._title ?? ''
+        setValues((prev) => ({
+          ...prev,
+          [fkAttr]: { id: viaResourceId, title },
+        }))
+        setViaFkApplied(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setValues((prev) => ({
+          ...prev,
+          [fkAttr]: { id: viaResourceId, title: '' },
+        }))
+        setViaFkApplied(true)
+      })
+    return () => { cancelled = true }
+  }, [isViaRelation, viaFkApplied, schema, allFormFields, viaResource, viaResourceId])
+
+  // Capture a baseline once the form has its real starting values
+  // (either an empty object for a plain create, a replicated snapshot,
+  // or — when launched via a relationship — the auto-filled parent FK).
+  // The dirty guard compares against this baseline; capturing too early
+  // means the pre-fill itself counts as "dirty", triggering the unsaved
+  // dialog on a pristine form the user never touched.
+  const initialSnapshot = useMemo(() => {
+    if (!schema) return null
+    if (isReplicate && !replicateApplied) return null
+    if (isViaRelation && !viaFkApplied) return null
+    if (baselineRef.current === null) {
+      baselineRef.current = JSON.stringify(values)
+    }
+    return baselineRef.current
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema, isReplicate, replicateApplied, isViaRelation, viaFkApplied])
+
+  const { dialog: unsavedGuardDialog, markSaved } = useUnsavedChangesGuard({
+    values,
+    initialSnapshot,
+    schema,
+  })
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
@@ -78,11 +189,19 @@ export function ResourceCreatePage() {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res.meta?.message ?? tMsg('record_created'))
+      // Suppress the unsaved-changes guard for the post-save redirect.
+      markSaved()
       // Clear form
       setValues({})
       setErrors({})
-      // Navigate to the newly created record
-      if (isViaRelation && redirectMode === 'parent') {
+      // Navigate to the newly created record. When the create flow was
+      // launched from a nested relation panel, prefer the `from` URL so
+      // the user returns to the exact page they clicked from (which may
+      // sit higher up the tree than the immediate viaResource).
+      const fromParam = searchParams.get('from')
+      if (fromParam) {
+        navigate(fromParam)
+      } else if (isViaRelation && redirectMode === 'parent') {
         navigate(`/resources/${viaResource}/${viaResourceId}`)
       } else {
         navigate(`/resources/${resource}/${res.data.id}`)
@@ -123,7 +242,7 @@ export function ResourceCreatePage() {
 
   if (!schema) {
     return (
-      <div className="rounded-lg border p-6 martis-border" style={{ backgroundColor: 'var(--martis-surface)', color: '#ef4444' }}>
+      <div className="rounded-lg border p-6 martis-border" style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-danger)' }}>
         {tMsg('error_schema')}
       </div>
     )
@@ -222,6 +341,7 @@ export function ResourceCreatePage() {
                       {field.required && (
                         <span className="ml-1 text-red-500" aria-hidden="true">*</span>
                       )}
+                      <FieldLabelTooltip text={field.tooltip} />
                     </label>
                   </div>
                   <div className="col-span-2">
@@ -232,6 +352,7 @@ export function ResourceCreatePage() {
                       error={errors[field.attribute]}
                       resourceKey={resource}
                       context="create"
+                      formValues={values}
                     />
                     {field.helpText && (
                       <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
@@ -243,25 +364,44 @@ export function ResourceCreatePage() {
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
-            <Link
-              to={isViaRelation ? `/resources/${viaResource}/${viaResourceId}` : `/resources/${resource}`}
-              className="rounded-md border px-4 py-2 text-sm font-medium martis-text-muted martis-border"
-              style={{ backgroundColor: 'var(--martis-input-bg)', borderColor: 'var(--martis-border)' }}
+          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
+            <button
+              type="button"
+              onClick={() => {
+                // Nested create/edit screens pass a `from` query param with
+                // the exact URL the user clicked from. Using that beats
+                // navigate(-1): it survives hard reloads and respects the
+                // click origin even when the immediate parent differs from
+                // the page the user was actually viewing (e.g. a task
+                // created from a team-member's nested HasOneThrough panel
+                // has viaResource=projects but the return target is the
+                // team-member page).
+                const fromParam = searchParams.get('from')
+                if (fromParam) {
+                  navigate(fromParam)
+                } else if (window.history.length > 1) {
+                  navigate(-1)
+                } else if (isViaRelation) {
+                  navigate(`/resources/${viaResource}/${viaResourceId}`)
+                } else {
+                  navigate(`/resources/${resource}`)
+                }
+              }}
+              className="martis-btn-secondary"
             >
               {tAct('cancel')}
-            </Link>
+            </button>
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
+              className="martis-btn-primary"
             >
               {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
             </button>
           </div>
         </div>
       </form>
+      {unsavedGuardDialog}
     </div>
   )
 }

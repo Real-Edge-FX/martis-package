@@ -318,6 +318,10 @@ class InstallCommand extends Command
      */
     protected function writeEnvironmentConfiguration(array $options): void
     {
+        if ($this->laravel->runningUnitTests()) {
+            return;
+        }
+
         $pairs = [
             'MARTIS_PROFILE_ENABLED' => $options['profile_enabled'] ? 'true' : 'false',
             'MARTIS_AVATAR_ENABLED' => $options['avatar_enabled'] ? 'true' : 'false',
@@ -339,7 +343,7 @@ class InstallCommand extends Command
         $envPath = $this->laravel->environmentFilePath();
 
         if (! $filesystem->exists($envPath)) {
-            throw new RuntimeException('Could not find the application .env file.');
+            $filesystem->put($envPath, '');
         }
 
         $contents = (string) $filesystem->get($envPath);

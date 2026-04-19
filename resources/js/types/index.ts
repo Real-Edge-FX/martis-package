@@ -112,6 +112,9 @@ export interface MetricDefinition {
   height?: number | null
   style?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   icon?: string | null
+  color?: string | null
+  /** Wrap custom component inside the default MetricCard chrome. */
+  framed?: boolean
   meta: Record<string, unknown>
 }
 
@@ -120,6 +123,8 @@ export interface DashboardDefinition {
   name: string
   uriKey: string
   component: string | null
+  /** Layout type: 'cards' (default metric grid) or 'default' (built-in summary view). */
+  layout?: 'cards' | 'default'
   showRefreshButton: boolean
   meta: Record<string, unknown>
 }
@@ -219,6 +224,11 @@ export interface FieldDefinition {
   colSpanLg?: number | null
   /** Help text displayed below the field input. Supports inline HTML (Martis extension). */
   helpText?: string | null
+  /**
+   * Tooltip content shown on hover of the (?) icon next to the field label.
+   * Supports inline HTML (line breaks, bold, lists). ⭐ Martis differential.
+   */
+  tooltip?: string | null
   /** Whether the field spans the full width of the form. Nova v5 parity. */
   fullWidth?: boolean
   /** Whether the label is stacked above (true) or inline (false). Nova v5 parity. */
@@ -274,6 +284,44 @@ export interface CollectionAuthorizationMetadata {
 
 export type DetailItem = FieldDefinition | PanelDefinition | TabGroupDefinition | SectionDefinition
 
+/**
+ * Lens descriptor — produced by `Lens::toArray()` on the backend. The
+ * `summary` payload is attached to the paginated response meta, not to
+ * the schema.
+ */
+export interface LensDefinition {
+  type: 'lens'
+  name: string
+  uriKey: string
+  component: string | null
+  perPageOptions: number[]
+  polling: boolean
+  pollingInterval: number
+  showPollingToggle: boolean
+  /** Martis extension — default filter values applied on first load. */
+  defaultFilters: Record<string, unknown>
+  /** Martis extension — query cache TTL in seconds (0 = disabled). */
+  cacheTtlSeconds: number
+  meta: Record<string, unknown>
+}
+
+/** Martis extension — single cell of the sticky summary row. */
+export interface LensSummaryCell {
+  label: string
+  value: unknown
+  format?: string
+}
+
+export interface UnsavedChangesConfig {
+  title?: string | null
+  body?: string | null
+  icon?: string | null
+  iconColor?: string | null
+  confirmLabel?: string | null
+  confirmColor?: string | null
+  cancelLabel?: string | null
+}
+
 export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
@@ -283,10 +331,13 @@ export interface ResourceSchema extends ResourceEmbedded {
   fieldsForInlineCreate?: FieldDefinition[]
   fieldsForPreview?: FieldDefinition[]
   filters?: FilterDefinition[]
+  lenses?: LensDefinition[]
   messages?: ResourceMessages
   errorDisplay?: 'inline' | 'toast'
   actionsMenuLabel?: string | null
+  actionsColumnLabel?: string | null
   bulkActionsMenuLabel?: string | null
+  confirmUnsavedChanges?: boolean | UnsavedChangesConfig
   indexSearchable?: boolean
   perPageOptions?: number[]
   perPage?: number
@@ -302,12 +353,52 @@ export interface ResourceSchema extends ResourceEmbedded {
     detail?: OverrideDefinition | null
     index?: OverrideDefinition | null
   }
+  defaultRowActions?: {
+    enabled: boolean
+    view: boolean
+    edit: boolean
+    delete: boolean
+  }
+  rowClickOpensDetail?: boolean
+  /** All actions for this resource. Included in the schema to avoid a second
+   *  round-trip — eliminates the "inline actions flash" on refresh. */
+  actions?: Array<{
+    uriKey: string
+    name: string
+    icon?: string | null
+    showIcon?: boolean
+    iconColor?: string | null
+    group?: string | null
+    destructive?: boolean
+    showOnIndex?: boolean
+    showOnDetail?: boolean
+    showInline?: boolean
+    executionMode?: string
+    standalone?: boolean
+    sole?: boolean
+    queued?: boolean
+    withConfirmation?: boolean
+    confirmText?: string | null
+    confirmButtonText?: string | null
+    cancelButtonText?: string | null
+    modalSize?: string
+    supportsDryRun?: boolean
+    customComponent?: string | null
+    customComponentProps?: Record<string, unknown>
+    logEvents?: boolean
+  }>
 }
 
 export interface ResourceRecord {
   id: number | string
   _title?: string
   _authorization?: AuthorizationMetadata
+  /**
+   * Per-action run authorization, keyed by action uriKey. Populated by the
+   * backend on index responses so the UI can disable bulk/inline actions the
+   * current user cannot execute on this specific row.
+   */
+  _actionAuthorization?: Record<string, boolean>
   [key: string]: unknown
   _resource: ResourceEmbedded
 }

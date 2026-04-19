@@ -195,6 +195,50 @@ interface OverrideProps {
 - Fullscreen mode
 - Close on ESC or backdrop click
 - Responsive grid layout with field column spans
+- Browser back button closes the drawer (history integration)
+- Optional unsaved-changes confirmation — see [Unsaved changes guard](#unsaved-changes-guard)
+
+### Unsaved changes guard
+
+Both drawer-based create/update and the full-page `ResourceCreate` /
+`ResourceUpdate` routes can warn the user before discarding unsaved
+edits. The guard intercepts:
+
+- The drawer close button, backdrop click and ESC
+- The browser back button
+- Clicks on breadcrumb / in-app router links
+- Tab close / hard reload (via `beforeunload`)
+
+Opt in via `Resource::confirmUnsavedChanges()`:
+
+```php
+use Martis\Contracts\UnsavedChangesConfigContract;
+use Martis\UnsavedChangesConfig;
+
+// Enable with the package defaults (localised copy).
+public static function confirmUnsavedChanges(): bool|UnsavedChangesConfigContract
+{
+    return true;
+}
+
+// OR fully customised copy + visuals.
+public static function confirmUnsavedChanges(): bool|UnsavedChangesConfigContract
+{
+    return UnsavedChangesConfig::make()
+        ->title(__('projects.unsaved_title'))
+        ->body(__('projects.unsaved_body'))
+        ->icon('briefcase')
+        ->iconColor('info')        // success | warning | danger | info | muted | accent
+        ->confirmLabel(__('projects.unsaved_discard'))
+        ->confirmColor('danger')
+        ->cancelLabel(__('projects.unsaved_keep'));
+}
+```
+
+**Default:** the method returns `false` on the base Resource — resources
+opt in explicitly. Return `true` to use the localised defaults shipped
+with the package, or an `UnsavedChangesConfig` instance to customise
+every piece of copy and colour. `icon(null)` hides the dialog icon.
 
 ### DrawerOverride PHP API
 

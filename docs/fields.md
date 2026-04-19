@@ -25,24 +25,45 @@ All available field types in Martis, their methods, and configuration options.
   - [Component Override](#component-override)
   - [Metadata](#metadata)
   - [Serialization](#serialization)
+- [Tooltips (Martis differential)](#tooltips-martis-differential)
 - [Field Types](#field-types)
   - [Id](#id)
   - [Text](#text)
   - [Textarea](#textarea)
   - [Number](#number)
   - [Boolean](#boolean)
+  - [BooleanGroup](#booleangroup)
+  - [Avatar](#avatar)
+  - [UiAvatar](#uiavatar)
+  - [Audio](#audio)
   - [Select](#select)
   - [MultiSelect](#multiselect)
   - [Date](#date)
   - [DateTime](#datetime)
   - [Email](#email)
   - [Password](#password)
+  - [PasswordConfirmation](#passwordconfirmation)
+  - [Slug](#slug)
+  - [Timezone](#timezone)
+  - [Icon](#icon)
+  - [Stack + Line](#stack--line)
   - [Url](#url)
   - [Color](#color)
   - [Country](#country)
   - [Currency](#currency)
   - [BelongsTo](#belongsto)
   - [Tag](#tag)
+  - [BelongsToMany](#belongstomany)
+  - [HasOne](#hasone)
+  - [HasOneOfMany](#hasoneofmany)
+  - [HasOneThrough](#hasonethrough)
+  - [HasMany](#hasmany)
+  - [HasManyThrough](#hasmanythrough)
+  - [MorphOne](#morphone)
+  - [MorphOneOfMany](#morphoneofmany)
+  - [MorphMany](#morphmany)
+  - [MorphTo](#morphto)
+  - [MorphToMany](#morphtomany)
   - [File](#file)
   - [Image](#image)
   - [Code](#code)
@@ -66,7 +87,10 @@ All available field types in Martis, their methods, and configuration options.
 ```php
 use Martis\Fields\Badge;
 use Martis\Fields\BelongsTo;
+use Martis\Fields\Audio;
+use Martis\Fields\Avatar;
 use Martis\Fields\Boolean;
+use Martis\Fields\BooleanGroup;
 use Martis\Fields\Code;
 use Martis\Fields\Color;
 use Martis\Fields\Country;
@@ -78,20 +102,27 @@ use Martis\Fields\File;
 use Martis\Fields\Gravatar;
 use Martis\Fields\Heading;
 use Martis\Fields\Hidden;
+use Martis\Fields\Icon;
 use Martis\Fields\Id;
 use Martis\Fields\Image;
 use Martis\Fields\KeyValue;
+use Martis\Fields\Line;
 use Martis\Fields\Markdown;
 use Martis\Fields\MultiSelect;
 use Martis\Fields\Number;
 use Martis\Fields\Password;
+use Martis\Fields\PasswordConfirmation;
 use Martis\Fields\Select;
+use Martis\Fields\Slug;
 use Martis\Fields\Sparkline;
+use Martis\Fields\Stack;
 use Martis\Fields\Status;
 use Martis\Fields\Tag;
 use Martis\Fields\Text;
 use Martis\Fields\Textarea;
+use Martis\Fields\Timezone;
 use Martis\Fields\Trix;
+use Martis\Fields\UiAvatar;
 use Martis\Fields\Url;
 ```
 
@@ -137,6 +168,7 @@ Text::make('first_name', 'First Name') // explicit label
 | `required` | `required(): static` | `$this` | Require a non-null value (adds `required` validation rule). |
 | `placeholder` | `placeholder(string $text): static` | `$this` | Set placeholder text for the input. |
 | `help` | `help(string $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). |
+| `tooltip` | `tooltip(?string $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br>`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Nova v5 has no equivalent. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. Nova v5 parity. |
 | `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). Nova v5 parity. |
 | `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. |
@@ -245,6 +277,88 @@ Email::make('email')
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `toArray` | `toArray(): array` | Serialize field to array for JSON API. Includes: `attribute`, `label`, `type`, `nullable`, `readonly`, `required`, `sortable`, `searchable`, `showOnIndex`, `showOnDetail`, `showOnForms`, `rules`, `component`, plus `extraAttributes()` and `meta`. |
+
+---
+
+## Tooltips (Martis differential)
+
+⭐ **Martis-exclusive.** Nova v5 has no equivalent — it ships only `help()` (plain
+text under the input). Martis adds **label tooltips** as a separate channel so
+authors can surface contextual guidance without committing valuable real estate
+to permanent inline text.
+
+### Why it matters
+
+- `help()` is always visible. It costs vertical space on every form render, for
+  every user, regardless of how long they've been using the resource.
+- A **tooltip** is opt-in: the hint shows only when the user hovers the
+  discreet `(?)` icon next to the label. Experienced users never see it;
+  new users have it one hover away.
+- HTML support means you can pack **rich, multi-line guidance** (lists, bold,
+  line breaks) into a single call without bloating the form.
+
+### API
+
+```php
+Text::make('name', 'Full name')
+    ->tooltip('<strong>Full legal name</strong>.<br>Examples:<br>• John Smith<br>• Ana Pereira<br><br><em>Avoid abbreviations.</em>');
+```
+
+| Signature | Notes |
+|-----------|-------|
+| `tooltip(?string $text): static` | Sets the tooltip. Pass `null` to clear. |
+| `getTooltip(): ?string` | Returns the current tooltip text (or `null`). |
+
+The tooltip string ships to the frontend in the serialized field under the key
+`tooltip` and is rendered by the global `MartisTooltip` component behind the
+`(?)` label icon on any form renderer (Panel, Section, TabGroup, ResourceCreate,
+ResourceUpdate) **and** on detail labels rendered inside Sections/TabGroups.
+
+### HTML support
+
+The frontend opts in via the `data-pr-tooltip-html="true"` attribute, so only
+field tooltips render as HTML — every other `data-pr-tooltip` trigger in the
+app keeps the default plain-text escape. Allowed markup: any inline HTML
+(`<br>`, `<strong>`, `<em>`, `<ul>`/`<li>`, `<code>`, `<a>`). The author is
+responsible for producing safe markup; prefer localised strings from
+`__()` / i18n dictionaries to keep content reviewable.
+
+### When to use `tooltip()` vs `help()`
+
+| Situation | Use |
+|-----------|-----|
+| Short, essential instruction that every user should read (e.g. "Must be unique") | `help()` |
+| Long-form, rarely-needed context (examples, edge cases, links to docs) | `tooltip()` |
+| Multi-line rich guidance (bullet lists, bold headings) | `tooltip()` |
+| Validation hint that depends on input state | `help()` |
+
+Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>Uniqueness rules</strong><br>...')`.
+
+### Frontend behaviour
+
+- The `(?)` icon uses the muted text colour so it reads as a quiet affordance.
+- Hover delay is **500 ms** — long enough that a cursor skimming the form
+  doesn't flash tooltips, short enough that intentional hover feels responsive.
+- Tooltip content falls back to `white-space: nowrap` for plain text and
+  `white-space: normal` for HTML content so `<br>` and wrapping actually work.
+- Position respects the trigger's `data-pr-position` (defaults to `top`).
+
+### Why NOT a `Tooltip` field class
+
+We deliberately rejected adding a `Tooltip::make()` field. Reasons:
+
+1. A `Field` represents a **column or value**. A pure tooltip has nothing to
+   read, write, validate, or serialise — it breaks the contract.
+2. Tooltips are a **presentation concern that applies to fields**, not a field
+   type of their own. Inverting that relationship forces authors to position
+   an empty "tooltip field" inside the form, competing with real fields for
+   `colSpan` and layout placement.
+3. The `->tooltip()` modifier is **universal**: it applies to every existing
+   and future field without touching the UI layer.
+
+If you need a hint unrelated to any single field (e.g. a section intro), use
+`Panel::make('', [])->description(...)` or `Section::make(...)->description(...)`
+— not a field.
 
 ---
 
@@ -366,6 +480,149 @@ Boolean::make('is_active', 'Active')
 
 **Overrides:** `resolve()` casts to `(bool)`, `fill()` casts incoming to `(bool)`.
 **Extra attributes:** `trueLabel`, `falseLabel`
+
+---
+
+### BooleanGroup
+
+**Type identifier:** `boolean_group`
+**Extends:** `Field`
+**File:** `src/Fields/BooleanGroup.php`
+
+Map of named boolean flags stored as JSON. Ideal for permission grids, feature gates, notification preferences.
+
+```php
+BooleanGroup::make('permissions')
+    ->options([
+        'clients.view' => 'View clients',
+        'clients.edit' => 'Edit clients',
+        'billing.view' => 'View billing',
+    ])
+    ->grouped([
+        'Clients' => ['clients.view', 'clients.edit'],
+        'Billing' => ['billing.view'],
+    ])
+    ->requireAny();
+```
+
+| Method | Description |
+|---|---|
+| `options(array)` | Flag key → label map |
+| `labels(array)` | Override option labels with translations |
+| `grouped(array)` ⭐ | Organise options into collapsible sections (`['Title' => ['key1','key2']]`) |
+| `hideFalseValues(bool)` / `hideTrueValues(bool)` | Display filter for the read-only view |
+| `noValueText(string)` | Placeholder when every flag is off and `hideFalseValues` is on |
+| `minChecked(int)` ⭐ | Minimum number of flags that must be on — shown as a live UI counter |
+| `maxChecked(int)` ⭐ | Maximum number of flags that can be on — disables extra checkboxes live |
+| `requireAny()` ⭐ | Sugar for `minChecked(1)` |
+| `requireAll()` ⭐ | Sugar for `minChecked(count(options))` |
+
+**⭐ Martis differentials vs Nova:** grouped sections, min/max live counter, `requireAny/All` presets. Nova is a flat list only.
+
+---
+
+### Avatar
+
+**Type identifier:** `avatar`
+**Extends:** `Image`
+**File:** `src/Fields/Avatar.php`
+
+Image upload specialised for profile pictures. Inherits every upload helper from `Image` (`disk`, `storagePath`, `maxSize`, `thumbnail`, …).
+
+**Zero configuration needed for the empty state** — when a record has no upload AND the developer didn't declare an explicit `fallback()`, the field renders coloured initials inline using a deterministic 16-slot palette (same look as the topbar user pill). No external service call, no extra DB column, no boilerplate closure.
+
+```php
+// One-liner: uploaded photo when present, coloured initials inline otherwise.
+Avatar::make('avatar_path')
+    ->disk('public')
+    ->storagePath('team-avatars')
+    ->maxSize(2048)
+    ->circle()
+    ->colorFrom('brand_color'); // optional: use a brand attribute instead of the hash palette
+```
+
+**Resolution priority (per row):**
+
+| # | Condition | Output |
+|---|---|---|
+| 1 | Stored file exists | `<img src={uploaded_url}>` |
+| 2 | Developer set `fallback($url \| Closure)` | `<img src={fallback}>` |
+| 3 | Neither of the above | Inline coloured initials — no external request |
+
+| Method | Description |
+|---|---|
+| `shape(AvatarShape)` | Typed enum: `Circle` (default), `Rounded`, `Squared` |
+| `circle()` / `rounded()` / `squared()` | Convenience shortcuts |
+| `fallback($url \| Closure)` ⭐ | Override the default inline initials with a custom URL (static or per-row) — opt-in, usually unnecessary |
+| `initialsFrom(string)` ⭐ | Seed attribute for initials + palette (default: `name`) |
+| `colorFrom(string)` ⭐ | Pull the initials background from a model attribute (e.g. `brand_color`) |
+| `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
+
+**⭐ Martis differentials vs Nova:**
+- **Zero-config inline initials fallback** — no external service, no extra closures, works out of the box. Nova requires a static `fallbackUrl` and has no initials rendering at all.
+- Per-row Closure-aware `fallback()` when you *do* want a custom URL.
+- Typed `AvatarShape` enum instead of a boolean `rounded()`.
+- Deterministic palette shared with `UiAvatar`, login, topbar and profile surfaces via the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait.
+
+---
+
+### UiAvatar
+
+**Type identifier:** `ui_avatar`
+**Extends:** `Field`
+**File:** `src/Fields/UiAvatar.php`
+
+Display-only initials pill. Differs from `Avatar` in one key way: **it never takes an upload** — the value is computed entirely from the model.
+
+**When to pick `UiAvatar` over `Avatar`:**
+
+| Your resource… | Use |
+|---|---|
+| has a photo column and you want users to upload | `Avatar` (initials inline when empty come for free) |
+| has no photo column at all and never will | `UiAvatar` |
+| is read-only / system-generated and an upload input would be noise | `UiAvatar` |
+
+```php
+UiAvatar::make('avatar_initials')
+    ->from('name')
+    ->colorFrom('brand_color')
+    ->circle();
+```
+
+| Method | Description |
+|---|---|
+| `from(string)` | Attribute used as the seed (default: field's own attribute) |
+| `shape(AvatarShape)` / `circle()` / `rounded()` / `squared()` | Visual parity with `Avatar` |
+| `colorFrom(string)` ⭐ | Pull background colour from a model attribute (brand colour) |
+| `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
+
+**⭐ Martis differentials vs Nova:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`. Nova's `UiAvatar` hits the external ui-avatars.com service — Martis's runs entirely client-side with no network call.
+
+---
+
+### Audio
+
+**Type identifier:** `audio`
+**Extends:** `File`
+**File:** `src/Fields/Audio.php`
+
+File upload specialised for audio clips. Renders an inline HTML5 player + a canvas waveform painted client-side (zero server dependencies).
+
+```php
+Audio::make('intro_audio_path')
+    ->disk('public')
+    ->storagePath('team-audio')
+    ->maxSize(10240)
+    ->downloadable(false);
+```
+
+| Method | Description |
+|---|---|
+| `waveform(bool)` ⭐ | Toggle the canvas waveform (default `true`) |
+| `downloadable(bool)` | Toggle the download button on the player |
+| `acceptedTypes(array)` | Override the default `mp3/wav/ogg/m4a/flac/aac` allow-list |
+
+**⭐ Martis differentials vs Nova:** **client-side canvas waveform** (Web Audio API decode + peak sampling — no server rendering, no external dependency), package-native player chrome, `downloadable(bool)` toggle.
 
 ---
 
@@ -503,6 +760,7 @@ Password field. Hashes value with bcrypt, never exposes hashes.
 ```php
 Password::make('password')
     ->nullable()
+    ->withStrengthMeter()
 ```
 
 **Default overrides:**
@@ -513,7 +771,234 @@ Password::make('password')
 - `resolve()` always returns `null` (never expose password hashes).
 - `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank).
 
-**Specific methods:** None.
+**Specific methods:**
+- `withStrengthMeter(bool $enabled = true): static` — ⭐ **Martis extension.** Shows a 0–4 strength meter below the input (length + character-class heuristic). Pairs naturally with `PasswordConfirmation` to share the same UI cue. No extra dependency — zxcvbn-lite is inlined in the React component.
+
+**Declarative complexity requirements (⭐ Martis extension):**
+
+Each requirement method adds a matching Laravel validation rule AND publishes to the frontend so the `showRequirements()` checklist can tick in real time.
+
+- `minLength(int $length): static` — minimum length. Adds `min:N`.
+- `requireUppercase(bool $value = true): static` — adds `regex:/[A-Z]/`.
+- `requireLowercase(bool $value = true): static` — adds `regex:/[a-z]/`.
+- `requireNumber(bool $value = true): static` — adds `regex:/\d/`.
+- `requireSymbol(bool $value = true): static` — adds `regex:/[^A-Za-z0-9]/`.
+- `disallowCommonPasswords(bool $value = true): static` — rejects a small inline list (`password`, `qwerty`, `12345…`, `letmein`, `admin`, `welcome`, `abc123`, `iloveyou`) via a closure rule.
+- `showRequirements(bool $value = true): static` — opt-in. Renders the ✓/✗ checklist under the strength meter. When every requirement passes, the meter is clamped to at least "Good" (score ≥ 3) so "all checks green" never reads as "Weak".
+
+Example:
+
+```php
+Password::make('password')
+    ->withStrengthMeter()
+    ->minLength(10)
+    ->requireUppercase()
+    ->requireNumber()
+    ->requireSymbol()
+    ->disallowCommonPasswords()
+    ->showRequirements()
+```
+
+---
+
+### PasswordConfirmation
+
+**Type identifier:** `password_confirmation`
+**Extends:** `Field`
+**File:** `src/Fields/PasswordConfirmation.php`
+
+Companion field for a paired `Password`. Never persists to the model —
+relies on Laravel's `confirmed` rule on the password field for validation.
+
+```php
+Password::make('password')
+    ->creationRules(['required', 'confirmed', 'min:8'])
+    ->withStrengthMeter(),
+
+PasswordConfirmation::make('password_confirmation')
+    ->confirms('password')
+```
+
+**Default overrides:**
+- `showOnIndex = false`
+- `showOnDetail = false`
+- `fill()` is a no-op (companion fields never hydrate the model).
+- `resolve()` always returns `null`.
+
+**Specific methods:**
+- `confirms(string $attribute): static` — Name the paired password attribute (default: `'password'`). Matches Laravel's `confirmed` rule convention.
+
+**⭐ Martis extensions (UI, automatic):**
+- Live match indicator — green tick / red cross the moment the two inputs match or diverge.
+- Shared strength meter — if the paired `Password` field has `withStrengthMeter()`, the meter is shared.
+- Synchronized visibility toggle — eye icons on both inputs mirror each other.
+
+---
+
+### Slug
+
+**Type identifier:** `slug`
+**Extends:** `Field`
+**File:** `src/Fields/Slug.php`
+
+URL-safe identifier auto-generated from a source attribute.
+
+```php
+Slug::make('slug')
+    ->from('title')                                // source attribute
+    ->separator('-')                               // default: '-'
+    ->reserved(['admin', 'api', 'login'])          // rejected values
+    ->lockAfter(fn ($post) => $post->is_published) // freeze after publish
+```
+
+**Specific methods:**
+- `from(string $attribute): static` — Source attribute to slugify.
+- `separator(string $separator): static` — Token separator (default: `'-'`).
+- `reserved(array $reserved): static` — ⭐ **Martis extension.** Reject these exact values (system paths). Validation emits `slug_reserved` error; the `/slug-check` endpoint returns `{ reserved: true, suggestion }`.
+- `lockAfter(Closure $condition): static` — ⭐ **Martis extension.** Freezes the slug on existing records once the condition holds. `Slug::fill()` becomes a no-op in that case — SEO protection.
+- `generate(string $value): string` — Unicode-safe slugify ("São Paulo" → "sao-paulo"). Exposed for tests/controllers.
+- `isLockedFor(?Model $model): bool` — Query the lock condition directly.
+
+**⭐ Martis extensions (UI, automatic):**
+- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration).
+- **Live collision detection** — debounced probe against
+  `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
+  Response envelope:
+  ```json
+  {
+    "data": {
+      "available": false,
+      "reserved": false,
+      "suggestion": "existing-post-2"
+    }
+  }
+  ```
+  The UI renders a clickable suggestion when `suggestion` is non-null.
+
+**Validation:** a closure rule verifies the submitted value is already in its slugified form (so the server rejects mismatched case / spaces) and that it is not in the `reserved` list.
+
+---
+
+### Timezone
+
+**Type identifier:** `timezone`
+**Extends:** `Field`
+**File:** `src/Fields/Timezone.php`
+
+Dropdown of every IANA timezone PHP knows about, grouped by continent.
+
+```php
+Timezone::make('timezone')->default('Europe/Lisbon')
+```
+
+**Specific methods:**
+- `Timezone::groupedList(): array` — Static. Returns `['Europe' => ['Europe/Lisbon', …], 'America' => [...], …]`.
+
+**⭐ Martis extensions (UI, automatic):**
+- **Live current time** — every option in the dropdown shows the zone's current local time and UTC offset. Ticks once a minute while the dropdown is open.
+- **Auto-detect button** — "Use my timezone" reads `Intl.DateTimeFormat().resolvedOptions().timeZone` and fills the field.
+- **Grouped + filterable** — `Europe`, `America`, `Asia`, … optgroups. The filter matches label, value, or offset (`+01:00`).
+
+---
+
+### Icon
+
+**Type identifier:** `icon`
+**Extends:** `Field`
+**File:** `src/Fields/Icon.php`
+
+⭐ **Martis differential** — Nova 5 does not ship an Icon field. Three modes, one visual output (Phosphor icon).
+
+```php
+// Mode A — display-only (no DB column)
+Icon::make('marker', 'rocket')->color('success')
+
+// Mode B — stored in a DB column, with ⭐ visual picker
+Icon::make('industry_icon')
+    ->stored()
+    ->palette(['rocket', 'buildings', 'briefcase', 'globe'])
+    ->colorFrom('brand_color')
+    ->size(20)
+
+// Mode C — computed from the model
+Icon::make('state')->icon(fn ($model) => $model->is_active ? 'check' : 'x')
+```
+
+**Factory:**
+- `Icon::make(string $attribute, ?string $fixedIcon = null, ?string $label = null)` — when `$fixedIcon` is set, the field is display-only (Mode A) until `->stored()` flips it.
+
+**Specific methods:**
+- `stored(bool $value = true): static` — flip to Mode B. The icon name lives in the DB column named `$attribute`. Forms show a ⭐ visual picker.
+- `color(string $color): static` — sets the icon tint. Accepts:
+  - semantic tokens: `success`, `warning`, `danger`, `info`, `muted`, `accent`
+  - CSS variables: `var(--my-color)`
+  - arbitrary CSS: hex (`#ec4899`), rgb, named (`red`)
+- `colorFrom(string $attribute): static` — read the color per-record from a sibling column on the same model (e.g. `brand_color`). Overrides `->color()` when that column has a value; falls back to `->color()` when empty.
+- `map(array $map): static` — declarative value→icon(+color) mapping for stored fields. Accepts shortcut `['value' => 'iconName']` or full `['value' => ['icon' => '…', 'color' => '…']]`.
+- `palette(array $palette): static` — whitelist for the picker. `fill()` silently drops values outside the palette — the DB never stores an icon the UI refuses to render.
+- `size(int $size): static` — render size in pixels (clamped 8–64; default 16).
+- `icon(Closure $resolver): static` — Mode C. Callback receives the model and returns `string` or `['icon' => '…', 'color' => '…']`.
+
+**Behavioural notes:**
+- Mode A defaults to `showOnForms = false`. `->stored()` re-enables form exposure.
+- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model.
+- Index rendering respects `size()` — put a small Icon at the start of `fieldsForIndex()` to get a visual marker on each row.
+
+---
+
+### Stack + Line
+
+**Type identifier:** `stack` / `line`
+**Extends:** `Field`
+**File:** `src/Fields/Stack.php`, `src/Fields/Line.php`
+
+Composite display field — renders a vertical stack of styled text lines as a single cell/detail slot. Ideal for compressing identity columns (name + email + company) into a single column without writing a custom component.
+
+```php
+Stack::make('identity', __('fields.identity'), [
+    Line::make('name')->asHeading()->subtitleFrom('email'),
+    Line::make('company')->asMuted(),
+])->divider();
+```
+
+**Calling styles:**
+
+```php
+Stack::make('identity', [Line::make('name'), Line::make('email')]);            // attribute + lines
+Stack::make('identity', 'Identity', [Line::make('name')]);                    // attribute + label + lines
+```
+
+**Line API — style variants:**
+
+| Method | Class | When to use |
+|--------|-------|-------------|
+| `asHeading()` | `.martis-line-heading` | primary label (bold, slightly larger) |
+| `asBase()` | `.martis-line-base` | default body copy |
+| `asSmall()` | `.martis-line-small` | compact secondary text |
+| `asMuted()` | `.martis-line-muted` | de-emphasised supporting text |
+| `asCode()` ⭐ | `.martis-line-code` | monospace pill for slugs, IDs, tokens |
+| `subtitleFrom($attrOrClosure)` ⭐ | — | emit a muted second line pulled from another attribute, without declaring a second Line |
+
+**Stack API:**
+
+| Method | Description |
+|--------|-------------|
+| `Stack::make($attribute, $lines)` | Create a Stack from an array of `Line` instances |
+| `Stack::make($attribute, $label, $lines)` | Same, with explicit label |
+| `divider(bool $enabled = true)` ⭐ | Insert a thin separator between Lines |
+| `getLines(): array<Line>` | Inspect configured lines |
+| `hasDivider(): bool` | Introspection helper |
+
+**⭐ Martis differentials vs Nova:**
+
+1. **Works on the index**. Nova's Stack is detail-only; Martis renders it as an index-table cell, perfect for identity columns.
+2. **`->asCode()` variant** — monospace styling for slugs, hashes, tokens.
+3. **`Line::subtitleFrom('attribute' | Closure)`** — one-line sugar to emit a muted secondary row without declaring a second `Line`. Accepts a Closure receiving the model for derived subtitles.
+4. **`Stack::divider()`** — thin `--martis-border` separator between Lines; great for metadata listings.
+
+**Payload shape (per row)**
+
+The Stack emits `{ __martisStack: true, entries: [{ text, variant, subtitle }], divider }`. The frontend `StackField` component detects the wrapper and renders each entry with the appropriate `.martis-line-*` class. Custom themes restyle every Line in the package by overriding the CSS variables used inside `.martis-line-heading/base/small/muted/code`.
 
 ---
 
@@ -724,6 +1209,16 @@ is also visible in preview (`showOnPreview` falls back to `showOnDetail`).
 
 **Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `placeholder`, `iconColor`
 
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On `BelongsTo` only the *Create* button (inline create) and the *View*
+action surface are affected (per the trait scope matrix). Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+*src/Fields/Concerns/ControlsRelationshipToolbar.php*
+
 ---
 
 ### Tag
@@ -769,6 +1264,14 @@ Tag::make('tags', 'Tags')
 - `fill()` registers deferred pivot sync via `DeferredRelationSync`.
 
 **Extra attributes:** `relationship`, `titleAttribute`, `relatedResource`, `withPreview`, `displayAsList`, `showCreateRelationButton`, `modalSize`, `preload`, `relationSearchable`
+
+#### Toolbar controls (inherited)
+
+Tag renders a chip/autocomplete UI of its own and **does not** use the shared
+`RelationshipTableShell`, so the `ControlsRelationshipToolbar` trait is not
+applied here. Use [`BelongsToMany`](#belongstomany) when you need the full
+DataTable toolbar with hide flags, search, per-page, and soft-delete
+dropdown.
 
 ---
 
@@ -864,6 +1367,440 @@ If these methods are not defined, the field falls back to `authorizedToUpdate()`
 - `fill()` is a no-op — attach/detach is handled exclusively via the dedicated API endpoints.
 
 **Extra attributes:** `relationship`, `relatedResource`, `titleAttribute`, `searchable`, `collapsable`, `collapsedByDefault`, `allowDuplicateRelations`, `showCreateRelationButton`, `modalSize`, `withSubtitles`, `dontReorderAttachables`, `pivotFields`, `belongsToManyMeta`
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On many-to-many fields, `hideCreateButton()` hides the *Attach* button and
+`hideDeleteAction()` hides the *Detach* variant. Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+*src/Fields/Concerns/ControlsRelationshipToolbar.php*
+
+---
+
+### HasOne
+
+**Type identifier:** `has_one`
+**Extends:** `Field`
+**File:** `src/Fields/HasOne.php`
+
+One-to-one relationship. Renders a single related record panel on the detail
+page with optional Create / Edit / Delete controls. Detail-only by default
+(Nova v5 parity — hidden from index and forms).
+
+```php
+use Martis\Fields\HasOne;
+
+HasOne::make('Profile', 'profile', ProfileResource::class)
+    ->canCreate()
+    ->canUpdate()
+    ->canDelete(false)
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button when no related record exists. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button for the existing related record. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button for the existing related record. | `true` |
+
+Static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
+promotes a `hasMany()->latestOfMany()` relation into a
+[`HasOneOfMany`](#hasoneofmany) field.
+*src/Fields/HasOne.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+`HasOne` renders no toolbar, so only the action hide flags
+(`hideViewAction` / `hideEditAction` / `hideDeleteAction`) have a visible
+effect per the trait scope matrix. Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasOne](relationships.md#hasone) for the full guide.
+
+---
+
+### HasOneOfMany
+
+**Type identifier:** `has_one_of_many`
+**Extends:** `HasOne`
+**File:** `src/Fields/HasOneOfMany.php`
+
+Promotes a `hasMany()->latestOfMany()` (or `->ofMany(col, aggregate)`)
+relationship so the admin displays the latest / oldest record as if it were
+a plain `HasOne`. Ships an optional metric tile via `aggregateVia()` and a
+"latest of N" pill next to the panel heading.
+
+```php
+use Martis\Enums\AggregateFunction;
+use Martis\Fields\HasOneOfMany;
+
+HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
+    ->latestByTimestamp('paid_at')
+    ->aggregateVia(AggregateFunction::Sum, 'amount');
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `HasOne` setters* | — | `$this` | Inherited. | — |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`. | `'created_at'` |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection (count/sum/min/max/avg). | disabled |
+
+*src/Fields/HasOneOfMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+(via `HasOne`) — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Only the action hide flags (`hideViewAction` / `hideEditAction` /
+`hideDeleteAction`) have a visible effect on this single-record panel.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasOneOfMany](relationships.md#hasoneofmany) for the
+full guide.
+
+---
+
+### HasOneThrough
+
+**Type identifier:** `has_one_through`
+**Extends:** `HasOne`
+**File:** `src/Fields/HasOneThrough.php`
+
+Shows a single distant record reached through an intermediate model
+(`hasOneThrough`). Read-only by default: `canCreate` / `canUpdate` /
+`canDelete` start as `false`.
+
+```php
+use Martis\Fields\HasOneThrough;
+
+HasOneThrough::make('Account Manager', 'accountManager', TeamMemberResource::class)
+    ->throughBreadcrumb();
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `HasOne` setters* | — | `$this` | Inherited. `canCreate` / `canUpdate` / `canDelete` default to `false`. | — |
+| `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. Pass a custom `$text` to override the default label. | `false` |
+
+*src/Fields/HasOneThrough.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Because Through fields are read-only by default, the `canCreate` /
+`canUpdate` / `canDelete` defaults already hide those buttons; the
+`hideXxx()` setters are mostly redundant but available for symmetry.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasOneThrough](relationships.md#hasonethrough) for
+the full guide.
+
+---
+
+### HasMany
+
+**Type identifier:** `has_many`
+**Extends:** `Field`
+**File:** `src/Fields/HasMany.php`
+
+One-to-many relationship. Renders an inline DataTable panel on the detail
+page with full inline CRUD (create, edit, delete), search, sort, per-page,
+and pagination via `RelationshipTableShell`. Detail-only by default (Nova v5
+parity — use `->showOnIndex()` to display a count badge on index).
+
+```php
+use Martis\Fields\HasMany;
+use Martis\Enums\HasManyIndexDisplay;
+use Martis\Enums\HasManyRedirectMode;
+
+HasMany::make('Comments', 'comments')
+    ->relatedResource('comments')
+    ->collapsable()
+    ->collapsedByDefault()
+    ->perPage(15)
+    ->showRelationCount()
+    ->redirectAfterSave(HasManyRedirectMode::Parent);
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
+| `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
+| `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
+| `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
+| `showRelationCount` | `showRelationCount(bool $value = true): static` | `$this` | Show the total count badge in the panel heading. | `true` |
+| `badgeColor` | `badgeColor(string $color): static` | `$this` | Override the count badge colour for index display. | — |
+| `badgeIcon` | `badgeIcon(string $icon): static` | `$this` | Override the panel icon. | — |
+| `redirectAfterSave` | `redirectAfterSave(HasManyRedirectMode $mode): static` | `$this` | Where to redirect after saving a related record. | — |
+| `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
+| `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start collapsed. Implies `collapsable`. | `false` |
+
+*src/Fields/HasMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On `HasMany` the full surface is affected (search / create / per-page /
+soft-delete dropdown + view / edit / delete / restore / force-delete).
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasMany](relationships.md#hasmany) for the full
+guide and [Relationship panel anatomy](relationships.md#relationship-panel-anatomy)
+for the shared shell layout.
+
+---
+
+### HasManyThrough
+
+**Type identifier:** `has_many_through`
+**Extends:** `HasMany`
+**File:** `src/Fields/HasManyThrough.php`
+
+Inline DataTable of many records reached through an intermediate
+(`hasManyThrough`). Read-only by default: `canCreate` / `canUpdate` /
+`canDelete` start as `false`.
+
+```php
+use Martis\Fields\HasManyThrough;
+
+HasManyThrough::make('Managed Projects', 'managedProjects', ProjectResource::class)
+    ->throughBreadcrumb()
+    ->countBadge();
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `HasMany` setters* | — | `$this` | Inherited. `canCreate` / `canUpdate` / `canDelete` default to `false`. | — |
+| `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. | `false` |
+| `countBadge` | `countBadge(bool $enabled = true): static` | `$this` | Renders a count pill on the parent resource's index cell. | `true` |
+
+*src/Fields/HasManyThrough.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+(via `HasMany`) — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Since the field is read-only by default, Edit / Delete / Restore /
+Force-delete are already hidden via `canUpdate(false)` / `canDelete(false)`.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasManyThrough](relationships.md#hasmanythrough) for
+the full guide.
+
+---
+
+### MorphOne
+
+**Type identifier:** `morph_one`
+**Extends:** `Field`
+**File:** `src/Fields/MorphOne.php`
+
+Polymorphic one-to-one relationship (`morphOne`). Same UI as `HasOne` but
+for polymorphic relations. Detail-only by default.
+
+```php
+use Martis\Fields\MorphOne;
+
+MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
+    ->canCreate()
+    ->canUpdate();
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button. | `true` |
+
+*src/Fields/MorphOne.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Same scope as `HasOne`: only the action hide flags have a visible effect.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — MorphOne](relationships.md#morphone) for the full
+guide.
+
+---
+
+### MorphOneOfMany
+
+**Type identifier:** `morph_one_of_many`
+**Extends:** `MorphOne`
+**File:** `src/Fields/MorphOneOfMany.php`
+
+Polymorphic counterpart of `HasOneOfMany`. Promotes a
+`morphMany()->latestOfMany()` (or `->ofMany(col, aggregate)`) relationship.
+
+```php
+use Martis\Enums\AggregateFunction;
+use Martis\Fields\MorphOneOfMany;
+
+MorphOneOfMany::make('Latest Note', 'latestNote', NoteResource::class)
+    ->latestByTimestamp()
+    ->aggregateVia(AggregateFunction::Count, '*');
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `MorphOne` setters* | — | `$this` | Inherited. | — |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart. | `'created_at'` |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection. | disabled |
+
+*src/Fields/MorphOneOfMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+(via `MorphOne`) — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Only the action hide flags have a visible effect on this single-record
+panel. Remember: visible = authorized AND NOT hidden. Authorization is
+always the source of truth; the hide flags can only hide, never
+force-visible.
+
+See [relationships.md — MorphOneOfMany](relationships.md#morphoneofmany) for
+the full guide.
+
+---
+
+### MorphMany
+
+**Type identifier:** `morph_many`
+**Extends:** `Field`
+**File:** `src/Fields/MorphMany.php`
+
+Polymorphic one-to-many relationship (`morphMany`). Same DataTable UI as
+`HasMany` — full inline CRUD, search, sort, per-page, pagination — via
+`RelationshipTableShell`. Detail-only by default.
+
+```php
+use Martis\Fields\MorphMany;
+
+MorphMany::make('Comments', 'comments', CommentResource::class)
+    ->collapsable()
+    ->collapsedByDefault()
+    ->perPage(10)
+    ->canCreate(false);
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
+| `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
+| `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
+| `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
+| `showRelationCount` | `showRelationCount(bool $value = true): static` | `$this` | Show the total count badge in the panel heading. | `true` |
+| `badgeColor` | `badgeColor(string $color): static` | `$this` | Override the count badge colour. | — |
+| `badgeIcon` | `badgeIcon(string $icon): static` | `$this` | Override the panel icon. | — |
+| `redirectAfterSave` | `redirectAfterSave(HasManyRedirectMode $mode): static` | `$this` | Where to redirect after saving a related record. | — |
+
+*src/Fields/MorphMany.php*
+
+> `MorphMany` does not expose `collapsable()` / `collapsedByDefault()`
+> setters of its own — see src for details.
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Full scope applies: search / create / per-page / soft-delete dropdown and
+all five row actions. Remember: visible = authorized AND NOT hidden.
+Authorization is always the source of truth; the hide flags can only hide,
+never force-visible.
+
+See [relationships.md — MorphMany](relationships.md#morphmany) for the full
+guide and [Relationship panel anatomy](relationships.md#relationship-panel-anatomy)
+for the shared shell layout.
+
+---
+
+### MorphToMany
+
+**Type identifier:** `morph_to_many`
+**Extends:** `Field`
+**File:** `src/Fields/MorphToMany.php`
+
+Polymorphic many-to-many relationship (`morphToMany`). Same pivot UI as
+`BelongsToMany` — DataTable, attach/detach, pivot fields, search, sort,
+per-page, pagination — via `RelationshipTableShell`. Detail-only by default.
+
+```php
+use Martis\Fields\MorphToMany;
+
+MorphToMany::make('Tags', 'tags', TagResource::class)
+    ->titleAttribute('name')
+    ->searchable()
+    ->collapsable()
+    ->fields(fn () => [
+        Text::make('notes', 'Notes')->nullable(),
+    ]);
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. | `'name'` |
+| `fields` | `fields(Closure $closure): static` | `$this` | Define pivot fields (stored on the morph-pivot table). | — |
+| `actions` | `actions(Closure $closure): static` | `$this` | Define pivot actions for attached records. | — |
+| `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
+| `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
+| `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start collapsed. Implies `collapsable`. | `false` |
+| `allowDuplicateRelations` | `allowDuplicateRelations(bool $value = true): static` | `$this` | Allow attaching the same record multiple times. | `false` |
+| `showCreateRelationButton` | `showCreateRelationButton(bool\|Closure $callback = true): static` | `$this` | Show the inline create button in the attach modal. | `false` |
+| `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
+| `modalSize` | `modalSize(ModalSize $size, ?string $height = null): static` | `$this` | Attach modal size / optional height. | `'2xl'` |
+| `relatableQueryUsing` | `relatableQueryUsing(Closure $closure): static` | `$this` | Filter the attachable record list. | — |
+| `dontReorderAttachables` | `dontReorderAttachables(bool $value = true): static` | `$this` | Keep DB order in the attachable list. | `false` |
+| `withSubtitles` | `withSubtitles(bool $value = true): static` | `$this` | Show subtitles in search results. | `false` |
+| `subtitleAttribute` | `subtitleAttribute(string $attribute): static` | `$this` | Column used as the subtitle. | — |
+| `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
+| `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+
+*src/Fields/MorphToMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Same scope as `BelongsToMany`: `hideCreateButton()` hides the *Attach*
+button and `hideDeleteAction()` hides the *Detach* variant. Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — MorphToMany](relationships.md#morphtomany) for the
+full guide and [Relationship panel anatomy](relationships.md#relationship-panel-anatomy)
+for the shared shell layout.
 
 ---
 
@@ -1135,18 +2072,90 @@ Badge::make('status')
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| `map` | `map(array $map): static` | `$this` | Map model values to badge types (`['value' => 'type']`). | `[]` |
-| `types` | `types(array $types): static` | `$this` | Override badge type definitions (replaces defaults). | `info, success, warning, danger` |
-| `addTypes` | `addTypes(array $types): static` | `$this` | Add extra badge types to defaults. | — |
+| `map` | `map(array\|Closure $map): static` | `$this` | Value → badge type. Closure resolves once at schema build. | `[]` |
+| `labels` | `labels(array\|Closure $labels): static` | `$this` | Value → translated display label. Closure form supported. | `[]` |
+| `types` | `types(array\|Closure $types): static` | `$this` | Override badge type definitions (replaces defaults). | `info, success, warning, danger` |
+| `addTypes` | `addTypes(array $types): static` | `$this` | Merge extra badge types onto the current set. | — |
 | `withIcons` | `withIcons(): static` | `$this` | Enable icon rendering in badges. | `false` |
-| `icons` | `icons(array $icons): static` | `$this` | Map badge types to icon names (also enables icons). | `[]` |
-| `getMap` | `getMap(): array` | `array` | Get value-to-type map. | — |
-| `getTypes` | `getTypes(): array` | `array` | Get type definitions. | — |
+| `icons` | `icons(array\|Closure $icons): static` | `$this` | Badge type → icon name (also enables icons). | `[]` |
+| `resolveBadgeUsing` ⭐ | `resolveBadgeUsing(Closure $fn): static` | `$this` | Per-row override — closure receives `(value, model)` and returns `['type', 'label', 'icon']`. | — |
+| `getMap` | `getMap(): array` | `array` | Get resolved value-to-type map. | — |
+| `getTypes` | `getTypes(): array` | `array` | Get resolved type definitions. | — |
 | `hasIcons` | `hasIcons(): bool` | `bool` | Check if icons enabled. | — |
-| `getIcons` | `getIcons(): array` | `array` | Get type-to-icon map. | — |
+| `getIcons` | `getIcons(): array` | `array` | Get resolved type-to-icon map. | — |
 
 **Default badge types:** `info` (blue), `success` (green), `warning` (yellow), `danger` (red)
-**Extra attributes:** `map`, `types`, `withIcons`, `icons`
+**Extra attributes:** `map`, `labels`, `types`, `withIcons`, `icons`
+
+#### ⭐ Dynamic maps & per-row resolution (Martis differentials)
+
+All static setters (`map`, `labels`, `types`, `icons`) accept a Closure that's resolved **once** when the schema is serialised — ideal for enum-backed maps and config-driven palettes:
+
+```php
+Badge::make('status')
+    ->map(fn () => StatusEnum::badgeMap())
+    ->labels(fn () => StatusEnum::labels());
+```
+
+For row-specific decisions, use `resolveBadgeUsing()`. The closure runs during per-row serialisation and its return value (any subset of `type`, `label`, `icon`) is shipped verbatim to the frontend. Missing keys fall back to the static `map`/`labels`/`icons` lookup:
+
+```php
+Badge::make('status')
+    ->map(['active' => 'success', 'paused' => 'warning'])
+    ->labels(['active' => 'Active', 'paused' => 'Paused'])
+    ->resolveBadgeUsing(function (?string $value, Model $model) {
+        if ($model->is_vip && $value === 'active') {
+            return ['type' => 'vip-gold', 'label' => 'VIP ⭐', 'icon' => 'crown'];
+        }
+        return []; // fall back to the static map/labels for everyone else
+    });
+```
+
+> [!important] Badge is display-only — use `Select` in forms
+> `Badge` is intentionally filtered out of create/update contexts (`showOnCreation = showOnUpdate = false` by default). It is meant for index/detail display only. If you want the user to **pick** a value that renders as a badge afterwards, use `Select` in `fieldsForCreate`/`fieldsForUpdate` and keep `Badge` in `fieldsForIndex`/`fieldsForDetail`.
+>
+> **Wrong — field disappears from the edit drawer:**
+> ```php
+> public function fields(Request $request): array
+> {
+>     return [
+>         Badge::make('status')->map([
+>             'active' => 'success',
+>             'inactive' => 'warning',
+>         ]),
+>     ];
+> }
+> ```
+>
+> **Right — editable input in forms, badge in index/detail:**
+> ```php
+> public function fieldsForIndex(Request $request): array
+> {
+>     return [
+>         Badge::make('status')->map([
+>             'active' => 'success',
+>             'inactive' => 'warning',
+>         ]),
+>     ];
+> }
+>
+> public function fieldsForCreate(Request $request): array
+> {
+>     return [
+>         Select::make('status')->options([
+>             'active'   => 'Active',
+>             'inactive' => 'Inactive',
+>         ])->required(),
+>     ];
+> }
+>
+> public function fieldsForUpdate(Request $request): array
+> {
+>     return $this->fieldsForCreate($request);
+> }
+> ```
+>
+> Calling `->showOnForms()` on a Badge forces it into forms as read-only — useful to *show* the current value while another field edits it, but never as an input.
 
 ---
 
@@ -1237,6 +2246,35 @@ Sparkline::make('trend', 'Revenue Trend')
 
 **Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` is a no-op.
 **Extra attributes:** `chartType`, `chartHeight`, `chartWidth`, `chartColor`
+
+---
+
+### Repeater
+
+**File:** `src/Fields/Repeater.php` + `src/Fields/Repeatable.php`
+
+Repeatable row widget backed by JSON, HasMany or ⭐ polymorphic (single child table
+with a `type` discriminator). See the dedicated [Repeater guide](repeater.md) for the
+full API. Highlights:
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `repeatables` | `repeatables(array<Repeatable>)` | Register the row types available in the Add menu |
+| `asJson` | `asJson(): static` | Persist on a JSON-cast parent attribute |
+| `asHasMany` | `asHasMany(): static` | Persist via a child table with 3-way upsert |
+| `asPolymorphic` ⭐ | `asPolymorphic(string $type = 'type', string $payload = 'payload')` | One child table for every row type |
+| `uniqueField` | `uniqueField(string)` | Column used to identify rows across saves |
+| `confirmRemoval` | `confirmRemoval(bool = true)` | Open a confirmation modal on remove |
+| `minRows` / `maxRows` ⭐ | `minRows(int)` / `maxRows(int)` | Cardinality limits enforced in the UI |
+| `collapsible` ⭐ | `collapsible(bool = true)` | Add collapse chevron to every row |
+| `collapsedByDefault` ⭐ | `collapsedByDefault(bool = true)` | Start collapsed |
+| `reorderable` ⭐ | `reorderable(bool = true, ?string $column = null)` | Drag-and-drop reorder |
+| `dependsOn` ⭐ | `dependsOn(array<string>)` | Expose parent attributes to every inner field |
+| `rowTemplates` ⭐ | `rowTemplates(array)` | Pre-filled rows available in the Add menu |
+
+**Repeatable** header decorations (⭐): `icon`, `color`, `title` (template or closure),
+`badgeCount`. Row-level UX extras: duplicate button per row, bulk-paste modal that
+parses TSV/CSV/JSON.
 
 ---
 
@@ -1425,3 +2463,13 @@ MorphTo supports inline create per selected type. The create button appears afte
 
 - Nova resolves morphable types via `$morphTypes` array on the field. Martis uses `types()` with Resource classes.
 - Martis resolves the model class from the resource's `newModel()` method instead of requiring explicit morph maps (though morph maps are also supported).
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On `MorphTo` only the *Create* button (inline create) and the *View* action
+surface are affected (per the trait scope matrix). Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+*src/Fields/Concerns/ControlsRelationshipToolbar.php*

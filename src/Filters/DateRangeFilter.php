@@ -4,6 +4,8 @@ namespace Martis\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Martis\Enums\ComparisonOperator;
+use Martis\Enums\FilterType;
 
 /**
  * A date range filter for filtering records between two dates.
@@ -34,9 +36,9 @@ class DateRangeFilter extends Filter
         return new static($name, $uriKey);
     }
 
-    public function filterType(): string
+    public function filterType(): FilterType
     {
-        return 'date-range';
+        return FilterType::DateRange;
     }
 
     /**
@@ -56,11 +58,11 @@ class DateRangeFilter extends Filter
         }
 
         if (! empty($value['from'])) {
-            $query->whereDate($this->column, '>=', $value['from']);
+            $query->whereDate($this->column, ComparisonOperator::GreaterThanOrEqual->value, $value['from']);
         }
 
         if (! empty($value['to'])) {
-            $query->whereDate($this->column, '<=', $value['to']);
+            $query->whereDate($this->column, ComparisonOperator::LessThanOrEqual->value, $value['to']);
         }
 
         return $query;

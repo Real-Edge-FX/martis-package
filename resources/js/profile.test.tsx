@@ -85,31 +85,41 @@ describe('AccountSection', () => {
 
 // --- PasswordSection tests ---
 describe('PasswordSection', () => {
-  it('renders password fields', () => {
+  it('renders password fields and reveals the checklist once the user types', () => {
     wrap(<PasswordSection />)
     expect(screen.getByLabelText('Current Password')).toBeDefined()
-    expect(screen.getByLabelText('New Password')).toBeDefined()
-    expect(screen.getByLabelText('Confirm New Password')).toBeDefined()
+    // New / Confirm inputs render as PasswordFieldInput — id matches `field.attribute`.
+    expect(document.getElementById('password')).not.toBeNull()
+    expect(document.getElementById('password_confirmation')).not.toBeNull()
+
+    // Checklist is hidden while the input is empty — avoids misleading the
+    // user in edit flows where "empty means keep current".
+    expect(document.querySelector('[data-testid="password-requirements-password"]')).toBeNull()
+
+    // As soon as the user types anything, the checklist appears.
+    fireEvent.change(document.getElementById('password')!, { target: { value: 'a' } })
+    expect(document.querySelector('[data-testid="password-requirements-password"]')).not.toBeNull()
   })
 
-  it('shows mismatch error when passwords differ', async () => {
+  it('live match indicator flips to mismatch when the confirmation differs', () => {
     wrap(<PasswordSection />)
-    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'password123' } })
-    fireEvent.change(screen.getByLabelText('Confirm New Password'), { target: { value: 'different123' } })
-    fireEvent.click(screen.getByRole('button', { name: /update password/i }))
-    await waitFor(() => {
-      expect(screen.getByText(/do not match/i)).toBeDefined()
-    })
+    fireEvent.change(document.getElementById('password')!, { target: { value: 'Password123!' } })
+    fireEvent.change(document.getElementById('password_confirmation')!, { target: { value: 'Different!' } })
+    const status = document.querySelector('[data-testid="password-confirm-status-password_confirmation"]')
+    expect(status).not.toBeNull()
+    expect(status!.getAttribute('data-status')).toBe('mismatch')
   })
 
-  it('shows min length error for short password', async () => {
+  it('checklist flips each requirement to passes=true when the criterion is satisfied', () => {
     wrap(<PasswordSection />)
-    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'short' } })
-    fireEvent.change(screen.getByLabelText('Confirm New Password'), { target: { value: 'short' } })
-    fireEvent.click(screen.getByRole('button', { name: /update password/i }))
-    await waitFor(() => {
-      expect(screen.getByText(/at least 8/i)).toBeDefined()
-    })
+    const input = document.getElementById('password')!
+    fireEvent.change(input, { target: { value: 'Str0ng-Pwd!' } })
+
+    const checklist = document.querySelector('[data-testid="password-requirements-password"]')!
+    expect(checklist.querySelector('[data-requirement="minLength"]')!.getAttribute('data-passes')).toBe('true')
+    expect(checklist.querySelector('[data-requirement="uppercase"]')!.getAttribute('data-passes')).toBe('true')
+    expect(checklist.querySelector('[data-requirement="number"]')!.getAttribute('data-passes')).toBe('true')
+    expect(checklist.querySelector('[data-requirement="symbol"]')!.getAttribute('data-passes')).toBe('true')
   })
 })
 

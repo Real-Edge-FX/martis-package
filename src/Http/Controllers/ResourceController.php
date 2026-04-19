@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
+use Martis\Enums\SortDirection;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\DeferredRelationSync;
@@ -81,7 +83,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToViewAny($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         /** @var class-string<Model> $modelClass */
@@ -95,11 +97,12 @@ class ResourceController extends MartisController
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
         if ($resourceClass::softDeletes() && $resourceClass::canViewTrashed()) {
-            $trashed = $request->query('trashed', '');
-            if ($trashed === 'with') {
+            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
+                ?? TrashedFilter::Active;
+            if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query = $modelClass::withTrashed();
-            } elseif ($trashed === 'only') {
+            } elseif ($trashed === TrashedFilter::Only) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query = $modelClass::onlyTrashed();
             }
@@ -117,7 +120,7 @@ class ResourceController extends MartisController
         $this->applySorting($request, $query, $resourceClass);
 
         $perPage = min(
-            (int) ($request->query('per_page', (string) $resourceClass::perPage())),
+            (int) ($request->query('per_page', (string) $resourceClass::resolvedPerPage())),
             (int) config('martis.pagination.max_per_page', 100),
         );
 
@@ -199,21 +202,24 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Support ?context=update so edit forms get raw attribute values
         $context = $request->query('context', 'detail');
+        $forDisplay = true;
         if ($context === 'update') {
             $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
+            $forDisplay = false;
         } elseif ($context === 'create') {
             $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
+            $forDisplay = false;
         } else {
             $fields = Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL);
         }
 
         return JsonResponse::make(
-            $this->serializeModel($res, $fields, $model),
+            $this->serializeModel($res, $fields, $model, $forDisplay),
         )->toResponse();
     }
 
@@ -247,7 +253,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $model = $resourceClass::newModel();
@@ -320,7 +326,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToUpdate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
@@ -398,7 +404,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -462,7 +468,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToRestore($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $model->restore();
@@ -514,7 +520,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToForceDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -566,7 +572,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToReplicate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Create in-memory replica using Eloquent replicate() — does NOT save to DB
@@ -616,7 +622,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
@@ -663,7 +669,7 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Block nested inline create (Nova v5: only one level deep)
@@ -735,10 +741,27 @@ class ResourceController extends MartisController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToViewAny($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = $instance->fields($request);
+        // Flatten layout containers (Panel/Section/TabGroup) a resource may
+        // have placed inside fields(). The schema/fieldData endpoint wants
+        // FieldContract instances only — Sections exist for rendering,
+        // not for the field catalogue.
+        $flattenFields = function (array $items) use (&$flattenFields): array {
+            $out = [];
+            foreach ($items as $item) {
+                if ($item instanceof FieldContract) {
+                    $out[] = $item;
+                } elseif (method_exists($item, 'getFields')) {
+                    $out = array_merge($out, $flattenFields($item->getFields()));
+                } elseif (method_exists($item, 'fields')) {
+                    $out = array_merge($out, $flattenFields($item->fields()));
+                }
+            }
+            return $out;
+        };
+        $fields = $flattenFields($instance->fields($request));
         $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
 
         // Context-specific field arrays — resolved then filtered by visibility
@@ -749,9 +772,26 @@ class ResourceController extends MartisController
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
         $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
         $filters = $this->serializeFilters($instance->filters($request), $request);
-        $lenses = $this->serializeSchemaDescriptors($instance->lenses($request));
-        $cards = $this->serializeSchemaDescriptors($instance->cards($request));
-        $dashboards = $this->serializeSchemaDescriptors($resourceClass::dashboards());
+        $lenses = $this->serializeSchemaDescriptors(
+            $this->filterAuthorizedToSee($instance->lenses($request), $request),
+        );
+        $cards = $this->serializeSchemaDescriptors(
+            $this->filterAuthorizedToSee($instance->cards($request), $request),
+        );
+        $dashboards = $this->serializeSchemaDescriptors(
+            $this->filterAuthorizedToSee($resourceClass::dashboards(), $request),
+        );
+
+        // Serialize actions inline so the frontend doesn't need a second
+        // round-trip to /api/resources/{res}/actions — this eliminates the
+        // "inline actions flash" where they disappear briefly on refresh.
+        $actions = array_values(array_map(
+            fn (ActionContract $a) => $a->jsonSerialize(),
+            array_filter(
+                $instance->actions($request),
+                fn (ActionContract $a) => $a->authorizedToSee($request),
+            ),
+        ));
 
         $data = [
             'uriKey' => $resourceClass::uriKey(),
@@ -767,7 +807,7 @@ class ResourceController extends MartisController
             'indexSearchable' => $resourceClass::indexSearchable(),
             'usesScout' => $resourceClass::usesScout(),
             'perPageOptions' => $resourceClass::perPageOptions(),
-            'perPage' => $resourceClass::perPage(),
+            'perPage' => $resourceClass::resolvedPerPage(),
             'searchPlaceholder' => $resourceClass::searchPlaceholder(),
             'fields' => $fieldData,
             'fieldsForIndex' => $fieldsForIndex,
@@ -793,9 +833,14 @@ class ResourceController extends MartisController
             ],
             'errorDisplay' => $resourceClass::errorDisplay()->value,
             'actionsMenuLabel' => $resourceClass::actionsMenuLabel(),
+            'actionsColumnLabel' => $resourceClass::actionsColumnLabel(),
             'bulkActionsMenuLabel' => $resourceClass::bulkActionsMenuLabel(),
+            'confirmUnsavedChanges' => $this->serializeUnsavedChangesConfig($resourceClass::confirmUnsavedChanges()),
             'validationMessage' => $resourceClass::validationMessage(),
             'overrides' => $instance->overrides(),
+            'defaultRowActions' => $instance->resolveDefaultRowActions($request),
+            'rowClickOpensDetail' => $instance->resolveRowClickOpensDetail($request),
+            'actions' => $actions,
         ];
 
         return JsonResponse::make($data)->toResponse();
@@ -848,11 +893,35 @@ class ResourceController extends MartisController
     }
 
     /**
+     * Drop items whose `authorizedToSee(Request)` returns false.
+     *
+     * Items without the method (or that are plain arrays) are kept as-is.
+     *
+     * @template T
+     *
+     * @param  iterable<int, T>  $items
+     * @return list<T>
+     */
+    private function filterAuthorizedToSee(iterable $items, Request $request): array
+    {
+        $result = [];
+        foreach ($items as $item) {
+            if (is_object($item) && method_exists($item, 'authorizedToSee')) {
+                if (! $item->authorizedToSee($request)) {
+                    continue;
+                }
+            }
+            $result[] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
      * Normalize schema descriptors to plain arrays.
      *
      * Accepts plain arrays or lightweight descriptor objects that expose
-     * a toArray() method. This keeps task-1 hooks flexible while the full
-     * implementations are still pending.
+     * a toArray() method.
      *
      * @param  array<int, mixed>  $items
      * @return list<array<string, mixed>>
@@ -921,7 +990,7 @@ class ResourceController extends MartisController
             $instance = new $resourceClass;
 
             if (! $instance->authorizedToViewAny($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
 
             // Find the relationship field in the resource fields
@@ -957,7 +1026,7 @@ class ResourceController extends MartisController
         if ($relatedUriKey !== null && $this->registry->has($relatedUriKey)) {
             $relatedCheck = new ($this->registry->get($relatedUriKey));
             if (! $relatedCheck->authorizedToViewAny($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 
@@ -1060,6 +1129,25 @@ class ResourceController extends MartisController
         $reflection = new \ReflectionProperty($field, 'relatedUriKey');
 
         return $reflection->getValue($field);
+    }
+
+    /**
+     * Serialise the `confirmUnsavedChanges()` return value into the shape
+     * the frontend expects: `false` (disabled), `true` (package defaults),
+     * or an array merged over the defaults.
+     *
+     * @return bool|array<string, mixed>
+     */
+    private function serializeUnsavedChangesConfig(mixed $value): bool|array
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if ($value instanceof \Martis\Contracts\UnsavedChangesConfigContract) {
+            return $value->toArray();
+        }
+
+        return false;
     }
 
     // Internal helpers
@@ -1246,12 +1334,9 @@ class ResourceController extends MartisController
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
         $rawSort = $request->query('sort');
-        $rawDirection = $request->query('direction', 'asc');
-        $direction = strtolower(is_string($rawDirection) ? $rawDirection : 'asc');
-
-        if (! in_array($direction, ['asc', 'desc'], true)) {
-            $direction = 'asc';
-        }
+        $direction = SortDirection::tryFrom(
+            strtolower((string) $request->query('direction', 'asc'))
+        ) ?? SortDirection::Asc;
 
         if (! is_string($rawSort) || $rawSort === '') {
             return;
@@ -1271,7 +1356,7 @@ class ResourceController extends MartisController
             return;
         }
 
-        $query->orderBy($sort, $direction);
+        $query->orderBy($sort, $direction->value);
     }
 
     /**
@@ -1282,13 +1367,19 @@ class ResourceController extends MartisController
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?string $validationMessage = null): ?IlluminateJsonResponse
     {
         $rules = [];
+        $attributes = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
 
             if ($isUpdate) {
-                // On update, fields are optional unless explicitly provided
-                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule $r): bool => is_string($r) && $r !== 'required'));
+                // On update, fields are optional unless explicitly provided.
+                // Rules can be strings, Rule objects, or Closures — we drop
+                // the literal 'required' string and keep everything else.
+                $fieldRules = array_values(array_filter(
+                    $fieldRules,
+                    fn ($r): bool => ! (is_string($r) && $r === 'required')
+                ));
                 if (empty($fieldRules)) {
                     $fieldRules = ['sometimes'];
                 } elseif (! in_array('sometimes', $fieldRules, true)) {
@@ -1297,6 +1388,10 @@ class ResourceController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+
+            if ($field instanceof Field) {
+                $attributes[$field->attribute()] = $field->label();
+            }
 
             // Add item-level validation rules for multiple file fields
             if (method_exists($field, 'buildItemRules')) {
@@ -1319,7 +1414,7 @@ class ResourceController extends MartisController
             }
         }
 
-        $validator = Validator::make($request->all(), $rules, $customMessages);
+        $validator = Validator::make($request->all(), $rules, $customMessages, $attributes);
 
         if ($validator->fails()) {
             $msg = $validationMessage ?? 'The given data was invalid.';
@@ -1372,7 +1467,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW);
@@ -1400,6 +1495,7 @@ class ResourceController extends MartisController
     private function syncDeferredRelations(Model $model): void
     {
         DeferredRelationSync::sync($model);
+        \Martis\Fields\DeferredRepeaterSync::sync($model);
     }
 
     /**

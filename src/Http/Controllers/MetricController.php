@@ -106,7 +106,7 @@ class MetricController
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToViewAny($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $metric = $this->findMetric($instance->cards($request), $card, $request);

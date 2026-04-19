@@ -423,7 +423,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     void qc.invalidateQueries({ queryKey: ['relatable'] })
   }
 
-  const canShowCreateButton = showCreateRelationButton && !!selectedType
+  const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
+  const canShowCreateButton = showCreateRelationButton && !!selectedType && !hideCreateButton
   const selectedTypeLabel = morphTypes?.find(t => t.value === selectedType)?.label ?? selectedType
 
   return (
@@ -437,7 +438,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
           className="martis-input block w-full rounded-md border px-3 py-2 text-sm"
           style={{
             backgroundColor: 'var(--martis-input-bg)',
-            borderColor: error ? '#ef4444' : 'var(--martis-border)',
+            borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
             color: 'var(--martis-text)',
             opacity: field.readonly ? 0.6 : 1,
           }}
@@ -466,7 +467,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               className="martis-belongs-to-trigger"
               style={{
                 flex: 1,
-                borderColor: error ? '#ef4444' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
+                borderColor: error ? 'var(--martis-danger)' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
                 opacity: field.readonly ? 0.6 : 1,
                 cursor: field.readonly ? 'not-allowed' : 'pointer',
               }}

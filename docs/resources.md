@@ -182,20 +182,46 @@ Configures the "per page" dropdown on the index page.
 ```php
 public function perPageOptions(): array
 {
-    return [10, 25, 50, 100]; // default: [15, 25, 50]
+    return [10, 25, 50, 100]; // default: [10, 25, 50, 100]
 }
 ```
 
 ### perPage()
 
-Sets the default number of records shown per page. Defaults to the first value in `perPageOptions()`.
+Sets the default number of records shown per page. Falls back to `config('martis.pagination.default_per_page')` (25 out of the box).
 
 ```php
 public static function perPage(): int
 {
-    return 25; // default: first item of perPageOptions()
+    return 25;
 }
 ```
+
+### Effective per-page
+
+`perPageOptions()` is the source of truth for the page-size dropdown. When the value returned by `perPage()` is not in that list, Martis silently clamps it to `perPageOptions()[0]`. This Option A behaviour keeps the dropdown and the actual filter in sync — no more "I set 7 in `perPage()` but the dropdown only shows 10/25/50 and returns 25".
+
+Three rules govern it:
+
+1. `perPageOptions()` is the canonical list. The dropdown renders exactly what this returns.
+2. If `perPage()` is not in `perPageOptions()`, Martis clamps to `perPageOptions()[0]`. The clamp is silent (no warning, no exception).
+3. Relation fields (`HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany`) inherit the related resource's `perPageOptions()` when the developer did not call `->perPageOptions([...])` on the field itself. See [relationships.md](relationships.md).
+
+Two public accessors expose the clamped value:
+
+| Method | Return | Notes |
+|---|---|---|
+| `Resource::resolvedPerPage(): int` | Clamped value used everywhere the backend or API needs a single "effective" per-page. | Use this in custom controllers instead of `perPage()`. |
+| `Lens::resolvedPerPage(): int` | Same rule for lenses. | See [lenses.md — Effective per-page](lenses.md#effective-per-page). |
+
+```php
+public static function perPageOptions(): array { return [10, 25, 50, 100]; }
+public static function perPage(): int          { return 7; } // not in options
+
+// Resource::resolvedPerPage() === 10 — clamped to first option.
+```
+
+Source: `src/Resource.php::resolvedPerPage()`.
 
 ### defaultSort() / defaultSortDirection()
 
@@ -207,11 +233,45 @@ public static function defaultSort(): ?string
     return 'created_at';
 }
 
-public static function defaultSortDirection(): string
+public static function defaultSortDirection(): SortDirection
 {
-    return 'desc'; // 'asc' or 'desc'
+    return SortDirection::Desc; // SortDirection::Asc or SortDirection::Desc
 }
 ```
+
+## Query Hooks
+
+Static query hooks wrap every Eloquent query built by Martis for this resource. They run server-side before pagination and coexist with authorization policies — policies decide *who* can query, query hooks decide *which rows* are visible.
+
+### indexQuery()
+
+Constrains every index listing query. The canonical place for multi-tenancy, ownership scoping, or any other structural filter that must apply to every listing, export, and lens built on top of this resource.
+
+```php
+public static function indexQuery(Request $request, Builder $query): Builder
+{
+    return $query->where('tenant_id', $request->user()?->tenant_id);
+}
+```
+
+Override when: you need a global constraint on the index that is *not* a user-configurable filter (filters are opt-in; `indexQuery()` is always applied).
+
+Nova v5 parity: `indexQuery(NovaRequest, Builder): Builder`. Source: `src/Resource.php::indexQuery()`.
+
+### relatableQuery()
+
+Constrains the query used to list candidate records in relationship autocompletes (BelongsTo dropdowns, Tag pickers, MorphTo search). Generic fallback — for per-relationship customisation, define `relatable{PluralModelName}()` instead.
+
+```php
+public static function relatableQuery(Request $request, Builder $query): Builder
+{
+    return $query->where('active', true); // never offer inactive records
+}
+```
+
+Override when: a BelongsTo/MorphTo selector should hide records that are otherwise valid on the index.
+
+Nova v5 parity: `relatableQuery(NovaRequest, Builder): Builder`. Source: `src/Resource.php::relatableQuery()`.
 
 ## Table Configuration
 
@@ -225,6 +285,60 @@ public function tableShowGridlines(): bool { return false; }     // Cell borders
 public static function tableSize(): TableSize { return TableSize::Normal; } // Small, Normal, Large
 public function tableRowHover(): bool      { return true; }      // Highlight on hover
 ```
+
+### actionsColumnLabel() / actionsMenuLabel() / bulkActionsMenuLabel()
+
+Per-resource overrides for the text shown on the row-actions column and its two menus. Return `null` to fall back to the i18n default (`martis::actions.actions`).
+
+| Method | Default | Controls |
+|---|---|---|
+| `actionsColumnLabel(): ?string` | `"Actions"` / `"Ações"` (i18n) | Header text of the row-actions column on the index. |
+| `actionsMenuLabel(): ?string` | `null` (falls back to i18n) | Label of the per-row "Actions" dropdown. |
+| `bulkActionsMenuLabel(): ?string` | `null` (falls back to i18n) | Label of the toolbar "Bulk Actions" dropdown shown when rows are selected. |
+
+```php
+public static function actionsColumnLabel(): ?string     { return 'Tools'; }
+public static function actionsMenuLabel(): ?string        { return 'Row tools'; }
+public static function bulkActionsMenuLabel(): ?string    { return 'Batch tools'; }
+```
+
+### Row-click behaviour
+
+Whether clicking a row in the index opens the detail page is controlled by `rowClickOpensDetail(Request $request): ?bool` (per-resource override) and resolved to a concrete boolean by `resolveRowClickOpensDetail(Request $request): bool`. When the per-resource method returns `null`, the resolver falls back to `config('martis.index.row_click_opens_detail')`.
+
+See [Default Row Actions — Row click](default_row_actions.md#row-click) for the full decision matrix.
+
+### confirmUnsavedChanges()
+
+Martis differential (no Nova v5 equivalent). Opts the create/update surfaces — both drawer overrides and full-page create/update routes — into the **UnsavedChangesDialog**. When the user tries to discard changes (close the drawer, navigate away, click Cancel), the dialog asks for confirmation.
+
+```php
+// Enable with package defaults (generic copy).
+public static function confirmUnsavedChanges(): bool
+{
+    return true;
+}
+
+// Or enable and customise copy, icon, colours, button labels.
+public static function confirmUnsavedChanges(): \Martis\Contracts\UnsavedChangesConfigContract
+{
+    return \Martis\UnsavedChangesConfig::make()
+        ->title('Discard post changes?')
+        ->body('Your edits to this post will be lost.')
+        ->confirmLabel('Discard')
+        ->cancelLabel('Keep editing');
+}
+```
+
+Three return shapes:
+
+- `false` (default) — dialog disabled; forms close silently.
+- `true` — dialog enabled with package defaults.
+- `UnsavedChangesConfigContract` — dialog enabled with custom title/body/icon/colours/button labels.
+
+The resource-level `archiveConfirmMessage()`, `deleteConfirmMessage()`, and `forceDeleteConfirmMessage()` methods (see [Custom Messages](#custom-messages)) win over the generic per-variant defaults of this dialog.
+
+Source: `src/Resource.php::confirmUnsavedChanges()`.
 
 ## Validation
 
@@ -337,15 +451,37 @@ Event::listen(AfterSave::class, function (AfterSave $event) {
 
 ## Custom Messages
 
-Override the default notification messages shown after CRUD operations:
+Override the default notification messages and confirm dialogs shown after CRUD operations. Every method returns a string; the default implementation pulls from `martis::messages.*` so translations flow through Laravel's `__()` helper.
+
+| Method | When shown | Default i18n key |
+|---|---|---|
+| `createdMessage()` | Toast after `POST /resources/:key` succeeds. | `martis::messages.record_created` |
+| `updatedMessage()` | Toast after `PUT /resources/:key/:id` succeeds. | `martis::messages.record_updated` |
+| `deletedMessage()` | Toast after `DELETE /resources/:key/:id` succeeds. | `martis::messages.record_deleted` |
+| `restoredMessage()` | Toast after a soft-deleted record is restored. | `martis::messages.record_restored` |
+| `forceDeletedMessage()` | Toast after a soft-deleted record is permanently deleted. | `martis::messages.record_force_deleted` |
+| `replicatedMessage()` | Toast after a record is duplicated via the Replicate action. | `martis::messages.record_replicated` |
+| `deleteConfirmMessage()` | Body of the destructive-delete confirm dialog. | `martis::messages.delete_confirm` |
+| `archiveConfirmMessage()` | Body of the soft-delete (archive) confirm dialog. | `martis::messages.archive_confirm` |
+| `forceDeleteConfirmMessage()` | Body of the force-delete confirm dialog (trashed records only). | `martis::messages.force_delete_confirm` |
+| `validationMessage()` | Toast shown when validation fails and `errorDisplay()` includes toast mode. | `martis::messages.validation_failed` |
+
+Example overrides:
 
 ```php
-public static function createdMessage(): string       { return 'Post created successfully!'; }
-public static function updatedMessage(): string        { return 'Post updated.'; }
-public static function deletedMessage(): string        { return 'Post removed.'; }
-public static function deleteConfirmMessage(): string  { return 'Are you sure you want to delete this post?'; }
-public static function validationMessage(): string     { return 'Please fix the errors in the form.'; }
+public static function createdMessage(): string            { return 'Post published!'; }
+public static function updatedMessage(): string             { return 'Post updated.'; }
+public static function deletedMessage(): string             { return 'Post removed.'; }
+public static function restoredMessage(): string            { return 'Post restored.'; }
+public static function forceDeletedMessage(): string        { return 'Post permanently deleted.'; }
+public static function replicatedMessage(): string          { return 'Post duplicated.'; }
+public static function archiveConfirmMessage(): string      { return 'Archive this post? You can restore it later.'; }
+public static function deleteConfirmMessage(): string       { return 'Delete this post permanently?'; }
+public static function forceDeleteConfirmMessage(): string  { return 'This post will be gone forever. Continue?'; }
+public static function validationMessage(): string          { return 'Please fix the errors in the form.'; }
 ```
+
+> The three `*ConfirmMessage()` methods on the Resource win over the dialog's per-variant localized defaults. That is, if you override `archiveConfirmMessage()`, the UnsavedChangesDialog surfaces that string instead of its own generic archive copy.
 
 ## Soft Deletes
 
@@ -390,6 +526,55 @@ Email::make('email')->searchable(),
 
 The search bar on the index page queries all searchable fields using a `LIKE %term%` query. For more advanced search, Martis supports Laravel Scout integration via the `SearchResolver`.
 
+### globallySearchable()
+
+Controls whether the resource participates in the Cmd+K global search modal. Defaults to `true` — opt out to hide internal or noisy resources from the palette.
+
+```php
+public static function globallySearchable(): bool
+{
+    return false; // exclude from Cmd+K
+}
+```
+
+Nova v5 parity: `public static $globallySearchable = true;`. Source: `src/Resource.php::globallySearchable()`.
+
+### searchSubtitle()
+
+Returns the per-record subtitle shown under the title in global-search results. Receives the current model so you can pull from any attribute.
+
+```php
+public function searchSubtitle(Model $model): ?string
+{
+    return $model->email; // e.g. "john@acme.com" under "John Doe"
+}
+```
+
+Return `null` (default) to show no subtitle. Nova v5 parity: `public function subtitle($resource)`. Source: `src/Resource.php::searchSubtitle()`.
+
+### Laravel Scout integration
+
+When the underlying Eloquent model uses the `Laravel\Scout\Searchable` trait, Martis automatically uses Scout for searches instead of `LIKE %term%`. Two hooks customise the integration:
+
+| Method | Purpose |
+|---|---|
+| `usesScout(): bool` | `true` when the model is `Searchable`; override to `false` to force database search even when the trait is present. |
+| `scoutQuery(Request $request, mixed $query): mixed` | Customise the Scout builder (add `where`, filters, callbacks). Only called when `usesScout()` is `true`. |
+
+```php
+public static function usesScout(): bool
+{
+    return auth()->user()?->prefers_scout === true;
+}
+
+public static function scoutQuery(Request $request, mixed $query): mixed
+{
+    return $query->where('tenant_id', $request->user()?->tenant_id);
+}
+```
+
+The `public static ?int $scoutSearchResults = null;` static property caps the number of hits Scout returns (Nova v5 parity). Source: `src/Resource.php` (Scout integration section).
+
 ## Authorization
 
 Martis implements full **Nova v5 parity** for authorization with dedicated resource policies, auto-discovery, and comprehensive ability checking.
@@ -424,6 +609,16 @@ The policy namespace defaults to App\Martis\Policies and can be configured via c
 |---------|----------|-------------------|
 | runAction | Normal (non-destructive) actions | fallback to update |
 | runDestructiveAction | Destructive actions | fallback to delete |
+
+The matching hooks on the Resource base class are:
+
+| Method | Policy method checked | Fallback when policy does not define it |
+|---|---|---|
+| `authorizedToReplicate(Request $request): bool` | `replicate` | Must pass **both** `authorizedToCreate()` AND `authorizedToUpdate()`. |
+| `authorizedToRunAction(Request $request): bool` | `runAction` | Delegates to `authorizedToUpdate()`. |
+| `authorizedToRunDestructiveAction(Request $request): bool` | `runDestructiveAction` | Delegates to `authorizedToDelete()`. |
+
+Override these directly on a Resource to hardcode behaviour without writing a Policy method — see [Disabling Specific Action Buttons](#disabling-specific-action-buttons) below.
 
 ### Relationship Abilities
 
@@ -614,7 +809,7 @@ class PostResource extends Resource
     public function group(): ?string { return 'Content'; }
     public static function perPageOptions(): array { return [10, 25, 50]; }
     public static function defaultSort(): ?string { return 'created_at'; }
-    public static function defaultSortDirection(): string { return 'desc'; }
+    public static function defaultSortDirection(): SortDirection { return SortDirection::Desc; }
 
     public function fields(Request $request): array
     {

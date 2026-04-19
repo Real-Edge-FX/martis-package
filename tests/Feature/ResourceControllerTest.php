@@ -7,9 +7,12 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Martis\Cards\Card;
 use Martis\Dashboards\Dashboard;
+use Illuminate\Database\Eloquent\Builder;
+use Martis\Enums\FilterType;
 use Martis\Filters\Filter as ResourceFilter;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Http\Requests\LensRequest;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -23,6 +26,27 @@ class PostModel extends Model
     protected $table = 'martis_test_posts';
 
     protected $fillable = ['title', 'body'];
+}
+
+class RecentlyUpdatedLens extends Lens
+{
+    public function query(LensRequest $request, Builder $query): Builder
+    {
+        return $query->orderByDesc('updated_at');
+    }
+}
+
+class PublishedStateFilter extends ResourceFilter
+{
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return $query->where('status', $value);
+    }
+
+    public function filterType(): FilterType
+    {
+        return FilterType::Select;
+    }
 }
 
 class SoftPostModel extends Model
@@ -99,6 +123,11 @@ class SchemaFoundationResource extends Resource
         return PostModel::class;
     }
 
+    public static function uriKey(): string
+    {
+        return 'schema-foundation-resources';
+    }
+
     public static function label(): string
     {
         return 'Schema Foundations';
@@ -124,7 +153,7 @@ class SchemaFoundationResource extends Resource
     public function filters(Request $request): array
     {
         return [
-            ResourceFilter::make('Published State')->withMeta([
+            PublishedStateFilter::make('Published State')->withMeta([
                 'options' => ['draft', 'published'],
             ]),
         ];
@@ -133,7 +162,7 @@ class SchemaFoundationResource extends Resource
     public function lenses(Request $request): array
     {
         return [
-            Lens::make('Recently Updated')->withMeta([
+            (new RecentlyUpdatedLens())->withMeta([
                 'description' => 'Foundation-only lens descriptor for schema testing.',
             ]),
         ];
@@ -159,23 +188,6 @@ class SchemaFoundationResource extends Resource
 // ---------------------------------------------------------------------------
 
 beforeEach(function () {
-    // Use the available MySQL connection
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => '3306',
-            'database' => 'martis_playground',
-            'username' => 'martis',
-            'password' => 'martis_password',
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => false,
-        ],
-    ]);
-
     // Disable auth middleware for API tests
     $this->withoutMiddleware(MartisAuthenticate::class);
 

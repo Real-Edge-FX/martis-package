@@ -3,6 +3,7 @@ import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { PanelDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
+import { FieldLabelTooltip } from './FieldLabelTooltip'
 
 // -------------------------------------------------------------------------
 // Panel — shared internal container
@@ -27,7 +28,7 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
   const panelId = `panel-content-${panel.title.toLowerCase().replace(/\s+/g, '-')}`
 
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+    <div className="rounded-lg" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
       {/* Panel header */}
       <div
         className={[
@@ -152,11 +153,22 @@ export function PanelInput({
           {fields.map((field) => (
             <div
               key={field.attribute}
-              className="col-span-12"
+              className="col-span-12 flex flex-col gap-1.5"
               style={{
                 gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
               }}
             >
+              <label
+                htmlFor={field.attribute}
+                className="block text-sm font-medium"
+                style={{ color: 'var(--martis-text-muted)' }}
+              >
+                {field.label}
+                {field.required && (
+                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                )}
+                <FieldLabelTooltip text={field.tooltip} />
+              </label>
               <FieldInput
                 field={field}
                 value={values[field.attribute]}
@@ -165,6 +177,7 @@ export function PanelInput({
                 resourceKey={resourceKey}
                 recordId={recordId}
                 context={context}
+                formValues={values}
               />
               {field.helpText && (
                 <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />

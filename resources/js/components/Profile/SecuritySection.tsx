@@ -134,8 +134,8 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                 className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
                 style={{
                   backgroundColor: 'var(--martis-surface-alt)',
-                  borderColor: '#dc2626',
-                  color: '#dc2626',
+                  borderColor: 'var(--martis-danger-hover)',
+                  color: 'var(--martis-danger-hover)',
                 }}
               >
                 <ShieldSlashIcon size={14} />
@@ -199,7 +199,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               disabled={disabling || !currentPassword}
               onClick={() => void handleDisable()}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: '#dc2626' }}
+              style={{ backgroundColor: 'var(--martis-danger-hover)' }}
             >
               <TrashIcon size={14} />
               {disabling ? t('saving') : t('2fa_disable_confirm')}
@@ -225,7 +225,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError('') }}
               onKeyDown={(e) => { if (e.key === 'Enter' && currentPassword) void handleDisable() }}
               className="w-full rounded-lg border px-3 py-2 text-sm martis-text martis-card-bg focus:outline-none focus:ring-2"
-              style={{ borderColor: passwordError ? '#ef4444' : 'var(--martis-border)' }}
+              style={{ borderColor: passwordError ? 'var(--martis-danger)' : 'var(--martis-border)' }}
               autoComplete="current-password"
             />
             {passwordError && (

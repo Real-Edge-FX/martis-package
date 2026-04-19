@@ -132,7 +132,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
         className={`martis-dropzone relative rounded-md border transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? '#ef4444' : 'var(--martis-border)',
+          borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
         }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
@@ -340,7 +340,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
         className={`martis-dropzone relative rounded-md border transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
         style={{
           backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? '#ef4444' : 'var(--martis-border)',
+          borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
         }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}

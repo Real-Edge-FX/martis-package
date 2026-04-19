@@ -17,7 +17,9 @@ use Martis\Contracts\FilterContract;
 use Martis\Contracts\LensContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
+use Martis\Enums\DefaultRowAction;
 use Martis\Enums\ErrorDisplayMode;
+use Martis\Enums\SortDirection;
 use Martis\Enums\TableSize;
 use Martis\Events\AfterDelete;
 use Martis\Events\AfterSave;
@@ -158,6 +160,24 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Resolve the effective per-page for this resource. When the developer's
+     * declared `perPage()` is not present in `perPageOptions()`, clamp to
+     * the first option so the dropdown and the actual filter stay in sync
+     * (Option A — "options list is the source of truth").
+     */
+    public static function resolvedPerPage(): int
+    {
+        $options = static::perPageOptions();
+        $perPage = static::perPage();
+
+        if ($options === [] || in_array($perPage, $options, true)) {
+            return $perPage;
+        }
+
+        return $options[0];
+    }
+
+    /**
      * Return the default sort column for the index listing.
      *
      * Override in concrete resources to sort by a specific column on load.
@@ -174,9 +194,9 @@ abstract class Resource implements ResourceContract
      *
      * Nova v5 parity: public static $defaultSortDirection.
      */
-    public static function defaultSortDirection(): string
+    public static function defaultSortDirection(): SortDirection
     {
-        return 'asc';
+        return SortDirection::Asc;
     }
 
     /** {@inheritDoc} */
@@ -631,6 +651,25 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Determine whether the user may update pivot data for a related model.
+     *
+     * Martis extension (beyond Nova v5): Policy method `updatePivot{Model}`.
+     * When the policy method is absent, falls back to `update` on the parent
+     * resource, because editing pivot columns is conceptually an edit of the
+     * parent's relationship state.
+     */
+    public function authorizedToUpdatePivot(Request $request, Model $relatedModel): bool
+    {
+        $ability = 'updatePivot'.class_basename($relatedModel);
+
+        if ($this->policyDefinesAbility($ability)) {
+            return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
+        }
+
+        return $this->authorizedToUpdate($request);
+    }
+
+    /**
      * Determine whether the user may add a new record of the given model type
      * (inline creation from a relationship field).
      *
@@ -658,6 +697,22 @@ abstract class Resource implements ResourceContract
      * @param  class-string<Model>  $relatedModelClass
      * @param  Model|null  $relatedModel  Specific instance for attach/detach checks
      */
+    /**
+     * Whether the resolved policy actually implements the given ability.
+     * Used when a relation ability needs to decide between a dedicated
+     * policy method and a fallback to a simpler ability.
+     */
+    protected function policyDefinesAbility(string $ability): bool
+    {
+        if (! static::authorizable()) {
+            return false;
+        }
+
+        $policy = static::resolvePolicy();
+
+        return $policy !== null && method_exists($policy, $ability);
+    }
+
     protected function checkRelationalPolicy(
         string $ability,
         string $relatedModelClass,
@@ -898,6 +953,46 @@ abstract class Resource implements ResourceContract
     public static function actionsMenuLabel(): ?string
     {
         return null;
+    }
+
+    /**
+     * Controls the "unsaved changes" confirmation dialog shown by the
+     * create/update surfaces (both drawer overrides and full-page
+     * create/update routes) before discarding user input.
+     *
+     * Three return shapes:
+     *   - `false` (default) → fully disabled; the form closes/navigates
+     *     silently. Opt in per-resource.
+     *   - `true` → enabled with the package defaults (generic copy).
+     *   - {@see \Martis\Contracts\UnsavedChangesConfigContract}
+     *     (e.g. {@see \Martis\UnsavedChangesConfig}) → enabled AND
+     *     overrides title / body / icon / colours / button labels.
+     */
+    public static function confirmUnsavedChanges(): bool|\Martis\Contracts\UnsavedChangesConfigContract
+    {
+        return false;
+    }
+
+    /**
+     * Header label for the row-actions column on the resource index.
+     *
+     * Returns the translated default ("Actions" / "Ações") but resources
+     * can override:
+     *   - return `null` to hide the header text (column still appears)
+     *   - return a custom string to rename it
+     */
+    public static function actionsColumnLabel(): ?string
+    {
+        try {
+            $translated = trans('martis::actions.actions');
+            if (is_string($translated) && $translated !== 'martis::actions.actions') {
+                return $translated;
+            }
+        } catch (\Throwable) {
+            // fall through to the hard-coded default
+        }
+
+        return 'Actions';
     }
 
     /**
@@ -1159,6 +1254,108 @@ abstract class Resource implements ResourceContract
     public function actions(Request $request): array
     {
         return [];
+    }
+
+    // -------------------------------------------------------------------------
+    // Default row actions — Martis differential
+    //
+    // Render a column of built-in row actions (view, edit, delete) on the
+    // resource index. Each icon is automatically disabled based on the row's
+    // authorization payload, so unauthorized users see the action but cannot
+    // trigger it. Custom inline actions (defined via actions() with showInline)
+    // always render AFTER the defaults.
+    //
+    // Override in a concrete resource to opt out or pick a subset:
+    //
+    //   public function defaultRowActions(Request $request): bool|array
+    //   {
+    //       return false;              // hide column entirely for this resource
+    //       return ['view', 'edit'];   // show only these two
+    //   }
+    // -------------------------------------------------------------------------
+
+    /**
+     * The default row actions for this resource.
+     *
+     * Returns `true` to use the global config, `false` to opt out, or a list
+     * of {@see DefaultRowAction} cases to show a specific subset.
+     *
+     * @return bool|list<DefaultRowAction>
+     */
+    public function defaultRowActions(Request $request): bool|array
+    {
+        return true;
+    }
+
+    /**
+     * Whether clicking on a row in the index opens the detail view.
+     *
+     * Return `null` to fall back to the global config
+     * (`index.row_click_opens_detail`). Set to `false` to avoid redundancy
+     * when the default row actions already expose a "view" icon.
+     */
+    public function rowClickOpensDetail(Request $request): ?bool
+    {
+        return null;
+    }
+
+    /**
+     * Resolve whether row-click opens detail for this resource, merging the
+     * per-resource override with the global config.
+     */
+    public function resolveRowClickOpensDetail(Request $request): bool
+    {
+        $override = $this->rowClickOpensDetail($request);
+
+        if ($override !== null) {
+            return $override;
+        }
+
+        return (bool) config('martis.index.row_click_opens_detail', true);
+    }
+
+    /**
+     * Resolve the default row actions configuration for this resource,
+     * merging the per-resource override with the global `enabled` switch.
+     *
+     * Visibility follows the Nova 5 convention:
+     *  - Global `enabled=false` in config/martis.php removes the whole
+     *    actions column across the app.
+     *  - Per-resource `defaultRowActions()` returning `false` opts out for
+     *    that resource.
+     *  - Per-resource `defaultRowActions()` returning an array whitelists
+     *    which actions are eligible to appear (they still must pass policy).
+     *  - When none of the above restricts, all three actions are eligible —
+     *    per-row authorization decides whether each appears enabled,
+     *    disabled, or hidden. The `hide*Action()` per-instance overrides on
+     *    relationship fields are applied in the frontend shell, after this.
+     *
+     * @return array{enabled: bool, view: bool, edit: bool, delete: bool}
+     */
+    public function resolveDefaultRowActions(Request $request): array
+    {
+        $globallyEnabled = (bool) config('martis.index.default_row_actions.enabled', true);
+
+        if (! $globallyEnabled) {
+            return ['enabled' => false, 'view' => false, 'edit' => false, 'delete' => false];
+        }
+
+        $resourceOverride = $this->defaultRowActions($request);
+
+        if ($resourceOverride === false) {
+            return ['enabled' => false, 'view' => false, 'edit' => false, 'delete' => false];
+        }
+
+        if (is_array($resourceOverride)) {
+            return [
+                'enabled' => true,
+                'view' => in_array(DefaultRowAction::View, $resourceOverride, true),
+                'edit' => in_array(DefaultRowAction::Edit, $resourceOverride, true),
+                'delete' => in_array(DefaultRowAction::Delete, $resourceOverride, true),
+            ];
+        }
+
+        return ['enabled' => true, 'view' => true, 'edit' => true, 'delete' => true];
     }
 
     // -------------------------------------------------------------------------

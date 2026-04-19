@@ -4,7 +4,9 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 use Martis\Resource;
 
@@ -33,6 +35,8 @@ use Martis\Resource;
  */
 class MorphTo extends Field
 {
+    use ControlsRelationshipToolbar;
+
     /** Eloquent relationship method name. */
     protected string $relationship;
 
@@ -259,13 +263,30 @@ class MorphTo extends Field
             return null;
         }
 
-        // Load the related model
+        // Load the related model. When the related model uses SoftDeletes,
+        // include trashed rows so the title keeps resolving even when the
+        // parent was soft-deleted — otherwise the UI would fall back to the
+        // numeric ID.
         $camelRelationship = Str::camel($this->relationship);
         $related = null;
+        $relationshipName = null;
         if (method_exists($model, $this->relationship)) {
-            $related = $model->{$this->relationship};
+            $relationshipName = $this->relationship;
         } elseif ($camelRelationship !== $this->relationship && method_exists($model, $camelRelationship)) {
-            $related = $model->{$camelRelationship};
+            $relationshipName = $camelRelationship;
+        }
+        if ($relationshipName !== null) {
+            $relation = $model->{$relationshipName}();
+            $relatedClass = get_class($relation->getRelated());
+            $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($relatedClass), true);
+            if ($usesSoftDeletes) {
+                // withTrashed() is provided at runtime by SoftDeletingScope
+                // via __call — method_exists() cannot see it but the call
+                // still works.
+                $related = $relation->withTrashed()->first();
+            } else {
+                $related = $model->{$relationshipName};
+            }
         }
 
         // Resolve the resource URI key for the morph type
@@ -421,15 +442,24 @@ class MorphTo extends Field
     /**
      * Build the type options for the frontend dropdown.
      *
-     * @return list<array{value: string, label: string}>
+     * Each option is enriched with authorization flags for the related
+     * resource, so the frontend can hide the "create" action per-type
+     * when the current user is not allowed to create that type.
+     *
+     * @return list<array{value: string, label: string, authorizedToViewAny: bool, authorizedToCreate: bool}>
      */
     protected function buildTypeOptions(): array
     {
         $options = [];
         foreach ($this->morphTypes as $resourceClass) {
+            $uriKey = $resourceClass::uriKey();
+            $auth = $this->relatedResourceAuthorizations($uriKey);
+
             $options[] = [
-                'value' => $resourceClass::uriKey(),
+                'value' => $uriKey,
                 'label' => $resourceClass::singularLabel(),
+                'authorizedToViewAny' => $auth['authorizedToViewAny'] ?? true,
+                'authorizedToCreate' => $auth['authorizedToCreate'] ?? true,
             ];
         }
 
@@ -441,18 +471,30 @@ class MorphTo extends Field
      */
     protected function extraAttributes(): array
     {
+        $typeOptions = $this->buildTypeOptions();
+
+        // MorphTo has multiple related resources; allow the create button
+        // when at least one of the allowed morph types is creatable.
+        $anyAuthorizedToCreate = $typeOptions === [] ? true : false;
+        foreach ($typeOptions as $option) {
+            if (($option['authorizedToCreate'] ?? true) === true) {
+                $anyAuthorizedToCreate = true;
+                break;
+            }
+        }
+
         return [
             'relationship' => $this->relationship,
             'morphTypeColumn' => $this->morphTypeColumn,
             'morphIdColumn' => $this->morphIdColumn,
             'titleAttribute' => $this->titleAttribute,
-            'morphTypes' => $this->buildTypeOptions(),
+            'morphTypes' => $typeOptions,
             'relationSearchable' => $this->relationSearchable,
-            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
+            'showCreateRelationButton' => $this->isShowCreateRelationButton() && $anyAuthorizedToCreate,
             'modalSize' => $this->modalSize->value,
             'withSubtitles' => $this->withSubtitles,
             'subtitleAttribute' => $this->withSubtitles ? $this->subtitleAttribute : null,
             'peekable' => $this->peekable,
-        ];
+        ] + $this->relationshipToolbarControls();
     }
 }

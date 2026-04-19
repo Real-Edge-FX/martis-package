@@ -14,4 +14,5 @@ enum ModalSize: string
     case FiveExtraLarge = '5xl';
     case SixExtraLarge = '6xl';
     case SevenExtraLarge = '7xl';
+    case Fullscreen = 'fullscreen';
 }

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\MorphToMany;
@@ -77,14 +78,12 @@ class MorphToManyController extends MartisController
 
         // Sort
         $rawSort = $request->query('sort');
-        $rawDir = $request->query('direction', 'asc');
-        $dirStr = is_string($rawDir) ? $rawDir : 'asc';
-        $direction = in_array(strtolower($dirStr), ['asc', 'desc'], true)
-            ? strtolower($dirStr)
-            : 'asc';
+        $rawDir = $request->query('direction', SortDirection::Asc->value);
+        $dirStr = is_string($rawDir) ? $rawDir : SortDirection::Asc->value;
+        $direction = SortDirection::tryFrom(strtolower($dirStr)) ?? SortDirection::Asc;
 
         if (is_string($rawSort) && $rawSort !== '') {
-            $query->orderBy($rawSort, $direction);
+            $query->orderBy($rawSort, $direction->value);
         }
 
         $perPage = min((int) ($request->query('per_page', '10')), 100);
@@ -262,12 +261,14 @@ class MorphToManyController extends MartisController
 
         // Authorization
         if (! $this->canAttachRelated($request, $parentModel, $relatedModel, $ctx)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Check duplicates
         if (! $field->isAllowDuplicates()) {
-            $alreadyAttached = $relation->where($relatedModel->getKeyName(), $relatedModel->getKey())->exists();
+            $alreadyAttached = $relation
+                ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
+                ->exists();
             if ($alreadyAttached) {
                 return JsonErrorResponse::validation(
                     ['related_id' => ['This record is already attached.']],
@@ -331,7 +332,7 @@ class MorphToManyController extends MartisController
         }
 
         if (! $this->canDetachRelated($request, $parentModel, $relatedModel, $ctx)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -369,6 +370,7 @@ class MorphToManyController extends MartisController
         }
 
         [
+            'parentModel' => $parentModel,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
             'field' => $field,
@@ -388,14 +390,20 @@ class MorphToManyController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
+        if (! $this->canUpdatePivotRelated($request, $parentModel, $relatedModel, $ctx)) {
+            return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
+        }
+
         // Validate pivot fields
         $pivotRules = [];
+        $pivotAttributes = [];
         foreach ($pivotFields as $pf) {
             $fieldRules = array_values(array_filter($pf->buildRules(), fn ($r) => is_string($r) && $r !== 'required'));
             $pivotRules[$pf->attribute()] = $fieldRules === [] ? ['sometimes'] : array_merge(['sometimes'], $fieldRules);
+            $pivotAttributes[$pf->attribute()] = $pf->label();
         }
 
-        $validator = Validator::make($request->all(), $pivotRules);
+        $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
         if ($validator->fails()) {
             return JsonErrorResponse::validation(
                 $validator->errors()->toArray(),
@@ -460,7 +468,7 @@ class MorphToManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         // Find the MorphToMany field in the parent resource
@@ -553,7 +561,9 @@ class MorphToManyController extends MartisController
             }
 
             if (! $field->isAllowDuplicates()) {
-                $alreadyAttached = $relation->where($relatedModel->getKeyName(), $relatedModel->getKey())->exists();
+                $alreadyAttached = $relation
+                ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
+                ->exists();
                 if ($alreadyAttached) {
                     continue;
                 }
@@ -604,10 +614,12 @@ class MorphToManyController extends MartisController
         $pivotFields = $field->getPivotFields();
         if (! empty($pivotFields)) {
             $pivotRules = [];
+            $pivotAttributes = [];
             foreach ($pivotFields as $pf) {
                 $pivotRules[$pf->attribute()] = $pf->buildRules();
+                $pivotAttributes[$pf->attribute()] = $pf->label();
             }
-            $validator = Validator::make($request->all(), $pivotRules);
+            $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
             if ($validator->fails()) {
                 return JsonErrorResponse::validation(
                     $validator->errors()->toArray(),
@@ -660,6 +672,19 @@ class MorphToManyController extends MartisController
         $parentInstance = new $ctx['parentResourceClass']($parentModel);
         if (method_exists($parentInstance, 'authorizedToDetach')) {
             return $parentInstance->authorizedToDetach($request, $relatedModel);
+        }
+
+        return $parentInstance->authorizedToUpdate($request); // @phpstan-ignore-line
+    }
+
+    /**
+     * @param  array<string, mixed>  $ctx
+     */
+    private function canUpdatePivotRelated(Request $request, Model $parentModel, Model $relatedModel, array $ctx): bool
+    {
+        $parentInstance = new $ctx['parentResourceClass']($parentModel);
+        if (method_exists($parentInstance, 'authorizedToUpdatePivot')) {
+            return $parentInstance->authorizedToUpdatePivot($request, $relatedModel);
         }
 
         return $parentInstance->authorizedToUpdate($request); // @phpstan-ignore-line

@@ -27,9 +27,9 @@ export function ValueCard({ data }: ValueCardProps) {
       {previous !== undefined && value !== previous && (
         <div className="mt-2 flex items-center justify-center gap-1.5">
           {(change ?? 0) > 0 ? (
-            <ArrowUpIcon size={14} weight="bold" style={{ color: '#22c55e' }} />
+            <ArrowUpIcon size={14} weight="bold" style={{ color: 'var(--martis-success)' }} />
           ) : (change ?? 0) < 0 ? (
-            <ArrowDownIcon size={14} weight="bold" style={{ color: '#ef4444' }} />
+            <ArrowDownIcon size={14} weight="bold" style={{ color: 'var(--martis-danger)' }} />
           ) : (
             <MinusIcon size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
           )}
@@ -39,9 +39,9 @@ export function ValueCard({ data }: ValueCardProps) {
               style={{
                 color:
                   change > 0
-                    ? '#22c55e'
+                    ? 'var(--martis-success)'
                     : change < 0
-                      ? '#ef4444'
+                      ? 'var(--martis-danger)'
                       : 'var(--martis-text-muted)',
               }}
             >

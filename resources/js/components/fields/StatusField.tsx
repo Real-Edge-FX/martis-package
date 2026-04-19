@@ -75,14 +75,14 @@ export function StatusFieldDisplay({ field, value }: FieldDisplayProps) {
           style={{
             width: '1rem',
             height: '1rem',
-            backgroundColor: '#fee2e2',
-            color: '#b91c1c',
+            backgroundColor: 'var(--martis-danger-bg)',
+            color: 'var(--martis-danger-text)',
           }}
           aria-label="Failed"
         >
           ✕
         </span>
-        <span className="text-sm" style={{ color: '#b91c1c' }}>
+        <span className="text-sm" style={{ color: 'var(--martis-danger-text)' }}>
           {label}
         </span>
       </span>
@@ -97,8 +97,8 @@ export function StatusFieldDisplay({ field, value }: FieldDisplayProps) {
         style={{
           width: '1rem',
           height: '1rem',
-          backgroundColor: '#dcfce7',
-          color: '#15803d',
+          backgroundColor: 'var(--martis-success-bg)',
+          color: 'var(--martis-success-text)',
           fontWeight: 700,
         }}
         aria-label="Done"

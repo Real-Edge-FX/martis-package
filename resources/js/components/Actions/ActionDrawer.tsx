@@ -12,13 +12,21 @@ interface ActionDrawerProps {
   recordId?: string | number
   onClose: () => void
   onSuccess: () => void
+  /**
+   * Optional hook that lets the parent swap the drawer contents without
+   * navigating away from the current page. When defined, the detail drawer's
+   * "Edit" button re-uses the same drawer shell (index stays mounted behind
+   * the backdrop) instead of routing to `/edit` and leaving an empty page
+   * underneath the overlay.
+   */
+  onSwitchTo?: (next: { type: "create" | "detail" | "update"; resource: string; recordId?: string | number }) => void
 }
 
 /**
  * Renders a create, detail, or update drawer for any resource,
  * triggered by an ActionResponse (openCreate / openDetail / openUpdate).
  */
-export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: ActionDrawerProps) {
+export function ActionDrawer({ type, resource, recordId, onClose, onSuccess, onSwitchTo }: ActionDrawerProps) {
   const { addToast } = useToast()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -45,10 +53,17 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: A
 
   const C = DrawerComponent as React.ComponentType<OverrideProps>
 
+  // Pull the params the resource declared for this override (width,
+  // expandedWidth, subtitle, showIcon, …). Without this, DrawerShell
+  // falls back to its hard-coded defaults and renders at a different
+  // size than the create drawer opened from the index toolbar — which
+  // uses the same override params through OverrideResolver.
+  const overrideParams = (schema.overrides?.[type]?.params ?? {}) as Record<string, unknown>
+
   const overrideProps: OverrideProps = {
     schema,
     resource,
-    params: {},
+    params: overrideParams,
     record: null,
     recordId: recordId != null ? String(recordId) : null,
     navigate: (to: string) => navigate(to),
@@ -71,9 +86,18 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess }: A
       onClose()
     },
     onEdit: (id) => {
-      if (id != null) navigate(`/resources/${resource}/${id}/edit`)
+      if (id == null) return
+      if (onSwitchTo) {
+        onSwitchTo({ type: "update", resource, recordId: id })
+        return
+      }
+      navigate(`/resources/${resource}/${id}/edit`)
     },
     onView: (id) => {
+      if (onSwitchTo) {
+        onSwitchTo({ type: "detail", resource, recordId: id })
+        return
+      }
       navigate(`/resources/${resource}/${id}`)
     },
     addToast,

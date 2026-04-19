@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
@@ -14,6 +15,7 @@ use Martis\Contracts\FieldContract;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\MorphOne;
+use Martis\Fields\MorphOneOfMany;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
@@ -51,11 +53,20 @@ class MorphOneController extends MartisController
         }
 
         [
+            'parentModel' => $parentModel,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'morphOneField' => $morphOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        if ($morphOneField instanceof MorphOneOfMany) {
+            $scope = $morphOneField->getRuntimeScope();
+            $relatedModel = $scope !== null
+                ? $scope(clone $relation->getQuery())->first()
+                : $relation->first();
+        } else {
+            $relatedModel = $relation->first();
+        }
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -63,13 +74,44 @@ class MorphOneController extends MartisController
 
         $resInstance = new $relatedResourceClass($relatedModel);
 
-        return JsonResponse::make(
-            $this->serializeModel(
-                $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
-                $relatedModel,
-            )
-        )->toResponse();
+        // Same "count the underlying morphMany, not the promoted morphOne"
+        // concern as HasOneOfMany.
+        $ofManyMeta = null;
+        if ($morphOneField instanceof MorphOneOfMany) {
+            $relatedClass = get_class($relation->getRelated());
+            $fk = $relation->getForeignKeyName();
+            $parentKey = $parentModel->getKey();
+            $morphType = $relation->getMorphType();
+            $morphClass = $parentModel->getMorphClass();
+            $baseQuery = fn () => $relatedClass::query()
+                ->where($fk, $parentKey)
+                ->where($morphType, $morphClass);
+
+            $ofManyMeta = ['totalCount' => $baseQuery()->count()];
+            $fn = $morphOneField->getAggregateFunction();
+            $col = $morphOneField->getAggregateColumn();
+            if ($fn !== null && $col !== null) {
+                $agg = match ($fn->value) {
+                    'count' => (int) $baseQuery()->count($col === '*' ? '*' : $col),
+                    'sum' => $baseQuery()->sum($col),
+                    'min' => $baseQuery()->min($col),
+                    'max' => $baseQuery()->max($col),
+                    'avg' => $baseQuery()->avg($col),
+                    default => null,
+                };
+                $ofManyMeta['aggregate'] = ['fn' => $fn->value, 'column' => $col, 'value' => $agg];
+            }
+        }
+
+        $data = $this->serializeModel(
+            $resInstance,
+            Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            $relatedModel,
+        );
+
+        $meta = $ofManyMeta !== null ? ['ofMany' => $ofManyMeta] : [];
+
+        return JsonResponse::make($data, $meta)->toResponse();
     }
 
     /**
@@ -102,7 +144,7 @@ class MorphOneController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
         if (! $parentInstance->authorizedToAdd($request, $relatedModelClass)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $relatedInstance = new $relatedResourceClass;
@@ -176,7 +218,7 @@ class MorphOneController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
@@ -249,7 +291,7 @@ class MorphOneController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -304,7 +346,7 @@ class MorphOneController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = $parentInstance->fieldsForDetail($request);
@@ -327,8 +369,10 @@ class MorphOneController extends MartisController
 
         $relation = $parentModel->{$relationship}();
 
-        if (! $relation instanceof EloquentMorphOne) {
-            return JsonErrorResponse::notFound("'{$relationship}' is not a morphOne relationship.")->toResponse();
+        // Accept plain MorphOne (Nova parity) and MorphMany when the
+        // field is MorphOneOfMany using runtime ordering scope.
+        if (! $relation instanceof EloquentMorphOne && ! $relation instanceof EloquentMorphMany) {
+            return JsonErrorResponse::notFound("'{$relationship}' is not a morphOne or compatible morphMany-of-many relationship.")->toResponse();
         }
 
         $relatedResourceKey = $morphOneField->getRelatedResourceKey();
@@ -343,7 +387,7 @@ class MorphOneController extends MartisController
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;
             if (! $relatedCheck->authorizedToCreate($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 
@@ -390,6 +434,7 @@ class MorphOneController extends MartisController
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
     {
         $rules = [];
+        $attributes = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
@@ -404,9 +449,12 @@ class MorphOneController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+            if ($field instanceof Field) {
+                $attributes[$field->attribute()] = $field->label();
+            }
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($request->all(), $rules, [], $attributes);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(

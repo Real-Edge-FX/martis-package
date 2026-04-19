@@ -30,8 +30,9 @@ export function AccountSection({ name, email, onUpdate }: AccountSectionProps) {
       onUpdate(nameVal, emailVal)
       addToast('success', t('saved'))
     } catch (err) {
-      if (err instanceof ApiError && err.errors) {
-        setErrors(err.errorsByField())
+      if (err instanceof ApiError) {
+        addToast('error', err.message || t('error'))
+        if (err.errors) setErrors(err.errorsByField())
       } else {
         addToast('error', t('error'))
       }

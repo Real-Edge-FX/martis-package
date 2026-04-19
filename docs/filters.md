@@ -161,13 +161,14 @@ All filters extend `Martis\Filters\Filter`. To create a fully custom filter, ext
 ```php
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Martis\Enums\FilterType;
 use Martis\Filters\Filter;
 
 class RecentlyActiveFilter extends Filter
 {
-    public function filterType(): string
+    public function filterType(): FilterType
     {
-        return 'select'; // or 'boolean', 'date', 'date-range'
+        return FilterType::Select; // or Boolean, Date, DateRange
     }
 
     public function options(Request $request): array

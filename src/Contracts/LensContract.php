@@ -2,22 +2,29 @@
 
 namespace Martis\Contracts;
 
+use Closure;
+use Illuminate\Http\Request;
+
 /**
- * Contract for resource lens descriptors.
+ * Contract for Martis lenses.
  *
- * Task 1 foundation only: this contract defines the minimum schema surface
- * needed for resources to advertise lenses before the full lenses engine
- * is implemented.
+ * A lens represents an alternative query / view of a Resource's dataset
+ * (e.g. "Most Valuable Clients"). The full engine lives in
+ * {@see \Martis\Lenses\Lens}; this contract enumerates the minimum API
+ * shared by all lens implementations — concrete lenses extend the
+ * abstract base class.
  */
 interface LensContract
 {
-    public static function make(string $name, ?string $uriKey = null): static;
-
     public function name(): string;
 
     public function uriKey(): string;
 
     public function component(): ?string;
+
+    public function canSee(Closure $callback): static;
+
+    public function authorizedToSee(Request $request): bool;
 
     /**
      * @return array<string, mixed>
@@ -25,7 +32,7 @@ interface LensContract
     public function meta(): array;
 
     /**
-     * @return array{type: string, name: string, uriKey: string, component: string|null, meta: array<string, mixed>}
+     * @return array<string, mixed>
      */
     public function toArray(): array;
 }

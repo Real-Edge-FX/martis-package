@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Martis\Contracts\MetricContract;
 use Martis\Enums\CardStyle;
+use Martis\Enums\MetricType;
+use Martis\Enums\MetricWidthPreset;
+
+
 
 /**
  * Base class for all Martis metrics.
@@ -48,6 +52,13 @@ abstract class Metric implements MetricContract
     protected ?string $icon = null;
 
     /**
+     * Custom chart color (CSS color value or var). Martis extension.
+     * Used by Trend and Progress metrics for line/bar/progress fill.
+     * Falls back to --martis-accent if null.
+     */
+    protected ?string $color = null;
+
+    /**
      * Query scope applied by dashboard filters.
      * Set by MetricController before calling resolve().
      *
@@ -82,7 +93,7 @@ abstract class Metric implements MetricContract
     /**
      * The metric type identifier.
      */
-    abstract public function metricType(): string;
+    abstract public function metricType(): MetricType;
 
     public function name(): string
     {
@@ -116,10 +127,11 @@ abstract class Metric implements MetricContract
     /**
      * Set the card width.
      *
-     * Accepts either a 12-column grid value (1-12) or Nova-style strings
-     * ('1/3', '1/2', '2/3', 'full') which are auto-converted.
+     * Accepts either a 12-column grid value (1-12) or a {@see MetricWidthPreset}
+     * case. Nova-style strings ('1/3', '1/2', '2/3', 'full') are still accepted
+     * for BC and auto-converted via the preset enum.
      */
-    public function width(int|string $width): static
+    public function width(int|string|MetricWidthPreset $width): static
     {
         $this->width = $this->normalizeWidth($width);
 
@@ -149,21 +161,20 @@ abstract class Metric implements MetricContract
     }
 
     /**
-     * Convert Nova-style width strings to 12-column grid values.
+     * Convert Nova-style width strings or {@see MetricWidthPreset} to a
+     * 12-column grid value.
      */
-    protected function normalizeWidth(int|string $width): int
+    protected function normalizeWidth(int|string|MetricWidthPreset $width): int
     {
+        if ($width instanceof MetricWidthPreset) {
+            return $width->toGridCols();
+        }
+
         if (is_int($width)) {
             return max(1, min(12, $width));
         }
 
-        return match ($width) {
-            '1/3' => 4,
-            '1/2' => 6,
-            '2/3' => 8,
-            'full' => 12,
-            default => 4,
-        };
+        return (MetricWidthPreset::tryFrom($width) ?? MetricWidthPreset::OneThird)->toGridCols();
     }
 
     // -------------------------------------------------------------------------
@@ -380,6 +391,24 @@ abstract class Metric implements MetricContract
         return $this;
     }
 
+    /**
+     * Set the chart color for this metric. Martis extension.
+     *
+     * Accepts any CSS color value (hex, rgb, rgba, var(--name), or named color).
+     * Used by:
+     * - TrendMetric: line/area color
+     * - ProgressMetric: progress bar fill
+     * - ValueMetric: change indicator color (optional)
+     *
+     * @param  string  $color  CSS color value
+     */
+    public function color(string $color): static
+    {
+        $this->color = $color;
+
+        return $this;
+    }
+
     // -------------------------------------------------------------------------
     // Metadata
     // -------------------------------------------------------------------------
@@ -413,7 +442,7 @@ abstract class Metric implements MetricContract
     {
         return [
             'type' => 'metric',
-            'metricType' => $this->metricType(),
+            'metricType' => $this->metricType()->value,
             'name' => $this->name(),
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
@@ -426,6 +455,7 @@ abstract class Metric implements MetricContract
             'height' => $this->height,
             'style' => $this->cardStyle->value,
             'icon' => $this->icon,
+            'color' => $this->color,
             'meta' => $this->meta(),
         ];
     }

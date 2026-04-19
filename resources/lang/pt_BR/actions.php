@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'add_row' => 'Adicionar linha',
+    'remove' => 'Remover',
+    'reorder' => 'Reordenar',
+    'duplicate_row' => 'Duplicar linha',
+    'paste_rows' => 'Colar linhas',
     'create' => 'Criar',
     'edit' => 'Editar',
     'delete' => 'Excluir',
@@ -38,4 +43,9 @@ return [
     'pivot_fields' => 'Campos Pivot',
     'attach_related' => 'Vincular Registro',
     'select_all' => 'Selecionar todos',
+    'restore' => 'Restaurar',
+    'force_delete' => 'Excluir permanentemente',
+    'trashed_active' => 'Ativos',
+    'trashed_with' => 'Com excluídos',
+    'trashed_only' => 'Apenas excluídos',
 ];

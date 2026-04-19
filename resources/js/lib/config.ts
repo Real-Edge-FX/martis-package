@@ -24,6 +24,10 @@ export interface MartisSearchConfig {
 }
 
 export interface MartisDashboardConfig {
+  /** Show the personalised greeting ("Hello, {name}") on the dashboard. Default: true. */
+  showGreeting?: boolean
+  /** Show the welcome subtitle below the greeting. Default: true. */
+  showWelcome?: boolean
   showMetrics?: boolean
   showResourceCards?: boolean
 }

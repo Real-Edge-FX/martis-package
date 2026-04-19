@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { TabGroupDefinition, TabDefinition, FieldDefinition, PanelDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { PanelDisplay, PanelInput } from './PanelRenderer'
+import { FieldLabelTooltip } from './FieldLabelTooltip'
 
 // -------------------------------------------------------------------------
 // Tab navigation bar
@@ -109,7 +110,7 @@ export function TabsDisplay({
                 style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
               >
                 <dl>
-                  <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
+                  <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
                   <dd>
                     <FieldDisplay
                       field={field}
@@ -186,9 +187,20 @@ export function TabsInput({
             return (
               <div
                 key={field.attribute}
-                className="col-span-12"
+                className="col-span-12 flex flex-col gap-1.5"
                 style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
               >
+                <label
+                  htmlFor={field.attribute}
+                  className="block text-sm font-medium"
+                  style={{ color: 'var(--martis-text-muted)' }}
+                >
+                  {field.label}
+                  {field.required && (
+                    <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                  )}
+                  <FieldLabelTooltip text={field.tooltip} />
+                </label>
                 <FieldInput
                   field={field}
                   value={values[field.attribute]}
@@ -197,6 +209,7 @@ export function TabsInput({
                   resourceKey={resourceKey}
                   recordId={recordId}
                   context={context}
+                  formValues={values}
                 />
                 {field.helpText && (
                   <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />

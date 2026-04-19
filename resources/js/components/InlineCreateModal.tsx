@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next"
 import { XIcon, PlusIcon } from "@phosphor-icons/react"
 import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
+import { useModalHistoryLock } from "@/lib/historyLock"
 
 /** Modal size classes matching Nova v5 modal sizes */
 const MODAL_SIZE_CLASSES: Record<string, string> = {
@@ -58,6 +59,9 @@ export function InlineCreateModal({
   const { addToast } = useToast()
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
+
+  useModalHistoryLock(open)
+
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
 

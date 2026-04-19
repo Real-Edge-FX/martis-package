@@ -71,6 +71,8 @@ Landing page after login. Configurable via `config/martis.php`:
 
 ```php
 'dashboard' => [
+    'showGreeting' => true,
+    'showWelcome' => true,
     'showMetrics' => true,
     'showResourceCards' => true,
 ],

@@ -6,6 +6,64 @@ import { InputIcon } from 'primereact/inputicon'
 import { LockIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { PasswordFieldInput } from '@/components/fields/PasswordField'
+import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
+import type { FieldDefinition } from '@/types'
+
+// Note: the legacy `PasswordChecklist` component is no longer used here —
+// the ⭐ Password field stack renders its own live checklist + strength meter
+// via `showRequirements()`. Keeping the old component around while other
+// callers still reference it.
+
+// Profile uses the same Password + PasswordConfirmation field stack as any
+// resource form — strength meter, complexity checklist, live match indicator,
+// shared clear (×). The field metadata is built here client-side because the
+// profile endpoint does not expose a Martis Resource.
+
+function buildPasswordField(attribute: string, label: string): FieldDefinition {
+  return {
+    attribute,
+    label,
+    type: 'password',
+    nullable: false,
+    readonly: false,
+    required: true,
+    sortable: false,
+    searchable: false,
+    showOnIndex: false,
+    showOnDetail: false,
+    showOnForms: true,
+    // ⭐ Same defaults as the server-side Password field with every
+    // requirement enabled + checklist on.
+    strengthMeter: true,
+    showRequirements: true,
+    requirements: {
+      minLength: 8,
+      uppercase: true,
+      lowercase: true,
+      number: true,
+      symbol: true,
+      noCommon: true,
+    },
+  } as unknown as FieldDefinition
+}
+
+function buildConfirmField(attribute: string, confirms: string, label: string): FieldDefinition {
+  return {
+    attribute,
+    label,
+    type: 'password_confirmation',
+    nullable: true,
+    readonly: false,
+    required: true,
+    sortable: false,
+    searchable: false,
+    showOnIndex: false,
+    showOnDetail: false,
+    showOnForms: true,
+    confirms,
+  } as unknown as FieldDefinition
+}
 
 export function PasswordSection() {
   const { t } = useTranslation('profile')
@@ -16,14 +74,31 @@ export function PasswordSection() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
 
+  const nextField = buildPasswordField('password', t('new_password'))
+  const confirmField = buildConfirmField('password_confirmation', 'password', t('confirm_password'))
+
+  function allRequirementsMet(pwd: string): boolean {
+    return (
+      pwd.length >= 8 &&
+      /[A-Z]/.test(pwd) &&
+      /[a-z]/.test(pwd) &&
+      /\d/.test(pwd) &&
+      /[^A-Za-z0-9]/.test(pwd)
+    )
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const localErrors: Record<string, string> = {}
 
-    if (next.length < 8) localErrors.new_password = t('password_min')
-    if (next !== confirm) localErrors.confirm_password = t('password_mismatch')
-    if (Object.keys(localErrors).length > 0) {
-      setErrors(localErrors)
+    // The field components already surface live feedback (checklist, match
+    // indicator). Skip local error state — a single toast is enough; the
+    // inline visuals show exactly what's wrong.
+    if (!allRequirementsMet(next)) {
+      addToast('error', t('password_rules_unmet'))
+      return
+    }
+    if (next !== confirm) {
+      addToast('error', t('password_mismatch'))
       return
     }
 
@@ -40,8 +115,9 @@ export function PasswordSection() {
       setNext('')
       setConfirm('')
     } catch (err) {
-      if (err instanceof ApiError && err.errors) {
-        setErrors(err.errorsByField())
+      if (err instanceof ApiError) {
+        addToast('error', err.message || t('error'))
+        if (err.errors) setErrors(err.errorsByField())
       } else {
         addToast('error', t('error'))
       }
@@ -80,43 +156,29 @@ export function PasswordSection() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="new-password" className="text-sm font-medium martis-text-muted">
+          <label htmlFor="password" className="text-sm font-medium martis-text-muted">
             {t('new_password')}
           </label>
-          <IconField iconPosition="left">
-            <InputIcon><LockIcon size={14} /></InputIcon>
-            <InputText
-              id="new-password"
-              type="password"
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-              invalid={!!errors.new_password}
-              className="w-full"
-              autoComplete="new-password"
-              required
-            />
-          </IconField>
-          {errors.new_password && <small className="p-error">{errors.new_password}</small>}
+          <PasswordFieldInput
+            field={nextField}
+            value={next}
+            onChange={(v) => setNext(v === null || v === undefined ? '' : String(v))}
+            error={errors.new_password}
+            formValues={{ password: next }}
+          />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="confirm-password" className="text-sm font-medium martis-text-muted">
+          <label htmlFor="password_confirmation" className="text-sm font-medium martis-text-muted">
             {t('confirm_password')}
           </label>
-          <IconField iconPosition="left">
-            <InputIcon><LockIcon size={14} /></InputIcon>
-            <InputText
-              id="confirm-password"
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              invalid={!!errors.confirm_password}
-              className="w-full"
-              autoComplete="new-password"
-              required
-            />
-          </IconField>
-          {errors.confirm_password && <small className="p-error">{errors.confirm_password}</small>}
+          <PasswordConfirmationFieldInput
+            field={confirmField}
+            value={confirm}
+            onChange={(v) => setConfirm(v === null || v === undefined ? '' : String(v))}
+            error={errors.confirm_password}
+            formValues={{ password: next }}
+          />
         </div>
 
         <button

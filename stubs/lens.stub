@@ -1,0 +1,66 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Martis\Http\Requests\LensRequest;
+use Martis\Lenses\Lens;
+
+class {{ class }} extends Lens
+{
+    /**
+     * Compose the lens dataset. Always select the resource's primary key
+     * — Nova v5 requires it for bulk selection and delete affordances.
+     */
+    public function query(LensRequest $request, Builder $query): Builder
+    {
+        return $request->withOrdering(
+            $request->withFilters($query),
+            fn (Builder $q) => $q->latest(),
+        );
+    }
+
+    /**
+     * Fields shown in the lens index.
+     *
+     * @return list<\Martis\Contracts\FieldContract>
+     */
+    public function fields(Request $request): array
+    {
+        return [
+            //
+        ];
+    }
+
+    /**
+     * Filters available inside the lens.
+     *
+     * @return list<\Martis\Contracts\FilterContract>
+     */
+    public function filters(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Cards / metrics rendered above the lens index.
+     *
+     * @return list<object>
+     */
+    public function cards(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Martis extension — summary row rendered sticky at the bottom.
+     * Return an empty array to hide.
+     *
+     * @return array<string, array{label: string, value: mixed, format?: string}>
+     */
+    public function summary(Request $request, Builder $query): array
+    {
+        return [];
+    }
+}

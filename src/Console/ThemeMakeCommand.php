@@ -104,24 +104,48 @@ class ThemeMakeCommand extends Command
 /* ── Dark Mode (default) ─────────────────────────────────────── */
 :root {
   /* ▸ Background layers */
-  --martis-bg:            #1b2332;   /* Page background */
-  --martis-surface:       #1e293b;   /* Cards, panels, modals */
-  --martis-surface-alt:   #283548;   /* Alternate surface (zebra, secondary panels) */
-  --martis-sidebar:       #111827;   /* Sidebar background */
-  --martis-topbar:        #1e293b;   /* Top navigation bar */
-  --martis-card:          #1e293b;   /* Card components */
-  --martis-input-bg:      #111827;   /* Form input backgrounds */
+  --martis-bg:            #1b2332;
+  --martis-surface:       #1e293b;
+  --martis-surface-alt:   #283548;
+  --martis-sidebar:       #111827;
+  --martis-topbar:        #1e293b;
+  --martis-card:          #1e293b;
+  --martis-input-bg:      #111827;
 
   /* ▸ Borders */
-  --martis-border:        #334155;   /* Default border color */
+  --martis-border:        #334155;
 
   /* ▸ Text */
-  --martis-text:          #e2e8f0;   /* Primary text */
-  --martis-text-muted:    #94a3b8;   /* Secondary / placeholder text */
+  --martis-text:          #e2e8f0;
+  --martis-text-muted:    #94a3b8;
 
   /* ▸ Accent (brand color — buttons, links, focus rings) */
   --martis-accent:        #6366f1;
   --martis-accent-hover:  #4f46e5;
+  --martis-accent-active: #4338ca;
+  --martis-accent-bg-light: rgba(99, 102, 241, 0.08);
+  --martis-accent-bg:     rgba(99, 102, 241, 0.15);
+  --martis-focus-ring:    rgba(99, 102, 241, 0.2);
+
+  /* ▸ Semantic colors (solid) */
+  --martis-success:       #22c55e;
+  --martis-success-hover: #16a34a;
+  --martis-warning:       #f59e0b;
+  --martis-warning-hover: #d97706;
+  --martis-danger:        #ef4444;
+  --martis-danger-hover:  #dc2626;
+  --martis-info:          #3b82f6;
+  --martis-info-hover:    #2563eb;
+
+  /* ▸ Semantic backgrounds & text (badges, alerts) */
+  --martis-success-bg:    rgba(34, 197, 94, 0.15);
+  --martis-success-text:  #86efac;
+  --martis-warning-bg:    rgba(245, 158, 11, 0.15);
+  --martis-warning-text:  #fcd34d;
+  --martis-danger-bg:     rgba(239, 68, 68, 0.15);
+  --martis-danger-text:   #fca5a5;
+  --martis-info-bg:       rgba(59, 130, 246, 0.15);
+  --martis-info-text:     #93c5fd;
 
   /* ▸ Interactive states */
   --martis-hover:         rgba(255, 255, 255, 0.05);
@@ -131,8 +155,12 @@ class ThemeMakeCommand extends Command
   --martis-search-bg:     rgba(255, 255, 255, 0.06);
   --martis-search-border: rgba(255, 255, 255, 0.1);
 
-  /* ▸ Peek / preview popover */
+  /* ▸ Overlays & shadows */
+  --martis-overlay:       rgba(0, 0, 0, 0.5);
   --martis-peek-shadow:   0 2px 8px rgba(0, 0, 0, 0.20);
+  --martis-shadow-sm:     0 1px 2px rgba(0, 0, 0, 0.1);
+  --martis-shadow-md:     0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --martis-shadow-lg:     0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
 
   /* ▸ DataTable */
   --martis-row-even:              rgba(30, 41, 59, 0.5);
@@ -141,7 +169,7 @@ class ThemeMakeCommand extends Command
   --martis-table-header-text:     #c7d2fe;
   --martis-table-header-border:   rgba(99, 102, 241, 0.35);
 
-  /* ▸ Badge variants */
+  /* ▸ Badge variants (legacy — kept for backward compatibility) */
   --martis-badge-info-bg:         rgba(99, 102, 241, 0.15);
   --martis-badge-info-text:       #a5b4fc;
   --martis-badge-info-border:     rgba(99, 102, 241, 0.3);
@@ -154,6 +182,74 @@ class ThemeMakeCommand extends Command
   --martis-badge-danger-bg:       rgba(239, 68, 68, 0.15);
   --martis-badge-danger-text:     #fca5a5;
   --martis-badge-danger-border:   rgba(239, 68, 68, 0.3);
+
+  /* ▸ Border radius */
+  --martis-radius-sm:     0.25rem;
+  --martis-radius-md:     0.375rem;
+  --martis-radius-lg:     0.5rem;
+  --martis-radius-xl:     0.75rem;
+  --martis-radius-full:   9999px;
+
+  /* ▸ Typography — font families */
+  --martis-font-sans:     'Inter var', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --martis-font-mono:     'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --martis-font-heading:  var(--martis-font-sans);
+
+  /* ▸ Typography — font sizes (modular scale) */
+  --martis-font-size-xs:    0.75rem;     /* 12px — tooltips, micro labels */
+  --martis-font-size-sm:    0.875rem;    /* 14px — body, inputs, labels */
+  --martis-font-size-base:  1rem;        /* 16px — base */
+  --martis-font-size-lg:    1.125rem;    /* 18px — section headers */
+  --martis-font-size-xl:    1.25rem;     /* 20px — card titles */
+  --martis-font-size-2xl:   1.5rem;      /* 24px — page titles */
+  --martis-font-size-3xl:   1.875rem;    /* 30px — dashboard metrics */
+
+  /* ▸ Typography — font weights */
+  --martis-font-weight-normal:    400;
+  --martis-font-weight-medium:    500;
+  --martis-font-weight-semibold:  600;
+  --martis-font-weight-bold:      700;
+
+  /* ▸ Typography — line heights */
+  --martis-line-height-tight:    1.25;
+  --martis-line-height-normal:   1.5;
+  --martis-line-height-relaxed:  1.75;
+
+  /* ▸ Chart palette (10 distinct colors) */
+  --martis-chart-1:  #6366f1;
+  --martis-chart-2:  #22c55e;
+  --martis-chart-3:  #f59e0b;
+  --martis-chart-4:  #ef4444;
+  --martis-chart-5:  #8b5cf6;
+  --martis-chart-6:  #06b6d4;
+  --martis-chart-7:  #f97316;
+  --martis-chart-8:  #ec4899;
+  --martis-chart-9:  #14b8a6;
+  --martis-chart-10: #a855f7;
+
+  /* ▸ File icon colors */
+  --martis-file-icon-pdf:     #ef4444;
+  --martis-file-icon-doc:     #3b82f6;
+  --martis-file-icon-xls:     #22c55e;
+  --martis-file-icon-ppt:     #f97316;
+  --martis-file-icon-zip:     #a855f7;
+  --martis-file-icon-default: #6b7280;
+
+  /* ▸ PrimeReact bridge — map PrimeReact tokens to Martis theme vars. */
+  --primary-color:          var(--martis-accent);
+  --primary-color-text:     #ffffff;
+  --surface-ground:         var(--martis-bg);
+  --surface-card:           var(--martis-card);
+  --surface-overlay:        var(--martis-card);
+  --surface-border:         var(--martis-border);
+  --surface-hover:          var(--martis-hover);
+  --text-color:             var(--martis-text);
+  --text-color-secondary:   var(--martis-text-muted);
+  --highlight-bg:           var(--martis-accent-bg);
+  --highlight-text-color:   var(--martis-accent);
+  --focus-ring:             0 0 0 0.2rem var(--martis-focus-ring);
+  --border-radius:          var(--martis-radius-md);
+  --maskbg:                 var(--martis-overlay);
 }
 
 /* ── Light Mode ──────────────────────────────────────────────── */
@@ -177,6 +273,30 @@ html:not(.dark) {
   /* ▸ Accent */
   --martis-accent:        #6366f1;
   --martis-accent-hover:  #4f46e5;
+  --martis-accent-active: #4338ca;
+  --martis-accent-bg-light: rgba(99, 102, 241, 0.06);
+  --martis-accent-bg:     rgba(99, 102, 241, 0.1);
+  --martis-focus-ring:    rgba(99, 102, 241, 0.15);
+
+  /* ▸ Semantic colors */
+  --martis-success:       #16a34a;
+  --martis-success-hover: #15803d;
+  --martis-warning:       #d97706;
+  --martis-warning-hover: #b45309;
+  --martis-danger:        #dc2626;
+  --martis-danger-hover:  #b91c1c;
+  --martis-info:          #2563eb;
+  --martis-info-hover:    #1d4ed8;
+
+  /* ▸ Semantic backgrounds */
+  --martis-success-bg:    #dcfce7;
+  --martis-success-text:  #15803d;
+  --martis-warning-bg:    #fef3c7;
+  --martis-warning-text:  #92400e;
+  --martis-danger-bg:     #fee2e2;
+  --martis-danger-text:   #b91c1c;
+  --martis-info-bg:       #dbeafe;
+  --martis-info-text:     #1e40af;
 
   /* ▸ Interactive states */
   --martis-hover:         rgba(0, 0, 0, 0.04);
@@ -186,8 +306,12 @@ html:not(.dark) {
   --martis-search-bg:     rgba(0, 0, 0, 0.04);
   --martis-search-border: rgba(0, 0, 0, 0.12);
 
-  /* ▸ Peek / preview popover */
+  /* ▸ Overlays & shadows */
+  --martis-overlay:       rgba(0, 0, 0, 0.4);
   --martis-peek-shadow:   0 2px 8px rgba(0, 0, 0, 0.10);
+  --martis-shadow-sm:     0 1px 2px rgba(0, 0, 0, 0.05);
+  --martis-shadow-md:     0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --martis-shadow-lg:     0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
   /* ▸ DataTable */
   --martis-row-even:              rgba(248, 250, 252, 1);
@@ -196,7 +320,7 @@ html:not(.dark) {
   --martis-table-header-text:     #3730a3;
   --martis-table-header-border:   rgba(99, 102, 241, 0.25);
 
-  /* ▸ Badge variants */
+  /* ▸ Badge variants (legacy) */
   --martis-badge-info-bg:         #dbeafe;
   --martis-badge-info-text:       #1e40af;
   --martis-badge-info-border:     #bfdbfe;
@@ -209,6 +333,34 @@ html:not(.dark) {
   --martis-badge-danger-bg:       #fee2e2;
   --martis-badge-danger-text:     #b91c1c;
   --martis-badge-danger-border:   #fecaca;
+
+  /* ▸ Chart palette (light variants) */
+  --martis-chart-1:  #6366f1;
+  --martis-chart-2:  #16a34a;
+  --martis-chart-3:  #d97706;
+  --martis-chart-4:  #dc2626;
+  --martis-chart-5:  #7c3aed;
+  --martis-chart-6:  #0891b2;
+  --martis-chart-7:  #ea580c;
+  --martis-chart-8:  #db2777;
+  --martis-chart-9:  #0d9488;
+  --martis-chart-10: #9333ea;
+
+  /* ▸ PrimeReact bridge (light-mode overrides inherit Martis tokens). */
+  --primary-color:          var(--martis-accent);
+  --primary-color-text:     #ffffff;
+  --surface-ground:         var(--martis-bg);
+  --surface-card:           var(--martis-card);
+  --surface-overlay:        var(--martis-card);
+  --surface-border:         var(--martis-border);
+  --surface-hover:          var(--martis-hover);
+  --text-color:             var(--martis-text);
+  --text-color-secondary:   var(--martis-text-muted);
+  --highlight-bg:           var(--martis-accent-bg);
+  --highlight-text-color:   var(--martis-accent);
+  --focus-ring:             0 0 0 0.2rem var(--martis-focus-ring);
+  --border-radius:          var(--martis-radius-md);
+  --maskbg:                 var(--martis-overlay);
 }
 
 CSS;

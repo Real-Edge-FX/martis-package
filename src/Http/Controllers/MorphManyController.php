@@ -13,6 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\SortDirection;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
@@ -47,6 +49,7 @@ class MorphManyController extends MartisController
     #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
     #[QueryParameter('sort', description: 'Column to sort by.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc.', required: false, type: 'string')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string')]
     public function index(
         Request $request,
         string $resource,
@@ -66,6 +69,19 @@ class MorphManyController extends MartisController
 
         /** @var Builder<Model> $query */
         $query = $relation->getQuery();
+
+        // Soft-delete filter — Nova v5 parity
+        if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
+            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
+                ?? TrashedFilter::Active;
+            if ($trashed === TrashedFilter::With) {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query->withTrashed();
+            } elseif ($trashed === TrashedFilter::Only) {
+                /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
+                $query->onlyTrashed();
+            }
+        }
 
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
@@ -141,7 +157,7 @@ class MorphManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
         if (! $parentInstance->authorizedToAdd($request, $relatedModelClass)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $relatedInstance = new $relatedResourceClass;
@@ -216,7 +232,7 @@ class MorphManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
@@ -291,7 +307,7 @@ class MorphManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         try {
@@ -347,7 +363,7 @@ class MorphManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = $parentInstance->fieldsForDetail($request);
@@ -386,7 +402,7 @@ class MorphManyController extends MartisController
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;
             if (! $relatedCheck->authorizedToCreate($request)) {
-                return JsonErrorResponse::notFound('This action is unauthorized.')->toResponse();
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 
@@ -422,6 +438,10 @@ class MorphManyController extends MartisController
             $data[$field->attribute()] = $field->resolve($model);
         }
 
+        if ($resource::softDeletes() && $model->getAttribute('deleted_at') !== null) {
+            $data['deleted_at'] = $model->getAttribute('deleted_at');
+        }
+
         return $data;
     }
 
@@ -433,6 +453,7 @@ class MorphManyController extends MartisController
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
     {
         $rules = [];
+        $attributes = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
@@ -447,9 +468,12 @@ class MorphManyController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+            if ($field instanceof Field) {
+                $attributes[$field->attribute()] = $field->label();
+            }
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($request->all(), $rules, [], $attributes);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(
@@ -523,12 +547,9 @@ class MorphManyController extends MartisController
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
         $rawSort = $request->query('sort');
-        $rawDirection = $request->query('direction', 'asc');
-        $direction = strtolower(is_string($rawDirection) ? $rawDirection : 'asc');
-
-        if (! in_array($direction, ['asc', 'desc'], true)) {
-            $direction = 'asc';
-        }
+        $rawDirection = $request->query('direction', SortDirection::Asc->value);
+        $direction = SortDirection::tryFrom(strtolower(is_string($rawDirection) ? $rawDirection : SortDirection::Asc->value))
+            ?? SortDirection::Asc;
 
         if (! is_string($rawSort) || $rawSort === '') {
             return;
@@ -548,6 +569,6 @@ class MorphManyController extends MartisController
             return;
         }
 
-        $query->orderBy($sort, $direction);
+        $query->orderBy($sort, $direction->value);
     }
 }

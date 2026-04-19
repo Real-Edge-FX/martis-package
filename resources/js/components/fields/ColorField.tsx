@@ -2,7 +2,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 
 export function ColorFieldDisplay({ value }: FieldDisplayProps) {
   if (value === null || value === undefined || value === '') {
-    return <span className="martis-text-muted">\u2014</span>
+    return <span className="martis-text-muted">{'\u2014'}</span>
   }
 
   const color = String(value)

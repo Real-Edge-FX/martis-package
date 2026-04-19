@@ -10,13 +10,24 @@ function cleanupMartisInstallArtifacts(): void
 {
     $filesystem = new Filesystem;
 
-    collect(glob(database_path('migrations/*_create_action_events_table.php')) ?: [])->each(
-        fn (string $path) => $filesystem->delete($path)
-    );
+    $patterns = [
+        'migrations/*_create_action_events_table.php',
+        'migrations/*_add_martis_profile_picture_column_to_users_table.php',
+        'migrations/*_add_martis_two_factor_columns_to_users_table.php',
+    ];
 
-    collect(glob(database_path('migrations/*_add_martis_profile_columns.php')) ?: [])->each(
-        fn (string $path) => $filesystem->delete($path)
-    );
+    foreach ($patterns as $pattern) {
+        collect(glob(database_path($pattern)) ?: [])->each(
+            fn (string $path) => $filesystem->delete($path)
+        );
+    }
+
+    $envPath = app()->environmentFilePath();
+    if ($filesystem->exists($envPath)) {
+        $contents = (string) $filesystem->get($envPath);
+        $stripped = preg_replace('/^MARTIS_[A-Z0-9_]+=.*$\n?/m', '', $contents) ?? '';
+        $filesystem->put($envPath, $stripped);
+    }
 }
 
 beforeEach(function () {
@@ -56,7 +67,7 @@ it('martis:install publishes the action events migration once', function () {
 it('martis:install --no-interaction skips the optional profile migration by default', function () {
     $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
-    $migrations = glob(database_path('migrations/*_add_martis_profile_columns.php')) ?: [];
+    $migrations = glob(database_path('migrations/*_add_martis_profile_picture_column_to_users_table.php')) ?: [];
 
     expect($migrations)->toHaveCount(0);
 });
@@ -74,10 +85,10 @@ it('martis:install can publish the optional profile migration without duplicatio
         '--avatar-column' => 'avatar_path',
     ])->assertSuccessful();
 
-    $migrations = glob(database_path('migrations/*_add_martis_profile_columns.php')) ?: [];
+    $migrations = glob(database_path('migrations/*_add_martis_profile_picture_column_to_users_table.php')) ?: [];
 
     expect($migrations)->toHaveCount(1);
-    expect(file_get_contents($migrations[0]))->toContain("'avatar_path'");
+    expect(file_get_contents($migrations[0]))->toContain('"avatar_path"');
 });
 
 it('martis:install creates the expected Martis directories', function () {

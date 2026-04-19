@@ -152,22 +152,6 @@ class AuthzLockedItemResource extends Resource
 // ── Setup ────────────────────────────────────────────────────────
 
 beforeEach(function () {
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => '3306',
-            'database' => 'martis_playground',
-            'username' => 'martis',
-            'password' => 'martis_password',
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => false,
-        ],
-    ]);
-
     $this->withoutMiddleware(MartisAuthenticate::class);
 
     Schema::dropIfExists('authz_locked_items');
@@ -222,7 +206,7 @@ it('denies force delete when policy forbids', function () {
 
     $response = $this->deleteJson("/martis/api/resources/{$uriKey}/{$item->id}/force");
 
-    $response->assertStatus(404);
+    $response->assertStatus(403);
     expect(AuthzLockedModel::withTrashed()->find($item->id))->not->toBeNull();
 });
 
@@ -245,7 +229,7 @@ it('denies replicate fields when policy forbids', function () {
 
     $response = $this->getJson("/martis/api/resources/{$uriKey}/{$item->id}/replicate");
 
-    $response->assertStatus(404);
+    $response->assertStatus(403);
 });
 
 // ── Authorization Metadata in Responses ─────────────────────────
@@ -286,7 +270,7 @@ it('denies show when view is not authorized', function () {
 
     $response = $this->getJson("/martis/api/resources/{$uriKey}/{$item->id}");
 
-    $response->assertStatus(404);
+    $response->assertStatus(403);
 });
 
 it('denies store when create is not authorized', function () {

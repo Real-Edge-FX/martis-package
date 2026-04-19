@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'add_row' => 'Add row',
+    'remove' => 'Remove',
+    'reorder' => 'Reorder',
+    'duplicate_row' => 'Duplicate row',
+    'paste_rows' => 'Paste rows',
     'create' => 'Create',
     'edit' => 'Edit',
     'delete' => 'Delete',
@@ -38,4 +43,9 @@ return [
     'pivot_fields' => 'Pivot Fields',
     'attach_related' => 'Attach Record',
     'select_all' => 'Select all',
+    'restore' => 'Restore',
+    'force_delete' => 'Force delete',
+    'trashed_active' => 'Active',
+    'trashed_with' => 'With trashed',
+    'trashed_only' => 'Only trashed',
 ];

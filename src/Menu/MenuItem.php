@@ -4,6 +4,7 @@ namespace Martis\Menu;
 
 use Closure;
 use Illuminate\Http\Request;
+use Martis\Enums\MenuItemType;
 use Martis\Resource;
 
 class MenuItem
@@ -15,7 +16,7 @@ class MenuItem
     protected array $meta = [];
 
     protected function __construct(
-        protected string $type,
+        protected MenuItemType $type,
         protected ?string $label = null,
         protected ?string $url = null,
         protected ?string $icon = null,
@@ -30,12 +31,12 @@ class MenuItem
 
     public static function link(string $label, string $url): self
     {
-        return new self('link', $label, $url);
+        return new self(MenuItemType::Link, $label, $url);
     }
 
     public static function externalLink(string $label, string $url): self
     {
-        return new self('link', $label, $url, external: true);
+        return new self(MenuItemType::Link, $label, $url, external: true);
     }
 
     /**
@@ -43,7 +44,7 @@ class MenuItem
      */
     public static function resource(string $resourceClass): self
     {
-        return new self('resource', resourceClass: $resourceClass);
+        return new self(MenuItemType::Resource, resourceClass: $resourceClass);
     }
 
     public function label(string $label): self
@@ -120,7 +121,7 @@ class MenuItem
         }
 
         return array_merge([
-            'type' => $this->type,
+            'type' => $this->type->value,
             'label' => $this->label,
             'url' => $this->url,
             'icon' => $this->icon,
@@ -166,7 +167,7 @@ class MenuItem
         $resourceMeta = $resource->toArray();
 
         return array_merge($resourceMeta, [
-            'type' => 'resource',
+            'type' => MenuItemType::Resource->value,
             'label' => $this->label ?? $resourceMeta['label'],
             'icon' => $this->icon ?? $resourceMeta['icon'],
             'url' => $this->url ?? '/resources/'.$resourceClass::uriKey(),

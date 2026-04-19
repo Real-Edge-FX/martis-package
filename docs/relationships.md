@@ -4,19 +4,148 @@ This guide covers all relationship field types in Martis and how to use them.
 
 ## Overview
 
-Martis provides nine relationship field types that map 1:1 to Laravel Eloquent relationships:
+Martis provides the full set of relationship field types that map 1:1 to Laravel Eloquent relationships:
 
 | Field | Eloquent Relationship | Nova v5 Equivalent |
 |-------|-----------------------|-------------------|
 | `BelongsTo` | `belongsTo()` | `BelongsTo` |
 | `HasOne` | `hasOne()` | `HasOne` |
+| `HasOneOfMany` | `hasMany()->latestOfMany()` / `ofMany(...)` | `HasOneOfMany` |
+| `HasOneThrough` | `hasOneThrough()` | `HasOneThrough` |
 | `HasMany` | `hasMany()` | `HasMany` |
+| `HasManyThrough` | `hasManyThrough()` | `HasManyThrough` |
 | `BelongsToMany` | `belongsToMany()` | `BelongsToMany` |
 | `Tag` | `belongsToMany()` | `BelongsToMany` (chip UI) |
 | `MorphTo` | `morphTo()` | `MorphTo` |
 | `MorphOne` | `morphOne()` | `MorphOne` |
+| `MorphOneOfMany` | `morphMany()->latestOfMany()` / `ofMany(...)` | `MorphOneOfMany` |
 | `MorphMany` | `morphMany()` | `MorphMany` |
 | `MorphToMany` | `morphToMany()` | `MorphToMany` |
+
+---
+
+## Toolbar hide flags (cross-cutting)
+
+All relationship fields share the `ControlsRelationshipToolbar` trait, which
+exposes nine `->hideXxx()` setters that let a programmer **hide** a piece of
+the panel's UI. Visibility composes with authorization as:
+
+    visible = authorized AND NOT hidden
+
+Authorization is always the source of truth — the setters cannot *force*
+something to appear. Unauthorized actions are never shown (or are rendered
+disabled when Nova v5 does so).
+
+| Setter | Hides |
+|--------|-------|
+| `->hideSearch()` | Search input in the panel toolbar |
+| `->hideCreateButton()` | Create / Attach button |
+| `->hidePerPageSelector()` | "Per page" dropdown |
+| `->hideSoftDeleteToggle()` | Active / With trashed / Only trashed dropdown |
+| `->hideViewAction()` | Eye icon in the actions column |
+| `->hideEditAction()` | Pencil icon in the actions column |
+| `->hideDeleteAction()` | Trash icon in the actions column |
+| `->hideRestoreAction()` | Restore icon on trashed rows |
+| `->hideForceDeleteAction()` | Force-delete icon on trashed rows |
+
+```php
+HasMany::make('Comments', 'comments')
+    ->hideSoftDeleteToggle()       // never show trashed filter
+    ->hideForceDeleteAction()      // permanent deletion is never exposed
+```
+
+---
+
+## Relationship panel anatomy
+
+All `-Many` relation panels (`HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany`
+and their Through variants) are rendered by a single shared React component,
+`RelationshipTableShell`. Understanding its layout makes the hide flags and
+pivot slots predictable across fields.
+*resources/js/components/fields/relation/RelationshipTableShell.tsx*
+
+### Panel layout
+
+From top to bottom:
+
+1. **Heading row** — related-resource icon (from `ResourceIcon`), the field
+   title, and a count badge with the total number of related rows. When
+   `collapsable()` is on, the heading also carries the caret toggle.
+2. **Toolbar** — search input, primary *Create* (or *Attach*) button, an
+   optional slot for consumer-supplied extras, the per-page selector, and the
+   soft-delete dropdown (*Active / With trashed / Only trashed*).
+3. **DataTable** — the list itself (see columns below).
+4. **Pagination** — rendered only when the server returns a paginator.
+
+### Responsive toolbar (container queries)
+
+The toolbar reflows using **CSS container queries** on the class
+`martis-relation-toolbar`, not viewport media queries. This means the layout
+adapts to the width of the *panel's container*, so a relation panel inside a
+narrow tab wraps even when the window is wide.
+
+| Container width | Layout |
+|-----------------|--------|
+| `>= 48rem` | Single row: heading on the left, `[search + create + extras + per-page + trashed]` on the right. |
+| `< 48rem` | Two rows: row 1 = heading + search + create; row 2 = per-page on the left, soft-delete dropdown on the right. |
+
+### Columns (rendered in order)
+
+1. **Selection checkbox** — only when `selectable` is passed (used by
+   `BelongsToMany` / `MorphToMany` for bulk pivot actions).
+2. **"Archived" chip** — only rendered when at least one row in the current
+   page has a non-null `deleted_at`. Pure visual tag, no action.
+3. **`indexFields`** — resolved from the related resource's
+   `fieldsForIndex()`. Rendered through `FieldDisplay`.
+4. **`pivotFields`** — `BelongsToMany` and `MorphToMany` only. Each pivot
+   column reads its value from `row._pivot.{attribute}`.
+5. **Actions column** — View / Edit / Delete, plus Restore and Force-delete
+   on trashed rows, plus any `rowActionsExtras(row)` the consumer returns.
+
+Trashed rows are rendered with `opacity-60` and swap Edit/Delete for
+Restore + Force-delete (icons only; confirmation modals are handled by the
+shell itself).
+
+### Slots consumers plug into
+
+| Slot | Type | Purpose |
+|------|------|---------|
+| `pivotFields` | `FieldDefinition[]` | Extra columns pulled from `row._pivot.*`. BelongsToMany/MorphToMany pipe their pivot fields in here. |
+| `selectable` + `selectedRows` + `onSelectionChange` | `boolean` + `ResourceRecord[]` + callback | Controlled multi-select. When `selectable` is on the shell renders a checkbox column and reports the selection upward. |
+| `toolbarExtras` | `ReactNode \| (ctx: { selectedRows }) => ReactNode` | Rendered in the primary toolbar after *Create*. The render-prop form receives the current selection — BelongsToMany/MorphToMany use it to show pivot action dropdowns and an *Attach* button with a "N selected" counter. |
+| `rowActionsExtras` | `(row) => ReactNode` | Per-row extras, appended to the action icons. |
+| `createUrl` / `editUrl` / `viewUrl` / `deleteUrl` | URL builders | Endpoint/route overrides so the same shell powers HasMany (inline CRUD) and BelongsToMany (attach/detach) transparently. |
+
+### Field ↔ slot usage matrix
+
+| Field | Uses | Why |
+|-------|------|-----|
+| `HasMany` / `HasManyThrough` | (shell defaults only) | Plain inline CRUD; no pivot, no multi-select. |
+| `MorphMany` | (shell defaults only) | Same as HasMany but polymorphic. |
+| `BelongsToMany` | `pivotFields` + `selectable` + `toolbarExtras(ctx)` + `rowActionsExtras` | Pivot columns + bulk pivot actions + *Attach* button + per-row Detach/edit-pivot. |
+| `MorphToMany` | `pivotFields` + `selectable` + `toolbarExtras(ctx)` + `rowActionsExtras` | Same as BelongsToMany, polymorphic pivot. |
+| `HasOne` / `MorphOne` / `*OfMany` / `HasOneThrough` | n/a — uses a dedicated single-record panel, not the shell. |
+
+Keep in mind: visible = authorized AND NOT hidden. The shell never
+*up-grades* an unauthorized action; the `hideXxx` flags only subtract.
+
+---
+
+## Soft-delete filter (Nova v5 parity)
+
+Relationship panels whose related resource uses `SoftDeletes` automatically
+render a three-state filter in the toolbar — **Active / With trashed /
+Only trashed**. Trashed rows show **Restore** and **Force-delete** actions
+instead of Edit/Delete.
+
+The default state comes from `config/martis.php`:
+
+```php
+'default_trashed_filter' => 'active', // 'active' | 'with' | 'only'
+```
+
+Visibility follows the usual gate — `Resource::canViewTrashed()` must return
+`true` (default) AND the programmer must not call `->hideSoftDeleteToggle()`.
 
 ---
 
@@ -214,12 +343,83 @@ HasOne::make('Profile', 'profile', ProfileResource::class)
     ->canDelete(false)
 ```
 
-| Method | Description |
-|--------|-------------|
-| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
-| `canCreate(bool $value = true)` | Show/hide the Create button when no related record exists |
-| `canUpdate(bool $value = true)` | Show/hide the Edit button for the existing related record |
-| `canDelete(bool $value = true)` | Show/hide the Delete button for the existing related record |
+See [fields.md § HasOne](fields.md#hasone) for the full API.
+
+Note the static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
+promotes a `hasMany()->latestOfMany()` relation into a
+[`HasOneOfMany`](#hasoneofmany) field.
+
+---
+
+## HasOneOfMany
+
+⭐ **Nova parity** — promotes a `hasMany()->latestOfMany()` (or `->ofMany(column, aggregate)`) relationship so the admin shows the **latest / oldest of many** as if it were a plain `HasOne`. Visually identical to `HasOne`.
+
+```php
+use Martis\Enums\AggregateFunction;
+use Martis\Fields\HasOne;
+
+// Two equivalent ways to declare the field (Nova parity):
+HasOne::ofMany('Latest Invoice', 'latestInvoice', InvoiceResource::class)
+HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
+    ->latestByTimestamp('paid_at')                        // ⭐
+    ->aggregateVia(AggregateFunction::Sum, 'amount');    // ⭐
+```
+
+**Model side:**
+
+```php
+// App\Models\Project
+public function latestInvoice(): HasOne
+{
+    return $this->hasOne(Invoice::class)->latestOfMany();
+}
+```
+
+See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
+
+**⭐ Martis differentials vs Nova:**
+
+- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`). Nova doesn't surface the size of the underlying collection.
+- `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
+- `aggregateVia()` surfaces a metric tile with the full collection aggregate — Nova has no equivalent affordance on this field.
+
+---
+
+## HasOneThrough
+
+⭐ **Nova parity** — shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but **read-only** (Create/Edit/Delete default to `false`; the UI hides those buttons).
+
+```php
+use Martis\Fields\HasOneThrough;
+
+HasOneThrough::make('Account Manager', 'accountManager', TeamMemberResource::class)
+    ->throughBreadcrumb(); // ⭐
+```
+
+**Model side:**
+
+```php
+// App\Models\Project
+public function accountManager(): HasOneThrough
+{
+    return $this->hasOneThrough(
+        TeamMember::class,       // target
+        Client::class,           // intermediate
+        // … FK / PK hints if the defaults don't match
+    );
+}
+```
+
+See [fields.md § HasOneThrough](fields.md#hasonethrough) for the full API.
+All `HasOne` methods are inherited; `canCreate/canUpdate/canDelete` default to
+`false`. `throughBreadcrumb(bool)` ⭐ adds a "through" hint next to the
+section heading.
+
+**⭐ Martis differentials:**
+
+- Read-only defaults prevent misleading Create/Edit/Delete UI (Nova relies on the developer to remember).
+- `throughBreadcrumb()` hint describes the intermediate hop without a custom tooltip.
 
 ---
 
@@ -236,12 +436,73 @@ MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
     ->canUpdate(false)
 ```
 
-| Method | Description |
-|--------|-------------|
-| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
-| `canCreate(bool $value = true)` | Show/hide the Create button |
-| `canUpdate(bool $value = true)` | Show/hide the Edit button |
-| `canDelete(bool $value = true)` | Show/hide the Delete button |
+See [fields.md § MorphOne](fields.md#morphone) for the full API.
+
+---
+
+## MorphOneOfMany
+
+⭐ **Nova parity** — polymorphic counterpart of [HasOneOfMany](#hasoneofmany). Promotes `morphMany()->latestOfMany()` (or `->ofMany(...)`).
+
+```php
+use Martis\Fields\MorphOne;
+
+MorphOne::ofMany('Latest Note', 'latestNote', NoteResource::class)
+    ->latestByTimestamp()                                 // ⭐
+    ->aggregateVia(AggregateFunction::Count, '*');       // ⭐
+```
+
+**Model side:**
+
+```php
+// App\Models\Client
+public function latestNote(): MorphOne
+{
+    return $this->morphOne(Note::class, 'noteable')->latestOfMany();
+}
+```
+
+Inherits every `MorphOne` method plus the OfMany extras (`latestByTimestamp` / `oldestByTimestamp` / `aggregateVia`). Same "Latest of N" pill + aggregate tile as HasOneOfMany.
+
+---
+
+## HasManyThrough
+
+⭐ **Nova parity** — inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`).
+
+```php
+use Martis\Fields\HasManyThrough;
+
+HasManyThrough::make('Managed Projects', 'managedProjects', ProjectResource::class)
+    ->throughBreadcrumb()  // ⭐
+    ->countBadge();        // ⭐ on by default
+```
+
+**Model side:**
+
+```php
+// App\Models\TeamMember
+public function managedProjects(): HasManyThrough
+{
+    return $this->hasManyThrough(
+        Project::class,
+        Client::class,
+        'account_manager_id',
+        'client_id',
+        'id',
+        'id',
+    );
+}
+```
+
+See [fields.md § HasManyThrough](fields.md#hasmanythrough) for the full API.
+All `HasMany` methods are inherited; `canCreate/canUpdate/canDelete` default
+to `false`. Adds `throughBreadcrumb(bool)` ⭐ and `countBadge(bool)` ⭐.
+
+**⭐ Martis differentials:**
+
+- Read-only defaults.
+- `countBadge` brings the count affordance to Through fields (Nova exposes `showRelationCount` only on `HasMany`).
 
 ---
 
@@ -261,21 +522,7 @@ MorphMany::make('Comments', 'comments', CommentResource::class)
     ->canCreate(false)
 ```
 
-| Method | Description |
-|--------|-------------|
-| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
-| `perPage(int $perPage)` | Records per page in the inline table |
-| `perPageOptions(array $options)` | Custom per-page selector options |
-| `canCreate(bool $value = true)` | Show/hide the Create button |
-| `canUpdate(bool $value = true)` | Show/hide the Edit button |
-| `canDelete(bool $value = true)` | Show/hide the Delete button |
-| `relationSearchable(bool $value = true)` | Enable search within the inline table |
-| `collapsable(bool $value = true)` | Make the panel collapsable |
-| `collapsedByDefault(bool $value = true)` | Start collapsed |
-| `showRelationIcon(bool $value = true)` | Show icon in the panel header |
-| `showRelationCount(bool $value = true)` | Show record count badge |
-| `badgeColor(string $color)` | Override the count badge colour |
-| `badgeIcon(string $icon)` | Override the panel icon |
+See [fields.md § MorphMany](fields.md#morphmany) for the full API.
 
 ---
 
@@ -297,25 +544,7 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
     ])
 ```
 
-| Method | Description |
-|--------|-------------|
-| `relatedResource(string $uriKey)` | Override the inferred related resource URI key |
-| `titleAttribute(string $attribute)` | Column used as the display label in attach modal |
-| `fields(\Closure $closure)` | Pivot fields added to the attach/edit-pivot form |
-| `actions(\Closure $closure)` | Actions available in the pivot table |
-| `searchable(bool $value = true)` | Enable search in the attach modal |
-| `collapsable(bool $value = true)` | Make the panel collapsable |
-| `collapsedByDefault(bool $value = true)` | Start collapsed |
-| `allowDuplicateRelations(bool $value = true)` | Allow attaching the same record twice |
-| `showCreateRelationButton(bool\|\Closure $callback = true)` | Show inline create button in attach modal |
-| `modalSize(ModalSize $size, ?string $height = null)` | Control modal dimensions |
-| `relatableQueryUsing(\Closure $closure)` | Filter the attachable record list |
-| `dontReorderAttachables(bool $value = true)` | Keep DB order in attachable list |
-| `withSubtitles(bool $value = true)` | Show subtitles in search results |
-| `subtitleAttribute(string $attribute)` | Column used as the subtitle |
-| `perPage(int $perPage)` | Records per page in the inline table |
-| `canAttach(bool $value = true)` | Control attach permission |
-| `canDetach(bool $value = true)` | Control detach permission |
+See [fields.md § MorphToMany](fields.md#morphtomany) for the full API.
 
 
 

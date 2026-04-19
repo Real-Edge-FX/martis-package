@@ -1,14 +1,28 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { OverrideProps, ResourceRecord, FieldDefinition } from '@/types'
+import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
+import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
+import { PanelDisplay } from '@/components/fields/PanelRenderer'
+import { TabsDisplay } from '@/components/fields/TabsRenderer'
+import { SectionDisplay } from '@/components/fields/SectionRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 
 
+const STANDALONE_RELATIONSHIP_TYPES = new Set([
+  'has_many',
+  'has_many_through',
+  'has_one',
+  'has_one_of_many',
+  'has_one_through',
+  'morph_one',
+  'morph_one_of_many',
+  'morph_many',
+])
 
 /** Resolve the effective column span for a field. */
 function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): { base: number; md?: number; lg?: number } {
@@ -55,7 +69,22 @@ export function DrawerDetail(props: OverrideProps) {
     onError: () => addToast('error', tMsg('error_delete')),
   })
 
-  const detailFields = (schema.fieldsForDetail ?? []).filter(f => f.type !== 'has_many' && f.type !== 'panel' && f.type !== 'tab_group') as FieldDefinition[]
+  // Partition fieldsForDetail the same way ResourceDetail does — keeps panels,
+  // sections and tab groups rendering with their own chrome (headings,
+  // descriptions, tab bar) instead of being silently flattened inside the
+  // drawer. Loose scalar fields still fall back to a single-grid layout at
+  // the top, before the structured blocks and the relationship cards.
+  const detailFields = (schema.fieldsForDetail ?? []) as FieldDefinition[]
+  const panelItems = detailFields.filter((f) => f.type === 'panel') as PanelDefinition[]
+  const tabGroupItems = detailFields.filter((f) => f.type === 'tab_group') as TabGroupDefinition[]
+  const sectionItems = detailFields.filter((f) => f.type === 'section') as SectionDefinition[]
+  const scalarFields = detailFields.filter((f) =>
+    !STANDALONE_RELATIONSHIP_TYPES.has(f.type) &&
+    f.type !== 'panel' &&
+    f.type !== 'tab_group' &&
+    f.type !== 'section',
+  ) as FieldDefinition[]
+  const relationshipFields = detailFields.filter((f) => STANDALONE_RELATIONSHIP_TYPES.has(f.type)) as FieldDefinition[]
   const isLoading = !activeRecord || recordQuery.isLoading
 
   const recordTitle = activeRecord?._title
@@ -85,7 +114,7 @@ export function DrawerDetail(props: OverrideProps) {
             <button
               type="button"
               onClick={() => setShowDelete(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="martis-btn-danger inline-flex items-center gap-1.5"
             >
               <TrashIcon size={14} />
               {tAct('delete')}
@@ -93,8 +122,7 @@ export function DrawerDetail(props: OverrideProps) {
             <button
               type="button"
               onClick={() => onEdit(recordId ? Number(recordId) || recordId : undefined)}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-white"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
+              className="martis-btn-primary inline-flex items-center gap-1.5"
             >
               <PencilSimpleIcon size={14} />
               {tAct('edit')}
@@ -110,30 +138,75 @@ export function DrawerDetail(props: OverrideProps) {
             />
           </div>
         ) : (
-          <dl className="grid grid-cols-12 gap-0" style={{ borderColor: 'var(--martis-border)' }}>
-            {detailFields.map((field) => (
+          <div className="px-6 py-4 space-y-5">
+            {/* Loose scalar fields — rendered as a bordered fields card so
+             *  they read visually the same as an explicit Section. */}
+            {scalarFields.length > 0 && (
               <div
-                key={field.attribute}
-                className="border-b px-6 py-4"
-                style={{ ...colSpanStyle(field), borderColor: 'var(--martis-border)' }}
+                className="rounded-lg"
+                style={{
+                  border: '1px solid var(--martis-border)',
+                  backgroundColor: 'var(--martis-surface)',
+                }}
               >
-                <dt
-                  className="mb-1 text-xs font-medium uppercase tracking-wider"
-                  style={{ color: 'var(--martis-text-muted)' }}
-                >
-                  {field.label}
-                </dt>
-                <dd className="text-sm" style={{ color: 'var(--martis-text)' }}>
+                <dl className="grid grid-cols-12 gap-0">
+                  {scalarFields.map((field) => (
+                    <div
+                      key={field.attribute}
+                      className="border-b px-4 py-3 last:border-b-0"
+                      style={{ ...colSpanStyle(field), borderColor: 'var(--martis-border)' }}
+                    >
+                      <dt
+                        className="mb-1 text-xs font-medium uppercase tracking-wider"
+                        style={{ color: 'var(--martis-text-muted)' }}
+                      >
+                        {field.label}
+                        <FieldLabelTooltip text={field.tooltip} />
+                      </dt>
+                      <dd className="text-sm" style={{ color: 'var(--martis-text)' }}>
+                        <FieldDisplay
+                          field={field}
+                          value={activeRecord![field.attribute]}
+                          resourceKey={resource}
+                          context="detail"
+                        />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            {/* Structured layout containers (tabs / panels / sections) —
+             *  each keeps its own heading so the drawer mirrors the full
+             *  detail page instead of flattening the declarative tree. */}
+            {tabGroupItems.map((tg, idx) => (
+              <TabsDisplay key={`tg-${idx}`} tabGroup={tg} values={activeRecord as Record<string, unknown>} resourceKey={resource} />
+            ))}
+            {panelItems.map((panel, idx) => (
+              <PanelDisplay key={`panel-${idx}`} panel={panel} values={activeRecord as Record<string, unknown>} resourceKey={resource} />
+            ))}
+            {sectionItems.map((section, idx) => (
+              <SectionDisplay key={`section-${idx}`} section={section} values={activeRecord as Record<string, unknown>} resourceKey={resource} />
+            ))}
+
+            {/* Relationship panels — each relationship field renders its own
+             *  bordered card (see HasMany/MorphMany/HasOne/MorphOne). The
+             *  outer space-y-5 provides clear vertical gap between them. */}
+            {relationshipFields.length > 0 && (
+              <div className="space-y-5">
+                {relationshipFields.map((field) => (
                   <FieldDisplay
+                    key={field.attribute}
                     field={field}
-                    value={activeRecord![field.attribute]}
+                    value={null}
                     resourceKey={resource}
                     context="detail"
                   />
-                </dd>
+                ))}
               </div>
-            ))}
-          </dl>
+            )}
+          </div>
         )}
       </DrawerShell>
 

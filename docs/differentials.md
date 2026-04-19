@@ -50,6 +50,58 @@ public function overrides(): array
 
 Features: slide animation, expand/collapse, fullscreen toggle, ESC close, backdrop click, configurable width and position.
 
+### Unsaved Changes Guard
+
+Uniform protection against discarding unsaved edits across **every** surface — drawers and full-page create/update routes. Intercepts the close button, ESC, backdrop click, the browser back button, and in-app router links.
+
+```php
+use Martis\UnsavedChangesConfig;
+use Martis\Contracts\UnsavedChangesConfigContract;
+
+public static function confirmUnsavedChanges(): bool|UnsavedChangesConfigContract
+{
+    return UnsavedChangesConfig::make()
+        ->title(__('projects.unsaved_title'))
+        ->body(__('projects.unsaved_body'))
+        ->icon('briefcase')
+        ->iconColor('info')
+        ->confirmLabel(__('projects.unsaved_discard'))
+        ->confirmColor('danger')
+        ->cancelLabel(__('projects.unsaved_keep'));
+}
+```
+
+Return `false` (the default) to disable, `true` for the localised package defaults, or an `UnsavedChangesConfig` to override title, body, icon, colours and button labels. The same config applies whether the resource uses a drawer override or the page-based create/update flow.
+
+**Implementation architecture**
+
+- **Browser back/forward** — handled via a history *sentinel* pushed on mount plus a **capture-phase popstate listener** that calls `stopImmediatePropagation()`. This prevents React Router from ever seeing the pop, avoiding the v6 URL-flicker bug. The sentinel is re-armed the moment the dialog opens, so repeated back presses while the dialog is visible stay trapped. On confirm the guard pops the re-armed sentinel (drawer: one `back()`; page: `go(-2)` for sentinel + real entry).
+- **In-app navigation** — `useBlocker` (React Router v6.4 data-router API) intercepts `<Link>` clicks and imperative `navigate()` calls. Popstate-originated navigations are deliberately ignored (`historyAction === 'POP'`) because the browser-level listener already owns that path.
+- **Modals on top of a guarded surface** — coordinated via `resources/js/lib/historyLock.ts`. See [Modal history locks](#modal-history-locks) below for the two hooks and the full modal surface inventory.
+- **`beforeunload` is intentionally NOT wired up.** The browser's native "Are you sure?" prompt was producing double prompts alongside the custom dialog and firing erratically when the previous history entry lived outside the SPA origin. Tab-close protection is an explicit trade-off Martis chose against for UX cleanliness.
+
+### Modal History Locks
+
+Two hooks in `resources/js/lib/historyLock.ts` coordinate modal back-button behaviour with `DrawerShell` and the page-level unsaved-changes guard.
+
+- **`useModalHistoryLock(open: boolean)` — hard lock.** Absorbs browser back indefinitely; the user must dismiss via UI (confirm, cancel, X, Esc, backdrop). Use for destructive confirms and modals holding unsaved input. Consumers today: `DeleteModal`, `ActionModal`, `UnsavedChangesDialog`, `InlineCreateModal`, and every attach/detach/pivot modal inside `BelongsToManyField` and `MorphToManyField`.
+- **`useModalHistoryBackToClose(open: boolean, onClose: () => void)` — soft lock.** First browser back closes the modal through `onClose`; a second back navigates normally. Use for non-destructive previews where "back" should mean "close the overlay". Consumer today: `TrixField`'s `ImageModal` (read-only image preview).
+
+#### Modal surface inventory
+
+| Modal | Lock | Reason |
+|---|---|---|
+| `DeleteModal` | hard | destructive confirm |
+| `ActionModal` | hard | mutates data, may have form inputs |
+| `UnsavedChangesDialog` | hard | user has unsaved input |
+| `InlineCreateModal` | hard | form data |
+| `AttachModal` (BelongsToMany / MorphToMany) | hard | multi-select + pivot form |
+| `DetachConfirmModal` (BelongsToMany / MorphToMany) | hard | destructive confirm |
+| `EditPivotModal` (BelongsToMany) | hard | form data |
+| `PivotActionModal` (BelongsToMany / MorphToMany) | hard | mutates pivot rows |
+| `TrixField` `ImageModal` | soft | read-only preview |
+| `MartisTooltip` / peek previews | none | hover-only |
+
 ### Layout Presets
 
 Three configurable layout presets with runtime hot-swap:
@@ -81,6 +133,48 @@ Text::make('status')
 ---
 
 ## Action System Extensions
+
+### Default Row Actions (View, Edit, Delete)
+
+Every resource index automatically ships with a trailing column of built-in row actions (view, edit, delete) — no registration required. Each icon is automatically disabled when the row's authorization payload denies the operation, so unauthorized users still see the action exists but cannot trigger it. Custom inline actions always render **after** the defaults (never replace them unless opted out).
+
+Nova v5 requires developers to wire up view/edit/delete buttons manually via inline actions. Martis ships it as the default experience, with three layers of customization:
+
+**1. Global config** (`config/martis.php`):
+
+```php
+'index' => [
+    'default_row_actions' => [
+        'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        'view'    => true,
+        'edit'    => true,
+        'delete'  => true,
+    ],
+],
+```
+
+**2. Per-resource override** — use a method, not a property, so the decision can depend on the request:
+
+```php
+class ClientResource extends Resource
+{
+    public function defaultRowActions(Request $request): bool|array
+    {
+        // return false;              // hide the column entirely
+        // return ['view'];           // show only view
+        return ['view', 'edit'];      // pick a subset
+    }
+}
+```
+
+**3. Composition with custom inline actions** — default actions always appear first; any `showInline()` action you define renders to their right.
+
+```
+[ 👁  ✏  🗑 ]  [ custom action 1 ]  [ custom action 2 ]  [ ⋮ grouped ]
+   defaults             your inline actions follow
+```
+
+See [Default Row Actions](default_row_actions.md) for the full guide.
 
 ### Action Icons
 
@@ -144,6 +238,47 @@ Action::make('Import Data')
 
 ---
 
+## Lens System Extensions
+
+### D1 — Sticky Summary Row
+
+> Nova 5 forces you to build a separate Metric to show totals alongside a lens. Martis ships a `summary()` hook that renders aggregates as a sticky row under the lens table.
+
+```php
+public function summary(Request $request, Builder $query): array
+{
+    return [
+        'revenue' => ['label' => 'Total', 'value' => $query->sum('revenue')],
+        'count'   => ['label' => 'Rows',  'value' => $query->count()],
+    ];
+}
+```
+
+### D2 — Declarative Query Cache
+
+> Nova 5 has no per-lens cache. Aggregations pay the full join every request.
+
+```php
+(new MostValuableClients())->cacheFor(60);                         // seconds
+(new MostValuableClients())->cacheFor(new DateInterval('PT5M'));   // interval
+```
+
+Cache key mixes lens uriKey, filters, search, sort and page so distinct views never collide.
+
+### D3 — Default Filters Pre-Applied
+
+> Nova opens every lens with no filters. Martis lets the lens declare defaults that the URL auto-hydrates on first load.
+
+```php
+(new OverdueInvoices())->withDefaultFilters(['status' => 'overdue']);
+```
+
+### D4 — URL State Sync
+
+> Nova preserves only the lens key in the URL. Martis round-trips filters, search, sort, direction and page through the query string, making every lens view deeplinkable.
+
+---
+
 ## Filter System Extensions
 
 ### DateRangeFilter (Built-in)
@@ -165,6 +300,56 @@ SalaryFilter::make('Salary Range')
 
 Hidden filters are excluded from the schema AND ignored on the backend.
 
+### Action Authorization — closure-first, policy-second
+
+Nova relies on a policy ability named after the action
+(`Policy::publish`, `Policy::archive`, …). Martis lets you declare
+authorization inline on the Action while still honouring the policy
+callbacks Nova developers expect:
+
+```php
+class Publish extends Action
+{
+    public function canSee(Request $request): bool
+    {
+        return $request->user()->hasRole('editor');
+    }
+
+    public function canRun(Request $request, Model $model): bool
+    {
+        return $model->state === 'draft';
+    }
+}
+```
+
+Fallback order when executing an action: `canRun()` closure →
+`Policy::runAction` (or `runDestructiveAction` for destructive ones) →
+`Policy::update` (or `delete`). This keeps the standard Nova policy
+story for teams that want pure-policy flows.
+
+### updatePivot{Model} policy ability
+
+BelongsToMany and MorphToMany pivot edits consult a dedicated
+`updatePivot{Model}` policy ability, falling back to `update` on the
+parent. Nova has no equivalent — pivot writes are gated by `update`
+only.
+
+```php
+public function updatePivotTag(User $user, Post $post, Tag $tag): bool
+{
+    return $user->is_editor;
+}
+```
+
+### Relation fields inherit target policy authorization
+
+Relation field payloads (BelongsTo, HasMany, BelongsToMany,
+MorphTo, MorphToMany, MorphMany, MorphOne, HasOne) include
+`authorizedToCreate` / `authorizedToViewAny` computed from the **target
+resource's** policy. The inline "Create Related" button is suppressed
+when the user cannot create the related model, without the developer
+needing to toggle `showCreateRelationButton` by hand.
+
 ### Active Filter Pills
 
 Visual pill tags showing active filters with name and value, visible even when the filter panel is closed. Each pill has an individual clear button (X).
@@ -183,28 +368,157 @@ CountryFilter::make('Country')->searchable()
 
 ## Field Extensions
 
-### 16 Extended Field Types (Built-in)
+### 26 Extended Field Types (Built-in)
 
 All included without additional packages:
 
 | Field | Description |
 |-------|-------------|
-| `Badge` | Colored status badge with configurable colors |
+| `Audio` ⭐ | Audio upload + **client-side canvas waveform** (zero server deps) + `downloadable(bool)` |
+| `Avatar` ⭐ | Image subclass with per-row `fallback($url\|Closure)` + typed `shape(AvatarShape::*)` |
+| `Badge` | Colored status badge — closure-backed map/labels and per-row `resolveBadgeUsing()` (⭐) |
+| `BooleanGroup` ⭐ | Named boolean flags with `grouped([section => keys])` + `minChecked/maxChecked` live counter + `requireAny/All` |
 | `Status` | Status indicator with color mapping |
 | `Code` | Code editor with syntax highlighting |
 | `Color` | Color picker with preview |
 | `Country` | Country selector dropdown |
 | `Currency` | Formatted currency display with symbol |
 | `Gravatar` | Gravatar avatar from email |
+| `Icon` ⭐ | Phosphor icon picker (Martis 100% differential — Nova 5 has no Icon field) |
 | `KeyValue` | Editable key-value pair table |
 | `Markdown` | Markdown editor with preview |
 | `MultiSelect` | Multi-select dropdown |
+| `PasswordConfirmation` | Companion confirmation field that pairs with `Password::new()` |
+| `Slug` | URL-safe auto-generated identifier with live collision check (⭐) |
+| `UiAvatar` ⭐ | Deterministic 16-slot palette from seed hash, `colorFrom('attribute')`, custom `initials(Closure)` |
 | `Sparkline` | Inline mini chart |
+| `Stack` + `Line` ⭐ | Composite display — Martis renders on index too (Nova is detail-only) |
 | `Tag` | Tag input with autocomplete |
-| `Trix` | Rich text editor |
-| `Url` | URL field with validation |
+| `Timezone` | IANA timezone dropdown with live clock (⭐) |
+| `Trix` | Rich text editor with attachment uploads |
+| `Url` | URL field with validation and auto-scheme normalisation |
 | `Heading` | Section divider with optional content |
 | `Hidden` | Hidden field for form data |
+
+### Label Tooltips on Any Field (⭐ Martis 100% differential)
+
+Nova 5 exposes only `help()` — plain text always visible under the input. Martis
+adds a **second channel** for contextual guidance that is opt-in by hover:
+`->tooltip('<strong>...</strong>')` attaches a `(?)` icon to the field label
+and renders **raw HTML** on hover, so authors can pack multi-line, rich hints
+(line breaks, bold, lists, inline links) into a single call without bloating
+the form.
+
+```php
+Text::make('name', 'Full name')
+    ->help('Must be unique')
+    ->tooltip(
+        '<strong>Full legal name</strong>.<br>Examples:<br>'
+        .'• John Smith<br>• Ana Pereira<br><br>'
+        .'<em>Avoid abbreviations.</em>'
+    );
+```
+
+**Why it matters**
+
+- `help()` costs permanent vertical space; `tooltip()` costs **zero pixels**
+  until the user asks for it by hovering the icon.
+- HTML support means rich, localised, multi-line guidance in one string —
+  no custom field classes, no side panels.
+- Applies **uniformly** to every existing and future field (base-class
+  modifier). Renders on Panel, Section, TabGroup, ResourceCreate,
+  ResourceUpdate, and detail labels rendered inside Sections/TabGroups.
+
+**Security model**
+
+Only field tooltips render as HTML — every other `data-pr-tooltip` trigger in
+the app keeps the default plain-text escape via an explicit
+`data-pr-tooltip-html="true"` opt-in set only by the label renderer. Authors
+are responsible for producing safe markup, the same way they are for `help()`.
+
+**Why NOT a `Tooltip` field class**
+
+Discussed and deliberately rejected — a `Field` represents a value, not a
+decoration; tooltips are a presentation modifier that applies *to* fields, not
+a field type of their own. See [Fields → Tooltips](fields.md#tooltips-martis-differential)
+for the full rationale and the `tooltip()` vs `help()` decision matrix.
+
+### Icon Field — Phosphor Picker (⭐ Martis 100% differential)
+
+Nova 5 ships no Icon field. Martis provides three complementary modes:
+
+- **Display-only** — render a named Phosphor icon on the detail/index view. Useful for status cues.
+- **Stored with visual picker** — opens a categorised + searchable picker. Saves the icon *name* to the DB (portable, framework-agnostic).
+- **Computed from another attribute** — derive the icon from a model field via a closure; the picker is hidden.
+
+Supports palette whitelisting (restrict to a configured subset), `colorFrom()` to pull the hex colour from another attribute, configurable sizes and tooltips. Full API lives in [Fields Reference](fields.md#icon).
+
+### BooleanGroup — Grouped Sections + Live Counter (⭐)
+
+Nova's `BooleanGroup` is a flat list. Martis adds:
+
+- **`grouped([sectionTitle => keys])`** — renders each section as a collapsible panel with its own legend. Keeps 20+ permission flags manageable.
+- **`minChecked(int)` / `maxChecked(int)`** — enforced server-side AND surfaced as a live counter pill that turns amber when the user hasn't met the minimum or hits the ceiling.
+- **`requireAny()` / `requireAll()`** — convenience presets.
+
+```php
+BooleanGroup::make('permissions')
+    ->options(['clients.view' => 'View clients', /* … */])
+    ->grouped(['Clients' => ['clients.view']])
+    ->requireAny();
+```
+
+### Avatar + UiAvatar — Identity Pictures with Zero Plumbing (⭐)
+
+Both fields share the same palette + initials logic through the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait, keeping the topbar pill, login view, profile page, `Avatar` empty state and `UiAvatar` all visually consistent.
+
+**`Avatar` — upload field with a zero-config empty state:**
+
+- **Out of the box**, `Avatar::make('photo')` renders an `<img>` when the user uploaded one, and **coloured initials inline** when they haven't. No fallback closure required. No external service hit.
+- `fallback($url | Closure)` is still available as an **opt-in** override (per-row Closure-aware) — Nova's `fallbackUrl` is static only.
+- `colorFrom('brand_color')` + `initialsFrom('display_name')` + `initials(Closure)` customise the defaults.
+- Typed `AvatarShape::Circle | Rounded | Squared` enum instead of Nova's `rounded()` boolean.
+
+**`UiAvatar` — always initials, never uploads:**
+
+- Display-only (`hideFromForms()` locked), computed from the model — no DB column.
+- Same deterministic 16-slot palette hash. **Martis ships it client-side; Nova's equivalent calls the external `ui-avatars.com` service on every render.**
+- Same `colorFrom()` / `initials(Closure)` / `from('other_attr')` knobs as `Avatar`.
+
+```php
+// Most common case — one line, inline initials for members without a photo.
+Avatar::make('avatar_path')->circle()->colorFrom('brand_color');
+
+// Read-only resource without a photo column — pure initials pill.
+UiAvatar::make('avatar_initials')->from('name')->colorFrom('brand_color');
+```
+
+### Audio — Canvas Waveform, Zero Server Deps (⭐)
+
+Nova's `Audio` field is a thin wrapper over `File` with an `<audio>` element. Martis adds a **client-side waveform**: we fetch the audio, decode it via `AudioContext`, sample peaks, and paint them onto a `<canvas>`. No server-side image rendering, no ffmpeg, no external service. `downloadable(bool)` toggles the download button.
+
+### Stack + Line — Index-capable Composite Display (⭐)
+
+Nova's Stack field is detail-only. Martis ships `Stack::make(...)` that renders on index as well — ideal for compressing identity columns (name + email + company) into a single table cell without writing a custom component. `Line::subtitleFrom('attribute'|Closure)` emits a second muted line below the first without declaring an extra `Line`, and `Stack::divider()` inserts a thin separator between entries.
+
+```php
+Stack::make('identity', __('fields.identity'), [
+    Line::make('name')->asHeading()->subtitleFrom('email'),
+    Line::make('company')->asMuted(),
+])->divider();
+```
+
+Line variants — `asHeading()`, `asBase()`, `asSmall()`, `asMuted()`, `asCode()` — map to `.martis-line-*` classes so custom themes restyle every Line in the package through a handful of CSS tokens instead of per-field inline styles. See [Fields Reference](fields.md#stack--line).
+
+### Badge Closures — Schema-time and Per-row (⭐)
+
+`Badge::map()`, `->labels()`, `->types()` and `->icons()` accept one of:
+
+- An array — the Nova-compatible static map.
+- **Zero-arg Closure** — resolved once when the schema is serialised. Perfect for enum-backed palettes: `->map(fn () => StatusEnum::badgeMap())`.
+- **One-arg Closure** ⭐ — resolved per row. Receives the raw value (and optionally the model) and returns the single string for that value. Ideal for convention-driven i18n: `->labels(fn (string $v) => __("statuses.$v"))`.
+
+For full control, `->resolveBadgeUsing(fn ($value, $model) => ['type', 'label', 'icon'])` runs per row and returns the resolved payload. Missing keys fall back to the static/closure maps. All per-row results ship to the frontend wrapped in a `__martisBadge` object the Badge component detects transparently.
 
 ### Grid Layout System
 
@@ -219,6 +533,80 @@ Section::make('Details', [
 ```
 
 Supports responsive breakpoints: `colSpan()`, `colSpanMd()`, `colSpanLg()`.
+
+---
+
+### Repeater — Polymorphic storage, templates, duplicate, bulk paste
+
+On top of Nova 5's Repeater API, Martis ships five differentials that
+address Nova's published gaps. Full documentation in [repeater.md](repeater.md).
+
+**D1 — `dependsOn([parent attributes])`**
+Every field inside every row receives the parent record's attributes in
+`formValues`, so conditional logic can react to the record state without
+leaving the row. Closes [laravel/nova-issues#5669](https://github.com/laravel/nova-issues/discussions/5669).
+
+**D2 — Cardinality + collapse + reorder**
+`minRows()`, `maxRows()`, `collapsible()`, `collapsedByDefault()`,
+`reorderable()` with an auto-managed `position` column in HasMany /
+Polymorphic mode. Native HTML5 drag-and-drop — zero extra dependency.
+
+**D3 — Row header affordances**
+`Repeatable::icon()`, `->color()`, `->title('{field} · {field}')`
+(template resolved per row) and `->badgeCount()`. Nova displays only the
+class basename; Martis surfaces real row context.
+
+**D4 — `rowTemplates()`, duplicate row, bulk paste**
+Pre-filled row templates group beneath the Add button, each row header
+gets a one-click duplicate, and a "Colar linhas" footer button parses
+TSV / CSV / JSON clipboard content into rows (header auto-detection when
+the first line matches field attribute names).
+
+**D5 — `asPolymorphic()`**
+Single child table shared by every row type, discriminated by a `type`
+column and a JSON `payload`. Fills the page-builder gap Nova leaves open
+(Nova requires one table per Repeatable type).
+
+```php
+Repeater::make('blocks')
+    ->asPolymorphic('type', 'payload')
+    ->uniqueField('uuid')
+    ->reorderable()
+    ->repeatables([HeroBlock::make(), TextBlock::make(), GalleryBlock::make()]);
+```
+
+---
+
+## UI Primitives
+
+### Standardised Button Classes
+
+Every confirm/cancel/destructive/secondary button in the admin shares the same chip geometry, shadow and hover choreography. Custom override components can drop in the same classes and inherit the full styling for free.
+
+| Class | Purpose | Background | Hover |
+|-------|---------|------------|-------|
+| `.martis-btn-primary` | Default confirm (save, create, run) | `--martis-accent` | `--martis-accent-hover` |
+| `.martis-btn-secondary` | Cancel / tertiary | `--martis-card` + subtle border | Overlay + lift |
+| `.martis-btn-danger` | Destructive confirm (delete) | `--martis-danger` | `--martis-danger-hover` |
+| `.martis-btn-warning` | Archive / reversible destructive | `--martis-warning` | `--martis-warning-hover` |
+| `.martis-btn-filled` | Dynamic `backgroundColor` via inline style (e.g. `UnsavedChangesDialog` honouring a user-provided `confirmColor`) | inline | `filter: brightness(0.92)` |
+
+Shared across every variant:
+
+- **Resting**: 1px border, `box-shadow: 0 1px 2px rgba(15,23,42,0.08)`, 6px radius, `500` weight, 0.875rem font, `0.5rem 1rem` padding.
+- **Hover** (not `:disabled`): deeper shadow (`0 3px 6px rgba(15,23,42,0.14)`) plus `translateY(-1px)` lift.
+- **Active**: shadow collapses, `translateY(0)`.
+- **Disabled**: no shadow, opacity `0.6`, cursor `not-allowed`.
+- **Focus-visible**: 2px `--martis-accent` outline with 2px offset.
+
+```tsx
+// Inside a custom action or override component
+<button className="martis-btn-primary">Save</button>
+<button className="martis-btn-secondary">Cancel</button>
+<button className="martis-btn-danger">Delete</button>
+```
+
+Where the package uses them already: `DrawerShell` footer, `DrawerCreate`/`DrawerUpdate`, full-page `ResourceCreate`/`ResourceUpdate`, `ActionModal`, `DeleteModal`, `UnsavedChangesDialog`.
 
 ---
 
@@ -405,6 +793,98 @@ Customizable loading indicator:
 ],
 ```
 
+### Comprehensive Theme System
+
+> Nova 5 has limited theming. Martis exposes 94 CSS variables across 13 categories.
+
+A single theme file controls the entire admin panel:
+
+- **Background layers** (7 vars) — page bg, surfaces, sidebar, topbar, cards, inputs
+- **Text & borders** (3 vars)
+- **Accent / brand** (6 vars) — primary, hover, active, alpha tints, focus ring
+- **Semantic colors solid** (8 vars) — success/warning/danger/info + hover variants
+- **Semantic backgrounds** (8 vars) — for badges, alerts, status
+- **Interactive states** (4 vars) — hover, active, search overlay
+- **Overlays & shadows** (5 vars) — modal backdrop, sm/md/lg shadows, peek
+- **DataTable** (5 vars) — header, rows, borders
+- **Border radius** (5 vars) — from sm to full pill
+- **Typography** (15 vars) — font families (sans/mono/heading), 7-step size scale, 4 weights, 3 line heights
+- **Chart palette** (10 vars) — for partition/trend metrics
+- **File icons** (6 vars) — semantic per file type
+- **Badge variants** (12 vars) — legacy compatibility
+
+```bash
+# Generate a theme scaffold with all variables
+php artisan martis:theme MyTheme
+```
+
+The generated stub includes all 94 variables in both dark mode (`:root`) and light mode (`html:not(.dark)`), with comments and grouping. Edit any value, refresh the browser — no rebuild needed.
+
+See [Theming Guide](theming.md) for the complete variable reference.
+
+### Standardized Clear Button (`<ClearButton />`)
+
+> Nova 5 has inconsistent clear behavior across field types.
+
+Martis ships a reusable `<ClearButton />` component. All input-like fields (Text, Email, URL, Password, Number, Currency, Date, DateTime, Select, Country, MultiSelect, BelongsTo, MorphTo, Tag) use it consistently:
+
+- Always red (`var(--martis-danger)`)
+- Always has `Clear` tooltip (translated)
+- Only renders when `field.nullable === true && hasValue && !field.readonly`
+- Hover: darker red, no background fill
+
+For consumer apps building custom fields:
+
+```tsx
+import { ClearButton } from '@/components/ClearButton'
+
+<ClearButton
+  visible={field.nullable && hasValue && !field.readonly}
+  onClick={() => onChange(null)}
+  style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)' }}
+/>
+```
+
+### Theme-Aware Chart Colors
+
+> Nova 5 charts use fixed Indigo/Cyan palette.
+
+Chart.js can't read CSS variables natively. Martis provides a runtime resolver:
+
+```tsx
+import { chartPalette, accentColor, mutedTextColor, resolveColor } from '@/lib/themeColors'
+
+const colors = chartPalette()              // ['#6366f1', '#22c55e', ...] resolved from --martis-chart-*
+const accent = accentColor()                // resolved --martis-accent
+const muted = mutedTextColor()              // resolved --martis-text-muted
+const safe = resolveColor('var(--my-var)')  // works on var() OR literal hex
+```
+
+Charts re-render with the correct theme colors automatically when the theme changes.
+
+### Per-Metric Color Override
+
+> Nova 5 metrics have a fixed color (cardStyle accent).
+
+Any metric can specify a custom chart color via `->color()`:
+
+```php
+// TrendMetric: line color
+RevenueMetric::make()->color('var(--martis-success)');
+
+// ProgressMetric: bar fill (overrides semantic)
+TaskCompletion::make()->color('var(--martis-warning)');
+
+// PartitionMetric: per-label color map
+ProjectsByStatus::make()->colors([
+    'Active' => 'var(--martis-success)',
+    'Paused' => '#f59e0b',
+    'Done' => 'rgb(59, 130, 246)',
+]);
+```
+
+Accepts any CSS color value — hex, rgb, rgba, hsl, named colors, or `var(--martis-*)`.
+
 ### Component Scaffolding
 
 Generate custom dashboard cards, field overrides, and visual components:
@@ -448,6 +928,22 @@ public function cards(Request $request): array
 ```
 
 The React component receives all `meta` data as props.
+
+### Card Width and Framing
+
+> Nova 5 cards require the developer to manage grid spans and chrome inside the custom component.
+
+Martis Cards expose two declarative methods on the backend:
+
+```php
+Card::make('Revenue')
+    ->componentKey('revenue-card')
+    ->width(6)        // grid-column span (1-12), defaults to 4
+    ->framed();       // wrap custom component in the default MetricCard chrome
+```
+
+- `width(int)` — the Dashboard grid wraps the custom component in a `div` with `grid-column: span {width}`, so the component body never needs to touch `gridColumn` itself.
+- `framed(bool = true)` — when `true`, the component renders inside the standard `MetricCard` container (title, icon, border). Defaults to `false` so hero-style cards can render full-bleed.
 
 ---
 
