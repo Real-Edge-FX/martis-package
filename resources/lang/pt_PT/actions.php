@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'add_row' => 'Adicionar linha',
+    'remove' => 'Remover',
+    'reorder' => 'Reordenar',
+    'duplicate_row' => 'Duplicar linha',
+    'paste_rows' => 'Colar linhas',
     'create' => 'Criar',
     'edit' => 'Editar',
     'delete' => 'Apagar',

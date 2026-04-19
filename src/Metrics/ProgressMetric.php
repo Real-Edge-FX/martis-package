@@ -5,6 +5,7 @@ namespace Martis\Metrics;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Martis\Enums\MetricType;
 
 /**
  * A metric that displays progress toward a target as a progress bar.
@@ -15,9 +16,9 @@ use Illuminate\Http\Request;
  */
 abstract class ProgressMetric extends Metric
 {
-    public function metricType(): string
+    public function metricType(): MetricType
     {
-        return 'progress';
+        return MetricType::Progress;
     }
 
     /**

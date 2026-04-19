@@ -77,8 +77,30 @@ Return `false` (the default) to disable, `true` for the localised package defaul
 
 - **Browser back/forward** — handled via a history *sentinel* pushed on mount plus a **capture-phase popstate listener** that calls `stopImmediatePropagation()`. This prevents React Router from ever seeing the pop, avoiding the v6 URL-flicker bug. The sentinel is re-armed the moment the dialog opens, so repeated back presses while the dialog is visible stay trapped. On confirm the guard pops the re-armed sentinel (drawer: one `back()`; page: `go(-2)` for sentinel + real entry).
 - **In-app navigation** — `useBlocker` (React Router v6.4 data-router API) intercepts `<Link>` clicks and imperative `navigate()` calls. Popstate-originated navigations are deliberately ignored (`historyAction === 'POP'`) because the browser-level listener already owns that path.
-- **Modals on top of a guarded surface** — `ActionModal` and `DeleteModal` share a module-level `useModalHistoryLock` hook (`lib/historyLock.ts`) that coordinates with `DrawerShell`: while a modal's lock is active, the drawer's popstate handler bails out so closing the modal never closes the drawer underneath.
+- **Modals on top of a guarded surface** — coordinated via `resources/js/lib/historyLock.ts`. See [Modal history locks](#modal-history-locks) below for the two hooks and the full modal surface inventory.
 - **`beforeunload` is intentionally NOT wired up.** The browser's native "Are you sure?" prompt was producing double prompts alongside the custom dialog and firing erratically when the previous history entry lived outside the SPA origin. Tab-close protection is an explicit trade-off Martis chose against for UX cleanliness.
+
+### Modal History Locks
+
+Two hooks in `resources/js/lib/historyLock.ts` coordinate modal back-button behaviour with `DrawerShell` and the page-level unsaved-changes guard.
+
+- **`useModalHistoryLock(open: boolean)` — hard lock.** Absorbs browser back indefinitely; the user must dismiss via UI (confirm, cancel, X, Esc, backdrop). Use for destructive confirms and modals holding unsaved input. Consumers today: `DeleteModal`, `ActionModal`, `UnsavedChangesDialog`, `InlineCreateModal`, and every attach/detach/pivot modal inside `BelongsToManyField` and `MorphToManyField`.
+- **`useModalHistoryBackToClose(open: boolean, onClose: () => void)` — soft lock.** First browser back closes the modal through `onClose`; a second back navigates normally. Use for non-destructive previews where "back" should mean "close the overlay". Consumer today: `TrixField`'s `ImageModal` (read-only image preview).
+
+#### Modal surface inventory
+
+| Modal | Lock | Reason |
+|---|---|---|
+| `DeleteModal` | hard | destructive confirm |
+| `ActionModal` | hard | mutates data, may have form inputs |
+| `UnsavedChangesDialog` | hard | user has unsaved input |
+| `InlineCreateModal` | hard | form data |
+| `AttachModal` (BelongsToMany / MorphToMany) | hard | multi-select + pivot form |
+| `DetachConfirmModal` (BelongsToMany / MorphToMany) | hard | destructive confirm |
+| `EditPivotModal` (BelongsToMany) | hard | form data |
+| `PivotActionModal` (BelongsToMany / MorphToMany) | hard | mutates pivot rows |
+| `TrixField` `ImageModal` | soft | read-only preview |
+| `MartisTooltip` / peek previews | none | hover-only |
 
 ### Layout Presets
 
@@ -511,6 +533,47 @@ Section::make('Details', [
 ```
 
 Supports responsive breakpoints: `colSpan()`, `colSpanMd()`, `colSpanLg()`.
+
+---
+
+### Repeater — Polymorphic storage, templates, duplicate, bulk paste
+
+On top of Nova 5's Repeater API, Martis ships five differentials that
+address Nova's published gaps. Full documentation in [repeater.md](repeater.md).
+
+**D1 — `dependsOn([parent attributes])`**
+Every field inside every row receives the parent record's attributes in
+`formValues`, so conditional logic can react to the record state without
+leaving the row. Closes [laravel/nova-issues#5669](https://github.com/laravel/nova-issues/discussions/5669).
+
+**D2 — Cardinality + collapse + reorder**
+`minRows()`, `maxRows()`, `collapsible()`, `collapsedByDefault()`,
+`reorderable()` with an auto-managed `position` column in HasMany /
+Polymorphic mode. Native HTML5 drag-and-drop — zero extra dependency.
+
+**D3 — Row header affordances**
+`Repeatable::icon()`, `->color()`, `->title('{field} · {field}')`
+(template resolved per row) and `->badgeCount()`. Nova displays only the
+class basename; Martis surfaces real row context.
+
+**D4 — `rowTemplates()`, duplicate row, bulk paste**
+Pre-filled row templates group beneath the Add button, each row header
+gets a one-click duplicate, and a "Colar linhas" footer button parses
+TSV / CSV / JSON clipboard content into rows (header auto-detection when
+the first line matches field attribute names).
+
+**D5 — `asPolymorphic()`**
+Single child table shared by every row type, discriminated by a `type`
+column and a JSON `payload`. Fills the page-builder gap Nova leaves open
+(Nova requires one table per Repeatable type).
+
+```php
+Repeater::make('blocks')
+    ->asPolymorphic('type', 'payload')
+    ->uniqueField('uuid')
+    ->reorderable()
+    ->repeatables([HeroBlock::make(), TextBlock::make(), GalleryBlock::make()]);
+```
 
 ---
 

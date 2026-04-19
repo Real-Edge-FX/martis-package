@@ -53,6 +53,17 @@ All available field types in Martis, their methods, and configuration options.
   - [Currency](#currency)
   - [BelongsTo](#belongsto)
   - [Tag](#tag)
+  - [BelongsToMany](#belongstomany)
+  - [HasOne](#hasone)
+  - [HasOneOfMany](#hasoneofmany)
+  - [HasOneThrough](#hasonethrough)
+  - [HasMany](#hasmany)
+  - [HasManyThrough](#hasmanythrough)
+  - [MorphOne](#morphone)
+  - [MorphOneOfMany](#morphoneofmany)
+  - [MorphMany](#morphmany)
+  - [MorphTo](#morphto)
+  - [MorphToMany](#morphtomany)
   - [File](#file)
   - [Image](#image)
   - [Code](#code)
@@ -1198,6 +1209,16 @@ is also visible in preview (`showOnPreview` falls back to `showOnDetail`).
 
 **Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `placeholder`, `iconColor`
 
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On `BelongsTo` only the *Create* button (inline create) and the *View*
+action surface are affected (per the trait scope matrix). Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+*src/Fields/Concerns/ControlsRelationshipToolbar.php*
+
 ---
 
 ### Tag
@@ -1243,6 +1264,14 @@ Tag::make('tags', 'Tags')
 - `fill()` registers deferred pivot sync via `DeferredRelationSync`.
 
 **Extra attributes:** `relationship`, `titleAttribute`, `relatedResource`, `withPreview`, `displayAsList`, `showCreateRelationButton`, `modalSize`, `preload`, `relationSearchable`
+
+#### Toolbar controls (inherited)
+
+Tag renders a chip/autocomplete UI of its own and **does not** use the shared
+`RelationshipTableShell`, so the `ControlsRelationshipToolbar` trait is not
+applied here. Use [`BelongsToMany`](#belongstomany) when you need the full
+DataTable toolbar with hide flags, search, per-page, and soft-delete
+dropdown.
 
 ---
 
@@ -1338,6 +1367,440 @@ If these methods are not defined, the field falls back to `authorizedToUpdate()`
 - `fill()` is a no-op — attach/detach is handled exclusively via the dedicated API endpoints.
 
 **Extra attributes:** `relationship`, `relatedResource`, `titleAttribute`, `searchable`, `collapsable`, `collapsedByDefault`, `allowDuplicateRelations`, `showCreateRelationButton`, `modalSize`, `withSubtitles`, `dontReorderAttachables`, `pivotFields`, `belongsToManyMeta`
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On many-to-many fields, `hideCreateButton()` hides the *Attach* button and
+`hideDeleteAction()` hides the *Detach* variant. Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+*src/Fields/Concerns/ControlsRelationshipToolbar.php*
+
+---
+
+### HasOne
+
+**Type identifier:** `has_one`
+**Extends:** `Field`
+**File:** `src/Fields/HasOne.php`
+
+One-to-one relationship. Renders a single related record panel on the detail
+page with optional Create / Edit / Delete controls. Detail-only by default
+(Nova v5 parity — hidden from index and forms).
+
+```php
+use Martis\Fields\HasOne;
+
+HasOne::make('Profile', 'profile', ProfileResource::class)
+    ->canCreate()
+    ->canUpdate()
+    ->canDelete(false)
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button when no related record exists. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button for the existing related record. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button for the existing related record. | `true` |
+
+Static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
+promotes a `hasMany()->latestOfMany()` relation into a
+[`HasOneOfMany`](#hasoneofmany) field.
+*src/Fields/HasOne.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+`HasOne` renders no toolbar, so only the action hide flags
+(`hideViewAction` / `hideEditAction` / `hideDeleteAction`) have a visible
+effect per the trait scope matrix. Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasOne](relationships.md#hasone) for the full guide.
+
+---
+
+### HasOneOfMany
+
+**Type identifier:** `has_one_of_many`
+**Extends:** `HasOne`
+**File:** `src/Fields/HasOneOfMany.php`
+
+Promotes a `hasMany()->latestOfMany()` (or `->ofMany(col, aggregate)`)
+relationship so the admin displays the latest / oldest record as if it were
+a plain `HasOne`. Ships an optional metric tile via `aggregateVia()` and a
+"latest of N" pill next to the panel heading.
+
+```php
+use Martis\Enums\AggregateFunction;
+use Martis\Fields\HasOneOfMany;
+
+HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
+    ->latestByTimestamp('paid_at')
+    ->aggregateVia(AggregateFunction::Sum, 'amount');
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `HasOne` setters* | — | `$this` | Inherited. | — |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`. | `'created_at'` |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection (count/sum/min/max/avg). | disabled |
+
+*src/Fields/HasOneOfMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+(via `HasOne`) — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Only the action hide flags (`hideViewAction` / `hideEditAction` /
+`hideDeleteAction`) have a visible effect on this single-record panel.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasOneOfMany](relationships.md#hasoneofmany) for the
+full guide.
+
+---
+
+### HasOneThrough
+
+**Type identifier:** `has_one_through`
+**Extends:** `HasOne`
+**File:** `src/Fields/HasOneThrough.php`
+
+Shows a single distant record reached through an intermediate model
+(`hasOneThrough`). Read-only by default: `canCreate` / `canUpdate` /
+`canDelete` start as `false`.
+
+```php
+use Martis\Fields\HasOneThrough;
+
+HasOneThrough::make('Account Manager', 'accountManager', TeamMemberResource::class)
+    ->throughBreadcrumb();
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `HasOne` setters* | — | `$this` | Inherited. `canCreate` / `canUpdate` / `canDelete` default to `false`. | — |
+| `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. Pass a custom `$text` to override the default label. | `false` |
+
+*src/Fields/HasOneThrough.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Because Through fields are read-only by default, the `canCreate` /
+`canUpdate` / `canDelete` defaults already hide those buttons; the
+`hideXxx()` setters are mostly redundant but available for symmetry.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasOneThrough](relationships.md#hasonethrough) for
+the full guide.
+
+---
+
+### HasMany
+
+**Type identifier:** `has_many`
+**Extends:** `Field`
+**File:** `src/Fields/HasMany.php`
+
+One-to-many relationship. Renders an inline DataTable panel on the detail
+page with full inline CRUD (create, edit, delete), search, sort, per-page,
+and pagination via `RelationshipTableShell`. Detail-only by default (Nova v5
+parity — use `->showOnIndex()` to display a count badge on index).
+
+```php
+use Martis\Fields\HasMany;
+use Martis\Enums\HasManyIndexDisplay;
+use Martis\Enums\HasManyRedirectMode;
+
+HasMany::make('Comments', 'comments')
+    ->relatedResource('comments')
+    ->collapsable()
+    ->collapsedByDefault()
+    ->perPage(15)
+    ->showRelationCount()
+    ->redirectAfterSave(HasManyRedirectMode::Parent);
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
+| `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
+| `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
+| `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
+| `showRelationCount` | `showRelationCount(bool $value = true): static` | `$this` | Show the total count badge in the panel heading. | `true` |
+| `badgeColor` | `badgeColor(string $color): static` | `$this` | Override the count badge colour for index display. | — |
+| `badgeIcon` | `badgeIcon(string $icon): static` | `$this` | Override the panel icon. | — |
+| `redirectAfterSave` | `redirectAfterSave(HasManyRedirectMode $mode): static` | `$this` | Where to redirect after saving a related record. | — |
+| `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
+| `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start collapsed. Implies `collapsable`. | `false` |
+
+*src/Fields/HasMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On `HasMany` the full surface is affected (search / create / per-page /
+soft-delete dropdown + view / edit / delete / restore / force-delete).
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasMany](relationships.md#hasmany) for the full
+guide and [Relationship panel anatomy](relationships.md#relationship-panel-anatomy)
+for the shared shell layout.
+
+---
+
+### HasManyThrough
+
+**Type identifier:** `has_many_through`
+**Extends:** `HasMany`
+**File:** `src/Fields/HasManyThrough.php`
+
+Inline DataTable of many records reached through an intermediate
+(`hasManyThrough`). Read-only by default: `canCreate` / `canUpdate` /
+`canDelete` start as `false`.
+
+```php
+use Martis\Fields\HasManyThrough;
+
+HasManyThrough::make('Managed Projects', 'managedProjects', ProjectResource::class)
+    ->throughBreadcrumb()
+    ->countBadge();
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `HasMany` setters* | — | `$this` | Inherited. `canCreate` / `canUpdate` / `canDelete` default to `false`. | — |
+| `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. | `false` |
+| `countBadge` | `countBadge(bool $enabled = true): static` | `$this` | Renders a count pill on the parent resource's index cell. | `true` |
+
+*src/Fields/HasManyThrough.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+(via `HasMany`) — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Since the field is read-only by default, Edit / Delete / Restore /
+Force-delete are already hidden via `canUpdate(false)` / `canDelete(false)`.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — HasManyThrough](relationships.md#hasmanythrough) for
+the full guide.
+
+---
+
+### MorphOne
+
+**Type identifier:** `morph_one`
+**Extends:** `Field`
+**File:** `src/Fields/MorphOne.php`
+
+Polymorphic one-to-one relationship (`morphOne`). Same UI as `HasOne` but
+for polymorphic relations. Detail-only by default.
+
+```php
+use Martis\Fields\MorphOne;
+
+MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
+    ->canCreate()
+    ->canUpdate();
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button. | `true` |
+
+*src/Fields/MorphOne.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Same scope as `HasOne`: only the action hide flags have a visible effect.
+Remember: visible = authorized AND NOT hidden. Authorization is always the
+source of truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — MorphOne](relationships.md#morphone) for the full
+guide.
+
+---
+
+### MorphOneOfMany
+
+**Type identifier:** `morph_one_of_many`
+**Extends:** `MorphOne`
+**File:** `src/Fields/MorphOneOfMany.php`
+
+Polymorphic counterpart of `HasOneOfMany`. Promotes a
+`morphMany()->latestOfMany()` (or `->ofMany(col, aggregate)`) relationship.
+
+```php
+use Martis\Enums\AggregateFunction;
+use Martis\Fields\MorphOneOfMany;
+
+MorphOneOfMany::make('Latest Note', 'latestNote', NoteResource::class)
+    ->latestByTimestamp()
+    ->aggregateVia(AggregateFunction::Count, '*');
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| *All `MorphOne` setters* | — | `$this` | Inherited. | — |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart. | `'created_at'` |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection. | disabled |
+
+*src/Fields/MorphOneOfMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+(via `MorphOne`) — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Only the action hide flags have a visible effect on this single-record
+panel. Remember: visible = authorized AND NOT hidden. Authorization is
+always the source of truth; the hide flags can only hide, never
+force-visible.
+
+See [relationships.md — MorphOneOfMany](relationships.md#morphoneofmany) for
+the full guide.
+
+---
+
+### MorphMany
+
+**Type identifier:** `morph_many`
+**Extends:** `Field`
+**File:** `src/Fields/MorphMany.php`
+
+Polymorphic one-to-many relationship (`morphMany`). Same DataTable UI as
+`HasMany` — full inline CRUD, search, sort, per-page, pagination — via
+`RelationshipTableShell`. Detail-only by default.
+
+```php
+use Martis\Fields\MorphMany;
+
+MorphMany::make('Comments', 'comments', CommentResource::class)
+    ->collapsable()
+    ->collapsedByDefault()
+    ->perPage(10)
+    ->canCreate(false);
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
+| `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
+| `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
+| `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
+| `showRelationCount` | `showRelationCount(bool $value = true): static` | `$this` | Show the total count badge in the panel heading. | `true` |
+| `badgeColor` | `badgeColor(string $color): static` | `$this` | Override the count badge colour. | — |
+| `badgeIcon` | `badgeIcon(string $icon): static` | `$this` | Override the panel icon. | — |
+| `redirectAfterSave` | `redirectAfterSave(HasManyRedirectMode $mode): static` | `$this` | Where to redirect after saving a related record. | — |
+
+*src/Fields/MorphMany.php*
+
+> `MorphMany` does not expose `collapsable()` / `collapsedByDefault()`
+> setters of its own — see src for details.
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Full scope applies: search / create / per-page / soft-delete dropdown and
+all five row actions. Remember: visible = authorized AND NOT hidden.
+Authorization is always the source of truth; the hide flags can only hide,
+never force-visible.
+
+See [relationships.md — MorphMany](relationships.md#morphmany) for the full
+guide and [Relationship panel anatomy](relationships.md#relationship-panel-anatomy)
+for the shared shell layout.
+
+---
+
+### MorphToMany
+
+**Type identifier:** `morph_to_many`
+**Extends:** `Field`
+**File:** `src/Fields/MorphToMany.php`
+
+Polymorphic many-to-many relationship (`morphToMany`). Same pivot UI as
+`BelongsToMany` — DataTable, attach/detach, pivot fields, search, sort,
+per-page, pagination — via `RelationshipTableShell`. Detail-only by default.
+
+```php
+use Martis\Fields\MorphToMany;
+
+MorphToMany::make('Tags', 'tags', TagResource::class)
+    ->titleAttribute('name')
+    ->searchable()
+    ->collapsable()
+    ->fields(fn () => [
+        Text::make('notes', 'Notes')->nullable(),
+    ]);
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. | `'name'` |
+| `fields` | `fields(Closure $closure): static` | `$this` | Define pivot fields (stored on the morph-pivot table). | — |
+| `actions` | `actions(Closure $closure): static` | `$this` | Define pivot actions for attached records. | — |
+| `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
+| `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
+| `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start collapsed. Implies `collapsable`. | `false` |
+| `allowDuplicateRelations` | `allowDuplicateRelations(bool $value = true): static` | `$this` | Allow attaching the same record multiple times. | `false` |
+| `showCreateRelationButton` | `showCreateRelationButton(bool\|Closure $callback = true): static` | `$this` | Show the inline create button in the attach modal. | `false` |
+| `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
+| `modalSize` | `modalSize(ModalSize $size, ?string $height = null): static` | `$this` | Attach modal size / optional height. | `'2xl'` |
+| `relatableQueryUsing` | `relatableQueryUsing(Closure $closure): static` | `$this` | Filter the attachable record list. | — |
+| `dontReorderAttachables` | `dontReorderAttachables(bool $value = true): static` | `$this` | Keep DB order in the attachable list. | `false` |
+| `withSubtitles` | `withSubtitles(bool $value = true): static` | `$this` | Show subtitles in search results. | `false` |
+| `subtitleAttribute` | `subtitleAttribute(string $attribute): static` | `$this` | Column used as the subtitle. | — |
+| `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
+| `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+
+*src/Fields/MorphToMany.php*
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+Same scope as `BelongsToMany`: `hideCreateButton()` hides the *Attach*
+button and `hideDeleteAction()` hides the *Detach* variant. Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+
+See [relationships.md — MorphToMany](relationships.md#morphtomany) for the
+full guide and [Relationship panel anatomy](relationships.md#relationship-panel-anatomy)
+for the shared shell layout.
 
 ---
 
@@ -1786,6 +2249,35 @@ Sparkline::make('trend', 'Revenue Trend')
 
 ---
 
+### Repeater
+
+**File:** `src/Fields/Repeater.php` + `src/Fields/Repeatable.php`
+
+Repeatable row widget backed by JSON, HasMany or ⭐ polymorphic (single child table
+with a `type` discriminator). See the dedicated [Repeater guide](repeater.md) for the
+full API. Highlights:
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `repeatables` | `repeatables(array<Repeatable>)` | Register the row types available in the Add menu |
+| `asJson` | `asJson(): static` | Persist on a JSON-cast parent attribute |
+| `asHasMany` | `asHasMany(): static` | Persist via a child table with 3-way upsert |
+| `asPolymorphic` ⭐ | `asPolymorphic(string $type = 'type', string $payload = 'payload')` | One child table for every row type |
+| `uniqueField` | `uniqueField(string)` | Column used to identify rows across saves |
+| `confirmRemoval` | `confirmRemoval(bool = true)` | Open a confirmation modal on remove |
+| `minRows` / `maxRows` ⭐ | `minRows(int)` / `maxRows(int)` | Cardinality limits enforced in the UI |
+| `collapsible` ⭐ | `collapsible(bool = true)` | Add collapse chevron to every row |
+| `collapsedByDefault` ⭐ | `collapsedByDefault(bool = true)` | Start collapsed |
+| `reorderable` ⭐ | `reorderable(bool = true, ?string $column = null)` | Drag-and-drop reorder |
+| `dependsOn` ⭐ | `dependsOn(array<string>)` | Expose parent attributes to every inner field |
+| `rowTemplates` ⭐ | `rowTemplates(array)` | Pre-filled rows available in the Add menu |
+
+**Repeatable** header decorations (⭐): `icon`, `color`, `title` (template or closure),
+`badgeCount`. Row-level UX extras: duplicate button per row, bulk-paste modal that
+parses TSV/CSV/JSON.
+
+---
+
 ## Utility Classes
 
 ### DeferredRelationSync
@@ -1971,3 +2463,13 @@ MorphTo supports inline create per selected type. The create button appears afte
 
 - Nova resolves morphable types via `$morphTypes` array on the field. Martis uses `types()` with Resource classes.
 - Martis resolves the model class from the resource's `newModel()` method instead of requiring explicit morph maps (though morph maps are also supported).
+
+#### Toolbar controls (inherited)
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
+— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
+On `MorphTo` only the *Create* button (inline create) and the *View* action
+surface are affected (per the trait scope matrix). Remember:
+visible = authorized AND NOT hidden. Authorization is always the source of
+truth; the hide flags can only hide, never force-visible.
+*src/Fields/Concerns/ControlsRelationshipToolbar.php*

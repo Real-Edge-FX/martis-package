@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Martis\Enums\BadgeType;
 use ReflectionFunction;
 
 /**
@@ -59,10 +60,10 @@ class Badge extends Field
      * @var array<string, string>|Closure
      */
     protected array|Closure $types = [
-        'info' => 'info',
-        'success' => 'success',
-        'warning' => 'warning',
-        'danger' => 'danger',
+        BadgeType::Info->value => BadgeType::Info->value,
+        BadgeType::Success->value => BadgeType::Success->value,
+        BadgeType::Warning->value => BadgeType::Warning->value,
+        BadgeType::Danger->value => BadgeType::Danger->value,
     ];
 
     protected bool $withIcons = false;

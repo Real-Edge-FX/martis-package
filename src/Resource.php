@@ -17,7 +17,9 @@ use Martis\Contracts\FilterContract;
 use Martis\Contracts\LensContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
+use Martis\Enums\DefaultRowAction;
 use Martis\Enums\ErrorDisplayMode;
+use Martis\Enums\SortDirection;
 use Martis\Enums\TableSize;
 use Martis\Events\AfterDelete;
 use Martis\Events\AfterSave;
@@ -158,6 +160,24 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Resolve the effective per-page for this resource. When the developer's
+     * declared `perPage()` is not present in `perPageOptions()`, clamp to
+     * the first option so the dropdown and the actual filter stay in sync
+     * (Option A — "options list is the source of truth").
+     */
+    public static function resolvedPerPage(): int
+    {
+        $options = static::perPageOptions();
+        $perPage = static::perPage();
+
+        if ($options === [] || in_array($perPage, $options, true)) {
+            return $perPage;
+        }
+
+        return $options[0];
+    }
+
+    /**
      * Return the default sort column for the index listing.
      *
      * Override in concrete resources to sort by a specific column on load.
@@ -174,9 +194,9 @@ abstract class Resource implements ResourceContract
      *
      * Nova v5 parity: public static $defaultSortDirection.
      */
-    public static function defaultSortDirection(): string
+    public static function defaultSortDirection(): SortDirection
     {
-        return 'asc';
+        return SortDirection::Asc;
     }
 
     /** {@inheritDoc} */
@@ -1258,9 +1278,9 @@ abstract class Resource implements ResourceContract
      * The default row actions for this resource.
      *
      * Returns `true` to use the global config, `false` to opt out, or a list
-     * of action keys ('view', 'edit', 'delete') to show a specific subset.
+     * of {@see DefaultRowAction} cases to show a specific subset.
      *
-     * @return bool|list<string>
+     * @return bool|list<DefaultRowAction>
      */
     public function defaultRowActions(Request $request): bool|array
     {
@@ -1329,9 +1349,9 @@ abstract class Resource implements ResourceContract
         if (is_array($resourceOverride)) {
             return [
                 'enabled' => true,
-                'view' => in_array('view', $resourceOverride, true),
-                'edit' => in_array('edit', $resourceOverride, true),
-                'delete' => in_array('delete', $resourceOverride, true),
+                'view' => in_array(DefaultRowAction::View, $resourceOverride, true),
+                'edit' => in_array(DefaultRowAction::Edit, $resourceOverride, true),
+                'delete' => in_array(DefaultRowAction::Delete, $resourceOverride, true),
             ];
         }
 

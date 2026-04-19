@@ -5,6 +5,7 @@ namespace Martis\Http\Requests;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Martis\Enums\SortDirection;
 
 /**
  * Request wrapper for lens endpoints.
@@ -29,8 +30,8 @@ class LensRequest extends Request
     /** Column name to order by (null = no explicit sort). */
     public ?string $sortColumn = null;
 
-    /** Sort direction ('asc'|'desc'). */
-    public string $sortDirection = 'asc';
+    /** Sort direction. */
+    public SortDirection $sortDirection = SortDirection::Asc;
 
     /**
      * Apply filters the user selected onto the builder.
@@ -63,7 +64,7 @@ class LensRequest extends Request
     public function withOrdering(Builder $query, ?Closure $default = null): Builder
     {
         if ($this->sortColumn !== null && $this->sortColumn !== '') {
-            return $query->orderBy($this->sortColumn, $this->sortDirection);
+            return $query->orderBy($this->sortColumn, $this->sortDirection->value);
         }
 
         if ($default !== null) {
@@ -106,8 +107,8 @@ class LensRequest extends Request
         $rawSort = $source->query('sort');
         $req->sortColumn = is_string($rawSort) && $rawSort !== '' ? $rawSort : null;
 
-        $rawDir = strtolower((string) $source->query('direction', 'asc'));
-        $req->sortDirection = in_array($rawDir, ['asc', 'desc'], true) ? $rawDir : 'asc';
+        $rawDir = strtolower((string) $source->query('direction', SortDirection::Asc->value));
+        $req->sortDirection = SortDirection::tryFrom($rawDir) ?? SortDirection::Asc;
 
         return $req;
     }

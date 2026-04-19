@@ -38,9 +38,9 @@ interface FilterContract
     public function uriKey(): string;
 
     /**
-     * The filter type identifier (e.g. 'select', 'boolean', 'date', 'date-range').
+     * The filter type identifier.
      */
-    public function filterType(): string;
+    public function filterType(): \Martis\Enums\FilterType;
 
     /**
      * Optional frontend component key for custom rendering.

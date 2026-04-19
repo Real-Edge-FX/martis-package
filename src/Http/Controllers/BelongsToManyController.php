@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
@@ -74,14 +75,12 @@ class BelongsToManyController extends MartisController
 
         // Sort
         $rawSort = $request->query('sort');
-        $rawDir = $request->query('direction', 'asc');
-        $dirStr = is_string($rawDir) ? $rawDir : 'asc';
-        $direction = in_array(strtolower($dirStr), ['asc', 'desc'], true)
-            ? strtolower($dirStr)
-            : 'asc';
+        $rawDir = $request->query('direction', SortDirection::Asc->value);
+        $dirStr = is_string($rawDir) ? $rawDir : SortDirection::Asc->value;
+        $direction = SortDirection::tryFrom(strtolower($dirStr)) ?? SortDirection::Asc;
 
         if (is_string($rawSort) && $rawSort !== '') {
-            $query->orderBy($rawSort, $direction);
+            $query->orderBy($rawSort, $direction->value);
         }
 
         // Pagination — use $relation->paginate() (not $query->paginate()) so Laravel

@@ -114,7 +114,7 @@ export function DrawerDetail(props: OverrideProps) {
             <button
               type="button"
               onClick={() => setShowDelete(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="martis-btn-danger inline-flex items-center gap-1.5"
             >
               <TrashIcon size={14} />
               {tAct('delete')}
@@ -122,8 +122,7 @@ export function DrawerDetail(props: OverrideProps) {
             <button
               type="button"
               onClick={() => onEdit(recordId ? Number(recordId) || recordId : undefined)}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-white"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
+              className="martis-btn-primary inline-flex items-center gap-1.5"
             >
               <PencilSimpleIcon size={14} />
               {tAct('edit')}

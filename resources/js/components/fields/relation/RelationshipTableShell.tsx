@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { DataTable, type DataTableSortEvent } from 'primereact/datatable'
+import { DataTable, type DataTableSortEvent, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 import {
   PlusIcon, EyeIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, XIcon,
@@ -39,10 +39,22 @@ export interface RelationshipTableShellProps {
 
   queryKey: unknown[]
   fetchUrl: (params: URLSearchParams) => string
-  deleteUrl: (relatedId: string | number) => string
+  /** Optional — when omitted the trash icon never renders (useful for pivot
+   *  relations where "delete" is expressed as "detach" via `rowActionsExtras`). */
+  deleteUrl?: (relatedId: string | number) => string
   createUrl?: string | null
   editUrl?: (id: string | number) => string
   viewUrl?: (id: string | number) => string
+
+  /** Extra columns rendered after the related resource's indexFields.
+   *  Used by BelongsToMany/MorphToMany to surface pivot attributes. */
+  pivotFields?: FieldDefinition[]
+
+  /** Render a multi-select checkbox column. Consumers must pass the
+   *  selected rows back as a controlled prop + handle change. */
+  selectable?: boolean
+  selectedRows?: ResourceRecord[]
+  onSelectionChange?: (rows: ResourceRecord[]) => void
 
   perPage: number
   perPageOptions: number[]
@@ -63,7 +75,10 @@ export interface RelationshipTableShellProps {
   /** Initial soft-delete filter. Reads from config.default_trashed_filter when omitted. */
   defaultTrashed?: 'active' | 'with' | 'only'
 
-  toolbarExtras?: ReactNode
+  /** Render extra controls in the primary toolbar (after Criar). Receives
+   *  the currently-selected rows so consumers can render pivot action
+   *  dropdowns with a "2 selected" badge, etc. */
+  toolbarExtras?: ReactNode | ((ctx: { selectedRows: ResourceRecord[] }) => ReactNode)
   rowActionsExtras?: (row: ResourceRecord) => ReactNode
 }
 
@@ -73,6 +88,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     showRelationIcon = true, showRelationCount = true,
     collapsable = false, collapsedByDefault = false,
     queryKey, fetchUrl, deleteUrl, createUrl, editUrl, viewUrl,
+    pivotFields,
+    selectable, selectedRows, onSelectionChange,
     perPage: perPageDefault, perPageOptions, searchable,
     canCreate, canUpdate, canDelete,
     hideSearch, hideCreateButton, hidePerPageSelector, hideSoftDeleteToggle,
@@ -122,7 +139,10 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (relatedId: string | number) => api.delete(deleteUrl(relatedId)),
+    mutationFn: (relatedId: string | number) => {
+      if (!deleteUrl) return Promise.resolve(undefined)
+      return api.delete(deleteUrl(relatedId))
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey })
       setDeleteTarget(null)
@@ -158,7 +178,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
 
   const showView = !hideViewAction
   const showEdit = canUpdate && !hideEditAction && !!editUrl
-  const showDelete = canDelete && !hideDeleteAction
+  const showDelete = canDelete && !hideDeleteAction && !!deleteUrl
   const showRestore = softDeletes && !hideRestoreAction
   const showForceDelete = softDeletes && !hideForceDeleteAction
   const hasActions = showView || showEdit || showDelete || showRestore || showForceDelete || !!rowActionsExtras
@@ -278,7 +298,9 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                 {tAct('create', 'Create')}
               </button>
             )}
-            {toolbarExtras}
+            {typeof toolbarExtras === 'function'
+              ? toolbarExtras({ selectedRows: selectedRows ?? [] })
+              : toolbarExtras}
           </div>
         )}
         {showMeta && (
@@ -332,6 +354,12 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
               onSort={(e: DataTableSortEvent) => {
                 if (e.sortField) handleSort(String(e.sortField))
               }}
+              selectionMode={selectable ? 'multiple' : null}
+              selection={selectable ? (selectedRows ?? []) : []}
+              onSelectionChange={selectable
+                ? (e: DataTableSelectionMultipleChangeEvent<ResourceRecord[]>) =>
+                    onSelectionChange?.(e.value)
+                : undefined as never}
               rowClassName={(row: ResourceRecord) =>
                 row.deleted_at != null ? 'opacity-60' : ''
               }
@@ -343,6 +371,9 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
               className="w-full martis-datatable martis-datatable-striped"
               tableClassName="min-w-full"
             >
+              {selectable && (
+                <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+              )}
               {records.some((r) => r.deleted_at != null) && (
                 <Column
                   header=""
@@ -389,6 +420,23 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                       <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
                     )
                   )}
+                  sortable={false}
+                />
+              ))}
+              {pivotFields?.map((pf) => (
+                <Column
+                  key={`pivot_${pf.attribute}`}
+                  field={`_pivot.${pf.attribute}`}
+                  header={
+                    <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                      {pf.label}
+                    </span>
+                  }
+                  body={(row: ResourceRecord) => {
+                    const pivot = row._pivot as Record<string, unknown> | undefined
+                    const val = pivot?.[pf.attribute] ?? null
+                    return <FieldDisplay field={pf} value={val} resourceKey={relatedResource} />
+                  }}
                   sortable={false}
                 />
               ))}

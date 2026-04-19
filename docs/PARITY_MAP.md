@@ -1,7 +1,19 @@
 # Parity Map — Martis vs Laravel Nova v5
 
-> Last updated: 2026-04-07
-> Coverage: Track B Foundation (Blocks 1-10) + Extended Fields + HasMany
+> Last updated: 2026-04-19
+> Coverage: Track B Foundation (Blocks 1-10) + Extended Fields + full Relation suite (12 types) + Lenses + Metrics + Dashboards + Menus
+
+## Deltas since 2026-04-07
+
+- **Lenses** (`src/Lenses/`) — `Lens` base class with `query()`, `fields/cards/filters/actions`, `canSee/canSeeWhen`, plus Martis extensions `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync.
+- **Metrics** (`src/Metrics/`) — `ValueMetric`, `TrendMetric`, `PartitionMetric`, `ProgressMetric` with result DTOs, caching, polling, card icons/styles/height, 12-column responsive grid, per-metric `color()`.
+- **Dashboards** (`src/Dashboards/`) — `Dashboard` base + `DefaultDashboard`, dashboard-level filters, refresh button, registration, fallback.
+- **Menus** (`src/Menu/`) — `Menu`, `MenuSection`, `MenuItem`, `Martis::mainMenu(...)`, per-resource `menuItem()` overrides, `/api/navigation` endpoint.
+- **Relationship toolbar hide flags** — `src/Fields/Concerns/ControlsRelationshipToolbar.php` introduces 9 per-instance toggles (`hideSearch`, `hideCreateButton`, `hidePerPageSelector`, `hideSoftDeleteToggle`, `hideViewAction`, `hideEditAction`, `hideDeleteAction`, `hideRestoreAction`, `hideForceDeleteAction`) available on every relationship field.
+- **Soft-delete filter dropdown in relation panels** — `HasMany` / `MorphMany` toolbars now expose the `?trashed=with|only` dropdown shared with the resource index.
+- **Modal history locks** — `resources/js/lib/historyLock.ts` ships two hooks: `useModalHistoryLock` (hard lock) and `useModalHistoryBackToClose` (soft lock). See [differentials.md](differentials.md#modal-history-locks).
+- **`resolvedPerPage()` clamp** — when `perPage()` is not in `perPageOptions()`, Martis clamps to the first option so the dropdown and the effective value stay in sync (`src/Resource.php`, `src/Lenses/Lens.php`).
+- **`BelongsToMany` / `MorphToMany` shell migration** — both now render through `RelationshipTableShell.tsx`, sharing toolbar and modal plumbing (`AttachModal`, `DetachConfirmModal`, `EditPivotModal`, `PivotActionModal`) with the rest of the relation fields.
 
 ## Legend
 
@@ -29,54 +41,69 @@
 
 ---
 
-## Fields (45 Types)
+## Fields (50 concrete types)
 
-| Field | Nova v5 | Martis | Status | Notes |
-|-------|---------|--------|--------|-------|
-| Text | Text field | Text::make() | DONE | Block 4 |
-| Textarea | Textarea | Textarea::make() + rows() | DONE | Block 4 |
-| Number | Number field | Number::make() + min/max/step | DONE | Block 4 |
-| Boolean | Boolean/Toggle | Boolean::make() + trueLabel/falseLabel | DONE | Block 4 |
-| Select | Select dropdown | Select::make() + options() | DONE | Block 4 |
-| Date | Date picker | Date::make() | DONE | Block 4 |
-| DateTime | Date + time picker | DateTime::make() | DONE | — |
-| BelongsTo | Belongs To | BelongsTo::make() + relatable endpoint | DONE | Block 4+8 |
-| HasMany | Has Many | HasMany::make() + inline CRUD | DONE | Inline DataTable |
-| Email | Email field | Email::make() + format validation | DONE | — |
-| Password | Password field | Password::make() + masked | DONE | — |
-| ID | ID display | Id::make() | DONE | — |
-| Hidden | Hidden field | Hidden::make() | DONE | — |
-| Heading | Section divider | Heading::make() + content() | DONE | — |
-| File | File upload | File::make() + disk/path/types/maxSize | DONE | — |
-| Image | Image upload | Image::make() + thumbnail/disk | DONE | — |
-| Badge | Badge display | Badge::make() + colors + closure maps/labels + resolveBadgeUsing() | DONE | ⭐ Extended |
-| Status | Status badge | Status::make() + colors | DONE | Extended |
-| Code | Code editor | Code::make() | DONE | Extended |
-| Color | Color picker | Color::make() | DONE | Extended |
-| Country | Country selector | Country::make() | DONE | Extended |
-| Currency | Currency display | Currency::make() + symbol | DONE | Extended |
-| Gravatar | Gravatar avatar | Gravatar::make() | DONE | Extended |
-| KeyValue | Key-value pairs | KeyValue::make() | DONE | Extended |
-| Markdown | Markdown editor | Markdown::make() | DONE | Extended |
-| MultiSelect | Multi-select dropdown | MultiSelect::make() | DONE | Extended |
-| Sparkline | Mini chart | Sparkline::make() | DONE | Extended |
-| Tag | Tag input | Tag::make() | DONE | Extended |
-| Trix | Rich text editor | Trix::make() | DONE | Extended |
-| Url | URL with validation | Url::make() | DONE | Extended |
-| Slug | — | Slug::make() + live collision check + freezeAfterPublish | DONE | ⭐ Extended |
-| PasswordConfirmation | Password confirmation | PasswordConfirmation::make() + live match | DONE | — |
-| Timezone | — | Timezone::make() + grouped dropdown + live clock | DONE | ⭐ Extended |
-| Icon | — | Icon::make() + Phosphor picker / palette / colorFrom | DONE | ⭐ 100% Martis |
-| Stack | Stack (detail-only) | Stack::make() + renders on index + divider() | DONE | ⭐ Extended |
-| Line | Line | Line::make() + asHeading/asSmall/asMuted/asCode + subtitleFrom() | DONE | ⭐ Extended |
-| BooleanGroup | BooleanGroup | BooleanGroup::make() + grouped() + minChecked/maxChecked + requireAny/All | DONE | ⭐ Extended |
-| Avatar | Avatar (Image subclass) | Avatar::make() + per-row fallback(Closure) + AvatarShape enum | DONE | ⭐ Extended |
-| UiAvatar | UiAvatar | UiAvatar::make() + deterministic palette + colorFrom() + initials(Closure) | DONE | ⭐ Extended |
-| Audio | Audio | Audio::make() + client-side waveform + downloadable() | DONE | ⭐ Extended |
-| HasOneOfMany | HasOneOfMany | HasOne::ofMany() / HasOneOfMany::make() + latestByTimestamp + aggregateVia + Latest-of-N pill | DONE | ⭐ Extended |
-| MorphOneOfMany | MorphOneOfMany | MorphOne::ofMany() / MorphOneOfMany::make() + latestByTimestamp + aggregateVia | DONE | ⭐ Extended |
-| HasOneThrough | HasOneThrough | HasOneThrough::make() + read-only defaults + throughBreadcrumb() | DONE | ⭐ Extended |
-| HasManyThrough | HasManyThrough | HasManyThrough::make() + read-only defaults + throughBreadcrumb() + countBadge() | DONE | ⭐ Extended |
+Alphabetical list of every concrete field in `src/Fields/` (excluding the abstract `Field.php`
+base class and the `DeferredRelationSync.php` helper registry). The "Nova v5?" column
+indicates whether Laravel Nova v5 ships an equivalent field out of the box.
+
+| Field | Nova v5? | Martis | Notes |
+|-------|:--------:|--------|-------|
+| Audio | ✓ | `Audio::make()` + client-side canvas waveform + `downloadable()` | ⭐ waveform is Martis-only |
+| Avatar | ✓ | `Avatar::make()` + per-row `fallback(Closure)` + `AvatarShape` enum | ⭐ Extended |
+| Badge | ✓ | `Badge::make()` + closure maps/labels/types/icons + `resolveBadgeUsing()` | ⭐ Extended |
+| BelongsTo | ✓ | `BelongsTo::make()` + `/relatable/{field}` endpoint + inline create + multiple mode | DONE |
+| BelongsToMany | ✓ | `BelongsToMany::make()` + pivot fields + attach/detach + `RelationshipTableShell` | DONE |
+| Boolean | ✓ | `Boolean::make()` + `trueLabel` / `falseLabel` | DONE |
+| BooleanGroup | ✓ | `BooleanGroup::make()` + `grouped([sec => keys])` + `minChecked`/`maxChecked` + `requireAny`/`All` | ⭐ Extended |
+| Code | ✓ | `Code::make()` | DONE |
+| Color | ✓ | `Color::make()` | DONE |
+| Country | ✓ | `Country::make()` | DONE |
+| Currency | ✓ | `Currency::make()` + symbol | DONE |
+| Date | ✓ | `Date::make()` | DONE |
+| DateTime | ✓ | `DateTime::make()` | DONE |
+| Email | ✓ | `Email::make()` + format validation | DONE |
+| File | ✓ | `File::make()` + disk/path/types/maxSize | DONE |
+| Gravatar | ✓ | `Gravatar::make()` | DONE |
+| HasMany | ✓ | `HasMany::make()` + inline CRUD + soft-delete dropdown + toolbar hide flags | DONE |
+| HasManyThrough | ✓ | `HasManyThrough::make()` + read-only defaults + `throughBreadcrumb()` + `countBadge()` | ⭐ Extended |
+| HasOne | ✓ | `HasOne::make()` + `ofMany()` static constructor | DONE |
+| HasOneOfMany | ✓ | `HasOneOfMany::make()` + `latestByTimestamp` + `aggregateVia` + Latest-of-N pill | ⭐ Extended |
+| HasOneThrough | ✓ | `HasOneThrough::make()` + read-only defaults + `throughBreadcrumb()` | ⭐ Extended |
+| Heading | ✓ | `Heading::make()` + `content()` | DONE |
+| Hidden | ✓ | `Hidden::make()` | DONE |
+| Icon | ✗ | `Icon::make()` + Phosphor picker / palette / `colorFrom()` / computed mode | ⭐ 100% Martis |
+| Id | ✓ | `Id::make()` | DONE |
+| Image | ✓ | `Image::make()` + thumbnail/disk | DONE |
+| KeyValue | ✓ | `KeyValue::make()` | DONE |
+| Line | ✓ | `Line::make()` + `asHeading`/`asBase`/`asSmall`/`asMuted`/`asCode` + `subtitleFrom()` | ⭐ Extended |
+| Markdown | ✓ | `Markdown::make()` | DONE |
+| MorphMany | ✓ | `MorphMany::make()` + inline CRUD + soft-delete dropdown + toolbar hide flags | DONE |
+| MorphOne | ✓ | `MorphOne::make()` + `ofMany()` static constructor | DONE |
+| MorphOneOfMany | ✓ | `MorphOneOfMany::make()` + `latestByTimestamp` + `aggregateVia` | ⭐ Extended |
+| MorphTo | ✓ | `MorphTo::make()` + inline create | DONE |
+| MorphToMany | ✓ | `MorphToMany::make()` + pivot fields + attach/detach + `RelationshipTableShell` | DONE |
+| MultiSelect | ✓ | `MultiSelect::make()` | DONE |
+| Number | ✓ | `Number::make()` + min/max/step | DONE |
+| Password | ✓ | `Password::make()` + masked | DONE |
+| PasswordConfirmation | ✓ | `PasswordConfirmation::make()` + live match | DONE |
+| Select | ✓ | `Select::make()` + `options()` + enum support | DONE |
+| Slug | ✗ | `Slug::make()` + live collision check + `freezeAfterPublish()` | ⭐ 100% Martis |
+| Sparkline | ✓ | `Sparkline::make()` | DONE |
+| Stack | ✓ | `Stack::make()` + renders on index + `divider()` | ⭐ Extended (Nova detail-only) |
+| Status | ✓ | `Status::make()` + colors | DONE |
+| Tag | ✓ | `Tag::make()` | DONE |
+| Text | ✓ | `Text::make()` | DONE |
+| Textarea | ✓ | `Textarea::make()` + `rows()` | DONE |
+| Timezone | ✗ | `Timezone::make()` + grouped IANA dropdown + live clock | ⭐ 100% Martis |
+| Trix | ✓ | `Trix::make()` + attachment uploads + `ImageModal` soft history lock | DONE |
+| UiAvatar | ✓ | `UiAvatar::make()` + deterministic palette + `colorFrom()` + `initials(Closure)` | ⭐ Extended (client-side) |
+| Url | ✓ | `Url::make()` + auto-scheme normalisation | DONE |
+
+### Field-wide behaviour
+
+| Feature | Nova v5 | Martis | Status | Notes |
+|---------|---------|--------|--------|-------|
 | Field Visibility | showOnIndex/hideFromIndex | All 4 contexts supported | DONE | Block 4 |
 | Field Validation | Built-in validation | required/nullable/rules() | DONE | Block 4 |
 | Field Sorting | Sortable columns | sortable() | DONE | Block 4 |
@@ -85,6 +112,7 @@
 | Field Unique Validation | Unique validation | ->unique(['table','col'],'msg') | DONE | — |
 | Column Span | Grid layout | colSpan/colSpanMd/colSpanLg | DONE | Extended |
 | Placeholder | Input placeholder | placeholder() | DONE | Extended |
+| Relationship Toolbar Controls | — | `ControlsRelationshipToolbar` trait (9 hide flags) | DONE | ⭐ Martis extension |
 
 ---
 
@@ -148,32 +176,42 @@
 
 ---
 
-## Not Yet Implemented (Post Track B)
+## Status by Subsystem (Post Track B)
 
-| Feature | Nova v5 | Status | Priority |
-|---------|---------|--------|----------|
-| Actions | Batch actions on records | DONE |: Full system + icons, groups, tooltips, pivot, disabled states |
-| Filters | Column filters | DONE | Full system: Select, Boolean, Date, DateRange + collapsible panel |
-| Lenses | Custom filtered views | TODO | Medium |
-| Metrics | Dashboard metric cards | DONE | Full system: Value, Trend, Partition, Progress + dashboards + filters + polling |
-| Impersonation | Admin impersonation | TODO | Low |
-| Notifications | In-app notifications | TODO | Medium |
+| Feature | Nova v5 | Status | Notes |
+|---------|---------|--------|-------|
+| Actions | Batch actions on records | DONE | Full system + icons, groups, tooltips, pivot, disabled states |
+| Filters | Column filters | DONE | Full system: Select, Boolean, Date, DateRange + collapsible panel + pills |
+| Lenses | Custom filtered views | DONE | `src/Lenses/Lens.php` + summary rows + per-lens cache + default filters + URL sync |
+| Metrics | Dashboard metric cards | DONE | Value, Trend, Partition, Progress + polling + filters + 12-col grid |
+| Dashboards | Multi-dashboard layout | DONE | `src/Dashboards/` + dashboard filters + refresh + fallback |
+| Menus | Declarative navigation | DONE | `src/Menu/` — `Menu`, `MenuSection`, `MenuItem`, `Martis::mainMenu()` |
 | Panels/Tabs | Field grouping in tabs | DONE | Panel, Section, Tab, TabGroup + description + help text |
-| Custom Tools | Sidebar tools/pages | TODO | Medium |
-| ManyToMany | Pivot relationships | DONE | — |
-| BelongsToMany | Pivot with sync | DONE | — |
-| MorphTo/MorphMany | Polymorphic relations | TODO | Low |
-| Repeater | Dynamic field groups | TODO | Low |
+| ManyToMany | Pivot relationships | DONE | `BelongsToMany`, `MorphToMany` share `RelationshipTableShell` |
+| MorphTo/MorphMany | Polymorphic relations | DONE | `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany` |
+| HasOneOfMany / HasOneThrough / HasManyThrough | Extended relations | DONE | Full parity + `throughBreadcrumb()` + `countBadge()` |
+| Relationship Toolbar Controls | — | DONE | 9 hide flags via `ControlsRelationshipToolbar` (Martis extension) |
+| Soft-delete trashed dropdown in relation panels | — | DONE | Shared `?trashed=with\|only` toolbar filter |
+| Modal history locks | — | DONE | Hard + soft locks (`useModalHistoryLock`, `useModalHistoryBackToClose`) |
+| `resolvedPerPage()` clamp | — | DONE | Shared between `Resource` and `Lens` |
+| Impersonation | Admin impersonation | TODO | Low priority |
+| Notifications | In-app notifications | TODO | Medium priority |
+| Custom Tools | Sidebar tools/pages | TODO | Medium priority |
+| Repeater | Dynamic field groups | DONE | ⭐ asPolymorphic() + rowTemplates + duplicate row + bulk-paste CSV/JSON + collapse/reorder/min-max + dependsOn |
 
 ---
 
 ## Coverage Summary
 
-- **32 field types** implemented (15 core + 16 extended)
+- **50 field types** implemented (38 core + 12 relation types; 7 carry a ⭐ Martis differential)
+- **12 relation fields** — `BelongsTo`, `HasOne`, `HasOneOfMany`, `HasOneThrough`, `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany` — with shared toolbar, soft-delete dropdown and per-field hide flags
 - **Full CRUD** — Index + Detail + Create + Edit + Delete with soft-delete support
-- **HasMany** — Inline DataTable on detail page with search, sort, pagination, CRUD
+- **Relation panels** — Inline tables with search, sort, pagination, CRUD, attach/detach, pivot fields
+- **Lenses** — `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync
+- **Metrics + Dashboards + Menus** — feature-complete
 - **Auth** — Login/logout + Sanctum session
 - **Override System v1** — 4-tier component resolution + drawer overrides + layout overrides
+- **Modal history locks** — hard + soft variants in `resources/js/lib/historyLock.ts`
 - **i18n** — EN + PT-BR + PT-PT with dynamic loading
 - **File/Image Upload** — Disk config, thumbnails, drag-drop, type/size validation
 - **Icons** — 1,512 Phosphor Icons
@@ -291,7 +329,7 @@
 
 | Feature | Description | Nova v5 | Martis |
 |---------|-------------|---------|--------|
-| 26 Extended Field Types | Badge, Status, Code, Color, Country, Currency, Icon⭐, Slug⭐, Stack⭐, Timezone⭐, Audio⭐, Avatar⭐, BooleanGroup⭐, UiAvatar⭐, etc. | Separate packages | Built-in |
+| Extended Field Types | Badge, Status, Code, Color, Country, Currency, Icon⭐, Slug⭐, Stack⭐, Timezone⭐, Audio⭐, Avatar⭐, BooleanGroup⭐, UiAvatar⭐, etc. | Separate packages | Built-in |
 | BooleanGroup grouped sections | `grouped([section => keys])` collapsible panels for long flag lists | Flat list only | ⭐ |
 | BooleanGroup min/max counter | Live UI counter + server validation | Not available | ⭐ |
 | Avatar per-row fallback | Closure receives the model; each row picks its own fallback URL | Static URL only | ⭐ |

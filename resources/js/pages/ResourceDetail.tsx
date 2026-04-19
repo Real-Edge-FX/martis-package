@@ -147,7 +147,16 @@ export function ResourceDetailPage() {
         },
         onEdit: (editId) => {
           const targetId = editId ?? id
-          if (targetId) navigate(`/resources/${resource}/${targetId}/edit`)
+          if (!targetId) return
+          // Swap the detail drawer for the update drawer in place when
+          // both overrides exist. This keeps the index behind the drawer
+          // and avoids navigating the URL to `/edit` (which would trigger
+          // a full-page remount and lose the backdrop).
+          if (schema.overrides?.update && String(targetId) === String(id)) {
+            setShowUpdateOverride(true)
+            return
+          }
+          navigate(`/resources/${resource}/${targetId}/edit`)
         },
         onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
         addToast,
@@ -156,6 +165,32 @@ export function ResourceDetailPage() {
        // override used to render the drawer floating over an empty page.
        // Mount the index page behind so the drawer has context, and the
        // Close button/Esc fades back into the list the user would expect.
+       // When the user clicked Edit inside the detail drawer we swap to
+       // the update override in place (see onEdit above).
+       if (showUpdateOverride && schema.overrides?.update) {
+         const UpdateComponent = componentRegistry.resolve(schema.overrides.update.component)
+         if (UpdateComponent) {
+           const U = UpdateComponent as React.ComponentType<OverrideProps>
+           const updateProps: OverrideProps = {
+             ...overrideProps,
+             params: schema.overrides.update.params ?? {},
+             onClose: () => setShowUpdateOverride(false),
+             onUpdated: (rec) => {
+               void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
+               addToast("success", schema.messages?.updated ?? "Record updated successfully.")
+               setShowUpdateOverride(false)
+               const target = resolveRedirect(schema.overrides?.update?.redirectAfter, resource!, rec.id)
+               if (target) navigate(target)
+             },
+           }
+           return (
+             <>
+               <ResourceIndexPage />
+               <U {...updateProps} />
+             </>
+           )
+         }
+       }
        return (
          <>
            <ResourceIndexPage />

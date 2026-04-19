@@ -99,7 +99,7 @@ class Stack extends Field
         foreach ($this->lines as $line) {
             $entries[] = [
                 'text' => $this->toText($line->resolveForDisplay($model)),
-                'variant' => $line->getVariant(),
+                'variant' => $line->getVariant()->value,
                 'subtitle' => $line->resolveSubtitle($model),
             ];
         }

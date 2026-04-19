@@ -40,6 +40,7 @@ import { BooleanGroupFieldDisplay, BooleanGroupFieldInput } from './BooleanGroup
 import { AvatarFieldDisplay, AvatarFieldInput } from './AvatarField'
 import { UiAvatarFieldDisplay, UiAvatarFieldInput } from './UiAvatarField'
 import { AudioFieldDisplay, AudioFieldInput } from './AudioField'
+import { RepeaterFieldDisplay, RepeaterFieldInput } from './RepeaterField'
 
 const LAZY_FIELD_FALLBACK = <div />
 
@@ -237,6 +238,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   avatar: AvatarFieldDisplay,
   ui_avatar: UiAvatarFieldDisplay,
   audio: AudioFieldDisplay,
+  repeater: RepeaterFieldDisplay,
 }
 
 // -------------------------------------------------------------------------
@@ -293,6 +295,7 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   avatar: AvatarFieldInput,
   ui_avatar: UiAvatarFieldInput,
   audio: AudioFieldInput,
+  repeater: RepeaterFieldInput,
 }
 
 // -------------------------------------------------------------------------

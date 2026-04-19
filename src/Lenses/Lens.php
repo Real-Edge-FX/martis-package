@@ -248,6 +248,23 @@ abstract class Lens implements LensContract
         }
     }
 
+    /**
+     * Resolve the effective per-page for this lens. Clamps to
+     * {@see perPageOptions()} when the declared `perPage()` is not
+     * present — Option A.
+     */
+    public static function resolvedPerPage(): int
+    {
+        $options = static::perPageOptions();
+        $perPage = static::perPage();
+
+        if ($options === [] || in_array($perPage, $options, true)) {
+            return $perPage;
+        }
+
+        return $options[0];
+    }
+
     public function pollingEnabled(): bool
     {
         return static::$polling;
@@ -360,7 +377,7 @@ abstract class Lens implements LensContract
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
             'perPageOptions' => static::perPageOptions(),
-            'perPage' => static::perPage(),
+            'perPage' => static::resolvedPerPage(),
             'polling' => $this->pollingEnabled(),
             'pollingInterval' => $this->pollingInterval(),
             'showPollingToggle' => $this->pollingToggleVisible(),

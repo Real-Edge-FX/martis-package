@@ -4,12 +4,20 @@ import { useTranslation } from 'react-i18next'
 import { WarningIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import type { UnsavedChangesConfig } from '@/types'
+import { useModalHistoryLock } from '@/lib/historyLock'
 
 interface Props {
   open: boolean
   onConfirm: () => void
   onCancel: () => void
   config?: UnsavedChangesConfig | null
+  /**
+   * Skip the built-in `useModalHistoryLock`. Set to `true` when the
+   * caller already manages its own history sentinel (e.g. the full-page
+   * `useUnsavedChangesGuard`) — otherwise two sentinels on the stack
+   * cause `history.go(-N)` offsets to land on the wrong entry.
+   */
+  skipHistoryLock?: boolean
 }
 
 /** Map semantic color tokens to CSS vars (same set the Icon field uses). */
@@ -39,8 +47,10 @@ function resolveColor(input?: string | null, fallback?: string): string | undefi
  * PHP method — when a full UnsavedChangesConfig is returned, it overrides
  * the localised defaults for title / body / icon / colours / labels.
  */
-export function UnsavedChangesDialog({ open, onConfirm, onCancel, config }: Props) {
+export function UnsavedChangesDialog({ open, onConfirm, onCancel, config, skipHistoryLock }: Props) {
   const { t } = useTranslation('messages')
+
+  useModalHistoryLock(skipHistoryLock ? false : open)
 
   // Escape cancels (i.e. keeps editing) to avoid "accidentally discard".
   useEffect(() => {

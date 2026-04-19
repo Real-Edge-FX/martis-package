@@ -6,6 +6,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Martis\Enums\AggregateFunction;
+use Martis\Enums\MetricRange;
+use Martis\Enums\MetricType;
 
 /**
  * A metric that displays a single value with optional period comparison.
@@ -16,9 +19,9 @@ use Illuminate\Http\Request;
  */
 abstract class ValueMetric extends Metric
 {
-    public function metricType(): string
+    public function metricType(): MetricType
     {
-        return 'value';
+        return MetricType::Value;
     }
 
     // -------------------------------------------------------------------------
@@ -33,7 +36,7 @@ abstract class ValueMetric extends Metric
      */
     protected function count(Request $request, string $model, ?string $dateColumn = null): ValueResult
     {
-        return $this->aggregate($request, $model, 'count', null, $dateColumn);
+        return $this->aggregate($request, $model, AggregateFunction::Count, null, $dateColumn);
     }
 
     /**
@@ -43,7 +46,7 @@ abstract class ValueMetric extends Metric
      */
     protected function sum(Request $request, string $model, string $column, ?string $dateColumn = null): ValueResult
     {
-        return $this->aggregate($request, $model, 'sum', $column, $dateColumn);
+        return $this->aggregate($request, $model, AggregateFunction::Sum, $column, $dateColumn);
     }
 
     /**
@@ -53,7 +56,7 @@ abstract class ValueMetric extends Metric
      */
     protected function average(Request $request, string $model, string $column, ?string $dateColumn = null): ValueResult
     {
-        return $this->aggregate($request, $model, 'avg', $column, $dateColumn);
+        return $this->aggregate($request, $model, AggregateFunction::Avg, $column, $dateColumn);
     }
 
     /**
@@ -63,7 +66,7 @@ abstract class ValueMetric extends Metric
      */
     protected function max(Request $request, string $model, string $column, ?string $dateColumn = null): ValueResult
     {
-        return $this->aggregate($request, $model, 'max', $column, $dateColumn);
+        return $this->aggregate($request, $model, AggregateFunction::Max, $column, $dateColumn);
     }
 
     /**
@@ -73,7 +76,7 @@ abstract class ValueMetric extends Metric
      */
     protected function min(Request $request, string $model, string $column, ?string $dateColumn = null): ValueResult
     {
-        return $this->aggregate($request, $model, 'min', $column, $dateColumn);
+        return $this->aggregate($request, $model, AggregateFunction::Min, $column, $dateColumn);
     }
 
     /**
@@ -89,7 +92,7 @@ abstract class ValueMetric extends Metric
      *
      * @param  class-string<Model>  $model
      */
-    protected function aggregate(Request $request, string $model, string $function, ?string $column, ?string $dateColumn): ValueResult
+    protected function aggregate(Request $request, string $model, AggregateFunction $function, ?string $column, ?string $dateColumn): ValueResult
     {
         $dateColumn = $dateColumn ?? 'created_at';
         $range = $request->query('range', '30');
@@ -103,13 +106,13 @@ abstract class ValueMetric extends Metric
             $model::query()->whereBetween($dateColumn, [$previousStart, $previousEnd])
         );
 
-        $currentValue = $function === 'count'
+        $currentValue = $function === AggregateFunction::Count
             ? $currentQuery->count()
-            : $currentQuery->{$function}($column);
+            : $currentQuery->{$function->value}($column);
 
-        $previousValue = $function === 'count'
+        $previousValue = $function === AggregateFunction::Count
             ? $previousQuery->count()
-            : $previousQuery->{$function}($column);
+            : $previousQuery->{$function->value}($column);
 
         return (new ValueResult((float) ($currentValue ?? 0)))
             ->previous((float) ($previousValue ?? 0));
@@ -118,30 +121,35 @@ abstract class ValueMetric extends Metric
     /**
      * Calculate date ranges for current and previous periods.
      *
+     * Accepts a {@see MetricRange} case OR an integer day window (e.g. 30).
+     *
      * @return array{CarbonImmutable, CarbonImmutable, CarbonImmutable, CarbonImmutable}
      */
-    protected function calculateDateRange(string|int $range): array
+    protected function calculateDateRange(MetricRange|string|int $range): array
     {
         $now = CarbonImmutable::now();
+        $resolved = $range instanceof MetricRange
+            ? $range
+            : MetricRange::tryFrom((string) $range);
 
-        return match ((string) $range) {
-            'TODAY' => [
+        return match ($resolved) {
+            MetricRange::Today => [
                 $now->startOfDay(), $now,
                 $now->subDay()->startOfDay(), $now->subDay()->endOfDay(),
             ],
-            'MTD' => [
+            MetricRange::MonthToDate => [
                 $now->startOfMonth(), $now,
                 $now->subMonthNoOverflow()->startOfMonth(), $now->subMonthNoOverflow(),
             ],
-            'QTD' => [
+            MetricRange::QuarterToDate => [
                 $now->startOfQuarter(), $now,
                 $now->subQuarterNoOverflow()->startOfQuarter(), $now->subQuarterNoOverflow(),
             ],
-            'YTD' => [
+            MetricRange::YearToDate => [
                 $now->startOfYear(), $now,
                 $now->subYearNoOverflow()->startOfYear(), $now->subYearNoOverflow(),
             ],
-            default => [
+            null => [
                 $now->subDays((int) $range), $now,
                 $now->subDays((int) $range * 2), $now->subDays((int) $range),
             ],

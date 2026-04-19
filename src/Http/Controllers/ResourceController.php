@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
+use Martis\Enums\SortDirection;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\DeferredRelationSync;
@@ -95,11 +97,12 @@ class ResourceController extends MartisController
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
         if ($resourceClass::softDeletes() && $resourceClass::canViewTrashed()) {
-            $trashed = $request->query('trashed', '');
-            if ($trashed === 'with') {
+            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
+                ?? TrashedFilter::Active;
+            if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query = $modelClass::withTrashed();
-            } elseif ($trashed === 'only') {
+            } elseif ($trashed === TrashedFilter::Only) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query = $modelClass::onlyTrashed();
             }
@@ -117,7 +120,7 @@ class ResourceController extends MartisController
         $this->applySorting($request, $query, $resourceClass);
 
         $perPage = min(
-            (int) ($request->query('per_page', (string) $resourceClass::perPage())),
+            (int) ($request->query('per_page', (string) $resourceClass::resolvedPerPage())),
             (int) config('martis.pagination.max_per_page', 100),
         );
 
@@ -804,7 +807,7 @@ class ResourceController extends MartisController
             'indexSearchable' => $resourceClass::indexSearchable(),
             'usesScout' => $resourceClass::usesScout(),
             'perPageOptions' => $resourceClass::perPageOptions(),
-            'perPage' => $resourceClass::perPage(),
+            'perPage' => $resourceClass::resolvedPerPage(),
             'searchPlaceholder' => $resourceClass::searchPlaceholder(),
             'fields' => $fieldData,
             'fieldsForIndex' => $fieldsForIndex,
@@ -1331,12 +1334,9 @@ class ResourceController extends MartisController
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
         $rawSort = $request->query('sort');
-        $rawDirection = $request->query('direction', 'asc');
-        $direction = strtolower(is_string($rawDirection) ? $rawDirection : 'asc');
-
-        if (! in_array($direction, ['asc', 'desc'], true)) {
-            $direction = 'asc';
-        }
+        $direction = SortDirection::tryFrom(
+            strtolower((string) $request->query('direction', 'asc'))
+        ) ?? SortDirection::Asc;
 
         if (! is_string($rawSort) || $rawSort === '') {
             return;
@@ -1356,7 +1356,7 @@ class ResourceController extends MartisController
             return;
         }
 
-        $query->orderBy($sort, $direction);
+        $query->orderBy($sort, $direction->value);
     }
 
     /**
@@ -1495,6 +1495,7 @@ class ResourceController extends MartisController
     private function syncDeferredRelations(Model $model): void
     {
         DeferredRelationSync::sync($model);
+        \Martis\Fields\DeferredRepeaterSync::sync($model);
     }
 
     /**

@@ -25,9 +25,9 @@ interface MetricContract
     public function calculate(Request $request): mixed;
 
     /**
-     * The metric type identifier (value, trend, partition, progress).
+     * The metric type identifier.
      */
-    public function metricType(): string;
+    public function metricType(): \Martis\Enums\MetricType;
 
     /**
      * Human-readable metric name.
