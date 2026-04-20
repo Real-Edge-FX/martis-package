@@ -16,14 +16,31 @@ import type { ComponentType } from "react"
 function SidebarLayout() {
   const isMobile = useIsMobile()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem("martis-sidebar-collapsed") === "true"
+  })
   const location = useLocation()
 
-  // Close sidebar on navigation
   useEffect(() => {
     setMobileSidebarOpen(false)
   }, [location.pathname])
 
-  // Prevent body scroll while mobile sidebar is open
+  // Keep the shell's `data-sidebar-collapsed` attribute in sync with the
+  // sidebar's own state. The sidebar writes localStorage; we watch it so
+  // the grid column width animates with the sidebar width toggle.
+  useEffect(() => {
+    const handler = () => {
+      setCollapsed(localStorage.getItem("martis-sidebar-collapsed") === "true")
+    }
+    window.addEventListener("storage", handler)
+    // Poll for intra-tab updates (storage event only fires cross-tab).
+    const interval = window.setInterval(handler, 250)
+    return () => {
+      window.removeEventListener("storage", handler)
+      window.clearInterval(interval)
+    }
+  }, [])
+
   useEffect(() => {
     if (isMobile && mobileSidebarOpen) {
       document.body.style.overflow = "hidden"
@@ -36,30 +53,36 @@ function SidebarLayout() {
   }, [isMobile, mobileSidebarOpen])
 
   return (
-    <div className="martis-bg flex h-screen overflow-hidden">
-      {/* Mobile backdrop */}
-      {isMobile && mobileSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50"
-          onClick={() => setMobileSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
+    <div
+      className="martis-shell martis-bg"
+      data-mobile={isMobile ? "true" : undefined}
+      data-sidebar-collapsed={!isMobile && collapsed ? "true" : undefined}
+    >
       <Sidebar
         mobileOpen={isMobile ? mobileSidebarOpen : undefined}
         onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar
-          onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
-        />
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </main>
+      <Topbar
+        onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
+      />
+
+      <main className="martis-shell-content">
+        <Outlet />
+      </main>
+
+      <div className="martis-shell-footer">
         <Footer />
       </div>
+
+      {isMobile && (
+        <div
+          className="martis-shell-backdrop"
+          data-open={mobileSidebarOpen ? "true" : undefined}
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
     </div>
   )
 }

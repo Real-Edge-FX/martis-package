@@ -119,92 +119,61 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
     },
   ]
 
-  return (
-    <header className="martis-topbar-bg flex h-14 items-center justify-between border-b martis-border px-5">
-      <div className="flex items-center gap-3">
-        {/* Hamburger — only on mobile when sidebar is managed externally */}
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
-            style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-            aria-label={t("open_sidebar", "Menu")}
-          >
-            <ListIcon size={20} />
-          </button>
-        )}
-        <Breadcrumbs />
-      </div>
+  const hasAvatar = !!user?.avatar_url?.trim()
+  const avatarInitial = (user?.name ?? user?.email ?? '?')[0].toUpperCase()
 
-      {/* Search — full bar mode */}
+  return (
+    <header className="martis-tb" data-mobile={onToggleSidebar ? "true" : undefined}>
+      {onToggleSidebar && (
+        <button
+          type="button"
+          className="martis-tb-menu-btn"
+          onClick={onToggleSidebar}
+          aria-label={t("open_sidebar", "Menu")}
+        >
+          <ListIcon size={18} />
+        </button>
+      )}
+
+      <nav className="martis-tb-breadcrumbs">
+        <Breadcrumbs />
+      </nav>
+
       {searchMode === "bar" && (
         <button
           type="button"
+          className="martis-tb-search"
           onClick={() => setSearchOpen(true)}
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer border-0"
-          style={{
-            backgroundColor: "var(--martis-search-bg)",
-            border: "1px solid var(--martis-search-border)",
-            color: "var(--martis-text-muted)",
-            minWidth: 220,
-          }}
+          aria-label={t("search_placeholder", "Press / to search")}
         >
-          <MagnifyingGlassIcon size={12} />
-          <span>
+          <MagnifyingGlassIcon size={14} />
+          <span className="martis-tb-search-placeholder">
             {config.search?.placeholder ?? t("search_placeholder", "Press / to search")}
           </span>
-          <kbd
-            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-mono"
-            style={{
-              backgroundColor: "var(--martis-hover)",
-              border: "1px solid var(--martis-search-border)",
-              color: "var(--martis-text-muted)",
-            }}
+          <kbd>/</kbd>
+        </button>
+      )}
+
+      <div className="martis-tb-right">
+        {searchMode === "icon" && (
+          <button
+            type="button"
+            className="martis-tb-icon-btn"
+            onClick={() => setSearchOpen(true)}
+            aria-label={t("search_placeholder", "Search")}
           >
-            /
-          </kbd>
-        </button>
-      )}
+            <MagnifyingGlassIcon size={16} />
+          </button>
+        )}
 
-      {/* Search — icon-only mode */}
-      {searchMode === "icon" && (
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
-          style={{
-            backgroundColor: "transparent",
-            color: "var(--martis-text-muted)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-          aria-label="Search"
-        >
-          <MagnifyingGlassIcon size={16} />
-        </button>
-      )}
-
-      <div className="flex items-center gap-3">
-        {/* Preferences (Task 07.1 ⭐ D2) */}
         <PreferencesMenu ref={prefsRef} />
-        {/* User avatar + dropdown menu */}
+
+        <span className="martis-tb-divider" aria-hidden="true" />
+
         <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
+
         <div
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer transition-colors"
-          style={{ backgroundColor: "transparent" }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
+          className="martis-tb-user"
           onClick={(e) => {
             prefsRef.current?.hide()
             menuRef.current?.toggle(e)
@@ -216,21 +185,32 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
               menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
           }}
         >
-          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold overflow-hidden flex-shrink-0 ${user?.avatar_url?.trim() ? '' : 'bg-indigo-600 text-white'}`}>
-            {user?.avatar_url?.trim() ? (
-              <img src={user.avatar_url} alt={user?.name ?? ''} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          <div
+            className="martis-tb-user-avatar"
+            style={{
+              backgroundColor: hasAvatar ? "transparent" : "var(--martis-accent)",
+            }}
+          >
+            {hasAvatar ? (
+              <img
+                src={user!.avatar_url!}
+                alt={user?.name ?? ""}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).style.display = "none"
+                }}
+              />
             ) : (
-              (user?.name ?? user?.email ?? '?')[0].toUpperCase()
+              avatarInitial
             )}
           </div>
-          <span className="hidden sm:inline text-sm font-medium martis-text">
+          <span className="martis-tb-user-name">
             {user?.name ?? user?.email}
           </span>
           <CaretDownIcon size={12} className="martis-text-muted" />
         </div>
       </div>
 
-      {/* Global search modal */}
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
     </header>
   )
