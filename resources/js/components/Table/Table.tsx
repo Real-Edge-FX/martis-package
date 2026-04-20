@@ -55,7 +55,30 @@ export interface TableProps {
     showGridlines?: boolean
     size?: "normal" | "small" | "large"
     rowHover?: boolean
+    /** `fixed` respects explicit column widths pixel-for-pixel; `auto` lets content size each column. */
+    layout?: "auto" | "fixed"
   }
+}
+
+interface ColumnWidth {
+  width?: string | null
+  minWidth?: string | null
+  maxWidth?: string | null
+  truncate?: boolean
+}
+
+/**
+ * Turn a field's `column` metadata into a style object for PrimeReact's
+ * `<Column style>`. Returns `undefined` when nothing is declared so React
+ * doesn't render an empty `style` attr.
+ */
+function columnStyleFrom(meta: ColumnWidth | null | undefined): React.CSSProperties | undefined {
+  if (!meta) return undefined
+  const style: React.CSSProperties = {}
+  if (meta.width) style.width = meta.width
+  if (meta.minWidth) style.minWidth = meta.minWidth
+  if (meta.maxWidth) style.maxWidth = meta.maxWidth
+  return Object.keys(style).length === 0 ? undefined : style
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
@@ -474,6 +497,11 @@ function DefaultTable({
         }
         className={classNames}
         tableClassName="min-w-full"
+        tableStyle={
+          tableConfig?.layout === "fixed"
+            ? { tableLayout: "fixed" }
+            : undefined
+        }
         selection={selectable ? selectedRows : []}
         onSelectionChange={selectable ? handleSelectionChange : undefined as never}
         selectionMode={selectable ? "checkbox" : null}
@@ -499,7 +527,11 @@ function DefaultTable({
             style={{ width: "5rem" }}
           />
         )}
-        {columns.map(({ field }) => (
+        {columns.map(({ field }) => {
+          const col = field.column as ColumnWidth | undefined
+          const style = columnStyleFrom(col)
+          const truncateClass = col?.truncate ? "martis-col-truncate" : undefined
+          return (
           <Column
             key={field.attribute}
             field={field.attribute}
@@ -523,8 +555,12 @@ function DefaultTable({
               <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} context="index" />
             )}
             sortable={false}
+            style={style}
+            headerStyle={style}
+            bodyClassName={truncateClass}
           />
-        ))}
+          )
+        })}
         {hasActionsColumn && (
           <Column
             header={

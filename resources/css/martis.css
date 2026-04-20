@@ -4215,3 +4215,14 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   font-size: 0.6875rem;
   color: var(--martis-text-muted);
 }
+
+/* Table column truncation — applied via bodyClassName when the field
+   declares ->truncate() or inherits it from a type default (URL, Email).
+   `max-width` is set inline from the column metadata; this just clips
+   the overflow and renders an ellipsis. */
+.martis-col-truncate {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

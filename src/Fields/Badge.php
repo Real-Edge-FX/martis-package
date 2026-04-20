@@ -356,4 +356,10 @@ class Badge extends Field
 
         return (new ReflectionFunction($value))->getNumberOfParameters() >= 1;
     }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '120px'];
+    }
 }

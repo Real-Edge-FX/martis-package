@@ -286,6 +286,31 @@ public static function tableSize(): TableSize { return TableSize::Normal; } // S
 public function tableRowHover(): bool      { return true; }      // Highlight on hover
 ```
 
+### tableLayout()
+
+Controls how the index `<table>` distributes column widths.
+
+```php
+use Martis\Enums\TableLayout;
+
+public static function tableLayout(): TableLayout
+{
+    return TableLayout::Auto; // default
+}
+```
+
+- `Auto` (default) — the browser sizes each column by content. Martis ships sensible per-type defaults (Id → 80px, Email/Url → 280px max + ellipsis, Date → 140px, Boolean/Status → 120px; the `titleAttribute` column gets `minWidth: 220px`). Override per field with `->width()`, `->minWidth()`, `->maxWidth()`, `->truncate()`.
+- `Fixed` — applies CSS `table-layout: fixed`, locking every column to its declared `->width()` (or the type default). Only pick this when you need pixel-perfect alignment across pages and can afford to width every visible column.
+
+Per-field examples:
+
+```php
+Url::make('homepage')->maxWidth('200px')->truncate();
+Id::make();                      // auto: 80px from the type default
+Text::make('name');              // auto: minWidth 220px when name = titleAttribute
+Badge::make('state')->width('96px');
+```
+
 ### actionsColumnLabel() / actionsMenuLabel() / bulkActionsMenuLabel()
 
 Per-resource overrides for the text shown on the row-actions column and its two menus. Return `null` to fall back to the i18n default (`martis::actions.actions`).

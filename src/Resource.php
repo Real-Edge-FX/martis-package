@@ -20,6 +20,7 @@ use Martis\Contracts\ResourceContract;
 use Martis\Enums\DefaultRowAction;
 use Martis\Enums\ErrorDisplayMode;
 use Martis\Enums\SortDirection;
+use Martis\Enums\TableLayout;
 use Martis\Enums\TableSize;
 use Martis\Events\AfterDelete;
 use Martis\Events\AfterSave;
@@ -935,6 +936,20 @@ abstract class Resource implements ResourceContract
     public static function tableSize(): TableSize
     {
         return TableSize::Normal;
+    }
+
+    /**
+     * How the DataTable distributes column widths.
+     *
+     * - `Auto` (default): browser sizes each column by content; per-field
+     *   `->minWidth()` / `->maxWidth()` act as soft hints.
+     * - `Fixed`: columns lock to the `->width()` the field declared (or
+     *   the type default). Choose this only when you need pixel-perfect
+     *   alignment across pages and can afford to width every column.
+     */
+    public static function tableLayout(): TableLayout
+    {
+        return TableLayout::Auto;
     }
 
     /**

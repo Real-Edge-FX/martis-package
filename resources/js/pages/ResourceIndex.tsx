@@ -531,6 +531,7 @@ export function ResourceIndexPage() {
           showGridlines: schema.tableShowGridlines,
           size: schema.tableSize,
           rowHover: schema.tableRowHover,
+          layout: schema.tableLayout,
         }}
       />
       </MartisLoader>

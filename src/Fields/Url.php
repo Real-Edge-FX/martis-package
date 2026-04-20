@@ -118,4 +118,10 @@ class Url extends Field
         }
         parent::fill($model, $value);
     }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['maxWidth' => '280px', 'truncate' => true];
+    }
 }

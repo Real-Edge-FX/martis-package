@@ -766,6 +766,17 @@ class ResourceController extends MartisController
 
         // Context-specific field arrays — resolved then filtered by visibility
         $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
+
+        // Give the title column a sensible minimum so short labels like "Name"
+        // don't collapse next to wide neighbours (URLs, dates, status pills).
+        // Explicit ->minWidth() on the field still wins.
+        $titleAttr = $resourceClass::titleAttribute();
+        foreach ($fieldsForIndex as &$field) {
+            if (($field['attribute'] ?? null) === $titleAttr && isset($field['column']) && is_array($field['column'])) {
+                $field['column']['minWidth'] ??= '220px';
+            }
+        }
+        unset($field);
         $fieldsForDetail = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
         $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
@@ -841,6 +852,7 @@ class ResourceController extends MartisController
             'defaultRowActions' => $instance->resolveDefaultRowActions($request),
             'rowClickOpensDetail' => $instance->resolveRowClickOpensDetail($request),
             'actions' => $actions,
+            'tableLayout' => $resourceClass::tableLayout()->value,
         ];
 
         return JsonResponse::make($data)->toResponse();

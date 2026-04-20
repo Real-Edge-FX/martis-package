@@ -105,4 +105,10 @@ class Status extends Field
             'failedWhen' => $this->failedWhen,
         ];
     }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '120px'];
+    }
 }
