@@ -2084,6 +2084,55 @@ html:not(.dark) .martis-dropzone {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
+/* Native `<input type="checkbox">` styled to match the PrimeReact
+   checkbox so preferences menu, form fields and toolbar selections
+   all read as the same control. Consumers opt in with the
+   `.martis-checkbox` class.
+
+   Design-system spec (`.checkbox` in Martis Shell.html):
+   - 16x16, 1px border on `--martis-input-bg`, radius-sm at rest.
+   - Accent-filled with a white "L"-shaped tick on check. The tick
+     is drawn with CSS borders (no SVG) so themes swapping the font
+     colour don't accidentally hide it. */
+.martis-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-sm, 4px);
+  background: var(--martis-input-bg);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.martis-checkbox:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+}
+.martis-checkbox:checked {
+  background: var(--martis-accent);
+  border-color: var(--martis-accent);
+}
+.martis-checkbox:checked::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: 2px solid #fff;
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+.martis-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-checkbox:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Checkbox — matches the design-system spec: 16x16, radius-sm, border
    on input-bg at rest, accent-filled when checked with a white "L"
    check drawn via borders (so no SVG stroke mismatch across themes). */
