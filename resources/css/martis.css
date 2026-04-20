@@ -2285,13 +2285,77 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
 
 /* ── Pagination border uses CSS variables (REA-1140) ──────────── */
 .martis-pagination-wrapper {
-  /* no border — clean transition from table to paginator */
+  padding: 10px 14px 12px;
+}
+.martis-pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.martis-pagination-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: var(--martis-text-sm, 0.875rem);
+  color: var(--martis-text-muted);
+}
+.martis-pagination-summary strong {
+  color: var(--martis-text);
+  font-weight: var(--martis-weight-semibold, 600);
+}
+.martis-pagination-selected {
+  color: var(--martis-text);
+  font-weight: var(--martis-weight-semibold, 600);
+}
+.martis-pagination-sep {
+  margin: 0 6px;
+  color: var(--martis-text-muted);
+  opacity: 0.7;
+}
+.martis-pagination-label {
+  color: var(--martis-text-muted);
+  font-weight: var(--martis-weight-regular, 400);
+  text-transform: lowercase;
+}
+/* Paginator chip styling — matches the design-system spec (compact
+   buttons, accent-filled current, subtle hover on siblings). */
+.martis-paginator.p-paginator {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.martis-paginator .p-paginator-page,
+.martis-paginator .p-paginator-prev,
+.martis-paginator .p-paginator-next {
+  color: var(--martis-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.martis-paginator .p-paginator-page:not(.p-highlight):hover,
+.martis-paginator .p-paginator-prev:hover,
+.martis-paginator .p-paginator-next:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+.martis-paginator .p-paginator-page.p-highlight {
+  background: var(--martis-accent);
+  color: #fff;
+  border-color: var(--martis-accent);
+}
+.martis-paginator .p-paginator-prev:disabled,
+.martis-paginator .p-paginator-next:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
-/* ── Compact paginator buttons (REA-1194) ────────────────────────
-   Reduce page number and prev/next arrow button sizes globally.
-   Affects ResourceIndex, BelongsToMany detail panel, and modals.
-──────────────────────────────────────────────────────────────── */
+/* Compact paginator buttons — applied globally so inline paginators
+   in drawers / dialogs stay tight. Sidebar-level polish lives in the
+   `.martis-paginator` rules above. */
 .p-paginator .p-paginator-page,
 .p-paginator .p-paginator-prev,
 .p-paginator .p-paginator-next,

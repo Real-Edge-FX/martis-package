@@ -546,6 +546,8 @@ export function ResourceIndexPage() {
           from={meta.from}
           to={meta.to}
           onPageChange={setPage}
+          selectedCount={selectedIds.size}
+          itemLabel={schema.label.toLowerCase()}
         />
       )}
 

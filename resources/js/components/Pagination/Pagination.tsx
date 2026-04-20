@@ -10,6 +10,17 @@ export interface PaginationProps {
   from: number | null
   to: number | null
   onPageChange: (page: number) => void
+  /**
+   * Number of rows currently selected. When > 0, the left-hand summary
+   * gains a "N selected · " prefix (matching the design-system table
+   * footer spec). Defaults to 0.
+   */
+  selectedCount?: number
+  /**
+   * Resource label used in the empty-pagination fallback
+   * ("42 {label}"). Pass the plural, already-localised form.
+   */
+  itemLabel?: string
 }
 
 function DefaultPagination({
@@ -20,6 +31,8 @@ function DefaultPagination({
   from,
   to,
   onPageChange,
+  selectedCount = 0,
+  itemLabel,
 }: PaginationProps) {
   const { t } = useTranslation('resources')
   if (total === 0) return null
@@ -31,17 +44,32 @@ function DefaultPagination({
     onPageChange(e.page + 1)
   }
 
+  const hasRange = from !== null && to !== null
+  const resourceLabel = itemLabel ?? t('records', 'records')
+
   return (
     <div className="martis-pagination-wrapper">
-      <div className="flex items-center justify-between py-1">
-        <span className="text-sm martis-text-muted">
-          {from !== null && to !== null ? (
+      <div className="martis-pagination-row">
+        <span className="martis-pagination-summary">
+          {selectedCount > 0 && (
             <>
-              {t('showing', 'Showing')} <strong>{from}</strong>–<strong>{to}</strong> {t('of', 'of')}{' '}
-              <strong>{total}</strong>
+              <span className="martis-pagination-selected">
+                {t('selected', '{{count}} selected', { count: selectedCount })}
+              </span>
+              <span className="martis-pagination-sep" aria-hidden="true"> · </span>
+            </>
+          )}
+          {hasRange ? (
+            <>
+              <strong>{from}</strong>–<strong>{to}</strong> {t('of', 'of')}{' '}
+              <strong>{total}</strong>{' '}
+              <span className="martis-pagination-label">{resourceLabel}</span>
             </>
           ) : (
-            <>{total} {t('records', 'records')}</>
+            <>
+              <strong>{total}</strong>{' '}
+              <span className="martis-pagination-label">{resourceLabel}</span>
+            </>
           )}
         </span>
         {lastPage > 1 && (
@@ -51,7 +79,7 @@ function DefaultPagination({
             totalRecords={total}
             onPageChange={handlePageChange}
             template="PrevPageLink PageLinks NextPageLink"
-            className="p-0"
+            className="martis-paginator"
           />
         )}
       </div>
