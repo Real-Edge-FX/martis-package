@@ -488,9 +488,6 @@ export function ResourceIndexPage() {
           </div>
         )}
 
-        {indexQuery.isFetching && (
-          <MartisLoader loading size="sm" />
-        )}
       </div>
 
       {/* Table + pagination share a single card surface so the footer
