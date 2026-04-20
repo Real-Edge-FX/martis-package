@@ -769,14 +769,17 @@ class ResourceController extends MartisController
 
         // Give the title column a sensible minimum so short labels like "Name"
         // don't collapse next to wide neighbours (URLs, dates, status pills).
-        // Explicit ->minWidth() on the field still wins.
-        $titleAttr = $resourceClass::titleAttribute();
-        foreach ($fieldsForIndex as &$field) {
-            if (($field['attribute'] ?? null) === $titleAttr && isset($field['column']) && is_array($field['column'])) {
-                $field['column']['minWidth'] ??= '220px';
+        // Explicit ->minWidth() on the field still wins. Skipped when the
+        // consumer opts out via `martis.index.column_defaults`.
+        if ((bool) config('martis.index.column_defaults', true)) {
+            $titleAttr = $resourceClass::titleAttribute();
+            foreach ($fieldsForIndex as &$field) {
+                if (($field['attribute'] ?? null) === $titleAttr && isset($field['column']) && is_array($field['column'])) {
+                    $field['column']['minWidth'] ??= '220px';
+                }
             }
+            unset($field);
         }
-        unset($field);
         $fieldsForDetail = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
         $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));

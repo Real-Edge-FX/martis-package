@@ -147,3 +147,39 @@ it('seeds the title column with a 220px minWidth when nothing explicit is set', 
 
     expect($name['column']['minWidth'])->toBe('220px');
 });
+
+it('skips type defaults when martis.index.column_defaults is disabled', function () {
+    config()->set('martis.index.column_defaults', false);
+
+    // Type default (Url → maxWidth 280 + truncate) is gone.
+    $urlMeta = Url::make('site')->toArray();
+    expect($urlMeta['column'])->toBe([
+        'width' => null,
+        'minWidth' => null,
+        'maxWidth' => null,
+        'truncate' => false,
+    ]);
+
+    // Id's default 80px width is gone.
+    $idMeta = Id::make()->toArray();
+    expect($idMeta['column']['width'])->toBeNull();
+});
+
+it('still honours explicit fluent calls when column_defaults is disabled', function () {
+    config()->set('martis.index.column_defaults', false);
+
+    $meta = Text::make('name')->maxWidth('320px')->truncate()->toArray();
+
+    expect($meta['column']['maxWidth'])->toBe('320px');
+    expect($meta['column']['truncate'])->toBeTrue();
+});
+
+it('does not inject the 220px title-column minWidth when column_defaults is disabled', function () {
+    config()->set('martis.index.column_defaults', false);
+
+    $response = $this->getJson('/martis/api/resources/column-width-auto/schema');
+    $fields = collect($response->json('data.fieldsForIndex'));
+    $name = $fields->firstWhere('attribute', 'name');
+
+    expect($name['column']['minWidth'])->toBeNull();
+});
