@@ -25,4 +25,10 @@ class Email extends Text
     {
         return array_merge(parent::buildRules(), ['email']);
     }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['maxWidth' => '280px', 'truncate' => true];
+    }
 }

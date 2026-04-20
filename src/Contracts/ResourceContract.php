@@ -244,6 +244,9 @@ interface ResourceContract
     /** Table density: "small", "normal", or "large". */
     public static function tableSize(): TableSize;
 
+    /** How column widths distribute: auto (default) or fixed. */
+    public static function tableLayout(): \Martis\Enums\TableLayout;
+
     /** Whether rows highlight on hover. */
     public static function tableRowHover(): bool;
 

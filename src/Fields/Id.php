@@ -34,4 +34,10 @@ class Id extends Field
     {
         return 'id';
     }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '80px'];
+    }
 }

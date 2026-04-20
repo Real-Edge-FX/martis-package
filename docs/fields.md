@@ -272,6 +272,27 @@ Email::make('email')
 |--------|-----------|---------|-------------|
 | `withMeta` | `withMeta(array $meta): static` | `$this` | Merge arbitrary key-value metadata into the field descriptor. |
 
+### Index Table Column Width
+
+Controls how the field renders as a column in the index table. See [resources.md](resources.md#tablelayout) for the Resource-level `tableLayout()` switch.
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `width` | `width(string $value): static` | Fix the column width (e.g. `"80px"`, `"10rem"`). |
+| `minWidth` | `minWidth(string $value): static` | Minimum width. Useful on title columns that would otherwise collapse. |
+| `maxWidth` | `maxWidth(string $value): static` | Maximum width. Pair with `truncate()` on URL / email columns. |
+| `truncate` | `truncate(bool $value = true): static` | Clip overflow with an ellipsis. Call with `false` to cancel a type default. |
+
+Type defaults (applied automatically unless overridden):
+
+| Field | Default |
+|-------|---------|
+| `Id` | `width 80px` |
+| `Email`, `Url` | `maxWidth 280px` + `truncate` |
+| `Boolean`, `Status`, `Badge` | `width 120px` |
+| `Date`, `DateTime` | `width 140px` |
+| Column matching `titleAttribute()` | `minWidth 220px` |
+
 ### Serialization
 
 | Method | Signature | Description |

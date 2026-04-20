@@ -204,6 +204,13 @@ export interface FieldDefinition {
   showOnDetail: boolean
   showOnForms: boolean
   rules: string[]
+  /** Per-column width metadata resolved from `->width()/minWidth/maxWidth/truncate()` + type defaults. */
+  column?: {
+    width?: string | null
+    minWidth?: string | null
+    maxWidth?: string | null
+    truncate?: boolean
+  }
   options?: SelectOption[]
   relatedResource?: string
   relatedLabel?: string
@@ -351,6 +358,7 @@ export interface ResourceSchema extends ResourceEmbedded {
   tableShowGridlines?: boolean
   tableSize?: 'normal' | 'small' | 'large'
   tableRowHover?: boolean
+  tableLayout?: 'auto' | 'fixed'
   authorization?: CollectionAuthorizationMetadata
   overrides?: {
     create?: OverrideDefinition | null

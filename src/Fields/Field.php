@@ -221,6 +221,7 @@ abstract class Field implements FieldContract
                 'index' => $this->overrideForIndex?->toArray(),
                 'detail' => $this->overrideForDetail?->toArray(),
             ], fn (mixed $v): bool => $v !== null) ?: null,
+            'column' => $this->resolveColumnWidth(),
         ], $this->extraAttributes(), $this->meta);
     }
 
@@ -1005,6 +1006,102 @@ abstract class Field implements FieldContract
         $this->colSpanLg = max(1, min(12, $cols));
 
         return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Table column widths (index view)
+    // -------------------------------------------------------------------------
+
+    /** Fixed column width in the index table (e.g. "80px", "10rem"). Null = auto. */
+    protected ?string $columnWidth = null;
+
+    /** Minimum column width in the index table. */
+    protected ?string $columnMinWidth = null;
+
+    /** Maximum column width in the index table. */
+    protected ?string $columnMaxWidth = null;
+
+    /**
+     * Whether to truncate overflowing content with an ellipsis. Null =
+     * not set (inherit type default); bool = explicit user override.
+     */
+    protected ?bool $columnTruncate = null;
+
+    /**
+     * Set a fixed column width for the index table (e.g. "80px", "10rem").
+     *
+     * Most tables should let columns size themselves. Reach for this when
+     * a column holds a known-size token (an ID, a status pill) and you
+     * want to stop it from eating room that a longer column could use.
+     */
+    public function width(string $value): static
+    {
+        $this->columnWidth = $value;
+
+        return $this;
+    }
+
+    /** Set a minimum column width (e.g. "220px") for the index table. */
+    public function minWidth(string $value): static
+    {
+        $this->columnMinWidth = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set a maximum column width (e.g. "280px") and clip overflow.
+     *
+     * Pairs naturally with `truncate()` on long text columns (URLs,
+     * emails) so one runaway row can't blow out the whole table.
+     */
+    public function maxWidth(string $value): static
+    {
+        $this->columnMaxWidth = $value;
+
+        return $this;
+    }
+
+    /**
+     * Truncate overflowing cell content with an ellipsis. Useful together
+     * with `maxWidth()` on long text columns.
+     */
+    public function truncate(bool $value = true): static
+    {
+        $this->columnTruncate = $value;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the effective column width metadata, blending explicit
+     * `->width()` / `->minWidth()` / ... calls with per-type defaults
+     * defined in `defaultColumnWidth()`. Explicit user calls always win.
+     *
+     * @return array{width: ?string, minWidth: ?string, maxWidth: ?string, truncate: bool}
+     */
+    public function resolveColumnWidth(): array
+    {
+        $defaults = $this->defaultColumnWidth();
+
+        return [
+            'width' => $this->columnWidth ?? ($defaults['width'] ?? null),
+            'minWidth' => $this->columnMinWidth ?? ($defaults['minWidth'] ?? null),
+            'maxWidth' => $this->columnMaxWidth ?? ($defaults['maxWidth'] ?? null),
+            'truncate' => $this->columnTruncate ?? ($defaults['truncate'] ?? false),
+        ];
+    }
+
+    /**
+     * Per-field-type defaults for the index column. Subclasses override
+     * to declare "URL columns truncate at 280px" etc. without forcing
+     * every resource to repeat the chainable calls.
+     *
+     * @return array{width?: string, minWidth?: string, maxWidth?: string, truncate?: bool}
+     */
+    protected function defaultColumnWidth(): array
+    {
+        return [];
     }
 
     /**

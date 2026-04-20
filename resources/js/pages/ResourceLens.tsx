@@ -448,6 +448,7 @@ export function ResourceLensPage() {
             showGridlines: schema.tableShowGridlines,
             size: schema.tableSize,
             rowHover: schema.tableRowHover,
+            layout: schema.tableLayout,
           }}
         />
         )}

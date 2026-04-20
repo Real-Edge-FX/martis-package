@@ -72,4 +72,10 @@ class Boolean extends Field
             'falseLabel' => $this->falseLabel ?? __('martis::messages.no'),
         ];
     }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '120px'];
+    }
 }
