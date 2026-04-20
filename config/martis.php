@@ -123,6 +123,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Navigation
+    |--------------------------------------------------------------------------
+    | Tweaks for the sidebar and top-nav menus.
+    |
+    | counts.enabled
+    |     Master switch for the resource count badge ("Users 1,284"). When
+    |     true (default), every resource that doesn't opt out publishes a
+    |     count. Set to false to silence all badges globally without
+    |     touching individual resources.
+    */
+    'navigation' => [
+        'counts' => [
+            'enabled' => env('MARTIS_NAV_COUNTS', true),
+        ],
+
+        /*
+         | How often (in milliseconds) the sidebar and top-nav re-fetch the
+         | navigation endpoint while a tab is focused. Keeps count badges
+         | in sync when a second user mutates data in parallel.
+         | Set to 0 to disable polling entirely.
+         */
+        'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Localisation
     |--------------------------------------------------------------------------
     | Default locale for the Martis admin panel.

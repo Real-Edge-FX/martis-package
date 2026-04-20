@@ -193,6 +193,22 @@ Resolution order per piece: `config.layout.components.<piece>` → `layout:<piec
 
 Full wiring examples, prop contracts, and the rationale for piece-by-piece vs full-shell overrides live in [overrides.md](overrides.md#shell-piece-by-piece-overrides).
 
+## Navigation
+
+```php
+'navigation' => [
+    'counts' => [
+        'enabled' => env('MARTIS_NAV_COUNTS', true),
+    ],
+    'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+],
+```
+
+- `counts.enabled` — master switch for the resource count badge (`Users 1,284`) rendered in the sidebar and top-nav dropdowns. When true, every resource publishes a count by default; per-resource opt-out via `showMenuCount(): bool` on the `Resource` class.
+- `poll_interval` — how often (in milliseconds) the sidebar and top-nav re-fetch `/api/navigation` while the tab is focused. Keeps badges in sync when a second user mutates data in parallel. Default: 60000 (60 seconds). Set to `0` to disable polling. React Query pauses the interval when the tab is hidden and refetches on window focus independently.
+
+See [menus.md](menus.md#count-badges) for the badge API (including `menuCount()` for custom values) and [menus.md](menus.md#sections) for the section heading API.
+
 ## Localization
 
 ```php
@@ -450,6 +466,8 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_FAVICON` | `brand.favicon` | `null` |
 | `MARTIS_PAGE_TITLE` | `brand.page_title` | `null` (uses translation) |
 | `MARTIS_LAYOUT` | `layout.preset` | `sidebar` |
+| `MARTIS_NAV_COUNTS` | `navigation.counts.enabled` | `true` |
+| `MARTIS_NAV_POLL_MS` | `navigation.poll_interval` | `60000` |
 | `MARTIS_LOCALE` | `locale` | `en` |
 | `MARTIS_THROTTLE_ENABLED` | `throttle.enabled` | `true` |
 | `MARTIS_THROTTLE_MAX` | `throttle.max_attempts` | `120` |

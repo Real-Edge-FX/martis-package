@@ -67,6 +67,17 @@ export interface MartisLoaderConfig {
   }
 }
 
+export interface MartisNavigationConfig {
+  /**
+   * Interval in milliseconds at which the sidebar and top-nav menus
+   * re-fetch the navigation endpoint while the tab is focused. Keeps
+   * resource count badges in sync when a second user mutates data.
+   *
+   * Set to `0` to disable polling. Default: 60000 (60 seconds).
+   */
+  pollInterval?: number
+}
+
 export interface MartisLayoutConfig {
   /** Layout preset: "sidebar" (default), "topnav", "minimal", "custom" */
   preset?: "sidebar" | "topnav" | "minimal" | "custom"
@@ -143,6 +154,7 @@ export interface MartisConfigShape {
   toast?: MartisToastConfig
   footer?: MartisFooterConfig
   layout?: MartisLayoutConfig
+  navigation?: MartisNavigationConfig
   loader?: MartisLoaderConfig
   profile?: MartisProfileConfig
   preferences?: MartisPreferencesConfig

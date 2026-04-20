@@ -219,6 +219,12 @@ interface ResourceContract
     /** Determine whether this resource should appear in the navigation menu. */
     public static function displayInNavigation(): bool;
 
+    /** Whether the navigation should show a count badge for this resource. */
+    public static function showMenuCount(): bool;
+
+    /** Compute the navigation count badge (null hides it). */
+    public static function menuCount(\Illuminate\Http\Request $request): ?int;
+
     /** Return a custom search placeholder, or null for the i18n default. */
     public static function searchPlaceholder(): ?string;
 

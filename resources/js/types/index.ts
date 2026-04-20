@@ -20,6 +20,8 @@ export interface NavigationGroup {
   label: string | null
   icon?: string | null
   collapsable?: boolean
+  /** Optional top-level section this group belongs to (e.g. "Resources"). */
+  section?: string | null
   items: NavigationItem[]
 }
 
@@ -33,6 +35,8 @@ export interface NavigationItemBase {
 
 export interface NavigationResourceItem extends NavigationItemBase, ResourceMeta {
   type: "resource"
+  /** Optional count badge surfaced by the backend. null = hidden. */
+  count?: number | null
 }
 
 export interface NavigationLinkItem extends NavigationItemBase {

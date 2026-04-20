@@ -2,7 +2,12 @@ import { Outlet, NavLink, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
-import { getNavigationItems } from "@/lib/navigation"
+import {
+  getNavigationItems,
+  getItemCount,
+  formatItemCount,
+  useNavigationRefreshOnNavigate,
+} from "@/lib/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
@@ -37,11 +42,15 @@ export function TopnavLayout() {
   const [searchOpen, setSearchOpen] = useState(false)
   const location = useLocation()
 
+  const pollInterval = config.navigation?.pollInterval ?? 60_000
   const { data: groups = [] } = useQuery<NavigationGroup[]>({
     queryKey: ["navigation"],
     queryFn: () => api.get("/api/navigation"),
-    staleTime: 1000 * 60,
+    staleTime: 1000 * 30,
+    refetchInterval: pollInterval > 0 ? pollInterval : false,
+    refetchOnWindowFocus: true,
   })
+  useNavigationRefreshOnNavigate()
 
   const brand = config.brand ?? "Martis"
   const logoSrc = getLogoSrc()
@@ -206,6 +215,9 @@ export function TopnavLayout() {
                   className={"martis-topnav-link" + (isActive ? " active" : "")}
                   onClick={(e) => groupRefs.current.get(groupKey)?.toggle(e)}
                 >
+                  {group.icon && (
+                    <ResourceIcon iconName={group.icon} size={16} className="shrink-0" />
+                  )}
                   <span>{group.label}</span>
                   <CaretDownIcon size={12} className="shrink-0" />
                 </button>
@@ -226,6 +238,7 @@ export function TopnavLayout() {
                   {items.map((item) => {
                     const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
                     const onClick = () => groupRefs.current.get(groupKey)?.hide()
+                    const count = getItemCount(item)
                     return item.external ? (
                       <a
                         key={`${groupKey}-${item.label}-${item.url}`}
@@ -236,7 +249,12 @@ export function TopnavLayout() {
                         onClick={onClick}
                       >
                         <ResourceIcon iconName={iconName ?? null} size={16} />
-                        <span>{item.label}</span>
+                        <span className="martis-sb-item-label">{item.label}</span>
+                        {count !== null && (
+                          <span className="martis-sb-item-badge">
+                            {formatItemCount(count)}
+                          </span>
+                        )}
                       </a>
                     ) : (
                       <NavLink
@@ -248,7 +266,12 @@ export function TopnavLayout() {
                         onClick={onClick}
                       >
                         <ResourceIcon iconName={iconName ?? null} size={16} />
-                        <span>{item.label}</span>
+                        <span className="martis-sb-item-label">{item.label}</span>
+                        {count !== null && (
+                          <span className="martis-sb-item-badge">
+                            {formatItemCount(count)}
+                          </span>
+                        )}
                       </NavLink>
                     )
                   })}
