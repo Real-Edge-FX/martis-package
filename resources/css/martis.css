@@ -658,7 +658,8 @@ html[data-reduced-motion="true"] {
 
 .martis-sb-footer {
   border-top: 1px solid var(--martis-border);
-  padding: 10px 14px;
+  height: 44px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -667,6 +668,7 @@ html[data-reduced-motion="true"] {
   color: var(--martis-text-muted);
   font-family: var(--martis-font-mono);
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 .martis-sb-footer-link {
   color: var(--martis-text-muted);
@@ -940,7 +942,8 @@ html[data-reduced-motion="true"] {
 }
 .martis-shell-pagefooter {
   border-top: 1px solid var(--martis-border);
-  padding: 14px 28px;
+  height: 44px;
+  padding: 0 28px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -11,7 +11,26 @@ import { MinimalLayout } from "@/components/layouts/MinimalLayout"
 import { TableSkeleton } from "@/components/LoadingSkeleton"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { useState, useEffect } from "react"
-import type { ComponentType } from "react"
+import type { ComponentProps, ComponentType } from "react"
+
+/**
+ * Resolve a shell-level component (sidebar, topbar, footer) from the
+ * registry so consumers can swap any of them without replacing the
+ * entire shell. Falls back to the bundled component when no override
+ * is registered.
+ */
+function resolveShellComponent<C extends ComponentType<object>>(
+  key: string,
+  fallback: C,
+): C {
+  if (componentRegistry.has(key)) {
+    const override = componentRegistry.resolve(key)
+    if (override) {
+      return override as unknown as C
+    }
+  }
+  return fallback
+}
 
 function SidebarLayout() {
   const isMobile = useIsMobile()
@@ -20,6 +39,15 @@ function SidebarLayout() {
     return localStorage.getItem("martis-sidebar-collapsed") === "true"
   })
   const location = useLocation()
+
+  const SidebarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Sidebar>>>(
+    "layout:sidebar",
+    Sidebar,
+  )
+  const TopbarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Topbar>>>(
+    "layout:topbar",
+    Topbar,
+  )
 
   useEffect(() => {
     setMobileSidebarOpen(false)
@@ -46,13 +74,13 @@ function SidebarLayout() {
       data-mobile={isMobile ? "true" : undefined}
       data-sidebar-collapsed={!isMobile && collapsed ? "true" : undefined}
     >
-      <Sidebar
+      <SidebarComponent
         mobileOpen={isMobile ? mobileSidebarOpen : undefined}
         onMobileClose={() => setMobileSidebarOpen(false)}
         collapsed={!isMobile && collapsed}
       />
 
-      <Topbar
+      <TopbarComponent
         onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
         onToggleCollapse={!isMobile ? () => setCollapsed((c) => !c) : undefined}
         sidebarCollapsed={collapsed}

@@ -403,11 +403,31 @@ This command:
 | Type | Description | Registry Key |
 |------|-------------|-------------|
 | `field` | Display + Input pair | `{kebab-name}` + `{kebab-name}-input` |
-| `layout` | Page layout shell | `layout:shell` |
-| `footer` | Page footer | `layout:footer` |
+| `layout` | Page layout shell (replaces the entire shell) | `layout:shell` |
+| `sidebar` | Left navigation column | `layout:sidebar` |
+| `topbar` | Top navigation bar | `layout:topbar` |
+| `footer` | Page footer (rendered at the bottom of content scroll) | `layout:footer` |
 | `generic` | General purpose | `{kebab-name}` |
 
 After creating a component, rebuild assets with `make build`.
+
+### Shell piece-by-piece overrides
+
+Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without touching the rest:
+
+```typescript
+// resources/js/martis/boot.ts
+import { componentRegistry } from '@/lib/componentRegistry'
+import { MyTopbar } from './components/MyTopbar'
+import { MyFooter } from './components/MyFooter'
+
+componentRegistry.register('layout:topbar', MyTopbar)
+componentRegistry.register('layout:footer', MyFooter)
+```
+
+Your replacement receives the same props the bundled component does, so the shell's state (`sidebarCollapsed`, `onToggleCollapse`, `onToggleSidebar`, `mobileOpen`, `onMobileClose`) keeps flowing. Use this when you want to change one piece's visual design but keep the overall shell mechanics (mobile drawer, grid, collapse animation) intact.
+
+Use `layout:shell` instead when you want to rebuild the entire layout from scratch and don't need Martis's default mobile drawer / collapse behaviour.
 
 ## Component Registry API
 
