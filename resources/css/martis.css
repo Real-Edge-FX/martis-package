@@ -521,6 +521,11 @@ html[data-reduced-motion="true"] {
   min-height: 0;
   position: relative;
   z-index: 20;
+  /* Prime the transform so the mobile drawer's transition has a valid
+     starting value. Chrome can't interpolate from `none` to
+     `translate(-100%)`; without this, the first attribute swap on
+     mount snaps to `translate(0)` instead of `translate(-100%)`. */
+  transform: translateX(0);
 }
 
 .martis-sb-logo {
@@ -704,8 +709,12 @@ html[data-reduced-motion="true"] {
   padding: 10px 0;
 }
 
-/* Mobile drawer — fixed, slides in from the left */
-.martis-sb[data-mobile="true"] {
+/* Mobile drawer — fixed, slides in from the left.
+   Uses `[data-mobile]` (any value) for layout so the open state inherits
+   `position: fixed` + width; the `="open"` selector only flips the
+   transform. Without this, toggling to "open" would drop the fixed
+   positioning and the drawer would collapse into the flow. */
+.martis-sb[data-mobile] {
   position: fixed;
   left: 0;
   top: 0;

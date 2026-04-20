@@ -136,6 +136,7 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
           className="martis-tb-menu-btn"
           onClick={onToggleSidebar}
           aria-label={t("open_sidebar", "Menu")}
+          title={t("open_sidebar", "Menu")}
         >
           <ListIcon size={18} />
         </button>
