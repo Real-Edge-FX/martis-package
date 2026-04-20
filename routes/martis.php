@@ -109,7 +109,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                     Route::delete('/preferences', [PreferencesController::class, 'reset'])->name('preferences.reset');
                                 }
 
-                                // Dashboards and Metrics — Nova v5 parity
+                                // Dashboards and Metrics
                                 Route::get('/dashboards', [MetricController::class, 'dashboards'])
                                     ->name('dashboards.index');
                                 Route::get('/dashboards/{dashboard}', [MetricController::class, 'show'])
@@ -117,7 +117,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::get('/dashboards/{dashboard}/cards/{card}', [MetricController::class, 'computeDashboardMetric'])
                                     ->name('dashboards.cards.compute');
 
-                                // Global Search — Nova v5 parity
+                                // Global Search
                                 Route::get('/search', [SearchController::class, 'search'])->name('search');
 
                                 // Attachment upload (Trix / Markdown file uploads)
@@ -150,7 +150,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.index');
                                 Route::post('/resources/{resource}', [ResourceController::class, 'store'])
                                     ->name('resources.store');
-                                // Relatable options — Nova v5 parity
+                                // Relatable options
                                 Route::get('/resources/{resource}/{id}/relatable/{field}', [ResourceController::class, 'relatableOptions'])
                                     ->name('resources.relatable');
 
@@ -158,11 +158,11 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::get('/resources/{resource}/slug-check/{field}', [SlugController::class, 'check'])
                                     ->name('resources.slug.check');
 
-                                // Lenses — Nova v5 parity
+                                // Lenses
                                 Route::get('/resources/{resource}/lenses/{lens}', [LensController::class, 'index'])
                                     ->name('resources.lenses.index');
 
-                                // HasMany relationship CRUD — Nova v5 parity
+                                // HasMany relationship CRUD
                                 Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])
                                     ->name('resources.has-many.index');
                                 Route::post('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'store'])
@@ -172,7 +172,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::delete('/resources/{resource}/{id}/has-many/{relationship}/{relatedId}', [HasManyController::class, 'destroy'])
                                     ->name('resources.has-many.destroy');
 
-                                // HasOne relationship — Nova v5 parity
+                                // HasOne relationship
                                 Route::get('/resources/{resource}/{id}/has-one/{relationship}', [HasOneController::class, 'show'])
                                     ->name('resources.has-one.show');
                                 Route::post('/resources/{resource}/{id}/has-one/{relationship}', [HasOneController::class, 'store'])
@@ -182,7 +182,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::delete('/resources/{resource}/{id}/has-one/{relationship}', [HasOneController::class, 'destroy'])
                                     ->name('resources.has-one.destroy');
 
-                                // BelongsToMany relationship — Nova v5 parity
+                                // BelongsToMany relationship
                                 Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}', [BelongsToManyController::class, 'index'])
                                     ->name('resources.belongs-to-many.index');
                                 Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/attachable', [BelongsToManyController::class, 'attachableIndex'])
@@ -193,13 +193,13 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.belongs-to-many.detach');
                                 Route::put('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot', [BelongsToManyController::class, 'updatePivot'])
                                     ->name('resources.belongs-to-many.pivot');
-                                // Pivot action execution — Nova v5 parity
+                                // Pivot action execution
                                 Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions', [ActionController::class, 'pivotIndex'])
                                     ->name('resources.belongs-to-many.actions.index');
                                 Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
                                     ->name('resources.belongs-to-many.actions.execute');
 
-                                // MorphToMany polymorphic relationship — Nova v5 parity
+                                // MorphToMany polymorphic relationship
                                 Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}', [MorphToManyController::class, 'index'])
                                     ->name('resources.morph-to-many.index');
                                 Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/attachable', [MorphToManyController::class, 'attachableIndex'])
@@ -211,7 +211,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::put('/resources/{resource}/{id}/morph-to-many/{relationship}/{relatedId}/pivot', [MorphToManyController::class, 'updatePivot'])
                                     ->name('resources.morph-to-many.pivot');
 
-                                // MorphMany polymorphic one-to-many — Nova v5 parity
+                                // MorphMany polymorphic one-to-many
                                 Route::get('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'index'])
                                     ->name('resources.morph-many.index');
                                 Route::post('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'store'])
@@ -221,7 +221,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::delete('/resources/{resource}/{id}/morph-many/{relationship}/{relatedId}', [MorphManyController::class, 'destroy'])
                                     ->name('resources.morph-many.destroy');
 
-                                // MorphOne polymorphic one-to-one — Nova v5 parity
+                                // MorphOne polymorphic one-to-one
                                 Route::get('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'show'])
                                     ->name('resources.morph-one.show');
                                 Route::post('/resources/{resource}/{id}/morph-one/{relationship}', [MorphOneController::class, 'store'])
@@ -237,14 +237,14 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Replicate fields (pre-fill data for create form)
                                 Route::get('/resources/{resource}/{id}/replicate', [ResourceController::class, 'replicateFields'])
                                     ->name('resources.replicate');
-                                // Peek card — fetch related resource preview fields (Nova v5 parity)
+                                // Peek card — fetch related resource preview fields
                                 Route::get('/resources/{resource}/{id}/peek', [ResourceController::class, 'peek'])
                                     ->name('resources.peek');
-                                // Resource metric cards — Nova v5 parity
+                                // Resource metric cards
                                 Route::get('/resources/{resource}/cards/{card}', [MetricController::class, 'computeResourceMetric'])
                                     ->name('resources.cards.compute');
 
-                                // Action routes — Nova v5 parity
+                                // Action routes
                                 Route::get('/resources/{resource}/actions', [ActionController::class, 'index'])
                                     ->name('resources.actions.index');
                                 Route::get('/resources/{resource}/actions/{action}/fields', [ActionController::class, 'fields'])

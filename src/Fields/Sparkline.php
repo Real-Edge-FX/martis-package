@@ -8,10 +8,9 @@ use Martis\Enums\ChartType;
 /**
  * Sparkline field — inline mini chart for trend visualization.
  *
- * Laravel Nova v5 parity: Sparkline field.
  * Display-only field (not editable). Shows a small line or bar chart.
  *
- * Nova-compatible API:
+ * API:
  *   - data($data)     — array of numbers, callable, or Trend metric
  *   - asBarChart()    — render as bar chart (default: line)
  *   - height($px)     — chart height in pixels
@@ -53,7 +52,6 @@ class Sparkline extends Field
 
     /**
      * Set the chart data.
-     * Nova-compatible API.
      *
      * @param  list<int|float>|callable  $data
      */
@@ -66,7 +64,6 @@ class Sparkline extends Field
 
     /**
      * Render as a bar chart.
-     * Nova-compatible API.
      */
     public function asBarChart(): static
     {
@@ -87,7 +84,6 @@ class Sparkline extends Field
 
     /**
      * Set chart height in pixels.
-     * Nova-compatible API.
      */
     public function height(int $px): static
     {
@@ -97,10 +93,11 @@ class Sparkline extends Field
     }
 
     /**
-     * Set chart width in pixels.
-     * Nova-compatible API.
+     * Set chart width in pixels. Not to be confused with the inherited
+     * `Field::width(string)` that controls the CSS column width; this
+     * sets the SVG canvas size of the sparkline itself.
      */
-    public function width(int $px): static
+    public function chartWidth(int $px): static
     {
         $this->chartWidth = $px;
 

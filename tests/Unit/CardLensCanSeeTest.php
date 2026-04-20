@@ -7,8 +7,8 @@ use Martis\Http\Requests\LensRequest;
 use Martis\Lenses\Lens;
 
 /**
- * Minimal concrete lens used by unit tests. Nova-style Martis lenses are
- * subclasses, not descriptor instances, so the unit tests mirror that.
+ * Minimal concrete lens used by unit tests. Martis lenses are subclasses,
+ * not descriptor instances, so the unit tests mirror that.
  */
 class _RecentlyUpdatedLens extends Lens
 {

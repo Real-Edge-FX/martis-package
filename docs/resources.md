@@ -256,7 +256,7 @@ public static function indexQuery(Request $request, Builder $query): Builder
 
 Override when: you need a global constraint on the index that is *not* a user-configurable filter (filters are opt-in; `indexQuery()` is always applied).
 
-Nova v5 parity: `indexQuery(NovaRequest, Builder): Builder`. Source: `src/Resource.php::indexQuery()`.
+Source: `src/Resource.php::indexQuery()`.
 
 ### relatableQuery()
 
@@ -271,7 +271,7 @@ public static function relatableQuery(Request $request, Builder $query): Builder
 
 Override when: a BelongsTo/MorphTo selector should hide records that are otherwise valid on the index.
 
-Nova v5 parity: `relatableQuery(NovaRequest, Builder): Builder`. Source: `src/Resource.php::relatableQuery()`.
+Source: `src/Resource.php::relatableQuery()`.
 
 ## Table Configuration
 
@@ -353,7 +353,7 @@ See [Default Row Actions — Row click](default_row_actions.md#row-click) for th
 
 ### confirmUnsavedChanges()
 
-Martis differential (no Nova v5 equivalent). Opts the create/update surfaces — both drawer overrides and full-page create/update routes — into the **UnsavedChangesDialog**. When the user tries to discard changes (close the drawer, navigate away, click Cancel), the dialog asks for confirmation.
+Martis differential. Opts the create/update surfaces — both drawer overrides and full-page create/update routes — into the **UnsavedChangesDialog**. When the user tries to discard changes (close the drawer, navigate away, click Cancel), the dialog asks for confirmation.
 
 ```php
 // Enable with package defaults (generic copy).
@@ -556,7 +556,7 @@ When `canViewTrashed()` returns false:
 
 Note: `findModel()` and `serializeModel()` remain ungated so that users with `restore` or `forceDelete` permissions can still act on trashed records via direct URL.
 
-**Nova v5 comparison:** Nova always shows the SoftDeletes filter for all users. `canViewTrashed()` goes beyond Nova, giving per-resource role-based control.
+`canViewTrashed()` gives per-resource role-based control over the SoftDeletes filter visibility.
 
 ## Search
 
@@ -580,7 +580,7 @@ public static function globallySearchable(): bool
 }
 ```
 
-Nova v5 parity: `public static $globallySearchable = true;`. Source: `src/Resource.php::globallySearchable()`.
+Source: `src/Resource.php::globallySearchable()`.
 
 ### searchSubtitle()
 
@@ -593,7 +593,7 @@ public function searchSubtitle(Model $model): ?string
 }
 ```
 
-Return `null` (default) to show no subtitle. Nova v5 parity: `public function subtitle($resource)`. Source: `src/Resource.php::searchSubtitle()`.
+Return `null` (default) to show no subtitle. Source: `src/Resource.php::searchSubtitle()`.
 
 ### Laravel Scout integration
 
@@ -616,11 +616,11 @@ public static function scoutQuery(Request $request, mixed $query): mixed
 }
 ```
 
-The `public static ?int $scoutSearchResults = null;` static property caps the number of hits Scout returns (Nova v5 parity). Source: `src/Resource.php` (Scout integration section).
+The `public static ?int $scoutSearchResults = null;` static property caps the number of hits Scout returns. Source: `src/Resource.php` (Scout integration section).
 
 ## Authorization
 
-Martis implements full **Nova v5 parity** for authorization with dedicated resource policies, auto-discovery, and comprehensive ability checking.
+Martis provides dedicated resource policies, auto-discovery, and comprehensive ability checking.
 
 ### Policy Resolution Chain
 

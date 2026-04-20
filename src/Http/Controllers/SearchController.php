@@ -10,7 +10,7 @@ use Martis\ResourceRegistry;
 use Martis\SearchResolver;
 
 /**
- * Global Search controller — Nova v5 parity.
+ * Global Search controller.
  *
  * Single endpoint to search across all registered globallySearchable()
  * resources. Uses SearchResolver for Scout-or-LIKE strategy per resource.

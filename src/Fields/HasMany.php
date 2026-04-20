@@ -17,7 +17,7 @@ use Martis\Enums\HasManyRedirectMode;
  * detail page. Supports listing, pagination, search, sort, and CRUD of
  * related records within the parent context.
  *
- * Nova v5 parity: the field is shown ONLY on the detail page by default.
+ * The field is shown ONLY on the detail page by default.
  * It can optionally be shown on the index page as a count badge.
  *
  * Usage:
@@ -52,7 +52,7 @@ class HasMany extends Field
 
     /** Tracks whether the developer explicitly called `->perPageOptions([...])`.
      *  When false, the panel falls back to the related resource's own
-     *  `perPageOptions()` — Nova-style "resource is the single source of truth". */
+     *  `perPageOptions()` — the resource is the single source of truth. */
     protected bool $perPageOptionsSet = false;
 
     /** Whether to show a "Create" button for related records. */
@@ -100,7 +100,7 @@ class HasMany extends Field
         parent::__construct($attribute, $label);
         $this->relationship = $relationship ?: Str::camel($attribute);
 
-        // HasMany is detail-only by default (Nova v5 behavior)
+        // HasMany is detail-only by default
         $this->hideFromIndex();
         $this->hideFromForms();
     }
@@ -298,8 +298,6 @@ class HasMany extends Field
 
     /**
      * Make the HasMany panel collapsable.
-     *
-     * Nova v5 parity: ->collapsable()
      */
     public function collapsable(bool $value = true): static
     {
@@ -310,8 +308,6 @@ class HasMany extends Field
 
     /**
      * Start the panel collapsed by default.
-     *
-     * Nova v5 parity: ->collapsedByDefault()
      */
     public function collapsedByDefault(bool $value = true): static
     {

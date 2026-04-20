@@ -14,7 +14,7 @@ use Martis\Http\Requests\LensRequest;
 /**
  * Base class for Martis lenses.
  *
- * Nova v5 parity:
+ * Core surface:
  * - abstract `query(LensRequest, Builder): Builder|Paginator`
  * - `fields/cards/filters/actions(Request)` return arrays
  * - `$perPageOptions`, `$polling`, `$pollingInterval`, `$showPollingToggle`
@@ -39,7 +39,7 @@ abstract class Lens implements LensContract
     /** Show a UI toggle to pause polling. */
     public static bool $showPollingToggle = false;
 
-    /** Authorization callback — Nova v5 parity. */
+    /** Authorization callback. */
     protected ?Closure $canSeeCallback = null;
 
     /** Optional explicit URI key; falls back to kebab-case of class basename. */
@@ -84,7 +84,7 @@ abstract class Lens implements LensContract
     }
 
     // -------------------------------------------------------------------------
-    // Nova v5 — abstract / overridable hooks
+    // Abstract / overridable hooks
     // -------------------------------------------------------------------------
 
     /**
@@ -137,7 +137,7 @@ abstract class Lens implements LensContract
     }
 
     // -------------------------------------------------------------------------
-    // Nova v5 — identity and authorization
+    // Identity and authorization
     // -------------------------------------------------------------------------
 
     public function name(): string
@@ -184,7 +184,7 @@ abstract class Lens implements LensContract
     }
 
     /**
-     * Nova v5 shorthand: `$lens->canSeeWhen('viewAny', User::class)`.
+     * Shorthand: `$lens->canSeeWhen('viewAny', User::class)`.
      * Delegates to the current user's Gate::check.
      */
     public function canSeeWhen(string $ability, mixed $arguments = null): static
@@ -211,7 +211,7 @@ abstract class Lens implements LensContract
     }
 
     // -------------------------------------------------------------------------
-    // Nova v5 — pagination & polling accessors
+    // Pagination & polling accessors
     // -------------------------------------------------------------------------
 
     /**

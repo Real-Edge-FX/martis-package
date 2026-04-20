@@ -12,7 +12,7 @@ use Martis\Contracts\CardContract;
  */
 class Card implements CardContract
 {
-    /** Authorization callback — Nova v5 parity. */
+    /** Authorization callback. */
     protected ?Closure $canSeeCallback = null;
 
     /**
@@ -30,7 +30,7 @@ class Card implements CardContract
     /**
      * Register a closure that decides whether the card is visible.
      *
-     * Nova v5 parity: `$card->canSee(fn ($request) => $request->user()?->is_admin)`.
+     * Example: `$card->canSee(fn ($request) => $request->user()?->is_admin)`.
      */
     public function canSee(Closure $callback): static
     {

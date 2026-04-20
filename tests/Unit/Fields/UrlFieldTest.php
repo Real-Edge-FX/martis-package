@@ -142,7 +142,7 @@ it('Url buildRules fails on values that cannot be normalised to a URL', function
 });
 
 // ---------------------------------------------------------------------------
-// Normalisation — Martis divergence (Nova's strict rule would reject these)
+// Normalisation — Martis accepts bare hostnames by auto-prepending the scheme
 // ---------------------------------------------------------------------------
 
 it('Url::normaliseUrl keeps https:// prefix intact', function () {

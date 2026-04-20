@@ -1,8 +1,7 @@
 /**
  * Martis Event Bus
  *
- * A lightweight publish/subscribe event system for React components,
- * equivalent to the event system in Laravel Nova.
+ * A lightweight publish/subscribe event system for React components.
  *
  * Built-in events:
  *   - martis:record-created  — fired after a record is created

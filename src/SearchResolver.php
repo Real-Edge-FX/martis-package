@@ -12,9 +12,9 @@ use Martis\Contracts\FieldContract;
 /**
  * Central resolver for resource search — decides between Scout and database.
  *
- * Nova v5 parity: when a resource model uses Laravel\Scout\Searchable and the
- * resource has not overridden usesScout() to return false, searches go through
- * Scout. Otherwise, the standard database LIKE pipeline is used.
+ * When a resource model uses Laravel\Scout\Searchable and the resource has
+ * not overridden usesScout() to return false, searches go through Scout.
+ * Otherwise, the standard database LIKE pipeline is used.
  *
  * This class is the SINGLE point of truth for the search decision. Controllers
  * must not duplicate this logic.

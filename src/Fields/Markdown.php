@@ -7,9 +7,6 @@ use Martis\Enums\MarkdownPreset;
 /**
  * Markdown editor field — WYSIWYG Markdown editing with preview.
  *
- * Laravel Nova v5 parity: Markdown field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
- *
  * Contexts:
  *  - index: hidden by default (long text not suitable)
  *  - detail: content hidden behind "Show Content" by default;
@@ -20,9 +17,9 @@ use Martis\Enums\MarkdownPreset;
  * Stores raw Markdown in the database (not HTML).
  * Rendering to HTML happens on the frontend.
  *
- * Intentional divergences from Nova:
+ * Notes:
  *  - withFiles() registers the disk but uploading is managed by the
- *    generic Martis attachments endpoint, without Nova's auxiliary tables.
+ *    generic Martis attachments endpoint, without auxiliary tables.
  *  - Presets only control the frontend configuration (rendering);
  *    the backend always stores raw Markdown.
  */

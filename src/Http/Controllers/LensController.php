@@ -66,7 +66,7 @@ class LensController extends MartisController
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
-        // Soft-delete filter — Nova v5 parity, mirrored from ResourceController.
+        // Soft-delete filter, mirrored from ResourceController.
         // Applied to the base query so both the lens dataset and the summary
         // aggregation see the same rows.
         /** @var Builder<Model> $baseQuery */
@@ -106,7 +106,7 @@ class LensController extends MartisController
         // A cheap "table version" query combining COUNT(*) and MAX(updated_at)
         // becomes part of the cache key, so inserts/deletes bump COUNT and
         // updates bump MAX — either way the next request misses the cache.
-        // This is Nova-parity "just works" caching without needing model
+        // This provides "just works" caching without needing model
         // observers or cache tags.
         $tableVersion = $this->resolveTableVersion($modelClass, $resourceClass::softDeletes());
         $cacheKey = $this->buildCacheKey($lensInstance, $lensRequest, $perPage, $page, $trashedMode, $tableVersion);
@@ -170,7 +170,7 @@ class LensController extends MartisController
 
     /**
      * Resolve the actions list for a lens. Lenses that do not override
-     * `actions()` inherit the parent resource's actions (Nova v5 parity).
+     * `actions()` inherit the parent resource's actions.
      *
      * @return list<array<string, mixed>>
      */
@@ -320,7 +320,7 @@ class LensController extends MartisController
      * Collect filters available inside the lens, indexed by uriKey, and
      * stripping those the user is not allowed to see.
      *
-     * Inheritance rule (Nova v5 parity + explicit override semantics):
+     * Inheritance rule (explicit override semantics):
      *   - Lens overrode `filters()` → use its value verbatim (even []).
      *     This lets developers disable filters entirely on a lens.
      *   - Lens did NOT override → inherit the parent resource's filters.

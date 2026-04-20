@@ -8,9 +8,6 @@ use Martis\Enums\ToolbarSize;
 /**
  * Trix rich-text editor field — HTML-based WYSIWYG editing.
  *
- * Laravel Nova v5 parity: Trix field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
- *
  * Contexts:
  *  - index: hidden by default (long HTML not suitable)
  *  - detail: content hidden behind "Show Content" by default;
@@ -20,9 +17,9 @@ use Martis\Enums\ToolbarSize;
  *
  * Stores raw HTML in the database.
  *
- * Intentional divergences from Nova:
+ * Notes:
  *  - withFiles() registers the disk but uploading is managed by the
- *    generic Martis attachments endpoint, without Nova's auxiliary tables.
+ *    generic Martis attachments endpoint, without auxiliary tables.
  */
 class Trix extends Field
 {

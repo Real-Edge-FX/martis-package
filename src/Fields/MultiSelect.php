@@ -7,9 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * MultiSelect field — select multiple values from a predefined option list.
  *
- * Laravel Nova v5 parity: MultiSelect field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#multiselect-field
- *
  * MultiSelect is a first-class field, not an improvised Select with multiple.
  * Persists multiple values as a JSON array.
  *

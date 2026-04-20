@@ -40,7 +40,7 @@ export function ResourceCreatePage() {
     enabled: !!resource,
   })
 
-  // Fetch pre-fill data when replicating (Nova v5 parity)
+  // Fetch pre-fill data when replicating
   const replicateQuery = useQuery({
     queryKey: ['replicate', resource, fromResourceId],
     queryFn: () => api.get<{ data: { values: Record<string, unknown>; fromResourceId: string | number } }>(
@@ -55,8 +55,8 @@ export function ResourceCreatePage() {
   const rawFormFields = (schema?.fieldsForCreate ?? [])
 
   // Marca a FK do pai como readonly quando criamos via rela\u00e7\u00e3o
-  // aninhada (Nova behavior): o utilizador n\u00e3o deve poder mudar o
-  // pai — s\u00f3 ver o seu nome. Deep-walk para apanhar o campo mesmo
+  // aninhada: o utilizador n\u00e3o deve poder mudar o pai —
+  // s\u00f3 ver o seu nome. Deep-walk para apanhar o campo mesmo
   // dentro de Panel/Section/TabGroup.
   const allFormFields = useMemo(() => {
     if (!isViaRelation) return rawFormFields

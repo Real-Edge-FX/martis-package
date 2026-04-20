@@ -52,8 +52,6 @@ abstract class Resource implements ResourceContract
      * and the model's registered policy. When null, the resolution chain
      * falls through to auto-discovery and then the model policy.
      *
-     * Nova v5 parity: public static $policy.
-     *
      * @var class-string|null
      */
     public static ?string $policy = null;
@@ -182,8 +180,6 @@ abstract class Resource implements ResourceContract
      * Return the default sort column for the index listing.
      *
      * Override in concrete resources to sort by a specific column on load.
-     *
-     * Nova v5 parity: public static $defaultSort.
      */
     public static function defaultSort(): ?string
     {
@@ -192,8 +188,6 @@ abstract class Resource implements ResourceContract
 
     /**
      * Return the default sort direction for the index listing.
-     *
-     * Nova v5 parity: public static $defaultSortDirection.
      */
     public static function defaultSortDirection(): SortDirection
     {
@@ -207,7 +201,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Query hooks — Nova v5 parity
+    // Query hooks
     // -------------------------------------------------------------------------
 
     /**
@@ -216,8 +210,6 @@ abstract class Resource implements ResourceContract
      * Override this method to add tenant scoping, ownership filtering, or any
      * other structural query constraint for the index (list) view. This is
      * applied server-side before pagination and does NOT replace policies.
-     *
-     * Nova v5 parity: indexQuery(NovaRequest, Builder): Builder
      *
      * @param  Builder<Model>  $query
      * @return Builder<Model>
@@ -234,8 +226,6 @@ abstract class Resource implements ResourceContract
      * selectors (BelongsTo dropdowns, Tag pickers, etc.). This is the
      * generic fallback — for per-relationship customization, define
      * relatable{PluralModelName}() instead.
-     *
-     * Nova v5 parity: relatableQuery(NovaRequest, Builder): Builder
      *
      * @param  Builder<Model>  $query
      * @return Builder<Model>
@@ -392,8 +382,8 @@ abstract class Resource implements ResourceContract
      * ignores ?trashed= query parameters. Override in concrete resources
      * to restrict visibility by role (e.g. admin-only).
      *
-     * Nova v5 parity note: Nova shows the SoftDeletes filter for all users
-     * by default. This method goes beyond Nova, giving per-resource control.
+     * Martis extension: provides per-resource control over SoftDeletes filter
+     * visibility so administrators can hide trashed records from selected roles.
      */
     public static function canViewTrashed(): bool
     {
@@ -401,14 +391,13 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Authorization — Policy resolution (Nova v5 parity)
+    // Authorization — Policy resolution
     // -------------------------------------------------------------------------
 
     /**
      * Determine whether authorization checks are enabled for this resource.
      *
      * Return false to skip all policy checks and allow all operations.
-     * Nova v5 parity: public static function authorizable().
      */
     public static function authorizable(): bool
     {
@@ -418,7 +407,7 @@ abstract class Resource implements ResourceContract
     /**
      * Resolve the policy instance for this resource.
      *
-     * Resolution order (Nova v5 parity):
+     * Resolution order:
      *   1. Explicit $policy property on the Resource class
      *   2. Auto-discovery: {policy_namespace}\{ResourceBaseName without 'Resource' suffix}Policy
      *   3. Laravel Gate policy registered for the model class
@@ -531,7 +520,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the current user may restore this soft-deleted resource.
      *
-     * Nova v5 parity: checks 'restore' policy method.
+     * Checks the 'restore' policy method.
      * Default when missing: forbidden.
      */
     public function authorizedToRestore(Request $request): bool
@@ -542,7 +531,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the current user may force-delete this resource.
      *
-     * Nova v5 parity: checks 'forceDelete' policy method.
+     * Checks the 'forceDelete' policy method.
      * Default when missing: forbidden.
      */
     public function authorizedToForceDelete(Request $request): bool
@@ -553,7 +542,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the current user may replicate this resource.
      *
-     * Nova v5 parity: checks 'replicate' policy method.
+     * Checks the 'replicate' policy method.
      * Fallback when missing: must pass BOTH create AND update.
      */
     public function authorizedToReplicate(Request $request): bool
@@ -571,7 +560,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the current user may run a normal action on this resource.
      *
-     * Nova v5 parity: checks 'runAction' policy method.
+     * Checks the 'runAction' policy method.
      * Fallback when missing: delegates to authorizedToUpdate().
      */
     public function authorizedToRunAction(Request $request): bool
@@ -589,7 +578,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the current user may run a destructive action on this resource.
      *
-     * Nova v5 parity: checks 'runDestructiveAction' policy method.
+     * Checks the 'runDestructiveAction' policy method.
      * Fallback when missing: delegates to authorizedToDelete().
      */
     public function authorizedToRunDestructiveAction(Request $request): bool
@@ -605,7 +594,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Relational authorization — Nova v5 parity
+    // Relational authorization
     //
     // These methods check Model Policy abilities for relationship operations.
     // They coexist with relatableQuery / relatable{PluralModelName} hooks:
@@ -617,7 +606,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the user may attach ANY record of the given model type.
      *
-     * Nova v5 parity: Policy method `attachAny{Model}`.
+     * Policy method: `attachAny{Model}`.
      * If no policy is registered, returns true (permissive default).
      */
     public function authorizedToAttachAny(Request $request, string $relatedModelClass): bool
@@ -630,7 +619,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the user may attach a specific related model.
      *
-     * Nova v5 parity: Policy method `attach{Model}`.
+     * Policy method: `attach{Model}`.
      */
     public function authorizedToAttach(Request $request, Model $relatedModel): bool
     {
@@ -642,7 +631,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the user may detach a specific related model.
      *
-     * Nova v5 parity: Policy method `detach{Model}`.
+     * Policy method: `detach{Model}`.
      */
     public function authorizedToDetach(Request $request, Model $relatedModel): bool
     {
@@ -654,7 +643,7 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether the user may update pivot data for a related model.
      *
-     * Martis extension (beyond Nova v5): Policy method `updatePivot{Model}`.
+     * Martis feature: Policy method `updatePivot{Model}`.
      * When the policy method is absent, falls back to `update` on the parent
      * resource, because editing pivot columns is conceptually an edit of the
      * parent's relationship state.
@@ -674,7 +663,7 @@ abstract class Resource implements ResourceContract
      * Determine whether the user may add a new record of the given model type
      * (inline creation from a relationship field).
      *
-     * Nova v5 parity: Policy method `add{Model}`.
+     * Policy method: `add{Model}`.
      */
     public function authorizedToAdd(Request $request, string $relatedModelClass): bool
     {
@@ -763,7 +752,7 @@ abstract class Resource implements ResourceContract
      *
      * Uses the resolved policy (resource-specific → auto-discovered → model).
      * When no policy is registered, returns true (permissive default).
-     * When a policy exists but the method is missing, applies the Nova v5
+     * When a policy exists but the method is missing, applies the
      * defaults matrix (see defaultForMissingAbility).
      *
      * @param  string  $ability  Policy method name (viewAny, view, create, update, delete, restore, forceDelete)
@@ -808,7 +797,7 @@ abstract class Resource implements ResourceContract
     /**
      * Default permission when a policy exists but does not define a method.
      *
-     * Nova v5 parity defaults:
+     * Defaults:
      *   viewAny              → allowed
      *   view                 → forbidden
      *   create               → forbidden
@@ -1040,8 +1029,6 @@ abstract class Resource implements ResourceContract
      *   {
      *       return false;
      *   }
-     *
-     * Nova v5 parity: public static $displayInNavigation.
      */
     public static function displayInNavigation(): bool
     {
@@ -1085,7 +1072,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Notification messages — customizable per resource (Nova parity)
+    // Notification messages — customizable per resource
     // -------------------------------------------------------------------------
 
     /**
@@ -1294,7 +1281,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Actions — Nova v5 parity
+    // Actions
     // -------------------------------------------------------------------------
 
     /**
@@ -1369,7 +1356,7 @@ abstract class Resource implements ResourceContract
      * Resolve the default row actions configuration for this resource,
      * merging the per-resource override with the global `enabled` switch.
      *
-     * Visibility follows the Nova 5 convention:
+     * Visibility rules:
      *  - Global `enabled=false` in config/martis.php removes the whole
      *    actions column across the app.
      *  - Per-resource `defaultRowActions()` returning `false` opts out for
@@ -1410,7 +1397,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Scout integration — Nova v5 parity
+    // Scout integration
     //
     // When the underlying model uses Laravel\Scout\Searchable, the resource
     // automatically uses Scout for searches. Override usesScout() to disable,
@@ -1421,7 +1408,6 @@ abstract class Resource implements ResourceContract
     /**
      * Maximum number of results returned by Scout search.
      *
-     * Nova v5 parity: public static $scoutSearchResults = 200;
      * Set to null for Scout default behavior.
      */
     public static ?int $scoutSearchResults = null;
@@ -1432,8 +1418,6 @@ abstract class Resource implements ResourceContract
      * By default, returns true when the associated model uses the
      * Laravel\Scout\Searchable trait. Override to return false to
      * force database search even when the model is Searchable.
-     *
-     * Nova v5 parity: public static function usesScout()
      */
     public static function usesScout(): bool
     {
@@ -1455,8 +1439,6 @@ abstract class Resource implements ResourceContract
      * to the Scout builder. Only called when the resource is
      * effectively using Scout (usesScout() returns true).
      *
-     * Nova v5 parity: public static function scoutQuery(NovaRequest, ScoutBuilder): ScoutBuilder
-     *
      * @param  mixed  $query  Scout builder instance
      * @return mixed Scout builder instance
      */
@@ -1466,7 +1448,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Global Search — Nova v5 parity
+    // Global Search
     // -------------------------------------------------------------------------
 
     /**
@@ -1474,8 +1456,6 @@ abstract class Resource implements ResourceContract
      *
      * Return false to exclude this resource from the Cmd+K global search modal.
      * Defaults to true so all resources participate unless explicitly opted out.
-     *
-     * Nova v5 parity: public static $globallySearchable = true;
      */
     public static function globallySearchable(): bool
     {
@@ -1487,8 +1467,6 @@ abstract class Resource implements ResourceContract
      *
      * Override to return a meaningful secondary string shown below the record
      * title in the Cmd+K search modal.
-     *
-     * Nova v5 parity: public function subtitle()
      *
      * Example:
      *   public function searchSubtitle(Model $model): ?string

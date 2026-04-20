@@ -21,11 +21,11 @@ Justification:
 - Public API contracts are not yet frozen (field types still being added)
 - HasOne and error handling were just added — stability under real-world use is unproven
 - Profile + 2FA migration stubs need more robust publish testing
-- Nova parity still incomplete (see PARITY_MAP.md)
+- Feature parity still incomplete (see PARITY_MAP.md)
 - No external adopters or production installs yet to validate stability
 
 The project will be re-evaluated for beta exit after:
-1. Nova parity is complete
+1. Feature parity is complete
 2. At least one external project uses it in staging
 3. Security review of authentication flow is done
 

@@ -41,7 +41,7 @@ function formatAggregate(agg: { fn: string; column: string; value: number | null
  *   - If no record exists: shows an empty state with a "Create" button
  *   - If a record exists: shows all detail fields in a card with "Edit" / "Delete" buttons
  *
- * Not shown on index or forms (consistent with Nova v5 behavior).
+ * Not shown on index or forms.
  */
 export function HasOneFieldDisplay({ field }: FieldDisplayProps) {
   return <HasOneDetailPanel field={field} />

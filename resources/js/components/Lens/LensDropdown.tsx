@@ -10,8 +10,8 @@ interface LensDropdownProps {
 }
 
 /**
- * Lens selector rendered in the resource-index toolbar. Nova v5 parity
- * — shows a "Lenses" dropdown that switches the index to an alternative
+ * Lens selector rendered in the resource-index toolbar.
+ * Shows a "Lenses" dropdown that switches the index to an alternative
  * dataset. The "Default View" entry returns the user to the resource's
  * standard index.
  */

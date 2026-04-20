@@ -6,7 +6,7 @@ use Closure;
 
 /**
  * Shared trait for relationship fields that expose dropdown-level /
- * peek / subtitle affordances (Nova v5 parity). BelongsTo, BelongsToMany,
+ * peek / subtitle affordances. BelongsTo, BelongsToMany,
  * MorphTo and MorphToMany carry their own copies of this state today;
  * the HasOne / HasMany / MorphOne / HasOne*Through / HasManyThrough
  * family relies on this trait so every relationship field exposes the

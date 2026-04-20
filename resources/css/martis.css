@@ -3764,7 +3764,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ─────────────────────────────────────────────────────────────────────
-   Stack + Line — composite display field (Nova parity + differentials)
+   Stack + Line — composite display field
 
    The Stack renders a vertical list of Lines as a single cell/detail
    slot. Each Line picks one variant → CSS class, so custom themes can

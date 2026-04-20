@@ -1,6 +1,6 @@
 # Override System
 
-The override system is Martis's competitive advantage over Nova. **Everything can be customized without forking** — React components, layouts, and server-side behaviors.
+The override system is a core Martis differential. **Everything can be customized without forking** — React components, layouts, and server-side behaviors.
 
 ## Overview
 

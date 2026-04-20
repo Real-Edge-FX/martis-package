@@ -70,8 +70,8 @@ it('Sparkline height() sets height', function () {
     expect($field->getChartHeight())->toBe(50);
 });
 
-it('Sparkline width() sets width', function () {
-    $field = Sparkline::make('views')->width(200);
+it('Sparkline chartWidth() sets chart canvas width', function () {
+    $field = Sparkline::make('views')->chartWidth(200);
     expect($field->getChartWidth())->toBe(200);
 });
 
@@ -88,7 +88,7 @@ it('Sparkline fill saves data to model', function () {
 });
 
 it('Sparkline toArray contains chart attributes', function () {
-    $field = Sparkline::make('views')->asBarChart()->height(50)->width(200)->color('#ff0000');
+    $field = Sparkline::make('views')->asBarChart()->height(50)->chartWidth(200)->color('#ff0000');
     $arr = $field->toArray();
 
     expect($arr)->toHaveKeys(['attribute', 'type', 'chartType', 'chartHeight', 'chartWidth', 'chartColor'])

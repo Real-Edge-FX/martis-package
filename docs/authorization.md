@@ -1,6 +1,6 @@
 # Authorization & Policies
 
-Martis mirrors Laravel Nova 5's authorization model. Every write-side
+Martis uses the standard Laravel policy system. Every write-side
 endpoint consults a Laravel policy; the frontend receives the resolved
 booleans and hides or disables controls accordingly. The backend remains
 the source of truth — every request is re-authorized server-side even if
@@ -26,11 +26,11 @@ the UI was already hidden.
 | Add related (HasMany inline create) | `authorizedToAdd` | `add{Model}` | permit |
 | Update pivot row | `authorizedToUpdatePivot` | `updatePivot{Model}` (fallback: `update`) | permit |
 
-Default behaviour matches Nova:
+Default behaviour:
 
 - If no policy class is registered for the model, every ability is
   permitted. This keeps local development frictionless.
-- Once a policy class exists, missing *methods* behave per the Nova
+- Once a policy class exists, missing *methods* follow the defaults
   matrix (most deny; `viewAny` permits; relation abilities are permissive
   by design because attaching a model the user can already update is
   usually the right default).
@@ -81,7 +81,7 @@ class PostPolicy
         return $user->is_admin;
     }
 
-    // Optional — Nova-style action authorization
+    // Optional — action authorization
     public function runAction(User $user, Post $post): bool
     {
         return $this->update($user, $post);
@@ -124,8 +124,7 @@ authorization failures specifically.
 
 ## Visibility of non-record primitives
 
-Every dashboard primitive supports a `canSee(Closure)` callback. Nova
-parity.
+Every dashboard primitive supports a `canSee(Closure)` callback.
 
 | Class | canSee? | Exposed to UI |
 |---|---|---|
@@ -137,8 +136,7 @@ parity.
 
 ## Fields and relations
 
-- `Field::canSee(Closure)` — hides a field from every context. Nova
-  parity.
+- `Field::canSee(Closure)` — hides a field from every context.
 - `Field::readonly(bool|Closure)` — renders the field without an editor.
 - Relation fields (`BelongsTo`, `HasMany`, `BelongsToMany`,
   `MorphTo`, `MorphToMany`, `MorphMany`, `MorphOne`, `HasOne`) emit
@@ -187,18 +185,17 @@ Restore, Force Delete, Replicate, bulk and inline action buttons. When
 a control must be present but non-interactive (e.g. a bulk action in a
 list where only some rows allow it), the button is rendered `disabled`.
 
-## Intentional differences from Nova 5
+## Design notes
 
-- **Action authorization is closure-first, policy-second.** Nova invokes
-  a policy ability named after the action (e.g. `Policy::publish`).
-  Martis uses `Action::canSee()` / `Action::canRun()` closures because
-  they compose better with runtime context. If you prefer a policy
-  lookup, implement `runAction` / `runDestructiveAction` on your policy
-  — Martis will consult it as a fallback.
-- **`_authorization` key prefix.** Nova serializes flags at the top of
-  each record (`canView`, `canUpdate`, …). Martis namespaces them under
-  `_authorization` to avoid collisions with user model attributes.
-- **`updatePivot{Model}` ability** is a Martis-only convention for pivot
+- **Action authorization is closure-first, policy-second.** Martis uses
+  `Action::canSee()` / `Action::canRun()` closures because they compose
+  better with runtime context. If you prefer a policy lookup, implement
+  `runAction` / `runDestructiveAction` on your policy — Martis consults
+  it as a fallback.
+- **`_authorization` key prefix.** Authorization flags are namespaced
+  under `_authorization` on each record to avoid collisions with user
+  model attributes.
+- **`updatePivot{Model}` ability** is a Martis convention for pivot
   row edits. It falls back to `update` on the parent so existing
   policies keep working.
 

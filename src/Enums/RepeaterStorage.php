@@ -16,8 +16,8 @@ enum RepeaterStorage: string
     /**
      * ⭐ Martis differential — every row type lives in a single child table
      * discriminated by a `type` column, with field values serialised into
-     * a `payload` JSON column. Solves Nova's "1 table per repeatable type"
-     * limitation for page-builder-style use cases.
+     * a `payload` JSON column. A single child table holds every row type —
+     * ideal for page-builder-style use cases.
      */
     case Polymorphic = 'polymorphic';
 }

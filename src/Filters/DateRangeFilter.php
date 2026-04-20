@@ -13,7 +13,7 @@ use Martis\Enums\FilterType;
  * The $value passed to apply() is an array with 'from' and/or 'to' keys
  * in Y-m-d format.
  *
- * This is a Martis extension — Nova 5 does not include a built-in date range filter.
+ * This is a Martis extension — a built-in date range filter.
  *
  * @phpstan-consistent-constructor
  */

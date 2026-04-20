@@ -15,7 +15,7 @@ use Martis\Fields\Concerns\ResolvesRelatableOptions;
  * relationship. The related record is shown as a read-only panel on the
  * detail page, with optional Create / Edit / Delete controls.
  *
- * This field is detail-only by default (Nova v5 parity).
+ * This field is detail-only by default.
  *
  * Usage:
  *   HasOne::make('Profile')
@@ -55,7 +55,7 @@ class HasOne extends Field
         parent::__construct($attribute, $label);
         $this->relationship = $relationship ?: Str::camel($attribute);
 
-        // HasOne is detail-only by default (Nova v5 behavior)
+        // HasOne is detail-only by default
         $this->hideFromIndex();
         $this->hideFromForms();
     }
@@ -82,15 +82,13 @@ class HasOne extends Field
     }
 
     /**
-     * Nova v5 parity — promote a `hasMany(...)->latestOfMany()` style
-     * relationship into a `HasOneOfMany` field. Signature matches
-     * Nova's `HasOne::ofMany($name, $relationship, $resourceClass)`.
+     * Promote a `hasMany(...)->latestOfMany()` style relationship into a
+     * `HasOneOfMany` field. Signature: `HasOne::ofMany($name, $relationship, $resourceClass)`.
      *
      * Usage:
      *   HasOne::ofMany('Latest Post', 'latestPost', PostResource::class)
      *
-     * The third argument is a Martis Resource class (not an Eloquent
-     * model) — matches Nova.
+     * The third argument is a Martis Resource class (not an Eloquent model).
      */
     public static function ofMany(string $name, string $relationship, string $relatedResourceClass): HasOneOfMany
     {

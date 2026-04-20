@@ -23,7 +23,7 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
 
 // ---------------------------------------------------------------------------
 // PeekCard — hover preview card fetching content from the resource's
-// fieldsForPreview() via the /peek endpoint (Nova v5 concept alignment).
+// fieldsForPreview() via the /peek endpoint.
 // The card is triggered exclusively by the preview icon, never by hover on the link.
 // ---------------------------------------------------------------------------
 

@@ -10,7 +10,7 @@ use Martis\Enums\MetricType;
 /**
  * A metric that displays progress toward a target as a progress bar.
  *
- * Nova v5 parity: current vs target with optional avoid() for minimization.
+ * Supports current vs target with optional avoid() for minimization.
  *
  * @phpstan-consistent-constructor
  */

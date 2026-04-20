@@ -18,8 +18,8 @@ use Martis\Enums\ModalSize;
  * This contract must mirror every public method on the base Action class 1:1.
  * Any method added to Action.php MUST be added here as well.
  *
- * Nova v5 parity: covers handle, fields, authorization, visibility,
- * execution mode, modal customization, and action log control.
+ * Covers handle, fields, authorization, visibility, execution mode,
+ * modal customization, and action log control.
  */
 interface ActionContract
 {
@@ -302,7 +302,7 @@ interface ActionContract
     public function getGroup(): ?string;
 
     // -------------------------------------------------------------------------
-    // Pivot action support (Nova v5 parity)
+    // Pivot action support
     // -------------------------------------------------------------------------
 
     /**

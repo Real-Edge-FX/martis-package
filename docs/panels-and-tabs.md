@@ -1,9 +1,7 @@
 # Panels and Tabs
 
 Martis supports two advanced layout mechanisms for organising fields on forms and
-detail pages: **Panels** and **Tabs**. Both are directly inspired by
-[Laravel Nova 5](https://nova.laravel.com/docs/v5/resources/panels) and follow the
-same API ergonomics.
+detail pages: **Panels** and **Tabs**.
 
 ---
 
@@ -27,11 +25,11 @@ Panel::make('Panel Title', [
 ->limit(int $n)        // optional — only shows the first N fields
 ```
 
-> **Martis extension:** `->description()` adds a subtitle below the Panel title. Nova 5 does not support this.
+> **Martis extension:** `->description()` adds a subtitle below the Panel title.
 
 ### Help Text on Fields
 
-Fields inside Panels support `->help()` to display contextual help below the input. Supports inline HTML (Martis extension — Nova only supports plain text):
+Fields inside Panels support `->help()` to display contextual help below the input. Supports inline HTML:
 
 ```php
 Panel::make('Security', [
@@ -257,24 +255,6 @@ It does not appear in `fields()` (index) — fields are always flattened for the
 | `fieldsForCreate`  | ✅    | ✅       | ✅                  | ✅               |
 | `fieldsForUpdate`  | ✅    | ✅       | ✅                  | ✅               |
 | `fieldsForDetail`  | ✅    | ✅       | ✅                  | ✅               |
-
----
-
-## Comparison with Laravel Nova 5
-
-| Feature                    | Laravel Nova 5              | Martis                                   |
-|----------------------------|-----------------------------|------------------------------------------|
-| Basic Panel                | `Panel::make('T', [...])`   | `Panel::make('T', [...])`                |
-| Collapsible Panel          | `->collapsible()`           | `->collapsible()`                        |
-| Panel collapsed by default | `->collapsedByDefault()`    | `->collapsedByDefault()`                 |
-| Panel with limit           | `->limit(n)`                | `->limit(n)`                             |
-| Individual Tab             | `Tab::make('T', [...])`     | `Tab::make('T', [...])`                  |
-| Tab grouping               | `Tab::group([...])`         | `TabGroup::make([...])`                  |
-| Tabs with panels           | ✅ supported                | ✅ supported                             |
-| Tabs with relationships    | ✅ supported                | ✅ (through BelongsTo/Tag/etc. fields)   |
-
-> **API difference:** Nova 5 uses `Tab::group(...)` as a static method on the `Tab` class.
-> Martis uses `TabGroup::make(...)` as a separate class. The semantics are equivalent.
 
 ---
 

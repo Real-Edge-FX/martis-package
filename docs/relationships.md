@@ -6,21 +6,21 @@ This guide covers all relationship field types in Martis and how to use them.
 
 Martis provides the full set of relationship field types that map 1:1 to Laravel Eloquent relationships:
 
-| Field | Eloquent Relationship | Nova v5 Equivalent |
-|-------|-----------------------|-------------------|
-| `BelongsTo` | `belongsTo()` | `BelongsTo` |
-| `HasOne` | `hasOne()` | `HasOne` |
-| `HasOneOfMany` | `hasMany()->latestOfMany()` / `ofMany(...)` | `HasOneOfMany` |
-| `HasOneThrough` | `hasOneThrough()` | `HasOneThrough` |
-| `HasMany` | `hasMany()` | `HasMany` |
-| `HasManyThrough` | `hasManyThrough()` | `HasManyThrough` |
-| `BelongsToMany` | `belongsToMany()` | `BelongsToMany` |
-| `Tag` | `belongsToMany()` | `BelongsToMany` (chip UI) |
-| `MorphTo` | `morphTo()` | `MorphTo` |
-| `MorphOne` | `morphOne()` | `MorphOne` |
-| `MorphOneOfMany` | `morphMany()->latestOfMany()` / `ofMany(...)` | `MorphOneOfMany` |
-| `MorphMany` | `morphMany()` | `MorphMany` |
-| `MorphToMany` | `morphToMany()` | `MorphToMany` |
+| Field | Eloquent Relationship |
+|-------|-----------------------|
+| `BelongsTo` | `belongsTo()` |
+| `HasOne` | `hasOne()` |
+| `HasOneOfMany` | `hasMany()->latestOfMany()` / `ofMany(...)` |
+| `HasOneThrough` | `hasOneThrough()` |
+| `HasMany` | `hasMany()` |
+| `HasManyThrough` | `hasManyThrough()` |
+| `BelongsToMany` | `belongsToMany()` |
+| `Tag` | `belongsToMany()` (chip UI) |
+| `MorphTo` | `morphTo()` |
+| `MorphOne` | `morphOne()` |
+| `MorphOneOfMany` | `morphMany()->latestOfMany()` / `ofMany(...)` |
+| `MorphMany` | `morphMany()` |
+| `MorphToMany` | `morphToMany()` |
 
 ---
 
@@ -33,8 +33,7 @@ the panel's UI. Visibility composes with authorization as:
     visible = authorized AND NOT hidden
 
 Authorization is always the source of truth — the setters cannot *force*
-something to appear. Unauthorized actions are never shown (or are rendered
-disabled when Nova v5 does so).
+something to appear. Unauthorized actions are never shown.
 
 | Setter | Hides |
 |--------|-------|
@@ -131,7 +130,7 @@ Keep in mind: visible = authorized AND NOT hidden. The shell never
 
 ---
 
-## Soft-delete filter (Nova v5 parity)
+## Soft-delete filter
 
 Relationship panels whose related resource uses `SoftDeletes` automatically
 render a three-state filter in the toolbar — **Active / With trashed /
@@ -182,7 +181,7 @@ See [fields.md — HasMany](fields.md) for full API reference.
 
 ## BelongsToMany
 
-A many-to-many pivot relationship with full Nova v5 parity. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, and pagination.
+A many-to-many pivot relationship field. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, and pagination.
 
 ### Basic Usage
 
@@ -353,13 +352,13 @@ promotes a `hasMany()->latestOfMany()` relation into a
 
 ## HasOneOfMany
 
-⭐ **Nova parity** — promotes a `hasMany()->latestOfMany()` (or `->ofMany(column, aggregate)`) relationship so the admin shows the **latest / oldest of many** as if it were a plain `HasOne`. Visually identical to `HasOne`.
+Promotes a `hasMany()->latestOfMany()` (or `->ofMany(column, aggregate)`) relationship so the admin shows the **latest / oldest of many** as if it were a plain `HasOne`. Visually identical to `HasOne`.
 
 ```php
 use Martis\Enums\AggregateFunction;
 use Martis\Fields\HasOne;
 
-// Two equivalent ways to declare the field (Nova parity):
+// Two equivalent ways to declare the field:
 HasOne::ofMany('Latest Invoice', 'latestInvoice', InvoiceResource::class)
 HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
     ->latestByTimestamp('paid_at')                        // ⭐
@@ -378,17 +377,17 @@ public function latestInvoice(): HasOne
 
 See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
 
-**⭐ Martis differentials vs Nova:**
+**⭐ Martis differentials:**
 
-- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`). Nova doesn't surface the size of the underlying collection.
+- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`), surfacing the size of the underlying collection.
 - `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
-- `aggregateVia()` surfaces a metric tile with the full collection aggregate — Nova has no equivalent affordance on this field.
+- `aggregateVia()` surfaces a metric tile with the full collection aggregate.
 
 ---
 
 ## HasOneThrough
 
-⭐ **Nova parity** — shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but **read-only** (Create/Edit/Delete default to `false`; the UI hides those buttons).
+Shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but **read-only** (Create/Edit/Delete default to `false`; the UI hides those buttons).
 
 ```php
 use Martis\Fields\HasOneThrough;
@@ -418,7 +417,7 @@ section heading.
 
 **⭐ Martis differentials:**
 
-- Read-only defaults prevent misleading Create/Edit/Delete UI (Nova relies on the developer to remember).
+- Read-only defaults prevent misleading Create/Edit/Delete UI on traversal relationships.
 - `throughBreadcrumb()` hint describes the intermediate hop without a custom tooltip.
 
 ---
@@ -442,7 +441,7 @@ See [fields.md § MorphOne](fields.md#morphone) for the full API.
 
 ## MorphOneOfMany
 
-⭐ **Nova parity** — polymorphic counterpart of [HasOneOfMany](#hasoneofmany). Promotes `morphMany()->latestOfMany()` (or `->ofMany(...)`).
+Polymorphic counterpart of [HasOneOfMany](#hasoneofmany). Promotes `morphMany()->latestOfMany()` (or `->ofMany(...)`).
 
 ```php
 use Martis\Fields\MorphOne;
@@ -468,7 +467,7 @@ Inherits every `MorphOne` method plus the OfMany extras (`latestByTimestamp` / `
 
 ## HasManyThrough
 
-⭐ **Nova parity** — inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`).
+Inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`).
 
 ```php
 use Martis\Fields\HasManyThrough;
@@ -502,7 +501,7 @@ to `false`. Adds `throughBreadcrumb(bool)` ⭐ and `countBadge(bool)` ⭐.
 **⭐ Martis differentials:**
 
 - Read-only defaults.
-- `countBadge` brings the count affordance to Through fields (Nova exposes `showRelationCount` only on `HasMany`).
+- `countBadge` brings the count affordance to Through fields (in addition to `showRelationCount` on `HasMany`).
 
 ---
 

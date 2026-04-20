@@ -5,7 +5,7 @@ namespace Martis\Enums;
 /**
  * Visual style for metric cards.
  *
- * Martis extension — Nova v5 does not support card styling.
+ * Martis extension.
  */
 enum CardStyle: string
 {

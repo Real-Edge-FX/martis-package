@@ -10,7 +10,7 @@ use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 
 /**
- * BelongsToMany relationship field — full Nova v5 parity.
+ * BelongsToMany relationship field.
  *
  * Renders as a full panel on the detail page showing a DataTable of attached
  * records with support for attach, detach, pivot fields, search, sort, and
@@ -66,7 +66,7 @@ class BelongsToMany extends Field
     /** Optional modal height (CSS value like '70vh' or '500px'). */
     protected ?string $modalHeight = null;
 
-    /** Closure to filter the relatable query (Nova v5: relatableQueryUsing). */
+    /** Closure to filter the relatable query (exposed via relatableQueryUsing). */
     protected ?\Closure $relatableQueryClosure = null;
 
     /** Whether to keep the original order of attachables (disable auto-sort). */
@@ -88,7 +88,7 @@ class BelongsToMany extends Field
 
     /** Tracks whether the developer explicitly called `->perPageOptions([...])`.
      *  When false, the panel falls back to the related resource's own
-     *  `perPageOptions()` — Nova-style "resource is the single source of truth". */
+     *  `perPageOptions()` — the resource is the single source of truth. */
     protected bool $perPageOptionsSet = false;
 
     /** Whether to show attach button. */
@@ -164,8 +164,6 @@ class BelongsToMany extends Field
      * Define pivot fields for the relationship.
      * These are fields stored on the pivot table.
      *
-     * Nova v5 parity: ->fields(fn() => [Text::make('notes', 'Notes')])
-     *
      * @param  \Closure(): list<Field>  $closure
      */
     public function fields(\Closure $closure): static
@@ -178,8 +176,6 @@ class BelongsToMany extends Field
     /**
      * Define pivot actions for attached records.
      *
-     * Nova v5 parity: ->actions(fn() => [MyAction::make()])
-     *
      * @param  \Closure(): list<mixed>  $closure
      */
     public function actions(\Closure $closure): static
@@ -191,8 +187,6 @@ class BelongsToMany extends Field
 
     /**
      * Enable search in the attach modal.
-     *
-     * Nova v5 parity: ->searchable()
      */
     public function searchable(bool $value = true): static
     {
@@ -203,8 +197,6 @@ class BelongsToMany extends Field
 
     /**
      * Make the panel collapsable.
-     *
-     * Nova v5 parity: ->collapsable()
      */
     public function collapsable(bool $value = true): static
     {
@@ -215,8 +207,6 @@ class BelongsToMany extends Field
 
     /**
      * Start the panel collapsed by default.
-     *
-     * Nova v5 parity: ->collapsedByDefault()
      */
     public function collapsedByDefault(bool $value = true): static
     {
@@ -228,8 +218,6 @@ class BelongsToMany extends Field
 
     /**
      * Allow attaching the same related record multiple times.
-     *
-     * Nova v5 parity: ->allowDuplicateRelations()
      */
     public function allowDuplicateRelations(bool $value = true): static
     {
@@ -240,8 +228,6 @@ class BelongsToMany extends Field
 
     /**
      * Show an inline create button in the attach modal.
-     *
-     * Nova v5 parity: ->showCreateRelationButton()
      */
     public function showCreateRelationButton(bool|\Closure $callback = true): static
     {
@@ -252,8 +238,6 @@ class BelongsToMany extends Field
 
     /**
      * Explicitly hide the inline create button.
-     *
-     * Nova v5 parity: ->hideCreateRelationButton()
      */
     public function hideCreateRelationButton(): static
     {
@@ -264,8 +248,6 @@ class BelongsToMany extends Field
 
     /**
      * Set the modal size for the attach dialog.
-     *
-     * Nova v5 parity: ->modalSize(ModalSize::LG)
      */
     public function modalSize(ModalSize $size, ?string $height = null): static
     {
@@ -278,8 +260,6 @@ class BelongsToMany extends Field
     /**
      * Customize the query used to fetch attachable records.
      *
-     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => $query->where(...))
-     *
      * @param  \Closure(Request, Builder<Model>): void  $closure
      */
     public function relatableQueryUsing(\Closure $closure): static
@@ -291,8 +271,6 @@ class BelongsToMany extends Field
 
     /**
      * Disable auto-sorting of attachables (keep DB order).
-     *
-     * Nova v5 parity: ->dontReorderAttachables()
      */
     public function dontReorderAttachables(bool $value = true): static
     {
@@ -303,8 +281,6 @@ class BelongsToMany extends Field
 
     /**
      * Show subtitles in the attach modal search results.
-     *
-     * Nova v5 parity: ->withSubtitles()
      */
     public function withSubtitles(bool $value = true): static
     {
@@ -315,8 +291,6 @@ class BelongsToMany extends Field
 
     /**
      * Set which attribute to use as subtitle. Implicitly enables withSubtitles.
-     *
-     * Nova v5 parity: ->subtitleAttribute('description')
      */
     public function subtitleAttribute(string $attribute): static
     {
@@ -476,8 +450,6 @@ class BelongsToMany extends Field
 
     /**
      * Per-page options for the inline listing.
-     *
-     * Nova v5 parity: ->perPageOptions([10, 25, 50])
      *
      * @param  list<int>  $options
      */

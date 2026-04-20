@@ -11,8 +11,6 @@ use Illuminate\Support\Str;
  *
  * Creates a policy stub in the configured namespace (default: App\Martis\Policies)
  * with all resource, action, and relationship ability methods pre-defined.
- *
- * Nova v5 parity: equivalent to `php artisan nova:policy`.
  */
 class PolicyMakeCommand extends Command
 {

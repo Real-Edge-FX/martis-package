@@ -92,7 +92,7 @@ class ResourceController extends MartisController
         /** @var Builder<Model> $query */
         $query = $modelClass::query();
 
-        // Soft-delete filter — Nova v5 parity
+        // Soft-delete filter
         // ?trashed=with  → include soft-deleted alongside active records
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
@@ -108,10 +108,10 @@ class ResourceController extends MartisController
             }
         }
 
-        // Apply indexQuery hook — Nova v5 parity
+        // Apply indexQuery hook
         $query = $resourceClass::indexQuery($request, $query);
 
-        // Apply filters — Nova v5 parity
+        // Apply filters
         $this->applyFilters($request, $query, $instance);
 
         $rawSearch = $request->query('search', '');
@@ -549,7 +549,7 @@ class ResourceController extends MartisController
      *
      * Returns the field values from a replicated model WITHOUT saving to the database.
      * Used by the frontend to pre-populate the create form when replicating a resource.
-     * Nova v5 parity: the user passes through an editable form before saving.
+     * The user passes through an editable form before saving.
      *
      * @param  string  $resource  Resource URI key
      * @param  int|string  $id  Record ID to replicate
@@ -583,7 +583,7 @@ class ResourceController extends MartisController
         $fields = Field::filterForContext($resReplica->fieldsForCreate($request), FieldContext::CREATE);
         $values = [];
         foreach ($fields as $field) {
-            // Skip file fields — files cannot be replicated (Nova v5 limitation)
+            // Skip file fields — files cannot be replicated
             if ($field instanceof File) {
                 continue;
             }
@@ -606,7 +606,7 @@ class ResourceController extends MartisController
      *
      * Used when creating a related record inline from a relationship field (e.g. BelongsTo).
      * Returns fieldsForInlineCreate if defined, otherwise falls back to fieldsForCreate.
-     * Nova v5 parity: inline create only supports one level of depth.
+     * Inline create only supports one level of depth.
      *
      * @param  string  $resource  Resource URI key
      */
@@ -672,7 +672,7 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Block nested inline create (Nova v5: only one level deep)
+        // Block nested inline create (only one level deep)
         if ($request->header('X-Martis-Inline-Create-Depth', '0') !== '0') {
             return JsonErrorResponse::validation([], 'Inline create only supports one level of depth.')->toResponse();
         }
@@ -973,8 +973,6 @@ class ResourceController extends MartisController
      *
      * Applies relatable query hooks (relatable{PluralModelName} or relatableQuery)
      * so that relationship selectors respect server-side filtering.
-     *
-     * Nova v5 parity: relationship option endpoint with query hooks.
      *
      * Query params: search, per_page (default 20, max 100).
      */
@@ -1458,9 +1456,6 @@ class ResourceController extends MartisController
      * lazily when the user hovers the preview icon. Content is derived from
      * fieldsForPreview() on the related resource — aligned with the resource's
      * own field definitions, not a custom column list on the field.
-     *
-     * Nova v5 parity: peek content comes from the resource (fieldsForPreview),
-     * not from a custom peekColumns() list defined on the BelongsTo field.
      *
      * @response array{data: array{title: string, attributes: list<array{label: string, value: mixed}>}}
      */

@@ -7,7 +7,7 @@ use Illuminate\Support\Collection;
 /**
  * Container for action field values submitted by the user.
  *
- * Nova v5 parity: ActionFields allows dynamic property access to field values.
+ * Allows dynamic property access to field values.
  * Example: $fields->subject, $fields->message
  */
 class ActionFields

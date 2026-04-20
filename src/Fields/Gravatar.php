@@ -9,10 +9,9 @@ use Martis\Enums\GravatarSourceType;
 /**
  * Gravatar field — displays avatar from Gravatar service or a direct URL.
  *
- * Laravel Nova v5 parity: Gravatar field.
  * Generates Gravatar URL from email or uses a direct avatar URL.
  *
- * Nova-compatible API:
+ * API:
  *   - squared()  — display with square edges
  *   - rounded()  — display with rounded (circle) edges (default)
  *   - sourceType(GravatarSourceType) — configure input type

@@ -138,7 +138,7 @@ afterEach(function () {
 });
 
 // ---------------------------------------------------------------------------
-// Nova 5 parity
+// Core lens behaviour
 // ---------------------------------------------------------------------------
 
 it('returns the lens dataset ordered by default closure when no sort is supplied', function () {
