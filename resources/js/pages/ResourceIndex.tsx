@@ -370,58 +370,53 @@ export function ResourceIndexPage() {
         </div>
       </div>
 
-      {/* Filter panel — shown when resource has filters */}
-      {schema.filters && schema.filters.length > 0 && (
-        <FilterPanel
-          filters={schema.filters}
-          value={activeFilters}
-          onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
-        />
-      )}
+      {/* Filter panel + bulk actions share one toolbar row. Filters sit
+          on the left, Bulk Actions dropdown on the right — per the
+          design-system spec. No wrapping box, no Cancel button (the
+          selection is canceled by unchecking the rows). */}
+      {(() => {
+        const hasFilters = (schema.filters?.length ?? 0) > 0
+        const hasBulk = selectedIds.size > 0 && indexActions.length > 0
+        if (!hasFilters && !hasBulk) return null
 
-      {/* Bulk action bar — shown when items are selected (not for inline action temp selection) */}
-      {selectedIds.size > 0 && indexActions.length > 0 && (() => {
         // Compute disabled actions: action is disabled if ALL selected rows canRun=false
         const selectedRows = rows.filter(r => selectedIds.has(r.id))
         const bulkDisabledActions = new Set<string>()
-        for (const action of indexActions) {
-          // Sole actions are only available when exactly 1 record is selected
-          if (action.sole && selectedIds.size > 1) {
-            bulkDisabledActions.add(action.uriKey)
-            continue
+        if (hasBulk) {
+          for (const action of indexActions) {
+            if (action.sole && selectedIds.size > 1) {
+              bulkDisabledActions.add(action.uriKey)
+              continue
+            }
+            const allDisabled = selectedRows.length > 0 && selectedRows.every(row => {
+              const perAction = row._actionAuthorization
+              if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
+              return false
+            })
+            if (allDisabled) bulkDisabledActions.add(action.uriKey)
           }
-          const allDisabled = selectedRows.length > 0 && selectedRows.every(row => {
-            const perAction = row._actionAuthorization
-            if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
-            return false
-          })
-          if (allDisabled) bulkDisabledActions.add(action.uriKey)
         }
+
         return (
-        <div
-          className="flex items-center gap-3 rounded-lg border px-4 py-2"
-          style={{
-            backgroundColor: 'var(--martis-surface)',
-            borderColor: 'var(--martis-accent)',
-          }}
-        >
-          {/* Selected count lives in the table footer ("N selected · X of Y")
-              per the design-system spec — no duplication at the top. */}
-          <ActionDropdown
-            actions={indexActions}
-            onSelect={handleActionSelect}
-            label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
-            disabledActions={bulkDisabledActions}
-          />
-          <button
-            type="button"
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-xs"
-            style={{ color: 'var(--martis-text-muted)' }}
-          >
-            {tAct('cancel')}
-          </button>
-        </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              {hasFilters && (
+                <FilterPanel
+                  filters={schema.filters!}
+                  value={activeFilters}
+                  onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
+                />
+              )}
+            </div>
+            {hasBulk && (
+              <ActionDropdown
+                actions={indexActions}
+                onSelect={handleActionSelect}
+                label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
+                disabledActions={bulkDisabledActions}
+              />
+            )}
+          </div>
         )
       })()}
 

@@ -1,17 +1,17 @@
 {
-  "_LensDropdown-zmM0p7BF.js": {
-    "file": "assets/LensDropdown-zmM0p7BF.js",
+  "_LensDropdown-yRRC6NL5.js": {
+    "file": "assets/LensDropdown-yRRC6NL5.js",
     "name": "LensDropdown",
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "resources/js/app.tsx",
       "_primereact-BaBpJjus.js",
       "_phosphor-icons-QoPabYgh.js",
-      "_MartisLoader-DClOXrmV.js"
+      "_MartisLoader-uinMf590.js"
     ]
   },
-  "_MartisLoader-DClOXrmV.js": {
-    "file": "assets/MartisLoader-DClOXrmV.js",
+  "_MartisLoader-uinMf590.js": {
+    "file": "assets/MartisLoader-uinMf590.js",
     "name": "MartisLoader",
     "imports": [
       "_react-vendor-BcdhtkSM.js",
@@ -19,8 +19,8 @@
       "_phosphor-icons-QoPabYgh.js"
     ]
   },
-  "_Pagination-PwChk0-S.js": {
-    "file": "assets/Pagination-PwChk0-S.js",
+  "_Pagination-DrLWTYdE.js": {
+    "file": "assets/Pagination-DrLWTYdE.js",
     "name": "Pagination",
     "imports": [
       "_react-vendor-BcdhtkSM.js",
@@ -28,15 +28,15 @@
       "_primereact-BaBpJjus.js"
     ]
   },
-  "_RelationshipTableShell-CvKE8Esa.js": {
-    "file": "assets/RelationshipTableShell-CvKE8Esa.js",
+  "_RelationshipTableShell-DjjrY2BH.js": {
+    "file": "assets/RelationshipTableShell-DjjrY2BH.js",
     "name": "RelationshipTableShell",
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "_primereact-BaBpJjus.js",
       "_phosphor-icons-QoPabYgh.js",
       "resources/js/app.tsx",
-      "_Pagination-PwChk0-S.js"
+      "_Pagination-DrLWTYdE.js"
     ]
   },
   "_app-vendor-gDgt-oVY.js": {
@@ -89,8 +89,8 @@
       "assets/richtext-B116Bax6.css"
     ]
   },
-  "_useUnsavedChangesGuard-BE6GEA2e.js": {
-    "file": "assets/useUnsavedChangesGuard-BE6GEA2e.js",
+  "_useUnsavedChangesGuard-CClnSGs5.js": {
+    "file": "assets/useUnsavedChangesGuard-CClnSGs5.js",
     "name": "useUnsavedChangesGuard",
     "imports": [
       "_react-vendor-BcdhtkSM.js",
@@ -140,7 +140,7 @@
     "src": "resources/images/martis-icon.png"
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-DNblt2wz.js",
+    "file": "assets/app-DOAmGgql.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -181,15 +181,15 @@
     ]
   },
   "resources/js/components/fields/BelongsToManyField.tsx": {
-    "file": "assets/BelongsToManyField-DtjAfgZB.js",
+    "file": "assets/BelongsToManyField-Bo9yzm7i.js",
     "name": "BelongsToManyField",
     "src": "resources/js/components/fields/BelongsToManyField.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "resources/js/app.tsx",
-      "_Pagination-PwChk0-S.js",
-      "_RelationshipTableShell-CvKE8Esa.js",
+      "_Pagination-DrLWTYdE.js",
+      "_RelationshipTableShell-DjjrY2BH.js",
       "_phosphor-icons-QoPabYgh.js",
       "_primereact-BaBpJjus.js",
       "_app-vendor-gDgt-oVY.js"
@@ -207,18 +207,18 @@
     ]
   },
   "resources/js/components/fields/HasManyField.tsx": {
-    "file": "assets/HasManyField-BswmHz5O.js",
+    "file": "assets/HasManyField-C-67e0XC.js",
     "name": "HasManyField",
     "src": "resources/js/components/fields/HasManyField.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "resources/js/app.tsx",
-      "_RelationshipTableShell-CvKE8Esa.js",
+      "_RelationshipTableShell-DjjrY2BH.js",
       "_app-vendor-gDgt-oVY.js",
       "_primereact-BaBpJjus.js",
       "_phosphor-icons-QoPabYgh.js",
-      "_Pagination-PwChk0-S.js"
+      "_Pagination-DrLWTYdE.js"
     ]
   },
   "resources/js/components/fields/MarkdownField.tsx": {
@@ -234,38 +234,38 @@
     ]
   },
   "resources/js/components/fields/MorphManyField.tsx": {
-    "file": "assets/MorphManyField-DOBcl1HP.js",
+    "file": "assets/MorphManyField-BxgZiLHL.js",
     "name": "MorphManyField",
     "src": "resources/js/components/fields/MorphManyField.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "resources/js/app.tsx",
-      "_RelationshipTableShell-CvKE8Esa.js",
+      "_RelationshipTableShell-DjjrY2BH.js",
       "_app-vendor-gDgt-oVY.js",
       "_primereact-BaBpJjus.js",
       "_phosphor-icons-QoPabYgh.js",
-      "_Pagination-PwChk0-S.js"
+      "_Pagination-DrLWTYdE.js"
     ]
   },
   "resources/js/components/fields/MorphToManyField.tsx": {
-    "file": "assets/MorphToManyField-C2NedYnY.js",
+    "file": "assets/MorphToManyField-C0T5gICf.js",
     "name": "MorphToManyField",
     "src": "resources/js/components/fields/MorphToManyField.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "resources/js/app.tsx",
-      "_Pagination-PwChk0-S.js",
+      "_Pagination-DrLWTYdE.js",
       "_phosphor-icons-QoPabYgh.js",
       "resources/js/components/fields/BelongsToManyField.tsx",
-      "_RelationshipTableShell-CvKE8Esa.js",
+      "_RelationshipTableShell-DjjrY2BH.js",
       "_primereact-BaBpJjus.js",
       "_app-vendor-gDgt-oVY.js"
     ]
   },
   "resources/js/components/fields/TrixField.tsx": {
-    "file": "assets/TrixField-DyZ_fvfm.js",
+    "file": "assets/TrixField-DRIPemI0.js",
     "name": "TrixField",
     "src": "resources/js/components/fields/TrixField.tsx",
     "isDynamicEntry": true,
@@ -279,7 +279,7 @@
     ]
   },
   "resources/js/pages/Profile.tsx": {
-    "file": "assets/Profile-C39D2EeF.js",
+    "file": "assets/Profile-Bp6AClp3.js",
     "name": "Profile",
     "src": "resources/js/pages/Profile.tsx",
     "isDynamicEntry": true,
@@ -288,12 +288,12 @@
       "_phosphor-icons-QoPabYgh.js",
       "resources/js/app.tsx",
       "_primereact-BaBpJjus.js",
-      "_MartisLoader-DClOXrmV.js",
+      "_MartisLoader-uinMf590.js",
       "_app-vendor-gDgt-oVY.js"
     ]
   },
   "resources/js/pages/ResourceCreate.tsx": {
-    "file": "assets/ResourceCreate-_zucC11a.js",
+    "file": "assets/ResourceCreate-CRvw1gw_.js",
     "name": "ResourceCreate",
     "src": "resources/js/pages/ResourceCreate.tsx",
     "isDynamicEntry": true,
@@ -302,48 +302,48 @@
       "resources/js/app.tsx",
       "_phosphor-icons-QoPabYgh.js",
       "_resolveRedirect-BkVnA70S.js",
-      "_useUnsavedChangesGuard-BE6GEA2e.js",
+      "_useUnsavedChangesGuard-CClnSGs5.js",
       "_app-vendor-gDgt-oVY.js",
       "_primereact-BaBpJjus.js"
     ]
   },
   "resources/js/pages/ResourceDetail.tsx": {
-    "file": "assets/ResourceDetail-DF9-RwmF.js",
+    "file": "assets/ResourceDetail-DiEVCmSA.js",
     "name": "ResourceDetail",
     "src": "resources/js/pages/ResourceDetail.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "resources/js/app.tsx",
-      "_LensDropdown-zmM0p7BF.js",
+      "_LensDropdown-yRRC6NL5.js",
       "_phosphor-icons-QoPabYgh.js",
       "resources/js/pages/ResourceIndex.tsx",
       "_resolveRedirect-BkVnA70S.js",
-      "_MartisLoader-DClOXrmV.js",
+      "_MartisLoader-uinMf590.js",
       "_app-vendor-gDgt-oVY.js",
       "_primereact-BaBpJjus.js",
-      "_Pagination-PwChk0-S.js"
+      "_Pagination-DrLWTYdE.js"
     ]
   },
   "resources/js/pages/ResourceIndex.tsx": {
-    "file": "assets/ResourceIndex-B1nrgFcS.js",
+    "file": "assets/ResourceIndex-BtBg3dkw.js",
     "name": "ResourceIndex",
     "src": "resources/js/pages/ResourceIndex.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BcdhtkSM.js",
       "resources/js/app.tsx",
-      "_LensDropdown-zmM0p7BF.js",
-      "_Pagination-PwChk0-S.js",
+      "_LensDropdown-yRRC6NL5.js",
+      "_Pagination-DrLWTYdE.js",
       "_phosphor-icons-QoPabYgh.js",
-      "_MartisLoader-DClOXrmV.js",
+      "_MartisLoader-uinMf590.js",
       "_resolveRedirect-BkVnA70S.js",
       "_app-vendor-gDgt-oVY.js",
       "_primereact-BaBpJjus.js"
     ]
   },
   "resources/js/pages/ResourceLens.tsx": {
-    "file": "assets/ResourceLens-Zc2fbo2S.js",
+    "file": "assets/ResourceLens-DRKamLlq.js",
     "name": "ResourceLens",
     "src": "resources/js/pages/ResourceLens.tsx",
     "isDynamicEntry": true,
@@ -351,15 +351,15 @@
       "_react-vendor-BcdhtkSM.js",
       "_phosphor-icons-QoPabYgh.js",
       "resources/js/app.tsx",
-      "_LensDropdown-zmM0p7BF.js",
-      "_Pagination-PwChk0-S.js",
-      "_MartisLoader-DClOXrmV.js",
+      "_LensDropdown-yRRC6NL5.js",
+      "_Pagination-DrLWTYdE.js",
+      "_MartisLoader-uinMf590.js",
       "_app-vendor-gDgt-oVY.js",
       "_primereact-BaBpJjus.js"
     ]
   },
   "resources/js/pages/ResourceUpdate.tsx": {
-    "file": "assets/ResourceUpdate-DYNvlmN6.js",
+    "file": "assets/ResourceUpdate-BguFFSgG.js",
     "name": "ResourceUpdate",
     "src": "resources/js/pages/ResourceUpdate.tsx",
     "isDynamicEntry": true,
@@ -368,7 +368,7 @@
       "resources/js/app.tsx",
       "_phosphor-icons-QoPabYgh.js",
       "_resolveRedirect-BkVnA70S.js",
-      "_useUnsavedChangesGuard-BE6GEA2e.js",
+      "_useUnsavedChangesGuard-CClnSGs5.js",
       "_app-vendor-gDgt-oVY.js",
       "_primereact-BaBpJjus.js"
     ]
