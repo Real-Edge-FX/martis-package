@@ -20,6 +20,11 @@ function DefaultFooter() {
 }
 
 export function Footer() {
+  const configured = config.layout?.components?.footer
+  if (configured && componentRegistry.has(configured)) {
+    const CustomFooter = componentRegistry.resolve(configured) as ComponentType
+    return <CustomFooter />
+  }
   if (componentRegistry.has("layout:footer")) {
     const CustomFooter = componentRegistry.resolve("layout:footer") as ComponentType
     return <CustomFooter />

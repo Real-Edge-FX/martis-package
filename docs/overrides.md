@@ -413,7 +413,9 @@ After creating a component, rebuild assets with `make build`.
 
 ### Shell piece-by-piece overrides
 
-Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without touching the rest:
+Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without touching the rest. Two equivalent wiring options — pick the one that matches your workflow:
+
+**Option A — JS boot file** (register directly under the default key):
 
 ```typescript
 // resources/js/martis/boot.ts
@@ -425,9 +427,32 @@ componentRegistry.register('layout:topbar', MyTopbar)
 componentRegistry.register('layout:footer', MyFooter)
 ```
 
-Your replacement receives the same props the bundled component does, so the shell's state (`sidebarCollapsed`, `onToggleCollapse`, `onToggleSidebar`, `mobileOpen`, `onMobileClose`) keeps flowing. Use this when you want to change one piece's visual design but keep the overall shell mechanics (mobile drawer, grid, collapse animation) intact.
+**Option B — PHP config + any registry key** (useful when multiple candidates are registered and PHP owns the selection, e.g. for feature-flagged deploys):
 
-Use `layout:shell` instead when you want to rebuild the entire layout from scratch and don't need Martis's default mobile drawer / collapse behaviour.
+```typescript
+// resources/js/martis/boot.ts
+componentRegistry.register('my-topbar', MyTopbar)
+componentRegistry.register('my-footer', MyFooter)
+```
+
+```php
+// config/martis.php
+'layout' => [
+    'preset' => 'sidebar',
+    'components' => [
+        'shell'   => null,         // whole shell; skips grid + drawer
+        'sidebar' => null,
+        'topbar'  => 'my-topbar',  // the key from boot.ts
+        'footer'  => 'my-footer',
+    ],
+],
+```
+
+Resolution precedence for each piece: `config.layout.components.<piece>` → `layout:<piece>` → bundled component.
+
+Your replacement receives the same props the bundled component does, so the shell's state (`sidebarCollapsed`, `onToggleCollapse`, `onToggleSidebar`, `mobileOpen`, `onMobileClose`) keeps flowing. Use piece-by-piece overrides when you want to change one piece's visual design but keep the overall shell mechanics (mobile drawer, grid, collapse animation) intact.
+
+Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuild the entire layout from scratch and don't need Martis's default mobile drawer / collapse behaviour.
 
 ## Component Registry API
 

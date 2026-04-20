@@ -16,18 +16,27 @@ import type { ComponentProps, ComponentType } from "react"
 /**
  * Resolve a shell-level component (sidebar, topbar, footer) from the
  * registry so consumers can swap any of them without replacing the
- * entire shell. Falls back to the bundled component when no override
- * is registered.
+ * entire shell. Resolution:
+ *
+ *   1. `config('martis.layout.components.<piece>')` — a custom registry
+ *      key set in PHP config. Wins when the key is registered.
+ *   2. `layout:<piece>` — the default registry key. Any component
+ *      registered there wins when no config override is set.
+ *   3. Fallback to the bundled component.
  */
 function resolveShellComponent<C extends ComponentType<object>>(
-  key: string,
+  piece: "shell" | "sidebar" | "topbar" | "footer",
   fallback: C,
 ): C {
-  if (componentRegistry.has(key)) {
-    const override = componentRegistry.resolve(key)
-    if (override) {
-      return override as unknown as C
-    }
+  const configured = config.layout?.components?.[piece]
+  if (configured && componentRegistry.has(configured)) {
+    const override = componentRegistry.resolve(configured)
+    if (override) return override as unknown as C
+  }
+  const defaultKey = `layout:${piece}`
+  if (componentRegistry.has(defaultKey)) {
+    const override = componentRegistry.resolve(defaultKey)
+    if (override) return override as unknown as C
   }
   return fallback
 }
@@ -41,11 +50,11 @@ function SidebarLayout() {
   const location = useLocation()
 
   const SidebarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Sidebar>>>(
-    "layout:sidebar",
+    "sidebar",
     Sidebar,
   )
   const TopbarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Topbar>>>(
-    "layout:topbar",
+    "topbar",
     Topbar,
   )
 
@@ -126,7 +135,13 @@ export function Layout() {
 
   if (!user) return <Navigate to="/login" replace />
 
-  // Check for user-registered custom shell layout
+  // Whole-shell override — honours both the PHP config key and the
+  // default `layout:shell` registry entry.
+  const shellConfigKey = config.layout?.components?.shell
+  if (shellConfigKey && componentRegistry.has(shellConfigKey)) {
+    const CustomShell = componentRegistry.resolve(shellConfigKey) as ComponentType
+    return <CustomShell />
+  }
   if (componentRegistry.has("layout:shell")) {
     const CustomShell = componentRegistry.resolve("layout:shell") as ComponentType
     return <CustomShell />

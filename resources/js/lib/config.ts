@@ -70,6 +70,17 @@ export interface MartisLoaderConfig {
 export interface MartisLayoutConfig {
   /** Layout preset: "sidebar" (default), "topnav", "minimal", "custom" */
   preset?: "sidebar" | "topnav" | "minimal" | "custom"
+  /**
+   * Optional registry-key overrides for individual shell pieces. Each
+   * value is a key registered via `componentRegistry.register(...)` in
+   * the consumer's `boot.ts`. Null keeps the bundled piece.
+   */
+  components?: {
+    shell?: string | null
+    sidebar?: string | null
+    topbar?: string | null
+    footer?: string | null
+  }
 }
 
 export interface MartisProfileMenuConfig {
