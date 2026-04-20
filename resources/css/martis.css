@@ -2093,23 +2093,23 @@ html:not(.dark) .martis-dropzone {
   height: 16px;
 }
 .p-checkbox .p-checkbox-box {
-  border-radius: var(--martis-radius-sm, 4px);
-  border: 1px solid var(--martis-border);
-  background: var(--martis-input-bg);
+  border-radius: var(--martis-radius-sm, 4px) !important;
+  border: 1px solid var(--martis-border) !important;
+  background: var(--martis-input-bg) !important;
+  box-shadow: none !important;
   transition: background-color 0.15s, border-color 0.15s;
 }
 .p-checkbox .p-checkbox-box.p-highlight {
   background-color: var(--martis-accent) !important;
   border-color: var(--martis-accent) !important;
+  box-shadow: none !important;
 }
-/* Light theme checkbox */
+/* Light theme checkbox — aligns with the spec: 1px `--martis-border`
+   on `--martis-input-bg`. Defer accent colours to the base `.p-highlight`
+   rule so themes that redefine accent tokens flow through. */
 html:not(.dark) .p-checkbox .p-checkbox-box {
-  background-color: var(--martis-surface);
-  border-color: #cbd5e1;
-}
-html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight {
-  background-color: var(--martis-accent) !important;
-  border-color: var(--martis-accent) !important;
+  background-color: var(--martis-input-bg);
+  border-color: var(--martis-border);
 }
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
@@ -3192,24 +3192,14 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   fill: #dc2626 !important;
 }
 
-/* ── Fix: Dark theme checkbox — brighter highlight for visibility (REA-1102) ── */
-.dark .p-checkbox .p-checkbox-box {
-  background-color: rgba(255,255,255,0.08);
-  border: 2px solid rgba(255,255,255,0.3);
-}
-.dark .p-checkbox .p-checkbox-box.p-highlight {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
-  box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
-}
+/* Dark theme checkbox — keep the white tick colour, defer every other
+   visual (size, border, bg) to the base rule so we stay aligned with
+   the design-system spec (1px border, `--martis-border`, input-bg). */
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 .dark .p-checkbox .p-checkbox-box.p-highlight svg,
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   color: #ffffff !important;
   fill: #ffffff !important;
-}
-.dark .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
-  border: 2px solid rgba(255,255,255,0.4);
 }
 /* Correct: p-highlight is on root .p-checkbox, not .p-checkbox-box (REA-1182) */
 .dark .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
