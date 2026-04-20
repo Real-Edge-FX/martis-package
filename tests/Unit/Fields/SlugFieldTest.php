@@ -25,7 +25,7 @@ it('Slug::make creates a slug field', function () {
 });
 
 // ---------------------------------------------------------------------------
-// Nova parity — from() + separator()
+// Core API — from() + separator()
 // ---------------------------------------------------------------------------
 
 it('Slug::from() stores the source attribute', function () {

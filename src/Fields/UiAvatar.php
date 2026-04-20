@@ -11,9 +11,6 @@ use Martis\Fields\Concerns\ResolvesInitialsPayload;
  * UiAvatar — auto-generated initials avatar for records that don't
  * carry a real profile image.
  *
- * Laravel Nova v5 parity: UiAvatar field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#ui-avatar-field
- *
  * The value is computed from the model, never stored. Rendering happens
  * entirely on the client — no external service call, no DB column. The
  * same colour palette + initials logic backs {@see Avatar}'s default

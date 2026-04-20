@@ -29,9 +29,9 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 /**
  * Page: `/resources/{resource}/lens/{lens}`.
  *
- * Nova v5 parity — alternative dataset view of a resource. URL params
- * drive search, filters, sort and page so the view is fully deeplinkable
- * (Martis extension D4). The lens-specific fields and actions are
+ * Alternative dataset view of a resource. URL params drive search,
+ * filters, sort and page so the view is fully deeplinkable. The
+ * lens-specific fields and actions are
  * delivered inside the paginated response's `meta` payload so the UI
  * can render the right columns without a second round-trip.
  */

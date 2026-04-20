@@ -12,10 +12,10 @@ use Martis\Enums\FilterType;
 /**
  * Base class for all Martis filters.
  *
- * Nova v5 parity: filters modify the resource index query based on
- * user-selected values. Subclasses must implement apply() and filterType().
+ * Filters modify the resource index query based on user-selected values.
+ * Subclasses must implement apply() and filterType().
  *
- * Martis extensions beyond Nova v5:
+ * Martis extensions:
  * - canSee() authorization callback (consistent with Field and Action APIs)
  * - Default values correctly applied on frontend initial load
  *
@@ -138,8 +138,8 @@ abstract class Filter implements FilterContract
     /**
      * Set a callback that determines if the filter should be visible.
      *
-     * Martis extension: Nova v5 does not support per-filter authorization.
-     * Martis provides canSee() on Filters for consistency with Fields and Actions.
+     * Martis extension: per-filter authorization, for consistency with
+     * Fields and Actions.
      */
     public function canSee(Closure $callback): static
     {
@@ -168,7 +168,7 @@ abstract class Filter implements FilterContract
      * it from that inheritance chain while keeping it available on
      * the default index.
      *
-     * Martis extension (Nova v5 has no lens-level filter toggle).
+     * Martis extension: lens-level filter toggle.
      */
     public function excludeFromLens(bool $value = true): static
     {

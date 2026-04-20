@@ -369,8 +369,8 @@ class MorphOneController extends MartisController
 
         $relation = $parentModel->{$relationship}();
 
-        // Accept plain MorphOne (Nova parity) and MorphMany when the
-        // field is MorphOneOfMany using runtime ordering scope.
+        // Accept plain MorphOne and MorphMany when the field is
+        // MorphOneOfMany using runtime ordering scope.
         if (! $relation instanceof EloquentMorphOne && ! $relation instanceof EloquentMorphMany) {
             return JsonErrorResponse::notFound("'{$relationship}' is not a morphOne or compatible morphMany-of-many relationship.")->toResponse();
         }

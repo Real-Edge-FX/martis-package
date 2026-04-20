@@ -153,7 +153,7 @@ it('Stack divider() toggles the flag and serialises it', function () {
 });
 
 // ---------------------------------------------------------------------------
-// Stack — per-row resolution (⭐ the Nova-go-beyond piece: works on index)
+// Stack — per-row resolution (⭐ differential: works on index)
 // ---------------------------------------------------------------------------
 
 it('Stack resolveForDisplay wraps every line entry into the __martisStack payload', function () {

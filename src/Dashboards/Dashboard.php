@@ -13,7 +13,7 @@ use Martis\Filters\Filter;
 /**
  * Base class for Martis dashboards.
  *
- * Nova v5 parity: multiple dashboards with cards, authorization, refresh button.
+ * Supports multiple dashboards with cards, authorization, refresh button.
  *
  * Martis extensions:
  * - Dashboard-level filters that affect all cards
@@ -83,8 +83,8 @@ class Dashboard implements DashboardContract
     /**
      * Get the filters for this dashboard.
      *
-     * Martis extension: Nova v5 does not support dashboard-level filters.
-     * Filters defined here affect all cards on this dashboard.
+     * Martis extension: dashboard-level filters affect all cards on this
+     * dashboard.
      *
      * @return list<FilterContract|array<string, mixed>>
      */

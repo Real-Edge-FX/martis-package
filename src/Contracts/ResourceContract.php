@@ -168,7 +168,7 @@ interface ResourceContract
     public static function dashboards(): array;
 
     // -------------------------------------------------------------------------
-    // Query hooks — Nova v5 parity
+    // Query hooks
     // -------------------------------------------------------------------------
 
     /**
@@ -261,7 +261,7 @@ interface ResourceContract
     public static function bulkActionsMenuLabel(): ?string;
 
     // -------------------------------------------------------------------------
-    // Authorization — Nova v5 parity
+    // Authorization
     // -------------------------------------------------------------------------
 
     /** Whether authorization checks are enabled for this resource. */
@@ -318,7 +318,7 @@ interface ResourceContract
     public function authorizedToRunDestructiveAction(Request $request): bool;
 
     // -------------------------------------------------------------------------
-    // Relational authorization — Nova v5 parity
+    // Relational authorization
     // -------------------------------------------------------------------------
 
     /**
@@ -433,7 +433,7 @@ interface ResourceContract
     public static function validationMessage(): string;
 
     // -------------------------------------------------------------------------
-    // Scout integration — Nova v5 parity
+    // Scout integration
     // -------------------------------------------------------------------------
 
     /**
@@ -455,7 +455,7 @@ interface ResourceContract
     public static function scoutQuery(Request $request, mixed $query): mixed;
 
     // -------------------------------------------------------------------------
-    // Global Search — Nova v5 parity
+    // Global Search
     // -------------------------------------------------------------------------
 
     /**

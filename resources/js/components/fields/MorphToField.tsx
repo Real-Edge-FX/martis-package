@@ -32,7 +32,7 @@ function isMorphToValue(v: unknown): v is MorphToValue {
 }
 
 // ---------------------------------------------------------------------------
-// PeekCard — lazy-fetch hover preview card (Nova v5 concept alignment).
+// PeekCard — lazy-fetch hover preview card.
 // Content comes from the related resource's fieldsForPreview() via the peek endpoint.
 // Triggered exclusively by the preview icon, never by hover on the record link.
 // ---------------------------------------------------------------------------

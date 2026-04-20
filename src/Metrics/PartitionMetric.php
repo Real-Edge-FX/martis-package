@@ -11,7 +11,7 @@ use Martis\Enums\MetricType;
 /**
  * A metric that displays grouped data as a pie or donut chart.
  *
- * Nova v5 parity: count, sum, average by group with colors and labels.
+ * Supports count, sum, average by group with colors and labels.
  *
  * @phpstan-consistent-constructor
  */

@@ -10,7 +10,7 @@ import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
 
-/** Modal size classes matching Nova v5 modal sizes */
+/** Modal size classes */
 const MODAL_SIZE_CLASSES: Record<string, string> = {
   sm: "max-w-sm",
   md: "max-w-md",

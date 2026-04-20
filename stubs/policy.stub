@@ -18,8 +18,6 @@ use {{ modelImport }};
  *   runAction            → fallback to update
  *   runDestructiveAction → fallback to delete
  *   relationship methods → allowed
- *
- * @see https://nova.laravel.com/docs/resources/authorization.html
  */
 class {{ class }}
 {

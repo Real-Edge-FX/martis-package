@@ -5,9 +5,6 @@ namespace Martis\Fields;
 /**
  * Audio — file upload specialised for audio clips.
  *
- * Laravel Nova v5 parity: Audio field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#audio-field
- *
  * Extends {@see File} so every upload helper (`disk`, `storagePath`,
  * `maxSize`, `preserveOriginalName`, `sanitizeFileName`, …) carries
  * over. Frontend renders an inline `<audio>` player plus a waveform

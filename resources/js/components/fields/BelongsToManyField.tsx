@@ -42,8 +42,8 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
     return <BelongsToManyCountBadge count={value} />
   }
 
-  // Detail page — render the full panel with attach/detach/pivot actions
-  // (Nova v5 parity). Programmers hide individual actions via ->hideCreateButton()
+  // Detail page — render the full panel with attach/detach/pivot actions.
+  // Programmers hide individual actions via ->hideCreateButton()
   // or ->hideDeleteAction() when authorization alone isn't enough.
   return <BelongsToManyDetailPanel field={field} />
 }

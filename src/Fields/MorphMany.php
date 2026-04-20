@@ -16,8 +16,8 @@ use Martis\Enums\HasManyRedirectMode;
  * parent resource's detail page. Works like HasMany but for polymorphic
  * one-to-many relationships (morphMany).
  *
- * Nova v5 parity: morphMany() relationships are displayed as inline panels
- * on the detail page with full CRUD support for the related records.
+ * morphMany() relationships are displayed as inline panels on the detail
+ * page with full CRUD support for the related records.
  *
  * Usage:
  *   MorphMany::make('Comments', 'comments', CommentResource::class)
@@ -45,7 +45,7 @@ class MorphMany extends Field
 
     /** Tracks whether the developer explicitly called `->perPageOptions([...])`.
      *  When false, the panel falls back to the related resource's own
-     *  `perPageOptions()` — Nova-style "resource is the single source of truth". */
+     *  `perPageOptions()` — the resource is the single source of truth. */
     protected bool $perPageOptionsSet = false;
 
     /** Whether to show a "Create" button for related records. */
@@ -93,7 +93,7 @@ class MorphMany extends Field
         parent::__construct($attribute, $label);
         $this->relationship = $relationship ?: Str::camel($attribute);
 
-        // MorphMany is detail-only by default (Nova v5 behavior)
+        // MorphMany is detail-only by default
         $this->onlyOnDetail();
     }
 
@@ -287,8 +287,6 @@ class MorphMany extends Field
 
     /**
      * Make the MorphMany panel collapsable.
-     *
-     * Nova v5 parity: ->collapsable()
      */
     public function collapsable(bool $value = true): static
     {
@@ -299,8 +297,6 @@ class MorphMany extends Field
 
     /**
      * Start the panel collapsed by default.
-     *
-     * Nova v5 parity: ->collapsedByDefault()
      */
     public function collapsedByDefault(bool $value = true): static
     {

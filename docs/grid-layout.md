@@ -99,7 +99,7 @@ Section::make('...', [...])->collapsedByDefault()   // starts collapsed
 Section::make('...', [...])->limit(5)               // show 5 fields, Show more for rest
 ```
 
-> **Martis extension:** `->description()` adds a subtitle below the Section title. Nova 5 does not have a Section primitive.
+> **Martis extension:** `->description()` adds a subtitle below the Section title.
 
 **Help text on fields in Sections** supports inline HTML (Martis extension):
 

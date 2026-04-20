@@ -69,8 +69,6 @@ Martis::dashboards([
 
 ## Dashboard Filters (Martis Extension)
 
-> Nova 5 does not support dashboard-level filters.
-
 Martis allows declarative filters on dashboards that affect all cards. This reuses the same Filter system from resources:
 
 ```php
@@ -101,7 +99,7 @@ php artisan martis:dashboard SalesDashboard
 
 ## Cache Configuration
 
-> **Martis extension** — Nova only supports per-metric caching.
+> **Martis extension** — global defaults in addition to per-metric caching.
 
 Set global cache defaults in `config/martis.php`:
 

@@ -10,7 +10,7 @@ use Martis\Fields\Field;
 /**
  * Tab — a single named tab containing fields and/or panels.
  *
- * Nova v5 parity: Tab::make('Title', [fields/panels...])
+ * Usage: Tab::make('Title', [fields/panels...])
  *
  * Tabs must be grouped inside a TabGroup. They cannot appear at the top
  * level of a resource fields() array directly — use TabGroup::make().

@@ -2,7 +2,7 @@
 
 Every Martis resource index ships with a trailing column of built-in row actions — **View**, **Edit**, and **Delete** — out of the box. No registration required. Icons disable themselves automatically when the row's authorization denies the operation.
 
-This is a Martis differential: Nova v5 requires each developer to register view/edit/delete buttons manually via inline actions. Martis treats them as the default experience and lets you customize or opt out with three layers of control.
+This is a Martis differential: the View/Edit/Delete row actions are the default experience, and you can customize or opt out with three layers of control.
 
 ## How it looks
 
@@ -151,11 +151,3 @@ Or hide a single action across the whole app:
 MARTIS_DEFAULT_ROW_ACTION_DELETE=false
 ```
 
-## Comparison to Nova v5
-
-| Scenario | Nova v5 | Martis |
-|---|---|---|
-| View/edit/delete on index | Manual via inline actions | Out of the box |
-| Hide delete for an admin | Manual per resource | `->defaultRowActions(fn ($r) => ['view', 'edit'])` |
-| Disable for unauthorized row | Manual `canSee()` per action | Automatic via row `_authorization` |
-| Compose with custom actions | Relative ordering is manual | Defaults first, custom inline second — consistent |

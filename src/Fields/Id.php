@@ -6,7 +6,6 @@ namespace Martis\Fields;
  * Auto-incrementing ID field.
  *
  * Shown on index and detail views, hidden from forms (read-only by nature).
- * Equivalent to Nova's ID field.
  */
 class Id extends Field
 {

@@ -12,10 +12,7 @@ use Martis\Enums\RepeaterStorage;
 /**
  * Repeater field — repeatable row widget backed by JSON or HasMany.
  *
- * Laravel Nova v5 parity: Repeater field.
- * Reference: https://nova.laravel.com/docs/v5/resources/repeater-fields
- *
- * Storage modes (Nova parity):
+ * Storage modes:
  *  - JSON (`->asJson()`, default): stored as a serialized array on a model
  *    attribute with a `array`/`AsCollection` cast. Rows get a stable UUID
  *    auto-generated on create.
@@ -24,7 +21,7 @@ use Martis\Enums\RepeaterStorage;
  *    by `uniqueField`, insert new, delete missing) so FKs downstream stay
  *    stable.
  *
- * ⭐ Martis differentials beyond Nova:
+ * ⭐ Martis differentials:
  *  - `minRows(int)` / `maxRows(int)` — hard cardinality enforced in the
  *    frontend (disable add button at max, require at least min to submit).
  *  - `collapsible()` / `collapsedByDefault()` / `reorderable()` —
@@ -33,7 +30,7 @@ use Martis\Enums\RepeaterStorage;
  *    `position` column for HasMany when enabled).
  *  - `dependsOn([...])` — surfaces the parent record + sibling row values
  *    to each field inside a row (`useFieldContext`), enabling conditional
- *    rendering without leaving the row. Nova has no such hook.
+ *    rendering without leaving the row.
  */
 class Repeater extends Field
 {
@@ -44,7 +41,7 @@ class Repeater extends Field
 
     /**
      * Column that identifies a row across saves when in HasMany mode.
-     * Required for HasMany upsert — without it, Nova/Martis would have to
+     * Required for HasMany upsert — without it, Martis would have to
      * delete and re-insert every row on save.
      */
     protected ?string $uniqueField = null;
@@ -225,7 +222,7 @@ class Repeater extends Field
     /**
      * ⭐ Expose parent model attributes to every field inside a row so
      * field resolvers can react to them (via the frontend `useFieldContext`
-     * hook). Nova has no equivalent.
+     * hook).
      *
      * @param  list<string>  $attributes
      */

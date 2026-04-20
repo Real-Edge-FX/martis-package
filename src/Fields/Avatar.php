@@ -10,9 +10,6 @@ use Martis\Fields\Concerns\ResolvesInitialsPayload;
 /**
  * Avatar — image upload specialised for profile/identity pictures.
  *
- * Laravel Nova v5 parity: Avatar field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#avatar-field
- *
  * Extends {@see Image} so every upload helper (`disk`, `storagePath`,
  * `maxSize`, `thumbnail`, …) carries over.
  *
@@ -25,8 +22,7 @@ use Martis\Fields\Concerns\ResolvesInitialsPayload;
  *    no DB column — matches the look of the topbar / profile surfaces.
  *  - `fallback($url | Closure)` — override the default inline initials
  *    with a custom URL (static or per-row).
- *  - `shape(AvatarShape)` — typed enum (Circle / Rounded / Squared)
- *    instead of Nova's boolean rounded() toggle.
+ *  - `shape(AvatarShape)` — typed enum (Circle / Rounded / Squared).
  *  - `initialsFrom('attribute')` — override the seed attribute used to
  *    compute the initials (default: `name`).
  *  - `colorFrom('attribute')` — pull the initials background from a

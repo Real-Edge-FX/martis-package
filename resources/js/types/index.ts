@@ -241,9 +241,9 @@ export interface FieldDefinition {
    * Supports inline HTML (line breaks, bold, lists). ⭐ Martis differential.
    */
   tooltip?: string | null
-  /** Whether the field spans the full width of the form. Nova v5 parity. */
+  /** Whether the field spans the full width of the form. */
   fullWidth?: boolean
-  /** Whether the label is stacked above (true) or inline (false). Nova v5 parity. */
+  /** Whether the label is stacked above (true) or inline (false). */
   stacked?: boolean
   /** Allow access to arbitrary meta properties set via withMeta(). */
   [key: string]: unknown

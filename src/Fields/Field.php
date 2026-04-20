@@ -53,7 +53,6 @@ abstract class Field implements FieldContract
 
     /**
      * Callback that determines whether this field is visible to the current user.
-     * Nova v5 parity: canSee(callable).
      */
     protected ?\Closure $canSeeCallback = null;
 
@@ -109,10 +108,10 @@ abstract class Field implements FieldContract
      */
     protected ?string $tooltip = null;
 
-    /** Whether the field spans the full width of the form. Nova v5 parity. */
+    /** Whether the field spans the full width of the form. */
     protected bool $fullWidth = false;
 
-    /** Whether the field label is stacked above (true) or inline (false). Nova v5 parity. */
+    /** Whether the field label is stacked above (true) or inline (false). */
     protected bool $stacked = true;
 
     protected mixed $defaultValue = null;
@@ -265,7 +264,6 @@ abstract class Field implements FieldContract
      * Set help text displayed below the field input.
      *
      * Supports inline HTML for rich help text (links, bold, code).
-     * Martis extension: Nova v5 only supports plain text.
      */
     public function help(string $text): static
     {
@@ -284,8 +282,6 @@ abstract class Field implements FieldContract
      * Raw HTML is allowed (line breaks, bold, lists) so callers can build
      * multi-line, formatted hints. The frontend opts in via the
      * `data-pr-tooltip-html` attribute on the trigger.
-     *
-     * ⭐ Martis differential — Nova v5 has no tooltip-on-label API.
      */
     public function tooltip(?string $text): static
     {
@@ -302,8 +298,8 @@ abstract class Field implements FieldContract
     /**
      * Make the field span the full width of the form container.
      *
-     * Nova v5 parity. Equivalent to ->span(12) in a 12-column section,
-     * but works outside of sections too.
+     * Equivalent to ->span(12) in a 12-column section, but works outside
+     * of sections too.
      */
     public function fullWidth(bool $fullWidth = true): static
     {
@@ -316,7 +312,7 @@ abstract class Field implements FieldContract
      * Control whether the field label is stacked above the input (true)
      * or displayed inline beside it (false).
      *
-     * Nova v5 parity. Default is stacked (true).
+     * Default is stacked (true).
      */
     public function stacked(bool $stacked = true): static
     {
@@ -393,7 +389,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Nova v5 parity — granular visibility flags
+    // Granular visibility flags
     // -------------------------------------------------------------------------
 
     /** {@inheritDoc} */
@@ -657,7 +653,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Authorization — field-level visibility (Nova v5 parity)
+    // Authorization — field-level visibility
     // -------------------------------------------------------------------------
 
     /**
@@ -665,8 +661,6 @@ abstract class Field implements FieldContract
      *
      * The callback receives the current Request and should return a boolean.
      * When the callback returns false, the field is excluded from the response.
-     *
-     * Nova v5 parity: canSee(callable).
      *
      * @param  callable(Request): bool  $callback
      */
@@ -681,8 +675,6 @@ abstract class Field implements FieldContract
      * Shorthand for canSee() that checks a policy ability.
      *
      * Equivalent to: canSee(fn($request) => $request->user()?->can($ability, $arguments))
-     *
-     * Nova v5 parity: canSeeWhen(string $ability, ...$arguments).
      *
      * @param  string  $ability  The policy ability to check
      * @param  mixed  ...$arguments  Arguments passed to the Gate check
@@ -863,7 +855,6 @@ abstract class Field implements FieldContract
      * Customize how the field value is formatted for display (index + detail).
      *
      * Applied AFTER resolveUsing(). Does NOT affect form values.
-     * Equivalent to Laravel Nova's displayUsing().
      *
      * @param  callable(mixed $value, Model $model, string $attribute): mixed  $callback
      */

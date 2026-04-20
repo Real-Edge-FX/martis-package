@@ -194,7 +194,7 @@ it('Metric width accepts integer grid values', function () {
     expect($metric->toArray()['width'])->toBe(6);
 });
 
-it('Metric width converts Nova-style strings', function () {
+it('Metric width converts fraction strings', function () {
     expect(TestTotalUsersMetric::make('T')->width('1/3')->toArray()['width'])->toBe(4);
     expect(TestTotalUsersMetric::make('T')->width('1/2')->toArray()['width'])->toBe(6);
     expect(TestTotalUsersMetric::make('T')->width('2/3')->toArray()['width'])->toBe(8);

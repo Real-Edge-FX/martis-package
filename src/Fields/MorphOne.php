@@ -15,8 +15,8 @@ use Martis\Fields\Concerns\ResolvesRelatableOptions;
  * morphOne relationship. Works like HasOne but for polymorphic one-to-one
  * relationships.
  *
- * Nova v5 parity: morphOne() relationships are displayed as inline panels
- * on the detail page with optional Create / Edit / Delete controls.
+ * morphOne() relationships are displayed as inline panels on the detail
+ * page with optional Create / Edit / Delete controls.
  *
  * Usage:
  *   MorphOne::make('Image', 'image', ImageResource::class)
@@ -53,7 +53,7 @@ class MorphOne extends Field
         parent::__construct($attribute, $label);
         $this->relationship = $relationship ?: Str::camel($attribute);
 
-        // MorphOne is detail-only by default (Nova v5 behavior)
+        // MorphOne is detail-only by default
         $this->onlyOnDetail();
     }
 
@@ -79,9 +79,9 @@ class MorphOne extends Field
     }
 
     /**
-     * Nova v5 parity — promote a `morphMany(...)->latestOfMany()` style
-     * relationship into a `MorphOneOfMany` field. Signature matches
-     * Nova's `MorphOne::ofMany($name, $relationship, $resourceClass)`.
+     * Promote a `morphMany(...)->latestOfMany()` style relationship into
+     * a `MorphOneOfMany` field.
+     * Signature: `MorphOne::ofMany($name, $relationship, $resourceClass)`.
      */
     public static function ofMany(string $name, string $relationship, string $relatedResourceClass): MorphOneOfMany
     {

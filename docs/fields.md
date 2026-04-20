@@ -15,7 +15,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Value Resolution & Filling](#value-resolution--filling)
   - [Fluent Configuration](#fluent-configuration)
   - [Visibility](#visibility)
-  - [Granular Visibility (Nova v5 Parity)](#granular-visibility-nova-v5-parity)
+  - [Granular Visibility](#granular-visibility)
   - [Convenience Visibility Presets](#convenience-visibility-presets)
   - [Context-Aware Visibility](#context-aware-visibility)
   - [Sortable / Searchable](#sortable--searchable)
@@ -168,9 +168,9 @@ Text::make('first_name', 'First Name') // explicit label
 | `required` | `required(): static` | `$this` | Require a non-null value (adds `required` validation rule). |
 | `placeholder` | `placeholder(string $text): static` | `$this` | Set placeholder text for the input. |
 | `help` | `help(string $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). |
-| `tooltip` | `tooltip(?string $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br>`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Nova v5 has no equivalent. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
-| `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. Nova v5 parity. |
-| `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). Nova v5 parity. |
+| `tooltip` | `tooltip(?string $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br>`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
+| `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
+| `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). |
 | `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. |
 
 ### Visibility
@@ -187,7 +187,7 @@ Text::make('first_name', 'First Name') // explicit label
 | `isShownOnDetail` | `isShownOnDetail(): bool` | `bool` | Check if visible on detail. |
 | `isShownOnForms` | `isShownOnForms(): bool` | `bool` | Check if visible on forms. |
 
-### Granular Visibility (Nova v5 Parity)
+### Granular Visibility
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
@@ -303,8 +303,8 @@ Type defaults (applied automatically unless overridden):
 
 ## Tooltips (Martis differential)
 
-⭐ **Martis-exclusive.** Nova v5 has no equivalent — it ships only `help()` (plain
-text under the input). Martis adds **label tooltips** as a separate channel so
+⭐ **Martis-exclusive.** In addition to `help()` (plain text under the input),
+Martis adds **label tooltips** as a separate channel so
 authors can surface contextual guidance without committing valuable real estate
 to permanent inline text.
 
@@ -538,7 +538,7 @@ BooleanGroup::make('permissions')
 | `requireAny()` ⭐ | Sugar for `minChecked(1)` |
 | `requireAll()` ⭐ | Sugar for `minChecked(count(options))` |
 
-**⭐ Martis differentials vs Nova:** grouped sections, min/max live counter, `requireAny/All` presets. Nova is a flat list only.
+**⭐ Martis differentials:** grouped sections, min/max live counter, `requireAny/All` presets.
 
 ---
 
@@ -579,8 +579,8 @@ Avatar::make('avatar_path')
 | `colorFrom(string)` ⭐ | Pull the initials background from a model attribute (e.g. `brand_color`) |
 | `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
 
-**⭐ Martis differentials vs Nova:**
-- **Zero-config inline initials fallback** — no external service, no extra closures, works out of the box. Nova requires a static `fallbackUrl` and has no initials rendering at all.
+**⭐ Martis differentials:**
+- **Zero-config inline initials fallback** — no external service, no extra closures, works out of the box.
 - Per-row Closure-aware `fallback()` when you *do* want a custom URL.
 - Typed `AvatarShape` enum instead of a boolean `rounded()`.
 - Deterministic palette shared with `UiAvatar`, login, topbar and profile surfaces via the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait.
@@ -617,7 +617,7 @@ UiAvatar::make('avatar_initials')
 | `colorFrom(string)` ⭐ | Pull background colour from a model attribute (brand colour) |
 | `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
 
-**⭐ Martis differentials vs Nova:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`. Nova's `UiAvatar` hits the external ui-avatars.com service — Martis's runs entirely client-side with no network call.
+**⭐ Martis differentials:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`. Runs entirely client-side with no network call.
 
 ---
 
@@ -643,7 +643,7 @@ Audio::make('intro_audio_path')
 | `downloadable(bool)` | Toggle the download button on the player |
 | `acceptedTypes(array)` | Override the default `mp3/wav/ogg/m4a/flac/aac` allow-list |
 
-**⭐ Martis differentials vs Nova:** **client-side canvas waveform** (Web Audio API decode + peak sampling — no server rendering, no external dependency), package-native player chrome, `downloadable(bool)` toggle.
+**⭐ Martis differentials:** **client-side canvas waveform** (Web Audio API decode + peak sampling — no server rendering, no external dependency), package-native player chrome, `downloadable(bool)` toggle.
 
 ---
 
@@ -928,7 +928,7 @@ Timezone::make('timezone')->default('Europe/Lisbon')
 **Extends:** `Field`
 **File:** `src/Fields/Icon.php`
 
-⭐ **Martis differential** — Nova 5 does not ship an Icon field. Three modes, one visual output (Phosphor icon).
+⭐ **Martis differential** — the Icon field offers three modes, one visual output (Phosphor icon).
 
 ```php
 // Mode A — display-only (no DB column)
@@ -1010,9 +1010,9 @@ Stack::make('identity', 'Identity', [Line::make('name')]);                    //
 | `getLines(): array<Line>` | Inspect configured lines |
 | `hasDivider(): bool` | Introspection helper |
 
-**⭐ Martis differentials vs Nova:**
+**⭐ Martis differentials:**
 
-1. **Works on the index**. Nova's Stack is detail-only; Martis renders it as an index-table cell, perfect for identity columns.
+1. **Works on the index**. Martis renders `Stack` as an index-table cell, perfect for identity columns.
 2. **`->asCode()` variant** — monospace styling for slugs, hashes, tokens.
 3. **`Line::subtitleFrom('attribute' | Closure)`** — one-line sugar to emit a muted secondary row without declaring a second `Line`. Accepts a Closure receiving the model for derived subtitles.
 4. **`Stack::divider()`** — thin `--martis-border` separator between Lines; great for metadata listings.
@@ -1181,12 +1181,9 @@ BelongsTo::make('category_id', 'Category')
 #### Peek / Preview
 
 The peek card appears when the user hovers the small preview icon next to a related record link.
-Content is fetched lazily from the related resource's `fieldsForPreview()` — aligned with
-Laravel Nova v5's concept of peeking at BelongsTo relationships.
+Content is fetched lazily from the related resource's `fieldsForPreview()`.
 
 The icon is the **only** trigger; hovering the record link itself does **not** open the peek card.
-This is the single intentional UX difference from Nova: Nova triggers peek on link hover,
-Martis triggers it on the icon only.
 
 ```php
 // Peek is enabled by default
@@ -1303,7 +1300,7 @@ dropdown.
 **Extends:** `Field`
 **File:** `src/Fields/BelongsToMany.php`
 
-Full many-to-many pivot relationship field with Nova v5 parity. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, sort, and pagination. On the index page, shows a count badge.
+Full many-to-many pivot relationship field. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, sort, and pagination. On the index page, shows a count badge.
 
 > **Detail-only by default** — BelongsToMany is hidden from index and forms automatically. Use `->showOnIndex()` to display the count badge.
 
@@ -1312,7 +1309,7 @@ Full many-to-many pivot relationship field with Nova v5 parity. Renders as a Dat
 BelongsToMany::make('Tags')
     ->relatedResource('tags')
 
-// Full Nova v5 parity
+// Full API
 BelongsToMany::make('Tags', 'tags', TagResource::class)
     ->searchable()
     ->collapsable()
@@ -1408,8 +1405,8 @@ truth; the hide flags can only hide, never force-visible.
 **File:** `src/Fields/HasOne.php`
 
 One-to-one relationship. Renders a single related record panel on the detail
-page with optional Create / Edit / Delete controls. Detail-only by default
-(Nova v5 parity — hidden from index and forms).
+page with optional Create / Edit / Delete controls. Detail-only by default —
+hidden from index and forms.
 
 ```php
 use Martis\Fields\HasOne;
@@ -1536,8 +1533,8 @@ the full guide.
 
 One-to-many relationship. Renders an inline DataTable panel on the detail
 page with full inline CRUD (create, edit, delete), search, sort, per-page,
-and pagination via `RelationshipTableShell`. Detail-only by default (Nova v5
-parity — use `->showOnIndex()` to display a count badge on index).
+and pagination via `RelationshipTableShell`. Detail-only by default — use
+`->showOnIndex()` to display a count badge on index.
 
 ```php
 use Martis\Fields\HasMany;
@@ -2248,7 +2245,7 @@ Sparkline::make('trend', 'Revenue Trend')
     ->data([10, 20, 15, 40, 35, 50])
     ->asBarChart()
     ->height(40)
-    ->width(120)
+    ->chartWidth(120)
     ->color('#22c55e')
 ```
 
@@ -2258,7 +2255,7 @@ Sparkline::make('trend', 'Revenue Trend')
 | `asBarChart` | `asBarChart(): static` | `$this` | Render as bar chart. | — |
 | `asLineChart` | `asLineChart(): static` | `$this` | Render as line chart. | `'line'` |
 | `height` | `height(int $px): static` | `$this` | Chart height in pixels. | `30` |
-| `width` | `width(int $px): static` | `$this` | Chart width in pixels. | `null` |
+| `chartWidth` | `chartWidth(int $px): static` | `$this` | SVG canvas width in pixels. Renamed from `width()` — the base `Field::width(string)` now controls the index column width. | `null` |
 | `color` | `color(string $color): static` | `$this` | Chart line/bar color (CSS color). | `'#6366f1'` |
 | `getChartType` | `getChartType(): string` | `string` | Get chart type. | — |
 | `getChartHeight` | `getChartHeight(): int` | `int` | Get height. | — |
@@ -2344,7 +2341,7 @@ See [Override System](overrides.md) for details.
 
 ## Resource Replication
 
-Martis supports Nova v5-compatible resource replication. When a user clicks "Replicate" on a detail page, they are redirected to the create form with pre-filled field values from the source record. The record is **not** saved until the user submits the form.
+Martis supports resource replication. When a user clicks "Replicate" on a detail page, they are redirected to the create form with pre-filled field values from the source record. The record is **not** saved until the user submits the form.
 
 ### How It Works
 
@@ -2370,7 +2367,7 @@ GET /api/resources/{resource}/{id}/replicate
 
 ### Customization
 
-Override `fieldsForCreate()` on your resource to control which fields appear in the replicate form. File fields are automatically excluded from replication (consistent with Nova v5 behavior).
+Override `fieldsForCreate()` on your resource to control which fields appear in the replicate form. File fields are automatically excluded from replication.
 
 ---
 
@@ -2429,7 +2426,7 @@ Falls back to `fieldsForCreate()` if not overridden.
 
 ### MorphTo
 
-Polymorphic relationship field — a model can belong to multiple different model types via a single relationship. Nova v5 parity.
+Polymorphic relationship field — a model can belong to multiple different model types via a single relationship.
 
 **Two-step selection:** The frontend renders a type dropdown first, then a record search for the selected type.
 
@@ -2478,12 +2475,12 @@ The backend resolves the model class from the resource URI key and sets both `co
 
 #### Inline Create
 
-MorphTo supports inline create per selected type. The create button appears after selecting a type. Only one level of nesting is supported (Nova v5 parity).
+MorphTo supports inline create per selected type. The create button appears after selecting a type. Only one level of nesting is supported.
 
-#### Difference from Nova
+#### Type resolution
 
-- Nova resolves morphable types via `$morphTypes` array on the field. Martis uses `types()` with Resource classes.
-- Martis resolves the model class from the resource's `newModel()` method instead of requiring explicit morph maps (though morph maps are also supported).
+- Martis uses `types()` with Resource classes to declare the allowed morphable types.
+- The model class is resolved from the resource's `newModel()` method. Explicit morph maps are also supported.
 
 #### Toolbar controls (inherited)
 

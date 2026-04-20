@@ -321,7 +321,7 @@ export function ResourceIndexPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Lens selector — Nova v5 parity */}
+          {/* Lens selector */}
           {Array.isArray(schema.lenses) && schema.lenses.length > 0 && (
             <LensDropdown
               lenses={schema.lenses}

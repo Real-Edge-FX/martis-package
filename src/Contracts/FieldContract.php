@@ -258,7 +258,7 @@ interface FieldContract
      */
     public function isShownOnForms(): bool;
 
-    // Nova v5 parity — granular visibility
+    // Granular visibility
 
     /**
      * Hide this field when creating a new record.
@@ -318,7 +318,7 @@ interface FieldContract
     public function isSearchable(): bool;
 
     // -------------------------------------------------------------------------
-    // Authorization — field-level visibility (Nova v5 parity)
+    // Authorization — field-level visibility
     // -------------------------------------------------------------------------
 
     /**

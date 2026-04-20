@@ -18,7 +18,7 @@ use Martis\Resource;
  * renders a two-step selection: first pick the resource type, then pick
  * the specific record from that type.
  *
- * Nova v5 parity:
+ * API:
  *   - types() specifies which resource classes can be associated
  *   - showCreateRelationButton() enables inline create
  *   - modalSize() configures the inline create modal
@@ -67,7 +67,6 @@ class MorphTo extends Field
 
     /**
      * Whether to show subtitle text under each dropdown option.
-     * Nova v5 parity: ->withSubtitles()
      */
     protected bool $withSubtitles = false;
 
@@ -79,7 +78,7 @@ class MorphTo extends Field
 
     /**
      * Whether the peek/preview button is shown for the related record.
-     * Defaults to true (Nova v5 parity).
+     * Defaults to true.
      */
     protected bool $peekable = true;
 
@@ -150,8 +149,6 @@ class MorphTo extends Field
 
     /**
      * Enable the inline create button for this relationship field.
-     *
-     * Nova v5 parity: showCreateRelationButton() / showCreateRelationButton(fn ($request) => ...)
      */
     public function showCreateRelationButton(bool|\Closure $callback = true): static
     {
@@ -184,7 +181,6 @@ class MorphTo extends Field
      * Show subtitle text under each dropdown option.
      *
      * The subtitle is read from the related model's $subtitleAttribute (default: "subtitle").
-     * Nova v5 parity: ->withSubtitles()
      */
     public function withSubtitles(bool $value = true): static
     {
@@ -210,8 +206,6 @@ class MorphTo extends Field
     /**
      * Enable or disable the peek/preview button on the display component.
      * Defaults to true — pass false or call noPeeking() to disable.
-     *
-     * Nova v5 parity: ->peekable()
      */
     public function peekable(bool $value = true): static
     {
@@ -222,8 +216,6 @@ class MorphTo extends Field
 
     /**
      * Disable the peek/preview button for this relationship.
-     *
-     * Nova v5 parity: ->noPeeking()
      */
     public function noPeeking(): static
     {

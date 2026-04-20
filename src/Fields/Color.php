@@ -5,9 +5,6 @@ namespace Martis\Fields;
 /**
  * Color picker field — HTML5 color input with swatch preview.
  *
- * Laravel Nova v5 parity: Color field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
- *
  * Contexts:
  *  - index: colored swatch + hex value
  *  - detail: colored swatch + hex value

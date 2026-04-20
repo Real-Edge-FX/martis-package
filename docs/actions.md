@@ -13,7 +13,7 @@ Martis Actions allow you to run custom operations on resources. Four distinct ac
 | **Standalone** | Runs without any record selection | No |
 | **Sole** | Requires exactly one record to be selected | Yes (exactly 1) |
 
-Full Nova v5 parity plus Martis extensions: icons, menu grouping with submenus, dry-run preview, pivot actions, and custom components.
+Martis ships icons, menu grouping with submenus, dry-run preview, pivot actions, and custom components.
 
 ---
 

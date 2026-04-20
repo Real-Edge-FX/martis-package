@@ -12,12 +12,9 @@ use Martis\Enums\AggregateFunction;
 /**
  * HasOneOfMany — "has one of many" relationship field.
  *
- * Laravel Nova v5 parity: HasOneOfMany.
- * Reference: https://nova.laravel.com/docs/v5/resources/relationships#HasOneOfMany
- *
  * The relationship on the parent model is defined as
  *   `hasMany(Target::class)->latestOfMany()` / `->oldestOfMany()` / `->ofMany(...)`
- * and Nova / Martis renders the promoted record as if it were a plain `HasOne`.
+ * and Martis renders the promoted record as if it were a plain `HasOne`.
  * Visually identical to `HasOne`; differs only in the backing Eloquent shape.
  *
  * ⭐ Martis differentials:
@@ -37,7 +34,7 @@ class HasOneOfMany extends HasOne
 {
     /**
      * Aggregate function to apply across the full HasMany collection
-     * (⭐ Martis differential — Nova does not ship this).
+     * (⭐ Martis differential).
      */
     protected ?AggregateFunction $aggregateFunction = null;
 

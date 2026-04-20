@@ -368,9 +368,9 @@ return [
     |     Master kill-switch for the View/Edit/Delete (and Restore/ForceDelete
     |     when soft-deletes apply) actions column. When `true`, Martis renders
     |     these actions gated by per-row policies — authorized actions show
-    |     enabled, unauthorized ones show disabled (greyed-out, non-clickable),
-    |     consistent with Nova 5 behaviour. When `false`, Martis never renders
-    |     the default actions anywhere (custom resource actions still appear).
+    |     enabled, unauthorized ones show disabled (greyed-out, non-clickable).
+    |     When `false`, Martis never renders the default actions anywhere
+    |     (custom resource actions still appear).
     |
     |     Per-action visibility is NOT configurable here — it is determined by
     |     the per-row authorization plus optional per-instance overrides on
@@ -390,7 +390,7 @@ return [
     |
     | default_trashed_filter
     |     Starting value of the "Incluir apagados" filter on resources that
-    |     use soft deletes, matching Nova 5's default. Valid values:
+    |     use soft deletes. Valid values:
     |         - 'active'  (default) : list only non-deleted records.
     |         - 'with'              : include deleted records alongside live.
     |         - 'only'              : only deleted records.

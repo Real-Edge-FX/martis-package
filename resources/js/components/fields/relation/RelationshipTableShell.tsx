@@ -21,12 +21,12 @@ import { Pagination } from '@/components/Pagination'
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
  *
  * Owns ephemeral UI state (search, page, perPage, sort, delete target) and
- * renders the Nova-style panel. Callers supply endpoint builders and meta;
+ * renders the relationship panel. Callers supply endpoint builders and meta;
  * the shell is agnostic of HasMany vs MorphMany semantics.
  *
  * Authorization gates (`canCreate`/`canUpdate`/`canDelete`) AND programmer
  * hide flags (`hideXxx`) compose: an action appears only when authorized AND
- * not explicitly hidden. Unauthorized actions never render — Nova-fidelity.
+ * not explicitly hidden. Unauthorized actions never render.
  */
 export interface RelationshipTableShellProps {
   title: string

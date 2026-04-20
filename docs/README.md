@@ -1,6 +1,6 @@
 # Martis Documentation
 
-A modern, open-source admin engine for Laravel — the developer-friendly alternative to Laravel Nova.
+A modern, open-source admin engine for Laravel.
 
 ## What is Martis?
 
@@ -36,7 +36,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 
 ### Architecture Philosophy
 
-> **Nova parity is the baseline. Architectural superiority in customization is the competitive edge.**
+> **Architectural superiority in customization is the competitive edge.**
 
 1. Backend never renders UI — everything is contract-based
 2. Nothing is hardcoded to the default frontend
@@ -90,7 +90,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 15 | **[Martis Differentials](differentials.md)** | All features unique to Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
-| 16 | **[Nova v5 Parity Map](PARITY_MAP.md)** | Feature-by-feature comparison with Laravel Nova v5 — what is done, in progress, and planned |
+| 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature status map — what is done, in progress, and planned |
 
 ---
 
@@ -116,7 +116,7 @@ docs/
 ├── preferences.md .................. User preferences (⭐ D1/D2/D3)
 ├── i18n.md ......................... Adding locales & translations
 ├── differentials.md ................ Martis differentials (unique features)
-├── PARITY_MAP.md ................... Nova v5 parity tracker
+├── PARITY_MAP.md ................... Parity status tracker
 ├── api/
 │   └── overview.md ................. REST API reference
 ├── architecture/

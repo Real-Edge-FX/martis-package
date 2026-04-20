@@ -411,9 +411,9 @@ class HasOneController extends MartisController
 
         $relation = $parentModel->{$relationship}();
 
-        // Accept plain HasOne (Nova parity), HasMany when the field is
-        // HasOneOfMany using latestByTimestamp() / oldestByTimestamp()
-        // at runtime, and HasOneThrough for the Through variant.
+        // Accept plain HasOne, HasMany when the field is HasOneOfMany
+        // using latestByTimestamp() / oldestByTimestamp() at runtime,
+        // and HasOneThrough for the Through variant.
         if (
             ! $relation instanceof EloquentHasOne
             && ! $relation instanceof EloquentHasOneThrough
@@ -435,7 +435,7 @@ class HasOneController extends MartisController
         // Block mutations on HasOneThrough — the relationship is a traversal,
         // there is no direct FK for Eloquent to create/update/delete on.
         // Defence in depth: even if someone bypasses the UI, the backend
-        // refuses. Aligned with the Nova default.
+        // refuses.
         if ($action !== null && $hasOneField instanceof HasOneThroughField) {
             return JsonErrorResponse::forbidden("hasOneThrough relationships are read-only.")->toResponse();
         }

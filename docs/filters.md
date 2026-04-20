@@ -141,7 +141,7 @@ Available operators: `Equals`, `GreaterThanOrEqual`, `LessThanOrEqual`, `Greater
 
 ### DateRangeFilter
 
-> **Martis extension** — Nova 5 does not include a built-in date range filter.
+> **Martis extension** — built-in date range filter.
 
 A date range filter with `from` and `to` inputs.
 
@@ -202,7 +202,7 @@ When a filter has a default value, the frontend applies it automatically on the 
 
 ## Authorization
 
-> **Martis extension** — Nova 5 does not support per-filter authorization.
+> **Martis extension** — per-filter authorization.
 
 Use `canSee()` to control filter visibility based on the current request. This is consistent with how `canSee()` works on Fields and Actions.
 
@@ -272,7 +272,7 @@ SelectFilter::make('Status')->componentKey('my-custom-filter')
 
 ## Filter Grid Layout (span)
 
-> **Martis extension** — Nova 5 does not support filter layout control.
+> **Martis extension** — filter layout control via spans.
 
 Control how much horizontal space each filter occupies using a 12-column grid:
 
@@ -364,35 +364,15 @@ Grouped options include a `group` key:
 }
 ```
 
-## Nova 5 Compatibility
-
-The following table maps Nova 5 filter capabilities to their Martis equivalents:
-
-| Nova 5 Capability | Martis | Status |
-|---|---|---|
-| `SelectFilter` | `Martis\Filters\SelectFilter` | Compatible |
-| `BooleanFilter` | `Martis\Filters\BooleanFilter` | Compatible |
-| `DateFilter` | `Martis\Filters\DateFilter` | Compatible |
-| `apply(Request, Builder, $value)` | Same signature | Compatible |
-| `options(Request)` | Same signature | Compatible |
-| `default()` | Same signature | Compatible |
-| `name()` | Same signature | Compatible |
-| `key()` (dynamic filters) | `uriKey()` | Compatible |
-| `withMeta(array)` | Same signature | Compatible |
-| Grouped options | Supported | Compatible |
-| AND filter composition | Same behavior | Compatible |
-| Collapsible filter panel | Same behavior | Compatible |
-| Artisan generator | `martis:filter` | Compatible |
-
 ## Martis Differentials
 
-> Features unique to Martis that do not exist in Laravel Nova 5.
+> Features unique to Martis.
 
 | Differential | Description |
 |---|---|
-| **DateRangeFilter** | Built-in date range filter with from/to inputs. Nova requires third-party packages. |
-| **canSee() authorization** | Per-filter visibility control via `canSee()` callback. Nova does not support filter-level authorization. |
-| **Active filter pills** | Pill tags showing active filters with name and value, visible even when the panel is closed. Nova only shows a generic count inside the dropdown. |
-| **Per-filter clear** | Individual clear button (X) on each filter pill. Nova only supports clearing all filters at once. |
-| **Default values on load** | Defaults are applied correctly on the frontend initial load and included in the first query. Nova's default implementation has known issues (GitHub #1138). |
-| **Searchable select** | Built-in `searchable()` option on SelectFilter. Nova requires third-party packages. |
+| **DateRangeFilter** | Built-in date range filter with from/to inputs. |
+| **canSee() authorization** | Per-filter visibility control via `canSee()` callback. |
+| **Active filter pills** | Pill tags showing active filters with name and value, visible even when the panel is closed. |
+| **Per-filter clear** | Individual clear button (X) on each filter pill. |
+| **Default values on load** | Defaults are applied correctly on the frontend initial load and included in the first query. |
+| **Searchable select** | Built-in `searchable()` option on SelectFilter. |

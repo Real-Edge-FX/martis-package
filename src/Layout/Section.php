@@ -89,7 +89,7 @@ class Section implements LayoutContract
     /**
      * Set a description/subtitle shown below the section title.
      *
-     * Martis extension: Nova v5 does not support descriptions on layout containers.
+     * Martis extension.
      */
     public function description(string $description): static
     {

@@ -1,6 +1,6 @@
 # Metrics
 
-Metrics compute and display analytical data on dashboards and resource index pages. Martis provides four built-in metric types aligned with Laravel Nova 5.
+Metrics compute and display analytical data on dashboards and resource index pages. Martis provides four built-in metric types.
 
 ## Metric Types
 
@@ -134,7 +134,7 @@ UsersByRole::make('Roles')->width(6)          // 1/2
 Overview::make('Overview')->width('full')      // full width
 ```
 
-Nova-style strings are auto-converted: `'1/3'` → 4, `'1/2'` → 6, `'2/3'` → 8, `'full'` → 12.
+Fraction strings are auto-converted: `'1/3'` → 4, `'1/2'` → 6, `'2/3'` → 8, `'full'` → 12.
 
 > **Martis extension:** Responsive breakpoints with `widthMd()` and `widthLg()`:
 ```php
@@ -166,8 +166,6 @@ TotalUsers::make('Total Users')
 
 ## Card Icons (Martis Extension)
 
-> Nova 5 does not support icons on metric cards.
-
 Add a Phosphor icon to the card header:
 
 ```php
@@ -179,8 +177,6 @@ TasksTrend::make('Tasks')->icon('chart-line-up')
 The icon renders next to the card title and inherits the card style color.
 
 ## Card Styles (Martis Extension)
-
-> Nova 5 does not support visual card styling.
 
 Apply a colored accent (left border) to highlight card importance:
 
@@ -196,8 +192,6 @@ PendingTasks::make('Pending')->style(CardStyle::Warning)       // yellow
 Available styles: `Default`, `Success`, `Warning`, `Danger`, `Info`.
 
 ## Card Height (Martis Extension)
-
-> Nova 5 does not support card height control.
 
 Set a minimum height to align cards in a row:
 
@@ -233,7 +227,7 @@ Set defaults in `config/martis.php` — individual metrics override these:
 
 ## Auto-Refresh (Martis Extension)
 
-> Nova 5 only has a manual refresh button. Martis supports automatic polling.
+Martis supports automatic polling.
 
 ```php
 ActiveUsers::make('Active Now')->refreshEvery(30)  // refresh every 30 seconds

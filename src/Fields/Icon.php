@@ -8,8 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Icon field — renders a Phosphor icon attached to a resource.
  *
- * Fully a Martis differential — Laravel Nova 5 has no icon field. Three
- * modes, each with ⭐ deliberate ergonomics:
+ * A Martis-exclusive field with three modes, each with ⭐ deliberate ergonomics:
  *
  *  1. **Display-only (Mode A)** — the field ignores the model entirely.
  *     Pass a fixed icon name as the second `make()` argument; the field

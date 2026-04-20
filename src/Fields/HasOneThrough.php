@@ -9,22 +9,19 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThroug
  * HasOneThrough — reaches a single distant record through an
  * intermediate model.
  *
- * Laravel Nova v5 parity: HasOneThrough.
- * Reference: https://nova.laravel.com/docs/v5/resources/relationships#HasOneThrough
- *
  * The relationship on the parent model is defined as
  *   `hasOneThrough(Owner::class, Car::class)`
  * and the field renders visually like `HasOne` — read-only, because
  * the traversal goes through an intermediate the UI cannot create.
  *
  * ⭐ Martis differentials:
- *  - **Read-only by default** — Nova never creates/edits Through
- *    records from the parent resource either, but doesn't document
- *    it. Martis makes this explicit and safe.
+ *  - **Read-only by default** — Through records cannot be created,
+ *    edited or deleted from the parent resource because the traversal
+ *    goes through an intermediate model the UI cannot populate.
  *  - **`throughBreadcrumb(bool $enabled = true)`** — ships a tooltip
  *    describing the intermediate hop (e.g. `Project → Client →
  *    Account Manager`), resolved from the relation's intermediate
- *    table name. Nova does not surface this.
+ *    table name.
  */
 class HasOneThrough extends HasOne
 {
@@ -36,10 +33,10 @@ class HasOneThrough extends HasOne
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Read-only by default, aligned with Nova: a Through relationship is
-        // a traversal — there is no direct FK to populate on create (the
-        // intermediate model is ambiguous). Callers can re-enable mutations
-        // explicitly via ->canCreate(true) etc. when they have custom logic.
+        // Read-only by default: a Through relationship is a traversal —
+        // there is no direct FK to populate on create (the intermediate
+        // model is ambiguous). Callers can re-enable mutations explicitly
+        // via ->canCreate(true) etc. when they have custom logic.
         $this->canCreateRelated = false;
         $this->canUpdateRelated = false;
         $this->canDeleteRelated = false;

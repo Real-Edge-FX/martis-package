@@ -65,7 +65,7 @@ interface FilterContract
     /**
      * Set a callback that determines if the filter should be visible.
      *
-     * Martis extension: Nova v5 does not support per-filter authorization.
+     * Martis extension: per-filter authorization.
      */
     public function canSee(Closure $callback): static;
 

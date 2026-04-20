@@ -1,6 +1,6 @@
 # Menus
 
-Martis exposes a declarative navigation API inspired by Nova 5 while staying package-native.
+Martis exposes a declarative, package-native navigation API.
 
 Use it in two layers:
 
