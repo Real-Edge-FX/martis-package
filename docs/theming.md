@@ -231,6 +231,73 @@ Where `{type}` is one of: `info`, `success`, `warning`, `danger`.
 
 ---
 
+## Attribute-Driven Theming
+
+The scaffolded theme layers three orthogonal axes on top of dark/light mode, all driven by attributes on `<html>`. The Preferences panel writes these automatically; you can also toggle them via DevTools to preview a change.
+
+### Accent variants — `[data-accent]`
+
+Switch the brand colour without editing the file. Five built-in accents ship in the stub:
+
+| Attribute | Accent |
+|-----------|--------|
+| `data-accent="martis"` (default) | Martis blue (`#4F7BF9`) |
+| `data-accent="blue"` | `#3B82F6` |
+| `data-accent="teal"` | `#14B8A6` |
+| `data-accent="violet"` | `#8B5CF6` |
+| `data-accent="amber"` | `#F59E0B` |
+
+Each accent overrides six tokens: `--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring` — in both dark and light modes.
+
+To add a sixth accent, append two selectors to your theme file and define those six tokens:
+
+```css
+html.dark[data-accent="crimson"],
+html[data-theme="dark"][data-accent="crimson"] {
+  --martis-accent: #DC143C;
+  /* ... 5 more tokens */
+}
+html:not(.dark)[data-accent="crimson"],
+html[data-theme="light"][data-accent="crimson"] {
+  /* light-mode values */
+}
+```
+
+### Density tokens — `[data-density]`
+
+Control spacing globally or per-surface.
+
+| Token | Comfortable | Dense |
+|-------|-------------|-------|
+| `--martis-row-h` | `44px` | `32px` |
+| `--martis-nav-item-h` | `34px` | `28px` |
+| `--martis-input-h` | `36px` | `30px` |
+| `--martis-btn-h` | `34px` | `28px` |
+| `--martis-pad-x` | `20px` | `14px` |
+| `--martis-pad-y` | `18px` | `12px` |
+| `--martis-gap` | `14px` | `10px` |
+
+Override per-surface by adding `[data-density="dense"]` on any ancestor — a dense financial table inside an otherwise-comfortable app.
+
+### Motion tokens — `--martis-dur-*`, `--martis-ease-*`
+
+Five duration stops (80ms → 320ms) and five easing curves. Custom themes inherit them; override any value to slow down / speed up your whole app without touching component CSS.
+
+Both `@media (prefers-reduced-motion: reduce)` and `html[data-reduced-motion="true"]` clamp every duration to `1ms` — transitions still resolve (focus rings keep working), just instantly.
+
+### Dark / Light selector
+
+The stub targets both the legacy class selector and the new attribute:
+
+```css
+:root, html.dark, html[data-theme="dark"]        { /* dark tokens */ }
+html:not(.dark), html[data-theme="light"]        { /* light tokens */ }
+```
+
+This means any app that sets either `.dark` or `data-theme` on `<html>` gets the right palette without extra glue.
+
+---
+
 ## Using Variables in Custom Components
 
 ### In TSX (inline style)

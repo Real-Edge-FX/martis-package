@@ -10,6 +10,9 @@ use Martis\MartisManager;
  * @method static MartisManager forgetMainMenu()
  * @method static MartisManager dashboards(array $dashboards)
  * @method static list<\Martis\Contracts\DashboardContract> resolveDashboards(\Illuminate\Http\Request $request)
+ * @method static MartisManager pageTitleUsing(\Closure $resolver)
+ * @method static MartisManager forgetPageTitle()
+ * @method static string resolvePageTitle(\Illuminate\Http\Request $request)
  *
  * @see MartisManager
  */

@@ -15,6 +15,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -49,6 +50,8 @@ export function ResourceCreatePage() {
   })
 
   const schema = schemaQuery.data?.data
+  const { t: tNav } = useTranslation('navigation')
+  usePageTitle(schema ? `${tNav('create', { defaultValue: 'Create' })} ${schema.singularLabel}` : null)
   const rawFormFields = (schema?.fieldsForCreate ?? [])
 
   // Marca a FK do pai como readonly quando criamos via rela\u00e7\u00e3o

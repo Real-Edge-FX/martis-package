@@ -42,6 +42,21 @@ return [
         'name' => env('MARTIS_BRAND_NAME', 'Martis'),
         'logo' => null,
         'favicon' => env('MARTIS_FAVICON', null),
+
+        /*
+         | The browser tab title shown in `<title>`. Accepts:
+         |   - null     → use the bundled translation "{brand} — Admin Control"
+         |   - string   → literal title, e.g. "Acme Back Office"
+         |   - callable → invokable class or array callable that returns a string
+         |                and receives the current Request
+         |
+         | For per-route titles (callback with request inspection), register
+         | via `Martis::pageTitleUsing(fn (Request $r) => ...)` from the
+         | application's service provider instead — closures cannot live in
+         | config files because `php artisan config:cache` fails to serialise
+         | them.
+         */
+        'page_title' => env('MARTIS_PAGE_TITLE'),
     ],
 
     /*

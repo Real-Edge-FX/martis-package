@@ -14,6 +14,7 @@ import { Card } from 'primereact/card'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -100,6 +101,8 @@ function DashboardView({
 
   const currentDashboard = dashboards.find((d) => d.uriKey === currentKey) ?? null
   const isDefaultLayout = currentDashboard?.layout === 'default'
+
+  usePageTitle(currentDashboard?.name ?? null)
 
   // Fetch dashboard data (cards + filters) — skip for default layout (no cards)
   const dashboardQuery = useQuery({

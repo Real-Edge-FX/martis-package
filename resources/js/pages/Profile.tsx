@@ -9,6 +9,7 @@ import { PasswordSection } from '@/components/Profile/PasswordSection'
 import { AvatarSection } from '@/components/Profile/AvatarSection'
 import { SecuritySection } from '@/components/Profile/SecuritySection'
 import { MartisLoader } from '@/components/Loader'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 interface ProfileData {
   name: string
@@ -19,9 +20,12 @@ interface ProfileData {
 
 export function ProfilePage() {
   const { t } = useTranslation('profile')
+  const { t: tNav } = useTranslation('navigation')
   const { user, updateUser } = useAuth()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
+
+  usePageTitle(tNav('profile', { defaultValue: 'Profile' }))
 
   const avatarEnabled = config.profile?.avatar?.enabled !== false
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false

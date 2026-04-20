@@ -24,6 +24,7 @@ import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { NotFoundPage } from '@/pages/NotFound'
 import { MartisLoader } from '@/components/Loader'
 import { useToast } from '@/contexts/ToastContext'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 /**
  * Page: `/resources/{resource}/lens/{lens}`.
@@ -74,6 +75,8 @@ export function ResourceLensPage() {
     if (!schema || !lensKey) return undefined
     return (schema.lenses ?? []).find((l) => l.uriKey === lensKey)
   }, [schema, lensKey])
+
+  usePageTitle(lens && schema ? `${lens.name} · ${schema.label}` : schema?.label ?? null)
 
   // ── URL-backed view state (D4) ────────────────────────────────────
   const page = Number(searchParams.get('page') ?? '1') || 1

@@ -26,4 +26,5 @@ return [
     'close' => 'close',
     'section_resources' => 'Resources',
     'searching' => 'Searching...',
+    'page_title_default' => ':brand — Admin Control',
 ];

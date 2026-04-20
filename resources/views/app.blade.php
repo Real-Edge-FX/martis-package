@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('martis.brand.name', 'Martis') }} Admin</title>
+    <title>{{ app(\Martis\MartisManager::class)->resolvePageTitle(request()) }}</title>
     @php
         $faviconPath = config('martis.brand.favicon');
         $basePath = config('martis.path', 'martis');

@@ -18,6 +18,7 @@ import { MartisLoader } from '@/components/Loader'
 import { FilterPanel } from '@/components/FilterPanel'
 import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -83,6 +84,8 @@ export function ResourceIndexPage() {
   })
 
   const schema = schemaQuery.data?.data
+
+  usePageTitle(schema?.label ?? null)
 
   // Resolve effective per-page (state overrides schema default)
   const effectivePerPage = perPage ?? schema?.perPage ?? 25
