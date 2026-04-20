@@ -492,7 +492,7 @@ html[data-reduced-motion="true"] {
 .martis-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width, 248px) 1fr;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   height: 100vh;
   width: 100%;
   overflow: hidden;
@@ -506,14 +506,13 @@ html[data-reduced-motion="true"] {
   grid-template-columns: 1fr;
 }
 .martis-shell[data-mobile="true"] .martis-tb,
-.martis-shell[data-mobile="true"] .martis-shell-content,
-.martis-shell[data-mobile="true"] .martis-shell-footer {
+.martis-shell[data-mobile="true"] .martis-shell-content {
   grid-column: 1;
 }
 
 .martis-sb {
   grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-row: 1 / -1;
   display: flex;
   flex-direction: column;
   background: var(--martis-sidebar);
@@ -920,28 +919,36 @@ html[data-reduced-motion="true"] {
   }
 }
 
-/* Content area that complements the shell grid.
-   A hairline left border sits between the content and the sidebar
-   (on top of the sidebar's right-border, which already provides it).
-   The frame here gives the content its own visual container. */
+/* Content area — single scroll container. The footer sits at the
+   tail of this element as a flex child, so short pages push the footer
+   to the viewport bottom while long pages let it scroll into view
+   naturally. Sidebar stays anchored above the footer because it spans
+   the full grid height. */
 .martis-shell-content {
   grid-column: 2;
   grid-row: 2;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: 24px 28px 40px;
-  border-right: 1px solid var(--martis-border);
-  border-bottom: 1px solid var(--martis-border);
+  display: flex;
+  flex-direction: column;
   background: var(--martis-bg);
 }
-.martis-shell[data-mobile="true"] .martis-shell-content {
-  border-right: 0;
-  border-bottom: 0;
+.martis-shell-content > .martis-page {
+  padding: 24px 28px 40px;
+  flex: 1 0 auto;
 }
-.martis-shell-footer {
-  grid-column: 2;
-  grid-row: 3;
+.martis-shell-pagefooter {
+  border-top: 1px solid var(--martis-border);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  background: var(--martis-bg);
+  flex: 0 0 auto;
+  margin-top: auto;
 }
 
 body {

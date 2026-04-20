@@ -59,12 +59,11 @@ function SidebarLayout() {
       />
 
       <main className="martis-shell-content">
-        <Outlet />
-      </main>
-
-      <div className="martis-shell-footer">
+        <div className="martis-page">
+          <Outlet />
+        </div>
         <Footer />
-      </div>
+      </main>
 
       {isMobile && (
         <div

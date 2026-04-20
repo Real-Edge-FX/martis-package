@@ -13,14 +13,7 @@ function DefaultFooter() {
   const text = footer?.text ?? t("footer_default", "\u00a9 {{brand}} \u00b7 Powered by Martis", { brand })
 
   return (
-    <footer
-      className="flex items-center justify-center border-t px-6 py-3 martis-border"
-      style={{
-        backgroundColor: "var(--martis-sidebar-bg)",
-        color: "var(--martis-text-muted)",
-        fontSize: "0.75rem",
-      }}
-    >
+    <footer className="martis-shell-pagefooter">
       <span>{text}</span>
     </footer>
   )

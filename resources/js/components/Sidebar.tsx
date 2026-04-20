@@ -171,7 +171,9 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
       {(config.version || config.docsUrl) && (
         <div className="martis-sb-footer">
           {config.version && (
-            <span className="martis-sb-footer-version">v{config.version}</span>
+            <span className="martis-sb-footer-version">
+              {/^\d/.test(config.version) ? `v${config.version}` : config.version}
+            </span>
           )}
           {config.docsUrl && (
             <a
