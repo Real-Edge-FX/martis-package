@@ -11,7 +11,7 @@ export function BooleanFieldDisplay({ field, value }: FieldDisplayProps) {
   return (
     <span
       className={[
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        'martis-badge',
         checked
           ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
           : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',

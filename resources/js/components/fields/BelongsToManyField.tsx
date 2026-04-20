@@ -51,11 +51,11 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
 function BelongsToManyCountBadge({ count }: { count: number }) {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+      className="martis-badge"
       style={{
         backgroundColor: 'var(--martis-surface)',
         color: 'var(--martis-text)',
-        border: '1px solid var(--martis-border)',
+        borderColor: 'var(--martis-border)',
       }}
     >
       <LinkSimpleIcon size={11} />
@@ -877,8 +877,8 @@ function AttachModal({
             </h3>
             {selected.length > 0 && (
               <span
-                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{ backgroundColor: 'var(--martis-accent)', color: '#fff' }}
+                className="martis-badge"
+                style={{ backgroundColor: 'var(--martis-accent)', color: '#fff', borderColor: 'transparent' }}
               >
                 {selected.length}
               </span>

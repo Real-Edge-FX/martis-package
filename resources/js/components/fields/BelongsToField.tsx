@@ -272,8 +272,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               <Link
                 key={item.id}
                 to={`/resources/${relatedResourceMulti}/${item.id}`}
-                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium hover:underline"
-                style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-accent)', border: '1px solid var(--martis-border)' }}
+                className="martis-badge hover:underline"
+                style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-accent)', borderColor: 'var(--martis-border)' }}
               >
                 {label}
               </Link>
@@ -282,8 +282,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
           return (
             <span
               key={item.id}
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-text)', border: '1px solid var(--martis-border)' }}
+              className="martis-badge"
+              style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-text)', borderColor: 'var(--martis-border)' }}
             >
               {label}
             </span>

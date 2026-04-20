@@ -101,11 +101,11 @@ export function BadgeFieldDisplay({ field, value }: FieldDisplayProps) {
 
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+      className="martis-badge"
       style={{
         backgroundColor: style.bg,
         color: style.text,
-        border: `1px solid ${style.border}`,
+        borderColor: style.border,
       }}
     >
       {icon && (

@@ -243,11 +243,11 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
           <span>{title}</span>
           {showRelationCount && (
             <span
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+              className="martis-badge"
               style={{
                 backgroundColor: 'var(--martis-surface)',
                 color: 'var(--martis-text-muted)',
-                border: '1px solid var(--martis-border)',
+                borderColor: 'var(--martis-border)',
               }}
             >
               {totalCount}

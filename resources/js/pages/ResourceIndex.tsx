@@ -397,25 +397,28 @@ export function ResourceIndexPage() {
           }
         }
 
+        const bulkDropdown = hasBulk ? (
+          <ActionDropdown
+            actions={indexActions}
+            onSelect={handleActionSelect}
+            label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
+            disabledActions={bulkDisabledActions}
+          />
+        ) : null
+
+        if (hasFilters) {
+          return (
+            <FilterPanel
+              filters={schema.filters!}
+              value={activeFilters}
+              onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
+              rightSlot={bulkDropdown}
+            />
+          )
+        }
         return (
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              {hasFilters && (
-                <FilterPanel
-                  filters={schema.filters!}
-                  value={activeFilters}
-                  onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
-                />
-              )}
-            </div>
-            {hasBulk && (
-              <ActionDropdown
-                actions={indexActions}
-                onSelect={handleActionSelect}
-                label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
-                disabledActions={bulkDisabledActions}
-              />
-            )}
+          <div className="flex items-center justify-end">
+            {bulkDropdown}
           </div>
         )
       })()}

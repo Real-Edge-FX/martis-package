@@ -61,13 +61,12 @@ function DefaultPagination({
           )}
           {hasRange ? (
             <>
-              <strong>{from}</strong>–<strong>{to}</strong> {t('of', 'of')}{' '}
-              <strong>{total}</strong>{' '}
+              {from}–{to} {t('of', 'of')} {total}{' '}
               <span className="martis-pagination-label">{resourceLabel}</span>
             </>
           ) : (
             <>
-              <strong>{total}</strong>{' '}
+              {total}{' '}
               <span className="martis-pagination-label">{resourceLabel}</span>
             </>
           )}

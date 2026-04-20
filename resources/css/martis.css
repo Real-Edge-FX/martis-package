@@ -446,12 +446,12 @@ html[data-density="dense"] .martis-sidebar-bg button.flex {
   padding-bottom: 0.375rem;
 }
 html[data-density="dense"] .p-datatable .p-datatable-tbody > tr > td {
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 html[data-density="dense"] .p-datatable .p-datatable-thead > tr > th {
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
 }
 html[data-density="dense"] .p-button,
 html[data-density="dense"] .martis-btn {
@@ -2001,59 +2001,62 @@ html:not(.dark) .martis-dropzone {
   opacity: 0.7;
 }
 
-/* DataTable — improved styling */
+/* DataTable — mirrors `.table` in Martis Shell.html (line 862+).
+   Any deviation here is a spec regression, not a choice. */
 .martis-datatable {
   border-radius: 0.75rem;
   overflow: hidden;
   border: 1px solid var(--martis-border);
   background-color: var(--martis-card);
+  font-family: var(--martis-font-sans);
 }
 
-.martis-datatable table {
+.martis-datatable table,
+.martis-datatable .p-datatable-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: auto;
+  font-family: var(--martis-font-sans);
+  font-size: var(--martis-text-sm);
 }
 
 .martis-datatable thead th {
-  padding: 0.75rem 1rem;
-  font-size: 0.75rem;
-  font-weight: 700;
+  height: 38px;
+  padding: 0 14px;
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   color: var(--martis-table-header-text);
   background-color: var(--martis-table-header-bg);
-  border-bottom: 2px solid var(--martis-table-header-border);
+  border-bottom: 1px solid var(--martis-table-header-border);
   text-align: left;
   white-space: nowrap;
 }
 
 .martis-datatable tbody tr {
   transition: background-color 0.15s ease;
-  border-bottom: 1px solid var(--martis-border);
 }
 
 .martis-datatable tbody tr:last-child {
   border-bottom: none;
 }
 
-.martis-datatable tbody tr:hover {
-  background-color: var(--martis-hover);
+/* Shell spec: hover + zebra applied to TD so they override the (transparent)
+   TR background without colliding with the selected-row tint. */
+.martis-datatable tbody tr:nth-child(even) td {
+  background-color: var(--martis-row-even);
+}
+.martis-datatable tbody tr:hover td,
+.martis-datatable tbody tr:nth-child(even):hover td {
+  background-color: var(--martis-row-hover);
   cursor: pointer;
 }
 
-/* Striped rows */
-.martis-datatable-striped tbody tr:nth-child(even) {
-  background-color: var(--martis-surface);
-}
-
-.martis-datatable-striped tbody tr:nth-child(even):hover {
-  background-color: var(--martis-hover);
-}
-
 .martis-datatable tbody td {
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  height: var(--m-row-h, 44px);
+  padding: 0 14px;
+  font-size: var(--martis-text-sm);
   color: var(--martis-text);
   vertical-align: middle;
 }
@@ -2186,57 +2189,51 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   fill: #ffffff !important;
 }
 
-/* ── Fix: Table header and separator improvements (REA-1140 + REA-1223) ─── */
-/* Dark theme — header row gets accent-tinted background + colored border */
-.martis-datatable thead th {
-  background-color: var(--martis-table-header-bg) !important;
-  color: var(--martis-table-header-text) !important;
-  border-bottom: 2px solid var(--martis-table-header-border) !important;
-  padding: 0.875rem 1rem !important;
-}
-
-/* Dark theme — softer row separators */
+/* Header colours live in `.martis-datatable .p-datatable-thead > tr > th`
+   below (Shell spec: 38px, 12px semibold, 1px border). Keep TR borderless
+   in both themes so the TD-level separators stay authoritative. */
 .martis-datatable tbody tr {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.4) !important;
+  border-bottom: 0 !important;
 }
 
-/* Light theme — header with accent-tinted background */
-html:not(.dark) .martis-datatable thead th {
-  background-color: var(--martis-table-header-bg) !important;
-  color: var(--martis-table-header-text) !important;
-  border-bottom: 2px solid var(--martis-table-header-border) !important;
-}
-
-/* Light theme — subtle but visible separators */
+/* Row separators now live on the TD (see DataTable row border overrides
+   block further below) — keep the TR border off in both themes. */
 html:not(.dark) .martis-datatable tbody tr {
-  border-bottom: 1px solid #e2e8f0 !important;
+  border-bottom: 0 !important;
 }
 
-/* PrimeReact DataTable header overrides for both themes */
+/* PrimeReact DataTable header overrides — Shell spec (`.table thead th`):
+   38px tall, 12px semibold, 0.04em, 1px bottom border, 0 14px padding. */
 .martis-datatable .p-datatable-thead > tr > th {
   background-color: var(--martis-table-header-bg) !important;
   color: var(--martis-table-header-text) !important;
-  border-bottom: 2px solid var(--martis-table-header-border) !important;
-  padding: 0.875rem 1rem !important;
-  font-size: 0.75rem;
-  font-weight: 700;
+  border-bottom: 1px solid var(--martis-table-header-border) !important;
+  height: 38px !important;
+  padding: 0 14px !important;
+  font-size: var(--martis-text-xs) !important;
+  font-weight: var(--martis-weight-semibold) !important;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 html:not(.dark) .martis-datatable .p-datatable-thead > tr > th {
   background-color: var(--martis-table-header-bg) !important;
   color: var(--martis-table-header-text) !important;
 }
 
-/* PrimeReact DataTable row border overrides */
+/* Row separator lives on the TD (mirrors design-system `.table tbody td`)
+   so the hairline stays visible above zebra stripes and selected rows. */
 .martis-datatable .p-datatable-tbody > tr {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
-}
-html:not(.dark) .martis-datatable .p-datatable-tbody > tr {
-  border-bottom: 1px solid #e2e8f0 !important;
+  border-bottom: none;
 }
 .martis-datatable .p-datatable-tbody > tr > td {
-  border-color: transparent !important;
+  border-bottom: 1px solid var(--martis-border) !important;
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  /* Height + padding owned by `.martis-datatable tbody td` above (Shell spec). */
+}
+.martis-datatable .p-datatable-tbody > tr:last-child > td {
+  border-bottom: 0 !important;
 }
 
 /* ── Per-page selector styling ─────────────────────────────────── */
@@ -2275,9 +2272,9 @@ html:not(.dark) .p-paginator .p-paginator-page:hover {
   color: var(--martis-text) !important;
 }
 html:not(.dark) .p-paginator .p-paginator-page.p-highlight {
-  background-color: var(--martis-accent) !important;
-  color: #ffffff !important;
-  border-color: var(--martis-accent) !important;
+  background-color: var(--martis-row-hover) !important;
+  color: var(--martis-text) !important;
+  border-color: transparent !important;
 }
 html:not(.dark) .p-paginator .p-paginator-prev,
 html:not(.dark) .p-paginator .p-paginator-next,
@@ -2298,19 +2295,16 @@ html:not(.dark) .p-paginator .p-paginator-last:hover {
    --martis-surface in light = #ffffff = same as row bg → invisible.
    Use a slightly tinted background for even rows in light mode.
 ──────────────────────────────────────────────────────────────── */
-html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even),
-html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even) {
-  background-color: #f8fafc !important;
-}
-html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover,
-html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover {
-  background-color: var(--martis-row-hover) !important;
-}
-
-/* ── Fix: Light theme DataTable row background (REA-1140) ────────
-   Force white on odd rows and proper light bg on even rows         */
-html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+/* Striping lives on the TD per Shell spec (see `.martis-datatable tbody
+   tr:nth-child(even) td` rule above). Older TR-level overrides caused
+   the zebra to disappear because the TR stayed transparent. */
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even) > td,
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even) > td {
   background-color: var(--martis-row-even) !important;
+}
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover > td,
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
+  background-color: var(--martis-row-hover) !important;
 }
 
 /* ── DataTable gridlines support (REA-1140) ──────────────────────
@@ -2419,11 +2413,11 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
 }
 .martis-pagination-summary strong {
   color: var(--martis-text);
-  font-weight: var(--martis-weight-semibold, 600);
+  font-weight: inherit;
 }
 .martis-pagination-selected {
   color: var(--martis-text);
-  font-weight: var(--martis-weight-semibold, 600);
+  font-weight: inherit;
 }
 .martis-pagination-sep {
   margin: 0 6px;
@@ -2459,9 +2453,10 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   border-color: var(--martis-border);
 }
 .martis-paginator .p-paginator-page.p-highlight {
-  /* Spec: translucent accent fill, accent text — not solid. */
-  background: var(--martis-accent-bg-light);
-  color: var(--martis-accent);
+  /* Spec (user image): neutral grey fill, regular text — not the accent.
+     The accent stayed too loud once pagination sat inside the table card. */
+  background: var(--martis-row-hover);
+  color: var(--martis-text);
   border-color: transparent;
   font-weight: var(--martis-weight-semibold, 600);
 }
@@ -2479,10 +2474,10 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
 .p-paginator .p-paginator-next,
 .p-paginator .p-paginator-first,
 .p-paginator .p-paginator-last {
-  min-width: 2rem !important;
-  width: 2rem !important;
-  height: 2rem !important;
-  font-size: 0.8125rem !important;
+  min-width: 1.75rem !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  font-size: 0.75rem !important;
   padding: 0 !important;
 }
 .p-paginator .p-paginator-prev svg,
@@ -3360,28 +3355,25 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
   border-color: var(--martis-border);
 }
 
-/* ── Selected row highlight (Problem 4/7) ───────────────────────── */
-.p-datatable .p-datatable-tbody > tr.p-highlight {
-  background-color: rgba(99, 102, 241, 0.1) !important;
-  color: var(--martis-text) !important;
-}
-html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight {
-  background-color: rgba(99, 102, 241, 0.08) !important;
-  color: var(--martis-text) !important;
-}
-/* Spec: selected row uses the translucent accent background instead
-   of a hardcoded indigo tint so the highlight tracks whichever accent
-   the tenant picked. */
+/* ── Selected row — checkbox-only indicator ─────────────────────
+   The checked checkbox is the sole affordance for selection; we
+   deliberately do NOT tint the row background. A full-row accent
+   fill washed out the URL / link / badge colours and produced a
+   perceived white strip on sparse cells. */
+.p-datatable .p-datatable-tbody > tr.p-highlight,
+.p-datatable .p-datatable-tbody > tr.p-highlight > td,
 .martis-row-selected,
 .martis-row-selected > td,
 .p-datatable .p-datatable-tbody > tr.martis-row-selected,
 .p-datatable .p-datatable-tbody > tr.martis-row-selected > td {
-  background-color: var(--martis-accent-bg-light) !important;
+  background-color: transparent !important;
   color: var(--martis-text) !important;
 }
+.p-datatable .p-datatable-tbody > tr.p-highlight:hover,
+.p-datatable .p-datatable-tbody > tr.p-highlight:hover > td,
 .p-datatable .p-datatable-tbody > tr.martis-row-selected:hover,
 .p-datatable .p-datatable-tbody > tr.martis-row-selected:hover > td {
-  background-color: var(--martis-accent-bg) !important;
+  background-color: var(--martis-row-hover) !important;
 }
 
 /* ── PrimeReact Tooltip theming ─────────────────────────────────── */
@@ -4546,5 +4538,24 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   max-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shared pill / status badge — matches `.badge` in Martis Shell (height 22,
+   11px, weight medium, rounded-full, 1px transparent border). Every
+   inline-pill across the table, detail, and relation fields should use
+   this class instead of re-deriving Tailwind utilities. */
+.martis-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  font-feature-settings: 'tnum';
+  line-height: 1;
+  border: 1px solid transparent;
   white-space: nowrap;
 }

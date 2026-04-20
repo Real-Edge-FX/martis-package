@@ -13,6 +13,10 @@ interface FilterPanelProps {
   onChange: (filters: ActiveFilters) => void
   /** Optional content rendered inline before the filter toggle button. */
   prefix?: React.ReactNode
+  /** Optional content pinned to the right of the toggle row (e.g. Bulk Actions).
+      Stays on the toggle row even when the filter panel is open, so the
+      expandable box below can claim the full width. */
+  rightSlot?: React.ReactNode
 }
 
 /**
@@ -31,7 +35,7 @@ function computeDefaults(filters: FilterDefinition[]): ActiveFilters {
 
 const calendarLocale = getCalendarLocale()
 
-export function FilterPanel({ filters, value, onChange, prefix }: FilterPanelProps) {
+export function FilterPanel({ filters, value, onChange, prefix, rightSlot }: FilterPanelProps) {
   const { t } = useTranslation('resources')
   const [open, setOpen] = useState(false)
   const defaultsApplied = useRef(false)
@@ -91,10 +95,13 @@ export function FilterPanel({ filters, value, onChange, prefix }: FilterPanelPro
 
   return (
     <div>
-      {/* Toggle button row */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {prefix}
-        <button
+      {/* Toggle button row — toggle + pills on the left, Bulk Actions (or
+          any other rightSlot) pinned to the right, even when the filter
+          box below is expanded. */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {prefix}
+          <button
           type="button"
           data-testid="filter-toggle"
           onClick={() => setOpen(!open)}
@@ -155,25 +162,27 @@ export function FilterPanel({ filters, value, onChange, prefix }: FilterPanelPro
           </span>
         ))}
 
-        {activeCount > 1 && (
-          <button
-            type="button"
-            onClick={handleClearAll}
-            className="text-xs font-medium hover:opacity-70"
-            style={{ color: 'var(--martis-text-muted)' }}
-          >
-            {t('clear_all', 'Clear all')}
-          </button>
-        )}
+          {activeCount > 1 && (
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="text-xs font-medium hover:opacity-70"
+              style={{ color: 'var(--martis-text-muted)' }}
+            >
+              {t('clear_all', 'Clear all')}
+            </button>
+          )}
+        </div>
+        {rightSlot}
       </div>
 
       {/* Filter panel (collapsible) */}
       {open && (
         <div
-          className="mt-2 rounded-lg border p-4"
+          className="mt-2 rounded-lg p-4"
           style={{
             backgroundColor: 'var(--martis-surface)',
-            borderColor: 'var(--martis-border)',
+            border: '1px solid var(--martis-border)',
           }}
         >
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
