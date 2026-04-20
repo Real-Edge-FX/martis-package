@@ -3246,14 +3246,6 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 }
 /* Tooltip colors are handled by CSS variables in the theming block below */
 
-/* ── Fix: Custom checkbox in table — independent of PrimeReact DataTable selection (REA-1102) ── */
-.martis-table-checkbox .p-checkbox-box {
-  width: 1.25rem !important;
-  height: 1.25rem !important;
-  border-radius: 0.25rem !important;
-  cursor: pointer !important;
-}
-
 /* ── Fix: Inline action icons — larger hit target (REA-1102) ── */
 .martis-action-btn {
   min-width: 2rem;
@@ -3367,13 +3359,9 @@ html:not(.dark) .p-toast .p-toast-message {
   color: #1e293b;
 }
 
-/* ── Fix: Light theme checkbox visibility (REA-1102 Problem 7) ────── */
-html:not(.dark) .p-checkbox .p-checkbox-box {
-  background-color: #ffffff !important;
-  border: 2px solid #94a3b8 !important;
-  width: 1.25rem !important;
-  height: 1.25rem !important;
-}
+/* Light-theme checkbox — honours the base spec (1px, `--martis-border`,
+   `--martis-input-bg`); only the hover accent is surfaced here since
+   it's specific to the input-on-card contrast in the light palette. */
 html:not(.dark) .p-checkbox .p-checkbox-box:hover {
   border-color: var(--martis-accent) !important;
 }
@@ -3394,33 +3382,13 @@ html:not(.dark) .p-checkbox-checked .p-checkbox-box svg {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
-/* DataTable specific checkbox — light theme (REA-1182)
-   NOTE: In PrimeReact v10, p-highlight is added to .p-checkbox (root), NOT .p-checkbox-box
-   Correct selector: .p-checkbox.p-highlight .p-checkbox-box (not .p-checkbox-box.p-highlight) */
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
-  background-color: #ffffff !important;
-  border: 2px solid #94a3b8 !important;
-}
-/* Correct: target box via highlighted ROOT .p-checkbox — specificity (0,6,1) beats reset (0,5,1) */
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
-  background-color: var(--martis-accent) !important;
-  border-color: var(--martis-accent) !important;
-}
+/* DataTable row/header checkboxes — light theme. Size, border width
+   and resting colour flow from the base spec rule above. We only
+   surface here the white tick on an accent-filled box for the
+   highlighted state, because PrimeReact's theme keeps trying to
+   paint the icon the primary colour. */
 html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box svg {
-  color: #ffffff !important;
-  fill: #ffffff !important;
-}
-/* Header checkbox in DataTable — light theme */
-html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
-  background-color: #ffffff !important;
-  border: 2px solid #94a3b8 !important;
-}
-/* Correct: target header select-all checkbox via highlighted ROOT */
-html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box {
-  background-color: var(--martis-accent) !important;
-  border-color: var(--martis-accent) !important;
-}
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box svg,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box svg {
   color: #ffffff !important;
