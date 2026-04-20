@@ -973,10 +973,26 @@ html[data-reduced-motion="true"] {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: thin;
+  /* Thin, only-on-hover horizontal scrollbar so the bar doesn't show
+     a permanent gutter below the nav buttons. Safari/Chrome honour
+     scrollbar-color + -webkit-scrollbar; Firefox uses scrollbar-width. */
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color var(--martis-dur-fast) var(--martis-ease-standard);
 }
 .martis-topnav-links::-webkit-scrollbar {
   height: 4px;
+}
+.martis-topnav-links::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+.martis-topnav-links:hover {
+  scrollbar-width: thin;
+  scrollbar-color: var(--martis-border) transparent;
+}
+.martis-topnav-links:hover::-webkit-scrollbar-thumb {
+  background: var(--martis-border);
 }
 
 .martis-topnav-link {
@@ -1066,9 +1082,10 @@ html[data-reduced-motion="true"] {
   flex-direction: column;
   background: var(--martis-bg);
 }
-.martis-shell-content > .martis-page {
+.martis-page {
   padding: 24px 28px 40px;
   flex: 1 0 auto;
+  min-width: 0;
 }
 .martis-shell-pagefooter {
   border-top: 1px solid var(--martis-border);
