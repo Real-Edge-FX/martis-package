@@ -121,6 +121,10 @@ export interface MartisConfigShape {
   locale?: string
   brand?: string
   logo?: string | null
+  /** Martis package version surfaced in the sidebar footer. */
+  version?: string
+  /** Optional link to the project's docs shown in the sidebar footer. */
+  docsUrl?: string | null
   theme?: MartisThemeConfig
   userMenu?: MartisUserMenuConfig
   search?: MartisSearchConfig

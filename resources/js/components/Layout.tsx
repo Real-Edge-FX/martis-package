@@ -25,21 +25,9 @@ function SidebarLayout() {
     setMobileSidebarOpen(false)
   }, [location.pathname])
 
-  // Keep the shell's `data-sidebar-collapsed` attribute in sync with the
-  // sidebar's own state. The sidebar writes localStorage; we watch it so
-  // the grid column width animates with the sidebar width toggle.
   useEffect(() => {
-    const handler = () => {
-      setCollapsed(localStorage.getItem("martis-sidebar-collapsed") === "true")
-    }
-    window.addEventListener("storage", handler)
-    // Poll for intra-tab updates (storage event only fires cross-tab).
-    const interval = window.setInterval(handler, 250)
-    return () => {
-      window.removeEventListener("storage", handler)
-      window.clearInterval(interval)
-    }
-  }, [])
+    localStorage.setItem("martis-sidebar-collapsed", String(collapsed))
+  }, [collapsed])
 
   useEffect(() => {
     if (isMobile && mobileSidebarOpen) {
@@ -61,10 +49,13 @@ function SidebarLayout() {
       <Sidebar
         mobileOpen={isMobile ? mobileSidebarOpen : undefined}
         onMobileClose={() => setMobileSidebarOpen(false)}
+        collapsed={!isMobile && collapsed}
       />
 
       <Topbar
         onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
+        onToggleCollapse={!isMobile ? () => setCollapsed((c) => !c) : undefined}
+        sidebarCollapsed={collapsed}
       />
 
       <main className="martis-shell-content">

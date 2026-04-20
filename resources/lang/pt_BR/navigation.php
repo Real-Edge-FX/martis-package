@@ -27,4 +27,5 @@ return [
     'section_resources' => 'Recursos',
     'searching' => 'Pesquisando...',
     'page_title_default' => ':brand — Central de Administração',
+    'docs' => 'Documentação',
 ];

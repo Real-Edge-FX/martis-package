@@ -9,14 +9,20 @@ import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/Prefer
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlassIcon, CaretDownIcon, SignOutIcon, UserCircleIcon, ListIcon } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, CaretDownIcon, SignOutIcon, UserCircleIcon, ListIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon } from "@phosphor-icons/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 
 interface TopbarProps {
+  /** Callback for the mobile hamburger — undefined on desktop. */
   onToggleSidebar?: () => void
+  /** Callback to toggle the desktop collapsed state. When provided, a
+   *  chevron button renders on the left of the topbar. */
+  onToggleCollapse?: () => void
+  /** Current collapsed state, used to pick chevron direction + tooltip. */
+  sidebarCollapsed?: boolean
 }
 
-export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
+export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = false }: TopbarProps = {}) {
   const { user, logout } = useAuth()
   const { t } = useTranslation("navigation")
   const navigate = useNavigate()
@@ -132,6 +138,25 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
           aria-label={t("open_sidebar", "Menu")}
         >
           <ListIcon size={18} />
+        </button>
+      )}
+
+      {onToggleCollapse && (
+        <button
+          type="button"
+          className="martis-tb-collapse-btn"
+          onClick={onToggleCollapse}
+          aria-label={sidebarCollapsed ? t("expand_sidebar") : t("collapse_sidebar")}
+          data-pr-tooltip={
+            sidebarCollapsed ? t("expand_sidebar") : t("collapse_sidebar")
+          }
+          data-pr-position="bottom"
+        >
+          {sidebarCollapsed ? (
+            <CaretDoubleRightIcon size={16} />
+          ) : (
+            <CaretDoubleLeftIcon size={16} />
+          )}
         </button>
       )}
 

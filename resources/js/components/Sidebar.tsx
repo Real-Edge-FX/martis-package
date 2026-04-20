@@ -10,8 +10,6 @@ import logoSrcDefault from "@images/martis-icon.png"
 import {
   SquaresFourIcon,
   CaretDownIcon,
-  CaretDoubleRightIcon,
-  CaretDoubleLeftIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "./ResourceIcon"
 
@@ -26,9 +24,11 @@ function getLogoSrc(): string {
 interface SidebarProps {
   mobileOpen?: boolean
   onMobileClose?: () => void
+  /** When provided, the sidebar renders in collapsed mode on desktop. */
+  collapsed?: boolean
 }
 
-export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
+export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: SidebarProps = {}) {
   const { t } = useTranslation("navigation")
   const { data: groups = [] } = useQuery<NavigationGroup[]>({
     queryKey: ["navigation"],
@@ -38,17 +38,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
 
   const isMobile = mobileOpen !== undefined
 
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem("martis-sidebar-collapsed") === "true"
-  })
-
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    if (!isMobile) {
-      localStorage.setItem("martis-sidebar-collapsed", String(collapsed))
-    }
-  }, [collapsed, isMobile])
 
   function toggleGroup(label: string) {
     setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }))
@@ -178,17 +168,22 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps = {}) {
         })}
       </div>
 
-      {!isMobile && (
-        <button
-          type="button"
-          className="martis-sb-footer"
-          onClick={() => setCollapsed((c) => !c)}
-          data-pr-tooltip={collapsed ? t("expand_sidebar") : t("collapse_sidebar")}
-          data-pr-position="top"
-        >
-          {collapsed ? <CaretDoubleRightIcon size={14} /> : <CaretDoubleLeftIcon size={14} />}
-          {!collapsed && <span>{t("collapse_sidebar")}</span>}
-        </button>
+      {(config.version || config.docsUrl) && (
+        <div className="martis-sb-footer">
+          {config.version && (
+            <span className="martis-sb-footer-version">v{config.version}</span>
+          )}
+          {config.docsUrl && (
+            <a
+              href={config.docsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="martis-sb-footer-link"
+            >
+              {t("docs", "Docs")} ↗
+            </a>
+          )}
+        </div>
       )}
     </aside>
   )

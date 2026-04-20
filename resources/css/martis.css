@@ -666,15 +666,15 @@ html[data-reduced-motion="true"] {
   gap: 8px;
   font-size: var(--martis-text-xs);
   color: var(--martis-text-muted);
+  font-family: var(--martis-font-mono);
   white-space: nowrap;
-  background: transparent;
-  border: 0;
-  border-top: 1px solid var(--martis-border);
-  cursor: pointer;
-  width: 100%;
+}
+.martis-sb-footer-link {
+  color: var(--martis-text-muted);
+  text-decoration: none;
   transition: color var(--martis-dur-fast) var(--martis-ease-standard);
 }
-.martis-sb-footer:hover {
+.martis-sb-footer-link:hover {
   color: var(--martis-text);
 }
 
@@ -750,7 +750,8 @@ html[data-reduced-motion="true"] {
   z-index: 10;
 }
 
-.martis-tb-menu-btn {
+.martis-tb-menu-btn,
+.martis-tb-collapse-btn {
   display: none;
   width: 34px;
   height: 34px;
@@ -761,15 +762,25 @@ html[data-reduced-motion="true"] {
   border: 1px solid transparent;
   color: var(--martis-text-muted);
   cursor: pointer;
+  flex-shrink: 0;
   transition: background var(--martis-dur-fast) var(--martis-ease-standard),
               color var(--martis-dur-fast) var(--martis-ease-standard);
 }
-.martis-tb-menu-btn:hover {
+.martis-tb-menu-btn:hover,
+.martis-tb-collapse-btn:hover {
   background: var(--martis-hover);
   color: var(--martis-text);
 }
 .martis-tb[data-mobile="true"] .martis-tb-menu-btn {
   display: inline-flex;
+}
+/* Desktop collapse toggle — always shown when the prop is present;
+   the button only renders in the DOM on desktop so no extra guard needed. */
+.martis-tb-collapse-btn {
+  display: inline-flex;
+}
+.martis-tb[data-mobile="true"] .martis-tb-collapse-btn {
+  display: none;
 }
 
 .martis-tb-breadcrumbs {
@@ -909,7 +920,10 @@ html[data-reduced-motion="true"] {
   }
 }
 
-/* Content area that complements the shell grid. */
+/* Content area that complements the shell grid.
+   A hairline left border sits between the content and the sidebar
+   (on top of the sidebar's right-border, which already provides it).
+   The frame here gives the content its own visual container. */
 .martis-shell-content {
   grid-column: 2;
   grid-row: 2;
@@ -917,6 +931,13 @@ html[data-reduced-motion="true"] {
   min-height: 0;
   overflow: auto;
   padding: 24px 28px 40px;
+  border-right: 1px solid var(--martis-border);
+  border-bottom: 1px solid var(--martis-border);
+  background: var(--martis-bg);
+}
+.martis-shell[data-mobile="true"] .martis-shell-content {
+  border-right: 0;
+  border-bottom: 0;
 }
 .martis-shell-footer {
   grid-column: 2;
