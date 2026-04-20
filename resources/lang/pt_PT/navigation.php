@@ -26,4 +26,5 @@ return [
     'close' => 'fechar',
     'section_resources' => 'Recursos',
     'searching' => 'A pesquisar...',
+    'page_title_default' => ':brand — Centro de Administração',
 ];

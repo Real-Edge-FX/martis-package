@@ -37,14 +37,66 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
     'name' => env('MARTIS_BRAND_NAME', 'Martis'),
     'logo' => null,
     'favicon' => env('MARTIS_FAVICON', null),
+    'page_title' => env('MARTIS_PAGE_TITLE'), // null | string | callable
 ],
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `name` | `string` | `'Martis'` | Displayed in the sidebar header and browser title. |
+| `name` | `string` | `'Martis'` | Displayed in the sidebar header and used as the `{brand}` interpolation for the bundled page title translation. |
 | `logo` | `?string` | `null` | Path to a custom logo image (relative to public/). |
 | `favicon` | `?string` | `null` | Path to a custom favicon (relative to `public/`). When `null`, Martis serves its own default favicon from the package — no `vendor:publish` step required. |
+| `page_title` | `string \| callable \| null` | `null` | Browser tab title shown in `<title>`. `null` uses the bundled translation (e.g. "Acme — Admin Control"). A plain string overrides it. A callable (invokable class or array callable) receives the current `Request` and returns the title. |
+
+### Customising the page title
+
+Three levels of control:
+
+**1. Bundled translation (no configuration).** The default title uses `martis::navigation.page_title_default` interpolated with `brand.name`:
+
+| Locale | Rendered title |
+|--------|----------------|
+| `en` | `Acme — Admin Control` |
+| `pt_PT` | `Acme — Centro de Administração` |
+| `pt_BR` | `Acme — Central de Administração` |
+
+**2. Static override** — set a literal string in `.env` or config:
+
+```env
+MARTIS_PAGE_TITLE="Acme Back Office"
+```
+
+```php
+'brand' => [
+    'page_title' => 'Acme Back Office',
+],
+```
+
+**3. Dynamic per-route title** — register a closure in your `AppServiceProvider::boot()`:
+
+```php
+use Illuminate\Http\Request;
+use Martis\Facades\Martis;
+
+public function boot(): void
+{
+    Martis::pageTitleUsing(function (Request $request): string {
+        return match (true) {
+            str_starts_with($request->path(), 'martis/resources/clients') => 'Clients · Acme',
+            str_starts_with($request->path(), 'martis/resources/invoices') => 'Invoices · Acme',
+            default => 'Acme Admin',
+        };
+    });
+}
+```
+
+> Closures cannot live directly in `config/martis.php` because `php artisan config:cache` fails to serialise them. Use the facade/manager from a service provider instead.
+
+Resolution precedence (highest first):
+
+1. `Martis::pageTitleUsing(Closure)` — registered at runtime.
+2. `config('martis.brand.page_title')` — string or `is_callable`.
+3. `__('martis::navigation.page_title_default', ['brand' => config('martis.brand.name')])` — bundled fallback.
 
 ### Customising the favicon
 
@@ -349,6 +401,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_GUARD` | `guard` | `null` |
 | `MARTIS_BRAND_NAME` | `brand.name` | `Martis` |
 | `MARTIS_FAVICON` | `brand.favicon` | `null` |
+| `MARTIS_PAGE_TITLE` | `brand.page_title` | `null` (uses translation) |
 | `MARTIS_LAYOUT` | `layout.preset` | `sidebar` |
 | `MARTIS_LOCALE` | `locale` | `en` |
 | `MARTIS_THROTTLE_ENABLED` | `throttle.enabled` | `true` |
