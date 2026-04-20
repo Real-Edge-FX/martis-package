@@ -33,7 +33,7 @@ class ComponentMakeCommand extends Command
         /** @var string $type */
         $type = $this->option('type');
 
-        $allowedTypes = ['field', 'layout', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic'];
+        $allowedTypes = ['field', 'layout', 'shell', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic'];
         if (! in_array($type, $allowedTypes, true)) {
             $this->error("Invalid type '{$type}'. Allowed: ".implode(', ', $allowedTypes));
 
@@ -217,7 +217,11 @@ class ComponentMakeCommand extends Command
      */
     protected function getStub(string $type): string
     {
-        $stubPath = __DIR__.'/../../stubs/component-'.$type.'.tsx.stub';
+        // `layout` and `shell` share the same scaffold — shell is the preferred
+        // name post-v0.7 but `layout` is kept as a backwards-compatible alias.
+        $effective = $type === 'layout' ? 'shell' : $type;
+
+        $stubPath = __DIR__.'/../../stubs/component-'.$effective.'.tsx.stub';
 
         if (! file_exists($stubPath)) {
             $stubPath = __DIR__.'/../../stubs/component-generic.tsx.stub';

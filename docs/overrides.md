@@ -409,6 +409,8 @@ The command:
 3. For `field`, registers both display and input components.
 4. For shell types, uses stubs that document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
 
+> **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead — that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis/fields/<name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
+
 **Arguments:**
 
 | Argument | Required | Description |
