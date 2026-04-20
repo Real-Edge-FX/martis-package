@@ -394,9 +394,8 @@ export function ResourceIndexPage() {
             borderColor: 'var(--martis-accent)',
           }}
         >
-          <span className="text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
-            {tAct('selected_count', { count: selectedIds.size })}
-          </span>
+          {/* Selected count lives in the table footer ("N selected · X of Y")
+              per the design-system spec — no duplication at the top. */}
           <ActionDropdown
             actions={indexActions}
             onSelect={handleActionSelect}
