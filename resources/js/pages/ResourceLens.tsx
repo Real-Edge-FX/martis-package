@@ -386,12 +386,13 @@ export function ResourceLensPage() {
           </div>
         )}
 
-        {dataQuery.isFetching && <MartisLoader loading size="sm" />}
       </div>
 
-      {/* Table — only mount once meta.fields is known so the DataTable
-          never caches the wrong columns. */}
-      <MartisLoader loading={dataQuery.isFetching && !dataQuery.isPlaceholderData} overlay>
+      {/* Table + pagination share a single card surface so the footer
+          reads as the last row of the table, matching the design-system
+          spec instead of floating below. */}
+      <div className="martis-index-surface">
+      <MartisLoader loading={dataQuery.isFetching} overlay>
         {fields === null ? (
           <div className="py-12 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
             {tMsg('loading', 'Loading…')}
@@ -457,7 +458,7 @@ export function ResourceLensPage() {
       {/* Summary row — Martis D1 */}
       {summary && Object.keys(summary).length > 0 && (
         <div
-          className="flex flex-wrap gap-6 rounded-md border px-4 py-3 text-sm"
+          className="flex flex-wrap gap-6 border-t px-4 py-3 text-sm"
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface-alt)',
@@ -484,8 +485,11 @@ export function ResourceLensPage() {
           from={meta.from}
           to={meta.to}
           onPageChange={(next) => mutateParams((p) => p.set('page', String(next)))}
+          selectedCount={selectedIds.size}
+          itemLabel={schema.label.toLowerCase()}
         />
       )}
+      </div>
 
       {/* Delete confirmation */}
       <DeleteModal
