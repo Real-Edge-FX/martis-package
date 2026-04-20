@@ -2283,7 +2283,36 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   padding: 1rem 1.25rem !important;
 }
 
-/* ── Pagination border uses CSS variables (REA-1140) ──────────── */
+/* Index surface — single card container that holds the DataTable
+   header, rows AND the pagination footer. Matches the design-system
+   spec where "N selected · X of Y" and the paginator read as the
+   bottom row of the table, not a floating strip. */
+.martis-index-surface {
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg, 0.75rem);
+  background-color: var(--martis-card);
+  overflow: hidden;
+}
+.martis-index-surface > .martis-datatable {
+  /* The card is now one level up — inner DataTable drops its own
+     border + radius so the bottom of tbody flows into the footer. */
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+.martis-index-surface > .martis-datatable table {
+  /* Prevent the inner table from clipping rounded corners we no
+     longer own. */
+  border-radius: 0;
+}
+.martis-index-surface > .martis-pagination-wrapper {
+  /* Footer reads as the last row of the card — subtle separator on
+     top, no extra border below. */
+  border-top: 1px solid var(--martis-border);
+}
+
+/* Standalone pagination (outside `.martis-index-surface`) keeps its
+   legacy clean transition. */
 .martis-pagination-wrapper {
   padding: 10px 14px 12px;
 }

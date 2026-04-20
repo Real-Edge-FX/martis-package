@@ -481,7 +481,15 @@ function DefaultTable({
         onSort={(e: DataTableSortEvent) => {
           if (e.sortField) onSort(String(e.sortField))
         }}
-        onRowClick={e => onClickRow?.(e.data as ResourceRecord)}
+        onRowClick={e => {
+          // Checkbox clicks bubble up through PrimeReact's `onRowClick`;
+          // suppress navigation when the click originated inside the
+          // selection column so bulk selection works without opening
+          // the detail view.
+          const target = e.originalEvent?.target as HTMLElement | undefined
+          if (target?.closest('.martis-select-column')) return
+          onClickRow?.(e.data as ResourceRecord)
+        }}
         rowClassName={(row: ResourceRecord) => {
           const classes: string[] = []
           if (!onClickRow) classes.push("martis-row-no-click")

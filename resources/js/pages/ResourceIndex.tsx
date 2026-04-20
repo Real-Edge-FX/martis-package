@@ -483,7 +483,10 @@ export function ResourceIndexPage() {
         )}
       </div>
 
-      {/* Table */}
+      {/* Table + pagination share a single card surface so the footer
+          reads as the last row of the table, matching the design-system
+          spec instead of floating below. */}
+      <div className="martis-index-surface">
       <MartisLoader loading={indexQuery.isFetching && !indexQuery.isPlaceholderData} overlay>
       <Table
         columns={indexColumns}
@@ -550,6 +553,7 @@ export function ResourceIndexPage() {
           itemLabel={schema.label.toLowerCase()}
         />
       )}
+      </div>
 
       {/* Create override overlay — full standardized props */}
       {showCreateOverride && schema.overrides?.create && (() => {
