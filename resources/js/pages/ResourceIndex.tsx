@@ -494,7 +494,7 @@ export function ResourceIndexPage() {
           reads as the last row of the table, matching the design-system
           spec instead of floating below. */}
       <div className="martis-index-surface">
-      <MartisLoader loading={indexQuery.isFetching && !indexQuery.isPlaceholderData} overlay>
+      <MartisLoader loading={indexQuery.isFetching} overlay>
       <Table
         columns={indexColumns}
         rows={rows}
