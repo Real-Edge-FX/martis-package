@@ -147,8 +147,29 @@ export function Layout() {
     return <CustomShell />
   }
 
-  // Resolve layout preset from config
+  // Resolve layout preset from config. `custom` means the app promises
+  // to register its own shell via `layout:shell` — we deliberately
+  // don't silently fall back to the bundled sidebar layout so the
+  // missing registration surfaces loudly instead of being masked.
   const preset = config.layout?.preset ?? "sidebar"
+  if (preset === "custom") {
+    return (
+      <div className="martis-bg flex min-h-screen items-center justify-center p-6">
+        <div className="max-w-md rounded-lg border p-4 text-sm" style={{
+          borderColor: "var(--martis-danger)",
+          color: "var(--martis-text)",
+          backgroundColor: "var(--martis-danger-bg)",
+        }}>
+          <strong>Layout preset is <code>custom</code></strong> but no component
+          is registered under <code>layout:shell</code>. Register one via{" "}
+          <code>componentRegistry.register('layout:shell', MyShell)</code> in{" "}
+          <code>resources/js/martis/boot.ts</code>, or set{" "}
+          <code>config('martis.layout.components.shell')</code> to the key of
+          an existing component.
+        </div>
+      </div>
+    )
+  }
   const LayoutComponent = presets[preset] ?? SidebarLayout
 
   return (

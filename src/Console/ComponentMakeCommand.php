@@ -6,51 +6,70 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-#[AsCommand(name: 'martis:override')]
+#[AsCommand(name: 'martis:component', aliases: ['martis:override'])]
 class ComponentMakeCommand extends Command
 {
-    protected $signature = 'martis:override
-        {name : The override component name (e.g. StatusBadge)}
-        {--type=generic : Override type: field, layout, footer, generic}';
+    protected $signature = 'martis:component
+        {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout.}
+        {--type=generic : Component type: field | layout | sidebar | topbar | footer | complete-layout | generic}
+        {--force : Overwrite the file if it already exists}';
 
-    protected $description = 'Generate a React override component (TSX only) to customise existing Martis visuals';
+    protected $aliases = ['martis:override'];
 
-    /**
-     * Handle.
-     */
+    protected $description = 'Scaffold a React override component (TSX) and auto-register it in resources/js/martis/boot.ts';
+
+    /** @var array<string, array{key: string, stub: string}> */
+    private const SHELL_PIECES = [
+        'shell'   => ['key' => 'layout:shell',   'stub' => 'component-shell.tsx.stub'],
+        'sidebar' => ['key' => 'layout:sidebar', 'stub' => 'component-sidebar.tsx.stub'],
+        'topbar'  => ['key' => 'layout:topbar',  'stub' => 'component-topbar.tsx.stub'],
+        'footer'  => ['key' => 'layout:footer',  'stub' => 'component-footer.tsx.stub'],
+    ];
+
     public function handle(): int
     {
-        /** @var string $name */
+        /** @var string|null $name */
         $name = $this->argument('name');
         /** @var string $type */
         $type = $this->option('type');
 
-        $allowedTypes = ['field', 'layout', 'footer', 'generic'];
+        $allowedTypes = ['field', 'layout', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic'];
         if (! in_array($type, $allowedTypes, true)) {
             $this->error("Invalid type '{$type}'. Allowed: ".implode(', ', $allowedTypes));
 
             return self::FAILURE;
         }
 
+        if ($type === 'complete-layout') {
+            return $this->generateCompleteLayout();
+        }
+
+        if ($name === null || $name === '') {
+            $this->error("Missing name. Usage: php artisan martis:component <Name> --type={$type}");
+
+            return self::FAILURE;
+        }
+
+        return $this->generateSingle($type, $name);
+    }
+
+    protected function generateSingle(string $type, string $name): int
+    {
         $className = Str::studly($name);
         $kebabName = Str::kebab($name);
 
-        $extensionsPath = config('martis.extensions_path', 'martis-extensions');
-        $baseDir = resource_path($extensionsPath.'/martis');
-        $componentDir = $baseDir.'/components';
+        [$baseDir, $componentDir, $bootPath, $extensionsPath] = $this->resolvePaths();
         $componentPath = $componentDir.'/'.$className.'.tsx';
-        $bootPath = $baseDir.'/boot.ts';
 
         if (! is_dir($componentDir)) {
             mkdir($componentDir, 0755, true);
         }
-
         if (! is_dir(dirname($bootPath))) {
             mkdir(dirname($bootPath), 0755, true);
         }
 
-        if (file_exists($componentPath)) {
-            $this->error("Component already exists: {$componentPath}");
+        if (file_exists($componentPath) && ! $this->option('force')) {
+            $this->error("Component already exists: {$componentPath}  (re-run with --force to overwrite)");
 
             return self::FAILURE;
         }
@@ -64,12 +83,7 @@ class ComponentMakeCommand extends Command
 
         file_put_contents($componentPath, $content);
 
-        $registryKey = match ($type) {
-            'footer' => 'layout:footer',
-            'layout' => 'layout:shell',
-            default => $kebabName,
-        };
-
+        $registryKey = $this->resolveRegistryKey($type, $kebabName);
         $this->updateBootFile($bootPath, $className, $registryKey, $type);
 
         $this->info("Component created: {$componentPath}");
@@ -88,8 +102,16 @@ class ComponentMakeCommand extends Command
         } else {
             $this->info("Registered as '{$registryKey}' in {$bootPath}");
             $this->newLine();
-            $this->line('Usage in PHP (field type):');
-            $this->line("  Text::make('field_name')->component('{$kebabName}')");
+
+            if (in_array($type, ['sidebar', 'topbar', 'footer', 'layout'], true)) {
+                $configHint = $type === 'layout' ? 'shell' : $type;
+                $this->line('This component plugs into the shell — no further wiring needed.');
+                $this->line("Optional: pin it explicitly from PHP by setting");
+                $this->line("  <comment>'layout' => ['components' => ['{$configHint}' => '{$registryKey}']]</comment>");
+            } else {
+                $this->line('Usage in PHP (field type):');
+                $this->line("  Text::make('field_name')->component('{$kebabName}')");
+            }
         }
 
         $this->newLine();
@@ -97,6 +119,97 @@ class ComponentMakeCommand extends Command
         $this->line("  <comment>MARTIS_USER_DIR=".resource_path($extensionsPath)." npm run build</comment>");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Scaffold all four shell pieces at once (shell + sidebar + topbar + footer).
+     * Each lands under its default registry key so the pieces work out of
+     * the box. Names default to CustomShell / CustomSidebar / …; pass the
+     * `name` argument to use a project-specific prefix (e.g. "Acme"
+     * generates AcmeShell, AcmeSidebar, AcmeTopbar, AcmeFooter).
+     */
+    protected function generateCompleteLayout(): int
+    {
+        /** @var string|null $prefixArg */
+        $prefixArg = $this->argument('name');
+        $prefix = $prefixArg !== null && $prefixArg !== '' ? Str::studly($prefixArg) : 'Custom';
+
+        [$baseDir, $componentDir, $bootPath, $extensionsPath] = $this->resolvePaths();
+
+        if (! is_dir($componentDir)) {
+            mkdir($componentDir, 0755, true);
+        }
+        if (! is_dir(dirname($bootPath))) {
+            mkdir(dirname($bootPath), 0755, true);
+        }
+
+        $created = [];
+        foreach (self::SHELL_PIECES as $piece => $meta) {
+            $className = $prefix.Str::studly($piece);
+            $kebabName = Str::kebab($className);
+            $componentPath = $componentDir.'/'.$className.'.tsx';
+
+            if (file_exists($componentPath) && ! $this->option('force')) {
+                $this->warn("Skipped {$componentPath} (already exists, use --force to overwrite)");
+
+                continue;
+            }
+
+            $stub = $this->getStub($piece);
+            $content = str_replace(
+                ['{{ class }}', '{{ kebab }}'],
+                [$className, $kebabName],
+                $stub,
+            );
+            file_put_contents($componentPath, $content);
+            $this->updateBootFile($bootPath, $className, $meta['key'], $piece);
+
+            $created[] = [$className, $meta['key'], $componentPath];
+        }
+
+        if ($created === []) {
+            $this->warn('No files were created.');
+
+            return self::SUCCESS;
+        }
+
+        $this->newLine();
+        $this->info('Complete layout scaffolded:');
+        foreach ($created as [$class, $key, $path]) {
+            $this->line("  <fg=green>✓</> {$class}  →  '{$key}'  ({$path})");
+        }
+
+        $this->newLine();
+        $this->line('Edit the generated files to match your brand, then rebuild:');
+        $this->line("  <comment>MARTIS_USER_DIR=".resource_path($extensionsPath)." npm run build</comment>");
+        $this->newLine();
+        $this->line('No config change required — the pieces are registered under the default');
+        $this->line("`layout:*` keys. Set <comment>config('martis.layout.preset') = 'custom'</comment> if you");
+        $this->line('want the shell to skip the bundled fallback and require your override.');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @return array{0:string, 1:string, 2:string, 3:string}
+     */
+    protected function resolvePaths(): array
+    {
+        $extensionsPath = config('martis.extensions_path', 'martis-extensions');
+        $baseDir = resource_path($extensionsPath.'/martis');
+
+        return [$baseDir, $baseDir.'/components', $baseDir.'/boot.ts', $extensionsPath];
+    }
+
+    protected function resolveRegistryKey(string $type, string $kebabName): string
+    {
+        return match ($type) {
+            'footer' => 'layout:footer',
+            'layout', 'shell' => 'layout:shell',
+            'sidebar' => 'layout:sidebar',
+            'topbar' => 'layout:topbar',
+            default => $kebabName,
+        };
     }
 
     /**

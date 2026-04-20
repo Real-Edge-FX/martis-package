@@ -1,0 +1,92 @@
+/*
+ * Custom Martis sidebar.
+ *
+ * Registered automatically under `layout:sidebar` in boot.ts.
+ *
+ * WHAT MARTIS PASSES AS PROPS
+ * ---------------------------
+ * • `mobileOpen?`  — `boolean | undefined`. Undefined on desktop. On
+ *                    mobile it flips to `true` when the user taps the
+ *                    hamburger, `false` when closed.
+ * • `onMobileClose` — call inside nav-link onClick handlers so the
+ *                    drawer auto-closes when the user navigates.
+ * • `collapsed`    — `true` when the desktop user has collapsed the
+ *                    sidebar to a 64px rail via the topbar toggle.
+ *
+ * WHERE THE NAVIGATION TREE COMES FROM
+ * ------------------------------------
+ * `/api/navigation` returns groups of resources. The grouping, per-item
+ * authorization, icons and labels are built server-side from the
+ * resources you defined under `app/Martis/Resources/`. Customise via:
+ *   • Resource::label() / group() / icon()
+ *   • Martis::mainMenu(fn($request, $menu) => ...)  in a service provider
+ */
+
+import { NavLink } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@martis/martis/lib/api'
+import type { NavigationGroup } from '@martis/martis/types'
+
+interface {{ class }}Props {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+  collapsed?: boolean
+}
+
+export function {{ class }}({ mobileOpen, onMobileClose, collapsed }: {{ class }}Props) {
+  const isMobile = mobileOpen !== undefined
+
+  const { data: groups = [] } = useQuery<NavigationGroup[]>({
+    queryKey: ['navigation'],
+    queryFn: () => api.get('/api/navigation'),
+    staleTime: 60_000,
+  })
+
+  // Keep the `.martis-sb` class + `data-mobile` / `data-collapsed`
+  // attributes if you want Martis's bundled mobile drawer animation and
+  // collapsed-rail styling. Drop them and ship your own CSS if not.
+  return (
+    <aside
+      className="martis-sb"
+      data-mobile={isMobile ? (mobileOpen ? 'open' : 'true') : undefined}
+      data-collapsed={!isMobile && collapsed ? 'true' : 'false'}
+    >
+      <div className="martis-sb-logo">
+        {/* brand / logo */}
+      </div>
+
+      <div className="martis-sb-scroll">
+        {groups.map((group, i) => (
+          <div className="martis-sb-group" key={group.label ?? `group-${i}`}>
+            {group.label && (
+              <div className="martis-sb-group-label"><span>{group.label}</span></div>
+            )}
+            {group.items.map(item => (
+              item.external ? (
+                <a
+                  key={`${group.label ?? ''}-${item.label}-${item.url}`}
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="martis-sb-item"
+                  onClick={isMobile ? onMobileClose : undefined}
+                >
+                  <span className="martis-sb-item-label">{item.label}</span>
+                </a>
+              ) : (
+                <NavLink
+                  key={item.type === 'resource' ? item.uriKey : `${group.label ?? ''}-${item.label}-${item.url}`}
+                  to={item.url}
+                  className={({ isActive }) => 'martis-sb-item' + (isActive ? ' active' : '')}
+                  onClick={isMobile ? onMobileClose : undefined}
+                >
+                  <span className="martis-sb-item-label">{item.label}</span>
+                </NavLink>
+              )
+            ))}
+          </div>
+        ))}
+      </div>
+    </aside>
+  )
+}

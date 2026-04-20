@@ -384,32 +384,55 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 ## 6. Creating Custom Components (Artisan)
 
-Use the `martis:component` artisan command to scaffold and auto-register a component:
+Use the `martis:component` artisan command to scaffold and auto-register a component (alias: `martis:override`, kept for back-compat).
 
 ```bash
 php artisan martis:component StatusBadge --type=field
-php artisan martis:component DashboardLayout --type=layout
-php artisan martis:component CustomFooter --type=footer
+php artisan martis:component AcmeShell --type=layout
+php artisan martis:component AcmeSidebar --type=sidebar
+php artisan martis:component AcmeTopbar --type=topbar
+php artisan martis:component AcmeFooter --type=footer
 php artisan martis:component InfoPanel --type=generic
+
+# Generate all four shell pieces at once (prefix defaults to "Custom"):
+php artisan martis:component --type=complete-layout
+# → CustomShell.tsx, CustomSidebar.tsx, CustomTopbar.tsx, CustomFooter.tsx
+
+# Or pass a prefix to namespace them:
+php artisan martis:component Acme --type=complete-layout
+# → AcmeShell.tsx, AcmeSidebar.tsx, AcmeTopbar.tsx, AcmeFooter.tsx
 ```
 
-This command:
-1. Creates the React component file at `resources/js/martis/components/`
-2. Generates or updates `resources/js/martis/boot.ts` with the import and registration
-3. For field types, registers both display and input components
+The command:
+1. Creates the React component file(s) at `resources/js/martis/components/`.
+2. Generates or updates `resources/js/martis/boot.ts` with the import and registration.
+3. For `field`, registers both display and input components.
+4. For shell types, uses stubs that document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
 
-**Component types:**
+**Arguments:**
 
-| Type | Description | Registry Key |
-|------|-------------|-------------|
-| `field` | Display + Input pair | `{kebab-name}` + `{kebab-name}-input` |
-| `layout` | Page layout shell (replaces the entire shell) | `layout:shell` |
-| `sidebar` | Left navigation column | `layout:sidebar` |
-| `topbar` | Top navigation bar | `layout:topbar` |
-| `footer` | Page footer (rendered at the bottom of content scroll) | `layout:footer` |
-| `generic` | General purpose | `{kebab-name}` |
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `name` | Required for all types except `complete-layout` | PHP `StudlyCase` name. Becomes the React export name and — kebab-cased — the registry key for field/generic types. For `complete-layout` it becomes the prefix (e.g. `Acme` → `AcmeShell`, `AcmeSidebar`, …). Optional for `complete-layout`; defaults to `Custom`. |
+| `--type` | Optional, defaults to `generic` | See table below. |
+| `--force` | Optional | Overwrite an existing file. Without it, the command aborts when the destination already exists. |
 
-After creating a component, rebuild assets with `make build`.
+**Component types (--type):**
+
+| Type | What it generates | Registry key |
+|------|-------------------|--------------|
+| `field` | Display + Input pair for overriding a field visual | `{kebab-name}` + `{kebab-name}-input` |
+| `layout` | Entire shell replacement (≡ `shell`) | `layout:shell` |
+| `sidebar` | Left nav column only | `layout:sidebar` |
+| `topbar` | Top bar only | `layout:topbar` |
+| `footer` | Page footer only | `layout:footer` |
+| `complete-layout` | All four shell pieces at once (shell + sidebar + topbar + footer), each under its default key | `layout:shell`, `layout:sidebar`, `layout:topbar`, `layout:footer` |
+| `generic` | Free-form component | `{kebab-name}` |
+
+After creating a component, rebuild assets:
+```bash
+MARTIS_USER_DIR=$(pwd)/resources/martis-extensions npm run build
+```
 
 ### Shell piece-by-piece overrides
 
