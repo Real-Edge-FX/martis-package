@@ -1168,10 +1168,13 @@ html.dark body {
   background-color: var(--martis-table-header-bg);
   color: var(--martis-table-header-text);
   border-color: var(--martis-border);
-  font-size: 0.75rem;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   font-weight: 600;
+  height: 38px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .p-datatable .p-datatable-tbody > tr {
   background-color: var(--martis-sidebar);
@@ -1190,6 +1193,14 @@ html.dark body {
 .p-datatable .p-datatable-emptymessage td {
   background-color: var(--martis-sidebar);
   border-color: var(--martis-border);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--martis-text-muted);
+  font-size: 0.875rem;
+}
+.p-datatable .p-datatable-emptymessage:hover td {
+  /* Empty-state rows shouldn't react to hover — no data to interact with. */
+  background-color: var(--martis-sidebar) !important;
 }
 .p-datatable .p-sortable-column:hover {
   background-color: var(--martis-row-hover) !important;
@@ -3427,7 +3438,9 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   outline: none;
   box-shadow: none;
 }
-/* Unified focus: border accent, NO box-shadow (clean single border) */
+/* Unified focus: accent border + 3px soft ring. The ring uses
+   `--martis-focus-ring` (a translucent accent), matching the design
+   system spec and giving accessible visual feedback without an outline. */
 .martis-input:focus,
 .martis-input:focus-within,
 .martis-resource-search:focus,
@@ -3446,7 +3459,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-chips:focus-within,
 .p-chips .p-inputtext:focus {
   border-color: var(--martis-accent) !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring) !important;
   outline: none !important;
 }
 
@@ -3480,7 +3493,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 }
 .p-inputtext.p-invalid:not(:disabled):focus,
 .p-inputtextarea.p-invalid:not(:disabled):focus {
-  box-shadow: 0 0 0 0.125rem var(--martis-danger-bg) !important;
+  border-color: var(--martis-danger) !important;
+  box-shadow: 0 0 0 3px var(--martis-danger-bg) !important;
 }
 
 /* Non-clickable rows — cursor reverts to default when row-click is disabled.
@@ -3580,6 +3594,63 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border-color: var(--martis-accent) !important;
 }
 
+/* ── Badges ─────────────────────────────────────────────────────
+   Shared chip class for status pills, tag markers and inline
+   meta. The `BadgeField` already ships inline styles for each
+   semantic type (info/success/warning/danger); these classes
+   provide a token-based alternative so consumers can drop
+   `<span class="martis-badge martis-badge-neutral">` anywhere
+   without reaching for colours by hand. */
+.martis-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  height: 20px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-semibold, 600);
+  line-height: 1;
+  border: 1px solid transparent;
+  background: var(--martis-surface-alt, var(--martis-hover));
+  color: var(--martis-text);
+  white-space: nowrap;
+}
+.martis-badge-neutral {
+  background: var(--martis-surface-alt, var(--martis-hover));
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
+}
+.martis-badge-info {
+  background: var(--martis-badge-info-bg);
+  color: var(--martis-badge-info-text);
+  border-color: var(--martis-badge-info-border);
+}
+.martis-badge-success {
+  background: var(--martis-badge-success-bg);
+  color: var(--martis-badge-success-text);
+  border-color: var(--martis-badge-success-border);
+}
+.martis-badge-warning {
+  background: var(--martis-badge-warning-bg);
+  color: var(--martis-badge-warning-text);
+  border-color: var(--martis-badge-warning-border);
+}
+.martis-badge-danger {
+  background: var(--martis-badge-danger-bg);
+  color: var(--martis-badge-danger-text);
+  border-color: var(--martis-badge-danger-border);
+}
+/* Optional leading dot, used to mark "live" / connection states. */
+.martis-badge-dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
 
 
 /* ⭐ Standardized button classes used across dialogs, drawers, modals
@@ -3707,6 +3778,80 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 }
 .martis-btn-success:hover:not(:disabled) {
   filter: brightness(0.93);
+}
+
+/* Ghost: transparent chip used inline in toolbars, row-actions and
+   dialogs where a full chip would feel heavy. Inherits base button
+   sizing so it mixes freely with other variants. */
+.martis-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--martis-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+.martis-btn-ghost:hover:not(:disabled) {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-btn-ghost:active:not(:disabled) {
+  background-color: var(--martis-surface-alt, var(--martis-hover));
+}
+.martis-btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.martis-btn-ghost:focus-visible {
+  outline: 2px solid var(--martis-accent);
+  outline-offset: 2px;
+}
+
+/* Icon-only chip — square, no text. Pairs with any variant via
+   composition (e.g. `class="martis-btn-ghost martis-btn-icon"`).
+   Default size matches `.martis-btn-md` (34px). */
+.martis-btn-icon {
+  width: 2.125rem;
+  height: 2.125rem;
+  padding: 0;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+.martis-btn-icon.martis-btn-sm {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+.martis-btn-icon.martis-btn-lg {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+/* Size tokens — apply alongside any variant to swap heights/padding
+   without rewriting colours. Default (no size class) stays at 36px
+   to keep existing call sites unchanged. */
+.martis-btn-sm {
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  border-radius: 0.3125rem;
+}
+.martis-btn-lg {
+  padding: 0.625rem 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  border-radius: 0.4375rem;
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -4065,6 +4210,32 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-avatar-circle { border-radius: 999px; }
 .martis-avatar-rounded { border-radius: 0.5rem; }
 .martis-avatar-squared { border-radius: 0.125rem; }
+
+/* Size tokens — apply alongside the shape class. Default (no size) stays
+   at the legacy 36px so existing call sites are unaffected. */
+.martis-avatar-xs { width: 1.25rem; height: 1.25rem; font-size: 0.5625rem; } /* 20px */
+.martis-avatar-sm { width: 1.5rem;  height: 1.5rem;  font-size: 0.625rem;  } /* 24px */
+.martis-avatar-md { width: 1.75rem; height: 1.75rem; font-size: 0.6875rem; } /* 28px — row cells */
+.martis-avatar-lg { width: 2.5rem;  height: 2.5rem;  font-size: 0.8125rem; } /* 40px */
+.martis-avatar-xl { width: 3.5rem;  height: 3.5rem;  font-size: 1rem;       } /* 56px — detail / profile */
+
+/* Stacked avatars — overlap siblings with a subtle ring so the pile
+   reads clearly against any background. Used for team / assignee
+   summaries in index cells and detail headers. */
+.martis-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+.martis-avatar-stack > .martis-avatar {
+  box-shadow: 0 0 0 2px var(--martis-card);
+}
+.martis-avatar-stack > .martis-avatar + .martis-avatar {
+  margin-left: -0.5rem;
+}
+.martis-avatar-stack > .martis-avatar-xs + .martis-avatar-xs,
+.martis-avatar-stack > .martis-avatar-sm + .martis-avatar-sm {
+  margin-left: -0.375rem;
+}
 
 .martis-ui-avatar {
   /* colour + shape set inline by the component */
