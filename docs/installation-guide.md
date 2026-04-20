@@ -29,9 +29,11 @@ This command performs the following steps automatically:
 1. **Creates the directory structure** — `app/Martis/` with subdirectories for Resources, Fields, Actions, Filters, Lenses, Dashboards, and Metrics.
 2. **Publishes the config file** — `config/martis.php` with all customizable settings.
 3. **Publishes frontend assets** — precompiled React app to `public/vendor/martis/`.
-4. **Publishes database migrations** — `create_action_events_table` migration to `database/migrations/`.
+4. **Publishes database migrations** — `create_martis_action_events_table` and `create_martis_user_preferences_table` migrations to `database/migrations/`.
 5. **Publishes translation files** — `en`, `pt_BR`, `pt_PT` to `lang/vendor/martis/`.
-6. **Runs database migrations** — creates the `action_events` table automatically.
+6. **Runs database migrations** — creates the `martis_action_events` and `martis_user_preferences` tables automatically.
+
+> **Upgrading from pre-0.7.0**: If you already have an `action_events` table, the new migration detects it and performs an in-place `RENAME` to `martis_action_events`. No data loss. The `martis_` prefix keeps every package-owned table in one namespace so it never collides with an app's own tables.
 
 After installation, create an admin user:
 
@@ -50,7 +52,7 @@ php artisan martis:user
 
 ### Optional Profile Support
 
-By default, `martis:install` always installs the core Martis package and its `action_events` audit log migration. Profile support is optional because some applications already have their own avatar column strategy.
+By default, `martis:install` always installs the core Martis package, its `martis_action_events` audit log migration, and the `martis_user_preferences` table (theme/accent/density/locale/reduced-motion persistence). Profile support is optional because some applications already have their own avatar column strategy.
 
 To install Martis with its profile migration included:
 
@@ -138,7 +140,7 @@ php artisan vendor:publish --tag=martis-migrations
 php artisan migrate
 ```
 
-This publishes the `create_action_events_table` migration and creates the `action_events` table used by the action audit log.
+This publishes the `create_martis_action_events_table` migration and creates the `martis_action_events` table used by the action audit log. The stub is idempotent — if you already have a legacy `action_events` table, it is renamed in place.
 
 If you also want Martis to provision its optional profile migration manually:
 
@@ -241,6 +243,21 @@ import { MyComponent } from './components/MyComponent'
 componentRegistry.register('my-component', MyComponent)
 ```
 
+### How the Boot File Is Found (Important)
+
+The Martis SPA tries to dynamically import `@user/martis/boot` at startup. `@user` is a Vite alias that resolves to `$MARTIS_USER_DIR` at **build time**, falling back to `martis-package/resources/js/user` when unset.
+
+**Consumer apps using the published (precompiled) assets**: You do **not** need to rebuild the package. The precompiled bundle that `vendor:publish --tag=martis-assets` copies already handles runtime component registration — use `martis:component`, commit the generated `resources/js/martis/boot.ts`, and the next asset publish picks it up. Apps that consume a published npm package (not this repo) follow the same flow.
+
+**Developing custom components against this repo locally (monorepo setup)**: Point `@user` at your app's component folder by running the build with `MARTIS_USER_DIR` set:
+
+```bash
+cd vendor/martis/martis-package   # or wherever the package lives
+MARTIS_USER_DIR=/absolute/path/to/your-app/resources/js npm run build
+```
+
+This only matters for local development of the Martis package itself. End users of a released Martis version never touch the package build — they consume the precompiled assets copied by `vendor:publish --tag=martis-assets`.
+
 ## Directory Structure After Installation
 
 ```
@@ -258,7 +275,8 @@ your-laravel-app/
 │   └── martis.php                 # Published configuration
 ├── database/
 │   └── migrations/
-│       └── *_create_action_events_table.php  # Action audit log
+│       ├── *_create_martis_action_events_table.php       # Audit log
+│       └── *_create_martis_user_preferences_table.php   # Per-user prefs (D2)
 ├── lang/
 │   └── vendor/
 │       └── martis/                # Published translations

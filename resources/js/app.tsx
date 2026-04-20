@@ -7,6 +7,7 @@ import { PrimeReactProvider } from 'primereact/api'
 import { queryClient } from '@/lib/query'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { PreferencesProvider } from '@/contexts/PreferencesContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
@@ -43,16 +44,18 @@ function App() {
     <StrictMode>
       <ErrorBoundary>
         <PrimeReactProvider>
-          <ThemeProvider>
-            <QueryClientProvider client={queryClient}>
-              <ToastProvider>
-                <AuthProvider>
-                  <RouterProvider router={router} />
-                  <ToastContainer />
-                </AuthProvider>
-              </ToastProvider>
-            </QueryClientProvider>
-          </ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <PreferencesProvider>
+                <ThemeProvider>
+                  <ToastProvider>
+                    <RouterProvider router={router} />
+                    <ToastContainer />
+                  </ToastProvider>
+                </ThemeProvider>
+              </PreferencesProvider>
+            </AuthProvider>
+          </QueryClientProvider>
         </PrimeReactProvider>
       </ErrorBoundary>
     </StrictMode>

@@ -79,16 +79,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | API Throttle
+    | Throttling
     |--------------------------------------------------------------------------
-    | Configure rate limiting for the Martis API routes.
-    | Set enabled to false to disable throttling entirely.
-    | max_attempts = maximum requests per decay_minutes window.
+    | Rate limits for Martis routes. Two distinct buckets:
+    |   - `api` — protects general authenticated API routes (resource CRUD,
+    |     dashboards, metrics). Default 120 req/min is generous because the
+    |     SPA is chatty on navigation.
+    |   - `login` — brute-force protection on the login form, 2FA challenge,
+    |     and API login endpoint. Tight by design (20 req/min) but loose
+    |     enough that a typo-prone human doesn't get locked out.
+    | Set `api.enabled = false` to disable throttling on API routes entirely.
     */
     'throttle' => [
         'enabled' => env('MARTIS_THROTTLE_ENABLED', true),
         'max_attempts' => (int) env('MARTIS_THROTTLE_MAX', 120),
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
+        'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
+        'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
     ],
 
     /*
@@ -103,6 +110,68 @@ return [
         'default' => env('MARTIS_THEME', 'dark'),
         'allowToggle' => true,
         'name' => env('MARTIS_THEME_NAME', null),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Preferences (Task 07.1 ⭐ D2)
+    |--------------------------------------------------------------------------
+    | Runtime UI preferences (theme, accent, density, locale, reduced-motion)
+    | persisted per-user in `martis_user_preferences`. Disable with
+    | 'enabled' => false to fall back to stateless defaults everywhere.
+    |
+    | Presets: named bundles applied via ?preset=<name> in the URL. Useful
+    | for role-based shareable links (exec dashboards, ops compact mode).
+    */
+    'preferences' => [
+        'enabled' => env('MARTIS_PREFERENCES_ENABLED', true),
+
+        'defaults' => [
+            'theme' => 'dark',
+            'accent' => 'martis',
+            'brandColor' => null,
+            'density' => 'comfortable',
+            'locale' => env('MARTIS_DEFAULT_LOCALE', 'en'),
+            'reducedMotion' => false,
+        ],
+
+        // Locales the UI exposes in the language picker. Null = use the
+        // three bundled by the package (en, pt_PT, pt_BR). Add any code
+        // here once you ship translations for it under
+        // resources/lang/{locale}/ (or lang/vendor/martis/{locale}/).
+        'locales' => ['en', 'pt_PT', 'pt_BR'],
+
+        // Human-readable labels rendered in the language dropdown. Any
+        // locale missing here falls back to its code (e.g. "fr_CA").
+        // The code itself is what gets persisted / sent to the API.
+        'locale_labels' => [
+            'en' => 'English',
+            'pt_PT' => 'Português (PT)',
+            'pt_BR' => 'Português (BR)',
+        ],
+
+        // Allow users to set an arbitrary brand hex (⭐ D1). Off by default —
+        // apps opt in via env or config override when multi-tenant branding
+        // is a real requirement.
+        'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
+
+        // Named presets. Apply via `/resources/...?preset=<name>`.
+        'presets' => [
+            'exec-comfort' => [
+                'accent' => 'violet',
+                'density' => 'comfortable',
+            ],
+            'ops-compact' => [
+                'accent' => 'teal',
+                'density' => 'dense',
+                'reducedMotion' => true,
+            ],
+            'focus-amber' => [
+                'theme' => 'dark',
+                'accent' => 'amber',
+                'density' => 'comfortable',
+            ],
+        ],
     ],
 
     /*

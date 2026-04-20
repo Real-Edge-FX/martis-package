@@ -15,10 +15,32 @@
     @else
         <link rel="icon" type="image/x-icon" href="/{{ $basePath }}/favicon.ico">
     @endif
+    @php
+        // Task 07.1 ⭐ D2 — resolve user preferences server-side and inject
+        // them BEFORE first paint so theme/accent/density apply without a flash.
+        $prefsEnabled = (bool) config('martis.preferences.enabled', true);
+        $prefsPayload = null;
+        if ($prefsEnabled) {
+            try {
+                /** @var \Martis\Preferences\PreferencesResolver $resolver */
+                $resolver = app(\Martis\Preferences\PreferencesResolver::class);
+                $prefsPayload = $resolver->resolve(request());
+            } catch (\Throwable) {
+                $prefsPayload = null;
+            }
+        }
+        $prefsConfig = [
+            'enabled' => $prefsEnabled,
+            'allowBrandColor' => (bool) config('martis.preferences.allowBrandColor', false),
+            'localeLabels' => (array) config('martis.preferences.locale_labels', []),
+            'initial' => $prefsPayload,
+        ];
+    @endphp
     <script>
         window.MartisConfig = {
             basePath: "/{{ $basePath }}",
-            locale: "{{ config('martis.locale', 'en') }}",
+            locale: "{{ $prefsPayload['locale'] ?? config('martis.locale', config('app.locale', 'en')) }}",
+            preferences: {!! json_encode($prefsConfig) !!},
             brand: "{{ config('martis.brand.name', 'Martis') }}",
             logo: {!! json_encode(config('martis.brand.logo')) !!},
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},
@@ -47,11 +69,34 @@
                 ],
             ]) !!}
         };
-        // Apply saved theme before first paint to prevent flash
+        // Apply preferences BEFORE first paint to prevent any flash.
+        // Priority: server-injected payload > localStorage cache > defaults.
         (function() {
-            var t = localStorage.getItem('martis-theme') || window.MartisConfig.theme.default || 'dark';
-            if (t === 'dark') document.documentElement.classList.add('dark');
-            else document.documentElement.classList.remove('dark');
+            var root = document.documentElement;
+            var prefs = (window.MartisConfig.preferences && window.MartisConfig.preferences.initial) || {};
+            var cached = {};
+            try {
+                var raw = localStorage.getItem('martis-preferences');
+                if (raw) cached = JSON.parse(raw) || {};
+            } catch (e) {}
+
+            var theme = prefs.theme || cached.theme || window.MartisConfig.theme.default || 'dark';
+            var accent = prefs.accent || cached.accent || 'martis';
+            var density = prefs.density || cached.density || 'comfortable';
+            var reducedMotion = prefs.reducedMotion || cached.reducedMotion || false;
+
+            // `theme = system` honours the OS preference at paint time.
+            if (theme === 'system') {
+                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                    ? 'light' : 'dark';
+            }
+
+            if (theme === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+            root.setAttribute('data-theme', theme);
+            root.setAttribute('data-accent', accent);
+            root.setAttribute('data-density', density);
+            if (reducedMotion) root.setAttribute('data-reduced-motion', 'true');
+            else root.removeAttribute('data-reduced-motion');
         })();
     </script>
     @php

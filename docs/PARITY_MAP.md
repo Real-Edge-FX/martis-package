@@ -279,7 +279,7 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | Closure Actions | Action::using() | Action::using(name, fn) | DONE | — |
 | Queued Actions | ShouldQueue | ShouldQueue trait | DONE | — |
 | Queue Customization | connection/queue | Property-based config | DONE | — |
-| Action Log | action_events table | DB logging + withoutActionEvents | DONE | — |
+| Action Log | action_events table | martis_action_events + withoutActionEvents | DONE | — |
 | markAsFinished | Queued status | markAsFinished($model) | DONE | — |
 | markAsFailed | Queued error | markAsFailed($model, $e) | DONE | — |
 | Confirm Text | confirmText() | confirmText() | DONE | — |

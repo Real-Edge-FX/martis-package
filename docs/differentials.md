@@ -793,6 +793,20 @@ Customizable loading indicator:
 ],
 ```
 
+### User Preferences (Task 07.1)
+
+> Nova 5 does not persist per-user theme/accent/density/locale.
+
+Martis ships a full preferences system backed by `martis_user_preferences` (one row per user). Preferences survive across devices and sessions.
+
+**⭐ D1 — Arbitrary brand colour per tenant.** Optional hex input (`#RGB`/`#RRGGBB`/`#RRGGBBAA`) overrides the preset accent. Off by default (`allowBrandColor = false`) — flip on for multi-tenant apps where each tenant has its own colour.
+
+**⭐ D2 — Persisted preferences + shareable URL presets.** Named presets (`?preset=exec-comfort`) compose over the user row so shared links don't overwrite recipient defaults. Resolution chain: URL preset > user row > config defaults.
+
+**⭐ D3 — Density per surface + reduced-motion enforced.** `[data-density="dense"]` tokens cut row/button/input heights. `[data-reduced-motion="true"]` clamps every `--martis-dur-*` to `1ms` without breaking focus-state transitions.
+
+The preferences panel is a compact topbar overlay — theme / accent / density / language / accessibility. See [preferences.md](preferences.md) for the resolver, API, and SSR no-flash mechanics.
+
 ### Comprehensive Theme System
 
 > Nova 5 has limited theming. Martis exposes 94 CSS variables across 13 categories.

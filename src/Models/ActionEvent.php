@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Eloquent model for the action_events audit log.
+ * Eloquent model for the martis_action_events audit log.
  *
  * @method static ActionEvent create(array<string, mixed> $attributes = [])
  * @method static \Illuminate\Database\Eloquent\Builder<ActionEvent> where(string $column, mixed $operator = null, mixed $value = null)
@@ -39,7 +39,7 @@ use Illuminate\Support\Carbon;
 class ActionEvent extends Model
 {
     /** @var string */
-    protected $table = 'action_events';
+    protected $table = 'martis_action_events';
 
     /** @var list<string> */
     protected $guarded = [];

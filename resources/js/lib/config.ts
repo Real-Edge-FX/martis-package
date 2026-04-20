@@ -97,6 +97,25 @@ export interface MartisProfileConfig {
   two_factor?: MartisProfileTwoFactorConfig
 }
 
+export interface MartisPreferencesInitialPayload {
+  theme?: 'dark' | 'light' | 'system'
+  accent?: 'martis' | 'blue' | 'teal' | 'violet' | 'amber' | 'custom'
+  brandColor?: string | null
+  density?: 'comfortable' | 'dense'
+  locale?: string
+  reducedMotion?: boolean
+  source?: 'default' | 'user' | 'preset'
+  preset?: string | null
+}
+
+export interface MartisPreferencesConfig {
+  enabled: boolean
+  allowBrandColor: boolean
+  /** Map of locale code → human-readable label (e.g. `en` → "English"). */
+  localeLabels?: Record<string, string>
+  initial: MartisPreferencesInitialPayload | null
+}
+
 export interface MartisConfigShape {
   basePath?: string
   locale?: string
@@ -111,6 +130,7 @@ export interface MartisConfigShape {
   layout?: MartisLayoutConfig
   loader?: MartisLoaderConfig
   profile?: MartisProfileConfig
+  preferences?: MartisPreferencesConfig
 }
 
 declare global {
