@@ -1,0 +1,80 @@
+/*
+ * Custom Martis topbar.
+ *
+ * Registered automatically under `layout:topbar` in boot.ts.
+ *
+ * WHAT MARTIS PASSES AS PROPS
+ * ---------------------------
+ * • `onToggleSidebar`   — `() => void | undefined`. Call this to open
+ *                         the mobile drawer. Undefined on desktop.
+ * • `onToggleCollapse`  — `() => void | undefined`. Desktop only.
+ *                         Flips the sidebar between expanded (240px)
+ *                         and collapsed (64px).
+ * • `sidebarCollapsed`  — current collapsed state, used to pick the
+ *                         chevron direction on the toggle button.
+ *
+ * DATA SOURCES
+ * ------------
+ * • Breadcrumbs — computed client-side from `useLocation()` +
+ *   `/api/navigation`. Wrap <Breadcrumbs /> or reimplement.
+ * • Auth user — `useAuth()` from `@martis/martis/contexts/AuthContext`.
+ *   Logout with `useAuth().logout()`.
+ * • Search — opens `<GlobalSearch onClose={…} />` imperatively.
+ */
+
+import { useAuth } from '@martis/martis/contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
+import { ListIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon } from '@phosphor-icons/react'
+
+interface {{ class }}Props {
+  onToggleSidebar?: () => void
+  onToggleCollapse?: () => void
+  sidebarCollapsed?: boolean
+}
+
+export function {{ class }}({
+  onToggleSidebar,
+  onToggleCollapse,
+  sidebarCollapsed = false,
+}: {{ class }}Props) {
+  const { user, logout } = useAuth()
+  const { t } = useTranslation('navigation')
+
+  return (
+    <header className="martis-tb" data-mobile={onToggleSidebar ? 'true' : undefined}>
+      {onToggleSidebar && (
+        <button
+          type="button"
+          className="martis-tb-menu-btn"
+          onClick={onToggleSidebar}
+          aria-label={t('open_sidebar', 'Menu')}
+          title={t('open_sidebar', 'Menu')}
+        >
+          <ListIcon size={18} />
+        </button>
+      )}
+
+      {onToggleCollapse && (
+        <button
+          type="button"
+          className="martis-tb-collapse-btn"
+          onClick={onToggleCollapse}
+          aria-label={sidebarCollapsed ? t('expand_sidebar') : t('collapse_sidebar')}
+          title={sidebarCollapsed ? t('expand_sidebar') : t('collapse_sidebar')}
+        >
+          {sidebarCollapsed ? <CaretDoubleRightIcon size={16} /> : <CaretDoubleLeftIcon size={16} />}
+        </button>
+      )}
+
+      <nav className="martis-tb-breadcrumbs">
+        {/* TODO: breadcrumbs / search / icon buttons / user menu */}
+      </nav>
+
+      <div className="martis-tb-right">
+        <div className="martis-tb-user">
+          <span className="martis-tb-user-name">{user?.name ?? user?.email}</span>
+        </div>
+      </div>
+    </header>
+  )
+}

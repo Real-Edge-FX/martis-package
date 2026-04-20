@@ -1,8 +1,36 @@
+/*
+ * Custom Martis footer.
+ *
+ * Registered automatically under `layout:footer` in boot.ts.
+ *
+ * PROPS: none. Rendered at the bottom of `.martis-shell-content`, so
+ * short pages pin it to the viewport bottom and long pages let it
+ * scroll into view naturally (margin-top: auto on the last child).
+ *
+ * DATA SOURCES
+ * ------------
+ * • `config.brand`    — app name (from `config('martis.brand.name')`).
+ * • `config.footer`   — `{ enabled: bool, text: string | null }`. When
+ *                        `text` is null, fall back to the translated default.
+ * • `config.version`  — auto-detected from Composer at SSR time.
+ * • `config.docsUrl`  — optional external docs link.
+ */
+
+import { config } from '@martis/martis/lib/config'
+import { useTranslation } from 'react-i18next'
+
 export function {{ class }}() {
+  const { t } = useTranslation('navigation')
+  const brand = config.brand ?? 'Martis'
+
+  if (config.footer?.enabled === false) return null
+
+  const text = config.footer?.text
+    ?? t('footer_default', '© {{brand}} · Powered by Martis', { brand })
+
   return (
-    <footer className="flex items-center justify-center border-t px-6 py-3 martis-border"
-      style={{ backgroundColor: 'var(--martis-sidebar-bg)', color: 'var(--martis-text-muted)', fontSize: '0.75rem' }}>
-      <span>Custom Footer</span>
+    <footer className="martis-shell-pagefooter">
+      <span>{text}</span>
     </footer>
   )
 }

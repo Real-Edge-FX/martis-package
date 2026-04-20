@@ -1,0 +1,76 @@
+/*
+ * Custom Martis shell.
+ *
+ * Registered automatically under `layout:shell` in boot.ts. When this
+ * key is resolved, Martis skips the bundled shell entirely — you are
+ * responsible for composing the sidebar, topbar, content and footer.
+ *
+ * PROPS: none. Use hooks to get everything you need:
+ *   • `useAuth()`       — authenticated user + logout().
+ *   • `useIsMobile()`   — viewport ≤ 768px (breakpoint).
+ *   • `useState`        — local collapse state; persist with localStorage
+ *                          if you want it to survive reloads (Martis uses
+ *                          the key `martis-sidebar-collapsed`).
+ *
+ * THE DEFAULT CSS GRID
+ * --------------------
+ * If you keep the `.martis-shell` class + the `data-*` attributes below,
+ * Martis's bundled CSS handles the mobile drawer animation, collapse
+ * rail, content frame, and backdrop. Drop them all and ship your own
+ * layout CSS for full control.
+ */
+
+import { Outlet } from 'react-router-dom'
+import { useState } from 'react'
+import { useIsMobile } from '@martis/martis/hooks/useIsMobile'
+import { Sidebar } from '@martis/martis/components/Sidebar'
+import { Topbar } from '@martis/martis/components/Topbar'
+import { Footer } from '@martis/martis/components/Footer'
+
+export function {{ class }}() {
+  const isMobile = useIsMobile()
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(
+    localStorage.getItem('martis-sidebar-collapsed') === 'true',
+  )
+
+  return (
+    <div
+      className="martis-shell martis-bg"
+      data-mobile={isMobile ? 'true' : undefined}
+      data-sidebar-collapsed={!isMobile && collapsed ? 'true' : undefined}
+    >
+      <Sidebar
+        mobileOpen={isMobile ? mobileOpen : undefined}
+        onMobileClose={() => setMobileOpen(false)}
+        collapsed={!isMobile && collapsed}
+      />
+
+      <Topbar
+        onToggleSidebar={isMobile ? () => setMobileOpen(v => !v) : undefined}
+        onToggleCollapse={!isMobile ? () => {
+          const next = !collapsed
+          setCollapsed(next)
+          localStorage.setItem('martis-sidebar-collapsed', String(next))
+        } : undefined}
+        sidebarCollapsed={collapsed}
+      />
+
+      <main className="martis-shell-content">
+        <div className="martis-page">
+          <Outlet />
+        </div>
+        <Footer />
+      </main>
+
+      {isMobile && (
+        <div
+          className="martis-shell-backdrop"
+          data-open={mobileOpen ? 'true' : undefined}
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+    </div>
+  )
+}

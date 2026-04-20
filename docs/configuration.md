@@ -153,14 +153,45 @@ Resolution precedence (highest first):
 ```php
 'layout' => [
     'preset' => env('MARTIS_LAYOUT', 'sidebar'),
+    'components' => [
+        'shell'   => null,
+        'sidebar' => null,
+        'topbar'  => null,
+        'footer'  => null,
+    ],
 ],
 ```
 
-| Key | Type | Default | Options |
-|-----|------|---------|---------|
-| `preset` | `string` | `'sidebar'` | `sidebar`, `topnav`, `minimal`, `custom` |
+### Presets
 
-Layouts can be overridden via the [Layout Registry](overrides.md#layout-overrides).
+| Preset | What it renders | When to pick it |
+|--------|-----------------|-----------------|
+| `sidebar` (default) | Left nav column, topbar, content, in-flow footer. The collapsible shell described in [theming.md](theming.md) and [overrides.md](overrides.md). | Most admin apps. Handles mobile drawer, collapsed rail, accent pill, density tokens. |
+| `topnav` | Horizontal top navigation (no sidebar). Topbar renders the full menu inline. | Apps with ≤ 8 top-level resources or a focus-mode where the left column wastes space. |
+| `minimal` | No chrome — just the route outlet. No topbar, no sidebar, no footer. | Embedded dashboards, marketing screens, print-friendly surfaces. |
+| `custom` | Strict registry-only mode: requires a component registered under `layout:shell` (or referenced by `layout.components.shell`). If none is registered, Martis renders a red error panel instead of silently falling back to `sidebar` — so a missing registration fails loudly during development. | Apps shipping their own shell that want to guarantee the bundled fallback is never used. |
+
+Pick the preset via `MARTIS_LAYOUT` env or `config('martis.layout.preset')`. The string must match one of the four above (typos fall back to `sidebar`).
+
+### Piece-by-piece component overrides
+
+`layout.components` lets the PHP config point each shell piece at a specific registry key. Each value is either `null` (use the bundled default) or a string matching a key registered via `componentRegistry.register(...)` in the frontend.
+
+```php
+'layout' => [
+    'preset' => 'sidebar',
+    'components' => [
+        'shell'   => null,              // whole shell override; skips the grid + mobile drawer
+        'sidebar' => null,              // only the left column
+        'topbar'  => 'tenant-topbar',   // custom topbar registered in boot.ts
+        'footer'  => 'tenant-footer',
+    ],
+],
+```
+
+Resolution order per piece: `config.layout.components.<piece>` → `layout:<piece>` (default registry key) → bundled component.
+
+Full wiring examples, prop contracts, and the rationale for piece-by-piece vs full-shell overrides live in [overrides.md](overrides.md#shell-piece-by-piece-overrides).
 
 ## Localization
 

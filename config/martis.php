@@ -57,6 +57,19 @@ return [
          | them.
          */
         'page_title' => env('MARTIS_PAGE_TITLE'),
+
+        /*
+         | Optional version string printed in the sidebar footer. Useful to
+         | surface the tenant's deployed build (e.g. "v0.7.0-beta", "2025.11.04").
+         | Null hides the version segment.
+         */
+        'version' => env('MARTIS_BRAND_VERSION'),
+
+        /*
+         | Optional docs link rendered on the right-hand side of the sidebar
+         | footer. Can be an external URL or an in-app path. Null hides it.
+         */
+        'docs_url' => env('MARTIS_BRAND_DOCS_URL'),
     ],
 
     /*
@@ -81,6 +94,31 @@ return [
     */
     'layout' => [
         'preset' => env('MARTIS_LAYOUT', 'sidebar'),
+
+        /*
+         | Swap individual shell pieces by registry key, without ejecting
+         | the bundled layout entirely. Each value must be a key that the
+         | consumer registered via `componentRegistry.register(...)` in
+         | `resources/js/martis/boot.ts`. Null keeps the bundled component.
+         |
+         |   'components' => [
+         |       'shell'   => 'my-shell',       // whole shell; skips grid + drawer
+         |       'sidebar' => 'my-sidebar',     // just the left column
+         |       'topbar'  => 'my-topbar',      // just the top bar
+         |       'footer'  => 'my-footer',      // just the page footer
+         |   ],
+         |
+         | The frontend also honours direct keys — `layout:sidebar`,
+         | `layout:topbar`, `layout:footer`, `layout:shell` — so apps that
+         | only touch JS can register under those names and skip this
+         | config entirely.
+         */
+        'components' => [
+            'shell' => null,
+            'sidebar' => null,
+            'topbar' => null,
+            'footer' => null,
+        ],
     ],
 
     /*
