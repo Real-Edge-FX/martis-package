@@ -85,6 +85,17 @@ export function ResourceIndexPage() {
 
   const schema = schemaQuery.data?.data
 
+  // Seed the sort state from the resource's `defaultSort()` on the
+  // first schema load. `sortBy === null` means the user hasn't picked
+  // a column yet, so we adopt the server-side default and render the
+  // caret on the right column. Subsequent header clicks keep working.
+  useEffect(() => {
+    if (!schema?.defaultSort) return
+    if (sortBy !== null) return
+    setSortBy(schema.defaultSort)
+    setSortDir(schema.defaultSortDirection ?? 'asc')
+  }, [schema?.defaultSort, schema?.defaultSortDirection, sortBy])
+
   usePageTitle(schema?.label ?? null)
 
   // Resolve effective per-page (state overrides schema default)

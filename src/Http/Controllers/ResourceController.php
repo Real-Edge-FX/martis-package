@@ -856,6 +856,8 @@ class ResourceController extends MartisController
             'rowClickOpensDetail' => $instance->resolveRowClickOpensDetail($request),
             'actions' => $actions,
             'tableLayout' => $resourceClass::tableLayout()->value,
+            'defaultSort' => $resourceClass::defaultSort(),
+            'defaultSortDirection' => $resourceClass::defaultSortDirection()->value,
         ];
 
         return JsonResponse::make($data)->toResponse();
@@ -1351,8 +1353,16 @@ class ResourceController extends MartisController
             strtolower((string) $request->query('direction', 'asc'))
         ) ?? SortDirection::Asc;
 
+        // Fall back to the resource-level default sort when the request
+        // didn't specify one. Keeps the first paint consistent with the
+        // "load me already sorted by X" contract from `Resource::defaultSort()`.
         if (! is_string($rawSort) || $rawSort === '') {
-            return;
+            $defaultSort = $resourceClass::defaultSort();
+            if ($defaultSort === null || $defaultSort === '') {
+                return;
+            }
+            $rawSort = $defaultSort;
+            $direction = $resourceClass::defaultSortDirection();
         }
 
         $sort = $rawSort;
