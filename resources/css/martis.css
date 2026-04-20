@@ -1205,6 +1205,16 @@ html.dark body {
 .p-datatable .p-sortable-column:hover {
   background-color: var(--martis-row-hover) !important;
 }
+/* Non-sortable columns keep the default cursor — only sortable headers
+   respond to clicks. Table.tsx passes `sortable={false}` to PrimeReact
+   for every column; our custom header button handles sort so only the
+   button itself is pointer-cursor. */
+.p-datatable .p-datatable-thead > tr > th {
+  cursor: default !important;
+}
+.p-datatable .p-datatable-thead > tr > th button {
+  cursor: pointer;
+}
 
 /* ── Checkbox ──────────────────────────────────────────────────── */
 .p-checkbox .p-checkbox-box {
@@ -2074,11 +2084,18 @@ html:not(.dark) .martis-dropzone {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
-/* Increase checkbox size slightly for better visibility */
+/* Checkbox — matches the design-system spec: 16x16, radius-sm, border
+   on input-bg at rest, accent-filled when checked with a white "L"
+   check drawn via borders (so no SVG stroke mismatch across themes). */
+.p-checkbox,
 .p-checkbox .p-checkbox-box {
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 0.25rem;
+  width: 16px;
+  height: 16px;
+}
+.p-checkbox .p-checkbox-box {
+  border-radius: var(--martis-radius-sm, 4px);
+  border: 1px solid var(--martis-border);
+  background: var(--martis-input-bg);
   transition: background-color 0.15s, border-color 0.15s;
 }
 .p-checkbox .p-checkbox-box.p-highlight {
@@ -2314,7 +2331,9 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
 /* Standalone pagination (outside `.martis-index-surface`) keeps its
    legacy clean transition. */
 .martis-pagination-wrapper {
-  padding: 10px 14px 12px;
+  padding: 10px 14px;
+  font-size: var(--martis-text-xs, 0.75rem);
+  color: var(--martis-text-muted);
 }
 .martis-pagination-row {
   display: flex;
@@ -2327,7 +2346,7 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   display: inline-flex;
   align-items: baseline;
   gap: 2px;
-  font-size: var(--martis-text-sm, 0.875rem);
+  font-size: var(--martis-text-xs, 0.75rem);
   color: var(--martis-text-muted);
 }
 .martis-pagination-summary strong {
@@ -2372,9 +2391,11 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   border-color: var(--martis-border);
 }
 .martis-paginator .p-paginator-page.p-highlight {
-  background: var(--martis-accent);
-  color: #fff;
-  border-color: var(--martis-accent);
+  /* Spec: translucent accent fill, accent text — not solid. */
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+  border-color: transparent;
+  font-weight: var(--martis-weight-semibold, 600);
 }
 .martis-paginator .p-paginator-prev:disabled,
 .martis-paginator .p-paginator-next:disabled {
@@ -3298,8 +3319,19 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight {
   background-color: rgba(99, 102, 241, 0.08) !important;
   color: var(--martis-text) !important;
 }
-.martis-row-selected {
-  background-color: rgba(99, 102, 241, 0.1) !important;
+/* Spec: selected row uses the translucent accent background instead
+   of a hardcoded indigo tint so the highlight tracks whichever accent
+   the tenant picked. */
+.martis-row-selected,
+.martis-row-selected > td,
+.p-datatable .p-datatable-tbody > tr.martis-row-selected,
+.p-datatable .p-datatable-tbody > tr.martis-row-selected > td {
+  background-color: var(--martis-accent-bg-light) !important;
+  color: var(--martis-text) !important;
+}
+.p-datatable .p-datatable-tbody > tr.martis-row-selected:hover,
+.p-datatable .p-datatable-tbody > tr.martis-row-selected:hover > td {
+  background-color: var(--martis-accent-bg) !important;
 }
 
 /* ── PrimeReact Tooltip theming ─────────────────────────────────── */

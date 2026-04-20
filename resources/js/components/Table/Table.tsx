@@ -5,7 +5,7 @@ import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
+import { CaretUpIcon, CaretDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
@@ -82,10 +82,12 @@ function columnStyleFrom(meta: ColumnWidth | null | undefined): React.CSSPropert
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
+  // Design-system spec: only the active column shows a direction caret.
+  // Inactive sortable columns stay clean until hovered/activated.
+  if (!active) return null
   return dir === "asc"
-    ? <CaretUpIcon size={14} className="text-indigo-600" />
-    : <CaretDownIcon size={14} className="text-indigo-600" />
+    ? <CaretUpIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
+    : <CaretDownIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
 }
 
 /* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
