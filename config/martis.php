@@ -403,6 +403,16 @@ return [
         'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
 
         'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
+
+        /*
+         | Master switch for the per-type column-width heuristics (Id → 80px,
+         | Email/Url → maxWidth 280px + truncate, Date → 140px, title column →
+         | minWidth 220px, etc.). When `false`, Martis ships the pre-v0.7.0
+         | behaviour — every column auto-sizes and nothing truncates, matching
+         | Nova 5's default. Explicit per-field calls like `->width()` /
+         | `->truncate()` still apply regardless.
+         */
+        'column_defaults' => env('MARTIS_INDEX_COLUMN_DEFAULTS', true),
     ],
 
     /*

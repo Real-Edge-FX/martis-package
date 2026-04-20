@@ -477,6 +477,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_SEARCH_MODE` | `search.mode` | `bar` |
 | `MARTIS_TOAST_POSITION` | `toast.position` | `bottom-right` |
 | `MARTIS_DEFAULT_TRASHED_FILTER` | `index.default_trashed_filter` | `active` |
+| `MARTIS_INDEX_COLUMN_DEFAULTS` | `index.column_defaults` | `true` |
 | `MARTIS_STORAGE_DISK` | `storage.disk` | `public` |
 | `MARTIS_ATTACHMENT_MIMES` | `attachments.allowed_mimes` | (see config) |
 | `MARTIS_ATTACHMENT_MAX_SIZE` | `attachments.max_size` | `10240` |

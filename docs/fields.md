@@ -293,6 +293,8 @@ Type defaults (applied automatically unless overridden):
 | `Date`, `DateTime` | `width 140px` |
 | Column matching `titleAttribute()` | `minWidth 220px` |
 
+All defaults can be disabled globally via `config('martis.index.column_defaults', false)` (env `MARTIS_INDEX_COLUMN_DEFAULTS`). Explicit per-field calls still apply. See [resources.md](resources.md#opting-out-of-the-type-default-heuristics) for details.
+
 ### Serialization
 
 | Method | Signature | Description |

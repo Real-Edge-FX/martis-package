@@ -1078,11 +1078,17 @@ abstract class Field implements FieldContract
      * `->width()` / `->minWidth()` / ... calls with per-type defaults
      * defined in `defaultColumnWidth()`. Explicit user calls always win.
      *
+     * When `config('martis.index.column_defaults')` is false, the per-type
+     * heuristics are skipped entirely — only explicit fluent calls apply.
+     * Apps that want the pre-v0.7.0 (Nova 5-like) behaviour set the flag.
+     *
      * @return array{width: ?string, minWidth: ?string, maxWidth: ?string, truncate: bool}
      */
     public function resolveColumnWidth(): array
     {
-        $defaults = $this->defaultColumnWidth();
+        $defaults = (bool) config('martis.index.column_defaults', true)
+            ? $this->defaultColumnWidth()
+            : [];
 
         return [
             'width' => $this->columnWidth ?? ($defaults['width'] ?? null),

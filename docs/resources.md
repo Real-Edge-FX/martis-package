@@ -311,6 +311,24 @@ Text::make('name');              // auto: minWidth 220px when name = titleAttrib
 Badge::make('state')->width('96px');
 ```
 
+#### Opting out of the type-default heuristics
+
+If you prefer the pre-v0.7.0 (Nova 5-like) behaviour where every column auto-sizes and nothing truncates, flip the global switch:
+
+```php
+// config/martis.php
+'index' => [
+    'column_defaults' => env('MARTIS_INDEX_COLUMN_DEFAULTS', true),
+],
+```
+
+Set to `false` (or `MARTIS_INDEX_COLUMN_DEFAULTS=false` in `.env`) and Martis:
+
+- skips every per-type default (`Id`, `Email`/`Url`, `Boolean`/`Status`/`Badge`, `Date`/`DateTime`);
+- no longer injects the `minWidth: 220px` on the `titleAttribute` column.
+
+Explicit per-field calls (`->width()`, `->minWidth()`, `->maxWidth()`, `->truncate()`) still apply regardless of the flag, so you can opt out globally and then whitelist individual columns as needed.
+
 ### actionsColumnLabel() / actionsMenuLabel() / bulkActionsMenuLabel()
 
 Per-resource overrides for the text shown on the row-actions column and its two menus. Return `null` to fall back to the i18n default (`martis::actions.actions`).
