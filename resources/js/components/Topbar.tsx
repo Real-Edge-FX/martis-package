@@ -5,10 +5,11 @@ import { useTheme } from "@/contexts/ThemeContext"
 import { config } from "@/lib/config"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
+import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlassIcon, CaretDownIcon, SunIcon, MoonIcon, SignOutIcon, UserCircleIcon, ListIcon } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, CaretDownIcon, SignOutIcon, UserCircleIcon, ListIcon } from "@phosphor-icons/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 
 interface TopbarProps {
@@ -17,14 +18,13 @@ interface TopbarProps {
 
 export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
   const { user, logout } = useAuth()
-  const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
   const navigate = useNavigate()
   const menuRef = useRef<Menu>(null)
+  const prefsRef = useRef<PreferencesMenuHandle>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const isMobile = useIsMobile()
 
-  const showThemeToggle = config.userMenu?.showThemeToggle !== false && config.theme?.allowToggle !== false
   const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
 
   // Search mode resolution
@@ -65,35 +65,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
       ),
     },
     { separator: true },
-    ...(showThemeToggle
-      ? [
-          {
-            template: (
-              _item: MenuItem,
-              options: { className: string; onClick: (e: React.SyntheticEvent) => void },
-            ) => (
-              <a
-                className={options.className}
-                onClick={(e) => {
-                  toggle()
-                  options.onClick(e)
-                }}
-                role="menuitem"
-              >
-                {theme === "dark" ? (
-                  <SunIcon size={16} className="p-menuitem-icon" />
-                ) : (
-                  <MoonIcon size={16} className="p-menuitem-icon" />
-                )}
-                <span className="p-menuitem-text">
-                  {theme === "dark" ? t("light_mode") : t("dark_mode")}
-                </span>
-              </a>
-            ),
-          },
-          { separator: true } as MenuItem,
-        ]
-      : []),
     ...(config.userMenu?.customItems?.map((item) =>
       item.separator
         ? ({ separator: true } as MenuItem)
@@ -221,6 +192,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
       )}
 
       <div className="flex items-center gap-3">
+        {/* Preferences (Task 07.1 ⭐ D2) */}
+        <PreferencesMenu ref={prefsRef} />
         {/* User avatar + dropdown menu */}
         <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
         <div
@@ -232,7 +205,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
           onMouseLeave={(e) =>
             (e.currentTarget.style.backgroundColor = "transparent")
           }
-          onClick={(e) => menuRef.current?.toggle(e)}
+          onClick={(e) => {
+            prefsRef.current?.hide()
+            menuRef.current?.toggle(e)
+          }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {

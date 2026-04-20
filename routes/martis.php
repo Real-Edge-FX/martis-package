@@ -15,6 +15,7 @@ use Martis\Http\Controllers\MorphManyController;
 use Martis\Http\Controllers\MorphOneController;
 use Martis\Http\Controllers\MorphToManyController;
 use Martis\Http\Controllers\NavigationController;
+use Martis\Http\Controllers\PreferencesController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
@@ -29,7 +30,7 @@ Route::middleware(config('martis.middleware', ['web']))
         // Public routes — no authentication required
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])
-            ->middleware('throttle:5,1')
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
@@ -60,7 +61,7 @@ Route::middleware(config('martis.middleware', ['web']))
 
         // API auth — public (exempt from CSRF via playground bootstrap/app.php)
         Route::post('/api/auth/login', [AuthController::class, 'login'])
-            ->middleware('throttle:5,1')
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('api.auth.login');
         Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
@@ -84,12 +85,15 @@ Route::middleware(config('martis.middleware', ['web']))
                     ->middleware($throttle)
                     ->group(function () {
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
-                            ->middleware('throttle:5,1')
+                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
                             ->name('2fa.challenge');
                     });
 
                 // ── All other protected routes — require completed 2FA ──
-                Route::middleware('martis.2fa')
+                // `martis.locale` applies the user's saved language preference
+                // before controllers run so `__()` and validation messages are
+                // returned in their chosen locale.
+                Route::middleware(['martis.2fa', 'martis.locale'])
                     ->group(function () use ($throttle) {
                         // API routes
                         Route::prefix('api')
@@ -97,6 +101,13 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->middleware($throttle)
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+
+                                // User preferences (Task 07.1 ⭐ D2)
+                                if (config('martis.preferences.enabled', true)) {
+                                    Route::get('/preferences', [PreferencesController::class, 'show'])->name('preferences.show');
+                                    Route::put('/preferences', [PreferencesController::class, 'update'])->name('preferences.update');
+                                    Route::delete('/preferences', [PreferencesController::class, 'reset'])->name('preferences.reset');
+                                }
 
                                 // Dashboards and Metrics — Nova v5 parity
                                 Route::get('/dashboards', [MetricController::class, 'dashboards'])

@@ -19,6 +19,7 @@ return [
     'profile' => 'Profile',
     'open_sidebar' => 'Open menu',
     'search_resources' => 'Search resources...',
+    'search_placeholder' => 'Press / to search',
     'no_results' => 'No results found.',
     'navigate' => 'navigate',
     'select' => 'select',

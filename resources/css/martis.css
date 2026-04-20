@@ -430,6 +430,35 @@ html[data-density="dense"],
   --martis-gap:         10px;
 }
 
+/* ── Density-driven overrides for shell components ─────────────────
+   Shell elements use fixed Tailwind utilities (py-2.5, h-14, etc.)
+   which don't react to `[data-density]` by themselves. These
+   overrides retrofit key surfaces so the Dense option is actually
+   visible: sidebar items, topbar, buttons, table rows, and buttons.
+   Kept scoped so non-shell pages don't get unintended padding shifts.
+   ──────────────────────────────────────────────────────────────── */
+html[data-density="dense"] .martis-topbar-bg {
+  height: 48px;
+}
+html[data-density="dense"] .martis-sidebar-bg a,
+html[data-density="dense"] .martis-sidebar-bg button.flex {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+html[data-density="dense"] .p-datatable .p-datatable-tbody > tr > td {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+html[data-density="dense"] .p-datatable .p-datatable-thead > tr > th {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+html[data-density="dense"] .p-button,
+html[data-density="dense"] .martis-btn {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
 /* ============================================================
    REDUCED MOTION (⭐ D3)
    Quando o user prefere reduced motion (OS setting OU preference
@@ -2431,6 +2460,23 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .p-calendar-panel,
 .p-overlaypanel {
   z-index: 10000 !important;
+}
+
+/* ── OverlayPanel arrow: align with Martis surface tokens (Bug 8) ──
+   PrimeReact's default arrow has hardcoded colors that clash with the
+   light theme. Override with surface/border tokens so it adapts to
+   whichever theme + accent is active. */
+.p-overlaypanel::before {
+  border-bottom-color: var(--martis-border) !important;
+}
+.p-overlaypanel::after {
+  border-bottom-color: var(--martis-surface) !important;
+}
+.p-overlaypanel.p-overlaypanel-flipped::before {
+  border-top-color: var(--martis-border) !important;
+}
+.p-overlaypanel.p-overlaypanel-flipped::after {
+  border-top-color: var(--martis-surface) !important;
 }
 
 /* ── PrimeReact Tooltip styling (REA-1102) ── */

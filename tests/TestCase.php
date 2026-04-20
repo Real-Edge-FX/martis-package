@@ -84,7 +84,7 @@ abstract class TestCase extends OrchestraTestCase
             : __DIR__.'/../vendor/orchestra/testbench-core/laravel/database/migrations';
 
         $patterns = [
-            '/*_create_action_events_table.php',
+            '/*_create_martis_action_events_table.php',
             '/*_add_martis_profile_picture_column_to_users_table.php',
             '/*_add_martis_two_factor_columns_to_users_table.php',
         ];

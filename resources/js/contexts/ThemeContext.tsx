@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { config } from '@/lib/config'
+import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { usePreferences } from '@/contexts/PreferencesContext'
 
 type Theme = 'light' | 'dark'
 
@@ -11,30 +11,27 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
-function getDefaultTheme(): Theme {
-  const stored = localStorage.getItem('martis-theme') as Theme | null
-  if (stored) return stored
-  return config.theme?.default ?? 'dark'
+function resolveConcrete(theme: 'dark' | 'light' | 'system'): Theme {
+  if (theme === 'system') {
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  }
+  return theme
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getDefaultTheme)
+  const { prefs, update } = usePreferences()
 
-  useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
+  const value = useMemo<ThemeContextValue>(() => {
+    const concrete = resolveConcrete(prefs.theme)
+    return {
+      theme: concrete,
+      toggle: () => { void update({ theme: concrete === 'dark' ? 'light' : 'dark' }) },
+      setTheme: (t: Theme) => { void update({ theme: t }) },
     }
-    localStorage.setItem('martis-theme', theme)
-  }, [theme])
-
-  const toggle = () => setThemeState((t) => (t === 'dark' ? 'light' : 'dark'))
-  const setTheme = (t: Theme) => setThemeState(t)
+  }, [prefs.theme, update])
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle, setTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   )

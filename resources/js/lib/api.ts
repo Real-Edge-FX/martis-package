@@ -114,9 +114,13 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   const json: unknown = await res.json()
 
   if (!res.ok) {
-    // Intercept 401 globally: session expired — redirect to login.
-    // Skip /api/auth/user which legitimately returns null when not authenticated.
-    if (res.status === 401 && path !== '/api/auth/user') {
+    // Intercept 401 globally: session expired — redirect to login. Skip a
+    // small allowlist of endpoints that legitimately return 401 on public
+    // pages (login, 2FA challenge). Without this, mounting the SPA on the
+    // login page triggers a redirect loop because `/api/preferences` and
+    // friends are protected and will 401 while the user is logged out.
+    const publicProbes = ['/api/auth/user', '/api/preferences', '/api/navigation']
+    if (res.status === 401 && !publicProbes.includes(path)) {
       redirectOnSessionExpiry()
     }
     const err = json as { message?: string; errors?: unknown }

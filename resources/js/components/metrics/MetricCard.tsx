@@ -27,6 +27,10 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
   const ranges = metric.ranges ?? {}
   const hasRanges = Object.keys(ranges).length > 0
 
+  // Plain Card subclasses render their own content via `customContent` —
+  // they don't expose a compute endpoint and hitting one returns 404.
+  const isFetchableMetric = metric.type !== 'card'
+
   const query = useQuery({
     queryKey: ['metric', metric.uriKey, endpoint, range, filters],
     queryFn: () => {
@@ -38,6 +42,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
         `${endpoint}?${params.toString()}`,
       )
     },
+    enabled: isFetchableMetric,
     refetchInterval: metric.refreshEvery ? metric.refreshEvery * 1000 : undefined,
   })
 

@@ -24,6 +24,7 @@ use Martis\Console\UserCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
+use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Profile\TwoFactorService;
@@ -97,13 +98,13 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../resources/lang' => $this->app->langPath('vendor/martis'),
             ], 'martis-lang');
 
+            // Core action-events audit log table. The stub is idempotent:
+            // it renames an existing `action_events` table to
+            // `martis_action_events` when upgrading, otherwise creates it
+            // fresh under the martis_ prefix.
             $this->publishes([
-                __DIR__.'/../database/migrations/create_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_action_events_table.php'),
+                __DIR__.'/../stubs/create_martis_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_martis_action_events_table.php'),
             ], 'martis-migrations');
-
-            $this->publishes([
-                __DIR__.'/../database/migrations/add_profile_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_martis_profile_columns.php'),
-            ], 'martis-profile-migration');
 
             // Profile: 2FA columns migration stub
             $this->publishes([
@@ -115,6 +116,12 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../stubs/add_profile_picture_column.php.stub' => database_path('migrations/'.date('Y_m_d').'_000003_add_profile_picture_column.php'),
             ], 'martis-avatar-migration');
+
+            // Task 07.1 ⭐ D2 — user preferences table for theme/accent/
+            // density/locale/reduced-motion persistence + shareable presets.
+            $this->publishes([
+                __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
+            ], 'martis-preferences-migration');
         }
     }
 
@@ -145,6 +152,7 @@ class MartisServiceProvider extends ServiceProvider
         $router = $this->app->make('router');
         $router->aliasMiddleware('martis.auth', MartisAuthenticate::class);
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
+        $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
     }
 
     /**

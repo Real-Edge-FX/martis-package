@@ -73,6 +73,9 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
 | 10 | **[Authentication](authentication.md)** | Login, logout, two-factor authentication (2FA), user profile, avatar uploads, user menu configuration |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
+| 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |
+| 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
+| 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching |
 
 ### Architecture & Design
 
@@ -109,6 +112,9 @@ docs/
 ├── components.md ................... Built-in UI components
 ├── authentication.md ............... Login, 2FA, profile
 ├── configuration.md ................ Config reference
+├── theming.md ...................... 94-token design system
+├── preferences.md .................. User preferences (⭐ D1/D2/D3)
+├── i18n.md ......................... Adding locales & translations
 ├── differentials.md ................ Martis differentials (unique features)
 ├── PARITY_MAP.md ................... Nova v5 parity tracker
 ├── api/

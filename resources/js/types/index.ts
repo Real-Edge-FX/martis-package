@@ -98,8 +98,9 @@ export type ActiveFilters = Record<string, unknown>
 export type MetricType = 'value' | 'trend' | 'partition' | 'progress'
 
 export interface MetricDefinition {
-  type: 'metric'
-  metricType: MetricType
+  /** `metric` for Metric subclasses, `card` for plain Card components. */
+  type: 'metric' | 'card'
+  metricType?: MetricType
   name: string
   uriKey: string
   component: string | null
