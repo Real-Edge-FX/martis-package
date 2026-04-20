@@ -930,6 +930,127 @@ html[data-reduced-motion="true"] {
   }
 }
 
+/* ============================================================
+   SHELL — Topnav preset
+   Horizontal top-navigation used when `config.layout.preset = 'topnav'`.
+   Same design tokens as the sidebar shell — brand mark on the left,
+   inline links, icon-button cluster + divider + user pill on the right.
+   ============================================================ */
+.martis-topnav-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 20px;
+  background: var(--martis-topbar);
+  border-bottom: 1px solid var(--martis-border);
+  flex-shrink: 0;
+}
+
+.martis-topnav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 12px;
+  border-right: 1px solid var(--martis-border);
+  flex-shrink: 0;
+}
+.martis-topnav-brand .martis-sb-logo-mark {
+  width: 28px;
+  height: 28px;
+}
+.martis-topnav-brand-text {
+  font-weight: var(--martis-weight-semibold);
+  font-size: var(--martis-text-base);
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+}
+
+.martis-topnav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.martis-topnav-links::-webkit-scrollbar {
+  height: 4px;
+}
+
+.martis-topnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--martis-radius-md);
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-topnav-link:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-topnav-link.active {
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+}
+
+.martis-topnav-group {
+  position: relative;
+}
+
+.martis-topnav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--martis-radius-md);
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-topnav-dropdown-item:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-topnav-dropdown-item.active {
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+}
+
+.martis-topnav-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.martis-topnav-breadcrumbs {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--martis-border);
+  background: var(--martis-bg);
+}
+
 /* Content area — single scroll container. The footer sits at the
    tail of this element as a flex child, so short pages push the footer
    to the viewport bottom while long pages let it scroll into view
