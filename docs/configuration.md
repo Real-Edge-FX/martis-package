@@ -92,11 +92,27 @@ public function boot(): void
 
 > Closures cannot live directly in `config/martis.php` because `php artisan config:cache` fails to serialise them. Use the facade/manager from a service provider instead.
 
+**4. Automatic per-route inference (no configuration)** — Martis looks at the current request path and inserts the matching resource label, dashboard name, or section, e.g.:
+
+| URL | Title rendered |
+|-----|----------------|
+| `/martis` | Dashboard name · brand (e.g. `Operations · Acme`) |
+| `/martis/resources/clients` | `Clients · Acme` |
+| `/martis/resources/clients/new` | `Create Client · Acme` |
+| `/martis/resources/clients/42` | `Client · Acme` |
+| `/martis/resources/clients/42/edit` | `Edit Client · Acme` |
+| `/martis/profile` | `Profile · Acme` |
+
+Resource labels honour the authenticated user's locale preference, so the first paint is already in the right language.
+
+For **client-side navigation** inside the SPA (react-router), each page uses the [`usePageTitle`](overrides.md#page-title-hook) hook to keep `document.title` in sync without a full reload.
+
 Resolution precedence (highest first):
 
 1. `Martis::pageTitleUsing(Closure)` — registered at runtime.
 2. `config('martis.brand.page_title')` — string or `is_callable`.
-3. `__('martis::navigation.page_title_default', ['brand' => config('martis.brand.name')])` — bundled fallback.
+3. Automatic inference from the request path (resource label, dashboard name, profile).
+4. `__('martis::navigation.page_title_default', ['brand' => config('martis.brand.name')])` — bundled fallback.
 
 ### Customising the favicon
 

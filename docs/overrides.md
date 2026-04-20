@@ -434,3 +434,24 @@ componentRegistry.keys()
 // Resolve a component (follows 4-tier priority)
 componentRegistry.resolve(type, field, resource, explicitKey, fallback)
 ```
+
+## Page Title Hook
+
+Custom pages (layouts, custom resource views, dashboards built outside the default router) should set the browser tab title so navigation inside the SPA stays consistent with the server-side title on hard reload.
+
+```tsx
+import { usePageTitle } from '@/hooks/usePageTitle'
+
+export function MyCustomPage({ resource }) {
+  // Passing a segment → `"${segment} · ${brand}"`.
+  usePageTitle(resource.label)
+
+  // Passing null/undefined → the bundled "brand — Admin Control" default
+  // in the active locale.
+  // usePageTitle(null)
+
+  return <div>…</div>
+}
+```
+
+The hook restores the previous title on unmount so stacked modals/drawers don't leave stale segments in the tab bar. See [configuration.md](configuration.md#customising-the-page-title) for the server-side half (static config + closure API).
