@@ -388,7 +388,7 @@ Use the `martis:component` artisan command to scaffold and auto-register a compo
 
 ```bash
 php artisan martis:component StatusBadge --type=field
-php artisan martis:component AcmeShell --type=layout
+php artisan martis:component AcmeShell --type=shell
 php artisan martis:component AcmeSidebar --type=sidebar
 php artisan martis:component AcmeTopbar --type=topbar
 php artisan martis:component AcmeFooter --type=footer
@@ -424,7 +424,7 @@ The command:
 | Type | What it generates | Registry key |
 |------|-------------------|--------------|
 | `field` | Display + Input pair for overriding a field visual | `{kebab-name}` + `{kebab-name}-input` |
-| `layout` | Entire shell replacement (≡ `shell`) | `layout:shell` |
+| `shell` | Entire shell replacement (composes sidebar + topbar + content + footer) | `layout:shell` |
 | `sidebar` | Left nav column only | `layout:sidebar` |
 | `topbar` | Top bar only | `layout:topbar` |
 | `footer` | Page footer only | `layout:footer` |

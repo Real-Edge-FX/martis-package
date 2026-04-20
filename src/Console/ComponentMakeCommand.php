@@ -11,7 +11,7 @@ class ComponentMakeCommand extends Command
 {
     protected $signature = 'martis:component
         {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout.}
-        {--type=generic : Component type: field | layout | sidebar | topbar | footer | complete-layout | generic}
+        {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | generic}
         {--force : Overwrite the file if it already exists}';
 
     protected $aliases = ['martis:override'];
@@ -33,7 +33,7 @@ class ComponentMakeCommand extends Command
         /** @var string $type */
         $type = $this->option('type');
 
-        $allowedTypes = ['field', 'layout', 'shell', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic'];
+        $allowedTypes = ['field', 'shell', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic'];
         if (! in_array($type, $allowedTypes, true)) {
             $this->error("Invalid type '{$type}'. Allowed: ".implode(', ', $allowedTypes));
 
@@ -103,11 +103,10 @@ class ComponentMakeCommand extends Command
             $this->info("Registered as '{$registryKey}' in {$bootPath}");
             $this->newLine();
 
-            if (in_array($type, ['sidebar', 'topbar', 'footer', 'layout'], true)) {
-                $configHint = $type === 'layout' ? 'shell' : $type;
+            if (in_array($type, ['sidebar', 'topbar', 'footer', 'shell'], true)) {
                 $this->line('This component plugs into the shell — no further wiring needed.');
                 $this->line("Optional: pin it explicitly from PHP by setting");
-                $this->line("  <comment>'layout' => ['components' => ['{$configHint}' => '{$registryKey}']]</comment>");
+                $this->line("  <comment>'layout' => ['components' => ['{$type}' => '{$registryKey}']]</comment>");
             } else {
                 $this->line('Usage in PHP (field type):');
                 $this->line("  Text::make('field_name')->component('{$kebabName}')");
@@ -205,7 +204,7 @@ class ComponentMakeCommand extends Command
     {
         return match ($type) {
             'footer' => 'layout:footer',
-            'layout', 'shell' => 'layout:shell',
+            'shell' => 'layout:shell',
             'sidebar' => 'layout:sidebar',
             'topbar' => 'layout:topbar',
             default => $kebabName,
@@ -217,11 +216,7 @@ class ComponentMakeCommand extends Command
      */
     protected function getStub(string $type): string
     {
-        // `layout` and `shell` share the same scaffold — shell is the preferred
-        // name post-v0.7 but `layout` is kept as a backwards-compatible alias.
-        $effective = $type === 'layout' ? 'shell' : $type;
-
-        $stubPath = __DIR__.'/../../stubs/component-'.$effective.'.tsx.stub';
+        $stubPath = __DIR__.'/../../stubs/component-'.$type.'.tsx.stub';
 
         if (! file_exists($stubPath)) {
             $stubPath = __DIR__.'/../../stubs/component-generic.tsx.stub';
