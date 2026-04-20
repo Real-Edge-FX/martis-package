@@ -578,10 +578,30 @@ html[data-reduced-motion="true"] {
 .martis-sb-group {
   margin-bottom: 14px;
 }
+/* Top-level section divider — subtler than a group label so the two
+   levels remain visually distinguishable. Matches the design system's
+   "RESOURCES" / "PLATFORM" headings. */
+.martis-sb-section-heading {
+  font-size: 10px;
+  font-weight: var(--martis-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--martis-text-faint, var(--martis-text-muted));
+  padding: 14px 10px 4px;
+  margin-top: 6px;
+  border-top: 1px solid var(--martis-border);
+  opacity: 0.75;
+}
+.martis-sb-section-heading:first-child {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 4px;
+}
+
 .martis-sb-group-label {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
   font-weight: var(--martis-weight-semibold);
   color: var(--martis-text-muted);
@@ -599,6 +619,7 @@ html[data-reduced-motion="true"] {
   color: var(--martis-text);
 }
 .martis-sb-group-label .caret {
+  margin-left: auto;
   transition: transform var(--martis-dur-base) var(--martis-ease-standard);
 }
 .martis-sb-group[data-open="false"] .caret {

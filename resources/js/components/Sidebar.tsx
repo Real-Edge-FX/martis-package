@@ -1,10 +1,15 @@
-import { useState, useEffect } from "react"
+import { Fragment, useState, useEffect } from "react"
 import { NavLink } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
 import type { NavigationGroup } from "@/types"
-import { getNavigationItems } from "@/lib/navigation"
+import {
+  getNavigationItems,
+  getItemCount,
+  formatItemCount,
+  useNavigationRefreshOnNavigate,
+} from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
@@ -30,18 +35,27 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: SidebarProps = {}) {
   const { t } = useTranslation("navigation")
+  const pollInterval = config.navigation?.pollInterval ?? 60_000
   const { data: groups = [] } = useQuery<NavigationGroup[]>({
     queryKey: ["navigation"],
     queryFn: () => api.get("/api/navigation"),
-    staleTime: 1000 * 60,
+    staleTime: 1000 * 30,
+    refetchInterval: pollInterval > 0 ? pollInterval : false,
+    refetchOnWindowFocus: true,
   })
+  useNavigationRefreshOnNavigate()
 
   const isMobile = mobileOpen !== undefined
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
   function toggleGroup(label: string) {
-    setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }))
+    setExpandedGroups((prev) => {
+      // Groups default to open when no entry exists, so the first click
+      // must explicitly write `false` instead of toggling `undefined`.
+      const currentlyOpen = prev[label] !== false
+      return { ...prev, [label]: !currentlyOpen }
+    })
   }
 
   const brand = getBrand()
@@ -91,9 +105,20 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
         {groups.map((group, i) => {
           const groupKey = group.label ?? `group-${i}`
           const isExpanded = expandedGroups[groupKey] !== false
+          const currentSection = group.section ?? null
+          const previousSection = i > 0 ? groups[i - 1].section ?? null : null
+          const showSection =
+            currentSection !== null &&
+            currentSection !== previousSection &&
+            (isMobile || !collapsed)
           return (
+            <Fragment key={groupKey}>
+              {showSection && (
+                <div className="martis-sb-section-heading" aria-hidden="true">
+                  {currentSection}
+                </div>
+              )}
             <div
-              key={groupKey}
               className="martis-sb-group"
               data-open={isExpanded ? "true" : "false"}
             >
@@ -103,6 +128,9 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                   className="martis-sb-group-label"
                   onClick={() => toggleGroup(groupKey)}
                 >
+                  {group.icon && (
+                    <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
+                  )}
                   <span>{group.label}</span>
                   <CaretDownIcon size={10} className="caret" />
                 </button>
@@ -112,6 +140,9 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                   const iconName =
                     item.type === "resource" ? item.icon : item.icon ?? "link"
                   const showTooltip = !isMobile && collapsed ? item.label : undefined
+                  const count = getItemCount(item)
+                  const showLabel = isMobile || !collapsed
+                  const showCount = showLabel && count !== null
 
                   if (item.external) {
                     return (
@@ -130,8 +161,13 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                           size={16}
                           className="shrink-0"
                         />
-                        {(isMobile || !collapsed) && (
+                        {showLabel && (
                           <span className="martis-sb-item-label">{item.label}</span>
+                        )}
+                        {showCount && (
+                          <span className="martis-sb-item-badge">
+                            {formatItemCount(count!)}
+                          </span>
                         )}
                       </a>
                     )
@@ -157,13 +193,19 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                         size={16}
                         className="shrink-0"
                       />
-                      {(isMobile || !collapsed) && (
+                      {showLabel && (
                         <span className="martis-sb-item-label">{item.label}</span>
+                      )}
+                      {showCount && (
+                        <span className="martis-sb-item-badge">
+                          {formatItemCount(count!)}
+                        </span>
                       )}
                     </NavLink>
                   )
                 })}
             </div>
+            </Fragment>
           )
         })}
       </div>

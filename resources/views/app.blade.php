@@ -52,6 +52,9 @@
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
             layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
+            navigation: {!! json_encode([
+                'pollInterval' => (int) config('martis.navigation.poll_interval', 60000),
+            ]) !!},
             loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),

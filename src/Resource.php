@@ -1033,6 +1033,42 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
+    /**
+     * Whether the sidebar and top-nav menus should surface a count badge
+     * for this resource (e.g. "Users 1,284"). Default: true.
+     *
+     * Override to opt out on a single resource:
+     *   public static function showMenuCount(): bool
+     *   {
+     *       return false;
+     *   }
+     *
+     * The global `config('martis.navigation.counts.enabled')` switch still
+     * takes precedence — it disables counts everywhere regardless of this
+     * value.
+     */
+    public static function showMenuCount(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Compute the count rendered next to this resource in the navigation.
+     *
+     * Default implementation runs `COUNT(*)` through the same `indexQuery`
+     * hook used by the listing view so tenancy and policy scopes apply.
+     * Return null to skip the badge even when `showMenuCount()` is true.
+     */
+    public static function menuCount(Request $request): ?int
+    {
+        $query = static::newModel()->newQuery();
+
+        /** @var Builder<Model> $scoped */
+        $scoped = static::indexQuery($request, $query);
+
+        return (int) $scoped->toBase()->getCountForPagination();
+    }
+
     // -------------------------------------------------------------------------
     // Notification messages — customizable per resource (Nova parity)
     // -------------------------------------------------------------------------
