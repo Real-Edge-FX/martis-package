@@ -531,3 +531,63 @@ import { MartisLoader } from '@martis/martis/components/Loader'
 import { componentRegistry } from '@martis/martis/lib/componentRegistry'
 componentRegistry.register('loader', MyCustomLoader)
 ```
+
+## CSS Utility Classes
+
+Every component inside Martis is themed via design tokens (see [theming.md](theming.md)), but a small set of standalone utility classes is also exposed so consumer overrides, custom actions and bespoke pages can drop in chips, badges and avatars without reinventing them.
+
+### Buttons
+
+Compose a variant with an optional size and the `martis-btn-icon` helper for icon-only chips.
+
+| Class | Effect |
+|-------|--------|
+| `martis-btn-primary` | Accent-filled primary CTA. |
+| `martis-btn-secondary` | Neutral chip with a 1px border. |
+| `martis-btn-danger` / `martis-btn-success` / `martis-btn-warning` | Semantic filled variants. |
+| `martis-btn-ghost` | Transparent chip that washes on hover — ideal for toolbars and row actions. |
+| `martis-btn-sm` / `martis-btn-lg` | Height + typography tokens. Default (no size class) = 36px. |
+| `martis-btn-icon` | Square icon-only shape. Compose with any variant and any size. |
+
+```html
+<button class="martis-btn-ghost martis-btn-icon" aria-label="Open"><svg/></button>
+<button class="martis-btn-primary martis-btn-lg">Save changes</button>
+```
+
+### Badges
+
+```html
+<span class="martis-badge martis-badge-success">Active</span>
+<span class="martis-badge martis-badge-danger martis-badge-dot">Failed</span>
+<span class="martis-badge martis-badge-neutral">Draft</span>
+```
+
+| Class | Effect |
+|-------|--------|
+| `martis-badge` | Base chip shape (pill, 20px, 11px font). Always required. |
+| `martis-badge-info` / `success` / `warning` / `danger` | Semantic colour tokens (background + text + border). |
+| `martis-badge-neutral` | Muted chip for "draft" / "unassigned" states. |
+| `martis-badge-dot` | Prepends a small dot for "live" / connection states. |
+
+### Avatars
+
+Size tokens compose with any shape class (`martis-avatar-circle`, `-rounded`, `-squared`). Default avatar size stays at 36px so existing call sites are unaffected.
+
+| Class | Size |
+|-------|------|
+| `martis-avatar-xs` | 20px |
+| `martis-avatar-sm` | 24px |
+| `martis-avatar-md` | 28px |
+| *(no class)* | 36px |
+| `martis-avatar-lg` | 40px |
+| `martis-avatar-xl` | 56px |
+
+Use `.martis-avatar-stack` on a wrapper to overlap several avatars with a subtle ring:
+
+```html
+<div class="martis-avatar-stack">
+  <span class="martis-avatar martis-avatar-sm martis-avatar-circle">JA</span>
+  <span class="martis-avatar martis-avatar-sm martis-avatar-circle">MW</span>
+  <span class="martis-avatar martis-avatar-sm martis-avatar-circle">+3</span>
+</div>
+```

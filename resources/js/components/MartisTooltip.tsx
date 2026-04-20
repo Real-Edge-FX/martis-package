@@ -128,7 +128,7 @@ export function MartisTooltip() {
 
   if (!visible || !text) return null
 
-  const arrowSize = 5
+  const arrowSize = 4
   const style: React.CSSProperties = {
     position: 'fixed',
     zIndex: 99999,
@@ -165,7 +165,7 @@ export function MartisTooltip() {
       transform: 'translateX(-50%)',
       borderLeft: `${arrowSize}px solid transparent`,
       borderRight: `${arrowSize}px solid transparent`,
-      borderTop: `${arrowSize}px solid var(--martis-sidebar)`,
+      borderTop: `${arrowSize}px solid var(--martis-tooltip-bg, var(--martis-text))`,
     }),
     ...(position === 'bottom' && {
       top: -arrowSize,
@@ -173,7 +173,7 @@ export function MartisTooltip() {
       transform: 'translateX(-50%)',
       borderLeft: `${arrowSize}px solid transparent`,
       borderRight: `${arrowSize}px solid transparent`,
-      borderBottom: `${arrowSize}px solid var(--martis-sidebar)`,
+      borderBottom: `${arrowSize}px solid var(--martis-tooltip-bg, var(--martis-text))`,
     }),
     ...(position === 'left' && {
       right: -arrowSize,
@@ -181,7 +181,7 @@ export function MartisTooltip() {
       transform: 'translateY(-50%)',
       borderTop: `${arrowSize}px solid transparent`,
       borderBottom: `${arrowSize}px solid transparent`,
-      borderLeft: `${arrowSize}px solid var(--martis-sidebar)`,
+      borderLeft: `${arrowSize}px solid var(--martis-tooltip-bg, var(--martis-text))`,
     }),
     ...(position === 'right' && {
       left: -arrowSize,
@@ -189,7 +189,7 @@ export function MartisTooltip() {
       transform: 'translateY(-50%)',
       borderTop: `${arrowSize}px solid transparent`,
       borderBottom: `${arrowSize}px solid transparent`,
-      borderRight: `${arrowSize}px solid var(--martis-sidebar)`,
+      borderRight: `${arrowSize}px solid var(--martis-tooltip-bg, var(--martis-text))`,
     }),
   }
 
@@ -198,11 +198,11 @@ export function MartisTooltip() {
       <div
         className="martis-tooltip-content"
         style={{
-          backgroundColor: 'var(--martis-sidebar)',
-          color: 'var(--martis-text)',
-          border: '1px solid var(--martis-border)',
-          fontSize: '0.75rem',
-          padding: '0.25rem 0.5rem',
+          backgroundColor: 'var(--martis-tooltip-bg, var(--martis-text))',
+          color: 'var(--martis-tooltip-text, var(--martis-bg))',
+          border: 'none',
+          fontSize: '11px',
+          padding: '4px 8px',
           borderRadius: '0.375rem',
           // HTML tooltips may contain <br>, <ul>, etc. — they need `normal`
           // wrapping so those line breaks actually render. Plain tooltips
