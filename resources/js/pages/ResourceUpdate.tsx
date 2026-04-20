@@ -16,6 +16,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -50,6 +51,8 @@ export function ResourceUpdatePage() {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
+  const { t: tNav } = useTranslation('navigation')
+  usePageTitle(schema ? `${tNav('edit', { defaultValue: 'Edit' })} ${schema.singularLabel}` : null)
 
   const allFormFields = (schema?.fieldsForUpdate ?? [])
 

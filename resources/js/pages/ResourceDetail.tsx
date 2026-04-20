@@ -19,6 +19,7 @@ import { ResourceIndexPage } from "@/pages/ResourceIndex"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
 import { MartisLoader } from "@/components/Loader"
+import { usePageTitle } from "@/hooks/usePageTitle"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -98,6 +99,11 @@ export function ResourceDetailPage() {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
+
+  const recordTitle = record && schema?.titleAttribute
+    ? String(record[schema.titleAttribute] ?? '')
+    : ''
+  usePageTitle(schema ? `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ''}` : null)
 
   if (schemaQuery.isLoading || recordQuery.isLoading) {
     return (
