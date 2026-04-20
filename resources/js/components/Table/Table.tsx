@@ -5,7 +5,7 @@ import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { CaretUpIcon, CaretDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
+import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
@@ -548,12 +548,18 @@ function DefaultTable({
             header={
               field.sortable ? (
                 <button type="button"
-                  className="flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
+                  className="martis-th-sortable flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
                   style={{ color: "var(--martis-table-header-text)" }}
                   onClick={() => onSort(field.attribute)}
                 >
                   {field.label}
-                  <SortIcon active={sortBy === field.attribute} dir={sortDir} />
+                  {sortBy === field.attribute ? (
+                    <SortIcon active dir={sortDir} />
+                  ) : (
+                    // Discreet hint that the column is sortable. Low opacity
+                    // at rest, slightly brighter when the header is hovered.
+                    <CaretUpDownIcon size={11} weight="bold" className="martis-th-sort-hint" />
+                  )}
                 </button>
               ) : (
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--martis-table-header-text)" }}>

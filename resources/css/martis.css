@@ -2076,6 +2076,19 @@ html:not(.dark) .martis-dropzone {
   opacity: 0.8;
 }
 
+/* Sortable-column hint — tiny double caret shown next to the label on
+   columns that can be sorted. Discreet at rest (0.3) so it doesn't
+   compete with the data; brighter on hover so the affordance is
+   unmistakable when the cursor approaches. The active direction is
+   painted by `SortIcon` at full opacity instead. */
+.martis-th-sort-hint {
+  opacity: 0.3;
+  transition: opacity 120ms ease;
+}
+.martis-th-sortable:hover .martis-th-sort-hint {
+  opacity: 0.7;
+}
+
 /* ── Fix: Checkbox check-mark visibility in dark theme (REA-1140) ── */
 /* PrimeReact checkbox checked icon inherits text color — force white */
 .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
