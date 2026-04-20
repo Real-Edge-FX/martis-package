@@ -270,74 +270,50 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
 
   function renderActionIcon() {
     if (action!.icon) {
-      return <ResourceIcon iconName={action!.icon} size={20} weight="fill" />
+      return <ResourceIcon iconName={action!.icon} size={18} weight="fill" />
     }
     if (action!.destructive) {
-      return <WarningIcon size={20} className="text-red-600 dark:text-red-400" weight="fill" />
+      return <WarningIcon size={18} weight="fill" style={{ color: 'var(--martis-danger)' }} />
     }
-    return <LightningIcon size={20} className="text-indigo-600 dark:text-indigo-400" weight="fill" />
+    return <LightningIcon size={18} weight="fill" style={{ color: 'var(--martis-accent)' }} />
   }
 
   const content = (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
-      <div
-        className="absolute inset-0 transition-opacity duration-200"
-        style={{
-          backgroundColor: animVisible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)',
-        }}
-        onClick={handleBackdropClose}
-      />
-
+    <div
+      className="martis-modal-scrim"
+      style={{ opacity: animVisible ? 1 : 0, transition: 'opacity 200ms ease' }}
+      onClick={handleBackdropClose}
+    >
       <div
         role="dialog"
-        className="relative w-full rounded-xl shadow-xl transition-all duration-200 mx-4"
+        aria-modal="true"
+        className="martis-modal-surface"
         style={{
-          backgroundColor: 'var(--martis-card)',
-          border: action.destructive ? '1px solid rgba(220,38,38,0.4)' : '1px solid var(--martis-border)',
-          borderTop: action.destructive ? '3px solid var(--martis-danger)' : undefined,
           maxWidth: modalWidth,
           transform: animVisible ? 'scale(1)' : 'scale(0.95)',
-          opacity: animVisible ? 1 : 0,
+          transition: 'transform 200ms ease',
+          borderTop: action.destructive ? '3px solid var(--martis-danger)' : undefined,
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{
-            borderColor: action.destructive ? 'rgba(220,38,38,0.2)' : 'var(--martis-border)',
-            backgroundColor: action.destructive ? 'rgba(220,38,38,0.05)' : undefined,
-          }}
-        >
+        <div className="martis-modal-head">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full"
-              style={{
-                backgroundColor: action.destructive
-                  ? 'rgba(220,38,38,0.1)'
-                  : 'rgba(99,102,241,0.1)',
-                color: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)',
-              }}
-            >
-              {renderActionIcon()}
-            </div>
-            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-              {action.name}
-            </span>
+            {renderActionIcon()}
+            <h3 className="martis-modal-head-title">{action.name}</h3>
           </div>
           <button
             type="button"
             onClick={onHide}
-            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-            style={{ color: 'var(--martis-text-muted)' }}
+            className="martis-modal-close"
+            aria-label={cancelButton}
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        <div className="px-6 py-4">
+        <div className="martis-modal-body">
           {action.confirmText && (
-            <p className="mb-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-              {action.confirmText}
-            </p>
+            <p className="mb-4">{action.confirmText}</p>
           )}
 
           {hasFields && (
@@ -346,7 +322,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                 <div key={field.attribute}>
                   <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
                     {field.label}
-                    {field.required && <span className="ml-1 text-red-500">*</span>}
+                    {field.required && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
                   </label>
                   <FieldInput
                     field={field}
@@ -363,14 +339,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           )}
         </div>
 
-        <div
-          className="flex items-center justify-end gap-3 border-t px-6 py-4"
-          style={{
-            borderColor: 'var(--martis-border)',
-            backgroundColor: 'var(--martis-surface)',
-            borderRadius: '0 0 0.75rem 0.75rem',
-          }}
-        >
+        <div className="martis-modal-foot">
           {action.supportsDryRun && (
             <button
               type="button"

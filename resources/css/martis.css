@@ -40,9 +40,9 @@
   --martis-radius-full: 9999px;
 
   /* ── 3.10 Typography ────────────────────────────────────── */
-  --martis-font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --martis-font-sans: 'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --martis-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --martis-font-heading: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --martis-font-heading: 'Inter var', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
   --martis-text-xs: 12px;
   --martis-text-sm: 14px;
@@ -445,14 +445,15 @@ html[data-density="dense"] .martis-sidebar-bg button.flex {
   padding-top: 0.375rem;
   padding-bottom: 0.375rem;
 }
-html[data-density="dense"] .p-datatable .p-datatable-tbody > tr > td {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
+/* Dense: rows 32px, thinner padding (inherits `--martis-row-h` from the
+   density block above). Padding tightens but never collapses below 4px
+   so stacked pills in a cell keep a hairline of breathing room. */
+html[data-density="dense"] .martis-datatable tbody td {
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
-html[data-density="dense"] .p-datatable .p-datatable-thead > tr > th {
-  padding-top: 0.3rem;
-  padding-bottom: 0.3rem;
-}
+/* TH height stays 38px in every density — matches the design-system
+   spec where only the data rows tighten in dense mode, not the header. */
 html[data-density="dense"] .p-button,
 html[data-density="dense"] .martis-btn {
   padding-top: 0.3rem;
@@ -2053,12 +2054,35 @@ html:not(.dark) .martis-dropzone {
   cursor: pointer;
 }
 
+/* Default cell typography — mirrors `.table .cell-mono` in Martis Shell
+   as the project's table-wide default: JetBrains Mono, 12px, muted.
+   Badges and links below override this with Inter + accent respectively. */
 .martis-datatable tbody td {
-  height: var(--m-row-h, 44px);
-  padding: 0 14px;
-  font-size: var(--martis-text-sm);
-  color: var(--martis-text);
+  height: var(--martis-row-h, 44px);
+  padding: 8px 14px;
+  font-family: var(--martis-font-mono);
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-regular, 400);
+  color: var(--martis-text-muted);
   vertical-align: middle;
+}
+/* Badges keep their Shell typography (Inter, 11px, medium) and their
+   own colour — the mono default only applies to plain cell text. */
+.martis-datatable tbody td .martis-badge {
+  font-family: var(--martis-font-sans);
+}
+/* Links inside cells use the accent tint but inherit the cell's
+   mono typography so table rows stay visually aligned. */
+.martis-datatable tbody td a {
+  color: var(--martis-accent);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+.martis-datatable tbody td a:hover {
+  text-decoration: underline;
 }
 
 /* Checkbox column */
@@ -2272,8 +2296,8 @@ html:not(.dark) .p-paginator .p-paginator-page:hover {
   color: var(--martis-text) !important;
 }
 html:not(.dark) .p-paginator .p-paginator-page.p-highlight {
-  background-color: var(--martis-row-hover) !important;
-  color: var(--martis-text) !important;
+  background-color: var(--martis-accent-bg-light) !important;
+  color: var(--martis-accent) !important;
   border-color: transparent !important;
 }
 html:not(.dark) .p-paginator .p-paginator-prev,
@@ -2412,11 +2436,11 @@ html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
   color: var(--martis-text-muted);
 }
 .martis-pagination-summary strong {
-  color: var(--martis-text);
+  color: inherit;
   font-weight: inherit;
 }
 .martis-pagination-selected {
-  color: var(--martis-text);
+  color: inherit;
   font-weight: inherit;
 }
 .martis-pagination-sep {
@@ -2453,11 +2477,10 @@ html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
   border-color: var(--martis-border);
 }
 .martis-paginator .p-paginator-page.p-highlight {
-  /* Spec (user image): neutral grey fill, regular text — not the accent.
-     The accent stayed too loud once pagination sat inside the table card. */
-  background: var(--martis-row-hover);
-  color: var(--martis-text);
-  border-color: transparent;
+  /* Shell spec (`.pagination-btn.active`): accent-tinted bg + accent text. */
+  background: var(--martis-accent-bg-light) !important;
+  color: var(--martis-accent) !important;
+  border-color: transparent !important;
   font-weight: var(--martis-weight-semibold, 600);
 }
 .martis-paginator .p-paginator-prev:disabled,
@@ -3458,15 +3481,12 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ── Table horizontal scrollbar — visible on hover (REA-1188) ───── */
-/* `overflow-x: scroll` (não `auto`) força o browser a reservar a barra
- * mesmo em macOS com "Mostrar scroll bars automaticamente" — de outro
- * modo o SO esconde a barra em trackpad e o `:hover` nunca a revela. */
+/* `overflow-x: auto` avoids reserving a permanent scrollbar gutter
+ * when the columns fit. When content does overflow, the scrollbar
+ * appears as a thin track that is transparent at rest and tinted
+ * on hover to match the design-system pattern. */
 .martis-datatable .p-datatable-wrapper {
-  /* PrimeReact aplica `style="overflow: auto"` inline no wrapper, o que
-   * bate qualquer regra de stylesheet sem `!important`. Forçamos
-   * `overflow-x: scroll` para reservar a barra de scroll mesmo quando
-   * o macOS está em modo overlay (trackpad). */
-  overflow-x: scroll !important;
+  overflow-x: auto !important;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   transition: scrollbar-color 0.2s ease;
@@ -3816,6 +3836,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.25rem;
+  white-space: nowrap;
   /* Resting chip shadow — shared by every variant for visual consistency. */
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
   transition:
@@ -4559,3 +4580,104 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border: 1px solid transparent;
   white-space: nowrap;
 }
+/* Optional status dot inside a `.martis-badge` — mirrors `.badge .dot`
+   from Martis Shell. Uses `currentColor` so it inherits the badge's
+   text colour (which is tied to the semantic variant). */
+.martis-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+/* Cell helper — mono-spaced, 12px, muted. Matches `.table .cell-mono` in
+   Martis Shell. Apply via bodyClassName on fields that display IPs,
+   short codes, timestamps, or similar glyph-aligned data. */
+.martis-cell-mono {
+  font-family: var(--martis-font-mono);
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+}
+
+/* =================================================================
+   MODAL — mirrors design-system Catalog#modal so every dialog in
+   the package reads as the same component. Panel sits on `surface`,
+   foot sits on `surface-alt` with a border-top divider; scrim uses
+   the overlay token. Head/body/foot use the Catalog paddings. */
+.martis-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--martis-overlay);
+  padding: 1rem;
+}
+.martis-modal-surface {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background-color: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  box-shadow: var(--martis-shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+.martis-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-modal-head-title {
+  margin: 0;
+  font-family: var(--martis-font-sans);
+  font-size: 16px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+}
+.martis-modal-body {
+  padding: 18px 20px;
+  color: var(--martis-text-muted);
+  font-size: var(--martis-text-sm);
+  line-height: 1.55;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.martis-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--martis-border);
+  background-color: var(--martis-surface-alt);
+}
+.martis-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.martis-modal-close:hover {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+/* Size overrides — modals that need a wider panel (forms, wizards). */
+.martis-modal-surface.is-lg { max-width: 640px; }
+.martis-modal-surface.is-xl { max-width: 800px; }
+.martis-modal-surface.is-2xl { max-width: 960px; }

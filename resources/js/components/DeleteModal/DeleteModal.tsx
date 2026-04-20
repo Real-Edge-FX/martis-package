@@ -69,78 +69,48 @@ function DefaultDeleteModal({
   }
 
   const content = (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 transition-opacity duration-200"
-        style={{
-          backgroundColor: visible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)',
-        }}
-        onClick={handleBackdropClose}
-      />
-
-      {/* Modal panel */}
+    <div
+      className="martis-modal-scrim"
+      style={{ opacity: visible ? 1 : 0, transition: 'opacity 200ms ease' }}
+      onClick={handleBackdropClose}
+    >
       <div
         role="dialog"
-        className="relative w-full max-w-md rounded-xl shadow-xl transition-all duration-200"
-        style={{
-          backgroundColor: 'var(--martis-card)',
-          border: '1px solid var(--martis-border)',
-          transform: visible ? 'scale(1)' : 'scale(0.95)',
-          opacity: visible ? 1 : 0,
-        }}
+        aria-modal="true"
+        className="martis-modal-surface"
+        style={{ transform: visible ? 'scale(1)' : 'scale(0.95)', transition: 'transform 200ms ease' }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
-        >
+        <div className="martis-modal-head">
           <div className="flex items-center gap-3">
-            <div
-              className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                variant === 'restore' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-red-100 dark:bg-red-900/30'
-              }`}
-            >
-              {variant === 'restore'
-                ? <ArrowCounterClockwiseIcon size={20} className="text-emerald-600 dark:text-emerald-400" weight="bold" />
-                : <WarningIcon size={20} className="text-red-600 dark:text-red-400" weight="fill" />}
-            </div>
-            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+            {variant === 'restore'
+              ? <ArrowCounterClockwiseIcon size={18} weight="bold" style={{ color: 'var(--martis-success)' }} />
+              : <WarningIcon size={18} weight="fill" style={{ color: isSoftDelete ? 'var(--martis-warning)' : 'var(--martis-danger)' }} />}
+            <h3 className="martis-modal-head-title">
               {variant === 'restore'
                 ? tAct('restore')
                 : (isSoftDelete ? tAct('archive') : tAct('delete'))} {resourceLabel}
-            </span>
+            </h3>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-            style={{ color: 'var(--martis-text-muted)' }}
+            className="martis-modal-close"
+            aria-label={tAct('cancel')}
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-4">
-          <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-            {confirmMessage ?? (
-              variant === 'restore'
-                ? tMsg('restore_confirm', 'Are you sure you want to restore this record?')
-                : (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))
-            )}
-          </p>
+        <div className="martis-modal-body">
+          {confirmMessage ?? (
+            variant === 'restore'
+              ? tMsg('restore_confirm', 'Are you sure you want to restore this record?')
+              : (isSoftDelete ? tMsg('archive_confirm') : tMsg('delete_confirm'))
+          )}
         </div>
 
-        {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-3 border-t px-6 py-4"
-          style={{
-            borderColor: 'var(--martis-border)',
-            backgroundColor: 'var(--martis-surface)',
-            borderRadius: '0 0 0.75rem 0.75rem',
-          }}
-        >
+        <div className="martis-modal-foot">
           <button
             type="button"
             onClick={onCancel}

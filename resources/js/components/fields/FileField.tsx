@@ -201,9 +201,12 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
             <button
               type="button"
               onClick={handleClear}
-              className="flex-shrink-0 rounded p-1 hover:bg-red-500/10"
+              className="flex-shrink-0 rounded p-1 transition-colors"
+              style={{ color: 'var(--martis-danger)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
-              <TrashIcon size={16} className="text-red-500" />
+              <TrashIcon size={16} />
             </button>
           </>
         ) : (
@@ -360,9 +363,12 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
                 <button
                   type="button"
                   onClick={() => handleRemove(item.id)}
-                  className="flex-shrink-0 rounded p-1 hover:bg-red-500/10"
+                  className="flex-shrink-0 rounded p-1 transition-colors"
+                  style={{ color: 'var(--martis-danger)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <TrashIcon size={14} className="text-red-500" />
+                  <TrashIcon size={14} />
                 </button>
               </div>
             )

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { CaretDownIcon, XIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ClearButton } from '@/components/ClearButton'
+import { resolveBadgeStyle } from './badgeStyles'
 
 interface SelectOpt {
   label: string
@@ -54,22 +55,24 @@ export function MultiSelectFieldDisplay({ field, value }: FieldDisplayProps) {
 
   const options = getOptions(field as Record<string, unknown>)
   const displayLabels = (field as Record<string, unknown>).displayLabels as boolean | undefined
+  // PHP MultiSelect::colors([...]) — per-value colour map. Missing entries
+  // fall back to the default chip (surface-alt / text / border).
+  const colorMap = ((field as Record<string, unknown>).colorMap as Record<string, string> | undefined) ?? {}
 
   return (
     <div className="flex flex-wrap gap-1">
-      {values.map((v) => (
-        <span
-          key={v}
-          className="martis-badge"
-          style={{
-            backgroundColor: 'var(--martis-surface-alt)',
-            color: 'var(--martis-text)',
-            borderColor: 'var(--martis-border)',
-          }}
-        >
-          {toLabelOrValue(v, options, !!displayLabels)}
-        </span>
-      ))}
+      {values.map((v) => {
+        const style = resolveBadgeStyle(colorMap[String(v)])
+        return (
+          <span
+            key={v}
+            className="martis-badge"
+            style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
+          >
+            {toLabelOrValue(v, options, !!displayLabels)}
+          </span>
+        )
+      })}
     </div>
   )
 }
