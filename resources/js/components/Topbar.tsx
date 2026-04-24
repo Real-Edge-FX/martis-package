@@ -38,13 +38,25 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
   const mobileMode = config.search?.mobileMode ?? "icon"
   const searchMode = isMobile ? mobileMode : desktopMode
 
-  // Keyboard shortcut: "/" to open search
+  // Keyboard shortcuts:
+  // - "/" opens the palette when focus is not in an input.
+  // - ⌘K (macOS) / Ctrl+K (Windows + Linux) is the canonical shortcut
+  //   from the design-system spec and works regardless of focus — users
+  //   expect it to toggle the palette even while typing in a field.
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (searchMode === "disabled") return
+      const tag = (e.target as HTMLElement)?.tagName
+      const inEditable = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        setSearchOpen((open) => !open)
+        return
+      }
+
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
-        const tag = (e.target as HTMLElement)?.tagName
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+        if (inEditable) return
         e.preventDefault()
         setSearchOpen(true)
       }

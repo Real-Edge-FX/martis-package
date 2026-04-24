@@ -1,319 +1,306 @@
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import { getNavigationItems } from "@/lib/navigation"
-import type { NavigationGroup } from "@/types"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlassIcon, DatabaseIcon, CaretRightIcon, FileIcon, SpinnerIcon } from "@phosphor-icons/react"
+import {
+  MagnifyingGlassIcon,
+  DatabaseIcon,
+  LightningIcon,
+  ClockCounterClockwiseIcon,
+  FileIcon,
+} from "@phosphor-icons/react"
+import { ResourceIcon } from "@/components/ResourceIcon"
 
 interface GlobalSearchProps {
   onClose: () => void
 }
 
-interface SearchResultItem {
+interface PaletteResource {
+  key: string
+  uriKey: string
+  label: string
+  icon: string | null
+  group: string | null
+  url: string
+}
+
+interface PaletteAction {
+  key: string
+  label: string
+  icon: string | null
+  destructive: boolean
+  resource: string
+  resourceUriKey: string
+  url: string
+}
+
+interface PaletteRecent {
+  key: number
+  label: string
+  subtitle: string | null
+  url: string | null
+  created_at: string
+}
+
+interface PaletteResponse {
+  resources: PaletteResource[]
+  actions: PaletteAction[]
+  recent: PaletteRecent[]
+}
+
+interface SearchRecordItem {
   id: number | string
   title: string
   subtitle: string | null
   url: string
 }
 
-interface SearchResultGroup {
+interface SearchRecordGroup {
   resource: string
   label: string
-  items: SearchResultItem[]
+  items: SearchRecordItem[]
 }
 
-interface GlobalSearchResponse {
-  results: SearchResultGroup[]
+interface SearchRecordsResponse {
+  results: SearchRecordGroup[]
+}
+
+type PaletteItem =
+  | { kind: 'resource'; label: string; hint: string | null; url: string; icon: string | null }
+  | { kind: 'action'; label: string; hint: string | null; url: string; icon: string | null; destructive: boolean }
+  | { kind: 'recent'; label: string; hint: string | null; url: string | null; icon: ReactNode }
+  | { kind: 'record'; label: string; hint: string | null; url: string }
+
+interface PaletteSection {
+  label: string
+  items: PaletteItem[]
+}
+
+const MIN_QUERY_LEN_RECORDS = 2
+
+function matches(item: PaletteItem, query: string): boolean {
+  if (!query) return true
+  const q = query.toLowerCase()
+  return (
+    item.label.toLowerCase().includes(q) ||
+    (item.hint?.toLowerCase().includes(q) ?? false)
+  )
 }
 
 export function GlobalSearch({ onClose }: GlobalSearchProps) {
   const { t } = useTranslation("navigation")
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { data: groups = [] } = useQuery<NavigationGroup[]>({
-    queryKey: ["navigation"],
-    queryFn: () => api.get("/api/navigation"),
-    staleTime: 1000 * 60,
+  // Palette aggregate (resources + standalone actions + recent events).
+  // Fresh on every open — the SPA already caches it for 30 s.
+  const { data: palette } = useQuery<PaletteResponse>({
+    queryKey: ["command-palette"],
+    queryFn: () => api.get("/api/command-palette"),
+    staleTime: 1000 * 30,
   })
 
-  const allNavigationItems = groups.flatMap((group) =>
-    getNavigationItems(group).map((item) => ({ ...item, groupLabel: group.label })),
-  )
-
-  const filteredNavigationItems = query.trim()
-    ? allNavigationItems.filter(
-        (r) =>
-          r.label.toLowerCase().includes(query.toLowerCase()) ||
-          (r.type === "resource" && r.uriKey.toLowerCase().includes(query.toLowerCase())) ||
-          (r.groupLabel ?? "").toLowerCase().includes(query.toLowerCase()),
-      )
-    : allNavigationItems
-
-  // Debounce the query for the unified search endpoint
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (query.trim().length < 2) {
+    if (query.trim().length < MIN_QUERY_LEN_RECORDS) {
       setDebouncedQuery("")
       return
     }
-    debounceRef.current = setTimeout(() => {
-      setDebouncedQuery(query.trim())
-    }, 300)
+    debounceRef.current = setTimeout(() => setDebouncedQuery(query.trim()), 300)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [query])
 
-  // Unified global search — single request, grouped results with subtitle
-  const { data: searchResponse, isFetching: searchingRecords } = useQuery<GlobalSearchResponse>({
+  // Record-level hits via the existing unified search endpoint.
+  const { data: searchResponse, isFetching: searchingRecords } = useQuery<SearchRecordsResponse>({
     queryKey: ["global-search", debouncedQuery],
     queryFn: () =>
-      api.get<GlobalSearchResponse>(`/api/search?q=${encodeURIComponent(debouncedQuery)}`),
-    enabled: debouncedQuery.length >= 2,
+      api.get<SearchRecordsResponse>(`/api/search?q=${encodeURIComponent(debouncedQuery)}`),
+    enabled: debouncedQuery.length >= MIN_QUERY_LEN_RECORDS,
     staleTime: 1000 * 10,
   })
 
-  const searchGroups = searchResponse?.results ?? []
+  // Build the rendered sections from palette data + live record hits.
+  const sections: PaletteSection[] = []
 
-  // Flatten all record results for keyboard navigation
-  const allRecordItems = searchGroups.flatMap((group) =>
-    group.items.map((item) => ({ ...item, resourceLabel: group.label })),
+  const resourceItems: PaletteItem[] = (palette?.resources ?? [])
+    .map((r) => ({
+      kind: 'resource' as const,
+      label: r.label,
+      hint: r.group,
+      url: r.url,
+      icon: r.icon,
+    }))
+    .filter((i) => matches(i, query))
+  if (resourceItems.length > 0) {
+    sections.push({ label: t('palette_resources', 'Resources'), items: resourceItems })
+  }
+
+  const actionItems: PaletteItem[] = (palette?.actions ?? [])
+    .map((a) => ({
+      kind: 'action' as const,
+      label: a.label,
+      hint: a.resource,
+      url: a.url,
+      icon: a.icon,
+      destructive: a.destructive,
+    }))
+    .filter((i) => matches(i, query))
+  if (actionItems.length > 0) {
+    sections.push({ label: t('palette_actions', 'Actions'), items: actionItems })
+  }
+
+  const recentItems: PaletteItem[] = (palette?.recent ?? [])
+    .filter((r) => r.url !== null)
+    .map((r) => ({
+      kind: 'recent' as const,
+      label: r.label,
+      hint: r.subtitle,
+      url: r.url,
+      icon: <ClockCounterClockwiseIcon size={16} />,
+    }))
+    .filter((i) => matches(i, query))
+  if (recentItems.length > 0 && !query) {
+    sections.push({ label: t('palette_recent', 'Recent'), items: recentItems })
+  }
+
+  const recordItems: PaletteItem[] = (searchResponse?.results ?? []).flatMap((group) =>
+    group.items.map<PaletteItem>((item) => ({
+      kind: 'record',
+      label: item.title,
+      hint: item.subtitle ?? group.label,
+      url: item.url,
+    })),
   )
-
-  // Build unified navigation list
-  type NavItem =
-    | { type: "resource"; uriKey: string; label: string; groupLabel?: string; icon?: string; url: string }
-    | { type: "link"; label: string; groupLabel?: string; icon?: string; url: string; external?: boolean }
-    | { type: "record"; item: SearchResultItem; resourceLabel: string }
-
-  const navItems: NavItem[] = []
-
-  for (const r of filteredNavigationItems) {
-    if (r.type === "resource") {
-      navItems.push({
-        type: "resource",
-        uriKey: r.uriKey,
-        label: r.label,
-        groupLabel: r.groupLabel ?? undefined,
-        icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
-        url: r.url,
-      })
-    } else {
-      navItems.push({
-        type: "link",
-        label: r.label,
-        groupLabel: r.groupLabel ?? undefined,
-        icon: ((r as Record<string, unknown>).icon as string | null) ?? undefined,
-        url: r.url,
-        external: r.external,
-      })
-    }
+  if (recordItems.length > 0) {
+    sections.push({ label: t('palette_records', 'Records'), items: recordItems })
   }
 
-  for (const rec of allRecordItems) {
-    navItems.push({ type: "record", item: rec, resourceLabel: rec.resourceLabel })
-  }
+  // Flatten for keyboard navigation — the click targets must line up with
+  // the same order rendered below.
+  const flatItems = sections.flatMap((s) => s.items)
 
-  const resourceEndIndex = filteredNavigationItems.length
+  useEffect(() => { inputRef.current?.focus() }, [])
+  useEffect(() => { setActiveIndex(0) }, [query, flatItems.length])
 
-  // Focus input on mount
   useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+    const active = listRef.current?.querySelector<HTMLElement>('[data-cmdk-active="true"]')
+    active?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex])
 
-  // Reset active index when results change
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [query, allRecordItems.length])
-
-  const goToItem = useCallback(
-    (item: NavItem) => {
-      if (item.type === "resource") {
+  const runItem = useCallback((item: PaletteItem) => {
+    if (item.url) {
+      if ('url' in item && item.url) {
         navigate(item.url)
-      } else if (item.type === "link") {
-        if (item.external) {
-          window.open(item.url, "_blank", "noopener,noreferrer")
-        } else {
-          navigate(item.url)
-        }
-      } else {
-        navigate(item.item.url)
+        onClose()
       }
-      onClose()
-    },
-    [navigate, onClose],
-  )
+    }
+  }, [navigate, onClose])
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       onClose()
-    } else if (e.key === "ArrowDown") {
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveIndex((i) => Math.min(i + 1, navItems.length - 1))
-    } else if (e.key === "ArrowUp") {
+      setActiveIndex((i) => Math.min(i + 1, flatItems.length - 1))
+    } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActiveIndex((i) => Math.max(i - 1, 0))
-    } else if (e.key === "Enter" && navItems[activeIndex]) {
-      goToItem(navItems[activeIndex])
+    } else if (e.key === 'Enter' && flatItems[activeIndex]) {
+      e.preventDefault()
+      runItem(flatItems[activeIndex])
     }
   }
 
-  const hasRecords = allRecordItems.length > 0
+  let flatCursor = 0
 
   return (
-    <div className="martis-search-overlay" onClick={onClose}>
-      <div
-        className="martis-search-modal"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
-        <div className="relative">
-          <MagnifyingGlassIcon
-            size={14}
-            className="absolute left-4 top-1/2 -translate-y-1/2"
-            style={{ color: "var(--martis-text-muted)" }}
-          />
+    <div className="martis-cmdk-scrim" onClick={onClose}>
+      <div className="martis-cmdk" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
+        <div className="martis-cmdk-search">
+          <MagnifyingGlassIcon size={16} />
           <input
             ref={inputRef}
             type="text"
-            className="martis-search-input"
-            placeholder={t("search_resources", "Search resources...")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('palette_placeholder', 'Type a command or search…')}
+            autoFocus
           />
-          {searchingRecords && (
-            <SpinnerIcon
-              size={14}
-              className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin"
-              style={{ color: "var(--martis-text-muted)" }}
-            />
-          )}
+          <kbd>esc</kbd>
         </div>
 
-        <div className="martis-search-results">
-          {navItems.length === 0 && !searchingRecords && (
-            <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--martis-text-muted)" }}>
-              {t("no_results", "No results found.")}
+        <div className="martis-cmdk-list" ref={listRef}>
+          {flatItems.length === 0 && !searchingRecords && (
+            <div className="martis-cmdk-empty">
+              {t('no_results', 'No results found.')}
             </div>
           )}
 
-          {/* Resources section */}
-          {filteredNavigationItems.length > 0 && (
-            <>
-              {hasRecords && (
-                <div
-                  className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: "var(--martis-text-muted)" }}
-                >
-                  {t("section_resources", "Resources")}
-                </div>
-              )}
-              {filteredNavigationItems.map((r, i) => (
-                <div
-                  key={`nav-${r.type}-${r.type === "resource" ? r.uriKey : r.url}`}
-                  className={`martis-search-item ${i === activeIndex ? "active" : ""}`}
-                  onClick={() => goToItem(navItems[i])}
-                >
-                  <DatabaseIcon size={14} style={{ color: "var(--martis-accent)" }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{r.label}</div>
-                    {r.groupLabel && (
-                      <div className="text-xs truncate" style={{ color: "var(--martis-text-muted)" }}>
-                        {r.groupLabel}
-                      </div>
-                    )}
-                  </div>
-                  <CaretRightIcon size={12} style={{ color: "var(--martis-text-muted)" }} />
-                </div>
-              ))}
-            </>
-          )}
+          {sections.map((section) => (
+            <div key={section.label}>
+              <div className="martis-cmdk-group">{section.label}</div>
+              {section.items.map((item) => {
+                const globalIdx = flatCursor++
+                const isActive = globalIdx === activeIndex
+                const icon = renderItemIcon(item)
+                return (
+                  <button
+                    key={`${section.label}:${globalIdx}:${item.label}`}
+                    type="button"
+                    className={`martis-cmdk-item ${isActive ? 'is-active' : ''}`}
+                    data-cmdk-active={isActive ? 'true' : undefined}
+                    onClick={() => runItem(item)}
+                    onMouseEnter={() => setActiveIndex(globalIdx)}
+                  >
+                    {icon}
+                    <span className="martis-cmdk-name">{item.label}</span>
+                    {item.hint && <span className="martis-cmdk-hint">{item.hint}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
 
-          {/* Records grouped by resource — with subtitle */}
-          {hasRecords &&
-            searchGroups.map((group) => (
-              <div key={group.resource}>
-                <div
-                  className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: "var(--martis-text-muted)" }}
-                >
-                  {group.label}
-                </div>
-                {group.items.map((item) => {
-                  const flatIndex = allRecordItems.findIndex(
-                    (r) => r.id === item.id && r.url === item.url,
-                  )
-                  const navIndex = resourceEndIndex + flatIndex
-                  return (
-                    <div
-                      key={`rec-${group.resource}-${item.id}`}
-                      className={`martis-search-item ${navIndex === activeIndex ? "active" : ""}`}
-                      onClick={() => goToItem(navItems[navIndex])}
-                    >
-                      <FileIcon size={14} style={{ color: "var(--martis-accent)" }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{item.title}</div>
-                        {item.subtitle && (
-                          <div className="text-xs truncate" style={{ color: "var(--martis-text-muted)" }}>
-                            {item.subtitle}
-                          </div>
-                        )}
-                      </div>
-                      <CaretRightIcon size={12} style={{ color: "var(--martis-text-muted)" }} />
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
-
-          {/* Loading indicator when no results yet */}
-          {searchingRecords && !hasRecords && debouncedQuery.length >= 2 && (
-            <div className="px-4 py-4 text-center text-xs" style={{ color: "var(--martis-text-muted)" }}>
-              {t("searching", "Searching...")}
+          {searchingRecords && recordItems.length === 0 && debouncedQuery.length >= MIN_QUERY_LEN_RECORDS && (
+            <div className="martis-cmdk-empty">
+              {t('searching', 'Searching...')}
             </div>
           )}
         </div>
 
-        <div
-          className="flex items-center gap-4 border-t px-4 py-2 text-xs"
-          style={{ borderColor: "var(--martis-border)", color: "var(--martis-text-muted)" }}
-        >
-          <span>
-            <kbd
-              className="rounded px-1 py-0.5 text-[10px] font-mono"
-              style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}
-            >
-              &uarr;&darr;
-            </kbd>{" "}
-            {t("navigate", "navigate")}
-          </span>
-          <span>
-            <kbd
-              className="rounded px-1 py-0.5 text-[10px] font-mono"
-              style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}
-            >
-              &crarr;
-            </kbd>{" "}
-            {t("select", "select")}
-          </span>
-          <span>
-            <kbd
-              className="rounded px-1 py-0.5 text-[10px] font-mono"
-              style={{ backgroundColor: "var(--martis-hover)", border: "1px solid var(--martis-search-border)" }}
-            >
-              esc
-            </kbd>{" "}
-            {t("close", "close")}
-          </span>
+        <div className="martis-cmdk-foot">
+          <span><kbd>&uarr;&darr;</kbd>{t('navigate', 'navigate')}</span>
+          <span><kbd>&crarr;</kbd>{t('select', 'select')}</span>
+          <span><kbd>&#8984;K</kbd>{t('palette_toggle', 'toggle')}</span>
+          <span className="martis-cmdk-foot-spacer" />
+          <span>{t('palette_results', { count: flatItems.length, defaultValue: '{{count}} results' })}</span>
         </div>
       </div>
     </div>
   )
+}
+
+function renderItemIcon(item: PaletteItem): ReactNode {
+  if (item.kind === 'resource') {
+    return item.icon
+      ? <ResourceIcon iconName={item.icon} size={16} />
+      : <DatabaseIcon size={16} />
+  }
+  if (item.kind === 'action') {
+    return item.icon
+      ? <ResourceIcon iconName={item.icon} size={16} />
+      : <LightningIcon size={16} />
+  }
+  if (item.kind === 'record') {
+    return <FileIcon size={16} />
+  }
+  return item.icon ?? <ClockCounterClockwiseIcon size={16} />
 }
