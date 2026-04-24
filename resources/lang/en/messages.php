@@ -199,4 +199,5 @@ return [
     'brand_color_invalid' => 'Use #RGB, #RRGGBB or #RRGGBBAA',
     'clear_brand_color' => 'Clear brand color',
     'applied_preset' => 'Preset applied',
+    'details' => 'Details',
 ];

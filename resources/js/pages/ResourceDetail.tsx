@@ -347,36 +347,26 @@ export function ResourceDetailPage() {
         <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
       ))}
 
-      {/* Fields card — only shown when there are scalar fields.
-       *  Uses the same visual chrome as PanelContainer for consistency
-       *  with sections that are explicitly inside Panel::make(). */}
-      {scalarFields.length > 0 && <div
-        className="rounded-lg"
-        style={{
-          border: "1px solid var(--martis-border)",
-          backgroundColor: "var(--martis-surface)",
-        }}
-      >
-        <dl
-          className="martis-divide"
-          style={{ borderColor: "var(--martis-border)" }}
-        >
-          {scalarFields.map((field) => (
-            <div
-              key={field.attribute}
-              className="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-start sm:gap-4 sm:px-6"
-              style={{ borderColor: "var(--martis-border)" }}
-            >
-              <dt className="text-sm font-medium sm:w-48 sm:shrink-0" style={{ color: "var(--martis-text-muted)" }}>
-                {field.label}
-              </dt>
-              <dd className="min-w-0 flex-1 text-sm">
-                <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>}
+      {/* Details panel — spec-compliant Field grid (200px label / 1fr
+       *  value, 14×0 row padding, hairline bottom border between rows)
+       *  wrapped in a `.martis-detail-panel` surface with a "Details"
+       *  kicker above. Mirrors the main detail spec so the scalar
+       *  fields read as a named block instead of a generic card. */}
+      {scalarFields.length > 0 && (
+        <div>
+          <div className="martis-detail-kicker">{tMsg("details")}</div>
+          <dl className="martis-detail-panel">
+            {scalarFields.map((field) => (
+              <div key={field.attribute} className="martis-detail-row">
+                <dt className="martis-detail-label">{field.label}</dt>
+                <dd className="martis-detail-value">
+                  <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       {/* Relationship fields (HasMany, HasOne, variants) render standalone
        * — each is a full-width panel with its own heading. They are NOT

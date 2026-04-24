@@ -46,6 +46,17 @@ function toArray(value: unknown): string[] {
 // Display
 // ---------------------------------------------------------------------------
 
+/** Scope-style detector — when a value reads as an identifier (no spaces,
+ *  only alphanumerics + common path separators) we switch the chip font
+ *  to mono so strings like `read:users` or `api.deploys` line up like
+ *  code. Matches the design-system Resource Detail spec for the Scopes
+ *  row. */
+function isCodeLikeValue(value: string): boolean {
+  if (!value) return false
+  if (value.length > 40) return false
+  return /^[a-zA-Z0-9_:./\-@]+$/.test(value) && !/\s/.test(value)
+}
+
 export function MultiSelectFieldDisplay({ field, value }: FieldDisplayProps) {
   const values = toArray(value)
 
@@ -56,20 +67,37 @@ export function MultiSelectFieldDisplay({ field, value }: FieldDisplayProps) {
   const options = getOptions(field as Record<string, unknown>)
   const displayLabels = (field as Record<string, unknown>).displayLabels as boolean | undefined
   // PHP MultiSelect::colors([...]) — per-value colour map. Missing entries
-  // fall back to the default chip (surface-alt / text / border).
+  // render as `.martis-badge-neutral` (grey, no dot), optionally with a
+  // mono font when the value reads like a scope/identifier.
   const colorMap = ((field as Record<string, unknown>).colorMap as Record<string, string> | undefined) ?? {}
 
   return (
     <div className="flex flex-wrap gap-1">
       {values.map((v) => {
-        const style = resolveBadgeStyle(colorMap[String(v)])
+        const colorKey = colorMap[String(v)]
+        const label = toLabelOrValue(v, options, !!displayLabels)
+        if (!colorKey) {
+          // F7-46 — neutral chip for un-mapped values. Spec uses
+          // `.martis-badge-neutral` + optional mono for code-like values.
+          const mono = isCodeLikeValue(String(v))
+          return (
+            <span
+              key={v}
+              className="martis-badge martis-badge-neutral"
+              style={mono ? { fontFamily: 'var(--martis-font-mono)' } : undefined}
+            >
+              {label}
+            </span>
+          )
+        }
+        const style = resolveBadgeStyle(colorKey)
         return (
           <span
             key={v}
             className="martis-badge"
             style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
           >
-            {toLabelOrValue(v, options, !!displayLabels)}
+            {label}
           </span>
         )
       })}

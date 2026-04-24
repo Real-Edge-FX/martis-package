@@ -199,4 +199,5 @@ return [
     'brand_color_invalid' => 'Use #RGB, #RRGGBB ou #RRGGBBAA',
     'clear_brand_color' => 'Limpar cor personalizada',
     'applied_preset' => 'Predefinição aplicada',
+    'details' => 'Detalhes',
 ];
