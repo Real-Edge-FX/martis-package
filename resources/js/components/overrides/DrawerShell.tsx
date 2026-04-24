@@ -56,7 +56,7 @@ export function DrawerShell({
   subtitle,
   icon,
   iconColor,
-  width = '520px',
+  width = '560px',
   expandedWidth = '800px',
   allowExpand = true,
   allowFullscreen = true,
@@ -265,55 +265,43 @@ export function DrawerShell({
           regardless of inner content (Trix, Tabs, etc.) or scrollbar
           behaviour that could otherwise let flex-shrink trim the panel. */}
       <div
-        className="relative flex h-full flex-col shadow-xl transition-all duration-200 ease-out"
+        className="martis-drawer-shell relative flex h-full flex-col transition-all duration-200 ease-out"
         style={{
           width: currentWidth,
           minWidth: currentWidth,
           maxWidth: '100vw',
           flex: `0 0 ${currentWidth}`,
-          backgroundColor: 'var(--martis-card)',
           borderLeft: isRight ? '1px solid var(--martis-border)' : 'none',
           borderRight: isRight ? 'none' : '1px solid var(--martis-border)',
           transform: visible ? translateVisible : translateHidden,
         }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
-        >
-          {/* Icon + Title + Subtitle */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              {icon && (
-                <div
-                  className="flex-shrink-0 flex items-center justify-center rounded-lg"
-                  style={{
-                    width: 36,
-                    height: 36,
-                    backgroundColor: iconColor ? `${iconColor}18` : 'var(--martis-surface)',
-                    color: iconColor || 'var(--martis-accent)',
-                  }}
-                >
-                  <ResourceIcon iconName={icon} size={20} />
-                </div>
-              )}
-              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-                {title}
-              </h2>
+        {/* Header — spec: 16×20 padding, 72px min-height, 12px gap. */}
+        <div className="martis-drawer-head">
+          {icon && (
+            <div
+              className="martis-drawer-icon"
+              style={
+                iconColor
+                  ? {
+                      background: `color-mix(in srgb, ${iconColor} 14%, transparent)`,
+                      color: iconColor,
+                    }
+                  : undefined
+              }
+            >
+              <ResourceIcon iconName={icon} size={20} />
             </div>
-            {subtitle && (
-              <p
-                className="mt-0.5 truncate text-sm"
-                style={{ color: 'var(--martis-text-muted)', marginLeft: icon ? 'calc(36px + 0.75rem)' : undefined }}
-              >
-                {subtitle}
-              </p>
-            )}
+          )}
+          <div className="martis-drawer-head-main">
+            <div className="martis-drawer-head-row">
+              <h2 className="martis-drawer-title">{title}</h2>
+            </div>
+            {subtitle && <p className="martis-drawer-subtitle">{subtitle}</p>}
           </div>
 
           {/* Action buttons */}
-          <div className="ml-4 flex items-center gap-1">
+          <div className="martis-drawer-actions">
             {allowExpand && (
               <button
                 type="button"
@@ -370,15 +358,9 @@ export function DrawerShell({
           {children}
         </div>
 
-        {/* Footer */}
+        {/* Footer — spec: 14×20 padding, surface-alt bg, border-top. */}
         {footer && (
-          <div
-            className="flex items-center justify-end gap-3 border-t px-6 py-4"
-            style={{
-              borderColor: 'var(--martis-border)',
-              backgroundColor: 'var(--martis-surface-alt)',
-            }}
-          >
+          <div className="martis-drawer-foot">
             {footer}
           </div>
         )}
