@@ -5901,6 +5901,21 @@ html[data-density="dense"] .martis-drawer-icon {
 .martis-detail-value.is-mono {
   font-family: var(--martis-font-mono);
 }
+/* Kicker label above a `.martis-detail-panel` — spec `metric-label`
+   typography (12px uppercase muted, 0.04em tracking, semibold). Used
+   to prefix the Details box on the main Detail page so the surface
+   reads as a named panel instead of a floating card. */
+.martis-detail-kicker {
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--martis-weight-medium);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
 html[data-density="dense"] .martis-detail-row {
   padding: 10px 0;
   gap: 14px;
