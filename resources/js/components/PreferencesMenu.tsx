@@ -5,6 +5,7 @@ import { SlidersHorizontalIcon, SunIcon, MoonIcon, MonitorIcon, CheckIcon, Arrow
 import { usePreferences, type AccentColor, type ThemeMode, type UiDensity } from '@/contexts/PreferencesContext'
 import { config } from '@/lib/config'
 import { loadLocale } from '@/lib/i18n'
+import { Segmented } from '@/components/ui/Segmented'
 
 /**
  * Task 07.1 ⭐ D2 — User preferences panel.
@@ -164,24 +165,17 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
 
           {/* Theme */}
           <Section label={t('theme', 'Theme')}>
-            <div className="flex overflow-hidden rounded-md border" style={{ borderColor: 'var(--martis-border)' }}>
-              {THEME_OPTIONS.map(({ key, labelKey, fallback, icon: Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onThemePick(key)}
-                  className="flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-xs"
-                  style={{
-                    backgroundColor: prefs.theme === key ? 'var(--martis-accent-bg-light)' : 'transparent',
-                    color: prefs.theme === key ? 'var(--martis-accent)' : 'var(--martis-text-muted)',
-                    borderRight: '1px solid var(--martis-border)',
-                  }}
-                >
-                  <Icon size={14} />
-                  {t(labelKey, fallback)}
-                </button>
-              ))}
-            </div>
+            <Segmented<ThemeMode>
+              fullWidth
+              ariaLabel={t('theme', 'Theme')}
+              value={prefs.theme}
+              onChange={onThemePick}
+              options={THEME_OPTIONS.map(({ key, labelKey, fallback, icon: Icon }) => ({
+                key,
+                label: t(labelKey, fallback),
+                icon: <Icon size={14} />,
+              }))}
+            />
           </Section>
 
           {/* Accent */}
@@ -244,23 +238,16 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
 
           {/* Density */}
           <Section label={t('density', 'Density')}>
-            <div className="flex overflow-hidden rounded-md border" style={{ borderColor: 'var(--martis-border)' }}>
-              {DENSITY_OPTIONS.map(({ key, labelKey, fallback }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onDensityPick(key)}
-                  className="flex flex-1 items-center justify-center px-2 py-1.5 text-xs"
-                  style={{
-                    backgroundColor: prefs.density === key ? 'var(--martis-accent-bg-light)' : 'transparent',
-                    color: prefs.density === key ? 'var(--martis-accent)' : 'var(--martis-text-muted)',
-                    borderRight: '1px solid var(--martis-border)',
-                  }}
-                >
-                  {t(labelKey, fallback)}
-                </button>
-              ))}
-            </div>
+            <Segmented<UiDensity>
+              fullWidth
+              ariaLabel={t('density', 'Density')}
+              value={prefs.density}
+              onChange={onDensityPick}
+              options={DENSITY_OPTIONS.map(({ key, labelKey, fallback }) => ({
+                key,
+                label: t(labelKey, fallback),
+              }))}
+            />
           </Section>
 
           {/* Language */}

@@ -5535,3 +5535,162 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight:hover {
   background-color: var(--martis-accent-bg-light) !important;
 }
+
+/* =================================================================
+   Fase 7 F7-31 — Tabs
+   Catalog `.tabs` spec (Catalog.html:1401-1433): horizontal row with
+   a border-bottom, each tab a transparent button with muted text,
+   hover flips to default text colour, active tab picks up accent
+   text + 2px accent underline (`margin-bottom: -1px` so the 2px
+   border sits ON the container's border-bottom, not below it).
+   Optional `.count` pill on the right keeps numeric hints legible.
+   ================================================================ */
+.martis-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--martis-border);
+  margin-bottom: 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.martis-tabs-tab {
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: var(--martis-text-muted);
+  font-family: inherit;
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: color var(--martis-dur-fast) var(--martis-ease-standard),
+              border-color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-tabs-tab:hover {
+  color: var(--martis-text);
+}
+.martis-tabs-tab.is-active,
+.martis-tabs-tab[aria-selected="true"] {
+  color: var(--martis-accent);
+  border-bottom-color: var(--martis-accent);
+}
+.martis-tabs-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+  border-radius: var(--martis-radius-sm);
+}
+.martis-tabs-tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.martis-tabs-count {
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--martis-hover);
+  color: var(--martis-text-muted);
+}
+.martis-tabs-tab.is-active .martis-tabs-count,
+.martis-tabs-tab[aria-selected="true"] .martis-tabs-count {
+  background: var(--martis-accent-bg);
+  color: var(--martis-accent);
+}
+
+/* =================================================================
+   Fase 7 F7-32 — Segmented control
+   Catalog `.seg` spec (Catalog.html:1105-1128): input-bg container
+   with 1px border + `radius-md`, 2px inner padding. Each button is
+   a flex:1 equal-width, 26px tall, muted text at rest. Active
+   button gets a `surface` background + default text + `shadow-sm`
+   so it lifts off the track.
+
+   Used by PreferencesMenu theme/density pickers (which hand-rolled
+   the look with inline styles) and available for any view switcher.
+   ================================================================ */
+.martis-segmented {
+  display: inline-flex;
+  background: var(--martis-input-bg);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+.martis-segmented-btn {
+  flex: 1;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--martis-radius-md) - 2px);
+  cursor: pointer;
+  color: var(--martis-text-muted);
+  font-family: inherit;
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-medium);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px;
+  white-space: nowrap;
+  transition: background-color var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-segmented-btn:hover:not(:disabled):not(.is-active) {
+  color: var(--martis-text);
+}
+.martis-segmented-btn.is-active,
+.martis-segmented-btn[aria-pressed="true"] {
+  background: var(--martis-surface);
+  color: var(--martis-text);
+  box-shadow: var(--martis-shadow-sm);
+}
+.martis-segmented-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-segmented-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Stretch variant — full-width bar (used in dense side panels). */
+.martis-segmented.is-full {
+  display: flex;
+  width: 100%;
+}
+
+/* =================================================================
+   Fase 7 F7-33 — Skeleton
+   Catalog `.skeleton` spec (Catalog.html:1609-1618): 3-stop linear
+   gradient (`hover → border → hover`) running 1.4s ease-in-out so
+   the shimmer sweeps from right to left. `--martis-dur-*` tokens
+   are already clamped under reduced-motion, but we also drop the
+   animation entirely on `prefers-reduced-motion` and the package
+   `[data-reduced-motion]` flag so the placeholder stays static
+   for users who opt out.
+   ================================================================ */
+.martis-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--martis-hover) 0%,
+    var(--martis-border) 50%,
+    var(--martis-hover) 100%
+  );
+  background-size: 200% 100%;
+  animation: martis-skeleton 1.4s ease-in-out infinite;
+  border-radius: var(--martis-radius-sm);
+  display: block;
+}
+@keyframes martis-skeleton {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .martis-skeleton { animation: none !important; }
+}
+html[data-reduced-motion="true"] .martis-skeleton { animation: none !important; }
