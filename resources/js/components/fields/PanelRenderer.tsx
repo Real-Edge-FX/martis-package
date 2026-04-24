@@ -3,7 +3,7 @@ import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { PanelDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
-import { FieldLabelTooltip } from './FieldLabelTooltip'
+import { FieldWrapper } from './FieldWrapper'
 
 // -------------------------------------------------------------------------
 // Panel — shared internal container
@@ -153,35 +153,29 @@ export function PanelInput({
           {fields.map((field) => (
             <div
               key={field.attribute}
-              className="col-span-12 flex flex-col gap-1.5"
+              className="col-span-12"
               style={{
                 gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
               }}
             >
-              <label
+              <FieldWrapper
                 htmlFor={field.attribute}
-                className="block text-sm font-medium"
-                style={{ color: 'var(--martis-text-muted)' }}
+                label={field.label}
+                required={field.required}
+                tooltip={field.tooltip}
+                help={field.helpText}
               >
-                {field.label}
-                {field.required && (
-                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                )}
-                <FieldLabelTooltip text={field.tooltip} />
-              </label>
-              <FieldInput
-                field={field}
-                value={values[field.attribute]}
-                onChange={(v) => onChange(field.attribute, v)}
-                error={errors[field.attribute]}
-                resourceKey={resourceKey}
-                recordId={recordId}
-                context={context}
-                formValues={values}
-              />
-              {field.helpText && (
-                <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-              )}
+                <FieldInput
+                  field={field}
+                  value={values[field.attribute]}
+                  onChange={(v) => onChange(field.attribute, v)}
+                  error={errors[field.attribute]}
+                  resourceKey={resourceKey}
+                  recordId={recordId}
+                  context={context}
+                  formValues={values}
+                />
+              </FieldWrapper>
             </div>
           ))}
         </div>

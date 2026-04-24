@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { TabGroupDefinition, TabDefinition, FieldDefinition, PanelDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
+import { FieldWrapper } from './FieldWrapper'
 import { PanelDisplay, PanelInput } from './PanelRenderer'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
 
@@ -187,33 +188,27 @@ export function TabsInput({
             return (
               <div
                 key={field.attribute}
-                className="col-span-12 flex flex-col gap-1.5"
+                className="col-span-12"
                 style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
               >
-                <label
+                <FieldWrapper
                   htmlFor={field.attribute}
-                  className="block text-sm font-medium"
-                  style={{ color: 'var(--martis-text-muted)' }}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
                 >
-                  {field.label}
-                  {field.required && (
-                    <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                  )}
-                  <FieldLabelTooltip text={field.tooltip} />
-                </label>
-                <FieldInput
-                  field={field}
-                  value={values[field.attribute]}
-                  onChange={(v) => onChange(field.attribute, v)}
-                  error={errors[field.attribute]}
-                  resourceKey={resourceKey}
-                  recordId={recordId}
-                  context={context}
-                  formValues={values}
-                />
-                {field.helpText && (
-                  <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-                )}
+                  <FieldInput
+                    field={field}
+                    value={values[field.attribute]}
+                    onChange={(v) => onChange(field.attribute, v)}
+                    error={errors[field.attribute]}
+                    resourceKey={resourceKey}
+                    recordId={recordId}
+                    context={context}
+                    formValues={values}
+                  />
+                </FieldWrapper>
               </div>
             )
           })}
