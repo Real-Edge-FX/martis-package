@@ -5,6 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext"
 import { config } from "@/lib/config"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
+import { isMacPlatform } from "@/lib/platform"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
@@ -188,7 +189,7 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
           <span className="martis-tb-search-placeholder">
             {config.search?.placeholder ?? t("search_placeholder", "Press / to search")}
           </span>
-          <kbd>/</kbd>
+          <kbd>{isMacPlatform() ? "\u2318K" : "Ctrl K"}</kbd>
         </button>
       )}
 

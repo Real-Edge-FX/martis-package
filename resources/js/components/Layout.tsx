@@ -66,6 +66,22 @@ function SidebarLayout() {
     localStorage.setItem("martis-sidebar-collapsed", String(collapsed))
   }, [collapsed])
 
+  // Mirror the shell's layout flags onto <html> so portal'd overlays
+  // (command palette, toasts, modals) can read them via `html[data-*]`
+  // selectors — a React portal into document.body does not inherit the
+  // attribute from .martis-shell, which is a sibling subtree.
+  useEffect(() => {
+    const root = document.documentElement
+    if (isMobile) root.setAttribute("data-mobile", "true")
+    else root.removeAttribute("data-mobile")
+    if (!isMobile && collapsed) root.setAttribute("data-sidebar-collapsed", "true")
+    else root.removeAttribute("data-sidebar-collapsed")
+    return () => {
+      root.removeAttribute("data-mobile")
+      root.removeAttribute("data-sidebar-collapsed")
+    }
+  }, [isMobile, collapsed])
+
   useEffect(() => {
     if (isMobile && mobileSidebarOpen) {
       document.body.style.overflow = "hidden"
