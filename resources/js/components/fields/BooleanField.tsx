@@ -1,7 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
-import { InputSwitch } from 'primereact/inputswitch'
 import { useTranslation } from 'react-i18next'
 import { resolveBadgeStyle } from './badgeStyles'
+import { FieldSwitch } from './FieldSwitch'
 
 export function BooleanFieldDisplay({ field, value }: FieldDisplayProps) {
   const { t } = useTranslation('messages')
@@ -34,20 +34,13 @@ export function BooleanFieldInput({ field, value, onChange, error }: FieldInputP
     : (field.falseLabel as string | undefined) ?? t('inactive')
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-3">
-        <InputSwitch
-          inputId={field.attribute}
-          checked={checked}
-          onChange={(e) => onChange(e.value)}
-          disabled={field.readonly}
-        />
-        <label
-          htmlFor={field.attribute}
-          className="text-sm text-gray-700 dark:text-gray-300"
-        >
-          {label}
-        </label>
-      </div>
+      <FieldSwitch
+        id={field.attribute}
+        checked={checked}
+        onChange={(next) => onChange(next)}
+        disabled={field.readonly}
+        label={label}
+      />
       {error && <small className="text-red-500">{error}</small>}
     </div>
   )

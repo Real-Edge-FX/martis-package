@@ -2769,6 +2769,153 @@ html:not(.dark) .martis-dropzone {
   opacity: 0.55;
   cursor: not-allowed;
 }
+/* Row helper for labelled checkboxes — same shape as `.martis-radio-row`
+   so form-control rows read consistently. */
+.martis-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+}
+.martis-checkbox-row input:disabled + * {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Fase 7 F7-29 — Radio
+   16×16 circular, 1px border on input-bg at rest; accent border
+   with an accent-filled inner dot when checked. The `<input>` is
+   hidden and the visible circle is a `<span class="martis-radio-dot">`
+   rendered as a sibling (Catalog pattern). Consumers can also apply
+   `.martis-radio` to a bare native `<input type="radio">` and skip
+   the dot — the native input swaps to look-like-a-dot via `::after`.
+
+   Ship both patterns so authors pick whichever is easiest for them.
+   ============================================================ */
+.martis-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--martis-border);
+  border-radius: 50%;
+  background: var(--martis-input-bg);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.martis-radio:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+}
+.martis-radio:checked {
+  border-color: var(--martis-accent);
+}
+.martis-radio:checked::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--martis-accent);
+}
+.martis-radio:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-radio:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Row helper — wraps radio + label in an inline-flex aligned on the baseline
+   so the text centres against the 16px circle. Mirrors Catalog `.radio`. */
+.martis-radio-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+}
+.martis-radio-row input:disabled + * {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Vertical group wrapper — Catalog `.radio-row` (they chose a confusing
+   name for a column; we ship the same shape under a non-ambiguous alias). */
+.martis-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============================================================
+   Fase 7 F7-30 — Switch / Toggle
+   Track 32×18 rounded pill on `--martis-border`, 14×14 white knob
+   with 2px padding. On check: track swaps to `--martis-accent`,
+   knob slides 14px right. Wrapped in a `<label class="martis-switch">`
+   with a hidden native checkbox so keyboard/accessibility works for
+   free (Catalog `.toggle` spec).
+   ============================================================ */
+.martis-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+  user-select: none;
+}
+.martis-switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.martis-switch-track {
+  width: 32px;
+  height: 18px;
+  background: var(--martis-border);
+  border-radius: 999px;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color var(--martis-dur-base) var(--martis-ease-standard);
+}
+.martis-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform var(--martis-dur-base) var(--martis-ease-standard);
+}
+.martis-switch-input:checked ~ .martis-switch-track {
+  background: var(--martis-accent);
+}
+.martis-switch-input:checked ~ .martis-switch-track::after {
+  transform: translateX(14px);
+}
+.martis-switch-input:focus-visible ~ .martis-switch-track {
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-switch-input:disabled ~ .martis-switch-track {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.martis-switch-input:disabled ~ .martis-switch-label {
+  opacity: 0.55;
+}
 
 /* Checkbox — matches the design-system spec: 16x16, radius-sm, border
    on input-bg at rest, accent-filled when checked with a white "L"
