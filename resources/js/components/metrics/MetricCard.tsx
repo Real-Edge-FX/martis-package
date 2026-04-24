@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { ArrowClockwiseIcon, PulseIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import type { MetricDefinition, ActiveFilters } from '@/types'
@@ -89,16 +89,12 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
           </h3>
           {isLive && (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-              style={{
-                backgroundColor: 'var(--martis-success-bg)',
-                color: 'var(--martis-success)',
-              }}
+              className="martis-status-dot"
               data-pr-tooltip={`${t('auto_refresh', 'Auto-refresh')}: ${metric.refreshEvery}s`}
               data-pr-position="top"
             >
-              <PulseIcon size={10} weight="fill" />
-              {t('live', 'LIVE')}
+              <span className="martis-status-pulse" />
+              {t('live', 'Live')}
             </span>
           )}
         </div>

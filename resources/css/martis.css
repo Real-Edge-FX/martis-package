@@ -6001,3 +6001,45 @@ html[data-density="dense"] .martis-detail-panel {
 html[data-density="dense"] .martis-kpi-value {
   font-size: 24px;
 }
+
+/* Fase 7 — pulsating live status dot (canonical shell pattern). Mirrors
+   the design-system `.status-dot` + `.pulse` from Martis Shell.html. Used
+   wherever we want to signal "this value auto-refreshes in the
+   background" — metric cards, live tables, streaming panels. */
+.martis-status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  line-height: 1;
+}
+.martis-status-dot .martis-status-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--martis-success);
+  position: relative;
+  flex-shrink: 0;
+}
+.martis-status-dot .martis-status-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: var(--martis-success);
+  opacity: 0.35;
+  animation: martis-status-pulse 1.8s ease-out infinite;
+}
+@keyframes martis-status-pulse {
+  0%   { transform: scale(0.7); opacity: 0.5; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .martis-status-dot .martis-status-pulse::after {
+    animation: none;
+  }
+}
