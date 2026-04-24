@@ -93,11 +93,12 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const rawDetailFields: FieldDefinition[] = (schema as { fieldsForDetail?: FieldDefinition[] } | undefined)?.fieldsForDetail ?? []
   const flattenFields = (fields: FieldDefinition[]): FieldDefinition[] =>
     fields.flatMap((f) => {
-      if (f.type === 'panel' || f.type === 'section') {
+      const kind = (f as { type?: string }).type
+      if (kind === 'panel' || kind === 'section') {
         const inner = ((f as unknown as { fields?: FieldDefinition[] }).fields) ?? []
         return flattenFields(inner)
       }
-      if (f.type === 'tab_group') {
+      if (kind === 'tab_group') {
         const tabs = ((f as unknown as { tabs?: { fields?: FieldDefinition[] }[] }).tabs) ?? []
         return tabs.flatMap((t) => flattenFields(t.fields ?? []))
       }

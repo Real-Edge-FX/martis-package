@@ -69,7 +69,10 @@ export function DrawerUpdate(props: OverrideProps) {
 
   const activeRecord = record ?? recordQuery.data?.data
   const allFormFields = useMemo(() => schema.fieldsForUpdate ?? [], [schema])
-  const scalarFields = useMemo(() => extractScalarFields(allFormFields), [allFormFields])
+  const scalarFields = useMemo(
+    () => extractScalarFields(allFormFields as unknown as Array<Record<string, unknown>>),
+    [allFormFields],
+  )
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})

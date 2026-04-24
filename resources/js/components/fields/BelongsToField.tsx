@@ -208,7 +208,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
   // true when the peek card didn't fit below and flipped above; in that
   // case the "Preview" tooltip must flip down so it isn't overlapped by
   // the card.
-  const [peekFlipped, setPeekFlipped] = useState(false)
+  const [, setPeekFlipped] = useState(false)
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerSpanRef = useRef<HTMLSpanElement>(null)
   const peekIconRef = useRef<HTMLAnchorElement>(null)

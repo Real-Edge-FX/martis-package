@@ -321,15 +321,16 @@ export function ResourceCreatePage() {
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order — layout containers and scalar fields interleaved */}
           <div className="p-6 space-y-4">
-            {allFormFields.map((item, idx) => {
+            {allFormFields.map((raw, idx) => {
+              const item = raw as { type?: string } & Record<string, unknown>
               if (item.type === 'tab_group') {
-                return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+                return <TabsInput key={idx} tabGroup={item as unknown as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
               }
               if (item.type === 'section') {
-                return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+                return <SectionInput key={idx} section={item as unknown as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
               }
               if (item.type === 'panel') {
-                return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+                return <PanelInput key={idx} panel={item as unknown as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
               }
               // Scalar field
               const field = item as FieldDefinition

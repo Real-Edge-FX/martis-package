@@ -75,15 +75,19 @@ export function DrawerDetail(props: OverrideProps) {
   // drawer. Loose scalar fields still fall back to a single-grid layout at
   // the top, before the structured blocks and the relationship cards.
   const detailFields = (schema.fieldsForDetail ?? []) as FieldDefinition[]
-  const panelItems = detailFields.filter((f) => f.type === 'panel') as PanelDefinition[]
-  const tabGroupItems = detailFields.filter((f) => f.type === 'tab_group') as TabGroupDefinition[]
-  const sectionItems = detailFields.filter((f) => f.type === 'section') as SectionDefinition[]
-  const scalarFields = detailFields.filter((f) =>
-    !STANDALONE_RELATIONSHIP_TYPES.has(f.type) &&
-    f.type !== 'panel' &&
-    f.type !== 'tab_group' &&
-    f.type !== 'section',
-  ) as FieldDefinition[]
+  const kindOf = (f: FieldDefinition): string => (f as { type?: string }).type ?? ''
+  const panelItems = detailFields.filter((f) => kindOf(f) === 'panel') as unknown as PanelDefinition[]
+  const tabGroupItems = detailFields.filter((f) => kindOf(f) === 'tab_group') as unknown as TabGroupDefinition[]
+  const sectionItems = detailFields.filter((f) => kindOf(f) === 'section') as unknown as SectionDefinition[]
+  const scalarFields = detailFields.filter((f) => {
+    const kind = kindOf(f)
+    return (
+      !STANDALONE_RELATIONSHIP_TYPES.has(f.type) &&
+      kind !== 'panel' &&
+      kind !== 'tab_group' &&
+      kind !== 'section'
+    )
+  }) as FieldDefinition[]
   const relationshipFields = detailFields.filter((f) => STANDALONE_RELATIONSHIP_TYPES.has(f.type)) as FieldDefinition[]
   const isLoading = !activeRecord || recordQuery.isLoading
 
