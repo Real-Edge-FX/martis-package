@@ -187,7 +187,7 @@ export function SectionDisplay({
               key={field.attribute}
               style={{ gridColumn: fieldGridColumn(field, section.columns) }}
             >
-              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
+              <dt className="martis-detail-label mb-1">{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
               <dd>
                 <FieldDisplay
                   field={field}

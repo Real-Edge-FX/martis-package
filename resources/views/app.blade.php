@@ -51,6 +51,11 @@
             dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showWelcomeCard' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
+            drawer: {!! json_encode([
+                'width' => config('martis.drawer.width', '560px'),
+                'expandedWidth' => config('martis.drawer.expanded_width', '800px'),
+                'expandable' => (bool) config('martis.drawer.expandable', true),
+            ]) !!},
             layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
             navigation: {!! json_encode([
                 'pollInterval' => (int) config('martis.navigation.poll_interval', 60000),

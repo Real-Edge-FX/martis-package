@@ -44,6 +44,19 @@ export interface MartisFooterConfig {
   text?: string | null
 }
 
+export interface MartisDrawerConfig {
+  /** Default width for every DrawerOverride (override per-resource via `->width()`). */
+  width?: string
+  /** Width when the user toggles the drawer into its expanded state. */
+  expandedWidth?: string
+  /**
+   * Global gate for the expand / fullscreen buttons. When `false`, both
+   * controls are suppressed on every drawer regardless of the per-drawer
+   * `allowExpand` / `allowFullscreen` props. Default: true.
+   */
+  expandable?: boolean
+}
+
 export interface MartisLoaderConfig {
   /** Custom loading message. Default: translation key 'messages:loading' */
   message?: string
@@ -176,6 +189,7 @@ export interface MartisConfigShape {
   dashboard?: MartisDashboardConfig
   toast?: MartisToastConfig
   footer?: MartisFooterConfig
+  drawer?: MartisDrawerConfig
   layout?: MartisLayoutConfig
   navigation?: MartisNavigationConfig
   loader?: MartisLoaderConfig

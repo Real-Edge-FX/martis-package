@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
+import { config } from '@/lib/config'
 
 export interface DrawerShellProps {
   /** Title displayed in the header. */
@@ -68,6 +69,12 @@ export function DrawerShell({
   children,
   beforeClose,
 }: DrawerShellProps) {
+  // F7-13 — global gate. When `config.drawer.expandable === false`, force
+  // both buttons off so an app that locks the drawer to a single width
+  // doesn't need to audit every `DrawerOverride` caller.
+  const expandableGate = config.drawer?.expandable !== false
+  const canExpand = allowExpand && expandableGate
+  const canFullscreen = allowFullscreen && expandableGate
   const { t: tMsg } = useTranslation('messages')
   const [visible, setVisible] = useState(false)
   const [state, setState] = useState<DrawerState>('normal')
@@ -302,7 +309,7 @@ export function DrawerShell({
 
           {/* Action buttons */}
           <div className="martis-drawer-actions">
-            {allowExpand && (
+            {canExpand && (
               <button
                 type="button"
                 onClick={toggleExpand}
@@ -320,7 +327,7 @@ export function DrawerShell({
                 )}
               </button>
             )}
-            {allowFullscreen && (
+            {canFullscreen && (
               <button
                 type="button"
                 onClick={toggleFullscreen}

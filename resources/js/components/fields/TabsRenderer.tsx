@@ -111,7 +111,7 @@ export function TabsDisplay({
                 style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
               >
                 <dl>
-                  <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
+                  <dt className="martis-detail-label mb-1">{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
                   <dd>
                     <FieldDisplay
                       field={field}
