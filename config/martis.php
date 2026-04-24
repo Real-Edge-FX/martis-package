@@ -333,6 +333,47 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Authentication UI — optional flows
+    |--------------------------------------------------------------------------
+    |
+    | Configure which alternative sign-in flows the Login page surfaces and
+    | whether the self-service registration path is available. Each flow
+    | follows the same shape:
+    |
+    |   enabled — renders the button / link on the Login page.
+    |   url     — where the button / link redirects. When omitted, clicking
+    |              the control shows a "not configured" toast so the
+    |              programmer is reminded to wire the flow up.
+    |
+    | Registration gates both the `/register` route and the "Create an
+    | account" link that appears underneath the Sign in button. Martis does
+    | not ship a built-in registration controller — the consumer app is
+    | expected to expose a POST endpoint (default convention:
+    | `/martis/api/auth/register`) and pass its path / URL here if the form
+    | should submit to a different location.
+    |
+    */
+    'auth' => [
+        'sso' => [
+            'enabled' => env('MARTIS_AUTH_SSO_ENABLED', false),
+            'url' => env('MARTIS_AUTH_SSO_URL'),
+        ],
+        'google' => [
+            'enabled' => env('MARTIS_AUTH_GOOGLE_ENABLED', false),
+            'url' => env('MARTIS_AUTH_GOOGLE_URL'),
+        ],
+        'passwordReset' => [
+            'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
+            'url' => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
+        ],
+        'registration' => [
+            'enabled' => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
+            'url' => env('MARTIS_AUTH_REGISTRATION_URL'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cache — Martis Extension
     |--------------------------------------------------------------------------
     |

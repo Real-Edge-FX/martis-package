@@ -56,6 +56,12 @@
                 'pollInterval' => (int) config('martis.navigation.poll_interval', 60000),
             ]) !!},
             loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
+            auth: {!! json_encode(config('martis.auth', [
+                'sso' => ['enabled' => false, 'url' => null],
+                'google' => ['enabled' => false, 'url' => null],
+                'passwordReset' => ['enabled' => false, 'url' => null],
+                'registration' => ['enabled' => false, 'url' => null],
+            ])) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
                 'sections' => array_values(array_intersect(

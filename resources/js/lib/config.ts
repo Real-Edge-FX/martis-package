@@ -140,6 +140,27 @@ export interface MartisPreferencesConfig {
   initial: MartisPreferencesInitialPayload | null
 }
 
+/** Generic shape for each alternative auth flow (SSO, Google, password reset,
+ *  registration). `enabled` renders the UI piece; `url` is where the button
+ *  or link points. When `enabled` is `true` but `url` is empty, the UI
+ *  surfaces an "not configured" toast to the programmer. */
+export interface MartisAuthFlowConfig {
+  enabled?: boolean
+  url?: string | null
+}
+
+export interface MartisAuthConfig {
+  /** SSO sign-in button on the Login page. */
+  sso?: MartisAuthFlowConfig
+  /** Continue with Google button on the Login page. */
+  google?: MartisAuthFlowConfig
+  /** "Forgot?" link next to the password label. */
+  passwordReset?: MartisAuthFlowConfig
+  /** Self-service registration — gates the `/register` route and the
+   *  "Create an account" link on Login. */
+  registration?: MartisAuthFlowConfig
+}
+
 export interface MartisConfigShape {
   basePath?: string
   locale?: string
@@ -160,6 +181,7 @@ export interface MartisConfigShape {
   loader?: MartisLoaderConfig
   profile?: MartisProfileConfig
   preferences?: MartisPreferencesConfig
+  auth?: MartisAuthConfig
 }
 
 declare global {

@@ -81,6 +81,10 @@ return [
     '2fa_disable_confirm_body' => 'Tem certeza que deseja desativar a autenticação de dois fatores? Sua conta ficará menos segura.',
     '2fa_disable_confirm' => 'Sim, desativar',
     '2fa_session_expired' => 'Sessão expirada. Faça login novamente.',
+    '2fa_challenge_title_v2' => 'Digite o código de 6 dígitos',
+    '2fa_recovery_title' => 'Usar um código de segurança',
+    '2fa_code_expires_in' => 'O código expira em',
+    '2fa_otp_digit' => 'Dígito :n',
 
     'profile' => 'Perfil',
 ];

@@ -1,24 +1,18 @@
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { HouseIcon } from '@phosphor-icons/react'
+import { CompassIcon } from '@phosphor-icons/react'
+import { ErrorScreen } from '@/components/auth/ErrorScreen'
 
 export function NotFoundPage() {
   const { t } = useTranslation('messages')
 
   return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <div className="text-6xl font-bold martis-text-muted mb-2">404</div>
-      <p className="text-lg mb-6" style={{ color: 'var(--martis-text-muted)' }}>
-        {t('page_not_found')}
-      </p>
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
-        style={{ backgroundColor: 'var(--martis-accent)' }}
-      >
-        <HouseIcon size={16} weight="bold" />
-        {t('back_to_dashboard')}
-      </Link>
-    </div>
+    <ErrorScreen
+      code="404"
+      icon={<CompassIcon size={32} weight="regular" />}
+      title={t('not_found_title', { defaultValue: 'Resource not found' })}
+      description={t('not_found_desc', {
+        defaultValue: "The page you're looking for doesn't exist or you don't have permission to see it.",
+      })}
+    />
   )
 }
