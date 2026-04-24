@@ -79,16 +79,13 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
         style={{ borderBottom: '1px solid var(--martis-border)' }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          {metric.icon && (
-            <span className="flex-shrink-0" style={{ color: accentColor ?? 'var(--martis-text-muted)' }}>
-              <ResourceIcon iconName={metric.icon} size={16} />
-            </span>
-          )}
-          <h3
-            className="text-sm font-semibold truncate"
-            style={{ color: 'var(--martis-text)' }}
-          >
-            {metric.name}
+          <h3 className="martis-kpi-label min-w-0">
+            {metric.icon && (
+              <span className="martis-kpi-label-icon" style={{ color: accentColor ?? undefined }}>
+                <ResourceIcon iconName={metric.icon} size={14} />
+              </span>
+            )}
+            <span className="martis-kpi-label-text">{metric.name}</span>
           </h3>
           {isLive && (
             <span
