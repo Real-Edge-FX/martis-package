@@ -385,10 +385,13 @@ Schema::table('users', function (Blueprint $table) {
     $table->text('two_factor_secret')->nullable();
     $table->text('two_factor_recovery_codes')->nullable();
     $table->timestamp('two_factor_confirmed_at')->nullable();
+    // Replay protection — records the last successful TOTP step so a
+    // compromised code cannot be reused within the ±30 s tolerance.
+    $table->timestamp('two_factor_last_used_at')->nullable();
 });
 ```
 
-The `martis:install` command includes this migration automatically.
+The `martis:install` command includes this migration automatically. Installs that predate the `two_factor_last_used_at` column still verify codes — `TwoFactorService::verifyAndTrack()` probes the schema on first use and skips replay tracking when the column is missing.
 
 ## User Menu
 

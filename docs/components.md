@@ -131,6 +131,29 @@ Top navigation bar with:
 - User menu with theme toggle, profile, and logout
 - Mobile-responsive search mode
 
+### Command palette (`GlobalSearch.tsx`)
+
+Global overlay that replaces the old "search sheet". Triggered by **⌘K** (macOS) / **Ctrl+K** (Windows / Linux) anywhere in the app, or by `/` when focus is outside an input. Mirrors the design-system Catalog spec via the `.martis-cmdk-*` CSS family.
+
+Four ordered sections:
+
+| Section | Source | When it shows |
+|---------|--------|---------------|
+| Resources | `/api/command-palette` → `resources` | Always (filtered by query). Each row is the resource label + its navigation group as a hint. |
+| Actions | `/api/command-palette` → `actions` | When any registered resource exposes a standalone action (`Action::standalone()`). The hint column shows the owning resource. |
+| Recent | `/api/command-palette` → `recent` | Only when the query is empty. Pulls the authenticated user's latest 8 `martis_action_events` rows. Clicking jumps to the affected record when `model_id` is set. |
+| Records | `/api/search?q=…` | When the query has 2+ characters. Uses the existing unified record-search endpoint. |
+
+Keyboard:
+- `↑` / `↓` — navigate.
+- `↵` — run the active item.
+- `esc` — close.
+- `⌘K` / `Ctrl+K` — toggle open / closed even while typing in a text field.
+
+Backend route: `GET /api/command-palette` (`CommandPaletteController@index`), behind the standard Martis auth + 2FA + locale middleware stack. The aggregate is short-cached client-side for 30 s; the record search is debounced 300 ms and re-queries for every distinct query string.
+
+To wire a consumer-specific command into the palette, register a standalone action on any resource — the palette picks it up automatically.
+
 ### Footer
 
 Configurable page footer. Enable/disable and set custom text via config:

@@ -32,4 +32,11 @@ return [
     'searching' => 'A pesquisar...',
     'page_title_default' => ':brand — Centro de Administração',
     'docs' => 'Documentação',
+    'palette_placeholder' => 'Escreva um comando ou pesquise…',
+    'palette_resources' => 'Recursos',
+    'palette_actions' => 'Ações',
+    'palette_recent' => 'Recentes',
+    'palette_records' => 'Registos',
+    'palette_toggle' => 'alternar',
+    'palette_results' => '{{count}} resultados',
 ];

@@ -32,4 +32,11 @@ return [
     'searching' => 'Searching...',
     'page_title_default' => ':brand — Admin Control',
     'docs' => 'Docs',
+    'palette_placeholder' => 'Type a command or search…',
+    'palette_resources' => 'Resources',
+    'palette_actions' => 'Actions',
+    'palette_recent' => 'Recent',
+    'palette_records' => 'Records',
+    'palette_toggle' => 'toggle',
+    'palette_results' => '{{count}} results',
 ];

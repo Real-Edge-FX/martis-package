@@ -14,6 +14,7 @@ use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\MorphManyController;
 use Martis\Http\Controllers\MorphOneController;
 use Martis\Http\Controllers\MorphToManyController;
+use Martis\Http\Controllers\CommandPaletteController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\PreferencesController;
 use Martis\Http\Controllers\ProfileController;
@@ -101,6 +102,11 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->middleware($throttle)
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+
+                                // Global command palette aggregate — resources,
+                                // standalone actions, and the user's recent
+                                // action-events in one round-trip.
+                                Route::get('/command-palette', [CommandPaletteController::class, 'index'])->name('api.command-palette');
 
                                 // User preferences (Task 07.1 ⭐ D2)
                                 if (config('martis.preferences.enabled', true)) {

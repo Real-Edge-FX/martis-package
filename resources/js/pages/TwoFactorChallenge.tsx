@@ -79,10 +79,21 @@ export function TwoFactorChallengePage() {
     window.location.href = BASE_PATH + '/login'
   }
 
-  async function handleSubmit(e?: FormEvent) {
-    if (e) e.preventDefault()
+  async function handleSubmit(eOrCode?: FormEvent | string) {
+    // Accept either a form event (manual submit) or an explicit code string
+    // (auto-submit path, which has to bypass the stale `digits` state closure
+    // — the setState triggered by the final keystroke hasn't flushed yet
+    // when the setTimeout fires, so `digits.join('')` would still read 5
+    // filled + 1 empty cell and the challenge would always report "Invalid
+    // code. Please try again." even on perfectly valid OTPs).
+    let overrideCode: string | undefined
+    if (typeof eOrCode === 'string') {
+      overrideCode = eOrCode
+    } else if (eOrCode) {
+      eOrCode.preventDefault()
+    }
     if (submitting) return
-    const code = useRecovery ? recoveryCode.trim() : digits.join('')
+    const code = overrideCode ?? (useRecovery ? recoveryCode.trim() : digits.join(''))
     if (!code || (!useRecovery && code.length !== OTP_LENGTH)) {
       setError(t('2fa_invalid_code'))
       return
@@ -116,24 +127,24 @@ export function TwoFactorChallengePage() {
       })
       return
     }
-    // If the field received more than one digit (autofill or paste-like
-    // input events), distribute across the next cells rather than
-    // clipping — users expect the 6-digit code to "fall into" all boxes.
-    setDigits((prev) => {
-      const next = [...prev]
-      for (let i = 0; i < onlyDigits.length && index + i < OTP_LENGTH; i++) {
-        next[index + i] = onlyDigits[i]!
-      }
-      return next
-    })
+    // Compute the next digit array locally so we can both update state AND
+    // hand the final code to the auto-submit path — React state updates are
+    // async, so reading `digits` inside the setTimeout below would see the
+    // pre-keystroke value and the challenge would reject every code.
+    const next = [...digits]
+    for (let i = 0; i < onlyDigits.length && index + i < OTP_LENGTH; i++) {
+      next[index + i] = onlyDigits[i]!
+    }
+    setDigits(next)
     const advanceTo = Math.min(index + onlyDigits.length, OTP_LENGTH - 1)
     otpRefs.current[advanceTo]?.focus()
     otpRefs.current[advanceTo]?.select()
     setError('')
 
-    // Auto-submit once the last cell is filled.
-    if (index + onlyDigits.length >= OTP_LENGTH) {
-      setTimeout(() => void handleSubmit(), 50)
+    // Auto-submit once every cell is filled.
+    if (next.every((d) => d !== '') && next.length === OTP_LENGTH) {
+      const code = next.join('')
+      setTimeout(() => void handleSubmit(code), 50)
     }
   }
 
@@ -158,16 +169,15 @@ export function TwoFactorChallengePage() {
     if (!/^\d+$/.test(text)) return
     e.preventDefault()
     const sliced = text.slice(0, OTP_LENGTH).split('')
-    setDigits((prev) => {
-      const next = [...prev]
-      for (let i = 0; i < OTP_LENGTH; i++) next[i] = sliced[i] ?? ''
-      return next
-    })
+    const next: string[] = []
+    for (let i = 0; i < OTP_LENGTH; i++) next[i] = sliced[i] ?? ''
+    setDigits(next)
     const last = Math.min(sliced.length, OTP_LENGTH) - 1
     otpRefs.current[last >= 0 ? last : 0]?.focus()
     setError('')
-    if (sliced.length >= OTP_LENGTH) {
-      setTimeout(() => void handleSubmit(), 50)
+    if (next.every((d) => d !== '')) {
+      const code = next.join('')
+      setTimeout(() => void handleSubmit(code), 50)
     }
   }
 
