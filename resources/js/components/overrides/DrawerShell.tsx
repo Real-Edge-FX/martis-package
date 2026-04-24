@@ -316,7 +316,7 @@ export function DrawerShell({
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={state === 'expanded' ? tMsg('collapse', 'Collapse') : tMsg('expand', 'Expand')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 {state === 'expanded' ? (
                   /* Arrow right to bar — collapse */
@@ -334,7 +334,7 @@ export function DrawerShell({
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={state === 'fullscreen' ? tMsg('exit_fullscreen', 'Exit fullscreen') : tMsg('fullscreen', 'Fullscreen')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 {state === 'fullscreen' ? (
                   /* Arrows in — exit fullscreen */
@@ -352,7 +352,7 @@ export function DrawerShell({
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={tMsg('close', 'Close')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
               </button>
