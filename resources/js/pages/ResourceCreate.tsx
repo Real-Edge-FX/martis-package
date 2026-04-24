@@ -320,7 +320,7 @@ export function ResourceCreatePage() {
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order — layout containers and scalar fields interleaved */}
-          <div className="p-6 space-y-4">
+          <div className="martis-form-body martis-form-stack">
             {allFormFields.map((raw, idx) => {
               const item = raw as { type?: string } & Record<string, unknown>
               if (item.type === 'tab_group') {

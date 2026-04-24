@@ -272,7 +272,7 @@ export function DrawerUpdate(props: OverrideProps) {
           />
         </div>
       ) : (
-        <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
+        <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
           {allFormFields.map((item, idx) => {
             if (item.type === 'tab_group') {
               return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />

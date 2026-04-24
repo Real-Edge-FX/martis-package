@@ -277,7 +277,7 @@ export function ResourceUpdatePage() {
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order */}
-          <div className="p-6 space-y-4">
+          <div className="martis-form-body martis-form-stack">
             {allFormFields.map((item, idx) => {
               if (item.type === 'tab_group') {
                 return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />

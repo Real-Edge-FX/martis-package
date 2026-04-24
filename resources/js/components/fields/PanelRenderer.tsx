@@ -99,7 +99,7 @@ export function PanelDisplay({
   return (
     <PanelContainer panel={panel}>
       {(fields) => (
-        <dl className="grid grid-cols-12 gap-4">
+        <dl className="martis-form-grid grid grid-cols-12">
           {fields.map((field) => (
             <div
               key={field.attribute}
@@ -149,7 +149,7 @@ export function PanelInput({
   return (
     <PanelContainer panel={panel}>
       {(fields) => (
-        <div className="grid grid-cols-12 gap-4">
+        <div className="martis-form-grid grid grid-cols-12">
           {fields.map((field) => (
             <div
               key={field.attribute}

@@ -94,7 +94,7 @@ export function TabsDisplay({
         aria-labelledby={`tab-${activeIndex}`}
         className="p-4"
       >
-        <div className="grid grid-cols-12 gap-4">
+        <div className="martis-form-grid grid grid-cols-12">
           {activeTab.fields.map((item: FieldDefinition | PanelDefinition) => {
             if (isPanelDefinition(item)) {
               return (
@@ -167,7 +167,7 @@ export function TabsInput({
         aria-labelledby={`tab-${activeIndex}`}
         className="p-4"
       >
-        <div className="grid grid-cols-12 gap-4">
+        <div className="martis-form-grid grid grid-cols-12">
           {activeTab.fields.map((item: FieldDefinition | PanelDefinition) => {
             if (isPanelDefinition(item)) {
               return (

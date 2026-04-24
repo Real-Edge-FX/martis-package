@@ -5694,3 +5694,60 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   .martis-skeleton { animation: none !important; }
 }
 html[data-reduced-motion="true"] .martis-skeleton { animation: none !important; }
+
+/* =================================================================
+   Fase 7 — Density wiring for form surfaces
+   The density tokens (`--martis-input-h`, `--martis-pad-x/y`,
+   `--martis-gap`) already existed but were not consumed by the form
+   content (ResourceCreate/Update bodies, drawers, field inputs). The
+   classes below plug into those tokens so the Dense preference has a
+   visible effect end-to-end instead of stopping at the shell chrome.
+   ================================================================ */
+
+/* Form body — replaces the hand-rolled `p-6 space-y-4` pairs on
+   Create / Update pages and drawer forms. Comfortable keeps the 24px
+   padding + 16px gap the package shipped; Dense compresses to 16px +
+   10px. */
+.martis-form-body {
+  padding: 24px;
+}
+.martis-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.martis-form-grid {
+  display: grid;
+  gap: 16px;
+}
+html[data-density="dense"] .martis-form-body {
+  padding: 14px 16px;
+}
+html[data-density="dense"] .martis-form-stack {
+  gap: 10px;
+}
+html[data-density="dense"] .martis-form-grid {
+  gap: 10px;
+}
+
+/* Input controls — `.martis-input` and `.p-dropdown` both lock a
+   36px height today. Dense shrinks them to 30px (matches
+   `--martis-input-h` dense token). Textareas opt out via their
+   `.martis-input-textarea` class. PrimeReact needs `!important` so
+   the legacy `min-height: 2.5rem` block doesn't win back. */
+html[data-density="dense"] .martis-input {
+  height: 30px;
+}
+html[data-density="dense"] .martis-input.martis-input-textarea {
+  height: auto;
+}
+html[data-density="dense"] .p-dropdown {
+  height: 30px !important;
+  min-height: 30px !important;
+}
+html[data-density="dense"] .martis-input-wrap {
+  gap: 4px;
+}
+html[data-density="dense"] .martis-section-grid {
+  gap: 10px;
+}

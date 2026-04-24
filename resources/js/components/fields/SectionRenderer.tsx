@@ -128,7 +128,7 @@ export function SectionInput({
     <SectionContainer section={section}>
       {(fields) => (
         <div
-          className="martis-section-grid grid gap-4"
+          className="martis-section-grid martis-form-grid grid"
           style={{ gridTemplateColumns: `repeat(${section.columns}, minmax(0, 1fr))` }}
         >
           {fields.map((field) => (
@@ -179,7 +179,7 @@ export function SectionDisplay({
     <SectionContainer section={section}>
       {(fields) => (
         <dl
-          className="martis-section-grid grid gap-4"
+          className="martis-section-grid martis-form-grid grid"
           style={{ gridTemplateColumns: `repeat(${section.columns}, minmax(0, 1fr))` }}
         >
           {fields.map((field) => (
