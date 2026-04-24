@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { CaretDownIcon, XIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ClearButton } from '@/components/ClearButton'
+import { resolveBadgeStyle } from './badgeStyles'
 
 interface SelectOpt {
   label: string
@@ -54,22 +55,24 @@ export function MultiSelectFieldDisplay({ field, value }: FieldDisplayProps) {
 
   const options = getOptions(field as Record<string, unknown>)
   const displayLabels = (field as Record<string, unknown>).displayLabels as boolean | undefined
+  // PHP MultiSelect::colors([...]) — per-value colour map. Missing entries
+  // fall back to the default chip (surface-alt / text / border).
+  const colorMap = ((field as Record<string, unknown>).colorMap as Record<string, string> | undefined) ?? {}
 
   return (
     <div className="flex flex-wrap gap-1">
-      {values.map((v) => (
-        <span
-          key={v}
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-          style={{
-            backgroundColor: 'var(--martis-surface-alt)',
-            color: 'var(--martis-text)',
-            border: '1px solid var(--martis-border)',
-          }}
-        >
-          {toLabelOrValue(v, options, !!displayLabels)}
-        </span>
-      ))}
+      {values.map((v) => {
+        const style = resolveBadgeStyle(colorMap[String(v)])
+        return (
+          <span
+            key={v}
+            className="martis-badge"
+            style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
+          >
+            {toLabelOrValue(v, options, !!displayLabels)}
+          </span>
+        )
+      })}
     </div>
   )
 }
@@ -245,17 +248,11 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
             />
           </div>
 
-          {/* Options */}
-          <div style={{ overflowY: 'auto', flex: 1 }}>
+          {/* Options — reuse `.martis-belongs-to-*` classes so the panel
+              matches every other relation/select dropdown in the system. */}
+          <div className="martis-belongs-to-options" style={{ flex: 1 }}>
             {filteredOptions.length === 0 ? (
-              <div
-                style={{
-                  padding: '0.75rem',
-                  textAlign: 'center',
-                  fontSize: '0.75rem',
-                  color: 'var(--martis-text-muted)',
-                }}
-              >
+              <div className="martis-belongs-to-empty">
                 {debouncedSearch ? tMsg('no_results_found') : tMsg('no_options')}
               </div>
             ) : (
@@ -284,19 +281,11 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
                         key={val}
                         type="button"
                         onClick={() => toggle(val)}
-                        className="w-full text-left flex items-center justify-between transition-colors"
-                        style={{
-                          padding: '0.5rem 0.75rem',
-                          fontSize: '0.875rem',
-                          color: 'var(--martis-text)',
-                          backgroundColor: isSelected ? 'var(--martis-surface-alt)' : 'transparent',
-                        }}
-                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = isSelected ? 'var(--martis-surface-alt)' : 'transparent' }}
+                        className={`martis-belongs-to-option ${isSelected ? 'martis-belongs-to-option--selected' : ''}`}
                       >
-                        <span>{opt.label}</span>
+                        <span className="martis-belongs-to-option-label flex-1 min-w-0 block">{opt.label}</span>
                         {isSelected && (
-                          <CheckIcon size={12} weight="bold" style={{ color: 'var(--martis-accent)' }} />
+                          <CheckIcon size={12} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
                         )}
                       </button>
                     )

@@ -274,7 +274,13 @@ export function ResourceDetailPage() {
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </span>
         {isDeleted && (
-          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+          <span
+            className="ml-2 rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--martis-danger) 12%, transparent)",
+              color: "var(--martis-danger)",
+            }}
+          >
             {tMsg("archived")}
           </span>
         )}
@@ -297,64 +303,32 @@ export function ResourceDetailPage() {
             <button
               type="button"
               onClick={() => setShowRestore(true)}
-              
-              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+              className="martis-btn-warning"
             >
               <ArrowCounterClockwiseIcon size={14} />
               {tAct("restore")}
             </button>
           ) : null}
           {canUpdate && (
-          <button
-            type="button"
-            onClick={handleEdit}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              borderColor: "var(--martis-border)",
-              backgroundColor: "var(--martis-surface)",
-              color: "var(--martis-text)",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
-          >
+          <button type="button" onClick={handleEdit} className="martis-btn-secondary">
             <PencilSimpleIcon size={14} />
             {tAct("edit")}
           </button>
           )}
           {!isDeleted && canReplicate && (
-          <button
-            type="button"
-            onClick={handleReplicate}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              borderColor: "var(--martis-border)",
-              backgroundColor: "var(--martis-surface)",
-              color: "var(--martis-text)",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
-          >
+          <button type="button" onClick={handleReplicate} className="martis-btn-secondary">
             <CopyIcon size={14} />
             {tAct("replicate")}
           </button>
           )}
           {!isDeleted && canDelete && (
-          <button
-            type="button"
-            onClick={() => setShowDelete(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-          >
+          <button type="button" onClick={() => setShowDelete(true)} className="martis-btn-danger">
             <TrashIcon size={14} />
             {tAct("delete")}
           </button>
           )}
           {isDeleted && schema.softDeletes && canForceDelete && (
-          <button
-            type="button"
-            onClick={() => setShowForceDelete(true)}
-            
-            className="inline-flex items-center gap-1.5 rounded-md bg-red-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-900"
-          >
+          <button type="button" onClick={() => setShowForceDelete(true)} className="martis-btn-danger">
             <TrashSimpleIcon size={14} />
             {tAct("delete_permanent")}
           </button>
@@ -498,23 +472,30 @@ export function ResourceDetailPage() {
       />
 
       {showRestore && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowRestore(false)} />
-          <div role="dialog" className="relative w-full max-w-md rounded-xl shadow-xl" style={{ backgroundColor: "var(--martis-card)", border: "1px solid var(--martis-border)" }}>
-            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "var(--martis-border)" }}>
+        <div className="martis-modal-scrim" onClick={() => setShowRestore(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="martis-modal-surface"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="martis-modal-head">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <ArrowCounterClockwiseIcon size={20} className="text-amber-600 dark:text-amber-400" />
-                </div>
-                <span className="text-lg font-semibold" style={{ color: "var(--martis-text)" }}>{tAct("restore")} {schema.singularLabel}</span>
+                <ArrowCounterClockwiseIcon size={18} weight="bold" style={{ color: "var(--martis-warning)" }} />
+                <h3 className="martis-modal-head-title">{tAct("restore")} {schema.singularLabel}</h3>
               </div>
             </div>
-            <div className="px-6 py-4">
-              <p className="text-sm" style={{ color: "var(--martis-text-muted)" }}>{tMsg("restore_confirm")}</p>
-            </div>
-            <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: "var(--martis-border)", backgroundColor: "var(--martis-surface)", borderRadius: "0 0 0.75rem 0.75rem" }}>
-              <button type="button" onClick={() => setShowRestore(false)} className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium" style={{ backgroundColor: "var(--martis-input-bg)", borderColor: "var(--martis-border)", color: "var(--martis-text)" }}>{tAct("cancel")}</button>
-              <button type="button" onClick={async () => { await restoreMutation.mutateAsync(); setShowRestore(false) }} disabled={restoreMutation.isPending} className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50">
+            <div className="martis-modal-body">{tMsg("restore_confirm")}</div>
+            <div className="martis-modal-foot">
+              <button type="button" onClick={() => setShowRestore(false)} className="martis-btn-secondary">
+                {tAct("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={async () => { await restoreMutation.mutateAsync(); setShowRestore(false) }}
+                disabled={restoreMutation.isPending}
+                className="martis-btn-warning"
+              >
                 <ArrowCounterClockwiseIcon size={14} />
                 {restoreMutation.isPending ? tAct("please_wait") : tAct("restore")}
               </button>

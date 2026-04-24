@@ -112,14 +112,24 @@ Set global cache defaults in `config/martis.php`:
 
 Individual metrics can override with `cacheFor()`. The global config acts as a fallback.
 
-## Fallback Dashboard
+## Default Dashboard
 
-When no dashboards are registered, Martis displays the default landing page with:
-- Welcome greeting
-- Resource count stats
-- Resource shortcut cards
+`Martis\Dashboards\DefaultDashboard` is the built-in landing dashboard. Register it alongside your custom dashboards to expose the default surface as a selectable tab:
 
-This ensures backward compatibility with existing installations.
+```php
+Martis::dashboards([
+    \Martis\Dashboards\DefaultDashboard::class,
+    MyCustomDashboard::class,
+]);
+```
+
+The default dashboard renders, top to bottom:
+
+- **Welcome hero card** — animated gradient surface with the configured heading, description, and the package version resolved dynamically from Composer's installed tag. Override the copy by publishing `lang/vendor/martis/*/resources.php` and editing `welcome_card_heading` / `welcome_card_description`. Hide the card via `config('martis.dashboard.showWelcomeCard', false)` or the `MARTIS_DASHBOARD_SHOW_WELCOME_CARD=false` env flag.
+- Resource count stats (total, groups, active).
+- Resource shortcut cards derived from the registered navigation.
+
+When **no** dashboards are registered at all, the same default view renders as a fallback so existing installations stay functional.
 
 ## API
 

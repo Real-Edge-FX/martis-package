@@ -35,7 +35,7 @@ function SectionContainer({ section, children }: SectionContainerProps) {
       {section.title && (
         <div
           className={[
-            'flex items-center justify-between px-4 py-3 rounded-t-lg',
+            'flex items-center justify-between px-4 py-2 rounded-t-lg',
             section.collapsible ? 'cursor-pointer select-none transition-colors' : '',
           ].join(' ')}
           style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
@@ -52,7 +52,7 @@ function SectionContainer({ section, children }: SectionContainerProps) {
           } : undefined}
         >
           <div>
-            <h3 className="text-base font-semibold" style={{ color: 'var(--martis-text)' }}>{section.title}</h3>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>{section.title}</h3>
             {section.description && (
               <p className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>{section.description}</p>
             )}
@@ -67,7 +67,7 @@ function SectionContainer({ section, children }: SectionContainerProps) {
 
       {/* Section content */}
       {!collapsed && (
-        <div id={sectionId} className="p-4">
+        <div id={sectionId} className="px-4 py-3">
           {children(visibleFields)}
 
           {/* Show more / show less toggle */}

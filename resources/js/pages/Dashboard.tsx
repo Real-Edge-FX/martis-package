@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -244,11 +245,18 @@ function DefaultDashboardView({ groups }: { groups: NavigationGroup[] }) {
   const navigationResources = groups.flatMap((group) => getNavigationResourceItems(group))
   const totalResources = navigationResources.length
 
+  const showWelcomeCard = config.dashboard?.showWelcomeCard !== false
   const showMetrics = config.dashboard?.showMetrics !== false
   const showResourceCards = config.dashboard?.showResourceCards !== false
 
   return (
     <>
+      {showWelcomeCard && (
+        <div className="mb-6">
+          <WelcomeCard />
+        </div>
+      )}
+
       {showMetrics && (
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <StatCard label={t('registered')} value={totalResources} icon={<DatabaseIcon size={20} className="text-indigo-400" />} bgClass="bg-indigo-500/20" />
@@ -263,7 +271,7 @@ function DefaultDashboardView({ groups }: { groups: NavigationGroup[] }) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {navigationResources.map((r) => (
               <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block h-full">
-                <Card className="transition-all hover:shadow-md cursor-pointer h-full">
+                <Card className="martis-resource-card transition-all hover:shadow-md cursor-pointer h-full">
                   <div className="flex items-center gap-4 min-h-[2.5rem]">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
                       <ResourceIcon iconName={r.icon ?? null} size={20} className="text-indigo-400" />
@@ -294,7 +302,7 @@ function DefaultDashboardView({ groups }: { groups: NavigationGroup[] }) {
 
 function StatCard({ label, value, icon, bgClass }: { label: string; value: number; icon: React.ReactNode; bgClass: string }) {
   return (
-    <div className="rounded-xl p-5" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+    <div className="martis-stat-card rounded-xl p-5" style={{ border: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium" style={{ color: 'var(--martis-text-muted)' }}>{label}</p>

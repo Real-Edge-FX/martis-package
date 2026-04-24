@@ -283,13 +283,16 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
 
           {/* Accessibility — reduced motion sits apart from theme/accent/density. */}
           <Section label={t('accessibility', 'Accessibility')}>
-            <label className="flex cursor-pointer items-center justify-between gap-2 text-xs">
-              <span style={{ color: 'var(--martis-text)' }}>{t('reduced_motion', 'Reduced motion')}</span>
+            <label
+              className="flex cursor-pointer items-center justify-between gap-2 text-xs font-medium"
+              style={{ color: 'var(--martis-text)' }}
+            >
+              <span>{t('reduced_motion', 'Reduced motion')}</span>
               <input
                 type="checkbox"
+                className="martis-checkbox"
                 checked={prefs.reducedMotion}
                 onChange={onReducedMotionToggle}
-                style={{ accentColor: 'var(--martis-accent)' }}
               />
             </label>
           </Section>

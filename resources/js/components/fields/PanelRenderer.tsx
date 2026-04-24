@@ -32,7 +32,7 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
       {/* Panel header */}
       <div
         className={[
-          'flex items-center justify-between px-4 py-3',
+          'flex items-center justify-between px-4 py-2',
           panel.collapsible ? 'cursor-pointer select-none transition-colors' : '',
         ].join(' ')}
         style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
@@ -63,7 +63,7 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
 
       {/* Panel content */}
       {!collapsed && (
-        <div id={panelId} className="p-4">
+        <div id={panelId} className="px-4 py-3">
           {children(visibleFields)}
 
           {/* Show more / show less toggle */}

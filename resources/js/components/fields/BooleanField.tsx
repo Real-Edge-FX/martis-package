@@ -1,6 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputSwitch } from 'primereact/inputswitch'
 import { useTranslation } from 'react-i18next'
+import { resolveBadgeStyle } from './badgeStyles'
 
 export function BooleanFieldDisplay({ field, value }: FieldDisplayProps) {
   const { t } = useTranslation('messages')
@@ -8,15 +9,18 @@ export function BooleanFieldDisplay({ field, value }: FieldDisplayProps) {
   const label = checked
     ? (field.trueLabel as string | undefined) ?? t('yes')
     : (field.falseLabel as string | undefined) ?? t('no')
+
+  // PHP Boolean::trueColor / falseColor — defaults: success / neutral.
+  const trueColor = ((field as Record<string, unknown>).trueColor as string | undefined) ?? 'success'
+  const falseColor = ((field as Record<string, unknown>).falseColor as string | undefined) ?? 'neutral'
+  const style = resolveBadgeStyle(checked ? trueColor : falseColor)
+
   return (
     <span
-      className={[
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        checked
-          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-      ].join(' ')}
+      className="martis-badge"
+      style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
     >
+      <span className="martis-badge-dot" aria-hidden="true" />
       {label}
     </span>
   )

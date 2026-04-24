@@ -82,10 +82,12 @@ function columnStyleFrom(meta: ColumnWidth | null | undefined): React.CSSPropert
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
+  // Design-system spec: only the active column shows a direction caret.
+  // Inactive sortable columns stay clean until hovered/activated.
+  if (!active) return null
   return dir === "asc"
-    ? <CaretUpIcon size={14} className="text-indigo-600" />
-    : <CaretDownIcon size={14} className="text-indigo-600" />
+    ? <CaretUpIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
+    : <CaretDownIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
 }
 
 /* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
@@ -481,7 +483,15 @@ function DefaultTable({
         onSort={(e: DataTableSortEvent) => {
           if (e.sortField) onSort(String(e.sortField))
         }}
-        onRowClick={e => onClickRow?.(e.data as ResourceRecord)}
+        onRowClick={e => {
+          // Checkbox clicks bubble up through PrimeReact's `onRowClick`;
+          // suppress navigation when the click originated inside the
+          // selection column so bulk selection works without opening
+          // the detail view.
+          const target = e.originalEvent?.target as HTMLElement | undefined
+          if (target?.closest('.martis-select-column')) return
+          onClickRow?.(e.data as ResourceRecord)
+        }}
         rowClassName={(row: ResourceRecord) => {
           const classes: string[] = []
           if (!onClickRow) classes.push("martis-row-no-click")
@@ -519,7 +529,7 @@ function DefaultTable({
             header=""
             body={(row: ResourceRecord) =>
               "deleted_at" in row && row["deleted_at"] !== null ? (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                <span className="martis-badge martis-badge-danger">
                   {tMsg("archived")}
                 </span>
               ) : null
@@ -538,12 +548,18 @@ function DefaultTable({
             header={
               field.sortable ? (
                 <button type="button"
-                  className="flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
+                  className="martis-th-sortable flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
                   style={{ color: "var(--martis-table-header-text)" }}
                   onClick={() => onSort(field.attribute)}
                 >
                   {field.label}
-                  <SortIcon active={sortBy === field.attribute} dir={sortDir} />
+                  {sortBy === field.attribute ? (
+                    <SortIcon active dir={sortDir} />
+                  ) : (
+                    // Discreet hint that the column is sortable. Low opacity
+                    // at rest, slightly brighter when the header is hovered.
+                    <CaretUpDownIcon size={11} weight="bold" className="martis-th-sort-hint" />
+                  )}
                 </button>
               ) : (
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--martis-table-header-text)" }}>

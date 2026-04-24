@@ -33,6 +33,14 @@ class MultiSelect extends Field
     protected bool $displayLabels = false;
 
     /**
+     * Per-value colour map. Each entry may be a semantic keyword
+     * (info, success, warning, danger, neutral) or a hex string.
+     *
+     * @var array<string, string>
+     */
+    protected array $colorMap = [];
+
+    /**
      * Type.
      */
     public function type(): string
@@ -86,6 +94,24 @@ class MultiSelect extends Field
     public function displayUsingLabels(): static
     {
         $this->displayLabels = true;
+
+        return $this;
+    }
+
+    /**
+     * Map each option value to a pill colour.
+     *
+     * Each entry may be a semantic keyword (info, success, warning,
+     * danger, neutral) or a hex string like `#FF2D20`.
+     *
+     * @param  array<string, string>  $map
+     */
+    public function colors(array $map): static
+    {
+        $this->colorMap = array_map(
+            static fn (mixed $v): string => (string) $v,
+            $map,
+        );
 
         return $this;
     }
@@ -178,6 +204,7 @@ class MultiSelect extends Field
         return [
             'options' => $this->options,
             'displayLabels' => $this->displayLabels,
+            'colorMap' => $this->colorMap,
         ];
     }
 }

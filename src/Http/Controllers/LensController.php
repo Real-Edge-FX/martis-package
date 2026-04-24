@@ -269,6 +269,11 @@ class LensController extends MartisController
             $trashed,
             $perPage,
             $page,
+            // Locale is part of the key so summary labels, column headers,
+            // and any other `__()`-derived string stay in sync when the
+            // user switches language — otherwise a cached response keeps
+            // serving the previous locale until the TTL expires.
+            app()->getLocale(),
         ];
 
         return implode(':', array_map('strval', $parts));

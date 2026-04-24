@@ -251,7 +251,11 @@ abstract class Metric implements MetricContract
 
         $range = $request->query('range', '30');
         $filters = $request->query('filters', '');
-        $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters);
+        // Include the current locale so `__()`-derived labels (trend buckets,
+        // partition slice names, progress summaries) stay in sync when the
+        // user switches language — otherwise a cached payload keeps serving
+        // the previous locale until the TTL expires.
+        $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
 
         return Cache::remember($cacheKey, $cacheFor, fn () => $this->resolveResult($request));
     }
