@@ -5935,3 +5935,111 @@ html[data-density="dense"] .martis-detail-panel {
     align-items: start;
   }
 }
+
+/* =================================================================
+   Fase 7 F7-14 / F7-15 / F7-16 — KPI / Metric card typography
+   Spec: Dashboard.html:1659-1681.
+   - `.kpi-label` 12px / 500 / uppercase / 0.04em tracking / muted
+     with a leading icon.
+   - `.kpi-value` 28px / 600 / -0.02em letter-spacing / `tnum`.
+   - `.kpi-delta` pill (mono) positioned next to / below the value.
+     `.is-up` / `.is-down` variants read from `--martis-success-text`
+     / `--martis-danger-text`.
+   ================================================================ */
+.martis-kpi-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  min-width: 0;
+}
+.martis-kpi-label .martis-kpi-label-icon {
+  flex-shrink: 0;
+  color: inherit;
+}
+.martis-kpi-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-kpi-value {
+  font-size: 28px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.02em;
+  font-feature-settings: 'tnum';
+  color: var(--martis-text);
+  line-height: 1.15;
+}
+.martis-kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--martis-font-mono);
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-medium);
+  line-height: 1;
+  color: var(--martis-text-muted);
+  white-space: nowrap;
+}
+.martis-kpi-delta.is-up {
+  color: var(--martis-success-text, var(--martis-success));
+}
+.martis-kpi-delta.is-down {
+  color: var(--martis-danger-text, var(--martis-danger));
+}
+.martis-kpi-delta-sub {
+  font-family: var(--martis-font-sans);
+  font-weight: var(--martis-weight-regular);
+  color: var(--martis-text-muted);
+  margin-left: 2px;
+}
+html[data-density="dense"] .martis-kpi-value {
+  font-size: 24px;
+}
+
+/* Fase 7 — pulsating live status dot (canonical shell pattern). Mirrors
+   the design-system `.status-dot` + `.pulse` from Martis Shell.html. Used
+   wherever we want to signal "this value auto-refreshes in the
+   background" — metric cards, live tables, streaming panels. */
+.martis-status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  line-height: 1;
+}
+.martis-status-dot .martis-status-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--martis-success);
+  position: relative;
+  flex-shrink: 0;
+}
+.martis-status-dot .martis-status-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: var(--martis-success);
+  opacity: 0.35;
+  animation: martis-status-pulse 1.8s ease-out infinite;
+}
+@keyframes martis-status-pulse {
+  0%   { transform: scale(0.7); opacity: 0.5; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .martis-status-dot .martis-status-pulse::after {
+    animation: none;
+  }
+}

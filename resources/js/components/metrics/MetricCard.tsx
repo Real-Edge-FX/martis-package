@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { ArrowClockwiseIcon, PulseIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import type { MetricDefinition, ActiveFilters } from '@/types'
@@ -79,29 +79,22 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
         style={{ borderBottom: '1px solid var(--martis-border)' }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          {metric.icon && (
-            <span className="flex-shrink-0" style={{ color: accentColor ?? 'var(--martis-text-muted)' }}>
-              <ResourceIcon iconName={metric.icon} size={16} />
-            </span>
-          )}
-          <h3
-            className="text-sm font-semibold truncate"
-            style={{ color: 'var(--martis-text)' }}
-          >
-            {metric.name}
+          <h3 className="martis-kpi-label min-w-0">
+            {metric.icon && (
+              <span className="martis-kpi-label-icon" style={{ color: accentColor ?? undefined }}>
+                <ResourceIcon iconName={metric.icon} size={14} />
+              </span>
+            )}
+            <span className="martis-kpi-label-text">{metric.name}</span>
           </h3>
           {isLive && (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-              style={{
-                backgroundColor: 'var(--martis-success-bg)',
-                color: 'var(--martis-success)',
-              }}
+              className="martis-status-dot"
               data-pr-tooltip={`${t('auto_refresh', 'Auto-refresh')}: ${metric.refreshEvery}s`}
               data-pr-position="top"
             >
-              <PulseIcon size={10} weight="fill" />
-              {t('live', 'LIVE')}
+              <span className="martis-status-pulse" />
+              {t('live', 'Live')}
             </span>
           )}
         </div>

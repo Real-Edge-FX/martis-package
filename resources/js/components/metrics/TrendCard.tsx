@@ -76,12 +76,7 @@ export function TrendCard({ data, color }: TrendCardProps) {
   return (
     <div>
       {formattedDisplay && (
-        <p
-          className="text-2xl font-bold mb-3"
-          style={{ color: 'var(--martis-text)' }}
-        >
-          {formattedDisplay}
-        </p>
+        <p className="martis-kpi-value mb-3">{formattedDisplay}</p>
       )}
       <div style={{ height: 160 }}>
         <Chart type="line" data={chartData} options={chartOptions} />
