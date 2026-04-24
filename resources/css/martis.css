@@ -5296,3 +5296,95 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-modal-surface.is-lg { max-width: 640px; }
 .martis-modal-surface.is-xl { max-width: 800px; }
 .martis-modal-surface.is-2xl { max-width: 960px; }
+
+/* =================================================================
+   Fase 7 F7-27 — PrimeReact Dropdown aligned to the Catalog `.input`
+   spec (Catalog.html:1265-1320). Height 36, padding 0 10, focus glow
+   3px accent ring, chevron on the right, placeholder muted, option
+   hover surface-alt. Consumed by Select / BelongsTo / RelationSelect
+   and every PrimeReact dropdown the package renders.
+
+   Kept as a single !important block at the end of the stylesheet so
+   it wins over the layered legacy rules above (PrimeReact ships its
+   own high-specificity selectors that otherwise re-win after the
+   legacy 2.5rem min-height, non-standard focus shadow, etc.).
+   ================================================================ */
+.p-dropdown {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 0 0 10px !important;
+  border: 1px solid var(--martis-border) !important;
+  border-radius: var(--martis-radius-md) !important;
+  background-color: var(--martis-input-bg) !important;
+  color: var(--martis-text) !important;
+  font-size: var(--martis-text-sm) !important;
+  transition: border-color var(--martis-dur-fast) var(--martis-ease-standard),
+              box-shadow var(--martis-dur-fast) var(--martis-ease-standard) !important;
+}
+.p-dropdown:not(.p-disabled):hover {
+  border-color: var(--martis-border) !important;
+}
+.p-dropdown:not(.p-disabled).p-focus,
+.p-dropdown:not(.p-disabled):focus,
+.p-dropdown:not(.p-disabled):focus-within {
+  border-color: var(--martis-accent) !important;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring) !important;
+  outline: none !important;
+}
+.p-dropdown.p-invalid,
+.p-dropdown[aria-invalid="true"] {
+  border-color: var(--martis-danger) !important;
+}
+.p-dropdown.p-invalid:not(.p-disabled).p-focus,
+.p-dropdown.p-invalid:not(.p-disabled):focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--martis-danger) 30%, transparent) !important;
+}
+.p-dropdown.p-disabled,
+.p-dropdown[aria-disabled="true"] {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+/* Label — the visible selected text / placeholder. Zero the internal
+   padding so the input sizes from the outer element. */
+.p-dropdown .p-dropdown-label {
+  padding: 0 !important;
+  line-height: 1.25rem !important;
+  color: var(--martis-text) !important;
+  font-size: var(--martis-text-sm) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.p-dropdown .p-dropdown-label.p-placeholder {
+  color: var(--martis-text-muted) !important;
+}
+/* Chevron — fixed 32px trigger column, muted by default, accent on
+   focus so it picks up the focus ring. */
+.p-dropdown .p-dropdown-trigger {
+  width: 32px !important;
+  color: var(--martis-text-muted) !important;
+}
+.p-dropdown:not(.p-disabled).p-focus .p-dropdown-trigger,
+.p-dropdown:not(.p-disabled):focus-within .p-dropdown-trigger {
+  color: var(--martis-accent) !important;
+}
+/* Panel — option list. `surface-alt` background on hover per spec,
+   `accent-bg-light` + accent text for the highlighted (selected)
+   option. Keeps the same rhythm as sidebar items. */
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item {
+  color: var(--martis-text) !important;
+  padding: 8px 12px !important;
+  font-size: var(--martis-text-sm) !important;
+  transition: background-color var(--martis-dur-fast) var(--martis-ease-standard) !important;
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover,
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-focus {
+  background-color: var(--martis-surface-alt) !important;
+  color: var(--martis-text) !important;
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight {
+  background-color: var(--martis-accent-bg-light) !important;
+  color: var(--martis-accent) !important;
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight:hover {
+  background-color: var(--martis-accent-bg-light) !important;
+}
