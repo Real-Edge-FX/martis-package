@@ -192,7 +192,7 @@ export function DrawerCreate(props: OverrideProps) {
         </>
       }
     >
-      <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
+      <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
         {allFormFields.map((item, idx) => {
           if (item.type === 'tab_group') {
             return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />

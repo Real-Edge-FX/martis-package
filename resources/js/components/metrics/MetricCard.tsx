@@ -141,10 +141,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
         {customContent ? (
           customContent
         ) : result === null && query.isLoading ? (
-          <div
-            className="h-20 animate-pulse rounded"
-            style={{ backgroundColor: 'var(--martis-hover)' }}
-          />
+          <span className="martis-skeleton" style={{ display: 'block', height: '5rem', width: '100%' }} aria-hidden="true" />
         ) : result ? (
           <MetricContent metricType={metric.metricType ?? 'value'} result={result} color={metric.color ?? null} />
         ) : (
