@@ -11,6 +11,7 @@ import {
   FileIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
+import { isMacPlatform } from "@/lib/platform"
 
 interface GlobalSearchProps {
   onClose: () => void
@@ -279,7 +280,11 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
         <div className="martis-cmdk-foot">
           <span><kbd>&uarr;&darr;</kbd>{t('navigate', 'navigate')}</span>
           <span><kbd>&crarr;</kbd>{t('select', 'select')}</span>
-          <span><kbd>&#8984;K</kbd>{t('palette_toggle', 'toggle')}</span>
+          <span>
+            <kbd>{isMacPlatform() ? '\u2318K' : 'Ctrl K'}</kbd>
+            <kbd>/</kbd>
+            {t('palette_toggle', 'toggle')}
+          </span>
           <span className="martis-cmdk-foot-spacer" />
           <span>{t('palette_results', { count: flatItems.length, defaultValue: '{{count}} results' })}</span>
         </div>

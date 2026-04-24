@@ -23,7 +23,7 @@ return [
     'profile' => 'Perfil',
     'open_sidebar' => 'Abrir menu',
     'search_resources' => 'Pesquisar recursos...',
-    'search_placeholder' => 'Pressione / para pesquisar',
+    'search_placeholder' => 'Pesquisar tudo…',
     'no_results' => 'Nenhum resultado encontrado.',
     'navigate' => 'navegar',
     'select' => 'selecionar',
