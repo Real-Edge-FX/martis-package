@@ -170,7 +170,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     }))
     .filter((i) => matches(i, query))
   if (recentItems.length > 0 && !query) {
-    sections.push({ label: t('palette_recent', 'Recent'), items: recentItems })
+    sections.push({ label: t('palette_recent', 'Recent activity'), items: recentItems })
   }
 
   const recordItems: PaletteItem[] = (searchResponse?.results ?? []).flatMap((group) =>

@@ -35,7 +35,7 @@ return [
     'palette_placeholder' => 'Digite um comando ou pesquise…',
     'palette_resources' => 'Recursos',
     'palette_actions' => 'Ações',
-    'palette_recent' => 'Recentes',
+    'palette_recent' => 'Atividade recente',
     'palette_records' => 'Registros',
     'palette_toggle' => 'alternar',
     'palette_results' => '{{count}} resultados',

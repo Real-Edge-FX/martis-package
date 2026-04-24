@@ -761,8 +761,14 @@ html[data-density="dense"] .mwc-root {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 72px 20px 20px;
+  /* Shift the flex-centered palette right by the sidebar width so it
+     visually centers over the content area instead of the full viewport
+     (where the sidebar would make it look offset to the left). On mobile
+     or topnav layouts `--sidebar-width` is 0 and the padding collapses. */
+  padding: 72px 20px 20px calc(20px + var(--sidebar-width, 0px));
 }
+html[data-sidebar-collapsed="true"] { --sidebar-width: 64px; }
+html[data-mobile="true"] { --sidebar-width: 0px; }
 .martis-cmdk {
   width: 100%;
   max-width: 620px;
@@ -1345,9 +1351,17 @@ html[data-reduced-motion="true"] *::after {
 }
 
 .martis-tb-search {
-  flex: 1;
-  max-width: 520px;
-  margin: 0 auto;
+  /* Absolute-centered inside the topbar so the search geometry stops
+     depending on the flex-sibling widths. `margin: 0 auto` + `flex: 1`
+     distributed leftover space unevenly when the breadcrumb and the
+     user-chip cluster had different widths, pulling the search to the
+     left of the content-area center (and visibly misaligning the command
+     palette that anchors to it). */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100% - 420px));
   height: 34px;
   background: var(--martis-search-bg);
   border: 1px solid var(--martis-search-border);
