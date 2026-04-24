@@ -14,9 +14,9 @@ export interface DrawerShellProps {
   icon?: string | null
   /** Optional icon color (CSS color value). Defaults to accent color. */
   iconColor?: string | null
-  /** Initial width (default: '520px'). */
+  /** Initial width (default: '720px', inherits `config('martis.drawer.width')`). */
   width?: string
-  /** Width when expanded (default: '800px'). */
+  /** Width when expanded (default: '960px', inherits `config('martis.drawer.expanded_width')`). */
   expandedWidth?: string
   /** Show expand/collapse button (default: true). */
   allowExpand?: boolean
@@ -57,8 +57,8 @@ export function DrawerShell({
   subtitle,
   icon,
   iconColor,
-  width = '560px',
-  expandedWidth = '800px',
+  width = '720px',
+  expandedWidth = '960px',
   allowExpand = true,
   allowFullscreen = true,
   showCloseButton = true,
