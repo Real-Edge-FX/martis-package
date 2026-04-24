@@ -15,6 +15,7 @@ return [
     'detail' => 'Detalhes',
     'create' => 'Criar',
     'edit' => 'Editar',
+    'lens' => 'Lente',
     'index' => 'Listagem',
     'profile' => 'Perfil',
     'open_sidebar' => 'Abrir menu',

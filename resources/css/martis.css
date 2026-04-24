@@ -460,6 +460,31 @@ html[data-density="dense"] .martis-btn {
   padding-bottom: 0.3rem;
 }
 
+/* Dashboard surfaces — StatCard, MetricCard, resource shortcuts, and the
+   welcome hero all use fixed padding that ignores `[data-density]`. These
+   overrides tighten them so the Dense preference has a visible effect
+   beyond the shell chrome. */
+html[data-density="dense"] .martis-stat-card {
+  padding: 0.875rem 1rem;
+}
+html[data-density="dense"] .martis-metric-card-head {
+  padding: 0.5rem 0.75rem;
+}
+html[data-density="dense"] .martis-metric-card-body {
+  padding: 0.75rem;
+}
+html[data-density="dense"] .martis-resource-card .p-card-body {
+  padding: 0.75rem 1rem;
+}
+html[data-density="dense"] .martis-resource-card .p-card-content {
+  padding: 0;
+}
+html[data-density="dense"] .mwc-root {
+  --mwc-pad-y: 1.35rem;
+  --mwc-pad-x: 1.75rem;
+  --mwc-min-h: 88px;
+}
+
 /* ============================================================
    REDUCED MOTION (⭐ D3)
    Quando o user prefere reduced motion (OS setting OU preference
@@ -482,6 +507,29 @@ html[data-reduced-motion="true"] {
   --martis-dur-base: 1ms;
   --martis-dur-medium: 1ms;
   --martis-dur-slow: 1ms;
+}
+
+/* Universal clamp — any transition or animation not driven by the Martis
+   duration tokens (PrimeReact internals, raw Tailwind utilities, inline
+   styles, third-party SVG animations) would otherwise ignore the user's
+   preference. Applied globally with `!important` so the toggle has a
+   visible effect across the entire panel. Scroll-behavior is also reset
+   so anchor jumps land immediately instead of easing. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* ============================================================
@@ -2395,6 +2443,24 @@ html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
   border-radius: var(--martis-radius-lg, 0.75rem);
   background-color: var(--martis-card);
   overflow: hidden;
+}
+/* Toolbar row at the top of the card — holds filters/bulk on one line
+   and search/per-page/trashed on the next. Subtle separator below so
+   the DataTable header reads as the next row of the same surface. */
+.martis-index-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--martis-border);
+  background-color: var(--martis-surface);
+}
+.martis-index-toolbar > div:empty {
+  display: none;
+}
+html[data-density="dense"] .martis-index-toolbar {
+  padding: 8px 12px;
+  gap: 8px;
 }
 .martis-index-surface > .martis-datatable {
   /* The card is now one level up — inner DataTable drops its own

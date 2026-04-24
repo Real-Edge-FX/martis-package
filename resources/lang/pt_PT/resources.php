@@ -8,6 +8,8 @@ return [
     'loading' => 'A carregar…',
     'registered' => 'Recursos registados',
     'welcome' => 'Bem-vindo ao Martis Admin Engine.',
+    'welcome_card_heading' => 'Bem-vindo ao Martis',
+    'welcome_card_description' => 'Um motor de administração moderno para Laravel. Totalmente tematizável, orientado a componentes, pronto para extensões.',
     'hello' => 'Olá, :name',
     'default_dashboard' => 'Painel Predefinido',
     'no_records' => 'Nenhum registo encontrado.',

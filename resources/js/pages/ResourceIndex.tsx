@@ -318,6 +318,36 @@ export function ResourceIndexPage() {
   const searchPlaceholder = schema.searchPlaceholder || t('search', { label: schema.label.toLowerCase() })
   const selectable = hasActions
 
+  // Bulk Actions dropdown — appears in the header next to the Create button
+  // only while at least one row is selected. Hidden otherwise so the header
+  // stays quiet when there is nothing to act on.
+  const selectionCount = selectedIds.size
+  const hasBulk = indexActions.length > 0 && selectionCount > 0
+  const bulkSelectedRows = rows.filter(r => selectedIds.has(r.id))
+  const bulkDisabledActions = new Set<string>()
+  if (hasBulk) {
+    for (const action of indexActions) {
+      if (action.sole && selectionCount > 1) {
+        bulkDisabledActions.add(action.uriKey)
+        continue
+      }
+      const allDisabled = bulkSelectedRows.length > 0 && bulkSelectedRows.every(row => {
+        const perAction = row._actionAuthorization
+        if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
+        return false
+      })
+      if (allDisabled) bulkDisabledActions.add(action.uriKey)
+    }
+  }
+  const bulkDropdown = hasBulk ? (
+    <ActionDropdown
+      actions={indexActions}
+      onSelect={handleActionSelect}
+      label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
+      disabledActions={bulkDisabledActions}
+    />
+  ) : null
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -351,6 +381,10 @@ export function ResourceIndexPage() {
               disabledActions={standaloneDisabledActions}
             />
           )}
+          {/* Bulk actions — always rendered when the resource has bulk
+              actions, disabled until at least one row is checked. Sits
+              immediately before the Create button. */}
+          {bulkDropdown}
           {schema.authorization?.authorizedToCreate !== false && (
           <button
             type="button"
@@ -370,128 +404,91 @@ export function ResourceIndexPage() {
         </div>
       </div>
 
-      {/* Filter panel + bulk actions share one toolbar row. Filters sit
-          on the left, Bulk Actions dropdown on the right — per the
-          design-system spec. No wrapping box, no Cancel button (the
-          selection is canceled by unchecking the rows). */}
-      {(() => {
-        const hasFilters = (schema.filters?.length ?? 0) > 0
-        const hasBulk = selectedIds.size > 0 && indexActions.length > 0
-        if (!hasFilters && !hasBulk) return null
+      {/* Toolbar + Table + pagination share a single card surface — the
+          filter row, the search/per-page/trashed row, the table, and the
+          paginator all read as parts of the same card. Bulk actions live
+          in the page header (next to Create), not inside the toolbar. */}
+      <div className="martis-index-surface">
+        {(() => {
+          const hasFilters = (schema.filters?.length ?? 0) > 0
+          const showTrashed = schema.softDeletes
 
-        // Compute disabled actions: action is disabled if ALL selected rows canRun=false
-        const selectedRows = rows.filter(r => selectedIds.has(r.id))
-        const bulkDisabledActions = new Set<string>()
-        if (hasBulk) {
-          for (const action of indexActions) {
-            if (action.sole && selectedIds.size > 1) {
-              bulkDisabledActions.add(action.uriKey)
-              continue
-            }
-            const allDisabled = selectedRows.length > 0 && selectedRows.every(row => {
-              const perAction = row._actionAuthorization
-              if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
-              return false
-            })
-            if (allDisabled) bulkDisabledActions.add(action.uriKey)
-          }
-        }
-
-        const bulkDropdown = hasBulk ? (
-          <ActionDropdown
-            actions={indexActions}
-            onSelect={handleActionSelect}
-            label={schema.bulkActionsMenuLabel || schema.actionsMenuLabel || tAct('bulk_actions')}
-            disabledActions={bulkDisabledActions}
-          />
-        ) : null
-
-        if (hasFilters) {
-          return (
+          const filterRow = hasFilters ? (
             <FilterPanel
               filters={schema.filters!}
               value={activeFilters}
               onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
-              rightSlot={bulkDropdown}
             />
+          ) : null
+
+          return (
+            <div className="martis-index-toolbar">
+              {filterRow}
+              <div className="flex items-center gap-3">
+                {showSearch && (
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder={searchPlaceholder}
+                      value={search}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-1"
+                      style={{
+                        backgroundColor: 'var(--martis-input-bg)',
+                        border: '1px solid var(--martis-border)',
+                        color: 'var(--martis-text)',
+                      }}
+                    />
+                    <span className="absolute inset-y-0 left-3 flex items-center">
+                      <MagnifyingGlassIcon size={14} className="martis-text-muted" />
+                    </span>
+                    {search && (
+                      <button
+                        type="button"
+                        onClick={() => handleSearchChange('')}
+                        className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear"
+                        style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+                        data-pr-tooltip={tMsg('clear_search', 'Clear search')}
+                        data-pr-position="top"
+                        aria-label={tMsg('clear_search', 'Clear search')}
+                      >
+                        <XIcon size={14} weight="bold" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page')}:</label>
+                  <select
+                    value={effectivePerPage}
+                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                    className="martis-perpage-select"
+                  >
+                    {perPageOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {showTrashed && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <select
+                      value={trashedFilter}
+                      onChange={(e) => { setTrashedFilter(e.target.value as "" | "with" | "only"); setPage(1) }}
+                      className="martis-perpage-select"
+                    >
+                      <option value="">{t("trashed_active")}</option>
+                      <option value="with">{t("trashed_with")}</option>
+                      <option value="only">{t("trashed_only")}</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
           )
-        }
-        return (
-          <div className="flex items-center justify-end">
-            {bulkDropdown}
-          </div>
-        )
-      })()}
+        })()}
 
-      {/* Search + Per Page controls */}
-      <div className="flex items-center gap-3">
-        {showSearch && (
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-1"
-              style={{
-                backgroundColor: 'var(--martis-input-bg)',
-                border: '1px solid var(--martis-border)',
-                color: 'var(--martis-text)',
-              }}
-            />
-            <span className="absolute inset-y-0 left-3 flex items-center">
-              <MagnifyingGlassIcon size={14} className="martis-text-muted" />
-            </span>
-            {search && (
-              <button
-                type="button"
-                onClick={() => handleSearchChange('')}
-                className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear"
-                style={{ cursor: 'pointer', background: 'none', border: 'none' }}
-                data-pr-tooltip={tMsg('clear_search', 'Clear search')}
-                data-pr-position="top"
-                aria-label={tMsg('clear_search', 'Clear search')}
-              >
-                <XIcon size={14} weight="bold" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Per-page selector */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page')}:</label>
-          <select
-            value={effectivePerPage}
-            onChange={(e) => handlePerPageChange(Number(e.target.value))}
-            className="martis-perpage-select"
-          >
-            {perPageOptions.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
-        </div>
-
-        {schema.softDeletes && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <select
-              value={trashedFilter}
-              onChange={(e) => { setTrashedFilter(e.target.value as "" | "with" | "only"); setPage(1) }}
-              className="martis-perpage-select"
-            >
-              <option value="">{t("trashed_active")}</option>
-              <option value="with">{t("trashed_with")}</option>
-              <option value="only">{t("trashed_only")}</option>
-            </select>
-          </div>
-        )}
-
-      </div>
-
-      {/* Table + pagination share a single card surface so the footer
-          reads as the last row of the table, matching the design-system
-          spec instead of floating below. */}
-      <div className="martis-index-surface">
       <MartisLoader loading={indexQuery.isFetching} overlay>
       <Table
         columns={indexColumns}

@@ -242,6 +242,17 @@ export function ResourceLensPage() {
   const summary = meta?.summary
   const filterDefs: FilterDefinition[] = schema.filters ?? []
 
+  // Bulk Actions dropdown — appears in the header next to standalone actions
+  // only while at least one row is selected. Hidden otherwise.
+  const hasBulk = hasBulkActions && selectedIds.size > 0
+  const bulkDropdown = hasBulk ? (
+    <ActionDropdown
+      actions={indexActions}
+      onSelect={handleActionSelect}
+      label={schema.bulkActionsMenuLabel ?? undefined}
+    />
+  ) : null
+
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
@@ -280,118 +291,108 @@ export function ResourceLensPage() {
               label={schema.actionsMenuLabel ?? undefined}
             />
           )}
+          {bulkDropdown}
         </div>
       </div>
 
-      {/* Filter bar */}
-      {filterDefs.length > 0 && (
-        <FilterPanel
-          key={searchParams.get('filters') ?? '__empty__'}
-          filters={filterDefs}
-          value={filters}
-          onChange={(next) => {
-            mutateParams((p) => {
-              if (next && Object.keys(next).length > 0) p.set('filters', JSON.stringify(next))
-              else p.delete('filters')
-              p.set('page', '1')
-            })
-          }}
-        />
-      )}
+      {/* Toolbar + Table + pagination share a single card surface. Bulk
+          actions live in the page header (next to standalone actions),
+          not inside the toolbar. */}
+      <div className="martis-index-surface">
+        {(() => {
+          const hasFilters = filterDefs.length > 0
 
-      {/* Bulk actions bar */}
-      {hasBulkActions && selectedIds.size > 0 && (
-        <div
-          className="flex items-center gap-3 rounded-lg border px-4 py-2"
-          style={{ backgroundColor: 'var(--martis-surface)', borderColor: 'var(--martis-accent)' }}
-        >
-          <span className="text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
-            {t('selected_count', { count: selectedIds.size, defaultValue: `${selectedIds.size} selected` })}
-          </span>
-          <ActionDropdown
-            actions={indexActions}
-            onSelect={handleActionSelect}
-            label={schema.bulkActionsMenuLabel ?? undefined}
-          />
-        </div>
-      )}
-
-      {/* Toolbar: search + per-page */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder={schema.searchPlaceholder ?? tMsg('search', 'Search…')}
-            value={searchLocal}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-1"
-            style={{
-              backgroundColor: 'var(--martis-input-bg)',
-              border: '1px solid var(--martis-border)',
-              color: 'var(--martis-text)',
-            }}
-          />
-          <span className="absolute inset-y-0 left-3 flex items-center">
-            <MagnifyingGlassIcon size={14} className="martis-text-muted" />
-          </span>
-          {searchLocal && (
-            <button
-              type="button"
-              onClick={() => handleSearchChange('')}
-              className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear"
-              style={{ cursor: 'pointer', background: 'none', border: 'none' }}
-              data-pr-tooltip={tMsg('clear_search', 'Clear search')}
-              data-pr-position="top"
-              aria-label={tMsg('clear_search', 'Clear search')}
-            >
-              <XIcon size={14} weight="bold" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page', 'Per page')}:</label>
-          <select
-            value={effectivePerPage}
-            onChange={(e) => mutateParams((p) => {
-              p.set('per_page', e.target.value)
-              p.set('page', '1')
-            })}
-            className="martis-perpage-select"
-          >
-            {perPageOptions.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
-        </div>
-
-        {schema.softDeletes && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <select
-              value={trashedFilter}
-              onChange={(e) => {
-                const next = e.target.value as '' | 'with' | 'only'
+          const filterRow = hasFilters ? (
+            <FilterPanel
+              key={searchParams.get('filters') ?? '__empty__'}
+              filters={filterDefs}
+              value={filters}
+              onChange={(next) => {
                 mutateParams((p) => {
-                  if (next) p.set('trashed', next)
-                  else p.delete('trashed')
+                  if (next && Object.keys(next).length > 0) p.set('filters', JSON.stringify(next))
+                  else p.delete('filters')
                   p.set('page', '1')
                 })
               }}
-              className="martis-perpage-select"
-            >
-              <option value="">{t('trashed_active', 'Active')}</option>
-              <option value="with">{t('trashed_with', 'With trashed')}</option>
-              <option value="only">{t('trashed_only', 'Only trashed')}</option>
-            </select>
-          </div>
-        )}
+            />
+          ) : null
 
-      </div>
+          return (
+            <div className="martis-index-toolbar">
+              {filterRow}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder={schema.searchPlaceholder ?? tMsg('search', 'Search…')}
+                    value={searchLocal}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="martis-resource-search block w-full rounded-md py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-1"
+                    style={{
+                      backgroundColor: 'var(--martis-input-bg)',
+                      border: '1px solid var(--martis-border)',
+                      color: 'var(--martis-text)',
+                    }}
+                  />
+                  <span className="absolute inset-y-0 left-3 flex items-center">
+                    <MagnifyingGlassIcon size={14} className="martis-text-muted" />
+                  </span>
+                  {searchLocal && (
+                    <button
+                      type="button"
+                      onClick={() => handleSearchChange('')}
+                      className="absolute inset-y-0 right-2 flex items-center martis-belongs-to-clear"
+                      style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+                      data-pr-tooltip={tMsg('clear_search', 'Clear search')}
+                      data-pr-position="top"
+                      aria-label={tMsg('clear_search', 'Clear search')}
+                    >
+                      <XIcon size={14} weight="bold" />
+                    </button>
+                  )}
+                </div>
 
-      {/* Table + pagination share a single card surface so the footer
-          reads as the last row of the table, matching the design-system
-          spec instead of floating below. */}
-      <div className="martis-index-surface">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page', 'Per page')}:</label>
+                  <select
+                    value={effectivePerPage}
+                    onChange={(e) => mutateParams((p) => {
+                      p.set('per_page', e.target.value)
+                      p.set('page', '1')
+                    })}
+                    className="martis-perpage-select"
+                  >
+                    {perPageOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {schema.softDeletes && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <select
+                      value={trashedFilter}
+                      onChange={(e) => {
+                        const next = e.target.value as '' | 'with' | 'only'
+                        mutateParams((p) => {
+                          if (next) p.set('trashed', next)
+                          else p.delete('trashed')
+                          p.set('page', '1')
+                        })
+                      }}
+                      className="martis-perpage-select"
+                    >
+                      <option value="">{t('trashed_active', 'Active')}</option>
+                      <option value="with">{t('trashed_with', 'With trashed')}</option>
+                      <option value="only">{t('trashed_only', 'Only trashed')}</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
       <MartisLoader loading={dataQuery.isFetching} overlay>
         {fields === null ? (
           <div className="py-12 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>

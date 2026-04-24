@@ -305,6 +305,11 @@ return [
     |                     ("Welcome to Martis Admin Engine."). Set to false
     |                     to hide just the subtitle while keeping the greeting.
     |
+    | showWelcomeCard   - Show the animated welcome hero card at the top of
+    |                     the default dashboard. Displays the package version
+    |                     resolved from the installed composer tag. Set to
+    |                     false to hide the card.
+    |
     | showMetrics       - Show the summary metrics row at the top of the
     |                     dashboard (total resources, groups, active count).
     |                     Set to false to hide the entire metrics section.
@@ -321,6 +326,7 @@ return [
     'dashboard' => [
         'showGreeting' => env('MARTIS_DASHBOARD_SHOW_GREETING', true),
         'showWelcome' => env('MARTIS_DASHBOARD_SHOW_WELCOME', true),
+        'showWelcomeCard' => env('MARTIS_DASHBOARD_SHOW_WELCOME_CARD', true),
         'showMetrics' => true,
         'showResourceCards' => true,
     ],

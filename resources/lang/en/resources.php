@@ -8,6 +8,8 @@ return [
     'loading' => 'Loading…',
     'registered' => 'Registered resources',
     'welcome' => 'Welcome to Martis Admin Engine.',
+    'welcome_card_heading' => 'Welcome to Martis',
+    'welcome_card_description' => 'A modern admin engine for Laravel. Fully themed, component-driven, extension-ready.',
     'hello' => 'Hello, :name',
     'default_dashboard' => 'Default Dashboard',
     'no_records' => 'No records found.',

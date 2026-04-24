@@ -64,7 +64,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
 
   return (
     <div
-      className="rounded-lg"
+      className="martis-metric-card rounded-lg"
       style={{
         gridColumn,
         border: '1px solid var(--martis-border)',
@@ -75,7 +75,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
     >
       {/* Card header */}
       <div
-        className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+        className="martis-metric-card-head flex flex-wrap items-center justify-between gap-2 px-4 py-3"
         style={{ borderBottom: '1px solid var(--martis-border)' }}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -137,7 +137,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
       </div>
 
       {/* Card content */}
-      <div className="p-4">
+      <div className="martis-metric-card-body p-4">
         {customContent ? (
           customContent
         ) : result === null && query.isLoading ? (

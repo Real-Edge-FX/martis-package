@@ -9,7 +9,7 @@ export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
   }
   const opt = field.options?.find((o) => String(o.value) === String(value))
   return (
-    <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+    <span className="martis-badge martis-badge-neutral">
       {opt ? opt.label : String(value)}
     </span>
   )

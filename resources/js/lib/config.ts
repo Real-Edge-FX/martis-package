@@ -28,6 +28,8 @@ export interface MartisDashboardConfig {
   showGreeting?: boolean
   /** Show the welcome subtitle below the greeting. Default: true. */
   showWelcome?: boolean
+  /** Show the animated welcome hero card at the top of the default dashboard. Default: true. */
+  showWelcomeCard?: boolean
   showMetrics?: boolean
   showResourceCards?: boolean
 }
