@@ -131,6 +131,10 @@ The default dashboard renders, top to bottom:
 
 When **no** dashboards are registered at all, the same default view renders as a fallback so existing installations stay functional.
 
+### Density-aware surfaces
+
+`StatCard`, `MetricCard`, the resource shortcut cards, and the welcome hero all tighten their internal padding under `html[data-density="dense"]`. The mapping is CSS-only — the hook is the class prefix each surface already carries (`martis-stat-card`, `martis-metric-card-head` / `-body`, `martis-resource-card`, `mwc-root`) — so consumer-built metric cards that follow the same class convention pick up the density response automatically.
+
 ## API
 
 ### List dashboards

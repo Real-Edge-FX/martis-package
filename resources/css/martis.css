@@ -486,6 +486,341 @@ html[data-density="dense"] .mwc-root {
 }
 
 /* ============================================================
+   AUTH SURFACES
+   Shared shell for unauthenticated entry points (Login, 2FA
+   challenge) and the error screens (404 / 403 / 500). Mirrors the
+   design-system canonical layout: dot-grid background + accent
+   halo, surface card, muted brand row, token-typed title/sub,
+   divider, OTP row, and a footer strip for © / docs / status.
+   ============================================================ */
+.martis-auth-frame {
+  position: relative;
+  min-height: 100vh;
+  background: var(--martis-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 32px 80px;
+  overflow: hidden;
+}
+.martis-auth-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 600px 300px at 50% 0%, color-mix(in srgb, var(--martis-accent) 16%, transparent), transparent 60%),
+    linear-gradient(var(--martis-border) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--martis-border) 1px, transparent 1px) 0 0 / 32px 32px;
+  opacity: 0.45;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  pointer-events: none;
+}
+.martis-auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  box-shadow: var(--martis-shadow-md);
+  padding: 28px 32px;
+}
+.martis-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  font-weight: var(--martis-weight-semibold);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+}
+.martis-auth-brand img {
+  width: auto;
+  height: 32px;
+  max-width: 140px;
+  object-fit: contain;
+}
+.martis-auth-title {
+  font-size: 20px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  color: var(--martis-text);
+}
+.martis-auth-sub {
+  color: var(--martis-text-muted);
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.55;
+}
+.martis-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+  color: var(--martis-text-muted);
+  font-size: 12px;
+}
+.martis-auth-divider::before,
+.martis-auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--martis-border);
+}
+.martis-auth-foot {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 28px;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+}
+.martis-auth-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.martis-auth-back:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+
+/* Guest-mode mini controls — theme + language pickers pinned at the
+   top-right of every auth surface. Intentionally tiny: only the two
+   knobs an unauthenticated visitor might want to change. */
+.martis-auth-controls {
+  position: absolute;
+  top: 16px;
+  right: 28px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.martis-auth-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--martis-border);
+  background: var(--martis-surface);
+  color: var(--martis-text-muted);
+  border-radius: var(--martis-radius-md);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.martis-auth-control:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-auth-control-select {
+  padding-right: 4px;
+}
+.martis-auth-control-select select {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  padding: 0 4px;
+  cursor: pointer;
+  outline: none;
+}
+.martis-auth-control-select select option {
+  color: var(--martis-text);
+  background: var(--martis-surface);
+}
+.martis-auth-forgot {
+  font-size: 12px;
+  color: var(--martis-accent);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.martis-auth-forgot:hover { text-decoration: underline; }
+
+/* Toggle switch — used on Login ("Keep me signed in") to mirror the
+   spec instead of the square checkbox. Accessible via the underlying
+   native checkbox which stays tab-focusable + keyboard-toggleable. */
+.martis-auth-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--martis-text);
+  cursor: pointer;
+  user-select: none;
+}
+.martis-auth-toggle input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+}
+.martis-auth-toggle-track {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+  background: var(--martis-surface-alt, var(--martis-hover));
+  border: 1px solid var(--martis-border);
+  border-radius: 999px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.martis-auth-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--martis-text-muted);
+  border-radius: 50%;
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+.martis-auth-toggle input:checked + .martis-auth-toggle-track {
+  background: var(--martis-accent);
+  border-color: var(--martis-accent);
+}
+.martis-auth-toggle input:checked + .martis-auth-toggle-track::after {
+  transform: translateX(14px);
+  background: #fff;
+}
+.martis-auth-toggle input:focus-visible + .martis-auth-toggle-track {
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+
+/* 6-digit OTP row — each cell is a 48×56 mono-font square with an
+   accent focus ring when the caret lands inside it. */
+.martis-auth-otp-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: center;
+}
+.martis-auth-otp-input {
+  width: 48px;
+  height: 56px;
+  background: var(--martis-input-bg);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  text-align: center;
+  font-family: var(--martis-font-mono);
+  font-size: 22px;
+  font-weight: var(--martis-weight-semibold);
+  color: var(--martis-text);
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.martis-auth-otp-input:focus {
+  border-color: var(--martis-accent);
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-auth-otp-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error screens — 404 / 403 / 500 */
+.martis-error-screen {
+  position: relative;
+  min-height: 100vh;
+  background: var(--martis-bg);
+  padding: 80px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.martis-error-code {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--martis-font-mono);
+  font-size: 160px;
+  font-weight: var(--martis-weight-bold);
+  color: var(--martis-text);
+  opacity: 0.04;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.martis-error-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+  border-radius: var(--martis-radius-xl);
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+.martis-error-title {
+  font-size: 22px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  color: var(--martis-text);
+  position: relative;
+  z-index: 1;
+}
+.martis-error-desc {
+  color: var(--martis-text-muted);
+  font-size: 14px;
+  max-width: 440px;
+  margin: 0;
+  line-height: 1.55;
+  position: relative;
+  z-index: 1;
+}
+.martis-error-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 6px 10px;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  font-size: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
    REDUCED MOTION (⭐ D3)
    Quando o user prefere reduced motion (OS setting OU preference
    explícita `html[data-reduced-motion="true"]`), clampamos toda

@@ -71,7 +71,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
 | 8.5 | **[Menus](menus.md)** | Declarative navigation — `Martis::mainMenu(...)`, `Menu`, `MenuSection`, `MenuItem`, resource-level `menuItem()`, and `/api/navigation` |
 | 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
-| 10 | **[Authentication](authentication.md)** | Login, logout, two-factor authentication (2FA), user profile, avatar uploads, user menu configuration |
+| 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), SSO + Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
 | 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |
 | 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |

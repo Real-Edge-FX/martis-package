@@ -81,6 +81,10 @@ return [
     '2fa_disable_confirm_body' => 'Are you sure you want to disable two-factor authentication? Your account will be less secure.',
     '2fa_disable_confirm' => 'Yes, disable',
     '2fa_session_expired' => 'Session expired. Please log in again.',
+    '2fa_challenge_title_v2' => 'Enter the 6-digit code',
+    '2fa_recovery_title' => 'Use a backup code',
+    '2fa_code_expires_in' => 'Code expires in',
+    '2fa_otp_digit' => 'Digit :n',
 
     'profile' => 'Profile',
 ];

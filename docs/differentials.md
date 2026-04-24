@@ -99,6 +99,9 @@ Two hooks in `resources/js/lib/historyLock.ts` coordinate modal back-button beha
 | `DetachConfirmModal` (BelongsToMany / MorphToMany) | hard | destructive confirm |
 | `EditPivotModal` (BelongsToMany) | hard | form data |
 | `PivotActionModal` (BelongsToMany / MorphToMany) | hard | mutates pivot rows |
+| `TwoFactorWizard` (Profile → Security) | hard | multi-step form with secret material |
+| `SecuritySection` disable-2FA dialog | hard | destructive confirm (requires current password) |
+| `SecuritySection` recovery-codes dialog | hard | surfaces one-time codes |
 | `TrixField` `ImageModal` | soft | read-only preview |
 | `MartisTooltip` / peek previews | none | hover-only |
 
@@ -800,7 +803,7 @@ Martis ships a full preferences system backed by `martis_user_preferences` (one 
 
 **⭐ D2 — Persisted preferences + shareable URL presets.** Named presets (`?preset=exec-comfort`) compose over the user row so shared links don't overwrite recipient defaults. Resolution chain: URL preset > user row > config defaults.
 
-**⭐ D3 — Density per surface + reduced-motion enforced.** `[data-density="dense"]` tokens cut row/button/input heights. `[data-reduced-motion="true"]` clamps every `--martis-dur-*` to `1ms` without breaking focus-state transitions.
+**⭐ D3 — Density per surface + reduced-motion enforced.** `[data-density="dense"]` tokens cut row/button/input heights (including dashboard cards — StatCard, MetricCard, resource shortcuts, welcome hero). `[data-reduced-motion="true"]` clamps every `--martis-dur-*` to `1ms` AND applies a universal `*, *::before, *::after { transition-duration: 1ms; animation-duration: 1ms }` override so inline styles, third-party widgets, and raw Tailwind utilities also honour the preference. The same rules apply under the OS-level `prefers-reduced-motion: reduce` media query.
 
 The preferences panel is a compact topbar overlay — theme / accent / density / language / accessibility. See [preferences.md](preferences.md) for the resolver, API, and SSR no-flash mechanics.
 

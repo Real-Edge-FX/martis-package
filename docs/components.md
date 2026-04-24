@@ -78,9 +78,16 @@ Landing page after login. Configurable via `config/martis.php`:
 ],
 ```
 
-### Login
+### Login / Register / 2FA challenge / Error screens
 
-Authentication page with email/password form. Uses Sanctum session-based auth.
+All six unauthenticated surfaces (Login, Register, 2FA challenge, 404, 403, 500) share the `components/auth/AuthFrame.tsx` shell — dot-grid background, brand-only logo row, centered Shell footer, and a guest-mode theme + language picker in the top-right via `AuthControls.tsx`.
+
+- **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set.
+- **Register** — `/register` route gated by `config.auth.registration.enabled`. Posts to `/{martis-path}/api/auth/register` (consumer-provided endpoint).
+- **2FA challenge** — 6-cell OTP row with auto-advance + paste-to-fill, a 30 s visual countdown, and a backup-code toggle that swaps the OTP grid for a plain recovery-code input.
+- **Error pages** — `ErrorScreen.tsx` drives 404 / 403 / 500 with a faded watermark code, accent icon, optional `incidentId` chip with copy button, and primary + secondary CTAs.
+
+See [Authentication](authentication.md) for the full config surface (`config.auth`), backend recipes for SSO / Google, and the registration contract.
 
 ## Layout Components
 
@@ -176,6 +183,59 @@ Confirmation dialog for delete/archive operations.
 - Hard delete models: Shows red "Delete Permanently" button
 - Portal renders to `document.body`
 - Close on ESC or backdrop click
+
+### Modal shell (`.martis-modal-*`)
+
+Every dialog in Martis renders through the same CSS shell so consumer-built overrides line up with the shipped modals. The classes live in `resources/css/martis.css` and mirror the design-system Catalog spec:
+
+| Class | Role |
+|------|------|
+| `.martis-modal-scrim` | Fixed-position overlay, centers a single surface. `onClick` is the backdrop-close handler. |
+| `.martis-modal-surface` | 480 px default. Size variants: `.is-lg` (640), `.is-xl` (800), `.is-2xl` (960). Always `flex-column` with `max-height: 85vh` and body-scroll. |
+| `.martis-modal-head` | Title row with a bare icon (no circular disc) + the close button on the far right. |
+| `.martis-modal-head-title` | `<h3>` token — 16 / 600 / -0.01em. |
+| `.martis-modal-body` | 18/20 px padding, muted text, `overflow-y: auto`, grows to fill the surface. |
+| `.martis-modal-foot` | Footer row on `--martis-surface-alt` with a 1 px divider on top. Right-aligned buttons. |
+| `.martis-modal-close` | 28 × 28 square close button (X icon). |
+
+Consumer recipe for a custom confirmation dialog:
+
+```tsx
+import { createPortal } from 'react-dom'
+import { XIcon, WarningIcon } from '@phosphor-icons/react'
+import { useModalHistoryLock } from '@/lib/historyLock'
+
+export function DangerConfirm({ open, onCancel, onConfirm, title, body }: Props) {
+  useModalHistoryLock(open)
+  if (!open) return null
+
+  return createPortal(
+    <div className="martis-modal-scrim" onClick={onCancel}>
+      <div role="dialog" aria-modal="true" className="martis-modal-surface" onClick={(e) => e.stopPropagation()}>
+        <div className="martis-modal-head">
+          <div className="flex items-center gap-3">
+            <WarningIcon size={18} weight="fill" style={{ color: 'var(--martis-danger)' }} />
+            <h3 className="martis-modal-head-title">{title}</h3>
+          </div>
+          <button type="button" className="martis-modal-close" onClick={onCancel}><XIcon size={16} /></button>
+        </div>
+        <div className="martis-modal-body">{body}</div>
+        <div className="martis-modal-foot">
+          <button type="button" className="martis-btn-secondary" onClick={onCancel}>Cancel</button>
+          <button type="button" className="martis-btn-danger" onClick={onConfirm}>Delete</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+```
+
+The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog does not also close the drawer underneath. Required whenever a modal nests inside a drawer or the unsaved-changes guard.
+
+### Index toolbar (`.martis-index-toolbar`)
+
+The resource index and lens pages share a single card surface (`.martis-index-surface`) that holds the filter row, the search/per-page/trashed row, the DataTable, and the paginator as one continuous visual block. Toolbar rows render inside `.martis-index-toolbar` — pad, gap, and bottom border adjust automatically under `[data-density="dense"]`. Override the paginator or table chrome via the usual override hooks; override the toolbar by writing directly to the same classes in a consumer stylesheet.
 
 ### Breadcrumbs
 
