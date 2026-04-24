@@ -1080,7 +1080,9 @@ class ResourceController extends MartisController
             $relatedInstance = new $relatedResourceClass;
             $searchableFields = array_filter(
                 $relatedInstance->fields($request),
-                fn (FieldContract $field): bool => $field->isSearchable(),
+                // fields() can include layout nodes (Section / Panel / TabGroup);
+                // guard with instanceof so the typed callback never blows up.
+                fn (mixed $field): bool => $field instanceof FieldContract && $field->isSearchable(),
             );
 
             if (empty($searchableFields)) {

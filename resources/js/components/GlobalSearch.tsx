@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
@@ -222,7 +223,12 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
 
   let flatCursor = 0
 
-  return (
+  // Portal to `document.body` so the scrim sits in the root stacking
+  // context and fully blocks clicks on sidebar / topbar (both of which
+  // create their own stacking contexts at z:10 / z:auto). Without the
+  // portal the scrim's z:9995 is scoped to the Topbar component — a
+  // user can click a sidebar item while the palette is "open".
+  return createPortal(
     <div className="martis-cmdk-scrim" onClick={onClose}>
       <div className="martis-cmdk" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
         <div className="martis-cmdk-search">
@@ -289,7 +295,8 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
           <span>{t('palette_results', { count: flatItems.length, defaultValue: '{{count}} results' })}</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
