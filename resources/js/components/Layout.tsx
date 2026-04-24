@@ -24,7 +24,8 @@ import type { ComponentProps, ComponentType } from "react"
  *      registered there wins when no config override is set.
  *   3. Fallback to the bundled component.
  */
-function resolveShellComponent<C extends ComponentType<object>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveShellComponent<C extends ComponentType<any>>(
   piece: "shell" | "sidebar" | "topbar" | "footer",
   fallback: C,
 ): C {

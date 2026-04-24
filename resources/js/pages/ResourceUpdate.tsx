@@ -7,7 +7,7 @@ import { FieldInput } from '@/components/fields/FieldRenderer'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
-import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
+import { FieldWrapper } from '@/components/fields/FieldWrapper'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
@@ -290,36 +290,25 @@ export function ResourceUpdatePage() {
               }
               const field = item as FieldDefinition
               return (
-                <div key={field.attribute} className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label
-                      htmlFor={field.attribute}
-                      className="block text-sm font-medium"
-                      style={{ color: 'var(--martis-text-muted)' }}
-                    >
-                      {field.label}
-                      {field.required && (
-                        <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                      )}
-                      <FieldLabelTooltip text={field.tooltip} />
-                    </label>
-                  </div>
-                  <div className="col-span-2">
-                    <FieldInput
-                      field={field}
-                      value={values[field.attribute] ?? null}
-                      onChange={(v) => handleChange(field.attribute, v)}
-                      error={errors[field.attribute]}
-                      resourceKey={resource}
-                      recordId={id ?? undefined}
-                      context="update"
-                      formValues={values}
-                    />
-                    {field.helpText && (
-                      <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-                    )}
-                  </div>
-                </div>
+                <FieldWrapper
+                  key={field.attribute}
+                  htmlFor={field.attribute}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
+                >
+                  <FieldInput
+                    field={field}
+                    value={values[field.attribute] ?? null}
+                    onChange={(v) => handleChange(field.attribute, v)}
+                    error={errors[field.attribute]}
+                    resourceKey={resource}
+                    recordId={id ?? undefined}
+                    context="update"
+                    formValues={values}
+                  />
+                </FieldWrapper>
               )
             })}
           </div>

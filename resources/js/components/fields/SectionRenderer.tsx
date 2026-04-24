@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { SectionDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
+import { FieldWrapper } from './FieldWrapper'
 
 // -------------------------------------------------------------------------
 // Section — shared internal container
@@ -133,34 +134,26 @@ export function SectionInput({
           {fields.map((field) => (
             <div
               key={field.attribute}
-              className="flex flex-col gap-1.5"
               style={{ gridColumn: fieldGridColumn(field, section.columns) }}
             >
-              {/* Field label — always rendered above the input in section layout */}
-              <label
+              <FieldWrapper
                 htmlFor={field.attribute}
-                className="block text-sm font-medium"
-                style={{ color: 'var(--martis-text-muted)' }}
+                label={field.label}
+                required={field.required}
+                tooltip={field.tooltip}
+                help={field.helpText}
               >
-                {field.label}
-                {field.required && (
-                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                )}
-                <FieldLabelTooltip text={field.tooltip} />
-              </label>
-              <FieldInput
-                field={field}
-                value={values[field.attribute]}
-                onChange={(v) => onChange(field.attribute, v)}
-                error={errors[field.attribute]}
-                resourceKey={resourceKey}
-                recordId={recordId}
-                context={context}
-                formValues={values}
-              />
-              {field.helpText && (
-                <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-              )}
+                <FieldInput
+                  field={field}
+                  value={values[field.attribute]}
+                  onChange={(v) => onChange(field.attribute, v)}
+                  error={errors[field.attribute]}
+                  resourceKey={resourceKey}
+                  recordId={recordId}
+                  context={context}
+                  formValues={values}
+                />
+              </FieldWrapper>
             </div>
           ))}
         </div>

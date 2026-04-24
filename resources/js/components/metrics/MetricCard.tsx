@@ -146,7 +146,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
             style={{ backgroundColor: 'var(--martis-hover)' }}
           />
         ) : result ? (
-          <MetricContent metricType={metric.metricType} result={result} color={metric.color ?? null} />
+          <MetricContent metricType={metric.metricType ?? 'value'} result={result} color={metric.color ?? null} />
         ) : (
           <p
             className="text-sm text-center py-4"

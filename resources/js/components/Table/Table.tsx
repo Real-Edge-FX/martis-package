@@ -623,6 +623,7 @@ function DefaultTable({
                     <RowActionButton
                       label={tAct("restore", "Restore")}
                       icon={<ArrowCounterClockwiseIcon size={16} />}
+                      disabled={false}
                       onClick={() => onDefaultRestore?.(row)}
                     />
                   )}
@@ -630,6 +631,7 @@ function DefaultTable({
                     <RowActionButton
                       label={tAct("force_delete", "Force delete")}
                       icon={<SkullIcon size={16} />}
+                      disabled={false}
                       variant="destructive"
                       onClick={() => onDefaultForceDelete?.(row)}
                     />

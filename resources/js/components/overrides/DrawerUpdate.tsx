@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { FieldWrapper } from '@/components/fields/FieldWrapper'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
@@ -68,7 +69,10 @@ export function DrawerUpdate(props: OverrideProps) {
 
   const activeRecord = record ?? recordQuery.data?.data
   const allFormFields = useMemo(() => schema.fieldsForUpdate ?? [], [schema])
-  const scalarFields = useMemo(() => extractScalarFields(allFormFields), [allFormFields])
+  const scalarFields = useMemo(
+    () => extractScalarFields(allFormFields as unknown as Array<Record<string, unknown>>),
+    [allFormFields],
+  )
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -282,24 +286,24 @@ export function DrawerUpdate(props: OverrideProps) {
             const field = item as FieldDefinition
             return (
               <div key={field.attribute} style={colSpanStyle(field)}>
-                <label
+                <FieldWrapper
                   htmlFor={field.attribute}
-                  className="mb-1.5 block text-sm font-medium"
-                  style={{ color: 'var(--martis-text-muted)' }}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
                 >
-                  {field.label}
-                  {field.required && <span className="ml-1 text-red-500">*</span>}
-                </label>
-                <FieldInput
-                  field={field}
-                  value={values[field.attribute] ?? null}
-                  onChange={(v) => handleChange(field.attribute, v)}
-                  error={errors[field.attribute]}
-                  resourceKey={resource}
-                  recordId={recordId ?? undefined}
-                  context="update"
-                  formValues={values}
-                />
+                  <FieldInput
+                    field={field}
+                    value={values[field.attribute] ?? null}
+                    onChange={(v) => handleChange(field.attribute, v)}
+                    error={errors[field.attribute]}
+                    resourceKey={resource}
+                    recordId={recordId ?? undefined}
+                    context="update"
+                    formValues={values}
+                  />
+                </FieldWrapper>
               </div>
             )
           })}
