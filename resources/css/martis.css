@@ -5849,3 +5849,74 @@ html[data-density="dense"] .martis-drawer-icon {
   width: 32px;
   height: 32px;
 }
+
+/* =================================================================
+   Fase 7 F7-8 / F7-9 / F7-10 — Detail field panel
+   Spec references:
+   - design-system/Martis/Resource Detail.html:2415-2422 (Field row)
+   - design-system/Martis/Resource Detail.html:2426-2455 (panel wrapper)
+
+   Tokens: outer panel uses `surface` + `radius-lg` + `padding: 2px
+   18px` so the first/last field rows have the spec's 14px visual
+   padding without needing row-level top/bottom margins. Each row
+   becomes a `200px 1fr` grid (main detail page) or `140px 1fr`
+   inside drawers. Label 13/500 muted, value 14px default, mono
+   variant for code-like values.
+   ================================================================ */
+.martis-detail-panel {
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  padding: 2px 18px;
+}
+.martis-detail-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-detail-row:last-child {
+  border-bottom: none;
+}
+.martis-detail-panel.is-drawer .martis-detail-row {
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+}
+.martis-detail-label {
+  font-size: 13px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.martis-detail-value {
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+  min-width: 0;
+  word-break: break-word;
+}
+.martis-detail-value.is-mono {
+  font-family: var(--martis-font-mono);
+}
+html[data-density="dense"] .martis-detail-row {
+  padding: 10px 0;
+  gap: 14px;
+}
+html[data-density="dense"] .martis-detail-panel.is-drawer .martis-detail-row {
+  gap: 12px;
+}
+html[data-density="dense"] .martis-detail-panel {
+  padding: 2px 14px;
+}
+/* Narrow viewports — collapse to vertical stack. */
+@media (max-width: 640px) {
+  .martis-detail-row,
+  .martis-detail-panel.is-drawer .martis-detail-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    align-items: start;
+  }
+}

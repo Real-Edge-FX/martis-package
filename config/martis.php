@@ -635,8 +635,14 @@ return [
     */
 
     'drawer' => [
-        'width' => '520px',
-        'expanded_width' => '800px',
+        'width' => '720px',
+        'expanded_width' => '960px',
+        // When `false`, the expand + fullscreen buttons are suppressed on
+        // every drawer regardless of per-instance `allowExpand` /
+        // `allowFullscreen` props. Lets an app lock the drawer to a single
+        // width without auditing every resource that registers a
+        // `DrawerOverride`.
+        'expandable' => env('MARTIS_DRAWER_EXPANDABLE', true),
     ],
 
 ];

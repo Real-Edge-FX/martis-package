@@ -56,8 +56,8 @@ class DrawerOverride extends Override
     private static function makeWithDefaults(string $component): self
     {
         $instance = new self($component);
-        $instance->params['width'] = (string) config('martis.drawer.width', '520px');
-        $instance->params['expandedWidth'] = (string) config('martis.drawer.expanded_width', '800px');
+        $instance->params['width'] = (string) config('martis.drawer.width', '720px');
+        $instance->params['expandedWidth'] = (string) config('martis.drawer.expanded_width', '960px');
 
         return $instance;
     }
@@ -66,7 +66,7 @@ class DrawerOverride extends Override
     // Chainable configuration — all write to params
     // -------------------------------------------------------------------------
 
-    /** Initial drawer width (default: '520px'). */
+    /** Initial drawer width (default: '720px', inherits `config('martis.drawer.width')`). */
     public function width(string $width): static
     {
         $this->params['width'] = $width;
@@ -74,7 +74,7 @@ class DrawerOverride extends Override
         return $this;
     }
 
-    /** Width when expanded via the expand button (default: '800px'). */
+    /** Width when expanded via the expand button (default: '960px', inherits `config('martis.drawer.expanded_width')`). */
     public function expandedWidth(string $width): static
     {
         $this->params['expandedWidth'] = $width;

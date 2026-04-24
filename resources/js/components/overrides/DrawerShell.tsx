@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
+import { config } from '@/lib/config'
 
 export interface DrawerShellProps {
   /** Title displayed in the header. */
@@ -13,9 +14,9 @@ export interface DrawerShellProps {
   icon?: string | null
   /** Optional icon color (CSS color value). Defaults to accent color. */
   iconColor?: string | null
-  /** Initial width (default: '520px'). */
+  /** Initial width (default: '720px', inherits `config('martis.drawer.width')`). */
   width?: string
-  /** Width when expanded (default: '800px'). */
+  /** Width when expanded (default: '960px', inherits `config('martis.drawer.expanded_width')`). */
   expandedWidth?: string
   /** Show expand/collapse button (default: true). */
   allowExpand?: boolean
@@ -56,8 +57,8 @@ export function DrawerShell({
   subtitle,
   icon,
   iconColor,
-  width = '560px',
-  expandedWidth = '800px',
+  width = '720px',
+  expandedWidth = '960px',
   allowExpand = true,
   allowFullscreen = true,
   showCloseButton = true,
@@ -68,6 +69,12 @@ export function DrawerShell({
   children,
   beforeClose,
 }: DrawerShellProps) {
+  // F7-13 — global gate. When `config.drawer.expandable === false`, force
+  // both buttons off so an app that locks the drawer to a single width
+  // doesn't need to audit every `DrawerOverride` caller.
+  const expandableGate = config.drawer?.expandable !== false
+  const canExpand = allowExpand && expandableGate
+  const canFullscreen = allowFullscreen && expandableGate
   const { t: tMsg } = useTranslation('messages')
   const [visible, setVisible] = useState(false)
   const [state, setState] = useState<DrawerState>('normal')
@@ -302,14 +309,14 @@ export function DrawerShell({
 
           {/* Action buttons */}
           <div className="martis-drawer-actions">
-            {allowExpand && (
+            {canExpand && (
               <button
                 type="button"
                 onClick={toggleExpand}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={state === 'expanded' ? tMsg('collapse', 'Collapse') : tMsg('expand', 'Expand')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 {state === 'expanded' ? (
                   /* Arrow right to bar — collapse */
@@ -320,14 +327,14 @@ export function DrawerShell({
                 )}
               </button>
             )}
-            {allowFullscreen && (
+            {canFullscreen && (
               <button
                 type="button"
                 onClick={toggleFullscreen}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={state === 'fullscreen' ? tMsg('exit_fullscreen', 'Exit fullscreen') : tMsg('fullscreen', 'Fullscreen')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 {state === 'fullscreen' ? (
                   /* Arrows in — exit fullscreen */
@@ -345,7 +352,7 @@ export function DrawerShell({
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={tMsg('close', 'Close')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
               </button>

@@ -108,7 +108,7 @@ export function PanelDisplay({
                 gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
               }}
             >
-              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
+              <dt className="martis-detail-label mb-1">{field.label}</dt>
               <dd>
                 <FieldDisplay
                   field={field}
