@@ -433,8 +433,20 @@ The command:
 
 After creating a component, rebuild assets:
 ```bash
+# v0.8+ — auto-discovery picks up `resources/martis-extensions/`
+# automatically when the package lives in `vendor/martis/martis/`:
+npm run build
+
+# Override the discovered directory (or set it explicitly when working
+# in dev mode where the package is symlinked outside vendor/):
 MARTIS_USER_DIR=$(pwd)/resources/martis-extensions npm run build
 ```
+
+The `@user` Vite alias resolves in this order:
+
+1. **`MARTIS_USER_DIR` env var** — explicit override always wins.
+2. **Auto-discovery** — walks up from the package directory looking for a Laravel app root (`artisan` file) that ships a `resources/martis-extensions/` folder.
+3. **Fallback** — the package's own empty `resources/js/user/` so the package can build standalone.
 
 ### Shell piece-by-piece overrides
 

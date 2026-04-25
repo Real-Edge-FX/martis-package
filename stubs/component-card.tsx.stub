@@ -6,9 +6,23 @@ interface {{ class }}Props {
     name: string
     component: string
     /**
-     * Per-request data pushed by the PHP descriptor (via `withMeta()` or
-     * an overridden `meta()` method). Type narrows naturally as the
-     * card matures — typed shape suggested below.
+     * 12-column grid span set on the PHP descriptor via `width(int)`.
+     * Default 4. The wrapper maps this to a `gridColumn: span N` so
+     * the card respects the dashboard layout without needing inline
+     * tweaks.
+     */
+    width?: number
+    /**
+     * `true` when the parent renders the card inside the `MetricCard`
+     * chrome (border + header + padded body) via `framed(true)`. In
+     * that case this component should NOT add its own surface — the
+     * outer wrapper is dropped and only the body renders.
+     */
+    framed?: boolean
+    /**
+     * Per-request data pushed by the PHP descriptor (via `withMeta()`
+     * or an overridden `meta()` method). Type narrows naturally as
+     * the card matures — typed shape suggested below.
      */
     meta: {
       icon?: string
@@ -21,31 +35,43 @@ interface {{ class }}Props {
 /**
  * Custom dashboard card.
  *
- * The wrapper picks classes that follow the design system tokens, so the
- * card adapts to the active theme (dark / light), density preset and
- * accent without inline styles. When the PHP descriptor calls
- * `framed(true)` the parent already wraps this component in the
- * `MetricCard` chrome (border + header + padded body); in that case
- * remove the outer `<div>` here and render only the body.
+ * Picks classes that follow the design system tokens, so the card
+ * adapts to the active theme (dark / light), density preset and
+ * accent without inline styles. The grid span and frame mode track
+ * the PHP descriptor — `width()` and `framed()` calls flow through
+ * to the wrapper here automatically.
  */
 export function {{ class }}({ card }: {{ class }}Props) {
   const { t } = useTranslation('messages')
   const subtitle = card.meta.subtitle ?? t('details', 'Details')
+  const span = Math.max(1, Math.min(12, card.width ?? 4))
 
+  // Body content — this is what you replace with your custom UI.
+  const body = (
+    <div className="martis-card-body">
+      <p className="martis-text-muted text-sm">{subtitle}</p>
+    </div>
+  )
+
+  // When `framed(true)` is set on the PHP side the parent already
+  // wraps this component in the `MetricCard` chrome (border + header
+  // + padded body), so we render only the body to avoid a double
+  // border. The PHP descriptor's `width()` still drives the outer
+  // grid column via the parent.
+  if (card.framed) {
+    return body
+  }
+
+  // Unframed cards own the surface themselves and respect their own
+  // grid span via `gridColumn: span N`.
   return (
-    <div className="martis-card">
+    <div className="martis-card" style={{ gridColumn: `span ${span} / span ${span}` }}>
       <header className="martis-card-head">
         <h3 className="martis-kpi-label">
           <span className="martis-kpi-label-text">{card.name}</span>
         </h3>
       </header>
-
-      <div className="martis-card-body">
-        {/* Replace this body with the card UI. The line below renders
-            the subtitle pushed via `meta` so the placeholder is
-            functional even before any tweak. */}
-        <p className="martis-text-muted text-sm">{subtitle}</p>
-      </div>
+      {body}
     </div>
   )
 }
