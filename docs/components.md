@@ -266,7 +266,7 @@ Navigation breadcrumbs showing the current path (Dashboard > Resource > Record).
 
 ### ResourceIcon
 
-Renders Phosphor icons by name. Accepts kebab-case or PascalCase icon names from the [Phosphor Icons](https://phosphoricons.com/) library (1,512 icons available).
+Renders Phosphor icons by name. Backed by the curated `iconRegistry` (130+ icons covering every internal use plus the most common consumer requests). Accepts kebab-case (`shopping-cart`), PascalCase (`ShoppingCart`), snake_case (`shopping_cart`), or any of the above suffixed with `Icon`.
 
 ```php
 // In Resource
@@ -276,6 +276,18 @@ public function icon(): string
     // return 'Users';     // PascalCase also works
 }
 ```
+
+Unknown names fall back to `DatabaseIcon` (no crash). To add an icon outside the curated set, register it from your consumer app's boot file:
+
+```ts
+// resources/martis-extensions/martis/boot.ts
+import { iconRegistry } from '@martis/martis/lib/iconRegistry'
+import { CrownIcon } from '@phosphor-icons/react'
+
+iconRegistry.register('crown', CrownIcon)
+```
+
+**Why the curated set**: pre-v0.8 the package imported the entire `@phosphor-icons/react` namespace inside `ResourceIcon`, which defeated tree-shaking and produced a ~5 MB minified `phosphor-icons-*.js` chunk on every build. The curated registry drops that to ~350 KB while still covering the vast majority of consumer icon strings.
 
 ### LoadingSkeleton
 
