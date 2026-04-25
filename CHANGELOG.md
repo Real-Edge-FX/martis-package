@@ -5,7 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v0.7.0-beta
+## [0.7.0-beta] — 2026-04-25
+
+### Added — Design-system phases 1–5
+- **Phase 1 tokens** — 94 design tokens covering background layers,
+  text / borders, accent / brand, semantic colours, interactive
+  states, overlays / shadows, datatable, radius, typography, chart
+  palette and file icons. Light + dark roots ship together.
+- **Phase 2 Preferences panel** — per-user theme, accent, brand
+  colour, density, locale, reduced-motion. Persisted in
+  `martis_user_preferences`. Applied before first paint to prevent
+  any flash. Optional named presets via `?preset=<name>` URL param.
+- **Phase 3 Shell** — `.martis-shell` grid (sidebar / topbar / main),
+  responsive collapse states, density-aware row heights, sidebar
+  group polish (counts badge, expandable section toggle, kicker
+  section heading).
+- **Phase 4 Components** — buttons (primary / secondary / danger /
+  success / warning / ghost + sizes + icon-only), badges (semantic
+  + neutral + dot), avatars (xs / sm / md / lg / xl + circle /
+  rounded / squared + stack), data table chrome.
+- **Phase 5 Surfaces** — modals, peeks (BelongsTo card flip), trix
+  editor chrome, action event JSON viewer, OfMany aggregate tile,
+  through-relationship breadcrumb hint.
+
+### Added — Authentication redesign (Fase 6)
+- Six pre-login surfaces share a unified `AuthFrame.tsx` shell —
+  Login, Register, 2FA challenge, 404, 403, 500.
+- `auth.controls` config with independent toggles for the theme
+  cycle button and language picker on every guest surface.
+- 6-cell OTP row with auto-advance, paste-to-fill, 30s countdown,
+  and a backup-code toggle that swaps the OTP grid for a recovery
+  code input.
+- Configurable SSO / Google / password reset / registration flows
+  via `config/martis.auth`.
+
+### Added — Command Palette (⌘K / Ctrl+K)
+- Global overlay with four ordered sections: Resources, Actions,
+  Recent activity, Records (debounced cross-resource search).
+- Keyboard-first: `↑` / `↓` / `↵` / `esc`, `⌘K` / `Ctrl+K` to toggle
+  even while typing.
+- New `GET /api/command-palette` endpoint behind the standard
+  Martis auth + 2FA + locale middleware stack. Standalone resource
+  actions auto-register in the palette.
+
+### Added — DataTable column widths
+- Per-type column-width heuristics (Id 80px, Email/Url 280px max +
+  truncate, Date 140px, title column 220px min). Explicit
+  `->width()` / `->maxWidth()` / `->minWidth()` / `->truncate()`
+  always wins. Global opt-out via
+  `config('martis.index.column_defaults', false)` for apps that
+  prefer the pre-v0.7.0 fully auto-sizing behaviour.
+
+### Added — Sidebar polish
+- Per-resource navigation count badges, polled at the configurable
+  `config('martis.navigation.poll_interval')` interval.
+- Top-level section headings (`group()` value) render as kickers.
+- Group rows are now toggleable; default-open state remembered in
+  `localStorage`.
+
+### Added — Page title customization
+- Resources can override the document title and breadcrumb segment
+  via `pageTitle()` and `pageSubtitle()`.
 
 ### Added — Dashboard extras
 - **Sparkline mode on `TrendCard`** — backend opt-in (`sparkline: true`

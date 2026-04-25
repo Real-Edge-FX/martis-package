@@ -200,3 +200,15 @@ export function usePreferences(): PreferencesContextValue {
   if (!ctx) throw new Error('usePreferences must be used within PreferencesProvider')
   return ctx
 }
+
+/**
+ * Safe variant of {@see usePreferences} that returns `null` when the
+ * provider is missing instead of throwing. Use this from components
+ * (e.g. `AuthControls`) that may render in test surfaces or detached
+ * trees that don't bootstrap the full app shell. Production code that
+ * runs inside the shell should keep using `usePreferences()` to keep
+ * the missing-provider contract loud.
+ */
+export function usePreferencesOptional(): PreferencesContextValue | null {
+  return useContext(PreferencesContext)
+}

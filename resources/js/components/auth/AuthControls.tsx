@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { MoonIcon, SunIcon, MonitorIcon, TranslateIcon } from '@phosphor-icons/react'
-import { usePreferences, type ThemeMode } from '@/contexts/PreferencesContext'
+import { usePreferencesOptional, type ThemeMode } from '@/contexts/PreferencesContext'
 import { config } from '@/lib/config'
 import { loadLocale } from '@/lib/i18n'
 
@@ -29,10 +29,15 @@ const THEME_ORDER: ThemeMode[] = ['dark', 'light', 'system']
  * applies the change, and localStorage caches it until the user logs in.
  */
 export function AuthControls() {
-  const { prefs, update, meta, enabled } = usePreferences()
+  // Use the optional variant so AuthControls renders cleanly inside
+  // test surfaces (or any detached tree) that don't wrap the full
+  // PreferencesProvider. Without this guard the 2FA challenge / error
+  // pages would crash whenever `<PreferencesProvider>` is absent.
+  const ctx = usePreferencesOptional()
   const { t } = useTranslation('messages')
 
-  if (!enabled) return null
+  if (!ctx || !ctx.enabled) return null
+  const { prefs, update, meta } = ctx
 
   // Per-surface visibility toggles from `martis.auth.controls`. Both
   // default to true so existing installs keep the current behaviour.
