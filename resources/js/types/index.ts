@@ -338,6 +338,13 @@ export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
   fieldsForDetail?: DetailItem[]
+  /**
+   * Sticky right-rail panel on the detail page. Populated by
+   * `Resource::detailSidebar()`. When empty, ResourceDetail renders a
+   * single column. When non-empty, the layout switches to a 1fr 320px
+   * grid and the sidebar attributes are removed from the main body.
+   */
+  detailSidebar?: FieldDefinition[]
   fieldsForCreate?: DetailItem[]
   fieldsForUpdate?: DetailItem[]
   fieldsForInlineCreate?: FieldDefinition[]

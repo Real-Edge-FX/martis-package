@@ -216,6 +216,14 @@ export function ResourceDetailPage() {
   }
 
   const detailFields = schema.fieldsForDetail ?? []
+  // F7-11 Part 2 — sticky right-rail panel. Resolved from
+  // `Resource::detailSidebar()` and emitted by the schema endpoint.
+  // When non-empty, the page lays out as a 1fr 320px grid and strips
+  // the sidebar attributes from the main scalar list so they only
+  // render once.
+  const sidebarFields = schema.detailSidebar ?? []
+  const sidebarAttrs = new Set(sidebarFields.map((f) => f.attribute))
+  const hasSidebar = sidebarFields.length > 0
   // Relationship fields render as full-width panels with their own heading
   // and action buttons — they must NOT be wrapped in the scalar dl/dt/dd
   // layout, otherwise the field label appears twice (once from <dt>, once
@@ -236,12 +244,12 @@ export function ResourceDetailPage() {
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
   const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
   const sectionItems = detailFields.filter(f => f.type === 'section') as SectionDefinition[]
-  const scalarFields = detailFields.filter(f =>
+  const scalarFields = (detailFields.filter(f =>
     !standaloneRelationshipTypes.has(f.type) &&
     f.type !== 'panel' &&
     f.type !== 'tab_group' &&
     f.type !== 'section'
-  ) as FieldDefinition[]
+  ) as FieldDefinition[]).filter((f) => !sidebarAttrs.has(f.attribute))
   const relationshipFields = detailFields.filter(f => standaloneRelationshipTypes.has(f.type)) as FieldDefinition[]
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
   const auth = record._authorization
@@ -336,45 +344,69 @@ export function ResourceDetailPage() {
         </div>
       </div>
 
-      {/* Panel and Tab layout containers */}
-      {tabGroupItems.map((tg, idx) => (
-        <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} />
-      ))}
-      {panelItems.map((panel, idx) => (
-        <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} />
-      ))}
-      {sectionItems.map((section, idx) => (
-        <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
-      ))}
+      {/* F7-11 Part 2 — when `Resource::detailSidebar()` returns fields,
+          the page lays out as 1fr 320px. The right rail stays sticky
+          beside the scrolling main column. When the sidebar is empty
+          we keep the legacy single-column flow. */}
+      <div className={hasSidebar ? 'martis-detail-grid' : undefined}>
+        <div className="martis-detail-main space-y-6">
+          {/* Panel and Tab layout containers */}
+          {tabGroupItems.map((tg, idx) => (
+            <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} />
+          ))}
+          {panelItems.map((panel, idx) => (
+            <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} />
+          ))}
+          {sectionItems.map((section, idx) => (
+            <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
+          ))}
 
-      {/* Details panel — spec-compliant Field grid (200px label / 1fr
-       *  value, 14×0 row padding, hairline bottom border between rows)
-       *  wrapped in a `.martis-detail-panel` surface with a "Details"
-       *  kicker above. Mirrors the main detail spec so the scalar
-       *  fields read as a named block instead of a generic card. */}
-      {scalarFields.length > 0 && (
-        <div>
-          <div className="martis-detail-kicker">{tMsg("details")}</div>
-          <dl className="martis-detail-panel">
-            {scalarFields.map((field) => (
-              <div key={field.attribute} className="martis-detail-row">
-                <dt className="martis-detail-label">{field.label}</dt>
-                <dd className="martis-detail-value">
-                  <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
-                </dd>
-              </div>
-            ))}
-          </dl>
+          {/* Details panel — spec-compliant Field grid (200px label / 1fr
+           *  value, 14×0 row padding, hairline bottom border between rows)
+           *  wrapped in a `.martis-detail-panel` surface with a "Details"
+           *  kicker above. Mirrors the main detail spec so the scalar
+           *  fields read as a named block instead of a generic card. */}
+          {scalarFields.length > 0 && (
+            <div>
+              <div className="martis-detail-kicker">{tMsg("details")}</div>
+              <dl className="martis-detail-panel">
+                {scalarFields.map((field) => (
+                  <div key={field.attribute} className="martis-detail-row">
+                    <dt className="martis-detail-label">{field.label}</dt>
+                    <dd className="martis-detail-value">
+                      <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
+          {/* Relationship fields (HasMany, HasOne, variants) render standalone
+           * — each is a full-width panel with its own heading. They are NOT
+           * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
+           * labels. */}
+          {relationshipFields.map((field) => (
+            <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
+          ))}
         </div>
-      )}
 
-      {/* Relationship fields (HasMany, HasOne, variants) render standalone
-       * — each is a full-width panel with its own heading. They are NOT
-       * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
-       * labels. */}
-      {relationshipFields.map((field) => (
-        <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
-      ))}
+        {hasSidebar && (
+          <aside className="martis-detail-sidebar">
+            <div className="martis-detail-kicker">{tMsg("details")}</div>
+            <dl className="martis-detail-panel is-drawer">
+              {sidebarFields.map((field) => (
+                <div key={field.attribute} className="martis-detail-row">
+                  <dt className="martis-detail-label">{field.label}</dt>
+                  <dd className="martis-detail-value">
+                    <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </aside>
+        )}
+      </div>
 
       {/* Update override overlay (drawer) — shown inline when edit button clicked */}
       {showUpdateOverride && schema.overrides?.update && (() => {

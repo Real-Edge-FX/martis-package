@@ -818,6 +818,51 @@ Two grid classes mirror the Dashboard.html spec so a custom dashboard renders th
 | `martis-dash-kpis` | 4-column row of KPI cards (collapses to 2 cols below 1100px). |
 | `martis-dash-grid` | 3-column body grid; supports `.span-2` / `.span-3` cell helpers. Collapses to 1 col below 1100px. |
 
+### Filter chip
+
+Public 24px chip used by `<FilterPanel>` for active-filter pills. Drop the class on any `<span>` carrying a label / value plus a dismiss button to inherit the look.
+
+```html
+<span class="martis-filter-chip">
+  <span class="martis-filter-chip-label">Status:</span>
+  <span class="martis-filter-chip-value">Active</span>
+  <button class="martis-filter-chip-x" aria-label="Clear">×</button>
+</span>
+```
+
+| Class | Effect |
+|-------|--------|
+| `martis-filter-chip` | 24px height, `--martis-hover` bg, 1px `--martis-border`, 12px font, `--martis-radius-sm`. |
+| `martis-filter-chip-label` | Muted text for the field name prefix. |
+| `martis-filter-chip-value` | Default text for the value. |
+| `martis-filter-chip-x` | Round dismiss button with hover state. |
+
+### Dropzone
+
+Public file-upload surface used by `FileField`, `ImageField`, and any consumer that wants the canonical Martis upload look.
+
+```html
+<div class="martis-dropzone is-drag-over">
+  <!-- file row content -->
+</div>
+
+<!-- big-zone variant: centred icon + CTA, dashed border -->
+<div class="martis-dropzone is-zone">
+  <span class="martis-dropzone-icon"><svg/></span>
+  <span class="martis-dropzone-title">No file attached</span>
+  <span class="martis-dropzone-hint">Drop a file or click to browse.</span>
+  <span class="martis-dropzone-cta">Choose file</span>
+</div>
+```
+
+| Class | Effect |
+|-------|--------|
+| `martis-dropzone` | Compact inline row. `--martis-input-bg` + 1px `--martis-border`. |
+| `martis-dropzone.is-zone` | Dashed border, centred icon + CTA. Use for empty states. |
+| `martis-dropzone.is-drag-over` | Accent border + tinted bg while a file is hovering. |
+| `martis-dropzone.has-error` | Danger border. |
+| `martis-dropzone-icon` / `-title` / `-hint` / `-cta` | Children of the `is-zone` variant. |
+
 ### Card chrome
 
 Public wrapper used by `martis:card` scaffolds and by any custom dashboard panel that wants the canonical Martis card look without reaching for the internal `.martis-metric-card` selectors:

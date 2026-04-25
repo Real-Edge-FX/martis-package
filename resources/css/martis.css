@@ -2037,13 +2037,61 @@ html.dark body {
 }
 
 /* ── Toast ─────────────────────────────────────────────────────── */
+/* F7-39 — PrimeReact Toast aligned to the design-system Catalog spec.
+   320px minimum, surface + border + token shadow, severity colour
+   surfaced via the icon bubble (and the legacy left border for
+   continuity). The structural styling (font, padding, gaps) follows
+   the same recipe as `.martis-toast`. */
 .p-toast {
   z-index: 99999 !important;
 }
 .p-toast .p-toast-message {
-  background-color: var(--martis-surface);
-  border-color: var(--martis-border);
+  background-color: var(--martis-surface) !important;
+  border: 1px solid var(--martis-border) !important;
   color: var(--martis-text);
+  border-radius: var(--martis-radius-md) !important;
+  box-shadow: var(--martis-shadow-md) !important;
+  min-width: 320px;
+  max-width: 420px;
+  font-size: 14px;
+}
+.p-toast .p-toast-message-content {
+  padding: 12px 14px !important;
+  gap: 10px !important;
+  align-items: flex-start !important;
+}
+.p-toast .p-toast-message-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid !important;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff !important;
+  font-size: 14px !important;
+}
+.p-toast .p-toast-summary {
+  font-weight: var(--martis-weight-semibold, 600) !important;
+  margin-bottom: 2px;
+  line-height: 1.3;
+  color: var(--martis-text);
+}
+.p-toast .p-toast-detail {
+  color: var(--martis-text-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.4;
+  margin: 0 !important;
+}
+.p-toast .p-toast-icon-close {
+  width: 20px !important;
+  height: 20px !important;
+  color: var(--martis-text-muted) !important;
+  border-radius: var(--martis-radius-sm);
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.p-toast .p-toast-icon-close:hover {
+  background: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
 }
 
 /* ── Menu popup — Fix text visibility ──────────────────────────── */
@@ -2248,25 +2296,93 @@ html.dark body {
 .martis-toast-container.pos-top-center { top: 16px; left: 50%; transform: translateX(-50%); }
 .martis-toast-container.pos-bottom-center { bottom: 16px; left: 50%; transform: translateX(-50%); }
 
+/* F7-39 — Toast spec aligned to the design system Catalog. 320px
+   minimum width, surface bg, design-token shadow, icon bubble + title +
+   message + close + optional progress bar. */
 .martis-toast {
   pointer-events: auto;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  min-width: 300px;
+  min-width: 320px;
   max-width: 420px;
-  padding: 12px 16px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: var(--martis-radius-md);
   border: 1px solid var(--martis-border);
-  background-color: var(--martis-card);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  background: var(--martis-surface);
+  box-shadow: var(--martis-shadow-md);
   animation: martis-toast-in 0.3s ease-out;
   color: var(--martis-text);
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
 }
-.martis-toast-success { border-left: 4px solid #22c55e; }
-.martis-toast-error { border-left: 4px solid #ef4444; }
-.martis-toast-warning { border-left: 4px solid #f59e0b; }
-.martis-toast-info { border-left: 4px solid #3b82f6; }
+.martis-toast-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.martis-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+.martis-toast-title {
+  font-weight: var(--martis-weight-semibold, 600);
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+.martis-toast-message {
+  color: var(--martis-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.martis-toast-close {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  border-radius: var(--martis-radius-sm);
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.martis-toast-close:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--martis-surface-alt);
+  overflow: hidden;
+}
+.martis-toast-progress-fill {
+  height: 100%;
+  background: var(--martis-accent);
+  transition: width 100ms linear;
+}
+/* Severity icon-bubble fills (kept on the bubble itself, not on the
+   left border, per the Catalog spec). The legacy `border-left` rules
+   below stay so existing markup that used the old chrome continues
+   to render. */
+.martis-toast-success .martis-toast-icon { background: var(--martis-success); }
+.martis-toast-error .martis-toast-icon { background: var(--martis-danger); }
+.martis-toast-warning .martis-toast-icon { background: var(--martis-warning); }
+.martis-toast-info .martis-toast-icon { background: var(--martis-info); }
+.martis-toast-success { border-left: 4px solid var(--martis-success); }
+.martis-toast-error { border-left: 4px solid var(--martis-danger); }
+.martis-toast-warning { border-left: 4px solid var(--martis-warning); }
+.martis-toast-info { border-left: 4px solid var(--martis-info); }
 
 @keyframes martis-toast-in {
   from { opacity: 0; transform: translateY(10px); }
@@ -3648,27 +3764,31 @@ html:not(.dark) .martis-trix-detail a:hover {
   color: #4338ca;
 }
 
-/* == CodeMirror Dark Mode Fix ===========================================
-   Force CodeMirror container backgrounds to respect the Martis dark theme
-   when no explicit theme extension is loaded.
-   ======================================================================= */
-
+/* == F7-41 — CodeMirror theme aligned to Martis design tokens.
+   Surface, gutter, mono font and selection rgba all resolve from
+   `--martis-*` tokens so the editor follows accent / theme overrides
+   automatically. The `!important` keepers exist because CodeMirror
+   theme extensions ship inline styles via the JS theme. */
 .cm-editor {
   background-color: var(--martis-input-bg) !important;
+  font-family: var(--martis-font-mono) !important;
+  font-size: var(--martis-text-sm, 13px) !important;
+  border-radius: var(--martis-radius-md);
 }
 
 .cm-editor .cm-gutters {
   background-color: var(--martis-surface) !important;
   border-right-color: var(--martis-border) !important;
+  color: var(--martis-text-muted) !important;
 }
 
 html:not(.dark) .cm-editor {
-  background-color: #ffffff !important;
+  background-color: var(--martis-input-bg) !important;
 }
 
 html:not(.dark) .cm-editor .cm-gutters {
-  background-color: #f9fafb !important;
-  border-right-color: #e5e7eb !important;
+  background-color: var(--martis-surface) !important;
+  border-right-color: var(--martis-border) !important;
 }
 
 
@@ -3678,28 +3798,28 @@ html:not(.dark) .cm-editor .cm-gutters {
    ======================================================================= */
 
 ::selection {
-  background-color: rgba(99, 102, 241, 0.25);
+  background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
   color: var(--martis-text);
 }
 
 html:not(.dark) ::selection {
-  background-color: rgba(99, 102, 241, 0.2);
-  color: #1e293b;
+  background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
+  color: var(--martis-text);
 }
 
 /* Textarea / code editors explicit selection */
 textarea::selection,
 .cm-editor .cm-content ::selection,
 .martis-trix-wrapper trix-editor ::selection {
-  background-color: rgba(99, 102, 241, 0.25);
+  background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
   color: var(--martis-text);
 }
 
 html:not(.dark) textarea::selection,
 html:not(.dark) .cm-editor .cm-content ::selection,
 html:not(.dark) .martis-trix-wrapper trix-editor ::selection {
-  background-color: rgba(99, 102, 241, 0.2);
-  color: #1e293b;
+  background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
+  color: var(--martis-text);
 }
 
 /* == Bug 4: Country dropdown — light theme panel background (REA-1163) ====
@@ -3741,15 +3861,15 @@ html:not(.dark) .p-dropdown .p-dropdown-trigger {
    ======================================================================= */
 
 html:not(.dark) .cm-editor .cm-activeLine {
-  background-color: rgba(99, 102, 241, 0.06) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 6%, transparent) !important;
 }
 
 html:not(.dark) .cm-editor .cm-activeLineGutter {
-  background-color: rgba(99, 102, 241, 0.08) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 8%, transparent) !important;
 }
 
 html:not(.dark) .cm-editor .cm-cursor {
-  border-left-color: #1e293b !important;
+  border-left-color: var(--martis-text) !important;
 }
 
 html:not(.dark) .cm-editor .cm-gutterElement {
@@ -3760,13 +3880,13 @@ html:not(.dark) .cm-editor .cm-content {
   color: var(--martis-text) !important;
 }
 
-/* CodeMirror selection in light mode */
+/* CodeMirror selection — accent-tinted in both themes. */
 html:not(.dark) .cm-editor .cm-selectionBackground {
-  background-color: rgba(99, 102, 241, 0.15) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 15%, transparent) !important;
 }
 
 .cm-editor .cm-selectionBackground {
-  background-color: rgba(99, 102, 241, 0.3) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 30%, transparent) !important;
 }
 
 /* == Bug 6: Color picker popup — light theme (REA-1163) ===================
@@ -4199,18 +4319,16 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   border-top-color: var(--martis-surface) !important;
 }
 
-/* ── PrimeReact Tooltip styling (REA-1102) ── */
+/* ── PrimeReact Tooltip overlay z-index + max width.
+   Visual styling (font / padding / border / arrow / duration) lives in
+   the F7-38 spec block further down. */
 .p-tooltip {
   z-index: 99999 !important;
 }
 .p-tooltip .p-tooltip-text {
-  font-size: 0.75rem;
-  padding: 0.375rem 0.625rem;
-  border-radius: 0.375rem;
   white-space: nowrap;
   max-width: 300px;
 }
-/* Tooltip colors are handled by CSS variables in the theming block below */
 
 /* ── Fix: Inline action icons — larger hit target (REA-1102) ── */
 .martis-action-btn {
@@ -4279,43 +4397,77 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
   background-color: var(--martis-row-hover) !important;
 }
 
-/* ── PrimeReact Tooltip theming ─────────────────────────────────── */
+/* ── F7-38 — PrimeReact Tooltip theming aligned to the design system.
+   12px text on `--martis-surface-alt` with a 1px `--martis-border`,
+   8px arrow that matches the bubble fill, and a fast fade controlled
+   by `--martis-dur-ultra`. The bg / border / arrow tokens cascade
+   from the CSS variables block so dark and light themes pick up the
+   right values automatically. */
 .p-tooltip .p-tooltip-text {
-  background-color: var(--martis-sidebar) !important;
+  background-color: var(--martis-surface-alt) !important;
   color: var(--martis-text) !important;
   border: 1px solid var(--martis-border) !important;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
+  font-size: 12px;
+  font-weight: var(--martis-weight-medium);
+  padding: 6px 10px;
+  border-radius: var(--martis-radius-md);
+  box-shadow: var(--martis-shadow-sm);
+  line-height: 1.3;
+  letter-spacing: 0;
 }
-/* Arrow must match the tooltip background for all positions */
+/* Animation duration follows the motion token. The package opacity
+   transition class is `.p-tooltip` itself; PrimeReact toggles the
+   class to fade in/out. */
+.p-tooltip {
+  transition-duration: var(--martis-dur-ultra, 80ms) !important;
+}
+/* Arrow geometry — 8px triangle pointing toward the host. The
+   `border-{side}-color` MUST match `--martis-surface-alt` so the
+   triangle reads as a continuation of the bubble. */
+.p-tooltip-top .p-tooltip-arrow,
+.p-tooltip-bottom .p-tooltip-arrow,
+.p-tooltip-left .p-tooltip-arrow,
+.p-tooltip-right .p-tooltip-arrow {
+  border-width: 8px !important;
+}
 .p-tooltip-top .p-tooltip-arrow {
-  border-top-color: var(--martis-sidebar) !important;
+  border-top-color: var(--martis-surface-alt) !important;
 }
 .p-tooltip-bottom .p-tooltip-arrow {
-  border-bottom-color: var(--martis-sidebar) !important;
+  border-bottom-color: var(--martis-surface-alt) !important;
 }
 .p-tooltip-left .p-tooltip-arrow {
-  border-left-color: var(--martis-sidebar) !important;
+  border-left-color: var(--martis-surface-alt) !important;
 }
 .p-tooltip-right .p-tooltip-arrow {
-  border-right-color: var(--martis-sidebar) !important;
+  border-right-color: var(--martis-surface-alt) !important;
 }
 
-/* ── Fix: Toast left border matches severity icon color exactly (REA-1183) ── */
-/* Icon colors from lara-dark-indigo theme: success=#6ee7b7, error=#fca5a5, warn=#fde047, info=#93c5fd */
-/* Only left border gets severity color; other borders remain at 0 per theme design. */
+/* F7-39 — Severity ribbon + icon bubble paint with design tokens so
+   they follow accent / theme overrides automatically. */
 .p-toast .p-toast-message.p-toast-message-success {
-  border-left: 4px solid #6ee7b7 !important;
+  border-left: 4px solid var(--martis-success) !important;
+}
+.p-toast .p-toast-message.p-toast-message-success .p-toast-message-icon {
+  background: var(--martis-success);
 }
 .p-toast .p-toast-message.p-toast-message-error {
-  border-left: 4px solid #fca5a5 !important;
+  border-left: 4px solid var(--martis-danger) !important;
+}
+.p-toast .p-toast-message.p-toast-message-error .p-toast-message-icon {
+  background: var(--martis-danger);
 }
 .p-toast .p-toast-message.p-toast-message-warn {
-  border-left: 4px solid #fde047 !important;
+  border-left: 4px solid var(--martis-warning) !important;
+}
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-message-icon {
+  background: var(--martis-warning);
 }
 .p-toast .p-toast-message.p-toast-message-info {
-  border-left: 4px solid #93c5fd !important;
+  border-left: 4px solid var(--martis-info) !important;
+}
+.p-toast .p-toast-message.p-toast-message-info .p-toast-message-icon {
+  background: var(--martis-info);
 }
 html:not(.dark) .p-toast .p-toast-message {
   background-color: #ffffff;
@@ -6195,6 +6347,38 @@ html[data-density="dense"] .martis-drawer-icon {
   gap: 6px;
   margin-bottom: 10px;
 }
+/* F7-11 Part 2 — sticky right-rail layout when `Resource::detailSidebar()`
+   returns fields. The grid lays out 1fr main / 320px sidebar with a
+   24px gap, and the aside sticks below the page header so it stays
+   visible while the main column scrolls long content. Below 1100px
+   the layout collapses to a single column with the sidebar pushed
+   to the bottom. */
+.martis-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+.martis-detail-grid > .martis-detail-main {
+  min-width: 0;
+}
+.martis-detail-sidebar {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .martis-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .martis-detail-sidebar {
+    position: static;
+  }
+}
+
 html[data-density="dense"] .martis-detail-row {
   padding: 10px 0;
   gap: 14px;
@@ -6347,6 +6531,139 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   .martis-dash-grid { grid-template-columns: 1fr; }
   .martis-dash-grid > .span-2,
   .martis-dash-grid > .span-3 { grid-column: auto; }
+}
+
+/* F7-40 — Public dropzone used by File / Image / Upload fields. Two
+   shapes:
+     - default (`.martis-dropzone`)            — compact inline row,
+       suits replacing a small input on a form (FileField, ImageField).
+     - `.martis-dropzone.is-zone` variant      — full surface with a
+       dashed border, large icon and CTA, suits the canonical Upload
+       field empty state (mirrors the AudioField redesign).
+   States:
+     - default                                  — `--martis-input-bg`
+       background + 1px solid border.
+     - `:hover` / `.is-drag-over`               — accent-tinted bg +
+       accent border (animated).
+     - `.has-error`                             — danger border.
+     - `[disabled]` / `.is-readonly`            — 0.6 opacity, default
+       cursor. */
+.martis-dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--martis-radius-md);
+  border: 1px solid var(--martis-border);
+  background: var(--martis-input-bg);
+  transition: background var(--martis-dur-sm, 120ms) ease, border-color var(--martis-dur-sm, 120ms) ease;
+  min-width: 0;
+}
+.martis-dropzone:hover:not(.is-readonly):not([disabled]) {
+  border-color: var(--martis-accent);
+}
+.martis-dropzone.is-drag-over {
+  border-color: var(--martis-accent);
+  background: color-mix(in srgb, var(--martis-accent) 10%, var(--martis-input-bg));
+}
+.martis-dropzone.has-error {
+  border-color: var(--martis-danger);
+}
+.martis-dropzone.is-readonly,
+.martis-dropzone[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* Big-zone variant — dashed border, centred icon + CTA, used by the
+   Upload / Audio empty state. */
+.martis-dropzone.is-zone {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 20px;
+  border-style: dashed;
+  background: var(--martis-surface);
+}
+.martis-dropzone-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--martis-accent) 12%, transparent);
+  color: var(--martis-accent);
+  flex-shrink: 0;
+}
+.martis-dropzone-title {
+  font-size: 13px;
+  font-weight: var(--martis-weight-semibold);
+  color: var(--martis-text);
+}
+.martis-dropzone-hint {
+  font-size: 12px;
+  color: var(--martis-text-muted);
+}
+.martis-dropzone-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-accent);
+  border-radius: var(--martis-radius-sm);
+  background: color-mix(in srgb, var(--martis-accent) 10%, transparent);
+}
+
+/* F7-42 — Filter chip used by `<FilterPanel>` to render active filters
+   alongside the toggle. Matches the Catalog `.chip` spec: 24px height,
+   12px font, hover bg, radius-sm, 1px border, optional dismiss `.x`
+   button. The chip works standalone outside FilterPanel — drop the
+   class on any `<span>` carrying a label / value pair plus a close
+   button to inherit the look. */
+.martis-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--martis-hover);
+  color: var(--martis-text);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-sm);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.martis-filter-chip-label {
+  color: var(--martis-text-muted);
+  font-weight: var(--martis-weight-medium);
+}
+.martis-filter-chip-value {
+  color: var(--martis-text);
+}
+.martis-filter-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin-left: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.martis-filter-chip-x:hover {
+  background: var(--martis-surface);
+  color: var(--martis-text);
 }
 
 /* Public card chrome — used by `martis:card` scaffolds and by any

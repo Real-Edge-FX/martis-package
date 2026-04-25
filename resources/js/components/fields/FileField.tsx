@@ -172,11 +172,11 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
   return (
     <div className="flex flex-col gap-1">
       <div
-        className="martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors"
-        style={{
-          backgroundColor: dragOver ? 'color-mix(in srgb, var(--martis-accent) 10%, transparent)' : 'var(--martis-input-bg)',
-          borderColor: dragOver ? 'var(--martis-accent)' : (error ? 'var(--martis-danger)' : 'var(--martis-border)'),
-        }}
+        className={[
+          'martis-dropzone',
+          dragOver ? 'is-drag-over' : '',
+          error ? 'has-error' : '',
+        ].filter(Boolean).join(' ')}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
@@ -378,11 +378,11 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
 
       {/* Drop zone / add button */}
       <div
-        className="martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors"
-        style={{
-          backgroundColor: dragOver ? 'color-mix(in srgb, var(--martis-accent) 10%, transparent)' : 'var(--martis-input-bg)',
-          borderColor: dragOver ? 'var(--martis-accent)' : (error ? 'var(--martis-danger)' : 'var(--martis-border)'),
-        }}
+        className={[
+          'martis-dropzone',
+          dragOver ? 'is-drag-over' : '',
+          error ? 'has-error' : '',
+        ].filter(Boolean).join(' ')}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
