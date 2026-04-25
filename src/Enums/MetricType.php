@@ -12,4 +12,6 @@ enum MetricType: string
     case Trend = 'trend';
     case Partition = 'partition';
     case Progress = 'progress';
+    case ActivityFeed = 'activity_feed';
+    case EndpointTable = 'endpoint_table';
 }

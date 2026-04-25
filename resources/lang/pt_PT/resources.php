@@ -48,4 +48,11 @@ return [
     'showing' => 'A mostrar',
     'of' => 'de',
     'records' => 'registos',
+    // EndpointTable metric card
+    'endpoint_method' => 'Método',
+    'endpoint_path' => 'Caminho',
+    'endpoint_rpm' => 'Req/min',
+    'endpoint_latency' => 'Latência P95',
+    'endpoint_errors' => 'Erros %',
+    'endpoint_share' => 'Quota',
 ];

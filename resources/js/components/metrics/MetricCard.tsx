@@ -9,6 +9,8 @@ import { ValueCard } from './ValueCard'
 import { TrendCard } from './TrendCard'
 import { PartitionCard } from './PartitionCard'
 import { ProgressCard } from './ProgressCard'
+import { ActivityFeedCard } from './ActivityFeedCard'
+import { EndpointTableCard } from './EndpointTableCard'
 
 interface MetricCardProps {
   metric: MetricDefinition
@@ -168,6 +170,10 @@ function MetricContent({
       return <PartitionCard data={result} />
     case 'progress':
       return <ProgressCard data={result} color={color} />
+    case 'activity_feed':
+      return <ActivityFeedCard data={result} />
+    case 'endpoint_table':
+      return <EndpointTableCard data={result} />
     default:
       return null
   }
