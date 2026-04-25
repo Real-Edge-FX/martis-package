@@ -1438,12 +1438,16 @@ html[data-reduced-motion="true"] *::after {
      distributed leftover space unevenly when the breadcrumb and the
      user-chip cluster had different widths, pulling the search to the
      left of the content-area center (and visibly misaligning the command
-     palette that anchors to it). */
+     palette that anchors to it).
+     Width budget — the right cluster grew with v0.8 (notification bell
+     joined preferences + user chip), so we keep more headroom: cap the
+     bar at 420px and reserve at least 480px for siblings. The previous
+     520 / 420 split used to overlap into the bell on narrower viewports. */
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(520px, calc(100% - 420px));
+  width: min(420px, calc(100% - 480px));
   height: 34px;
   background: var(--martis-search-bg);
   border: 1px solid var(--martis-search-border);
