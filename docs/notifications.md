@@ -32,9 +32,34 @@ The Martis convention is a small set of recommended keys:
 
 `title` is the only one Martis truly needs — the others either default sensibly or are omitted from the rendering.
 
-## Sending a notification
+## Sending a notification — step by step
 
-The `MartisNotification` class is a one-liner sender for the common case:
+> Goal: deliver a notification to a user and have it show up in the bell dropdown.
+
+### Step 1 — make sure the receiving model uses `Notifiable`
+
+Laravel's standard `Notifiable` trait powers the whole flow. Apps that started from `laravel/laravel` already have it on `App\Models\User`:
+
+```php
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use Notifiable;
+    // ...
+}
+```
+
+If you need to deliver to other models (workspaces, teams, on-call rotations, ...) add the trait there too. The Martis bell only renders for the **authenticated user**, but the same database table backs everyone — so a future "team inbox" surface is a configuration change, not a schema migration.
+
+### Step 2 — pick a sender style
+
+Two styles depending on how often you'll send the same shape.
+
+**Style A — one-off, inline (`MartisNotification::make`)**
+
+Ideal when the notification is built ad-hoc inside a controller / job / model event:
 
 ```php
 use Martis\Notifications\MartisNotification;
@@ -42,30 +67,48 @@ use Martis\Notifications\MartisNotification;
 $user->notify(MartisNotification::make(
     title: 'Invoice paid',
     message: 'INV-2026-001 has been paid.',
-    level: 'success',
-    icon: 'check-circle',
-    actionUrl: '/martis/resources/invoices/42',
-    actionLabel: 'View invoice',
+    level: 'success',                                 // info | success | warning | danger
+    icon: 'check-circle',                             // any Phosphor icon name (kebab-case)
+    actionUrl: '/martis/resources/invoices/42',       // click target
+    actionLabel: 'View invoice',                      // CTA label rendered next to the timestamp
 ));
 ```
 
-For richer notifications (queueable, multi-channel, mail templates) write your own `Notification` class as usual:
+Only `title` is required. `level` defaults to `info`, the icon falls back to a level-default (info / check-circle / warning / x-circle), and `actionUrl` / `actionLabel` are optional.
+
+**Style B — reusable, dedicated class**
+
+Pick this when the same notification fires from multiple places, needs to also send mail / Slack, or is queueable:
 
 ```php
-use Illuminate\Notifications\Notification;
+namespace App\Notifications;
 
-class InvoicePaid extends Notification
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+use App\Models\Invoice;
+
+class InvoicePaid extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(public Invoice $invoice) {}
 
-    public function via(): array
+    public function via(mixed $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['database', 'mail'];
     }
 
-    public function toMail(): MailMessage { /* ... */ }
+    public function toMail(mixed $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject("Invoice {$this->invoice->code} paid")
+            ->line("Your invoice {$this->invoice->code} has been paid.")
+            ->action('View invoice', url("/martis/resources/invoices/{$this->invoice->id}"));
+    }
 
-    public function toArray(): array
+    public function toArray(mixed $notifiable): array
     {
         return [
             'title' => 'Invoice paid',
@@ -78,6 +121,53 @@ class InvoicePaid extends Notification
     }
 }
 ```
+
+The `database` channel reads `toArray()` — the keys above are exactly what the React renderer looks for.
+
+### Step 3 — fire it
+
+From any controller, job, model event, command, ...:
+
+```php
+use App\Notifications\InvoicePaid;
+
+$invoice->payer->notify(new InvoicePaid($invoice));
+```
+
+Or send to many recipients at once:
+
+```php
+use Illuminate\Support\Facades\Notification;
+
+Notification::send($team->members, new InvoicePaid($invoice));
+```
+
+### Step 4 — verify
+
+Recipients see the notification inside 60 seconds (default poll interval) — the bell badge updates, then the dropdown shows the new entry on next open. To confirm during local development:
+
+```bash
+# count pending notifications for a user
+php artisan tinker --execute='
+$u = App\Models\User::where("email", "you@example.com")->first();
+echo $u->unreadNotifications()->count(), "\n";
+'
+```
+
+To deliver instantly (no polling delay) add the `broadcast` channel to `via()` and have your app listen for `Illuminate\Notifications\Events\BroadcastNotificationCreated` on the front end (`echo.private('App.Models.User.{id}')`).
+
+### Reference: data shape
+
+The React renderer reads these keys from the notification's `toArray()` / `MartisNotification::toArray()`:
+
+| Key | Required | Default | Effect |
+|-----|----------|---------|--------|
+| `title` | yes | class basename | Bold first line. |
+| `message` | no | — | Muted second line. |
+| `level` | no | `info` | Drives the icon bubble colour. One of `info` / `success` / `warning` / `danger`. |
+| `icon` | no | level default | Phosphor icon name (kebab-case). Resolves through `iconRegistry` so any of the 1500+ icons works. |
+| `action_url` | no | — | Click target. Path starting with `/` does an in-app navigation; full URLs open in a new tab. |
+| `action_label` | no | — | CTA text rendered next to the timestamp. Only shown when `action_url` is set. |
 
 ## Configuration
 
