@@ -781,6 +781,15 @@ class ResourceController extends MartisController
             unset($field);
         }
         $fieldsForDetail = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
+        // F7-11 Part 2 — sticky right-rail panel on the detail page. When
+        // empty, ResourceDetail keeps its single-column layout. When
+        // populated, it switches to the canonical 1fr 320px grid and
+        // strips the sidebar attributes from the main body so they
+        // don't render twice.
+        $detailSidebar = array_map(
+            fn (FieldContract $f): array => $f->toArray(),
+            Field::filterForContext($instance->detailSidebar($request), FieldContext::DETAIL),
+        );
         $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
@@ -826,6 +835,7 @@ class ResourceController extends MartisController
             'fields' => $fieldData,
             'fieldsForIndex' => $fieldsForIndex,
             'fieldsForDetail' => $fieldsForDetail,
+            'detailSidebar' => $detailSidebar,
             'fieldsForCreate' => $fieldsForCreate,
             'fieldsForUpdate' => $fieldsForUpdate,
             'fieldsForInlineCreate' => $fieldsForInlineCreate,

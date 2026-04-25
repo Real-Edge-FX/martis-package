@@ -66,6 +66,24 @@ public function fields(Request $request): array
 
 See the [Fields Reference](fields.md) for all 31 available field types.
 
+### detailSidebar() (⭐ Martis differential)
+
+Returns fields rendered in the **sticky right rail** of the detail page. When non-empty, the page lays out as a 1fr / 320px grid: the main column scrolls while the sidebar stays pinned beside it. Use it for at-a-glance metadata (status, owner, dates, IDs) so it doesn't compete with the long-form fields below.
+
+```php
+public function detailSidebar(Request $request): array
+{
+    return [
+        Status::make('status'),
+        BelongsTo::make('owner', 'owner', UserResource::class),
+        DateTime::make('created_at'),
+        DateTime::make('updated_at'),
+    ];
+}
+```
+
+Fields rendered in the sidebar are automatically removed from the main `fieldsForDetail()` body so they only appear once. Below 1100px the layout collapses to a single column and the sidebar pushes to the bottom. Default: empty (single-column layout).
+
 ## Configuration Methods
 
 ### titleAttribute()

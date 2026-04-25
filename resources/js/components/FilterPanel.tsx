@@ -131,28 +131,13 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot }: Fil
 
         {/* Differential 2: Active filter pills — visible even when panel is closed */}
         {activeEntries.map(({ filter, displayValue }) => (
-          <span
-            key={filter.uriKey}
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-            style={{
-              backgroundColor: 'var(--martis-surface)',
-              color: 'var(--martis-text)',
-              border: '1px solid var(--martis-border)',
-            }}
-          >
-            <span style={{ color: 'var(--martis-text-muted)' }}>{filter.name}:</span>
-            <span>{displayValue}</span>
+          <span key={filter.uriKey} className="martis-filter-chip">
+            <span className="martis-filter-chip-label">{filter.name}:</span>
+            <span className="martis-filter-chip-value">{displayValue}</span>
             <button
               type="button"
               onClick={() => handleClearSingle(filter.uriKey)}
-              className={`martis-filter-pill-clear-${filter.uriKey} ml-0.5 rounded-full p-0.5 hover:opacity-70`}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--martis-text-muted)',
-                lineHeight: 0,
-              }}
+              className={`martis-filter-chip-x martis-filter-pill-clear-${filter.uriKey}`}
               aria-label={`${t('clear_filter', 'Clear filter')}: ${filter.name}`}
               data-pr-tooltip={t('clear_filter', 'Clear filter')}
               data-pr-position="top"

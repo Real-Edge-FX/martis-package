@@ -283,6 +283,25 @@ abstract class Resource implements ResourceContract
         return $this->fields($request);
     }
 
+    /**
+     * Fields surfaced in the detail page right rail (sticky 320px panel).
+     *
+     * Override to pin status, owner, dates and other "at-a-glance"
+     * metadata away from the main field stack. Fields rendered here are
+     * automatically removed from the main detail body so they don't
+     * appear twice.
+     *
+     * Default: empty — meaning the detail page renders a single column
+     * and no sidebar is shown. Returning a non-empty array switches
+     * the layout to the canonical 1fr 320px grid.
+     *
+     * @return list<\Martis\Contracts\FieldContract>
+     */
+    public function detailSidebar(Request $request): array
+    {
+        return [];
+    }
+
     /** {@inheritDoc} */
     public function fieldsForCreate(Request $request): array
     {
