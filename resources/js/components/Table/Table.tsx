@@ -55,14 +55,39 @@ export interface TableProps {
     showGridlines?: boolean
     size?: "normal" | "small" | "large"
     rowHover?: boolean
+    /** `fixed` respects explicit column widths pixel-for-pixel; `auto` lets content size each column. */
+    layout?: "auto" | "fixed"
   }
 }
 
+interface ColumnWidth {
+  width?: string | null
+  minWidth?: string | null
+  maxWidth?: string | null
+  truncate?: boolean
+}
+
+/**
+ * Turn a field's `column` metadata into a style object for PrimeReact's
+ * `<Column style>`. Returns `undefined` when nothing is declared so React
+ * doesn't render an empty `style` attr.
+ */
+function columnStyleFrom(meta: ColumnWidth | null | undefined): React.CSSProperties | undefined {
+  if (!meta) return undefined
+  const style: React.CSSProperties = {}
+  if (meta.width) style.width = meta.width
+  if (meta.minWidth) style.minWidth = meta.minWidth
+  if (meta.maxWidth) style.maxWidth = meta.maxWidth
+  return Object.keys(style).length === 0 ? undefined : style
+}
+
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
+  // Design-system spec: only the active column shows a direction caret.
+  // Inactive sortable columns stay clean until hovered/activated.
+  if (!active) return null
   return dir === "asc"
-    ? <CaretUpIcon size={14} className="text-indigo-600" />
-    : <CaretDownIcon size={14} className="text-indigo-600" />
+    ? <CaretUpIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
+    : <CaretDownIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
 }
 
 /* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
@@ -458,7 +483,15 @@ function DefaultTable({
         onSort={(e: DataTableSortEvent) => {
           if (e.sortField) onSort(String(e.sortField))
         }}
-        onRowClick={e => onClickRow?.(e.data as ResourceRecord)}
+        onRowClick={e => {
+          // Checkbox clicks bubble up through PrimeReact's `onRowClick`;
+          // suppress navigation when the click originated inside the
+          // selection column so bulk selection works without opening
+          // the detail view.
+          const target = e.originalEvent?.target as HTMLElement | undefined
+          if (target?.closest('.martis-select-column')) return
+          onClickRow?.(e.data as ResourceRecord)
+        }}
         rowClassName={(row: ResourceRecord) => {
           const classes: string[] = []
           if (!onClickRow) classes.push("martis-row-no-click")
@@ -474,6 +507,11 @@ function DefaultTable({
         }
         className={classNames}
         tableClassName="min-w-full"
+        tableStyle={
+          tableConfig?.layout === "fixed"
+            ? { tableLayout: "fixed" }
+            : undefined
+        }
         selection={selectable ? selectedRows : []}
         onSelectionChange={selectable ? handleSelectionChange : undefined as never}
         selectionMode={selectable ? "checkbox" : null}
@@ -491,7 +529,7 @@ function DefaultTable({
             header=""
             body={(row: ResourceRecord) =>
               "deleted_at" in row && row["deleted_at"] !== null ? (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                <span className="martis-badge martis-badge-danger">
                   {tMsg("archived")}
                 </span>
               ) : null
@@ -499,19 +537,29 @@ function DefaultTable({
             style={{ width: "5rem" }}
           />
         )}
-        {columns.map(({ field }) => (
+        {columns.map(({ field }) => {
+          const col = field.column as ColumnWidth | undefined
+          const style = columnStyleFrom(col)
+          const truncateClass = col?.truncate ? "martis-col-truncate" : undefined
+          return (
           <Column
             key={field.attribute}
             field={field.attribute}
             header={
               field.sortable ? (
                 <button type="button"
-                  className="flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
+                  className="martis-th-sortable flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
                   style={{ color: "var(--martis-table-header-text)" }}
                   onClick={() => onSort(field.attribute)}
                 >
                   {field.label}
-                  <SortIcon active={sortBy === field.attribute} dir={sortDir} />
+                  {sortBy === field.attribute ? (
+                    <SortIcon active dir={sortDir} />
+                  ) : (
+                    // Discreet hint that the column is sortable. Low opacity
+                    // at rest, slightly brighter when the header is hovered.
+                    <CaretUpDownIcon size={11} weight="bold" className="martis-th-sort-hint" />
+                  )}
                 </button>
               ) : (
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--martis-table-header-text)" }}>
@@ -523,8 +571,12 @@ function DefaultTable({
               <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} context="index" />
             )}
             sortable={false}
+            style={style}
+            headerStyle={style}
+            bodyClassName={truncateClass}
           />
-        ))}
+          )
+        })}
         {hasActionsColumn && (
           <Column
             header={
@@ -571,6 +623,7 @@ function DefaultTable({
                     <RowActionButton
                       label={tAct("restore", "Restore")}
                       icon={<ArrowCounterClockwiseIcon size={16} />}
+                      disabled={false}
                       onClick={() => onDefaultRestore?.(row)}
                     />
                   )}
@@ -578,6 +631,7 @@ function DefaultTable({
                     <RowActionButton
                       label={tAct("force_delete", "Force delete")}
                       icon={<SkullIcon size={16} />}
+                      disabled={false}
                       variant="destructive"
                       onClick={() => onDefaultForceDelete?.(row)}
                     />

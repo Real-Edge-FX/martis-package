@@ -6,7 +6,6 @@ namespace Martis\Fields;
  * Auto-incrementing ID field.
  *
  * Shown on index and detail views, hidden from forms (read-only by nature).
- * Equivalent to Nova's ID field.
  */
 class Id extends Field
 {
@@ -33,5 +32,11 @@ class Id extends Field
     public function type(): string
     {
         return 'id';
+    }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '80px'];
     }
 }

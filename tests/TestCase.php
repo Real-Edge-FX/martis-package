@@ -3,7 +3,6 @@
 namespace Martis\Tests;
 
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Martis\MartisServiceProvider;
@@ -20,15 +19,8 @@ abstract class TestCase extends OrchestraTestCase
 
     protected function setUp(): void
     {
-        $this->cleanupPublishedMartisMigrations();
         parent::setUp();
         $this->withoutVite();
-    }
-
-    protected function tearDown(): void
-    {
-        $this->cleanupPublishedMartisMigrations();
-        parent::tearDown();
     }
 
     protected function defineEnvironment($app): void
@@ -47,6 +39,30 @@ abstract class TestCase extends OrchestraTestCase
     protected function defineDatabaseMigrations(): void
     {
         $this->loadLaravelMigrations();
+    }
+
+    /**
+     * Override RefreshDatabase's `migrate:fresh` so it does NOT scan the
+     * shared testbench `database/migrations/` folder. In parallel mode,
+     * `martis:install` from another worker leaves published Martis
+     * migrations in that folder; if `migrate:fresh` runs them before
+     * the testbench's bundled `users` migration (loaded via
+     * `loadLaravelMigrations`), they crash with "no such table users".
+     *
+     * This override switches the migrator to a directory that does
+     * not exist, leaving testbench's bundled migrations as the sole
+     * source. Each test run is therefore isolated from artefacts of
+     * any other parallel worker.
+     */
+    protected function migrateFreshUsing(): array
+    {
+        return [
+            '--drop-views' => false,
+            '--drop-types' => false,
+            '--seed' => false,
+            '--path' => __DIR__.'/migrations-empty',
+            '--realpath' => true,
+        ];
     }
 
     /**
@@ -76,23 +92,4 @@ abstract class TestCase extends OrchestraTestCase
         });
     }
 
-    protected function cleanupPublishedMartisMigrations(): void
-    {
-        $filesystem = new Filesystem;
-        $migrationPath = is_object($this->app) && method_exists($this->app, 'databasePath')
-            ? $this->app->databasePath('migrations')
-            : __DIR__.'/../vendor/orchestra/testbench-core/laravel/database/migrations';
-
-        $patterns = [
-            '/*_create_action_events_table.php',
-            '/*_add_martis_profile_picture_column_to_users_table.php',
-            '/*_add_martis_two_factor_columns_to_users_table.php',
-        ];
-
-        foreach ($patterns as $pattern) {
-            collect(glob($migrationPath.$pattern) ?: [])->each(
-                fn (string $path) => $filesystem->delete($path)
-            );
-        }
-    }
 }

@@ -93,11 +93,12 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const rawDetailFields: FieldDefinition[] = (schema as { fieldsForDetail?: FieldDefinition[] } | undefined)?.fieldsForDetail ?? []
   const flattenFields = (fields: FieldDefinition[]): FieldDefinition[] =>
     fields.flatMap((f) => {
-      if (f.type === 'panel' || f.type === 'section') {
+      const kind = (f as { type?: string }).type
+      if (kind === 'panel' || kind === 'section') {
         const inner = ((f as unknown as { fields?: FieldDefinition[] }).fields) ?? []
         return flattenFields(inner)
       }
-      if (f.type === 'tab_group') {
+      if (kind === 'tab_group') {
         const tabs = ((f as unknown as { tabs?: { fields?: FieldDefinition[] }[] }).tabs) ?? []
         return tabs.flatMap((t) => flattenFields(t.fields ?? []))
       }
@@ -143,14 +144,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
                   `/resources/${relatedResource}/${record.id as string | number}/edit${viaParams}`
                 )
               }
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-surface)',
-                color: 'var(--martis-text)',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-surface)')}
+              className="martis-btn-secondary"
             >
               <PencilSimpleIcon size={14} />
               {tAct('edit', 'Edit')}
@@ -160,7 +154,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+              className="martis-btn-danger"
             >
               <TrashIcon size={14} />
               {tAct('delete', 'Delete')}

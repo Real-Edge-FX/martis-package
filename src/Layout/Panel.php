@@ -10,7 +10,7 @@ use Martis\Fields\Field;
 /**
  * Panel — a visual grouping of fields with an optional title.
  *
- * Nova v5 parity: Panel::make('Title', [fields...])
+ * Usage: Panel::make('Title', [fields...])
  *   ->collapsible()
  *   ->collapsedByDefault()
  *   ->limit(int)
@@ -62,7 +62,7 @@ class Panel implements LayoutContract
     /**
      * Set a description/subtitle shown below the panel title.
      *
-     * Martis extension: Nova v5 does not support descriptions on Panels.
+     * Martis extension.
      */
     public function description(string $description): static
     {

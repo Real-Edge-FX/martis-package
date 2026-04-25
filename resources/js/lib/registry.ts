@@ -1,12 +1,12 @@
 import type { ComponentType } from 'react'
 
 /**
- * Component Registry — Bloco 8
+ * Component Registry.
  *
- * Centraliza todos os componentes de rendering do Martis.
- * Qualquer componente pode ser substituído via `registry.register()` sem fork.
+ * Centralises every rendering component the package ships. Consumers
+ * swap any component via `registry.register()` without forking.
  *
- * Uso:
+ * Usage:
  *   import { registry } from '@/lib/registry'
  *   registry.register('field:text', MyCustomTextField)
  */

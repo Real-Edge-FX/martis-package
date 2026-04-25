@@ -32,7 +32,7 @@ function isMorphToValue(v: unknown): v is MorphToValue {
 }
 
 // ---------------------------------------------------------------------------
-// PeekCard — lazy-fetch hover preview card (Nova v5 concept alignment).
+// PeekCard — lazy-fetch hover preview card.
 // Content comes from the related resource's fieldsForPreview() via the peek endpoint.
 // Triggered exclusively by the preview icon, never by hover on the record link.
 // ---------------------------------------------------------------------------
@@ -209,8 +209,7 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
               ref={peekIconRef}
               href="#"
               onClick={(e) => e.preventDefault()}
-              data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
-              data-pr-position="top"
+              aria-label={tMsg('preview', { defaultValue: 'Preview' })}
               style={{ color: 'var(--martis-text-muted)' }}
               className={`inline-flex items-center opacity-60 hover:opacity-100 transition-opacity ${peekArrowClass}`}
               onMouseEnter={handleMouseEnter}

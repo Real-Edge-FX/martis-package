@@ -5,14 +5,13 @@ namespace Martis\Fields\Concerns;
 /**
  * Per-instance visibility overrides for relationship-field controls.
  *
- * Nova 5 gates relationship controls exclusively through policies and
- * resource authorization. Martis keeps that exact semantics — policies
- * remain the source of truth — and adds this trait so a programmer can
+ * Relationship controls are gated by policies and resource authorization
+ * — policies are the source of truth. This trait lets a programmer
  * **hide** individual controls on a specific field instance *even when*
  * the authorization would otherwise allow them. There is no inverse
  * operation: you cannot force a control to appear if policy denies it.
  *
- * Each toggle defaults to `false` (= honour policy as Nova does). Setting
+ * Each toggle defaults to `false` (= honour policy). Setting
  * a toggle to `true` removes the control from the rendered UI. For action
  * buttons (View/Edit/Delete/Restore/ForceDelete), unauthorized actions
  * continue to render as *disabled* (greyed-out icons); this trait

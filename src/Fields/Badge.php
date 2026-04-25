@@ -10,16 +10,13 @@ use ReflectionFunction;
 /**
  * Badge field — visual read-only indicator that maps model values to colored badges.
  *
- * Laravel Nova v5 parity: Badge field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#badge-field
- *
  * Contexts:
  *  - index: yes (display-only)
  *  - detail: yes (display-only)
  *  - create: no (hidden by default — not an editable input)
  *  - update: no (hidden by default — not an editable input)
  *
- * Intentional divergences from Nova:
+ * Notes:
  *  - Forms hidden by default. Developer can call ->showOnForms() if needed
  *    to render the badge in form contexts (read-only), but Badge should never
  *    be treated as an editable input.
@@ -55,7 +52,7 @@ class Badge extends Field
 
     /**
      * Maps badge type → color class.
-     * Defaults aligned with Nova: info/success/warning/danger.
+     * Default types: info/success/warning/danger.
      *
      * @var array<string, string>|Closure
      */
@@ -355,5 +352,11 @@ class Badge extends Field
         }
 
         return (new ReflectionFunction($value))->getNumberOfParameters() >= 1;
+    }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '120px'];
     }
 }

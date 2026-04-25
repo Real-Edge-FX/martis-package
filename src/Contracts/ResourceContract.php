@@ -168,7 +168,7 @@ interface ResourceContract
     public static function dashboards(): array;
 
     // -------------------------------------------------------------------------
-    // Query hooks — Nova v5 parity
+    // Query hooks
     // -------------------------------------------------------------------------
 
     /**
@@ -219,6 +219,12 @@ interface ResourceContract
     /** Determine whether this resource should appear in the navigation menu. */
     public static function displayInNavigation(): bool;
 
+    /** Whether the navigation should show a count badge for this resource. */
+    public static function showMenuCount(): bool;
+
+    /** Compute the navigation count badge (null hides it). */
+    public static function menuCount(\Illuminate\Http\Request $request): ?int;
+
     /** Return a custom search placeholder, or null for the i18n default. */
     public static function searchPlaceholder(): ?string;
 
@@ -238,6 +244,9 @@ interface ResourceContract
     /** Table density: "small", "normal", or "large". */
     public static function tableSize(): TableSize;
 
+    /** How column widths distribute: auto (default) or fixed. */
+    public static function tableLayout(): \Martis\Enums\TableLayout;
+
     /** Whether rows highlight on hover. */
     public static function tableRowHover(): bool;
 
@@ -252,7 +261,7 @@ interface ResourceContract
     public static function bulkActionsMenuLabel(): ?string;
 
     // -------------------------------------------------------------------------
-    // Authorization — Nova v5 parity
+    // Authorization
     // -------------------------------------------------------------------------
 
     /** Whether authorization checks are enabled for this resource. */
@@ -309,7 +318,7 @@ interface ResourceContract
     public function authorizedToRunDestructiveAction(Request $request): bool;
 
     // -------------------------------------------------------------------------
-    // Relational authorization — Nova v5 parity
+    // Relational authorization
     // -------------------------------------------------------------------------
 
     /**
@@ -424,7 +433,7 @@ interface ResourceContract
     public static function validationMessage(): string;
 
     // -------------------------------------------------------------------------
-    // Scout integration — Nova v5 parity
+    // Scout integration
     // -------------------------------------------------------------------------
 
     /**
@@ -446,7 +455,7 @@ interface ResourceContract
     public static function scoutQuery(Request $request, mixed $query): mixed;
 
     // -------------------------------------------------------------------------
-    // Global Search — Nova v5 parity
+    // Global Search
     // -------------------------------------------------------------------------
 
     /**

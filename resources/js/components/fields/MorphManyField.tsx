@@ -24,11 +24,11 @@ export function MorphManyFieldIndexDisplay({ field, value }: FieldDisplayProps) 
 
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+      className="martis-badge"
       style={{
         backgroundColor: badgeColor ? `${badgeColor}15` : 'var(--martis-surface)',
         color: badgeColor ?? 'var(--martis-text)',
-        border: `1px solid ${badgeColor ? `${badgeColor}40` : 'var(--martis-border)'}`,
+        borderColor: badgeColor ? `${badgeColor}40` : 'var(--martis-border)',
       }}
     >
       {badgeIcon && <ResourceIcon iconName={badgeIcon} size={12} />}

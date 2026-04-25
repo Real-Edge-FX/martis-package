@@ -172,6 +172,31 @@ class MenuItem
             'icon' => $this->icon ?? $resourceMeta['icon'],
             'url' => $this->url ?? '/resources/'.$resourceClass::uriKey(),
             'external' => $this->external,
+            'count' => $this->resolveMenuCount($resourceClass, $request),
         ], $this->meta);
+    }
+
+    /**
+     * Resolve the navigation count for a resource, respecting the global
+     * kill-switch and the per-resource opt-out. Any exception from user
+     * code is swallowed so a broken count never hides the navigation.
+     *
+     * @param  class-string<Resource>  $resourceClass
+     */
+    protected function resolveMenuCount(string $resourceClass, Request $request): ?int
+    {
+        if (! (bool) config('martis.navigation.counts.enabled', true)) {
+            return null;
+        }
+
+        if (! $resourceClass::showMenuCount()) {
+            return null;
+        }
+
+        try {
+            return $resourceClass::menuCount($request);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

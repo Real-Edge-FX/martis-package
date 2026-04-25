@@ -12,9 +12,9 @@ use Martis\Contracts\FieldContract;
 /**
  * Central resolver for resource search — decides between Scout and database.
  *
- * Nova v5 parity: when a resource model uses Laravel\Scout\Searchable and the
- * resource has not overridden usesScout() to return false, searches go through
- * Scout. Otherwise, the standard database LIKE pipeline is used.
+ * When a resource model uses Laravel\Scout\Searchable and the resource has
+ * not overridden usesScout() to return false, searches go through Scout.
+ * Otherwise, the standard database LIKE pipeline is used.
  *
  * This class is the SINGLE point of truth for the search decision. Controllers
  * must not duplicate this logic.
@@ -131,12 +131,18 @@ class SearchResolver
         string $search,
     ): Builder {
         $instance = new $resourceClass;
+        // fields() can contain Section / Panel / TabGroup layout wrappers
+        // alongside real FieldContract instances. A strict `FieldContract`
+        // type-hint in the filter callback throws `TypeError` when the
+        // layout nodes come through — turning every /api/search call into
+        // a 500. Guard with `instanceof` instead so layout nodes are
+        // simply skipped.
         $searchableFields = array_filter(
             $instance->fields($request),
-            fn (FieldContract $field): bool => $field->isSearchable(),
+            fn (mixed $field): bool => $field instanceof FieldContract && $field->isSearchable(),
         );
 
-        if (empty($searchableFields)) {
+        if ($searchableFields === []) {
             return $query;
         }
 

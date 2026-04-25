@@ -37,14 +37,82 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
     'name' => env('MARTIS_BRAND_NAME', 'Martis'),
     'logo' => null,
     'favicon' => env('MARTIS_FAVICON', null),
+    'page_title' => env('MARTIS_PAGE_TITLE'), // null | string | callable
 ],
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `name` | `string` | `'Martis'` | Displayed in the sidebar header and browser title. |
+| `name` | `string` | `'Martis'` | Displayed in the sidebar header and used as the `{brand}` interpolation for the bundled page title translation. |
 | `logo` | `?string` | `null` | Path to a custom logo image (relative to public/). |
 | `favicon` | `?string` | `null` | Path to a custom favicon (relative to `public/`). When `null`, Martis serves its own default favicon from the package — no `vendor:publish` step required. |
+| `page_title` | `string \| callable \| null` | `null` | Browser tab title shown in `<title>`. `null` uses the bundled translation (e.g. "Acme — Admin Control"). A plain string overrides it. A callable (invokable class or array callable) receives the current `Request` and returns the title. |
+
+### Customising the page title
+
+Three levels of control:
+
+**1. Bundled translation (no configuration).** The default title uses `martis::navigation.page_title_default` interpolated with `brand.name`:
+
+| Locale | Rendered title |
+|--------|----------------|
+| `en` | `Acme — Admin Control` |
+| `pt_PT` | `Acme — Centro de Administração` |
+| `pt_BR` | `Acme — Central de Administração` |
+
+**2. Static override** — set a literal string in `.env` or config:
+
+```env
+MARTIS_PAGE_TITLE="Acme Back Office"
+```
+
+```php
+'brand' => [
+    'page_title' => 'Acme Back Office',
+],
+```
+
+**3. Dynamic per-route title** — register a closure in your `AppServiceProvider::boot()`:
+
+```php
+use Illuminate\Http\Request;
+use Martis\Facades\Martis;
+
+public function boot(): void
+{
+    Martis::pageTitleUsing(function (Request $request): string {
+        return match (true) {
+            str_starts_with($request->path(), 'martis/resources/clients') => 'Clients · Acme',
+            str_starts_with($request->path(), 'martis/resources/invoices') => 'Invoices · Acme',
+            default => 'Acme Admin',
+        };
+    });
+}
+```
+
+> Closures cannot live directly in `config/martis.php` because `php artisan config:cache` fails to serialise them. Use the facade/manager from a service provider instead.
+
+**4. Automatic per-route inference (no configuration)** — Martis looks at the current request path and inserts the matching resource label, dashboard name, or section, e.g.:
+
+| URL | Title rendered |
+|-----|----------------|
+| `/martis` | Dashboard name · brand (e.g. `Operations · Acme`) |
+| `/martis/resources/clients` | `Clients · Acme` |
+| `/martis/resources/clients/new` | `Create Client · Acme` |
+| `/martis/resources/clients/42` | `Client · Acme` |
+| `/martis/resources/clients/42/edit` | `Edit Client · Acme` |
+| `/martis/profile` | `Profile · Acme` |
+
+Resource labels honour the authenticated user's locale preference, so the first paint is already in the right language.
+
+For **client-side navigation** inside the SPA (react-router), each page uses the [`usePageTitle`](overrides.md#page-title-hook) hook to keep `document.title` in sync without a full reload.
+
+Resolution precedence (highest first):
+
+1. `Martis::pageTitleUsing(Closure)` — registered at runtime.
+2. `config('martis.brand.page_title')` — string or `is_callable`.
+3. Automatic inference from the request path (resource label, dashboard name, profile).
+4. `__('martis::navigation.page_title_default', ['brand' => config('martis.brand.name')])` — bundled fallback.
 
 ### Customising the favicon
 
@@ -85,14 +153,61 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 ```php
 'layout' => [
     'preset' => env('MARTIS_LAYOUT', 'sidebar'),
+    'components' => [
+        'shell'   => null,
+        'sidebar' => null,
+        'topbar'  => null,
+        'footer'  => null,
+    ],
 ],
 ```
 
-| Key | Type | Default | Options |
-|-----|------|---------|---------|
-| `preset` | `string` | `'sidebar'` | `sidebar`, `topnav`, `minimal`, `custom` |
+### Presets
 
-Layouts can be overridden via the [Layout Registry](overrides.md#layout-overrides).
+| Preset | What it renders | When to pick it |
+|--------|-----------------|-----------------|
+| `sidebar` (default) | Left nav column, topbar, content, in-flow footer. The collapsible shell described in [theming.md](theming.md) and [overrides.md](overrides.md). | Most admin apps. Handles mobile drawer, collapsed rail, accent pill, density tokens. |
+| `topnav` | Horizontal top navigation (no sidebar). Topbar renders the full menu inline. | Apps with ≤ 8 top-level resources or a focus-mode where the left column wastes space. |
+| `minimal` | No chrome — just the route outlet. No topbar, no sidebar, no footer. | Embedded dashboards, marketing screens, print-friendly surfaces. |
+| `custom` | Strict registry-only mode: requires a component registered under `layout:shell` (or referenced by `layout.components.shell`). If none is registered, Martis renders a red error panel instead of silently falling back to `sidebar` — so a missing registration fails loudly during development. | Apps shipping their own shell that want to guarantee the bundled fallback is never used. |
+
+Pick the preset via `MARTIS_LAYOUT` env or `config('martis.layout.preset')`. The string must match one of the four above (typos fall back to `sidebar`).
+
+### Piece-by-piece component overrides
+
+`layout.components` lets the PHP config point each shell piece at a specific registry key. Each value is either `null` (use the bundled default) or a string matching a key registered via `componentRegistry.register(...)` in the frontend.
+
+```php
+'layout' => [
+    'preset' => 'sidebar',
+    'components' => [
+        'shell'   => null,              // whole shell override; skips the grid + mobile drawer
+        'sidebar' => null,              // only the left column
+        'topbar'  => 'tenant-topbar',   // custom topbar registered in boot.ts
+        'footer'  => 'tenant-footer',
+    ],
+],
+```
+
+Resolution order per piece: `config.layout.components.<piece>` → `layout:<piece>` (default registry key) → bundled component.
+
+Full wiring examples, prop contracts, and the rationale for piece-by-piece vs full-shell overrides live in [overrides.md](overrides.md#shell-piece-by-piece-overrides).
+
+## Navigation
+
+```php
+'navigation' => [
+    'counts' => [
+        'enabled' => env('MARTIS_NAV_COUNTS', true),
+    ],
+    'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+],
+```
+
+- `counts.enabled` — master switch for the resource count badge (`Users 1,284`) rendered in the sidebar and top-nav dropdowns. When true, every resource publishes a count by default; per-resource opt-out via `showMenuCount(): bool` on the `Resource` class.
+- `poll_interval` — how often (in milliseconds) the sidebar and top-nav re-fetch `/api/navigation` while the tab is focused. Keeps badges in sync when a second user mutates data in parallel. Default: 60000 (60 seconds). Set to `0` to disable polling. React Query pauses the interval when the tab is hidden and refetches on window focus independently.
+
+See [menus.md](menus.md#count-badges) for the badge API (including `menuCount()` for custom values) and [menus.md](menus.md#sections) for the section heading API.
 
 ## Localization
 
@@ -349,7 +464,10 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_GUARD` | `guard` | `null` |
 | `MARTIS_BRAND_NAME` | `brand.name` | `Martis` |
 | `MARTIS_FAVICON` | `brand.favicon` | `null` |
+| `MARTIS_PAGE_TITLE` | `brand.page_title` | `null` (uses translation) |
 | `MARTIS_LAYOUT` | `layout.preset` | `sidebar` |
+| `MARTIS_NAV_COUNTS` | `navigation.counts.enabled` | `true` |
+| `MARTIS_NAV_POLL_MS` | `navigation.poll_interval` | `60000` |
 | `MARTIS_LOCALE` | `locale` | `en` |
 | `MARTIS_THROTTLE_ENABLED` | `throttle.enabled` | `true` |
 | `MARTIS_THROTTLE_MAX` | `throttle.max_attempts` | `120` |
@@ -359,6 +477,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 | `MARTIS_SEARCH_MODE` | `search.mode` | `bar` |
 | `MARTIS_TOAST_POSITION` | `toast.position` | `bottom-right` |
 | `MARTIS_DEFAULT_TRASHED_FILTER` | `index.default_trashed_filter` | `active` |
+| `MARTIS_INDEX_COLUMN_DEFAULTS` | `index.column_defaults` | `true` |
 | `MARTIS_STORAGE_DISK` | `storage.disk` | `public` |
 | `MARTIS_ATTACHMENT_MIMES` | `attachments.allowed_mimes` | (see config) |
 | `MARTIS_ATTACHMENT_MAX_SIZE` | `attachments.max_size` | `10240` |

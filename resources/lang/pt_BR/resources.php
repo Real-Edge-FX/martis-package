@@ -8,6 +8,8 @@ return [
     'loading' => 'Carregando…',
     'registered' => 'Recursos registrados',
     'welcome' => 'Bem-vindo ao Martis Admin Engine.',
+    'welcome_card_heading' => 'Bem-vindo ao Martis',
+    'welcome_card_description' => 'Um motor de administração moderno para Laravel. Totalmente temático, orientado a componentes, pronto para extensões.',
     'hello' => 'Olá, :name',
     'default_dashboard' => 'Dashboard Padrão',
     'no_records' => 'Nenhum registro encontrado.',
@@ -46,4 +48,17 @@ return [
     'showing' => 'Mostrando',
     'of' => 'de',
     'records' => 'registros',
+    // OfMany aggregate tile labels
+    'aggregate_total' => 'Total',
+    'aggregate_sum' => 'Soma',
+    'aggregate_avg' => 'Média',
+    'aggregate_min' => 'Mínimo',
+    'aggregate_max' => 'Máximo',
+    // EndpointTable metric card
+    'endpoint_method' => 'Método',
+    'endpoint_path' => 'Caminho',
+    'endpoint_rpm' => 'Req/min',
+    'endpoint_latency' => 'Latência P95',
+    'endpoint_errors' => 'Erros %',
+    'endpoint_share' => 'Participação',
 ];

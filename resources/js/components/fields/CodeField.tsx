@@ -28,7 +28,7 @@ function isDarkMode(): boolean {
 }
 
 /**
- * Map Nova language identifiers to CodeMirror 6 extensions.
+ * Map language identifiers to CodeMirror 6 extensions.
  */
 function getLanguageExtension(lang: string): Extension | null {
   switch (lang) {

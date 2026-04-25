@@ -7,6 +7,7 @@ use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * TOTP-based Two-Factor Authentication service.
@@ -256,9 +257,16 @@ class TwoFactorService
         $key = $this->base32Decode($secret);
         $timestamp = (int) floor(time() / 30);
 
+        // Probe the schema once per install. Older installs shipped the
+        // 2FA migration without this column (it was added alongside replay
+        // protection); on those rows any attempt to `save()` the replay
+        // timestamp throws a SQL error and the whole verify turns into a
+        // generic "Invalid code". Skip replay tracking when the column is
+        // missing so legitimate codes still authenticate.
+        $hasColumn = $this->hasLastUsedColumn($user);
+
         // Determine the last used time step.
-        // Eloquent returns null for unmigrated columns — no exception needed.
-        $lastUsedAt = $user->two_factor_last_used_at ?? null;
+        $lastUsedAt = $hasColumn ? ($user->two_factor_last_used_at ?? null) : null;
 
         $lastStep = $lastUsedAt instanceof \DateTimeInterface
             ? (int) floor($lastUsedAt->getTimestamp() / 30)
@@ -273,15 +281,42 @@ class TwoFactorService
             }
 
             if ($this->hotp($key, $step) === $code) {
-                // Record the consumed step so it cannot be reused
-                $user->two_factor_last_used_at = now();
-                $user->save();
+                if ($hasColumn) {
+                    try {
+                        $user->two_factor_last_used_at = now();
+                        $user->save();
+                    } catch (Throwable) {
+                        // Swallow persistence errors — we prefer letting the
+                        // user authenticate over denying a valid code when
+                        // the replay-tracking column is absent or the row is
+                        // momentarily locked.
+                    }
+                }
 
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** Resolves once per request whether the users table carries the replay
+     *  timestamp column introduced alongside {@see self::verifyAndTrack()}. */
+    private function hasLastUsedColumn(Model $user): bool
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        try {
+            $cached = \Illuminate\Support\Facades\Schema::connection($user->getConnectionName())
+                ->hasColumn($user->getTable(), 'two_factor_last_used_at');
+        } catch (Throwable) {
+            $cached = false;
+        }
+
+        return $cached;
     }
 
     /**

@@ -1,10 +1,10 @@
 # Repeater
 
 Repeatable row widget backed by JSON, a child table (HasMany) or a single
-polymorphic child table. Ships with Nova 5 parity **plus five Martis
-differentials** — drag-and-drop reorder, collapse, cardinality limits,
-dynamic row headers, row templates, duplicate, bulk paste, and a
-polymorphic storage mode that solves Nova's "one table per type" gap.
+polymorphic child table. Ships **five Martis differentials** — drag-and-drop
+reorder, collapse, cardinality limits, dynamic row headers, row templates,
+duplicate, bulk paste, and a polymorphic storage mode for page-builder-style
+layouts.
 
 - [Quick start](#quick-start)
 - [Storage modes](#storage-modes)
@@ -12,7 +12,7 @@ polymorphic storage mode that solves Nova's "one table per type" gap.
   - [HasMany](#hasmany-mode-ashasmany)
   - [Polymorphic ⭐](#polymorphic-mode-aspolymorphic-)
 - [Writing a Repeatable](#writing-a-repeatable)
-- [Nova 5 parity API](#nova-5-parity-api)
+- [Core API](#core-api)
 - [⭐ Martis differentials](#-martis-differentials)
 - [Validation](#validation)
 - [Payload format](#payload-format)
@@ -95,8 +95,8 @@ model for its type.
 
 **Martis-only.** Every row type shares a single child table discriminated
 by a `type` column, with field values serialised into a `payload` JSON
-column. Solves Nova's page-builder gap (Nova requires one table per
-Repeatable type).
+column. Ideal for page-builder-style layouts without one table per
+Repeatable type.
 
 Requirements:
 
@@ -150,19 +150,19 @@ Milestone::make()
     ->badgeCount();                     // "#N" badge per row
 ```
 
-## Nova 5 parity API
+## Core API
 
-| Nova API | Martis | Notes |
-|---|---|---|
-| `Repeater::make($name, $attr, $resolveFn)` | ✅ | Identical |
-| `->repeatables(array)` | ✅ | Identical |
-| `->asJson()` | ✅ | Identical |
-| `->asHasMany()` | ✅ | Identical |
-| `->uniqueField(string)` | ✅ | Identical |
-| `->confirmRemoval()` | ✅ | Identical |
-| Single-type Add button | ✅ | Label includes the type: "Add Milestone" |
-| Multi-type Add dropdown | ✅ | Same menu behaviour + fecha em click fora/Esc |
-| Per-row validation | ✅ | Errors formatted `attribute.0.field` |
+| Method | Notes |
+|---|---|
+| `Repeater::make($name, $attr, $resolveFn)` | Factory |
+| `->repeatables(array)` | Declare the row types |
+| `->asJson()` | JSON storage mode |
+| `->asHasMany()` | HasMany storage mode |
+| `->uniqueField(string)` | Stable identifier column for HasMany upsert |
+| `->confirmRemoval()` | Show a confirm dialog before removing a row |
+| Single-type Add button | Label includes the type: "Add Milestone" |
+| Multi-type Add dropdown | Closes on click-outside/Esc |
+| Per-row validation | Errors formatted `attribute.0.field` |
 
 ## ⭐ Martis differentials
 
@@ -170,8 +170,6 @@ Milestone::make()
 
 Exposes selected parent-record attributes to every field **inside** every
 row, so conditional field logic can react to data outside the row itself.
-Nova has no equivalent (open request
-[laravel/nova-issues#5669](https://github.com/laravel/nova-issues/discussions/5669)).
 
 ```php
 Repeater::make('milestones')
@@ -194,7 +192,7 @@ fields *plus* the parent's `status` and `deadline`.
 
 ### D3 — Row header affordances
 
-Declared on the `Repeatable` itself. Nova shows only the class basename.
+Declared on the `Repeatable` itself; surfaces real row context beyond the class basename.
 
 | Method | Effect |
 |---|---|
@@ -231,7 +229,7 @@ Repeater::make('delivery_phases')
 ### D5 — `asPolymorphic()`
 
 See [Polymorphic mode](#polymorphic-mode-aspolymorphic-). One table holds
-every row type. Closes Nova's page-builder gap.
+every row type — ideal for page-builder-style layouts.
 
 ## Validation
 

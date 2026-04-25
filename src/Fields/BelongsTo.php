@@ -57,13 +57,13 @@ class BelongsTo extends Field
 
     /**
      * Modal size for the inline create dialog.
-     * Defaults to 2xl (Nova v5 parity).
+     * Defaults to 2xl.
      */
     protected ModalSize $modalSize = ModalSize::TwoExtraLarge;
 
     /**
      * Whether to show subtitle text under each dropdown option.
-     * Nova v5 parity: ->withSubtitles()
+     * Exposed via ->withSubtitles().
      */
     protected bool $withSubtitles = false;
 
@@ -75,24 +75,24 @@ class BelongsTo extends Field
 
     /**
      * Whether the peek/preview icon is shown for the related record.
-     * Defaults to true (Nova v5 parity: peekable).
+     * Defaults to true.
      *
      * When enabled, a small preview icon appears next to the related record link.
      * Hovering the icon fetches the related resource's preview fields
      * (via the peek endpoint, which uses fieldsForPreview()) and shows them
-     * in a compact card — aligned with Nova v5's concept of peeking.
+     * in a compact card.
      */
     protected bool $peekable = true;
 
     /**
      * Whether soft-deleted records should be excluded from relatable options.
-     * Nova v5 parity: ->withoutTrashed()
+     * Exposed via ->withoutTrashed().
      */
     protected bool $withoutTrashed = false;
 
     /**
      * Whether to disable auto-reordering of associatables.
-     * Nova v5 parity: ->dontReorderAssociatables()
+     * Exposed via ->dontReorderAssociatables().
      */
     protected bool $dontReorderAssociatables = false;
 
@@ -137,7 +137,7 @@ class BelongsTo extends Field
 
     /**
      * Closure to customize the relatable query for this field.
-     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => ...)
+     * Exposed via ->relatableQueryUsing(fn($request, $query) => ...).
      */
     protected ?\Closure $relatableQueryClosure = null;
 
@@ -166,7 +166,7 @@ class BelongsTo extends Field
      * @param  string  $relationship  Relationship method name (e.g. "author") or FK column ("user_id").
      * @param  string|null  $label  Human-readable label. Derived from the relationship name if null.
      * @param  class-string|null  $resource  Related resource class (e.g. UserResource::class).
-     *   Nova parity: when provided, automatically applies ->relatedResource(uriKey)
+     *   When provided, automatically applies ->relatedResource(uriKey)
      *   so callers don't need a separate call.
      */
     public static function make(string $relationship, ?string $label = null, ?string $resource = null): static
@@ -354,8 +354,6 @@ class BelongsTo extends Field
     /**
      * Enable the inline create button for this relationship field.
      * Optionally accepts a closure for conditional display.
-     *
-     * Nova v5 parity: showCreateRelationButton() / showCreateRelationButton(fn ($request) => ...)
      */
     public function showCreateRelationButton(bool|\Closure $callback = true): static
     {
@@ -366,8 +364,6 @@ class BelongsTo extends Field
 
     /**
      * Explicitly hide the inline create button.
-     *
-     * Nova v5 parity: hideCreateRelationButton()
      */
     public function hideCreateRelationButton(): static
     {
@@ -378,8 +374,6 @@ class BelongsTo extends Field
 
     /**
      * Set the modal size for inline creation.
-     *
-     * Nova v5 parity: ->modalSize(ModalSize::LG)
      */
     public function modalSize(ModalSize $size): static
     {
@@ -392,7 +386,6 @@ class BelongsTo extends Field
      * Show subtitle text under each dropdown option.
      *
      * The subtitle is read from the related model's $subtitleAttribute (default: "subtitle").
-     * Nova v5 parity: ->withSubtitles()
      */
     public function withSubtitles(bool $value = true): static
     {
@@ -423,8 +416,6 @@ class BelongsTo extends Field
      * Hovering the icon fetches the related resource's peek fields and shows
      * them in a compact card. Peek content is governed by fieldsForPreview()
      * on the related resource — not by a custom column list on this field.
-     *
-     * Nova v5 parity: ->peekable()
      */
     public function peekable(bool $value = true): static
     {
@@ -435,8 +426,6 @@ class BelongsTo extends Field
 
     /**
      * Disable the peek/preview icon for this relationship.
-     *
-     * Nova v5 parity: ->noPeeking()
      */
     public function noPeeking(): static
     {
@@ -447,8 +436,6 @@ class BelongsTo extends Field
 
     /**
      * Exclude soft-deleted records from the relatable options list.
-     *
-     * Nova v5 parity: ->withoutTrashed()
      */
     public function withoutTrashed(): static
     {
@@ -459,8 +446,6 @@ class BelongsTo extends Field
 
     /**
      * Disable auto-reordering of relatable options (keep DB/query order).
-     *
-     * Nova v5 parity: ->dontReorderAssociatables()
      */
     public function dontReorderAssociatables(): static
     {
@@ -474,8 +459,6 @@ class BelongsTo extends Field
      *
      * The closure receives ($request, $query) and should modify the Builder in-place
      * or return a new Builder.
-     *
-     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => $query->where('active', 1))
      *
      * @param  \Closure(Request, Builder<Model>): void  $closure
      */

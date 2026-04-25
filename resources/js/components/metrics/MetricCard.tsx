@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { ArrowClockwiseIcon, PulseIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import type { MetricDefinition, ActiveFilters } from '@/types'
@@ -9,6 +9,8 @@ import { ValueCard } from './ValueCard'
 import { TrendCard } from './TrendCard'
 import { PartitionCard } from './PartitionCard'
 import { ProgressCard } from './ProgressCard'
+import { ActivityFeedCard } from './ActivityFeedCard'
+import { EndpointTableCard } from './EndpointTableCard'
 
 interface MetricCardProps {
   metric: MetricDefinition
@@ -27,6 +29,10 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
   const ranges = metric.ranges ?? {}
   const hasRanges = Object.keys(ranges).length > 0
 
+  // Plain Card subclasses render their own content via `customContent` —
+  // they don't expose a compute endpoint and hitting one returns 404.
+  const isFetchableMetric = metric.type !== 'card'
+
   const query = useQuery({
     queryKey: ['metric', metric.uriKey, endpoint, range, filters],
     queryFn: () => {
@@ -38,6 +44,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
         `${endpoint}?${params.toString()}`,
       )
     },
+    enabled: isFetchableMetric,
     refetchInterval: metric.refreshEvery ? metric.refreshEvery * 1000 : undefined,
   })
 
@@ -59,7 +66,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
 
   return (
     <div
-      className="rounded-lg"
+      className="martis-metric-card rounded-lg"
       style={{
         gridColumn,
         border: '1px solid var(--martis-border)',
@@ -70,33 +77,26 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
     >
       {/* Card header */}
       <div
-        className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+        className="martis-metric-card-head flex flex-wrap items-center justify-between gap-2 px-4 py-3"
         style={{ borderBottom: '1px solid var(--martis-border)' }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          {metric.icon && (
-            <span className="flex-shrink-0" style={{ color: accentColor ?? 'var(--martis-text-muted)' }}>
-              <ResourceIcon iconName={metric.icon} size={16} />
-            </span>
-          )}
-          <h3
-            className="text-sm font-semibold truncate"
-            style={{ color: 'var(--martis-text)' }}
-          >
-            {metric.name}
+          <h3 className="martis-kpi-label min-w-0">
+            {metric.icon && (
+              <span className="martis-kpi-label-icon" style={{ color: accentColor ?? undefined }}>
+                <ResourceIcon iconName={metric.icon} size={14} />
+              </span>
+            )}
+            <span className="martis-kpi-label-text">{metric.name}</span>
           </h3>
           {isLive && (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-              style={{
-                backgroundColor: 'var(--martis-success-bg)',
-                color: 'var(--martis-success)',
-              }}
+              className="martis-status-dot"
               data-pr-tooltip={`${t('auto_refresh', 'Auto-refresh')}: ${metric.refreshEvery}s`}
               data-pr-position="top"
             >
-              <PulseIcon size={10} weight="fill" />
-              {t('live', 'LIVE')}
+              <span className="martis-status-pulse" />
+              {t('live', 'Live')}
             </span>
           )}
         </div>
@@ -132,16 +132,13 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
       </div>
 
       {/* Card content */}
-      <div className="p-4">
+      <div className="martis-metric-card-body p-4">
         {customContent ? (
           customContent
         ) : result === null && query.isLoading ? (
-          <div
-            className="h-20 animate-pulse rounded"
-            style={{ backgroundColor: 'var(--martis-hover)' }}
-          />
+          <span className="martis-skeleton" style={{ display: 'block', height: '5rem', width: '100%' }} aria-hidden="true" />
         ) : result ? (
-          <MetricContent metricType={metric.metricType} result={result} color={metric.color ?? null} />
+          <MetricContent metricType={metric.metricType ?? 'value'} result={result} color={metric.color ?? null} />
         ) : (
           <p
             className="text-sm text-center py-4"
@@ -173,6 +170,10 @@ function MetricContent({
       return <PartitionCard data={result} />
     case 'progress':
       return <ProgressCard data={result} color={color} />
+    case 'activity_feed':
+      return <ActivityFeedCard data={result} />
+    case 'endpoint_table':
+      return <EndpointTableCard data={result} />
     default:
       return null
   }

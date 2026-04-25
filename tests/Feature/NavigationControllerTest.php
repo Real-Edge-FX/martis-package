@@ -197,6 +197,66 @@ it('returns grouped navigation sections with declarative items only', function (
     expect($support)->not->toHaveKey('resources');
 });
 
+it('publishes a resource count badge by default using indexQuery scoping', function () {
+    NavigationTestModel::create(['name' => 'one']);
+    NavigationTestModel::create(['name' => 'two']);
+    NavigationTestModel::create(['name' => 'three']);
+
+    $response = $this->getJson('/martis/api/navigation');
+    $sections = collect($response->json());
+    $admin = $sections->firstWhere('label', 'Admin');
+
+    expect($admin['items'][0])->toMatchArray([
+        'uriKey' => 'navigation-accounts',
+        'count' => 3,
+    ]);
+});
+
+it('omits the count when showMenuCount is false on the resource', function () {
+    NavigationTestModel::create(['name' => 'one']);
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(new class extends NavigationAccountsResource
+    {
+        public static function showMenuCount(): bool
+        {
+            return false;
+        }
+    }::class);
+
+    $response = $this->getJson('/martis/api/navigation');
+    $sections = collect($response->json());
+    $admin = $sections->firstWhere('label', 'Admin');
+
+    expect($admin['items'][0]['count'])->toBeNull();
+});
+
+it('omits all counts when the global config switch is disabled', function () {
+    config()->set('martis.navigation.counts.enabled', false);
+    NavigationTestModel::create(['name' => 'one']);
+
+    $response = $this->getJson('/martis/api/navigation');
+    $sections = collect($response->json());
+    $admin = $sections->firstWhere('label', 'Admin');
+
+    expect($admin['items'][0]['count'])->toBeNull();
+});
+
+it('exposes a section attribute on MenuSection for custom main menus', function () {
+    app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu): Menu {
+        return $menu->prepend(
+            MenuSection::make('Queues', [MenuItem::link('All jobs', '/queues')])->section('Platform')
+        );
+    });
+
+    $response = $this->getJson('/martis/api/navigation');
+    $first = $response->json('0');
+
+    expect($first['label'])->toBe('Queues');
+    expect($first['section'])->toBe('Platform');
+});
+
 it('allows a custom menu builder to prepend declarative links while preserving automatic resource sections', function () {
     app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu): Menu {
         return $menu->prepend(

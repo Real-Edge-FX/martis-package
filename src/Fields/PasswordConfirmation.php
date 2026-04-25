@@ -7,9 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Password confirmation field — companion to a Password field.
  *
- * Laravel Nova v5 parity: PasswordConfirmation.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
- *
  * The field is never persisted to the model (fill is a no-op). Backend
  * validation relies on Laravel's `confirmed` rule applied to the paired
  * `Password` field — this companion simply provides the second input and

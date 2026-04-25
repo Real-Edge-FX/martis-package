@@ -13,7 +13,7 @@ use Martis\Enums\MetricType;
 /**
  * A metric that displays a single value with optional period comparison.
  *
- * Nova v5 parity: count, sum, average, max, min with ranges and formatting.
+ * Supports count, sum, average, max, min with ranges and formatting.
  *
  * @phpstan-consistent-constructor
  */
@@ -25,7 +25,7 @@ abstract class ValueMetric extends Metric
     }
 
     // -------------------------------------------------------------------------
-    // Query helpers — Nova v5 parity
+    // Query helpers
     // -------------------------------------------------------------------------
 
     /**

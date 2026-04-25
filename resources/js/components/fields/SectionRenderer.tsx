@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { SectionDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
+import { FieldWrapper } from './FieldWrapper'
 
 // -------------------------------------------------------------------------
 // Section — shared internal container
@@ -35,7 +36,7 @@ function SectionContainer({ section, children }: SectionContainerProps) {
       {section.title && (
         <div
           className={[
-            'flex items-center justify-between px-4 py-3 rounded-t-lg',
+            'flex items-center justify-between px-4 py-2 rounded-t-lg',
             section.collapsible ? 'cursor-pointer select-none transition-colors' : '',
           ].join(' ')}
           style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
@@ -52,7 +53,7 @@ function SectionContainer({ section, children }: SectionContainerProps) {
           } : undefined}
         >
           <div>
-            <h3 className="text-base font-semibold" style={{ color: 'var(--martis-text)' }}>{section.title}</h3>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>{section.title}</h3>
             {section.description && (
               <p className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>{section.description}</p>
             )}
@@ -67,7 +68,7 @@ function SectionContainer({ section, children }: SectionContainerProps) {
 
       {/* Section content */}
       {!collapsed && (
-        <div id={sectionId} className="p-4">
+        <div id={sectionId} className="px-4 py-3">
           {children(visibleFields)}
 
           {/* Show more / show less toggle */}
@@ -127,40 +128,32 @@ export function SectionInput({
     <SectionContainer section={section}>
       {(fields) => (
         <div
-          className="martis-section-grid grid gap-4"
+          className="martis-section-grid martis-form-grid grid"
           style={{ gridTemplateColumns: `repeat(${section.columns}, minmax(0, 1fr))` }}
         >
           {fields.map((field) => (
             <div
               key={field.attribute}
-              className="flex flex-col gap-1.5"
               style={{ gridColumn: fieldGridColumn(field, section.columns) }}
             >
-              {/* Field label — always rendered above the input in section layout */}
-              <label
+              <FieldWrapper
                 htmlFor={field.attribute}
-                className="block text-sm font-medium"
-                style={{ color: 'var(--martis-text-muted)' }}
+                label={field.label}
+                required={field.required}
+                tooltip={field.tooltip}
+                help={field.helpText}
               >
-                {field.label}
-                {field.required && (
-                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                )}
-                <FieldLabelTooltip text={field.tooltip} />
-              </label>
-              <FieldInput
-                field={field}
-                value={values[field.attribute]}
-                onChange={(v) => onChange(field.attribute, v)}
-                error={errors[field.attribute]}
-                resourceKey={resourceKey}
-                recordId={recordId}
-                context={context}
-                formValues={values}
-              />
-              {field.helpText && (
-                <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-              )}
+                <FieldInput
+                  field={field}
+                  value={values[field.attribute]}
+                  onChange={(v) => onChange(field.attribute, v)}
+                  error={errors[field.attribute]}
+                  resourceKey={resourceKey}
+                  recordId={recordId}
+                  context={context}
+                  formValues={values}
+                />
+              </FieldWrapper>
             </div>
           ))}
         </div>
@@ -186,7 +179,7 @@ export function SectionDisplay({
     <SectionContainer section={section}>
       {(fields) => (
         <dl
-          className="martis-section-grid grid gap-4"
+          className="martis-section-grid martis-form-grid grid"
           style={{ gridTemplateColumns: `repeat(${section.columns}, minmax(0, 1fr))` }}
         >
           {fields.map((field) => (
@@ -194,7 +187,7 @@ export function SectionDisplay({
               key={field.attribute}
               style={{ gridColumn: fieldGridColumn(field, section.columns) }}
             >
-              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
+              <dt className="martis-detail-label mb-1">{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
               <dd>
                 <FieldDisplay
                   field={field}

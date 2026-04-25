@@ -5,9 +5,6 @@ namespace Martis\Fields;
 /**
  * Status field — visual state indicator with semantic loading/failed states.
  *
- * Laravel Nova v5 parity: Status field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#status-field
- *
  * Status is semantically distinct from Badge:
  *  - Badge: generic value indicator with color
  *  - Status: state/progress indicator with loading and failed semantics
@@ -17,7 +14,7 @@ namespace Martis\Fields;
  *  - detail: yes (display-only)
  *  - create/update: not rendered as a native input (hidden by default)
  *
- * Intentional divergences from Nova:
+ * Notes:
  *  - Forms hidden by default. Status is not a standard form field.
  *  - Status cannot be "depended upon" by other fields in the
  *    dependent fields system — live change reporting is not supported.
@@ -104,5 +101,11 @@ class Status extends Field
             'loadingWhen' => $this->loadingWhen,
             'failedWhen' => $this->failedWhen,
         ];
+    }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '120px'];
     }
 }

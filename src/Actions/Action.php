@@ -16,8 +16,8 @@ use Martis\Enums\ModalSize;
 /**
  * Base class for all Martis actions.
  *
- * Nova v5 parity: Action with handle(), fields(), authorization hooks,
- * visibility controls, modal customization, queued support, and action log.
+ * Actions expose handle(), fields(), authorization hooks, visibility controls,
+ * modal customization, queued support, and an action log.
  *
  * @phpstan-consistent-constructor
  */
@@ -579,7 +579,7 @@ class Action implements ActionContract
     // Serialization
 
     // -------------------------------------------------------------------------
-    // Pivot action support (Nova v5 parity)
+    // Pivot action support
     // -------------------------------------------------------------------------
 
     /** Whether this action is a pivot action (runs on BelongsToMany pivot table). */

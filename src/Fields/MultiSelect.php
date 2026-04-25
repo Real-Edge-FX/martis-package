@@ -7,9 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * MultiSelect field — select multiple values from a predefined option list.
  *
- * Laravel Nova v5 parity: MultiSelect field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#multiselect-field
- *
  * MultiSelect is a first-class field, not an improvised Select with multiple.
  * Persists multiple values as a JSON array.
  *
@@ -34,6 +31,14 @@ class MultiSelect extends Field
     protected array $options = [];
 
     protected bool $displayLabels = false;
+
+    /**
+     * Per-value colour map. Each entry may be a semantic keyword
+     * (info, success, warning, danger, neutral) or a hex string.
+     *
+     * @var array<string, string>
+     */
+    protected array $colorMap = [];
 
     /**
      * Type.
@@ -89,6 +94,24 @@ class MultiSelect extends Field
     public function displayUsingLabels(): static
     {
         $this->displayLabels = true;
+
+        return $this;
+    }
+
+    /**
+     * Map each option value to a pill colour.
+     *
+     * Each entry may be a semantic keyword (info, success, warning,
+     * danger, neutral) or a hex string like `#FF2D20`.
+     *
+     * @param  array<string, string>  $map
+     */
+    public function colors(array $map): static
+    {
+        $this->colorMap = array_map(
+            static fn (mixed $v): string => (string) $v,
+            $map,
+        );
 
         return $this;
     }
@@ -181,6 +204,7 @@ class MultiSelect extends Field
         return [
             'options' => $this->options,
             'displayLabels' => $this->displayLabels,
+            'colorMap' => $this->colorMap,
         ];
     }
 }

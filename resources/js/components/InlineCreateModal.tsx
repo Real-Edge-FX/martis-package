@@ -10,18 +10,19 @@ import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
 
-/** Modal size classes matching Nova v5 modal sizes */
-const MODAL_SIZE_CLASSES: Record<string, string> = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-xl",
-  "2xl": "max-w-2xl",
-  "3xl": "max-w-3xl",
-  "4xl": "max-w-4xl",
-  "5xl": "max-w-5xl",
-  "6xl": "max-w-6xl",
-  "7xl": "max-w-7xl",
+/** Modal size — maps to a max-width in pixels so the panel scales
+ *  beyond the 480px default of `.martis-modal-surface`. */
+const MODAL_MAX_WIDTH: Record<string, string> = {
+  sm: "384px",
+  md: "448px",
+  lg: "512px",
+  xl: "576px",
+  "2xl": "672px",
+  "3xl": "768px",
+  "4xl": "896px",
+  "5xl": "1024px",
+  "6xl": "1152px",
+  "7xl": "1280px",
 }
 
 interface InlineCreateModalProps {
@@ -173,38 +174,23 @@ export function InlineCreateModal({
   if (!open) return null
 
   const schema = schemaQuery.data?.data
-  const sizeClass = MODAL_SIZE_CLASSES[modalSize] ?? MODAL_SIZE_CLASSES["2xl"]
+  const maxWidth = MODAL_MAX_WIDTH[modalSize] ?? MODAL_MAX_WIDTH["2xl"]
 
   return createPortal(
     <div
-      style={{ position: "fixed", inset: 0, zIndex: 9999 }}
-      className="flex items-center justify-center"
+      className="martis-modal-scrim"
+      style={{ zIndex: 9999 }}
       onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation() }}
+      onClick={onClose}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative w-full ${sizeClass} rounded-xl shadow-2xl transform transition-all`}
-        style={{
-          backgroundColor: "var(--martis-card)",
-          border: "1px solid var(--martis-border)",
-          maxHeight: "85vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
+        className="martis-modal-surface"
+        style={{ maxWidth }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: "var(--martis-border)" }}
-        >
+        <div className="martis-modal-head">
           <div className="flex items-center gap-3">
             {showResourceIcon && (
               <ResourceIcon
@@ -214,12 +200,9 @@ export function InlineCreateModal({
               />
             )}
             <div className="flex flex-col">
-              <span
-                className="text-lg font-semibold"
-                style={{ color: "var(--martis-text)" }}
-              >
+              <h3 className="martis-modal-head-title">
                 {tAct("create")} {schema?.singularLabel ?? relatedResource}
-              </span>
+              </h3>
               {resourceSubtitle && (
                 <span
                   className="text-sm"
@@ -233,15 +216,14 @@ export function InlineCreateModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 transition-colors"
-            style={{ color: "var(--martis-text-muted)" }}
+            className="martis-modal-close"
+            aria-label={tAct("cancel")}
           >
-            <XIcon size={20} />
+            <XIcon size={16} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="martis-modal-body">
           {schemaQuery.isLoading ? (
             <div className="space-y-4 animate-pulse">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -278,7 +260,7 @@ export function InlineCreateModal({
                       >
                         {field.label}
                         {field.required && (
-                          <span className="ml-1 text-red-500" aria-hidden="true">
+                          <span className="ml-1" aria-hidden="true" style={{ color: "var(--martis-danger)" }}>
                             *
                           </span>
                         )}
@@ -298,7 +280,7 @@ export function InlineCreateModal({
                 ))}
                 {errors._general && (
                   <div className="py-3">
-                    <small className="text-red-500">{errors._general}</small>
+                    <small style={{ color: "var(--martis-danger)" }}>{errors._general}</small>
                   </div>
                 )}
               </div>
@@ -310,33 +292,15 @@ export function InlineCreateModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-3 border-t px-6 py-4"
-          style={{
-            borderColor: "var(--martis-border)",
-            backgroundColor: "var(--martis-surface)",
-            borderRadius: "0 0 0.75rem 0.75rem",
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium"
-            style={{
-              backgroundColor: "var(--martis-input-bg)",
-              borderColor: "var(--martis-border)",
-              color: "var(--martis-text)",
-            }}
-          >
+        <div className="martis-modal-foot">
+          <button type="button" onClick={onClose} className="martis-btn-secondary">
             {tAct("cancel")}
           </button>
           <button
             type="submit"
             form="inline-create-form"
             disabled={createMutation.isPending || schemaQuery.isLoading}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            style={{ backgroundColor: "var(--martis-accent)" }}
+            className="martis-btn-primary"
           >
             <PlusIcon size={14} />
             {createMutation.isPending

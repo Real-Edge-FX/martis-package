@@ -1,6 +1,6 @@
 {
     "name": "martis/martis",
-    "description": "Martis \u2014 Laravel Admin Engine. Feature parity with Laravel Nova.",
+    "description": "Martis \u2014 React-first Laravel admin engine with full-stack resources, lenses, metrics, and a token-driven design system.",
     "type": "library",
     "license": "proprietary",
     "require": {

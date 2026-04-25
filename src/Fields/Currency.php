@@ -8,11 +8,10 @@ use Martis\Enums\CurrencyDisplayMode;
 /**
  * Currency field — monetary value input with currency formatting.
  *
- * Laravel Nova v5 parity: Currency field.
  * Extends Number behavior for monetary values.
  * Stores numeric value in the database; display includes currency symbol.
  *
- * Nova-compatible API:
+ * API:
  *   - currency($code)    — ISO 4217 currency code (default: USD)
  *   - locale($locale)    — override app locale for formatting
  *   - asMinorUnits()     — treat stored value as minor units (cents)
@@ -83,7 +82,6 @@ class Currency extends Number
 
     /**
      * Set the ISO 4217 currency code.
-     * Nova-compatible API.
      */
     public function currency(CurrencyCode $code): static
     {
@@ -100,7 +98,6 @@ class Currency extends Number
 
     /**
      * Override locale for currency formatting.
-     * Nova-compatible API.
      */
     public function locale(string $locale): static
     {
@@ -111,7 +108,6 @@ class Currency extends Number
 
     /**
      * Treat stored value as minor units (cents).
-     * Nova-compatible API.
      */
     public function asMinorUnits(): static
     {
@@ -122,7 +118,6 @@ class Currency extends Number
 
     /**
      * Treat stored value as major units (dollars).
-     * Nova-compatible API.
      */
     public function asMajorUnits(): static
     {
@@ -161,7 +156,7 @@ class Currency extends Number
 
     /**
      * Set the display mode for currency visualization.
-     * Martis extension — not part of Nova API.
+     * Martis extension.
      */
     public function displayMode(CurrencyDisplayMode $mode): static
     {

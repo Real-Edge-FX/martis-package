@@ -1,8 +1,11 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/Login'
+import { RegisterPage } from '@/pages/Register'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
+import { ForbiddenPage } from '@/pages/Forbidden'
+import { ServerErrorPage } from '@/pages/ServerError'
 import { TwoFactorChallengePage } from '@/pages/TwoFactorChallenge'
 import { BASE_PATH } from '@/lib/config'
 
@@ -10,6 +13,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/register',
+    element: <RegisterPage />,
   },
   {
     path: '/2fa/challenge',
@@ -67,9 +74,19 @@ export const router = createBrowserRouter([
         },
       },
       {
+        path: '403',
+        element: <ForbiddenPage />,
+        handle: { crumb: 'error_forbidden' },
+      },
+      {
+        path: '500',
+        element: <ServerErrorPage />,
+        handle: { crumb: 'error_server_error' },
+      },
+      {
         path: '*',
         element: <NotFoundPage />,
-        handle: { crumb: '404' },
+        handle: { crumb: 'error_not_found' },
       },
     ],
   },

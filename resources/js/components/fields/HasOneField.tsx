@@ -11,15 +11,20 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 
-/** ⭐ Martis differential helper — human labels for OfMany aggregate tile. */
-function fnLabel(fn: string): string {
-  switch (fn) {
-    case 'count': return 'Total'
-    case 'sum': return 'Soma'
-    case 'avg': return 'Média'
-    case 'min': return 'Mínimo'
-    case 'max': return 'Máximo'
-    default: return fn
+/** ⭐ Martis differential helper — human labels for OfMany aggregate tile.
+ *  Falls through `t(...)` against the resources locale so each label
+ *  picks up the active translation. */
+function useFnLabel(): (fn: string) => string {
+  const { t } = useTranslation('resources')
+  return (fn: string): string => {
+    switch (fn) {
+      case 'count': return t('aggregate_total', 'Total')
+      case 'sum': return t('aggregate_sum', 'Sum')
+      case 'avg': return t('aggregate_avg', 'Average')
+      case 'min': return t('aggregate_min', 'Min')
+      case 'max': return t('aggregate_max', 'Max')
+      default: return fn
+    }
   }
 }
 
@@ -41,7 +46,7 @@ function formatAggregate(agg: { fn: string; column: string; value: number | null
  *   - If no record exists: shows an empty state with a "Create" button
  *   - If a record exists: shows all detail fields in a card with "Edit" / "Delete" buttons
  *
- * Not shown on index or forms (consistent with Nova v5 behavior).
+ * Not shown on index or forms.
  */
 export function HasOneFieldDisplay({ field }: FieldDisplayProps) {
   return <HasOneDetailPanel field={field} />
@@ -50,6 +55,7 @@ export function HasOneFieldDisplay({ field }: FieldDisplayProps) {
 function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const fnLabel = useFnLabel()
   const navigate = useNavigate()
   const qc = useQueryClient()
 
@@ -70,8 +76,9 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const relatedResource = field.relatedResource as string
 
   // Parent context: read NestedParent when rendered inside another
-  // relationship (e.g. Última fatura inside a HasOneThrough Project).
-  // Fallback to the URL when we are at the top level of the detail page.
+  // relationship (e.g. a Latest Invoice nested inside a HasOneThrough
+  // Project). Fallback to the URL when we are at the top level of the
+  // detail page.
   const nested = useNestedParent()
   const pathParts = window.location.pathname.split('/')
   const resourcesIdx = pathParts.indexOf('resources')
@@ -129,11 +136,12 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const rawDetailFields: FieldDefinition[] = (schema as { fieldsForDetail?: FieldDefinition[] } | undefined)?.fieldsForDetail ?? []
   const flattenFields = (fields: FieldDefinition[]): FieldDefinition[] =>
     fields.flatMap((f) => {
-      if (f.type === 'panel' || f.type === 'section') {
+      const kind = (f as { type?: string }).type
+      if (kind === 'panel' || kind === 'section') {
         const inner = ((f as unknown as { fields?: FieldDefinition[] }).fields) ?? []
         return flattenFields(inner)
       }
-      if (f.type === 'tab_group') {
+      if (kind === 'tab_group') {
         const tabs = ((f as unknown as { tabs?: { fields?: FieldDefinition[] }[] }).tabs) ?? []
         return tabs.flatMap((t) => flattenFields(t.fields ?? []))
       }
@@ -206,14 +214,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
                   `/resources/${relatedResource}/${record.id as string | number}/edit${viaParams}`
                 )
               }
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-surface)',
-                color: 'var(--martis-text)',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--martis-surface)')}
+              className="martis-btn-secondary"
             >
               <PencilSimpleIcon size={14} />
               {tAct('edit', 'Edit')}
@@ -223,7 +224,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+              className="martis-btn-danger"
             >
               <TrashIcon size={14} />
               {tAct('delete', 'Delete')}

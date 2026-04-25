@@ -3,7 +3,7 @@ import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { PanelDefinition, FieldDefinition } from '@/types'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
-import { FieldLabelTooltip } from './FieldLabelTooltip'
+import { FieldWrapper } from './FieldWrapper'
 
 // -------------------------------------------------------------------------
 // Panel — shared internal container
@@ -32,7 +32,7 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
       {/* Panel header */}
       <div
         className={[
-          'flex items-center justify-between px-4 py-3',
+          'flex items-center justify-between px-4 py-2',
           panel.collapsible ? 'cursor-pointer select-none transition-colors' : '',
         ].join(' ')}
         style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
@@ -63,7 +63,7 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
 
       {/* Panel content */}
       {!collapsed && (
-        <div id={panelId} className="p-4">
+        <div id={panelId} className="px-4 py-3">
           {children(visibleFields)}
 
           {/* Show more / show less toggle */}
@@ -99,7 +99,7 @@ export function PanelDisplay({
   return (
     <PanelContainer panel={panel}>
       {(fields) => (
-        <dl className="grid grid-cols-12 gap-4">
+        <dl className="martis-form-grid grid grid-cols-12">
           {fields.map((field) => (
             <div
               key={field.attribute}
@@ -108,7 +108,7 @@ export function PanelDisplay({
                 gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
               }}
             >
-              <dt className="text-xs font-medium mb-1" style={{ color: 'var(--martis-text-muted)' }}>{field.label}</dt>
+              <dt className="martis-detail-label mb-1">{field.label}</dt>
               <dd>
                 <FieldDisplay
                   field={field}
@@ -149,39 +149,33 @@ export function PanelInput({
   return (
     <PanelContainer panel={panel}>
       {(fields) => (
-        <div className="grid grid-cols-12 gap-4">
+        <div className="martis-form-grid grid grid-cols-12">
           {fields.map((field) => (
             <div
               key={field.attribute}
-              className="col-span-12 flex flex-col gap-1.5"
+              className="col-span-12"
               style={{
                 gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
               }}
             >
-              <label
+              <FieldWrapper
                 htmlFor={field.attribute}
-                className="block text-sm font-medium"
-                style={{ color: 'var(--martis-text-muted)' }}
+                label={field.label}
+                required={field.required}
+                tooltip={field.tooltip}
+                help={field.helpText}
               >
-                {field.label}
-                {field.required && (
-                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                )}
-                <FieldLabelTooltip text={field.tooltip} />
-              </label>
-              <FieldInput
-                field={field}
-                value={values[field.attribute]}
-                onChange={(v) => onChange(field.attribute, v)}
-                error={errors[field.attribute]}
-                resourceKey={resourceKey}
-                recordId={recordId}
-                context={context}
-                formValues={values}
-              />
-              {field.helpText && (
-                <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-              )}
+                <FieldInput
+                  field={field}
+                  value={values[field.attribute]}
+                  onChange={(v) => onChange(field.attribute, v)}
+                  error={errors[field.attribute]}
+                  resourceKey={resourceKey}
+                  recordId={recordId}
+                  context={context}
+                  formValues={values}
+                />
+              </FieldWrapper>
             </div>
           ))}
         </div>

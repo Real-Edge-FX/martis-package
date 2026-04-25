@@ -12,7 +12,7 @@ import { useModalHistoryLock } from '@/lib/historyLock'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/contexts/ToastContext'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
-import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon, FloppyDiskIcon } from '@phosphor-icons/react'
+import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon, FloppyDiskIcon, WarningIcon } from '@phosphor-icons/react'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -42,8 +42,8 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
     return <BelongsToManyCountBadge count={value} />
   }
 
-  // Detail page — render the full panel with attach/detach/pivot actions
-  // (Nova v5 parity). Programmers hide individual actions via ->hideCreateButton()
+  // Detail page — render the full panel with attach/detach/pivot actions.
+  // Programmers hide individual actions via ->hideCreateButton()
   // or ->hideDeleteAction() when authorization alone isn't enough.
   return <BelongsToManyDetailPanel field={field} />
 }
@@ -51,11 +51,11 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
 function BelongsToManyCountBadge({ count }: { count: number }) {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+      className="martis-badge"
       style={{
         backgroundColor: 'var(--martis-surface)',
         color: 'var(--martis-text)',
-        border: '1px solid var(--martis-border)',
+        borderColor: 'var(--martis-border)',
       }}
     >
       <LinkSimpleIcon size={11} />
@@ -497,66 +497,44 @@ function PivotActionModal({
 
   const modalWidth = MODAL_SIZE_MAP[action.modalSize ?? 'md'] ?? MODAL_SIZE_MAP['md']
 
-  return (
+  return createPortal((
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9990 }}
-      className="flex items-center justify-center"
+      className="martis-modal-scrim"
+      style={{ opacity: animVisible ? 1 : 0, transition: 'opacity 200ms ease' }}
+      onClick={handleBackdropClose}
     >
       <div
-        className="absolute inset-0 transition-opacity duration-200"
-        style={{ backgroundColor: animVisible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)' }}
-        onClick={handleBackdropClose}
-      />
-      <div
         role="dialog"
-        className="relative w-full rounded-xl shadow-xl transition-all duration-200 mx-4"
+        aria-modal="true"
+        className="martis-modal-surface"
         style={{
-          backgroundColor: 'var(--martis-card)',
-          border: action.destructive ? '1px solid rgba(220,38,38,0.4)' : '1px solid var(--martis-border)',
-          borderTop: action.destructive ? '3px solid var(--martis-danger)' : undefined,
           maxWidth: modalWidth,
           transform: animVisible ? 'scale(1)' : 'scale(0.95)',
-          opacity: animVisible ? 1 : 0,
+          transition: 'transform 200ms ease',
+          borderTop: action.destructive ? '3px solid var(--martis-danger)' : undefined,
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{
-            borderColor: action.destructive ? 'rgba(220,38,38,0.2)' : 'var(--martis-border)',
-            backgroundColor: action.destructive ? 'rgba(220,38,38,0.05)' : undefined,
-          }}
-        >
+        <div className="martis-modal-head">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full"
-              style={{
-                backgroundColor: action.destructive ? 'rgba(220,38,38,0.1)' : 'rgba(99,102,241,0.1)',
-                color: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)',
-              }}
-            >
-              <LightningIcon size={20} weight="fill" />
-            </div>
-            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-              {action.name}
-            </span>
+            {action.destructive
+              ? <WarningIcon size={18} weight="fill" style={{ color: 'var(--martis-danger)' }} />
+              : <LightningIcon size={18} weight="fill" style={{ color: 'var(--martis-accent)' }} />}
+            <h3 className="martis-modal-head-title">{action.name}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-            style={{ color: 'var(--martis-text-muted)' }}
+            className="martis-modal-close"
+            aria-label={action.cancelButtonText ?? t('cancel')}
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-4">
+        <div className="martis-modal-body">
           {action.confirmText && (
-            <p className="mb-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-              {action.confirmText}
-            </p>
+            <p className="mb-4">{action.confirmText}</p>
           )}
           {hasFields && (
             <div className="space-y-4">
@@ -564,7 +542,7 @@ function PivotActionModal({
                 <div key={f.attribute}>
                   <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
                     {f.label}
-                    {f.required && <span className="ml-1 text-red-500">*</span>}
+                    {f.required && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
                   </label>
                   <FieldInput
                     field={f}
@@ -581,25 +559,12 @@ function PivotActionModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-3 border-t px-6 py-4"
-          style={{
-            borderColor: 'var(--martis-border)',
-            backgroundColor: 'var(--martis-surface)',
-            borderRadius: '0 0 0.75rem 0.75rem',
-          }}
-        >
+        <div className="martis-modal-foot">
           <button
             type="button"
             onClick={onClose}
             disabled={executeMutation.isPending}
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--martis-input-bg)',
-              borderColor: 'var(--martis-border)',
-              color: 'var(--martis-text)',
-            }}
+            className="martis-btn-secondary"
           >
             <XIcon size={14} />
             {action.cancelButtonText ?? t('cancel')}
@@ -608,8 +573,7 @@ function PivotActionModal({
             type="button"
             onClick={() => executeMutation.mutate()}
             disabled={executeMutation.isPending}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: action.destructive ? 'var(--martis-danger-hover)' : 'var(--martis-accent)' }}
+            className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >
             <LightningIcon size={14} />
             {executeMutation.isPending
@@ -619,7 +583,7 @@ function PivotActionModal({
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 // -------------------------------------------------------------------------
@@ -644,62 +608,37 @@ function DetachConfirmModal({
 
   return createPortal((
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9990 }}
-      className="flex items-center justify-center"
+      className="martis-modal-scrim"
+      onClick={onCancel}
     >
       <div
-        className="absolute inset-0"
-        style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
-        onClick={onCancel}
-      />
-
-      <div
         role="dialog"
-        className="relative w-full max-w-md rounded-xl shadow-xl"
-        style={{
-          backgroundColor: 'var(--martis-card)',
-          border: '1px solid var(--martis-border)',
-        }}
+        aria-modal="true"
+        className="martis-modal-surface"
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
-        >
+        <div className="martis-modal-head">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-              <LinkBreakIcon size={20} className="text-red-600 dark:text-red-400" weight="bold" />
-            </div>
-            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+            <LinkBreakIcon size={18} weight="bold" style={{ color: 'var(--martis-danger)' }} />
+            <h3 className="martis-modal-head-title">
               {tAct('detach', 'Detach')} {title ? `"${title}"` : ''}
-            </span>
+            </h3>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-            style={{ color: 'var(--martis-text-muted)' }}
+            className="martis-modal-close"
+            aria-label={tAct('cancel', 'Cancel')}
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-4">
-          <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-            {tMsg('detach_confirm', 'This record will be detached from the relationship. No data will be deleted. Continue?')}
-          </p>
+        <div className="martis-modal-body">
+          {tMsg('detach_confirm', 'This record will be detached from the relationship. No data will be deleted. Continue?')}
         </div>
 
-        {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-3 border-t px-6 py-4"
-          style={{
-            borderColor: 'var(--martis-border)',
-            backgroundColor: 'var(--martis-surface)',
-            borderRadius: '0 0 0.75rem 0.75rem',
-          }}
-        >
+        <div className="martis-modal-foot">
           <button type="button" onClick={onCancel} disabled={loading} className="martis-btn-secondary">
             <XIcon size={14} />
             {tAct('cancel', 'Cancel')}
@@ -854,31 +793,25 @@ function AttachModal({
 
   return createPortal((
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9990, backgroundColor: 'rgba(0,0,0,0.5)' }}
-      className="flex items-center justify-center p-4"
+      className="martis-modal-scrim"
+      onClick={onClose}
     >
       <div
-        className="flex w-full flex-col overflow-hidden rounded-xl shadow-xl"
-        style={{
-          backgroundColor: 'var(--martis-card)',
-          border: '1px solid var(--martis-border)',
-          maxHeight: modalHeight ?? '85vh',
-          maxWidth: modalMaxWidth,
-        }}
+        role="dialog"
+        aria-modal="true"
+        className="martis-modal-surface"
+        style={{ maxWidth: modalMaxWidth, maxHeight: modalHeight ?? '85vh' }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex shrink-0 items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
-        >
+        <div className="martis-modal-head">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+            <h3 className="martis-modal-head-title">
               {tAct('attach_related', 'Attach Record')}
             </h3>
             {selected.length > 0 && (
               <span
-                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{ backgroundColor: 'var(--martis-accent)', color: '#fff' }}
+                className="martis-badge"
+                style={{ backgroundColor: 'var(--martis-accent)', color: '#fff', borderColor: 'transparent' }}
               >
                 {selected.length}
               </span>
@@ -887,10 +820,10 @@ function AttachModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1"
-            style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+            className="martis-modal-close"
+            aria-label={tAct('cancel', 'Cancel')}
           >
-            <XIcon size={18} />
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -1033,16 +966,19 @@ function AttachModal({
 
         {/* Error */}
         {error && (
-          <div className="shrink-0 mx-6 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <div
+            className="shrink-0 mx-6 mb-3 rounded-lg px-4 py-3 text-sm"
+            style={{
+              border: '1px solid color-mix(in srgb, var(--martis-danger) 30%, transparent)',
+              backgroundColor: 'color-mix(in srgb, var(--martis-danger) 10%, transparent)',
+              color: 'var(--martis-danger)',
+            }}
+          >
             {error}
           </div>
         )}
 
-        {/* Footer — always pinned at bottom of modal */}
-        <div
-          className="flex shrink-0 items-center justify-end gap-3 border-t px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
-        >
+        <div className="martis-modal-foot">
           <button type="button" onClick={onClose} className="martis-btn-secondary">
             <XIcon size={14} />
             {tAct('cancel', 'Cancel')}
@@ -1062,7 +998,6 @@ function AttachModal({
           </button>
         </div>
       </div>
-
     </div>
   ), document.body)
 }
@@ -1133,46 +1068,33 @@ export function EditPivotModal({
 
   return createPortal((
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9990 }}
-      className="flex items-center justify-center"
+      className="martis-modal-scrim"
+      onClick={onCancel}
     >
       <div
-        className="absolute inset-0"
-        style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
-        onClick={onCancel}
-      />
-
-      <div
         role="dialog"
-        className="relative w-full max-w-md rounded-xl shadow-xl"
-        style={{
-          backgroundColor: 'var(--martis-card)',
-          border: '1px solid var(--martis-border)',
-        }}
+        aria-modal="true"
+        className="martis-modal-surface"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
-        >
+        <div className="martis-modal-head">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
-              <PencilSimpleIcon size={20} className="text-indigo-600 dark:text-indigo-400" weight="bold" />
-            </div>
-            <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+            <PencilSimpleIcon size={18} weight="bold" style={{ color: 'var(--martis-accent)' }} />
+            <h3 className="martis-modal-head-title">
               {tAct('edit', 'Edit')} {title ? `"${title}"` : ''}
-            </span>
+            </h3>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-            style={{ color: 'var(--martis-text-muted)' }}
+            className="martis-modal-close"
+            aria-label={tAct('cancel', 'Cancel')}
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        <div className="px-6 py-4 space-y-4">
+        <div className="martis-modal-body space-y-4">
           {pivotFields.map((pf) => {
             const isRequired = !!(pf as unknown as { required?: boolean }).required
             const fieldError = fieldErrors[pf.attribute]
@@ -1194,20 +1116,20 @@ export function EditPivotModal({
             )
           })}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            <div
+              className="rounded-lg px-4 py-3 text-sm"
+              style={{
+                border: '1px solid color-mix(in srgb, var(--martis-danger) 30%, transparent)',
+                backgroundColor: 'color-mix(in srgb, var(--martis-danger) 10%, transparent)',
+                color: 'var(--martis-danger)',
+              }}
+            >
               {error}
             </div>
           )}
         </div>
 
-        <div
-          className="flex items-center justify-end gap-3 border-t px-6 py-4"
-          style={{
-            borderColor: 'var(--martis-border)',
-            backgroundColor: 'var(--martis-surface)',
-            borderRadius: '0 0 0.75rem 0.75rem',
-          }}
-        >
+        <div className="martis-modal-foot">
           <button type="button" onClick={onCancel} disabled={updateMutation.isPending} className="martis-btn-secondary">
             <XIcon size={14} />
             {tAct('cancel', 'Cancel')}

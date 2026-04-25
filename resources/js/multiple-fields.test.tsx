@@ -173,7 +173,7 @@ describe('ImageFieldDisplay', () => {
 describe('FileFieldInput — single', () => {
   it('renders upload button when empty', () => {
     render(<FieldInput field={fileFieldSingle} value={null} onChange={vi.fn()} />)
-    expect(screen.getByText('Choose file or drag here')).toBeTruthy()
+    expect(screen.getByText('Choose files or drag here')).toBeTruthy()
   })
 
   it('renders existing file name', () => {

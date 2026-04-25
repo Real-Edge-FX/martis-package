@@ -7,8 +7,8 @@ use Martis\Enums\ActionResponseType;
 /**
  * Represents the response returned by an action after execution.
  *
- * Nova v5 parity: ActionResponse with message, danger, redirect, visit,
- * openInNewTab, download, emit, modal, openCreate, and openDetail support.
+ * Supports message, danger, redirect, visit, openInNewTab, download, emit,
+ * modal, openCreate, and openDetail response types.
  */
 class ActionResponse implements \JsonSerializable
 {

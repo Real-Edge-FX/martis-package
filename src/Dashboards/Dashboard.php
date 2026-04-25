@@ -13,7 +13,7 @@ use Martis\Filters\Filter;
 /**
  * Base class for Martis dashboards.
  *
- * Nova v5 parity: multiple dashboards with cards, authorization, refresh button.
+ * Supports multiple dashboards with cards, authorization, refresh button.
  *
  * Martis extensions:
  * - Dashboard-level filters that affect all cards
@@ -40,16 +40,19 @@ class Dashboard implements DashboardContract
         return new static($name, $uriKey);
     }
 
+    /** {@inheritDoc} */
     public function name(): string
     {
         return $this->name;
     }
 
+    /** {@inheritDoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
+    /** {@inheritDoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -83,8 +86,8 @@ class Dashboard implements DashboardContract
     /**
      * Get the filters for this dashboard.
      *
-     * Martis extension: Nova v5 does not support dashboard-level filters.
-     * Filters defined here affect all cards on this dashboard.
+     * Martis extension: dashboard-level filters affect all cards on this
+     * dashboard.
      *
      * @return list<FilterContract|array<string, mixed>>
      */
@@ -121,6 +124,7 @@ class Dashboard implements DashboardContract
     // Authorization
     // -------------------------------------------------------------------------
 
+    /** {@inheritDoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -128,6 +132,7 @@ class Dashboard implements DashboardContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {

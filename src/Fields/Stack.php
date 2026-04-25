@@ -9,11 +9,8 @@ use Illuminate\Support\Str;
  * Stack — composite display field that renders a vertical stack of
  * {@see Line} fields as a single cell/detail slot.
  *
- * Laravel Nova v5 parity: Stack field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#stack-field
- *
  * ⭐ Martis differentials:
- *  - **Visible on the index table** too — Nova's Stack is detail-only.
+ *  - **Visible on the index table** too.
  *    Useful for compressing multi-line identity cells (name + email +
  *    company) into a single column without a custom component.
  *  - **`divider()`** — inserts a visual separator between the rendered

@@ -1,48 +1,70 @@
-import { Outlet } from "react-router-dom"
-import { NavLink } from "react-router-dom"
+import { Outlet, NavLink, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
-import { getNavigationItems } from "@/lib/navigation"
+import {
+  getNavigationItems,
+  getItemCount,
+  formatItemCount,
+  useNavigationRefreshOnNavigate,
+} from "@/lib/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { useTheme } from "@/contexts/ThemeContext"
+import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
+import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Footer } from "@/components/Footer"
 import { Menu } from "primereact/menu"
+import { OverlayPanel } from "primereact/overlaypanel"
 import type { MenuItem } from "primereact/menuitem"
 import type { NavigationGroup } from "@/types"
+import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
-import { useRef, useState, useEffect, useCallback } from "react"
-import logoSrc from "@images/logo.png"
-import { SquaresFourIcon, MagnifyingGlassIcon, CaretDownIcon, SunIcon, MoonIcon, SignOutIcon } from "@phosphor-icons/react"
+import { useRef, useState, useEffect, useCallback, useMemo } from "react"
+import logoSrcDefault from "@images/martis-icon.png"
+import {
+  SquaresFourIcon,
+  MagnifyingGlassIcon,
+  CaretDownIcon,
+  SignOutIcon,
+  UserCircleIcon,
+} from "@phosphor-icons/react"
+
+function getLogoSrc(): string {
+  return (config.logo ?? logoSrcDefault) as string
+}
 
 export function TopnavLayout() {
   const { user, logout } = useAuth()
-  const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
   const menuRef = useRef<Menu>(null)
+  const prefsRef = useRef<PreferencesMenuHandle>(null)
+  const groupRefs = useRef<Map<string, OverlayPanel>>(new Map())
   const [searchOpen, setSearchOpen] = useState(false)
+  const location = useLocation()
 
+  const pollInterval = config.navigation?.pollInterval ?? 60_000
   const { data: groups = [] } = useQuery<NavigationGroup[]>({
     queryKey: ["navigation"],
     queryFn: () => api.get("/api/navigation"),
-    staleTime: 1000 * 60,
+    staleTime: 1000 * 30,
+    refetchInterval: pollInterval > 0 ? pollInterval : false,
+    refetchOnWindowFocus: true,
   })
+  useNavigationRefreshOnNavigate()
 
   const brand = config.brand ?? "Martis"
-  const showThemeToggle = config.userMenu?.showThemeToggle !== false && config.theme?.allowToggle !== false
+  const logoSrc = getLogoSrc()
+  const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
   const searchEnabled = config.search?.enabled !== false
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!searchEnabled) return
-      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
       if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault()
         setSearchOpen(true)
         return
       }
-      // "/" shortcut when not in an input
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
         const tag = (e.target as HTMLElement)?.tagName
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
@@ -58,14 +80,15 @@ export function TopnavLayout() {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [handleKeyDown])
 
-  function navClass({ isActive }: { isActive: boolean }) {
-    return [
-      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all no-underline whitespace-nowrap",
-      isActive
-        ? "bg-[var(--martis-active)] martis-text"
-        : "martis-text-muted hover:bg-[var(--martis-hover)]",
-    ].join(" ")
-  }
+  // Active group — the one whose items include the current path.
+  const activeGroup = useMemo(() => {
+    for (const g of groups) {
+      for (const i of getNavigationItems(g)) {
+        if (location.pathname.startsWith(i.url)) return g.label ?? ""
+      }
+    }
+    return null
+  }, [groups, location.pathname])
 
   const userMenuItems: MenuItem[] = [
     {
@@ -81,7 +104,7 @@ export function TopnavLayout() {
       ),
     },
     { separator: true },
-    ...(showThemeToggle
+    ...(showProfile
       ? [
           {
             template: (
@@ -90,23 +113,17 @@ export function TopnavLayout() {
             ) => (
               <a
                 className={options.className}
-                onClick={(e) => {
-                  toggle()
-                  options.onClick(e)
-                }}
+                href="/martis/profile"
                 role="menuitem"
+                onClick={options.onClick}
               >
-                {theme === "dark" ? (
-                  <SunIcon size={16} className="p-menuitem-icon" />
-                ) : (
-                  <MoonIcon size={16} className="p-menuitem-icon" />
-                )}
+                <UserCircleIcon size={16} className="p-menuitem-icon" />
                 <span className="p-menuitem-text">
-                  {theme === "dark" ? t("light_mode") : t("dark_mode")}
+                  {config.profile?.menu?.label ?? t("profile", "Profile")}
                 </span>
               </a>
             ),
-          },
+          } as MenuItem,
           { separator: true } as MenuItem,
         ]
       : []),
@@ -130,85 +147,206 @@ export function TopnavLayout() {
     },
   ]
 
+  const hasAvatar = !!user?.avatar_url?.trim()
+  const avatarInitial = (user?.name ?? user?.email ?? "?")[0].toUpperCase()
+
   return (
     <div className="martis-bg flex h-screen flex-col overflow-hidden">
-      <header className="martis-topbar-bg border-b martis-border">
-        <div className="flex h-14 items-center justify-between px-5">
-          <div className="flex items-center gap-6">
-            <img src={logoSrc} alt={brand} className="h-8 w-auto object-contain" style={{ maxWidth: 120 }} />
-            <nav className="flex items-center gap-1 overflow-x-auto">
-              <NavLink to="/" end className={navClass}>
-                <SquaresFourIcon size={16} className="shrink-0" />
-                {t("dashboard")}
-              </NavLink>
-              {groups.flatMap((group) =>
-                getNavigationItems(group).map((item) =>
-                  item.external ? (
-                    <a
-                      key={`${group.label ?? "root"}-${item.label}-${item.url}`}
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={navClass({ isActive: false })}
-                    >
-                      {item.label}
-                    </a>
-                  ) : (
-                    <NavLink
-                      key={item.type === "resource" ? item.uriKey : `${group.label ?? "root"}-${item.label}-${item.url}`}
-                      to={item.url}
-                      className={navClass}
-                    >
-                      {item.label}
-                    </NavLink>
-                  ),
-                ),
-              )}
-            </nav>
+      <header className="martis-topnav-bar">
+        <div className="martis-topnav-brand">
+          <div className="martis-sb-logo-mark">
+            <img src={logoSrc} alt={brand} />
           </div>
+          <span className="martis-topnav-brand-text">{brand}</span>
+        </div>
 
-          <div className="flex items-center gap-3">
-            {searchEnabled && (
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
-                style={{ backgroundColor: "transparent", color: "var(--martis-text-muted)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                aria-label="Search"
-              >
-                <MagnifyingGlassIcon size={16} />
-              </button>
-            )}
-            <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
+        <nav className="martis-topnav-links">
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              "martis-topnav-link" + (isActive ? " active" : "")
+            }
+          >
+            <SquaresFourIcon size={16} className="shrink-0" />
+            <span>{t("dashboard")}</span>
+          </NavLink>
+
+          {groups.map((group, i) => {
+            const groupKey = group.label ?? `group-${i}`
+            const items = getNavigationItems(group)
+            const isActive = activeGroup === groupKey
+
+            // Ungrouped items render inline as top-level links.
+            if (!group.label) {
+              return items.map((item) => {
+                const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
+                return item.external ? (
+                  <a
+                    key={`${groupKey}-${item.label}-${item.url}`}
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="martis-topnav-link"
+                  >
+                    <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
+                    <span>{item.label}</span>
+                  </a>
+                ) : (
+                  <NavLink
+                    key={item.type === "resource" ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
+                    to={item.url}
+                    className={({ isActive }) =>
+                      "martis-topnav-link" + (isActive ? " active" : "")
+                    }
+                  >
+                    <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                )
+              })
+            }
+
+            // Grouped items collapse into a dropdown trigger + OverlayPanel.
+            return (
+              <div key={groupKey} className="martis-topnav-group">
+                <button
+                  type="button"
+                  className={"martis-topnav-link" + (isActive ? " active" : "")}
+                  onClick={(e) => groupRefs.current.get(groupKey)?.toggle(e)}
+                >
+                  {group.icon && (
+                    <ResourceIcon iconName={group.icon} size={16} className="shrink-0" />
+                  )}
+                  <span>{group.label}</span>
+                  <CaretDownIcon size={12} className="shrink-0" />
+                </button>
+                <OverlayPanel
+                  ref={(el) => {
+                    if (el) groupRefs.current.set(groupKey, el)
+                    else groupRefs.current.delete(groupKey)
+                  }}
+                  showCloseIcon={false}
+                  style={{
+                    backgroundColor: "var(--martis-surface)",
+                    border: "1px solid var(--martis-border)",
+                    borderRadius: "var(--martis-radius-lg)",
+                    padding: 6,
+                    minWidth: 220,
+                  }}
+                >
+                  {items.map((item) => {
+                    const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
+                    const onClick = () => groupRefs.current.get(groupKey)?.hide()
+                    const count = getItemCount(item)
+                    return item.external ? (
+                      <a
+                        key={`${groupKey}-${item.label}-${item.url}`}
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="martis-topnav-dropdown-item"
+                        onClick={onClick}
+                      >
+                        <ResourceIcon iconName={iconName ?? null} size={16} />
+                        <span className="martis-sb-item-label">{item.label}</span>
+                        {count !== null && (
+                          <span className="martis-sb-item-badge">
+                            {formatItemCount(count)}
+                          </span>
+                        )}
+                      </a>
+                    ) : (
+                      <NavLink
+                        key={item.type === "resource" ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
+                        to={item.url}
+                        className={({ isActive }) =>
+                          "martis-topnav-dropdown-item" + (isActive ? " active" : "")
+                        }
+                        onClick={onClick}
+                      >
+                        <ResourceIcon iconName={iconName ?? null} size={16} />
+                        <span className="martis-sb-item-label">{item.label}</span>
+                        {count !== null && (
+                          <span className="martis-sb-item-badge">
+                            {formatItemCount(count)}
+                          </span>
+                        )}
+                      </NavLink>
+                    )
+                  })}
+                </OverlayPanel>
+              </div>
+            )
+          })}
+        </nav>
+
+        <div className="martis-topnav-right">
+          {searchEnabled && (
+            <button
+              type="button"
+              className="martis-tb-icon-btn"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+              title={t("search_placeholder", "Search")}
+            >
+              <MagnifyingGlassIcon size={16} />
+            </button>
+          )}
+
+          <PreferencesMenu ref={prefsRef} />
+
+          <span className="martis-tb-divider" aria-hidden="true" />
+
+          <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
+          <div
+            className="martis-tb-user"
+            onClick={(e) => {
+              prefsRef.current?.hide()
+              menuRef.current?.toggle(e)
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ")
+                menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
+            }}
+          >
             <div
-              className="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer transition-colors"
-              style={{ backgroundColor: "transparent" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-              onClick={(e) => menuRef.current?.toggle(e)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ")
-                  menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
+              className="martis-tb-user-avatar"
+              style={{
+                backgroundColor: hasAvatar ? "transparent" : "var(--martis-accent)",
               }}
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
-                {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
-              </div>
-              <span className="hidden sm:inline text-sm font-medium martis-text">
-                {user?.name ?? user?.email}
-              </span>
-              <CaretDownIcon size={12} className="martis-text-muted" />
+              {hasAvatar ? (
+                <img
+                  src={user!.avatar_url!}
+                  alt={user?.name ?? ""}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.display = "none"
+                  }}
+                />
+              ) : (
+                avatarInitial
+              )}
             </div>
+            <span className="martis-tb-user-name">
+              {user?.name ?? user?.email}
+            </span>
+            <CaretDownIcon size={12} className="martis-text-muted" />
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto p-6">
-        <Outlet />
+      <div className="martis-topnav-breadcrumbs">
+        <Breadcrumbs />
+      </div>
+
+      <main className="flex-1 overflow-auto">
+        <div className="martis-page">
+          <Outlet />
+        </div>
       </main>
 
       <Footer />

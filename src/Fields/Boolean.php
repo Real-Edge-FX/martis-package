@@ -17,6 +17,15 @@ class Boolean extends Field
     protected ?string $falseLabel = null;
 
     /**
+     * Badge variants used when rendering the boolean on index/detail
+     * surfaces. Accepts either a semantic keyword (success, danger,
+     * warning, info, neutral) or a hex string like `#22C55E`.
+     */
+    protected string $trueColor = 'success';
+
+    protected string $falseColor = 'neutral';
+
+    /**
      * Type.
      */
     public function type(): string
@@ -40,6 +49,37 @@ class Boolean extends Field
     public function falseLabel(string $label): static
     {
         $this->falseLabel = $label;
+
+        return $this;
+    }
+
+    /**
+     * Colour for the true pill (semantic keyword or hex).
+     */
+    public function trueColor(string $color): static
+    {
+        $this->trueColor = $color;
+
+        return $this;
+    }
+
+    /**
+     * Colour for the false pill (semantic keyword or hex).
+     */
+    public function falseColor(string $color): static
+    {
+        $this->falseColor = $color;
+
+        return $this;
+    }
+
+    /**
+     * Convenience: set both colours in a single call.
+     */
+    public function colors(string $trueColor, string $falseColor): static
+    {
+        $this->trueColor = $trueColor;
+        $this->falseColor = $falseColor;
 
         return $this;
     }
@@ -70,6 +110,14 @@ class Boolean extends Field
         return [
             'trueLabel' => $this->trueLabel ?? __('martis::messages.yes'),
             'falseLabel' => $this->falseLabel ?? __('martis::messages.no'),
+            'trueColor' => $this->trueColor,
+            'falseColor' => $this->falseColor,
         ];
+    }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '120px'];
     }
 }

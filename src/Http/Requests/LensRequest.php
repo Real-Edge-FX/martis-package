@@ -10,8 +10,8 @@ use Martis\Enums\SortDirection;
 /**
  * Request wrapper for lens endpoints.
  *
- * Nova v5 parity: exposes `withFilters` and `withOrdering` helpers used
- * inside `Lens::query()` to compose user-selected filters and orderings
+ * Exposes `withFilters` and `withOrdering` helpers used inside
+ * `Lens::query()` to compose user-selected filters and orderings
  * onto the lens-specific query.
  *
  * @template TModel of \Illuminate\Database\Eloquent\Model

@@ -92,7 +92,7 @@ class ResourceController extends MartisController
         /** @var Builder<Model> $query */
         $query = $modelClass::query();
 
-        // Soft-delete filter — Nova v5 parity
+        // Soft-delete filter
         // ?trashed=with  → include soft-deleted alongside active records
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
@@ -108,10 +108,10 @@ class ResourceController extends MartisController
             }
         }
 
-        // Apply indexQuery hook — Nova v5 parity
+        // Apply indexQuery hook
         $query = $resourceClass::indexQuery($request, $query);
 
-        // Apply filters — Nova v5 parity
+        // Apply filters
         $this->applyFilters($request, $query, $instance);
 
         $rawSearch = $request->query('search', '');
@@ -549,7 +549,7 @@ class ResourceController extends MartisController
      *
      * Returns the field values from a replicated model WITHOUT saving to the database.
      * Used by the frontend to pre-populate the create form when replicating a resource.
-     * Nova v5 parity: the user passes through an editable form before saving.
+     * The user passes through an editable form before saving.
      *
      * @param  string  $resource  Resource URI key
      * @param  int|string  $id  Record ID to replicate
@@ -583,7 +583,7 @@ class ResourceController extends MartisController
         $fields = Field::filterForContext($resReplica->fieldsForCreate($request), FieldContext::CREATE);
         $values = [];
         foreach ($fields as $field) {
-            // Skip file fields — files cannot be replicated (Nova v5 limitation)
+            // Skip file fields — files cannot be replicated
             if ($field instanceof File) {
                 continue;
             }
@@ -606,7 +606,7 @@ class ResourceController extends MartisController
      *
      * Used when creating a related record inline from a relationship field (e.g. BelongsTo).
      * Returns fieldsForInlineCreate if defined, otherwise falls back to fieldsForCreate.
-     * Nova v5 parity: inline create only supports one level of depth.
+     * Inline create only supports one level of depth.
      *
      * @param  string  $resource  Resource URI key
      */
@@ -672,7 +672,7 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Block nested inline create (Nova v5: only one level deep)
+        // Block nested inline create (only one level deep)
         if ($request->header('X-Martis-Inline-Create-Depth', '0') !== '0') {
             return JsonErrorResponse::validation([], 'Inline create only supports one level of depth.')->toResponse();
         }
@@ -766,7 +766,30 @@ class ResourceController extends MartisController
 
         // Context-specific field arrays — resolved then filtered by visibility
         $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
+
+        // Give the title column a sensible minimum so short labels like "Name"
+        // don't collapse next to wide neighbours (URLs, dates, status pills).
+        // Explicit ->minWidth() on the field still wins. Skipped when the
+        // consumer opts out via `martis.index.column_defaults`.
+        if ((bool) config('martis.index.column_defaults', true)) {
+            $titleAttr = $resourceClass::titleAttribute();
+            foreach ($fieldsForIndex as &$field) {
+                if (($field['attribute'] ?? null) === $titleAttr && isset($field['column']) && is_array($field['column'])) {
+                    $field['column']['minWidth'] ??= '220px';
+                }
+            }
+            unset($field);
+        }
         $fieldsForDetail = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
+        // F7-11 Part 2 — sticky right-rail panel on the detail page. When
+        // empty, ResourceDetail keeps its single-column layout. When
+        // populated, it switches to the canonical 1fr 320px grid and
+        // strips the sidebar attributes from the main body so they
+        // don't render twice.
+        $detailSidebar = array_map(
+            fn (FieldContract $f): array => $f->toArray(),
+            Field::filterForContext($instance->detailSidebar($request), FieldContext::DETAIL),
+        );
         $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
@@ -812,6 +835,7 @@ class ResourceController extends MartisController
             'fields' => $fieldData,
             'fieldsForIndex' => $fieldsForIndex,
             'fieldsForDetail' => $fieldsForDetail,
+            'detailSidebar' => $detailSidebar,
             'fieldsForCreate' => $fieldsForCreate,
             'fieldsForUpdate' => $fieldsForUpdate,
             'fieldsForInlineCreate' => $fieldsForInlineCreate,
@@ -841,6 +865,9 @@ class ResourceController extends MartisController
             'defaultRowActions' => $instance->resolveDefaultRowActions($request),
             'rowClickOpensDetail' => $instance->resolveRowClickOpensDetail($request),
             'actions' => $actions,
+            'tableLayout' => $resourceClass::tableLayout()->value,
+            'defaultSort' => $resourceClass::defaultSort(),
+            'defaultSortDirection' => $resourceClass::defaultSortDirection()->value,
         ];
 
         return JsonResponse::make($data)->toResponse();
@@ -959,8 +986,6 @@ class ResourceController extends MartisController
      * Applies relatable query hooks (relatable{PluralModelName} or relatableQuery)
      * so that relationship selectors respect server-side filtering.
      *
-     * Nova v5 parity: relationship option endpoint with query hooks.
-     *
      * Query params: search, per_page (default 20, max 100).
      */
     public function relatableOptions(
@@ -1065,7 +1090,9 @@ class ResourceController extends MartisController
             $relatedInstance = new $relatedResourceClass;
             $searchableFields = array_filter(
                 $relatedInstance->fields($request),
-                fn (FieldContract $field): bool => $field->isSearchable(),
+                // fields() can include layout nodes (Section / Panel / TabGroup);
+                // guard with instanceof so the typed callback never blows up.
+                fn (mixed $field): bool => $field instanceof FieldContract && $field->isSearchable(),
             );
 
             if (empty($searchableFields)) {
@@ -1338,8 +1365,16 @@ class ResourceController extends MartisController
             strtolower((string) $request->query('direction', 'asc'))
         ) ?? SortDirection::Asc;
 
+        // Fall back to the resource-level default sort when the request
+        // didn't specify one. Keeps the first paint consistent with the
+        // "load me already sorted by X" contract from `Resource::defaultSort()`.
         if (! is_string($rawSort) || $rawSort === '') {
-            return;
+            $defaultSort = $resourceClass::defaultSort();
+            if ($defaultSort === null || $defaultSort === '') {
+                return;
+            }
+            $rawSort = $defaultSort;
+            $direction = $resourceClass::defaultSortDirection();
         }
 
         $sort = $rawSort;
@@ -1443,9 +1478,6 @@ class ResourceController extends MartisController
      * lazily when the user hovers the preview icon. Content is derived from
      * fieldsForPreview() on the related resource — aligned with the resource's
      * own field definitions, not a custom column list on the field.
-     *
-     * Nova v5 parity: peek content comes from the resource (fieldsForPreview),
-     * not from a custom peekColumns() list defined on the BelongsTo field.
      *
      * @response array{data: array{title: string, attributes: list<array{label: string, value: mixed}>}}
      */

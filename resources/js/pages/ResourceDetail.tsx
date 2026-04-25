@@ -19,6 +19,7 @@ import { ResourceIndexPage } from "@/pages/ResourceIndex"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
 import { MartisLoader } from "@/components/Loader"
+import { usePageTitle } from "@/hooks/usePageTitle"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -98,6 +99,11 @@ export function ResourceDetailPage() {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
+
+  const recordTitle = record && schema?.titleAttribute
+    ? String(record[schema.titleAttribute] ?? '')
+    : ''
+  usePageTitle(schema ? `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ''}` : null)
 
   if (schemaQuery.isLoading || recordQuery.isLoading) {
     return (
@@ -210,6 +216,14 @@ export function ResourceDetailPage() {
   }
 
   const detailFields = schema.fieldsForDetail ?? []
+  // F7-11 Part 2 — sticky right-rail panel. Resolved from
+  // `Resource::detailSidebar()` and emitted by the schema endpoint.
+  // When non-empty, the page lays out as a 1fr 320px grid and strips
+  // the sidebar attributes from the main scalar list so they only
+  // render once.
+  const sidebarFields = schema.detailSidebar ?? []
+  const sidebarAttrs = new Set(sidebarFields.map((f) => f.attribute))
+  const hasSidebar = sidebarFields.length > 0
   // Relationship fields render as full-width panels with their own heading
   // and action buttons — they must NOT be wrapped in the scalar dl/dt/dd
   // layout, otherwise the field label appears twice (once from <dt>, once
@@ -230,12 +244,12 @@ export function ResourceDetailPage() {
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
   const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
   const sectionItems = detailFields.filter(f => f.type === 'section') as SectionDefinition[]
-  const scalarFields = detailFields.filter(f =>
+  const scalarFields = (detailFields.filter(f =>
     !standaloneRelationshipTypes.has(f.type) &&
     f.type !== 'panel' &&
     f.type !== 'tab_group' &&
     f.type !== 'section'
-  ) as FieldDefinition[]
+  ) as FieldDefinition[]).filter((f) => !sidebarAttrs.has(f.attribute))
   const relationshipFields = detailFields.filter(f => standaloneRelationshipTypes.has(f.type)) as FieldDefinition[]
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
   const auth = record._authorization
@@ -268,7 +282,13 @@ export function ResourceDetailPage() {
           {record._title ? record._title : `${schema.singularLabel} #${id}`}
         </span>
         {isDeleted && (
-          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+          <span
+            className="ml-2 rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--martis-danger) 12%, transparent)",
+              color: "var(--martis-danger)",
+            }}
+          >
             {tMsg("archived")}
           </span>
         )}
@@ -291,64 +311,32 @@ export function ResourceDetailPage() {
             <button
               type="button"
               onClick={() => setShowRestore(true)}
-              
-              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+              className="martis-btn-warning"
             >
               <ArrowCounterClockwiseIcon size={14} />
               {tAct("restore")}
             </button>
           ) : null}
           {canUpdate && (
-          <button
-            type="button"
-            onClick={handleEdit}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              borderColor: "var(--martis-border)",
-              backgroundColor: "var(--martis-surface)",
-              color: "var(--martis-text)",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
-          >
+          <button type="button" onClick={handleEdit} className="martis-btn-secondary">
             <PencilSimpleIcon size={14} />
             {tAct("edit")}
           </button>
           )}
           {!isDeleted && canReplicate && (
-          <button
-            type="button"
-            onClick={handleReplicate}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              borderColor: "var(--martis-border)",
-              backgroundColor: "var(--martis-surface)",
-              color: "var(--martis-text)",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-surface)")}
-          >
+          <button type="button" onClick={handleReplicate} className="martis-btn-secondary">
             <CopyIcon size={14} />
             {tAct("replicate")}
           </button>
           )}
           {!isDeleted && canDelete && (
-          <button
-            type="button"
-            onClick={() => setShowDelete(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-          >
+          <button type="button" onClick={() => setShowDelete(true)} className="martis-btn-danger">
             <TrashIcon size={14} />
             {tAct("delete")}
           </button>
           )}
           {isDeleted && schema.softDeletes && canForceDelete && (
-          <button
-            type="button"
-            onClick={() => setShowForceDelete(true)}
-            
-            className="inline-flex items-center gap-1.5 rounded-md bg-red-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-900"
-          >
+          <button type="button" onClick={() => setShowForceDelete(true)} className="martis-btn-danger">
             <TrashSimpleIcon size={14} />
             {tAct("delete_permanent")}
           </button>
@@ -356,55 +344,69 @@ export function ResourceDetailPage() {
         </div>
       </div>
 
-      {/* Panel and Tab layout containers */}
-      {tabGroupItems.map((tg, idx) => (
-        <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} />
-      ))}
-      {panelItems.map((panel, idx) => (
-        <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} />
-      ))}
-      {sectionItems.map((section, idx) => (
-        <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
-      ))}
-
-      {/* Fields card — only shown when there are scalar fields.
-       *  Uses the same visual chrome as PanelContainer for consistency
-       *  with sections that are explicitly inside Panel::make(). */}
-      {scalarFields.length > 0 && <div
-        className="rounded-lg"
-        style={{
-          border: "1px solid var(--martis-border)",
-          backgroundColor: "var(--martis-surface)",
-        }}
-      >
-        <dl
-          className="martis-divide"
-          style={{ borderColor: "var(--martis-border)" }}
-        >
-          {scalarFields.map((field) => (
-            <div
-              key={field.attribute}
-              className="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-start sm:gap-4 sm:px-6"
-              style={{ borderColor: "var(--martis-border)" }}
-            >
-              <dt className="text-sm font-medium sm:w-48 sm:shrink-0" style={{ color: "var(--martis-text-muted)" }}>
-                {field.label}
-              </dt>
-              <dd className="min-w-0 flex-1 text-sm">
-                <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
-              </dd>
-            </div>
+      {/* F7-11 Part 2 — when `Resource::detailSidebar()` returns fields,
+          the page lays out as 1fr 320px. The right rail stays sticky
+          beside the scrolling main column. When the sidebar is empty
+          we keep the legacy single-column flow. */}
+      <div className={hasSidebar ? 'martis-detail-grid' : undefined}>
+        <div className="martis-detail-main space-y-6">
+          {/* Panel and Tab layout containers */}
+          {tabGroupItems.map((tg, idx) => (
+            <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} />
           ))}
-        </dl>
-      </div>}
+          {panelItems.map((panel, idx) => (
+            <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} />
+          ))}
+          {sectionItems.map((section, idx) => (
+            <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
+          ))}
 
-      {/* Relationship fields (HasMany, HasOne, variants) render standalone
-       * — each is a full-width panel with its own heading. They are NOT
-       * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
-       * labels. */}
-      {relationshipFields.map((field) => (
-        <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
-      ))}
+          {/* Details panel — spec-compliant Field grid (200px label / 1fr
+           *  value, 14×0 row padding, hairline bottom border between rows)
+           *  wrapped in a `.martis-detail-panel` surface with a "Details"
+           *  kicker above. Mirrors the main detail spec so the scalar
+           *  fields read as a named block instead of a generic card. */}
+          {scalarFields.length > 0 && (
+            <div>
+              <div className="martis-detail-kicker">{tMsg("details")}</div>
+              <dl className="martis-detail-panel">
+                {scalarFields.map((field) => (
+                  <div key={field.attribute} className="martis-detail-row">
+                    <dt className="martis-detail-label">{field.label}</dt>
+                    <dd className="martis-detail-value">
+                      <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
+          {/* Relationship fields (HasMany, HasOne, variants) render standalone
+           * — each is a full-width panel with its own heading. They are NOT
+           * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
+           * labels. */}
+          {relationshipFields.map((field) => (
+            <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
+          ))}
+        </div>
+
+        {hasSidebar && (
+          <aside className="martis-detail-sidebar">
+            <div className="martis-detail-kicker">{tMsg("details")}</div>
+            <dl className="martis-detail-panel is-drawer">
+              {sidebarFields.map((field) => (
+                <div key={field.attribute} className="martis-detail-row">
+                  <dt className="martis-detail-label">{field.label}</dt>
+                  <dd className="martis-detail-value">
+                    <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </aside>
+        )}
+      </div>
 
       {/* Update override overlay (drawer) — shown inline when edit button clicked */}
       {showUpdateOverride && schema.overrides?.update && (() => {
@@ -492,23 +494,30 @@ export function ResourceDetailPage() {
       />
 
       {showRestore && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9990 }} className="flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowRestore(false)} />
-          <div role="dialog" className="relative w-full max-w-md rounded-xl shadow-xl" style={{ backgroundColor: "var(--martis-card)", border: "1px solid var(--martis-border)" }}>
-            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "var(--martis-border)" }}>
+        <div className="martis-modal-scrim" onClick={() => setShowRestore(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="martis-modal-surface"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="martis-modal-head">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <ArrowCounterClockwiseIcon size={20} className="text-amber-600 dark:text-amber-400" />
-                </div>
-                <span className="text-lg font-semibold" style={{ color: "var(--martis-text)" }}>{tAct("restore")} {schema.singularLabel}</span>
+                <ArrowCounterClockwiseIcon size={18} weight="bold" style={{ color: "var(--martis-warning)" }} />
+                <h3 className="martis-modal-head-title">{tAct("restore")} {schema.singularLabel}</h3>
               </div>
             </div>
-            <div className="px-6 py-4">
-              <p className="text-sm" style={{ color: "var(--martis-text-muted)" }}>{tMsg("restore_confirm")}</p>
-            </div>
-            <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: "var(--martis-border)", backgroundColor: "var(--martis-surface)", borderRadius: "0 0 0.75rem 0.75rem" }}>
-              <button type="button" onClick={() => setShowRestore(false)} className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium" style={{ backgroundColor: "var(--martis-input-bg)", borderColor: "var(--martis-border)", color: "var(--martis-text)" }}>{tAct("cancel")}</button>
-              <button type="button" onClick={async () => { await restoreMutation.mutateAsync(); setShowRestore(false) }} disabled={restoreMutation.isPending} className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50">
+            <div className="martis-modal-body">{tMsg("restore_confirm")}</div>
+            <div className="martis-modal-foot">
+              <button type="button" onClick={() => setShowRestore(false)} className="martis-btn-secondary">
+                {tAct("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={async () => { await restoreMutation.mutateAsync(); setShowRestore(false) }}
+                disabled={restoreMutation.isPending}
+                className="martis-btn-warning"
+              >
                 <ArrowCounterClockwiseIcon size={14} />
                 {restoreMutation.isPending ? tAct("please_wait") : tAct("restore")}
               </button>

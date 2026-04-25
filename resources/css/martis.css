@@ -13,140 +13,226 @@
   box-sizing: border-box;
 }
 
-/* ── Theme Variables ──────────────────────────────────────────────
-   Dark theme = default (:root).
-   Light theme = html:not(.dark) overrides.
-   All component colors reference these variables so both themes
-   stay coherent automatically.
-──────────────────────────────────────────────────────────────── */
+/* ============================================================
+   MARTIS DESIGN TOKENS — v0.7 (Task 07.1 Fase 1)
+   94 variáveis em 13 categorias alinhadas ao /design-system/.
+
+   Estrutura:
+     :root              → globals (radius, typography, motion, density)
+     :root (dark)       → dark theme é o default
+     html:not(.dark)    → light theme
+     [data-accent="..."] → 5 accent variants (martis default, blue, teal, violet, amber)
+     [data-density="..."] → comfortable (default) | dense
+     @media prefers-reduced-motion → reescreve motion tokens para 1ms
+
+   Retrocompat: todos os nomes antigos (--martis-font-size-*,
+   --martis-font-weight-*) continuam disponíveis como aliases.
+   ============================================================ */
 
 :root {
   --sidebar-width: 240px;
 
-  /* Dark theme (default) */
-  --martis-bg: #1b2332;
-  --martis-surface: #1e293b;
-  --martis-sidebar: #111827;
-  --martis-border: #334155;
-  --martis-text: #e2e8f0;
-  --martis-text-muted: #94a3b8;
-  --martis-accent: #6366f1;
-  --martis-accent-hover: #4f46e5;
-  --martis-accent-active: #4338ca;
-
-  /* ── Semantic colors (solid) ──────────────────────────────────── */
-  --martis-success: #22c55e;
-  --martis-success-hover: #16a34a;
-  --martis-warning: #f59e0b;
-  --martis-warning-hover: #d97706;
-  --martis-danger: #ef4444;
-  --martis-danger-hover: #dc2626;
-  --martis-info: #3b82f6;
-  --martis-info-hover: #2563eb;
-
-  /* ── Semantic backgrounds (alpha tints, used for badges, alerts) ─ */
-  --martis-success-bg: rgba(34, 197, 94, 0.15);
-  --martis-success-text: #86efac;
-  --martis-warning-bg: rgba(245, 158, 11, 0.15);
-  --martis-warning-text: #fcd34d;
-  --martis-danger-bg: rgba(239, 68, 68, 0.15);
-  --martis-danger-text: #fca5a5;
-  --martis-info-bg: rgba(59, 130, 246, 0.15);
-  --martis-info-text: #93c5fd;
-
-  /* ── Accent variants ──────────────────────────────────────────── */
-  --martis-accent-bg-light: rgba(99, 102, 241, 0.08);
-  --martis-accent-bg: rgba(99, 102, 241, 0.15);
-  --martis-focus-ring: rgba(99, 102, 241, 0.2);
-
-  /* ── Overlays & shadows ───────────────────────────────────────── */
-  --martis-overlay: rgba(0, 0, 0, 0.5);
-  --martis-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
-  --martis-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-  --martis-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
-
-  /* ── Border radius ────────────────────────────────────────────── */
+  /* ── 3.9 Border radius ──────────────────────────────────── */
   --martis-radius-sm: 0.25rem;
   --martis-radius-md: 0.375rem;
   --martis-radius-lg: 0.5rem;
   --martis-radius-xl: 0.75rem;
   --martis-radius-full: 9999px;
 
-  /* ── Typography ───────────────────────────────────────────────── */
-  --martis-font-sans: 'Inter var', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --martis-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --martis-font-heading: var(--martis-font-sans);
-  --martis-font-size-xs: 0.75rem;
-  --martis-font-size-sm: 0.875rem;
-  --martis-font-size-base: 1rem;
-  --martis-font-size-lg: 1.125rem;
-  --martis-font-size-xl: 1.25rem;
-  --martis-font-size-2xl: 1.5rem;
-  --martis-font-size-3xl: 1.875rem;
-  --martis-font-weight-normal: 400;
-  --martis-font-weight-medium: 500;
-  --martis-font-weight-semibold: 600;
-  --martis-font-weight-bold: 700;
-  --martis-line-height-tight: 1.25;
-  --martis-line-height-normal: 1.5;
-  --martis-line-height-relaxed: 1.75;
+  /* ── 3.10 Typography ────────────────────────────────────── */
+  --martis-font-sans: 'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --martis-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --martis-font-heading: 'Inter var', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
-  /* ── Chart palette (10 distinct colors for partition/trend metrics) ─ */
-  --martis-chart-1: #6366f1;
-  --martis-chart-2: #22c55e;
-  --martis-chart-3: #f59e0b;
-  --martis-chart-4: #ef4444;
-  --martis-chart-5: #8b5cf6;
-  --martis-chart-6: #06b6d4;
-  --martis-chart-7: #f97316;
-  --martis-chart-8: #ec4899;
-  --martis-chart-9: #14b8a6;
-  --martis-chart-10: #a855f7;
+  --martis-text-xs: 12px;
+  --martis-text-sm: 14px;
+  --martis-text-base: 16px;
+  --martis-text-lg: 18px;
+  --martis-text-xl: 20px;
+  --martis-text-2xl: 24px;
+  --martis-text-3xl: 30px;
 
-  /* ── File icon colors (semantic per file type) ─────────────────── */
-  --martis-file-icon-pdf: #ef4444;
-  --martis-file-icon-doc: #3b82f6;
-  --martis-file-icon-xls: #22c55e;
-  --martis-file-icon-ppt: #f97316;
-  --martis-file-icon-zip: #a855f7;
-  --martis-file-icon-default: #6b7280;
+  --martis-weight-regular: 400;
+  --martis-weight-medium: 500;
+  --martis-weight-semibold: 600;
+  --martis-weight-bold: 700;
 
-  --martis-hover: rgba(255, 255, 255, 0.05);
-  --martis-active: rgba(255, 255, 255, 0.1);
-  --martis-card: #1e293b;
-  --martis-input-bg: #111827;
-  --martis-topbar: #1e293b;
-  --martis-search-bg: rgba(255, 255, 255, 0.06);
-  --martis-search-border: rgba(255, 255, 255, 0.1);
-  --martis-peek-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
-  --martis-row-even: rgba(30, 41, 59, 0.5);
-  --martis-row-hover: rgba(51, 65, 85, 0.5);
+  --martis-leading-tight: 1.25;
+  --martis-leading-normal: 1.5;
+  --martis-leading-relaxed: 1.75;
 
-  --martis-surface-alt: #283548;
-  --martis-table-header-bg: rgba(99, 102, 241, 0.1);
-  --martis-table-header-text: #c7d2fe;
-  --martis-table-header-border: rgba(99, 102, 241, 0.35);
+  /* Retrocompat aliases (v0.6) — todos os ficheiros existentes referenciam estes */
+  --martis-font-size-xs: var(--martis-text-xs);
+  --martis-font-size-sm: var(--martis-text-sm);
+  --martis-font-size-base: var(--martis-text-base);
+  --martis-font-size-lg: var(--martis-text-lg);
+  --martis-font-size-xl: var(--martis-text-xl);
+  --martis-font-size-2xl: var(--martis-text-2xl);
+  --martis-font-size-3xl: var(--martis-text-3xl);
+  --martis-font-weight-normal: var(--martis-weight-regular);
+  --martis-font-weight-medium: var(--martis-weight-medium);
+  --martis-font-weight-semibold: var(--martis-weight-semibold);
+  --martis-font-weight-bold: var(--martis-weight-bold);
+  --martis-line-height-tight: var(--martis-leading-tight);
+  --martis-line-height-normal: var(--martis-leading-normal);
+  --martis-line-height-relaxed: var(--martis-leading-relaxed);
 
-  /* Badge colors */
-  --martis-badge-info-bg: rgba(99, 102, 241, 0.15);
-  --martis-badge-info-text: #a5b4fc;
-  --martis-badge-info-border: rgba(99, 102, 241, 0.3);
-  --martis-badge-success-bg: rgba(34, 197, 94, 0.15);
-  --martis-badge-success-text: #86efac;
-  --martis-badge-success-border: rgba(34, 197, 94, 0.3);
-  --martis-badge-warning-bg: rgba(245, 158, 11, 0.15);
-  --martis-badge-warning-text: #fcd34d;
-  --martis-badge-warning-border: rgba(245, 158, 11, 0.3);
-  --martis-badge-danger-bg: rgba(239, 68, 68, 0.15);
-  --martis-badge-danger-text: #fca5a5;
-  --martis-badge-danger-border: rgba(239, 68, 68, 0.3);
+  /* ── Motion tokens (D3 support) ─────────────────────────── */
+  --martis-dur-ultra: 80ms;
+  --martis-dur-fast: 120ms;
+  --martis-dur-base: 180ms;
+  --martis-dur-medium: 240ms;
+  --martis-dur-slow: 320ms;
 
-  /* ▸ PrimeReact bridge — map PrimeReact CSS variables to Martis tokens.
-     User themes override Martis vars; PrimeReact inherits automatically. */
+  --martis-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --martis-ease-accel: cubic-bezier(0.4, 0, 1, 1);
+  --martis-ease-decel: cubic-bezier(0, 0, 0.2, 1);
+  --martis-ease-linear: linear;
+  --martis-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── DARK THEME (default) ───────────────────────────────────
+   Warm-neutral graphite. Not pure black — slate with tiny blue tint.
+   Surfaces step up in ~2–3% luminance increments.
+   ─────────────────────────────────────────────────────────── */
+:root {
+  /* 3.1 Surfaces */
+  --martis-bg:          #0B0D10;
+  --martis-surface:     #12151A;
+  --martis-surface-alt: #161A20;
+  --martis-sidebar:     #0E1115;
+  --martis-topbar:      #0E1115;
+  --martis-card:        #12151A;
+  --martis-input-bg:    #0E1115;
+
+  /* 3.2 Text & borders */
+  --martis-text:       #E6E8EC;
+  --martis-text-muted: #8A93A1;
+  --martis-border:     #232830;
+
+  /* 3.3 Accent — default "martis" brand variant, override via [data-accent] */
+  --martis-accent:          #4F7BF9;
+  --martis-accent-hover:    #3B6AF0;
+  --martis-accent-active:   #2C57D8;
+  --martis-accent-bg-light: rgba(79, 123, 249, 0.14);
+  --martis-accent-bg:       rgba(79, 123, 249, 0.24);
+  --martis-focus-ring:      rgba(79, 123, 249, 0.45);
+
+  /* 3.4 Semantic solid */
+  --martis-success:       #22C55E;
+  --martis-success-hover: #16A34A;
+  --martis-warning:       #F59E0B;
+  --martis-warning-hover: #D97706;
+  --martis-danger:        #EF4444;
+  --martis-danger-hover:  #DC2626;
+  --martis-info:          #38BDF8;
+  --martis-info-hover:    #0EA5E9;
+
+  /* 3.5 Semantic bg+text */
+  --martis-success-bg:   rgba(34, 197, 94, 0.12);
+  --martis-success-text: #4ADE80;
+  --martis-warning-bg:   rgba(245, 158, 11, 0.14);
+  --martis-warning-text: #FBBF24;
+  --martis-danger-bg:    rgba(239, 68, 68, 0.14);
+  --martis-danger-text:  #F87171;
+  --martis-info-bg:      rgba(56, 189, 248, 0.14);
+  --martis-info-text:    #7DD3FC;
+
+  /* 3.6 Interactive states */
+  --martis-hover:         rgba(255, 255, 255, 0.035);
+  --martis-active:        rgba(255, 255, 255, 0.06);
+  --martis-search-bg:     #0B0D10;
+  --martis-search-border: #2A303A;
+
+  /* 3.7 Overlays & shadows */
+  --martis-overlay:     rgba(5, 7, 10, 0.72);
+  --martis-shadow-sm:   0 1px 0 rgba(0, 0, 0, 0.25);
+  --martis-shadow-md:   0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --martis-shadow-lg:   0 24px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --martis-peek-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* 3.8 DataTable */
+  --martis-row-even:            #10131A;
+  --martis-row-hover:           #171B22;
+  --martis-table-header-bg:     #0E1115;
+  --martis-table-header-text:   #8A93A1;
+  --martis-table-header-border: #232830;
+
+  /* 3.11 Chart palette (dark) */
+  --martis-chart-1:  #60A5FA;
+  --martis-chart-2:  #34D399;
+  --martis-chart-3:  #F472B6;
+  --martis-chart-4:  #FBBF24;
+  --martis-chart-5:  #A78BFA;
+  --martis-chart-6:  #22D3EE;
+  --martis-chart-7:  #FB923C;
+  --martis-chart-8:  #F87171;
+  --martis-chart-9:  #4ADE80;
+  --martis-chart-10: #C084FC;
+
+  /* 3.11b Avatar palette (dark) — 16 hues for the deterministic
+     hash(seed) % 16 colour lookup used by AvatarField when no explicit
+     colour is supplied. Tuned for legibility against white text on a
+     dark canvas; readableTextColor() picks black for the lighter hues. */
+  --martis-avatar-1:  #2563EB; /* blue-600 */
+  --martis-avatar-2:  #059669; /* emerald-600 */
+  --martis-avatar-3:  #DB2777; /* pink-600 */
+  --martis-avatar-4:  #D97706; /* amber-600 */
+  --martis-avatar-5:  #7C3AED; /* violet-600 */
+  --martis-avatar-6:  #0891B2; /* cyan-600 */
+  --martis-avatar-7:  #EA580C; /* orange-600 */
+  --martis-avatar-8:  #DC2626; /* red-600 */
+  --martis-avatar-9:  #16A34A; /* green-600 */
+  --martis-avatar-10: #9333EA; /* purple-600 */
+  --martis-avatar-11: #4F46E5; /* indigo-600 */
+  --martis-avatar-12: #0D9488; /* teal-600 */
+  --martis-avatar-13: #C026D3; /* fuchsia-600 */
+  --martis-avatar-14: #65A30D; /* lime-600 */
+  --martis-avatar-15: #BE185D; /* rose-700 */
+  --martis-avatar-16: #475569; /* slate-600 */
+
+  /* 3.11c Brand gradient tokens (dark) — feed every "hero / welcome /
+     marquee" surface so the brand look stays in one place. The cyan
+     and pink auroras drift over the base gradient and a pointer-aware
+     spot-glow tracks the cursor. Override via theme CSS to reskin
+     the hero without touching the React. */
+  --martis-brand-gradient:        linear-gradient(135deg, #1A1F4B 0%, #2A1F66 45%, #3B1F7A 100%);
+  --martis-brand-aurora-cyan:     rgba(56, 189, 248, 0.55);
+  --martis-brand-aurora-pink:     rgba(236, 72, 153, 0.45);
+  --martis-brand-pointer-glow:    rgba(124, 140, 255, 0.35);
+  --martis-brand-grid-dot:        rgba(255, 255, 255, 0.09);
+  --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.55);
+  --martis-brand-text:             #FFFFFF;
+
+  /* 3.12 File icon colors (dark-tuned) */
+  --martis-file-icon-pdf:     #EF4444;
+  --martis-file-icon-doc:     #3B82F6;
+  --martis-file-icon-xls:     #22C55E;
+  --martis-file-icon-ppt:     #F97316;
+  --martis-file-icon-zip:     #A78BFA;
+  --martis-file-icon-default: #8A93A1;
+
+  /* 3.13 Badge variants */
+  --martis-badge-info-bg:     rgba(56, 189, 248, 0.14);
+  --martis-badge-info-text:   #7DD3FC;
+  --martis-badge-info-border: rgba(56, 189, 248, 0.30);
+  --martis-badge-success-bg:     rgba(34, 197, 94, 0.12);
+  --martis-badge-success-text:   #4ADE80;
+  --martis-badge-success-border: rgba(34, 197, 94, 0.30);
+  --martis-badge-warning-bg:     rgba(245, 158, 11, 0.14);
+  --martis-badge-warning-text:   #FBBF24;
+  --martis-badge-warning-border: rgba(245, 158, 11, 0.30);
+  --martis-badge-danger-bg:     rgba(239, 68, 68, 0.14);
+  --martis-badge-danger-text:   #F87171;
+  --martis-badge-danger-border: rgba(239, 68, 68, 0.30);
+
+  color-scheme: dark;
+
+  /* ▸ PrimeReact bridge — todas as PrimeReact vars apontam para os tokens Martis */
   --primary-color: var(--martis-accent);
   --primary-color-text: #ffffff;
-  --primary-50: var(--martis-accent-bg-light, rgba(99, 102, 241, 0.05));
-  --primary-100: var(--martis-accent-bg, rgba(99, 102, 241, 0.15));
+  --primary-50: var(--martis-accent-bg-light);
+  --primary-100: var(--martis-accent-bg);
   --surface-a: var(--martis-surface);
   --surface-b: var(--martis-bg);
   --surface-c: var(--martis-hover);
@@ -170,90 +256,1523 @@
   --maskbg: var(--martis-overlay);
 }
 
+/* ── LIGHT THEME ────────────────────────────────────────────
+   Cool off-white com graphite text, borders hairline.
+   ─────────────────────────────────────────────────────────── */
 html:not(.dark) {
-  /* Light theme */
-  --martis-bg: #f1f5f9;
-  --martis-surface: #ffffff;
-  --martis-sidebar: #ffffff;
-  --martis-border: #e2e8f0;
-  --martis-text: #1e293b;
-  --martis-text-muted: #64748b;
-  --martis-accent: #6366f1;
-  --martis-accent-hover: #4f46e5;
-  --martis-accent-active: #4338ca;
+  /* 3.1 Surfaces */
+  --martis-bg:          #F7F8FA;
+  --martis-surface:     #FFFFFF;
+  --martis-surface-alt: #F2F4F7;
+  --martis-sidebar:     #FFFFFF;
+  --martis-topbar:      #FFFFFF;
+  --martis-card:        #FFFFFF;
+  --martis-input-bg:    #FFFFFF;
 
-  /* ── Semantic colors (solid) ──────────────────────────────────── */
-  --martis-success: #16a34a;
-  --martis-success-hover: #15803d;
-  --martis-warning: #d97706;
-  --martis-warning-hover: #b45309;
-  --martis-danger: #dc2626;
-  --martis-danger-hover: #b91c1c;
-  --martis-info: #2563eb;
-  --martis-info-hover: #1d4ed8;
+  /* 3.2 Text & borders */
+  --martis-text:       #0F172A;
+  --martis-text-muted: #64748B;
+  --martis-border:     #E4E8EE;
 
-  /* ── Semantic backgrounds ─────────────────────────────────────── */
-  --martis-success-bg: #dcfce7;
-  --martis-success-text: #15803d;
-  --martis-warning-bg: #fef3c7;
-  --martis-warning-text: #92400e;
-  --martis-danger-bg: #fee2e2;
-  --martis-danger-text: #b91c1c;
-  --martis-info-bg: #dbeafe;
-  --martis-info-text: #1e40af;
+  /* 3.3 Accent — martis default */
+  --martis-accent:          #3B6AF0;
+  --martis-accent-hover:    #2C57D8;
+  --martis-accent-active:   #1E44BE;
+  --martis-accent-bg-light: #ECF1FE;
+  --martis-accent-bg:       #D7E1FD;
+  --martis-focus-ring:      rgba(59, 106, 240, 0.35);
 
-  /* ── Accent variants ──────────────────────────────────────────── */
-  --martis-accent-bg-light: rgba(99, 102, 241, 0.06);
-  --martis-accent-bg: rgba(99, 102, 241, 0.1);
-  --martis-focus-ring: rgba(99, 102, 241, 0.15);
+  /* 3.4 Semantic solid */
+  --martis-success:       #16A34A;
+  --martis-success-hover: #15803D;
+  --martis-warning:       #D97706;
+  --martis-warning-hover: #B45309;
+  --martis-danger:        #DC2626;
+  --martis-danger-hover:  #B91C1C;
+  --martis-info:          #0EA5E9;
+  --martis-info-hover:    #0284C7;
 
-  /* ── Overlays & shadows ───────────────────────────────────────── */
-  --martis-overlay: rgba(0, 0, 0, 0.4);
-  --martis-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --martis-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --martis-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  /* 3.5 Semantic bg+text */
+  --martis-success-bg:   #E7F7EC;
+  --martis-success-text: #15803D;
+  --martis-warning-bg:   #FEF3DB;
+  --martis-warning-text: #B45309;
+  --martis-danger-bg:    #FDE5E5;
+  --martis-danger-text:  #B91C1C;
+  --martis-info-bg:      #E0F2FE;
+  --martis-info-text:    #0369A1;
 
-  /* ── Chart palette ────────────────────────────────────────────── */
-  --martis-chart-1: #6366f1;
-  --martis-chart-2: #22c55e;
-  --martis-chart-3: #f59e0b;
-  --martis-chart-4: #ef4444;
-  --martis-chart-5: #8b5cf6;
-  --martis-chart-6: #06b6d4;
-  --martis-chart-7: #f97316;
-  --martis-chart-8: #ec4899;
-  --martis-chart-9: #14b8a6;
-  --martis-chart-10: #a855f7;
+  /* 3.6 Interactive states */
+  --martis-hover:         rgba(15, 23, 42, 0.035);
+  --martis-active:        rgba(15, 23, 42, 0.06);
+  --martis-search-bg:     #FFFFFF;
+  --martis-search-border: #D6DBE3;
 
-  --martis-hover: rgba(0, 0, 0, 0.04);
-  --martis-active: rgba(0, 0, 0, 0.08);
-  --martis-card: #ffffff;
-  --martis-input-bg: #f8fafc;
-  --martis-topbar: #ffffff;
-  --martis-search-bg: rgba(0, 0, 0, 0.04);
-  --martis-search-border: rgba(0, 0, 0, 0.12);
-  --martis-peek-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
-  --martis-row-even: rgba(248, 250, 252, 1);
-  --martis-row-hover: rgba(241, 245, 249, 1);
+  /* 3.7 Overlays & shadows */
+  --martis-overlay:     rgba(15, 23, 42, 0.4);
+  --martis-shadow-sm:   0 1px 0 rgba(15, 23, 42, 0.04);
+  --martis-shadow-md:   0 4px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --martis-shadow-lg:   0 18px 36px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  --martis-peek-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 
-  --martis-surface-alt: #f1f5f9;
-  --martis-table-header-bg: rgba(99, 102, 241, 0.06);
-  --martis-table-header-text: #3730a3;
-  --martis-table-header-border: rgba(99, 102, 241, 0.25);
+  /* 3.8 DataTable */
+  --martis-row-even:            #F9FAFB;
+  --martis-row-hover:           #F2F4F7;
+  --martis-table-header-bg:     #F7F8FA;
+  --martis-table-header-text:   #64748B;
+  --martis-table-header-border: #E4E8EE;
 
-  /* Badge colors */
-  --martis-badge-info-bg: #dbeafe;
-  --martis-badge-info-text: #1e40af;
-  --martis-badge-info-border: #bfdbfe;
-  --martis-badge-success-bg: #dcfce7;
-  --martis-badge-success-text: #15803d;
-  --martis-badge-success-border: #bbf7d0;
-  --martis-badge-warning-bg: #fef9c3;
-  --martis-badge-warning-text: #a16207;
-  --martis-badge-warning-border: #fde68a;
-  --martis-badge-danger-bg: #fee2e2;
-  --martis-badge-danger-text: #b91c1c;
-  --martis-badge-danger-border: #fecaca;
+  /* 3.11 Chart palette (light) */
+  --martis-chart-1:  #2563EB;
+  --martis-chart-2:  #059669;
+  --martis-chart-3:  #DB2777;
+  --martis-chart-4:  #D97706;
+  --martis-chart-5:  #7C3AED;
+  --martis-chart-6:  #0891B2;
+  --martis-chart-7:  #EA580C;
+  --martis-chart-8:  #DC2626;
+  --martis-chart-9:  #16A34A;
+  --martis-chart-10: #9333EA;
+
+  /* 3.11b Avatar palette (light) — same 16 deterministic hues. The
+     light-theme variant uses identical hex values: avatar circles read
+     well on both backgrounds and the lookup must stay deterministic
+     across themes (a user's colour cannot change with the theme). */
+  --martis-avatar-1:  #2563EB;
+  --martis-avatar-2:  #059669;
+  --martis-avatar-3:  #DB2777;
+  --martis-avatar-4:  #D97706;
+  --martis-avatar-5:  #7C3AED;
+  --martis-avatar-6:  #0891B2;
+  --martis-avatar-7:  #EA580C;
+  --martis-avatar-8:  #DC2626;
+  --martis-avatar-9:  #16A34A;
+  --martis-avatar-10: #9333EA;
+  --martis-avatar-11: #4F46E5;
+  --martis-avatar-12: #0D9488;
+  --martis-avatar-13: #C026D3;
+  --martis-avatar-14: #65A30D;
+  --martis-avatar-15: #BE185D;
+  --martis-avatar-16: #475569;
+
+  /* 3.11c Brand gradient tokens (light) — same conceptual recipe as
+     dark, with stops keyed for the lighter canvas. Hero / welcome
+     surfaces remain dark by design (white type on a saturated
+     gradient reads better than the inverse), so the gradient stops
+     stay close to the dark theme's. Aurora / glow opacities are
+     trimmed slightly so they don't dominate against the lighter
+     surrounding shell. */
+  --martis-brand-gradient:        linear-gradient(135deg, #1F2566 0%, #2E2173 45%, #4324A0 100%);
+  --martis-brand-aurora-cyan:     rgba(56, 189, 248, 0.45);
+  --martis-brand-aurora-pink:     rgba(236, 72, 153, 0.38);
+  --martis-brand-pointer-glow:    rgba(124, 140, 255, 0.30);
+  --martis-brand-grid-dot:        rgba(255, 255, 255, 0.10);
+  --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.40);
+  --martis-brand-text:             #FFFFFF;
+
+  /* 3.12 File icon colors */
+  --martis-file-icon-pdf:     #DC2626;
+  --martis-file-icon-doc:     #2563EB;
+  --martis-file-icon-xls:     #16A34A;
+  --martis-file-icon-ppt:     #EA580C;
+  --martis-file-icon-zip:     #7C3AED;
+  --martis-file-icon-default: #64748B;
+
+  /* 3.13 Badge variants */
+  --martis-badge-info-bg:     #E0F2FE;
+  --martis-badge-info-text:   #0369A1;
+  --martis-badge-info-border: #BAE6FD;
+  --martis-badge-success-bg:     #E7F7EC;
+  --martis-badge-success-text:   #15803D;
+  --martis-badge-success-border: #BBF7D0;
+  --martis-badge-warning-bg:     #FEF3DB;
+  --martis-badge-warning-text:   #B45309;
+  --martis-badge-warning-border: #FDE68A;
+  --martis-badge-danger-bg:     #FDE5E5;
+  --martis-badge-danger-text:   #B91C1C;
+  --martis-badge-danger-border: #FECACA;
+
+  color-scheme: light;
+}
+
+/* ============================================================
+   ACCENT VARIANTS
+   Override dos 6 accent tokens. Default = "martis" (já definido
+   acima). Aplicar via html[data-accent="blue|teal|violet|amber"].
+   ============================================================ */
+
+/* BLUE — clássico, neutral */
+html[data-accent="blue"].dark, html[data-accent="blue"]:not(.dark) ~ * {}
+html.dark[data-accent="blue"] {
+  --martis-accent:          #3B82F6;
+  --martis-accent-hover:    #2563EB;
+  --martis-accent-active:   #1D4ED8;
+  --martis-accent-bg-light: rgba(59, 130, 246, 0.12);
+  --martis-accent-bg:       rgba(59, 130, 246, 0.20);
+  --martis-focus-ring:      rgba(59, 130, 246, 0.45);
+}
+html:not(.dark)[data-accent="blue"] {
+  --martis-accent:          #2563EB;
+  --martis-accent-hover:    #1D4ED8;
+  --martis-accent-active:   #1E40AF;
+  --martis-accent-bg-light: #EFF4FF;
+  --martis-accent-bg:       #DBE7FE;
+  --martis-focus-ring:      rgba(37, 99, 235, 0.35);
+}
+
+/* TEAL */
+html.dark[data-accent="teal"] {
+  --martis-accent:          #14B8A6;
+  --martis-accent-hover:    #0D9488;
+  --martis-accent-active:   #0F766E;
+  --martis-accent-bg-light: rgba(20, 184, 166, 0.12);
+  --martis-accent-bg:       rgba(20, 184, 166, 0.22);
+  --martis-focus-ring:      rgba(20, 184, 166, 0.45);
+}
+html:not(.dark)[data-accent="teal"] {
+  --martis-accent:          #0D9488;
+  --martis-accent-hover:    #0F766E;
+  --martis-accent-active:   #115E59;
+  --martis-accent-bg-light: #E6FBF6;
+  --martis-accent-bg:       #CCF6EC;
+  --martis-focus-ring:      rgba(13, 148, 136, 0.35);
+}
+
+/* VIOLET */
+html.dark[data-accent="violet"] {
+  --martis-accent:          #8B5CF6;
+  --martis-accent-hover:    #7C3AED;
+  --martis-accent-active:   #6D28D9;
+  --martis-accent-bg-light: rgba(139, 92, 246, 0.14);
+  --martis-accent-bg:       rgba(139, 92, 246, 0.24);
+  --martis-focus-ring:      rgba(139, 92, 246, 0.45);
+}
+html:not(.dark)[data-accent="violet"] {
+  --martis-accent:          #7C3AED;
+  --martis-accent-hover:    #6D28D9;
+  --martis-accent-active:   #5B21B6;
+  --martis-accent-bg-light: #F3EEFF;
+  --martis-accent-bg:       #E4D8FE;
+  --martis-focus-ring:      rgba(124, 58, 237, 0.35);
+}
+
+/* AMBER */
+html.dark[data-accent="amber"] {
+  --martis-accent:          #F59E0B;
+  --martis-accent-hover:    #D97706;
+  --martis-accent-active:   #B45309;
+  --martis-accent-bg-light: rgba(245, 158, 11, 0.14);
+  --martis-accent-bg:       rgba(245, 158, 11, 0.24);
+  --martis-focus-ring:      rgba(245, 158, 11, 0.45);
+}
+html:not(.dark)[data-accent="amber"] {
+  --martis-accent:          #D97706;
+  --martis-accent-hover:    #B45309;
+  --martis-accent-active:   #92400E;
+  --martis-accent-bg-light: #FEF3DB;
+  --martis-accent-bg:       #FDE6B5;
+  --martis-focus-ring:      rgba(217, 119, 6, 0.35);
+}
+
+/* ============================================================
+   DENSITY TOKENS
+   Global scaffolding para Martis components. Override per-surface
+   via [data-density] em qualquer elemento ancestor.
+   Default = "comfortable".
+   ============================================================ */
+:root, html[data-density="comfortable"] {
+  --martis-row-h:       44px;
+  --martis-nav-item-h:  34px;
+  --martis-input-h:     36px;
+  --martis-btn-h:       34px;
+  --martis-pad-x:       20px;
+  --martis-pad-y:       18px;
+  --martis-gap:         14px;
+}
+html[data-density="dense"],
+[data-density="dense"] {
+  --martis-row-h:       32px;
+  --martis-nav-item-h:  28px;
+  --martis-input-h:     30px;
+  --martis-btn-h:       28px;
+  --martis-pad-x:       14px;
+  --martis-pad-y:       12px;
+  --martis-gap:         10px;
+}
+
+/* ── Density-driven overrides for shell components ─────────────────
+   Shell elements use fixed Tailwind utilities (py-2.5, h-14, etc.)
+   which don't react to `[data-density]` by themselves. These
+   overrides retrofit key surfaces so the Dense option is actually
+   visible: sidebar items, topbar, buttons, table rows, and buttons.
+   Kept scoped so non-shell pages don't get unintended padding shifts.
+   ──────────────────────────────────────────────────────────────── */
+html[data-density="dense"] .martis-topbar-bg {
+  height: 48px;
+}
+html[data-density="dense"] .martis-sidebar-bg a,
+html[data-density="dense"] .martis-sidebar-bg button.flex {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+/* Dense: rows 32px, thinner padding (inherits `--martis-row-h` from the
+   density block above). Padding tightens but never collapses below 4px
+   so stacked pills in a cell keep a hairline of breathing room. */
+html[data-density="dense"] .martis-datatable tbody td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+/* TH height stays 38px in every density — matches the design-system
+   spec where only the data rows tighten in dense mode, not the header. */
+html[data-density="dense"] .p-button,
+html[data-density="dense"] .martis-btn {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
+/* Dashboard surfaces — StatCard, MetricCard, resource shortcuts, and the
+   welcome hero all use fixed padding that ignores `[data-density]`. These
+   overrides tighten them so the Dense preference has a visible effect
+   beyond the shell chrome. */
+html[data-density="dense"] .martis-stat-card {
+  padding: 0.875rem 1rem;
+}
+html[data-density="dense"] .martis-metric-card-head {
+  padding: 0.5rem 0.75rem;
+}
+html[data-density="dense"] .martis-metric-card-body {
+  padding: 0.75rem;
+}
+html[data-density="dense"] .martis-resource-card .p-card-body {
+  padding: 0.75rem 1rem;
+}
+html[data-density="dense"] .martis-resource-card .p-card-content {
+  padding: 0;
+}
+html[data-density="dense"] .mwc-root {
+  --mwc-pad-y: 1.35rem;
+  --mwc-pad-x: 1.75rem;
+  --mwc-min-h: 88px;
+}
+
+/* ============================================================
+   AUTH SURFACES
+   Shared shell for unauthenticated entry points (Login, 2FA
+   challenge) and the error screens (404 / 403 / 500). Mirrors the
+   design-system canonical layout: dot-grid background + accent
+   halo, surface card, muted brand row, token-typed title/sub,
+   divider, OTP row, and a footer strip for © / docs / status.
+   ============================================================ */
+.martis-auth-frame {
+  position: relative;
+  min-height: 100vh;
+  background: var(--martis-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 32px 80px;
+  overflow: hidden;
+}
+.martis-auth-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 600px 300px at 50% 0%, color-mix(in srgb, var(--martis-accent) 16%, transparent), transparent 60%),
+    linear-gradient(var(--martis-border) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--martis-border) 1px, transparent 1px) 0 0 / 32px 32px;
+  opacity: 0.45;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  pointer-events: none;
+}
+.martis-auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  box-shadow: var(--martis-shadow-md);
+  padding: 28px 32px;
+}
+.martis-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  font-weight: var(--martis-weight-semibold);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+}
+.martis-auth-brand img {
+  width: auto;
+  height: 32px;
+  max-width: 140px;
+  object-fit: contain;
+}
+.martis-auth-title {
+  font-size: 20px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  color: var(--martis-text);
+}
+.martis-auth-sub {
+  color: var(--martis-text-muted);
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.55;
+}
+.martis-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+  color: var(--martis-text-muted);
+  font-size: 12px;
+}
+.martis-auth-divider::before,
+.martis-auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--martis-border);
+}
+.martis-auth-foot {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 28px;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+}
+.martis-auth-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.martis-auth-back:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+
+/* Guest-mode mini controls — theme + language pickers pinned at the
+   top-right of every auth surface. Intentionally tiny: only the two
+   knobs an unauthenticated visitor might want to change. */
+.martis-auth-controls {
+  position: absolute;
+  top: 16px;
+  right: 28px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.martis-auth-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--martis-border);
+  background: var(--martis-surface);
+  color: var(--martis-text-muted);
+  border-radius: var(--martis-radius-md);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.martis-auth-control:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-auth-control-select {
+  padding-right: 4px;
+}
+.martis-auth-control-select select {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  padding: 0 4px;
+  cursor: pointer;
+  outline: none;
+}
+.martis-auth-control-select select option {
+  color: var(--martis-text);
+  background: var(--martis-surface);
+}
+.martis-auth-forgot {
+  font-size: 12px;
+  color: var(--martis-accent);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.martis-auth-forgot:hover { text-decoration: underline; }
+
+/* Toggle switch — used on Login ("Keep me signed in") to mirror the
+   spec instead of the square checkbox. Accessible via the underlying
+   native checkbox which stays tab-focusable + keyboard-toggleable. */
+.martis-auth-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--martis-text);
+  cursor: pointer;
+  user-select: none;
+}
+.martis-auth-toggle input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+}
+.martis-auth-toggle-track {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+  background: var(--martis-surface-alt, var(--martis-hover));
+  border: 1px solid var(--martis-border);
+  border-radius: 999px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.martis-auth-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--martis-text-muted);
+  border-radius: 50%;
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+.martis-auth-toggle input:checked + .martis-auth-toggle-track {
+  background: var(--martis-accent);
+  border-color: var(--martis-accent);
+}
+.martis-auth-toggle input:checked + .martis-auth-toggle-track::after {
+  transform: translateX(14px);
+  background: #fff;
+}
+.martis-auth-toggle input:focus-visible + .martis-auth-toggle-track {
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+
+/* 6-digit OTP row — each cell is a 48×56 mono-font square with an
+   accent focus ring when the caret lands inside it. */
+.martis-auth-otp-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: center;
+}
+.martis-auth-otp-input {
+  width: 48px;
+  height: 56px;
+  background: var(--martis-input-bg);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  text-align: center;
+  font-family: var(--martis-font-mono);
+  font-size: 22px;
+  font-weight: var(--martis-weight-semibold);
+  color: var(--martis-text);
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.martis-auth-otp-input:focus {
+  border-color: var(--martis-accent);
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-auth-otp-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Command palette (⌘K / "/") — global overlay that mirrors the
+   design-system Catalog spec. Scrim + surface + grouped list with
+   accent-tinted active row, footer carrying kbd hints on the left and
+   the live result count on the right. */
+.martis-cmdk-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9995;
+  background: var(--martis-overlay);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  /* Shift the flex-centered palette right by the sidebar width so it
+     visually centers over the content area instead of the full viewport
+     (where the sidebar would make it look offset to the left). On mobile
+     or topnav layouts `--sidebar-width` is 0 and the padding collapses. */
+  padding: 72px 20px 20px calc(20px + var(--sidebar-width, 0px));
+}
+html[data-sidebar-collapsed="true"] { --sidebar-width: 64px; }
+html[data-mobile="true"] { --sidebar-width: 0px; }
+.martis-cmdk {
+  width: 100%;
+  max-width: 620px;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  box-shadow: var(--martis-shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 120px);
+}
+.martis-cmdk-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-cmdk-search svg { color: var(--martis-text-muted); flex-shrink: 0; }
+.martis-cmdk-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--martis-text);
+  font-size: 15px;
+}
+.martis-cmdk-search input::placeholder { color: var(--martis-text-muted); }
+/* `.martis-cmdk-search kbd` and friends below now inherit from the
+   public `.martis-kbd` class; the bare-`<kbd>` selectors stay for
+   backward compatibility (markup that hasn't yet adopted the class). */
+.martis-cmdk-search kbd,
+.martis-cmdk-search .martis-kbd {
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--martis-radius-sm);
+  background: var(--martis-hover);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text-muted);
+}
+.martis-cmdk-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.martis-cmdk-empty {
+  padding: 40px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--martis-text-muted);
+}
+.martis-cmdk-group {
+  padding: 8px 16px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--martis-text-muted);
+  font-weight: var(--martis-weight-semibold);
+}
+.martis-cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--martis-text);
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+}
+.martis-cmdk-item:hover,
+.martis-cmdk-item.is-active {
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+}
+.martis-cmdk-item svg { color: var(--martis-text-muted); flex-shrink: 0; }
+.martis-cmdk-item:hover svg,
+.martis-cmdk-item.is-active svg { color: var(--martis-accent); }
+.martis-cmdk-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-cmdk-hint {
+  font-size: 11px;
+  color: var(--martis-text-muted);
+  font-family: var(--martis-font-mono);
+  flex-shrink: 0;
+}
+.martis-cmdk-item kbd,
+.martis-cmdk-item .martis-kbd {
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--martis-radius-sm);
+  background: var(--martis-hover);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text-muted);
+  flex-shrink: 0;
+}
+.martis-cmdk-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--martis-border);
+  background: var(--martis-surface-alt);
+  font-size: 11px;
+  color: var(--martis-text-muted);
+}
+.martis-cmdk-foot-spacer { flex: 1 1 auto; }
+.martis-cmdk-foot kbd,
+.martis-cmdk-foot .martis-kbd {
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--martis-radius-sm);
+  background: var(--martis-hover);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text-muted);
+  margin-right: 4px;
+}
+
+/* Error screens — 404 / 403 / 500 */
+.martis-error-screen {
+  position: relative;
+  min-height: 100vh;
+  background: var(--martis-bg);
+  padding: 80px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.martis-error-code {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--martis-font-mono);
+  font-size: 160px;
+  font-weight: var(--martis-weight-bold);
+  color: var(--martis-text);
+  opacity: 0.04;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.martis-error-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+  border-radius: var(--martis-radius-xl);
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+.martis-error-title {
+  font-size: 22px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  color: var(--martis-text);
+  position: relative;
+  z-index: 1;
+}
+.martis-error-desc {
+  color: var(--martis-text-muted);
+  font-size: 14px;
+  max-width: 440px;
+  margin: 0;
+  line-height: 1.55;
+  position: relative;
+  z-index: 1;
+}
+.martis-error-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 6px 10px;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  font-size: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   REDUCED MOTION (⭐ D3)
+   Quando o user prefere reduced motion (OS setting OU preference
+   explícita `html[data-reduced-motion="true"]`), clampamos toda
+   a duração a 1ms. Não removemos as transições — os estados
+   ainda resolvem, apenas instantaneamente. Acessibilidade-first.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --martis-dur-ultra: 1ms;
+    --martis-dur-fast: 1ms;
+    --martis-dur-base: 1ms;
+    --martis-dur-medium: 1ms;
+    --martis-dur-slow: 1ms;
+  }
+}
+html[data-reduced-motion="true"] {
+  --martis-dur-ultra: 1ms;
+  --martis-dur-fast: 1ms;
+  --martis-dur-base: 1ms;
+  --martis-dur-medium: 1ms;
+  --martis-dur-slow: 1ms;
+}
+
+/* Universal clamp — any transition or animation not driven by the Martis
+   duration tokens (PrimeReact internals, raw Tailwind utilities, inline
+   styles, third-party SVG animations) would otherwise ignore the user's
+   preference. Applied globally with `!important` so the toggle has a
+   visible effect across the entire panel. Scroll-behavior is also reset
+   so anchor jumps land immediately instead of easing. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ============================================================
+   SHELL — Sidebar
+   Flat utilitarian navigation. Hairline borders, accent pill on the
+   active item, animated sub-group expansion. Density-aware heights.
+   ============================================================ */
+
+.martis-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width, 248px) 1fr;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  transition: grid-template-columns var(--martis-dur-base) var(--martis-ease-standard);
+  background: var(--martis-bg);
+}
+.martis-shell[data-sidebar-collapsed="true"] {
+  --sidebar-width: 64px;
+}
+.martis-shell[data-mobile="true"] {
+  grid-template-columns: 1fr;
+}
+.martis-shell[data-mobile="true"] .martis-tb,
+.martis-shell[data-mobile="true"] .martis-shell-content {
+  grid-column: 1;
+}
+
+.martis-sb {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  background: var(--martis-sidebar);
+  border-right: 1px solid var(--martis-border);
+  overflow: hidden;
+  min-height: 0;
+  position: relative;
+  z-index: 20;
+  /* Prime the transform so the mobile drawer's transition has a valid
+     starting value. Chrome can't interpolate from `none` to
+     `translate(-100%)`; without this, the first attribute swap on
+     mount snaps to `translate(0)` instead of `translate(-100%)`. */
+  transform: translateX(0);
+}
+
+.martis-sb-logo {
+  height: 56px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--martis-border);
+  font-weight: var(--martis-weight-semibold);
+  font-size: var(--martis-text-base);
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+}
+.martis-sb-logo-mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.martis-sb-logo-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.martis-sb-logo-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.martis-sb-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 10px 4px;
+  scrollbar-width: thin;
+}
+.martis-sb-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.martis-sb-scroll::-webkit-scrollbar-thumb {
+  background: var(--martis-border);
+  border-radius: 3px;
+}
+
+.martis-sb-group {
+  margin-bottom: 14px;
+}
+/* Top-level section divider — subtler than a group label so the two
+   levels remain visually distinguishable. Matches the design system's
+   "RESOURCES" / "PLATFORM" headings. */
+.martis-sb-section-heading {
+  font-size: 10px;
+  font-weight: var(--martis-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  /* F7-23 — spec uses `--martis-text-muted`. Previously fell back to a
+     non-spec `--martis-text-faint` token; the muted token already gives
+     the dimmed treatment we want, so drop the extra hop. */
+  color: var(--martis-text-muted);
+  padding: 14px 10px 4px;
+  margin-top: 6px;
+  border-top: 1px solid var(--martis-border);
+  opacity: 0.75;
+}
+.martis-sb-section-heading:first-child {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 4px;
+}
+
+.martis-sb-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-semibold);
+  color: var(--martis-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 10px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  cursor: pointer;
+}
+.martis-sb-group-label:hover {
+  color: var(--martis-text);
+}
+.martis-sb-group-label .caret {
+  margin-left: auto;
+  transition: transform var(--martis-dur-base) var(--martis-ease-standard);
+}
+/* F7-22 — match the design-system spec: caret-right by default, rotate
+   90deg when open so it points down. Reads naturally as "expand
+   right → rotate to down when expanded". */
+.martis-sb-group[data-open="true"] .caret {
+  transform: rotate(90deg);
+}
+
+.martis-sb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--martis-nav-item-h, 34px);
+  padding: 0 10px;
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  position: relative;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+}
+.martis-sb-item:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-sb-item.active {
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+}
+.martis-sb-item.active::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--martis-accent);
+  border-radius: 0 2px 2px 0;
+}
+.martis-sb-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.martis-sb-item-badge {
+  background: var(--martis-hover);
+  color: var(--martis-text-muted);
+  font-family: var(--martis-font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--martis-radius-sm);
+  font-weight: var(--martis-weight-medium);
+  line-height: 1.6;
+}
+.martis-sb-item.active .martis-sb-item-badge {
+  background: var(--martis-accent-bg);
+  color: var(--martis-accent);
+}
+
+.martis-sb-footer {
+  border-top: 1px solid var(--martis-border);
+  height: 44px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  font-family: var(--martis-font-mono);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.martis-sb-footer-link {
+  color: var(--martis-text-muted);
+  text-decoration: none;
+  transition: color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-sb-footer-link:hover {
+  color: var(--martis-text);
+}
+
+/* Collapsed mode — 64px rail, icons only */
+.martis-sb[data-collapsed="true"] {
+  width: 64px;
+}
+.martis-sb[data-collapsed="true"] .martis-sb-logo {
+  padding: 0;
+  justify-content: center;
+}
+.martis-sb[data-collapsed="true"] .martis-sb-logo-text,
+.martis-sb[data-collapsed="true"] .martis-sb-group-label > span,
+.martis-sb[data-collapsed="true"] .martis-sb-group-label > .caret,
+.martis-sb[data-collapsed="true"] .martis-sb-item-label,
+.martis-sb[data-collapsed="true"] .martis-sb-item-badge,
+.martis-sb[data-collapsed="true"] .martis-sb-footer > *:not(:first-child) {
+  display: none;
+}
+.martis-sb[data-collapsed="true"] .martis-sb-item {
+  justify-content: center;
+  padding: 0;
+}
+.martis-sb[data-collapsed="true"] .martis-sb-footer {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+/* Mobile drawer — fixed, slides in from the left.
+   Uses `[data-mobile]` (any value) for layout so the open state inherits
+   `position: fixed` + width; the `="open"` selector only flips the
+   transform. Without this, toggling to "open" would drop the fixed
+   positioning and the drawer would collapse into the flow. */
+.martis-sb[data-mobile] {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  transform: translateX(-100%);
+  transition: transform var(--martis-dur-medium) var(--martis-ease-standard);
+  box-shadow: var(--martis-shadow-lg);
+  z-index: 50;
+}
+.martis-sb[data-mobile="open"] {
+  transform: translateX(0);
+}
+.martis-shell-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--martis-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--martis-dur-medium) var(--martis-ease-standard);
+  z-index: 40;
+}
+.martis-shell-backdrop[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ============================================================
+   SHELL — Topbar
+   ============================================================ */
+.martis-tb {
+  grid-column: 2;
+  grid-row: 1;
+  height: 56px;
+  background: var(--martis-topbar);
+  border-bottom: 1px solid var(--martis-border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.martis-tb-menu-btn,
+.martis-tb-collapse-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--martis-radius-md);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-tb-menu-btn:hover,
+.martis-tb-collapse-btn:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-tb[data-mobile="true"] .martis-tb-menu-btn {
+  display: inline-flex;
+}
+/* Desktop collapse toggle — always shown when the prop is present;
+   the button only renders in the DOM on desktop so no extra guard needed. */
+.martis-tb-collapse-btn {
+  display: inline-flex;
+}
+.martis-tb[data-mobile="true"] .martis-tb-collapse-btn {
+  display: none;
+}
+
+.martis-tb-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--martis-text-sm);
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.martis-tb-search {
+  /* Absolute-centered inside the topbar so the search geometry stops
+     depending on the flex-sibling widths. `margin: 0 auto` + `flex: 1`
+     distributed leftover space unevenly when the breadcrumb and the
+     user-chip cluster had different widths, pulling the search to the
+     left of the content-area center (and visibly misaligning the command
+     palette that anchors to it). */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100% - 420px));
+  height: 34px;
+  background: var(--martis-search-bg);
+  border: 1px solid var(--martis-search-border);
+  border-radius: var(--martis-radius-md);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 8px;
+  color: var(--martis-text-muted);
+  font-size: var(--martis-text-sm);
+  cursor: pointer;
+  transition: border-color var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard),
+              background var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-tb-search:hover {
+  border-color: var(--martis-border);
+  color: var(--martis-text);
+}
+.martis-tb-search-placeholder {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* F7-37 — public `.martis-kbd` class. Used by the topbar search trigger,
+   the command palette (search row, item shortcut hint, footer chips),
+   tooltip "press X" hints and any consumer that wants a uniform
+   shortcut chip. Mirrors the design-system Shell.html `.tb-search kbd`
+   spec exactly. The legacy bare-`<kbd>` selectors below cascade onto
+   any descendant `<kbd>` for backward compatibility, but new code
+   should use the public class on the element directly. */
+.martis-kbd {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--martis-radius-sm);
+  background: var(--martis-hover);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text-muted);
+  line-height: 1;
+}
+
+.martis-tb-search kbd,
+.martis-tb-search .martis-kbd {
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--martis-radius-sm);
+  background: var(--martis-hover);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text-muted);
+}
+
+.martis-tb-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.martis-tb-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  position: relative;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-tb-icon-btn:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-tb-icon-btn .dot,
+.martis-tb-icon-btn .martis-notif-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  background: var(--martis-danger);
+  border-radius: 50%;
+  border: 2px solid var(--martis-topbar);
+}
+/* F7-21 — public notification dot. Generic pulsing-free indicator that
+   any icon-button (topbar bell, sidebar item with unread, drawer
+   toolbar) can stamp on top of itself. The selector inside
+   `.martis-tb-icon-btn` above keeps the topbar's exact spec geometry;
+   this rule covers other surfaces with the same hue but no border. */
+.martis-notif-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--martis-danger);
+  border-radius: 50%;
+}
+
+.martis-tb-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--martis-border);
+  margin: 0 4px;
+}
+
+.martis-tb-user {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 4px;
+  border-radius: var(--martis-radius-full);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              border-color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-tb-user:hover {
+  background: var(--martis-hover);
+  border-color: var(--martis-border);
+}
+.martis-tb-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: var(--martis-weight-semibold);
+  font-size: 11px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.martis-tb-user-name {
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .martis-tb-user-name {
+    display: none;
+  }
+}
+
+/* ============================================================
+   SHELL — Topnav preset
+   Horizontal top-navigation used when `config.layout.preset = 'topnav'`.
+   Same design tokens as the sidebar shell — brand mark on the left,
+   inline links, icon-button cluster + divider + user pill on the right.
+   ============================================================ */
+.martis-topnav-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 20px;
+  background: var(--martis-topbar);
+  border-bottom: 1px solid var(--martis-border);
+  flex-shrink: 0;
+}
+
+.martis-topnav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 12px;
+  border-right: 1px solid var(--martis-border);
+  flex-shrink: 0;
+}
+.martis-topnav-brand .martis-sb-logo-mark {
+  width: 28px;
+  height: 28px;
+}
+.martis-topnav-brand-text {
+  font-weight: var(--martis-weight-semibold);
+  font-size: var(--martis-text-base);
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+}
+
+.martis-topnav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  /* Thin, only-on-hover horizontal scrollbar so the bar doesn't show
+     a permanent gutter below the nav buttons. Safari/Chrome honour
+     scrollbar-color + -webkit-scrollbar; Firefox uses scrollbar-width. */
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-topnav-links::-webkit-scrollbar {
+  height: 4px;
+}
+.martis-topnav-links::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+.martis-topnav-links:hover {
+  scrollbar-width: thin;
+  scrollbar-color: var(--martis-border) transparent;
+}
+.martis-topnav-links:hover::-webkit-scrollbar-thumb {
+  background: var(--martis-border);
+}
+
+.martis-topnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--martis-radius-md);
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-topnav-link:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-topnav-link.active {
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+}
+
+.martis-topnav-group {
+  position: relative;
+}
+
+.martis-topnav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--martis-radius-md);
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-topnav-dropdown-item:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-topnav-dropdown-item.active {
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+}
+
+.martis-topnav-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.martis-topnav-breadcrumbs {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--martis-border);
+  background: var(--martis-bg);
+}
+
+/* Content area — single scroll container. The footer sits at the
+   tail of this element as a flex child, so short pages push the footer
+   to the viewport bottom while long pages let it scroll into view
+   naturally. Sidebar stays anchored above the footer because it spans
+   the full grid height. */
+.martis-shell-content {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--martis-bg);
+}
+.martis-page {
+  padding: 24px 28px 40px;
+  flex: 1 0 auto;
+  min-width: 0;
+}
+.martis-shell-pagefooter {
+  border-top: 1px solid var(--martis-border);
+  height: 44px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  background: var(--martis-bg);
+  flex: 0 0 auto;
+  margin-top: auto;
 }
 
 body {
@@ -302,10 +1821,13 @@ html.dark body {
   background-color: var(--martis-table-header-bg);
   color: var(--martis-table-header-text);
   border-color: var(--martis-border);
-  font-size: 0.75rem;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   font-weight: 600;
+  height: 38px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .p-datatable .p-datatable-tbody > tr {
   background-color: var(--martis-sidebar);
@@ -324,9 +1846,27 @@ html.dark body {
 .p-datatable .p-datatable-emptymessage td {
   background-color: var(--martis-sidebar);
   border-color: var(--martis-border);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--martis-text-muted);
+  font-size: 0.875rem;
+}
+.p-datatable .p-datatable-emptymessage:hover td {
+  /* Empty-state rows shouldn't react to hover — no data to interact with. */
+  background-color: var(--martis-sidebar) !important;
 }
 .p-datatable .p-sortable-column:hover {
   background-color: var(--martis-row-hover) !important;
+}
+/* Non-sortable columns keep the default cursor — only sortable headers
+   respond to clicks. Table.tsx passes `sortable={false}` to PrimeReact
+   for every column; our custom header button handles sort so only the
+   button itself is pointer-cursor. */
+.p-datatable .p-datatable-thead > tr > th {
+  cursor: default !important;
+}
+.p-datatable .p-datatable-thead > tr > th button {
+  cursor: pointer;
 }
 
 /* ── Checkbox ──────────────────────────────────────────────────── */
@@ -497,13 +2037,61 @@ html.dark body {
 }
 
 /* ── Toast ─────────────────────────────────────────────────────── */
+/* F7-39 — PrimeReact Toast aligned to the design-system Catalog spec.
+   320px minimum, surface + border + token shadow, severity colour
+   surfaced via the icon bubble (and the legacy left border for
+   continuity). The structural styling (font, padding, gaps) follows
+   the same recipe as `.martis-toast`. */
 .p-toast {
   z-index: 99999 !important;
 }
 .p-toast .p-toast-message {
-  background-color: var(--martis-surface);
-  border-color: var(--martis-border);
+  background-color: var(--martis-surface) !important;
+  border: 1px solid var(--martis-border) !important;
   color: var(--martis-text);
+  border-radius: var(--martis-radius-md) !important;
+  box-shadow: var(--martis-shadow-md) !important;
+  min-width: 320px;
+  max-width: 420px;
+  font-size: 14px;
+}
+.p-toast .p-toast-message-content {
+  padding: 12px 14px !important;
+  gap: 10px !important;
+  align-items: flex-start !important;
+}
+.p-toast .p-toast-message-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid !important;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff !important;
+  font-size: 14px !important;
+}
+.p-toast .p-toast-summary {
+  font-weight: var(--martis-weight-semibold, 600) !important;
+  margin-bottom: 2px;
+  line-height: 1.3;
+  color: var(--martis-text);
+}
+.p-toast .p-toast-detail {
+  color: var(--martis-text-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.4;
+  margin: 0 !important;
+}
+.p-toast .p-toast-icon-close {
+  width: 20px !important;
+  height: 20px !important;
+  color: var(--martis-text-muted) !important;
+  border-radius: var(--martis-radius-sm);
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.p-toast .p-toast-icon-close:hover {
+  background: var(--martis-hover) !important;
+  color: var(--martis-text) !important;
 }
 
 /* ── Menu popup — Fix text visibility ──────────────────────────── */
@@ -548,22 +2136,38 @@ html.dark body {
 .martis-input-bg { background-color: var(--martis-input-bg); }
 .martis-surface-alt { background-color: var(--martis-surface-alt); }
 
-/* ── Custom Input (matches PrimeReact InputText styling) ─────── */
+/* ── Custom Input — aligned to design-system `.input` spec ─────
+   Fixed 36px height with radius-md, horizontal padding `10px`, and a
+   focus glow (3px accent ring) matching Catalog.html:1265-1280. Error
+   variant swaps the border + glow to danger. Consumed by the new
+   `.martis-input-wrap` + `FieldWrapper` pattern and by every field
+   component that renders a native or PrimeReact input. */
 .martis-input {
+  height: 36px;
   background-color: var(--martis-input-bg);
   color: var(--martis-text);
   border: 1px solid var(--martis-border);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  border-radius: var(--martis-radius-md);
+  padding: 0 10px;
+  font-size: var(--martis-text-sm);
   line-height: 1.25rem;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--martis-dur-fast) var(--martis-ease-standard),
+              box-shadow var(--martis-dur-fast) var(--martis-ease-standard);
   width: 100%;
 }
-.martis-input:focus {
+.martis-input:focus,
+.martis-input:focus-visible {
   border-color: var(--martis-accent);
-  box-shadow: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-input.is-error,
+.martis-input[aria-invalid="true"] {
+  border-color: var(--martis-danger);
+}
+.martis-input.is-error:focus,
+.martis-input[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--martis-danger) 30%, transparent);
 }
 .martis-input::placeholder {
   color: var(--martis-text-muted);
@@ -572,6 +2176,53 @@ html.dark body {
 .martis-input[readonly] {
   opacity: 0.7;
   cursor: not-allowed;
+}
+/* Textarea and multi-line variants opt out of the fixed 36px height. */
+.martis-input.martis-input-textarea {
+  height: auto;
+  min-height: 80px;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* ── Form wrapper — colocates label + input + help/error ──────
+   Vertical stack with 6px gap. Matches Catalog `.input-wrap` spec
+   (label 12px/500, help + error-text 12px, error with icon). Every
+   scalar field on the Create/Update pages renders inside one. */
+.martis-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.martis-input-wrap > label {
+  font-size: 12px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.martis-input-required {
+  color: var(--martis-danger);
+  font-weight: var(--martis-weight-medium);
+}
+.martis-input-help {
+  font-size: 12px;
+  color: var(--martis-text-muted);
+  line-height: 1.45;
+}
+.martis-input-error {
+  font-size: 12px;
+  color: var(--martis-danger);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.45;
+}
+.martis-input-error svg {
+  flex-shrink: 0;
 }
 
 /* ── Global Search Modal ───────────────────────────────────────── */
@@ -645,25 +2296,93 @@ html.dark body {
 .martis-toast-container.pos-top-center { top: 16px; left: 50%; transform: translateX(-50%); }
 .martis-toast-container.pos-bottom-center { bottom: 16px; left: 50%; transform: translateX(-50%); }
 
+/* F7-39 — Toast spec aligned to the design system Catalog. 320px
+   minimum width, surface bg, design-token shadow, icon bubble + title +
+   message + close + optional progress bar. */
 .martis-toast {
   pointer-events: auto;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  min-width: 300px;
+  min-width: 320px;
   max-width: 420px;
-  padding: 12px 16px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: var(--martis-radius-md);
   border: 1px solid var(--martis-border);
-  background-color: var(--martis-card);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  background: var(--martis-surface);
+  box-shadow: var(--martis-shadow-md);
   animation: martis-toast-in 0.3s ease-out;
   color: var(--martis-text);
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
 }
-.martis-toast-success { border-left: 4px solid #22c55e; }
-.martis-toast-error { border-left: 4px solid #ef4444; }
-.martis-toast-warning { border-left: 4px solid #f59e0b; }
-.martis-toast-info { border-left: 4px solid #3b82f6; }
+.martis-toast-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.martis-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+.martis-toast-title {
+  font-weight: var(--martis-weight-semibold, 600);
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+.martis-toast-message {
+  color: var(--martis-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.martis-toast-close {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  border-radius: var(--martis-radius-sm);
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.martis-toast-close:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--martis-surface-alt);
+  overflow: hidden;
+}
+.martis-toast-progress-fill {
+  height: 100%;
+  background: var(--martis-accent);
+  transition: width 100ms linear;
+}
+/* Severity icon-bubble fills (kept on the bubble itself, not on the
+   left border, per the Catalog spec). The legacy `border-left` rules
+   below stay so existing markup that used the old chrome continues
+   to render. */
+.martis-toast-success .martis-toast-icon { background: var(--martis-success); }
+.martis-toast-error .martis-toast-icon { background: var(--martis-danger); }
+.martis-toast-warning .martis-toast-icon { background: var(--martis-warning); }
+.martis-toast-info .martis-toast-icon { background: var(--martis-info); }
+.martis-toast-success { border-left: 4px solid var(--martis-success); }
+.martis-toast-error { border-left: 4px solid var(--martis-danger); }
+.martis-toast-warning { border-left: 4px solid var(--martis-warning); }
+.martis-toast-info { border-left: 4px solid var(--martis-info); }
 
 @keyframes martis-toast-in {
   from { opacity: 0; transform: translateY(10px); }
@@ -1114,61 +2833,87 @@ html:not(.dark) .martis-dropzone {
   opacity: 0.7;
 }
 
-/* DataTable — improved styling */
+/* DataTable — mirrors `.table` in Martis Shell.html (line 862+).
+   Any deviation here is a spec regression, not a choice. */
 .martis-datatable {
   border-radius: 0.75rem;
   overflow: hidden;
   border: 1px solid var(--martis-border);
   background-color: var(--martis-card);
+  font-family: var(--martis-font-sans);
 }
 
-.martis-datatable table {
+.martis-datatable table,
+.martis-datatable .p-datatable-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: auto;
+  font-family: var(--martis-font-sans);
+  font-size: var(--martis-text-sm);
 }
 
 .martis-datatable thead th {
-  padding: 0.75rem 1rem;
-  font-size: 0.75rem;
-  font-weight: 700;
+  height: 38px;
+  padding: 0 14px;
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   color: var(--martis-table-header-text);
   background-color: var(--martis-table-header-bg);
-  border-bottom: 2px solid var(--martis-table-header-border);
+  border-bottom: 1px solid var(--martis-table-header-border);
   text-align: left;
   white-space: nowrap;
 }
 
 .martis-datatable tbody tr {
   transition: background-color 0.15s ease;
-  border-bottom: 1px solid var(--martis-border);
 }
 
 .martis-datatable tbody tr:last-child {
   border-bottom: none;
 }
 
-.martis-datatable tbody tr:hover {
-  background-color: var(--martis-hover);
+/* Shell spec: hover + zebra applied to TD so they override the (transparent)
+   TR background without colliding with the selected-row tint. */
+.martis-datatable tbody tr:nth-child(even) td {
+  background-color: var(--martis-row-even);
+}
+.martis-datatable tbody tr:hover td,
+.martis-datatable tbody tr:nth-child(even):hover td {
+  background-color: var(--martis-row-hover);
   cursor: pointer;
 }
 
-/* Striped rows */
-.martis-datatable-striped tbody tr:nth-child(even) {
-  background-color: var(--martis-surface);
-}
-
-.martis-datatable-striped tbody tr:nth-child(even):hover {
-  background-color: var(--martis-hover);
-}
-
+/* Default cell typography — mirrors `.table .cell-mono` in Martis Shell
+   as the project's table-wide default: JetBrains Mono, 12px, muted.
+   Badges and links below override this with Inter + accent respectively. */
 .martis-datatable tbody td {
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  color: var(--martis-text);
+  height: var(--martis-row-h, 44px);
+  padding: 8px 14px;
+  font-family: var(--martis-font-mono);
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-regular, 400);
+  color: var(--martis-text-muted);
   vertical-align: middle;
+}
+/* Badges keep their Shell typography (Inter, 11px, medium) and their
+   own colour — the mono default only applies to plain cell text. */
+.martis-datatable tbody td .martis-badge {
+  font-family: var(--martis-font-sans);
+}
+/* Links inside cells use the accent tint but inherit the cell's
+   mono typography so table rows stay visually aligned. */
+.martis-datatable tbody td a {
+  color: var(--martis-accent);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+.martis-datatable tbody td a:hover {
+  text-decoration: underline;
 }
 
 /* Checkbox column */
@@ -1189,6 +2934,19 @@ html:not(.dark) .martis-dropzone {
   opacity: 0.8;
 }
 
+/* Sortable-column hint — tiny double caret shown next to the label on
+   columns that can be sorted. Discreet at rest (0.3) so it doesn't
+   compete with the data; brighter on hover so the affordance is
+   unmistakable when the cursor approaches. The active direction is
+   painted by `SortIcon` at full opacity instead. */
+.martis-th-sort-hint {
+  opacity: 0.3;
+  transition: opacity 120ms ease;
+}
+.martis-th-sortable:hover .martis-th-sort-hint {
+  opacity: 0.7;
+}
+
 /* ── Fix: Checkbox check-mark visibility in dark theme (REA-1140) ── */
 /* PrimeReact checkbox checked icon inherits text color — force white */
 .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
@@ -1197,25 +2955,234 @@ html:not(.dark) .martis-dropzone {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
-/* Increase checkbox size slightly for better visibility */
+/* Native `<input type="checkbox">` styled to match the PrimeReact
+   checkbox so preferences menu, form fields and toolbar selections
+   all read as the same control. Consumers opt in with the
+   `.martis-checkbox` class.
+
+   Design-system spec (`.checkbox` in Martis Shell.html):
+   - 16x16, 1px border on `--martis-input-bg`, radius-sm at rest.
+   - Accent-filled with a white "L"-shaped tick on check. The tick
+     is drawn with CSS borders (no SVG) so themes swapping the font
+     colour don't accidentally hide it. */
+.martis-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-sm, 4px);
+  background: var(--martis-input-bg);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.martis-checkbox:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+}
+.martis-checkbox:checked {
+  background: var(--martis-accent);
+  border-color: var(--martis-accent);
+}
+.martis-checkbox:checked::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: 2px solid #fff;
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+.martis-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-checkbox:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Row helper for labelled checkboxes — same shape as `.martis-radio-row`
+   so form-control rows read consistently. */
+.martis-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+}
+.martis-checkbox-row input:disabled + * {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Fase 7 F7-29 — Radio
+   16×16 circular, 1px border on input-bg at rest; accent border
+   with an accent-filled inner dot when checked. The `<input>` is
+   hidden and the visible circle is a `<span class="martis-radio-dot">`
+   rendered as a sibling (Catalog pattern). Consumers can also apply
+   `.martis-radio` to a bare native `<input type="radio">` and skip
+   the dot — the native input swaps to look-like-a-dot via `::after`.
+
+   Ship both patterns so authors pick whichever is easiest for them.
+   ============================================================ */
+.martis-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--martis-border);
+  border-radius: 50%;
+  background: var(--martis-input-bg);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.martis-radio:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+}
+.martis-radio:checked {
+  border-color: var(--martis-accent);
+}
+.martis-radio:checked::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--martis-accent);
+}
+.martis-radio:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-radio:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Row helper — wraps radio + label in an inline-flex aligned on the baseline
+   so the text centres against the 16px circle. Mirrors Catalog `.radio`. */
+.martis-radio-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+}
+.martis-radio-row input:disabled + * {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Vertical group wrapper — Catalog `.radio-row` (they chose a confusing
+   name for a column; we ship the same shape under a non-ambiguous alias). */
+.martis-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============================================================
+   Fase 7 F7-30 — Switch / Toggle
+   Track 32×18 rounded pill on `--martis-border`, 14×14 white knob
+   with 2px padding. On check: track swaps to `--martis-accent`,
+   knob slides 14px right. Wrapped in a `<label class="martis-switch">`
+   with a hidden native checkbox so keyboard/accessibility works for
+   free (Catalog `.toggle` spec).
+   ============================================================ */
+.martis-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+  user-select: none;
+}
+.martis-switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.martis-switch-track {
+  width: 32px;
+  height: 18px;
+  background: var(--martis-border);
+  border-radius: 999px;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color var(--martis-dur-base) var(--martis-ease-standard);
+}
+.martis-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform var(--martis-dur-base) var(--martis-ease-standard);
+}
+.martis-switch-input:checked ~ .martis-switch-track {
+  background: var(--martis-accent);
+}
+.martis-switch-input:checked ~ .martis-switch-track::after {
+  transform: translateX(14px);
+}
+.martis-switch-input:focus-visible ~ .martis-switch-track {
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-switch-input:disabled ~ .martis-switch-track {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.martis-switch-input:disabled ~ .martis-switch-label {
+  opacity: 0.55;
+}
+
+/* Checkbox — matches the design-system spec: 16x16, radius-sm, border
+   on input-bg at rest, accent-filled when checked with a white "L"
+   check drawn via borders (so no SVG stroke mismatch across themes). */
+.p-checkbox,
 .p-checkbox .p-checkbox-box {
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 0.25rem;
+  width: 16px;
+  height: 16px;
+}
+.p-checkbox .p-checkbox-box {
+  border-radius: var(--martis-radius-sm, 4px) !important;
+  border: 1px solid var(--martis-border) !important;
+  background: var(--martis-input-bg) !important;
+  box-shadow: none !important;
   transition: background-color 0.15s, border-color 0.15s;
 }
 .p-checkbox .p-checkbox-box.p-highlight {
   background-color: var(--martis-accent) !important;
   border-color: var(--martis-accent) !important;
+  box-shadow: none !important;
 }
-/* Light theme checkbox */
-html:not(.dark) .p-checkbox .p-checkbox-box {
-  background-color: var(--martis-surface);
-  border-color: #cbd5e1;
-}
-html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight {
-  background-color: var(--martis-accent) !important;
+/* Hover affordance — mirrors the `.martis-checkbox` behaviour so the
+   datatable and preferences-menu checkboxes respond identically to
+   the pointer. Skipped on the already-accent-filled checked state. */
+.p-checkbox:not(.p-disabled):hover .p-checkbox-box:not(.p-highlight) {
   border-color: var(--martis-accent) !important;
+}
+/* Light theme checkbox — aligns with the spec: 1px `--martis-border`
+   on `--martis-input-bg`. Defer accent colours to the base `.p-highlight`
+   rule so themes that redefine accent tokens flow through. */
+html:not(.dark) .p-checkbox .p-checkbox-box {
+  background-color: var(--martis-input-bg);
+  border-color: var(--martis-border);
 }
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
@@ -1224,57 +3191,51 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   fill: #ffffff !important;
 }
 
-/* ── Fix: Table header and separator improvements (REA-1140 + REA-1223) ─── */
-/* Dark theme — header row gets accent-tinted background + colored border */
-.martis-datatable thead th {
-  background-color: var(--martis-table-header-bg) !important;
-  color: var(--martis-table-header-text) !important;
-  border-bottom: 2px solid var(--martis-table-header-border) !important;
-  padding: 0.875rem 1rem !important;
-}
-
-/* Dark theme — softer row separators */
+/* Header colours live in `.martis-datatable .p-datatable-thead > tr > th`
+   below (Shell spec: 38px, 12px semibold, 1px border). Keep TR borderless
+   in both themes so the TD-level separators stay authoritative. */
 .martis-datatable tbody tr {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.4) !important;
+  border-bottom: 0 !important;
 }
 
-/* Light theme — header with accent-tinted background */
-html:not(.dark) .martis-datatable thead th {
-  background-color: var(--martis-table-header-bg) !important;
-  color: var(--martis-table-header-text) !important;
-  border-bottom: 2px solid var(--martis-table-header-border) !important;
-}
-
-/* Light theme — subtle but visible separators */
+/* Row separators now live on the TD (see DataTable row border overrides
+   block further below) — keep the TR border off in both themes. */
 html:not(.dark) .martis-datatable tbody tr {
-  border-bottom: 1px solid #e2e8f0 !important;
+  border-bottom: 0 !important;
 }
 
-/* PrimeReact DataTable header overrides for both themes */
+/* PrimeReact DataTable header overrides — Shell spec (`.table thead th`):
+   38px tall, 12px semibold, 0.04em, 1px bottom border, 0 14px padding. */
 .martis-datatable .p-datatable-thead > tr > th {
   background-color: var(--martis-table-header-bg) !important;
   color: var(--martis-table-header-text) !important;
-  border-bottom: 2px solid var(--martis-table-header-border) !important;
-  padding: 0.875rem 1rem !important;
-  font-size: 0.75rem;
-  font-weight: 700;
+  border-bottom: 1px solid var(--martis-table-header-border) !important;
+  height: 38px !important;
+  padding: 0 14px !important;
+  font-size: var(--martis-text-xs) !important;
+  font-weight: var(--martis-weight-semibold) !important;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 html:not(.dark) .martis-datatable .p-datatable-thead > tr > th {
   background-color: var(--martis-table-header-bg) !important;
   color: var(--martis-table-header-text) !important;
 }
 
-/* PrimeReact DataTable row border overrides */
+/* Row separator lives on the TD (mirrors design-system `.table tbody td`)
+   so the hairline stays visible above zebra stripes and selected rows. */
 .martis-datatable .p-datatable-tbody > tr {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
-}
-html:not(.dark) .martis-datatable .p-datatable-tbody > tr {
-  border-bottom: 1px solid #e2e8f0 !important;
+  border-bottom: none;
 }
 .martis-datatable .p-datatable-tbody > tr > td {
-  border-color: transparent !important;
+  border-bottom: 1px solid var(--martis-border) !important;
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  /* Height + padding owned by `.martis-datatable tbody td` above (Shell spec). */
+}
+.martis-datatable .p-datatable-tbody > tr:last-child > td {
+  border-bottom: 0 !important;
 }
 
 /* ── Per-page selector styling ─────────────────────────────────── */
@@ -1313,9 +3274,9 @@ html:not(.dark) .p-paginator .p-paginator-page:hover {
   color: var(--martis-text) !important;
 }
 html:not(.dark) .p-paginator .p-paginator-page.p-highlight {
-  background-color: var(--martis-accent) !important;
-  color: #ffffff !important;
-  border-color: var(--martis-accent) !important;
+  background-color: var(--martis-accent-bg-light) !important;
+  color: var(--martis-accent) !important;
+  border-color: transparent !important;
 }
 html:not(.dark) .p-paginator .p-paginator-prev,
 html:not(.dark) .p-paginator .p-paginator-next,
@@ -1336,19 +3297,16 @@ html:not(.dark) .p-paginator .p-paginator-last:hover {
    --martis-surface in light = #ffffff = same as row bg → invisible.
    Use a slightly tinted background for even rows in light mode.
 ──────────────────────────────────────────────────────────────── */
-html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even),
-html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even) {
-  background-color: #f8fafc !important;
-}
-html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover,
-html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover {
-  background-color: var(--martis-row-hover) !important;
-}
-
-/* ── Fix: Light theme DataTable row background (REA-1140) ────────
-   Force white on odd rows and proper light bg on even rows         */
-html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+/* Striping lives on the TD per Shell spec (see `.martis-datatable tbody
+   tr:nth-child(even) td` rule above). Older TR-level overrides caused
+   the zebra to disappear because the TR stayed transparent. */
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even) > td,
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even) > td {
   background-color: var(--martis-row-even) !important;
+}
+html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover > td,
+html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
+  background-color: var(--martis-row-hover) !important;
 }
 
 /* ── DataTable gridlines support (REA-1140) ──────────────────────
@@ -1406,24 +3364,139 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr:nth-child(even) {
   padding: 1rem 1.25rem !important;
 }
 
-/* ── Pagination border uses CSS variables (REA-1140) ──────────── */
-.martis-pagination-wrapper {
-  /* no border — clean transition from table to paginator */
+/* Index surface — single card container that holds the DataTable
+   header, rows AND the pagination footer. Matches the design-system
+   spec where "N selected · X of Y" and the paginator read as the
+   bottom row of the table, not a floating strip. */
+.martis-index-surface {
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg, 0.75rem);
+  background-color: var(--martis-card);
+  overflow: hidden;
+}
+/* Toolbar row at the top of the card — holds filters/bulk on one line
+   and search/per-page/trashed on the next. Subtle separator below so
+   the DataTable header reads as the next row of the same surface. */
+.martis-index-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--martis-border);
+  background-color: var(--martis-surface);
+}
+.martis-index-toolbar > div:empty {
+  display: none;
+}
+html[data-density="dense"] .martis-index-toolbar {
+  padding: 8px 12px;
+  gap: 8px;
+}
+.martis-index-surface > .martis-datatable {
+  /* The card is now one level up — inner DataTable drops its own
+     border + radius so the bottom of tbody flows into the footer. */
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+.martis-index-surface > .martis-datatable table {
+  /* Prevent the inner table from clipping rounded corners we no
+     longer own. */
+  border-radius: 0;
+}
+.martis-index-surface > .martis-pagination-wrapper {
+  /* Footer reads as the last row of the card — subtle separator on
+     top, no extra border below. */
+  border-top: 1px solid var(--martis-border);
 }
 
-/* ── Compact paginator buttons (REA-1194) ────────────────────────
-   Reduce page number and prev/next arrow button sizes globally.
-   Affects ResourceIndex, BelongsToMany detail panel, and modals.
-──────────────────────────────────────────────────────────────── */
+/* Standalone pagination (outside `.martis-index-surface`) keeps its
+   legacy clean transition. */
+.martis-pagination-wrapper {
+  padding: 10px 14px;
+  font-size: var(--martis-text-xs, 0.75rem);
+  color: var(--martis-text-muted);
+}
+.martis-pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.martis-pagination-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: var(--martis-text-xs, 0.75rem);
+  color: var(--martis-text-muted);
+}
+.martis-pagination-summary strong {
+  color: inherit;
+  font-weight: inherit;
+}
+.martis-pagination-selected {
+  color: inherit;
+  font-weight: inherit;
+}
+.martis-pagination-sep {
+  margin: 0 6px;
+  color: var(--martis-text-muted);
+  opacity: 0.7;
+}
+.martis-pagination-label {
+  color: var(--martis-text-muted);
+  font-weight: var(--martis-weight-regular, 400);
+  text-transform: lowercase;
+}
+/* Paginator chip styling — matches the design-system spec (compact
+   buttons, accent-filled current, subtle hover on siblings). */
+.martis-paginator.p-paginator {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.martis-paginator .p-paginator-page,
+.martis-paginator .p-paginator-prev,
+.martis-paginator .p-paginator-next {
+  color: var(--martis-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.martis-paginator .p-paginator-page:not(.p-highlight):hover,
+.martis-paginator .p-paginator-prev:hover,
+.martis-paginator .p-paginator-next:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+  border-color: var(--martis-border);
+}
+.martis-paginator .p-paginator-page.p-highlight {
+  /* Shell spec (`.pagination-btn.active`): accent-tinted bg + accent text. */
+  background: var(--martis-accent-bg-light) !important;
+  color: var(--martis-accent) !important;
+  border-color: transparent !important;
+  font-weight: var(--martis-weight-semibold, 600);
+}
+.martis-paginator .p-paginator-prev:disabled,
+.martis-paginator .p-paginator-next:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Compact paginator buttons — applied globally so inline paginators
+   in drawers / dialogs stay tight. Sidebar-level polish lives in the
+   `.martis-paginator` rules above. */
 .p-paginator .p-paginator-page,
 .p-paginator .p-paginator-prev,
 .p-paginator .p-paginator-next,
 .p-paginator .p-paginator-first,
 .p-paginator .p-paginator-last {
-  min-width: 2rem !important;
-  width: 2rem !important;
-  height: 2rem !important;
-  font-size: 0.8125rem !important;
+  min-width: 1.75rem !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  font-size: 0.75rem !important;
   padding: 0 !important;
 }
 .p-paginator .p-paginator-prev svg,
@@ -1691,27 +3764,31 @@ html:not(.dark) .martis-trix-detail a:hover {
   color: #4338ca;
 }
 
-/* == CodeMirror Dark Mode Fix ===========================================
-   Force CodeMirror container backgrounds to respect the Martis dark theme
-   when no explicit theme extension is loaded.
-   ======================================================================= */
-
+/* == F7-41 — CodeMirror theme aligned to Martis design tokens.
+   Surface, gutter, mono font and selection rgba all resolve from
+   `--martis-*` tokens so the editor follows accent / theme overrides
+   automatically. The `!important` keepers exist because CodeMirror
+   theme extensions ship inline styles via the JS theme. */
 .cm-editor {
   background-color: var(--martis-input-bg) !important;
+  font-family: var(--martis-font-mono) !important;
+  font-size: var(--martis-text-sm, 13px) !important;
+  border-radius: var(--martis-radius-md);
 }
 
 .cm-editor .cm-gutters {
   background-color: var(--martis-surface) !important;
   border-right-color: var(--martis-border) !important;
+  color: var(--martis-text-muted) !important;
 }
 
 html:not(.dark) .cm-editor {
-  background-color: #ffffff !important;
+  background-color: var(--martis-input-bg) !important;
 }
 
 html:not(.dark) .cm-editor .cm-gutters {
-  background-color: #f9fafb !important;
-  border-right-color: #e5e7eb !important;
+  background-color: var(--martis-surface) !important;
+  border-right-color: var(--martis-border) !important;
 }
 
 
@@ -1721,28 +3798,28 @@ html:not(.dark) .cm-editor .cm-gutters {
    ======================================================================= */
 
 ::selection {
-  background-color: rgba(99, 102, 241, 0.25);
+  background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
   color: var(--martis-text);
 }
 
 html:not(.dark) ::selection {
-  background-color: rgba(99, 102, 241, 0.2);
-  color: #1e293b;
+  background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
+  color: var(--martis-text);
 }
 
 /* Textarea / code editors explicit selection */
 textarea::selection,
 .cm-editor .cm-content ::selection,
 .martis-trix-wrapper trix-editor ::selection {
-  background-color: rgba(99, 102, 241, 0.25);
+  background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
   color: var(--martis-text);
 }
 
 html:not(.dark) textarea::selection,
 html:not(.dark) .cm-editor .cm-content ::selection,
 html:not(.dark) .martis-trix-wrapper trix-editor ::selection {
-  background-color: rgba(99, 102, 241, 0.2);
-  color: #1e293b;
+  background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
+  color: var(--martis-text);
 }
 
 /* == Bug 4: Country dropdown — light theme panel background (REA-1163) ====
@@ -1784,15 +3861,15 @@ html:not(.dark) .p-dropdown .p-dropdown-trigger {
    ======================================================================= */
 
 html:not(.dark) .cm-editor .cm-activeLine {
-  background-color: rgba(99, 102, 241, 0.06) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 6%, transparent) !important;
 }
 
 html:not(.dark) .cm-editor .cm-activeLineGutter {
-  background-color: rgba(99, 102, 241, 0.08) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 8%, transparent) !important;
 }
 
 html:not(.dark) .cm-editor .cm-cursor {
-  border-left-color: #1e293b !important;
+  border-left-color: var(--martis-text) !important;
 }
 
 html:not(.dark) .cm-editor .cm-gutterElement {
@@ -1803,13 +3880,13 @@ html:not(.dark) .cm-editor .cm-content {
   color: var(--martis-text) !important;
 }
 
-/* CodeMirror selection in light mode */
+/* CodeMirror selection — accent-tinted in both themes. */
 html:not(.dark) .cm-editor .cm-selectionBackground {
-  background-color: rgba(99, 102, 241, 0.15) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 15%, transparent) !important;
 }
 
 .cm-editor .cm-selectionBackground {
-  background-color: rgba(99, 102, 241, 0.3) !important;
+  background-color: color-mix(in srgb, var(--martis-accent) 30%, transparent) !important;
 }
 
 /* == Bug 6: Color picker popup — light theme (REA-1163) ===================
@@ -2201,24 +4278,14 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   fill: #dc2626 !important;
 }
 
-/* ── Fix: Dark theme checkbox — brighter highlight for visibility (REA-1102) ── */
-.dark .p-checkbox .p-checkbox-box {
-  background-color: rgba(255,255,255,0.08);
-  border: 2px solid rgba(255,255,255,0.3);
-}
-.dark .p-checkbox .p-checkbox-box.p-highlight {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
-  box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
-}
+/* Dark theme checkbox — keep the white tick colour, defer every other
+   visual (size, border, bg) to the base rule so we stay aligned with
+   the design-system spec (1px border, `--martis-border`, input-bg). */
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 .dark .p-checkbox .p-checkbox-box.p-highlight svg,
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   color: #ffffff !important;
   fill: #ffffff !important;
-}
-.dark .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
-  border: 2px solid rgba(255,255,255,0.4);
 }
 /* Correct: p-highlight is on root .p-checkbox, not .p-checkbox-box (REA-1182) */
 .dark .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
@@ -2235,25 +4302,32 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   z-index: 10000 !important;
 }
 
-/* ── PrimeReact Tooltip styling (REA-1102) ── */
+/* ── OverlayPanel arrow: align with Martis surface tokens (Bug 8) ──
+   PrimeReact's default arrow has hardcoded colors that clash with the
+   light theme. Override with surface/border tokens so it adapts to
+   whichever theme + accent is active. */
+.p-overlaypanel::before {
+  border-bottom-color: var(--martis-border) !important;
+}
+.p-overlaypanel::after {
+  border-bottom-color: var(--martis-surface) !important;
+}
+.p-overlaypanel.p-overlaypanel-flipped::before {
+  border-top-color: var(--martis-border) !important;
+}
+.p-overlaypanel.p-overlaypanel-flipped::after {
+  border-top-color: var(--martis-surface) !important;
+}
+
+/* ── PrimeReact Tooltip overlay z-index + max width.
+   Visual styling (font / padding / border / arrow / duration) lives in
+   the F7-38 spec block further down. */
 .p-tooltip {
   z-index: 99999 !important;
 }
 .p-tooltip .p-tooltip-text {
-  font-size: 0.75rem;
-  padding: 0.375rem 0.625rem;
-  border-radius: 0.375rem;
   white-space: nowrap;
   max-width: 300px;
-}
-/* Tooltip colors are handled by CSS variables in the theming block below */
-
-/* ── Fix: Custom checkbox in table — independent of PrimeReact DataTable selection (REA-1102) ── */
-.martis-table-checkbox .p-checkbox-box {
-  width: 1.25rem !important;
-  height: 1.25rem !important;
-  border-radius: 0.25rem !important;
-  cursor: pointer !important;
 }
 
 /* ── Fix: Inline action icons — larger hit target (REA-1102) ── */
@@ -2302,69 +4376,107 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
   border-color: var(--martis-border);
 }
 
-/* ── Selected row highlight (Problem 4/7) ───────────────────────── */
-.p-datatable .p-datatable-tbody > tr.p-highlight {
-  background-color: rgba(99, 102, 241, 0.1) !important;
+/* ── Selected row — checkbox-only indicator ─────────────────────
+   The checked checkbox is the sole affordance for selection; we
+   deliberately do NOT tint the row background. A full-row accent
+   fill washed out the URL / link / badge colours and produced a
+   perceived white strip on sparse cells. */
+.p-datatable .p-datatable-tbody > tr.p-highlight,
+.p-datatable .p-datatable-tbody > tr.p-highlight > td,
+.martis-row-selected,
+.martis-row-selected > td,
+.p-datatable .p-datatable-tbody > tr.martis-row-selected,
+.p-datatable .p-datatable-tbody > tr.martis-row-selected > td {
+  background-color: transparent !important;
   color: var(--martis-text) !important;
 }
-html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight {
-  background-color: rgba(99, 102, 241, 0.08) !important;
-  color: var(--martis-text) !important;
-}
-.martis-row-selected {
-  background-color: rgba(99, 102, 241, 0.1) !important;
+.p-datatable .p-datatable-tbody > tr.p-highlight:hover,
+.p-datatable .p-datatable-tbody > tr.p-highlight:hover > td,
+.p-datatable .p-datatable-tbody > tr.martis-row-selected:hover,
+.p-datatable .p-datatable-tbody > tr.martis-row-selected:hover > td {
+  background-color: var(--martis-row-hover) !important;
 }
 
-/* ── PrimeReact Tooltip theming ─────────────────────────────────── */
+/* ── F7-38 — PrimeReact Tooltip theming aligned to the design system.
+   12px text on `--martis-surface-alt` with a 1px `--martis-border`,
+   8px arrow that matches the bubble fill, and a fast fade controlled
+   by `--martis-dur-ultra`. The bg / border / arrow tokens cascade
+   from the CSS variables block so dark and light themes pick up the
+   right values automatically. */
 .p-tooltip .p-tooltip-text {
-  background-color: var(--martis-sidebar) !important;
+  background-color: var(--martis-surface-alt) !important;
   color: var(--martis-text) !important;
   border: 1px solid var(--martis-border) !important;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
+  font-size: 12px;
+  font-weight: var(--martis-weight-medium);
+  padding: 6px 10px;
+  border-radius: var(--martis-radius-md);
+  box-shadow: var(--martis-shadow-sm);
+  line-height: 1.3;
+  letter-spacing: 0;
 }
-/* Arrow must match the tooltip background for all positions */
+/* Animation duration follows the motion token. The package opacity
+   transition class is `.p-tooltip` itself; PrimeReact toggles the
+   class to fade in/out. */
+.p-tooltip {
+  transition-duration: var(--martis-dur-ultra, 80ms) !important;
+}
+/* Arrow geometry — 8px triangle pointing toward the host. The
+   `border-{side}-color` MUST match `--martis-surface-alt` so the
+   triangle reads as a continuation of the bubble. */
+.p-tooltip-top .p-tooltip-arrow,
+.p-tooltip-bottom .p-tooltip-arrow,
+.p-tooltip-left .p-tooltip-arrow,
+.p-tooltip-right .p-tooltip-arrow {
+  border-width: 8px !important;
+}
 .p-tooltip-top .p-tooltip-arrow {
-  border-top-color: var(--martis-sidebar) !important;
+  border-top-color: var(--martis-surface-alt) !important;
 }
 .p-tooltip-bottom .p-tooltip-arrow {
-  border-bottom-color: var(--martis-sidebar) !important;
+  border-bottom-color: var(--martis-surface-alt) !important;
 }
 .p-tooltip-left .p-tooltip-arrow {
-  border-left-color: var(--martis-sidebar) !important;
+  border-left-color: var(--martis-surface-alt) !important;
 }
 .p-tooltip-right .p-tooltip-arrow {
-  border-right-color: var(--martis-sidebar) !important;
+  border-right-color: var(--martis-surface-alt) !important;
 }
 
-/* ── Fix: Toast left border matches severity icon color exactly (REA-1183) ── */
-/* Icon colors from lara-dark-indigo theme: success=#6ee7b7, error=#fca5a5, warn=#fde047, info=#93c5fd */
-/* Only left border gets severity color; other borders remain at 0 per theme design. */
+/* F7-39 — Severity ribbon + icon bubble paint with design tokens so
+   they follow accent / theme overrides automatically. */
 .p-toast .p-toast-message.p-toast-message-success {
-  border-left: 4px solid #6ee7b7 !important;
+  border-left: 4px solid var(--martis-success) !important;
+}
+.p-toast .p-toast-message.p-toast-message-success .p-toast-message-icon {
+  background: var(--martis-success);
 }
 .p-toast .p-toast-message.p-toast-message-error {
-  border-left: 4px solid #fca5a5 !important;
+  border-left: 4px solid var(--martis-danger) !important;
+}
+.p-toast .p-toast-message.p-toast-message-error .p-toast-message-icon {
+  background: var(--martis-danger);
 }
 .p-toast .p-toast-message.p-toast-message-warn {
-  border-left: 4px solid #fde047 !important;
+  border-left: 4px solid var(--martis-warning) !important;
+}
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-message-icon {
+  background: var(--martis-warning);
 }
 .p-toast .p-toast-message.p-toast-message-info {
-  border-left: 4px solid #93c5fd !important;
+  border-left: 4px solid var(--martis-info) !important;
+}
+.p-toast .p-toast-message.p-toast-message-info .p-toast-message-icon {
+  background: var(--martis-info);
 }
 html:not(.dark) .p-toast .p-toast-message {
   background-color: #ffffff;
   color: #1e293b;
 }
 
-/* ── Fix: Light theme checkbox visibility (REA-1102 Problem 7) ────── */
-html:not(.dark) .p-checkbox .p-checkbox-box {
-  background-color: #ffffff !important;
-  border: 2px solid #94a3b8 !important;
-  width: 1.25rem !important;
-  height: 1.25rem !important;
-}
+/* Light-theme checkbox — honours the base spec (1px, `--martis-border`,
+   `--martis-input-bg`); only the hover accent is surfaced here since
+   it's specific to the input-on-card contrast in the light palette. */
 html:not(.dark) .p-checkbox .p-checkbox-box:hover {
   border-color: var(--martis-accent) !important;
 }
@@ -2385,33 +4497,13 @@ html:not(.dark) .p-checkbox-checked .p-checkbox-box svg {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
-/* DataTable specific checkbox — light theme (REA-1182)
-   NOTE: In PrimeReact v10, p-highlight is added to .p-checkbox (root), NOT .p-checkbox-box
-   Correct selector: .p-checkbox.p-highlight .p-checkbox-box (not .p-checkbox-box.p-highlight) */
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox .p-checkbox-box {
-  background-color: #ffffff !important;
-  border: 2px solid #94a3b8 !important;
-}
-/* Correct: target box via highlighted ROOT .p-checkbox — specificity (0,6,1) beats reset (0,5,1) */
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
-  background-color: var(--martis-accent) !important;
-  border-color: var(--martis-accent) !important;
-}
+/* DataTable row/header checkboxes — light theme. Size, border width
+   and resting colour flow from the base spec rule above. We only
+   surface here the white tick on an accent-filled box for the
+   highlighted state, because PrimeReact's theme keeps trying to
+   paint the icon the primary colour. */
 html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
-html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box svg {
-  color: #ffffff !important;
-  fill: #ffffff !important;
-}
-/* Header checkbox in DataTable — light theme */
-html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
-  background-color: #ffffff !important;
-  border: 2px solid #94a3b8 !important;
-}
-/* Correct: target header select-all checkbox via highlighted ROOT */
-html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box {
-  background-color: var(--martis-accent) !important;
-  border-color: var(--martis-accent) !important;
-}
+html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box svg,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box svg {
   color: #ffffff !important;
@@ -2421,15 +4513,12 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ── Table horizontal scrollbar — visible on hover (REA-1188) ───── */
-/* `overflow-x: scroll` (não `auto`) força o browser a reservar a barra
- * mesmo em macOS com "Mostrar scroll bars automaticamente" — de outro
- * modo o SO esconde a barra em trackpad e o `:hover` nunca a revela. */
+/* `overflow-x: auto` avoids reserving a permanent scrollbar gutter
+ * when the columns fit. When content does overflow, the scrollbar
+ * appears as a thin track that is transparent at rest and tinted
+ * on hover to match the design-system pattern. */
 .martis-datatable .p-datatable-wrapper {
-  /* PrimeReact aplica `style="overflow: auto"` inline no wrapper, o que
-   * bate qualquer regra de stylesheet sem `!important`. Forçamos
-   * `overflow-x: scroll` para reservar a barra de scroll mesmo quando
-   * o macOS está em modo overlay (trackpad). */
-  overflow-x: scroll !important;
+  overflow-x: auto !important;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   transition: scrollbar-color 0.2s ease;
@@ -2544,7 +4633,9 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   outline: none;
   box-shadow: none;
 }
-/* Unified focus: border accent, NO box-shadow (clean single border) */
+/* Unified focus: accent border + 3px soft ring. The ring uses
+   `--martis-focus-ring` (a translucent accent), matching the design
+   system spec and giving accessible visual feedback without an outline. */
 .martis-input:focus,
 .martis-input:focus-within,
 .martis-resource-search:focus,
@@ -2563,7 +4654,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-chips:focus-within,
 .p-chips .p-inputtext:focus {
   border-color: var(--martis-accent) !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring) !important;
   outline: none !important;
 }
 
@@ -2597,7 +4688,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 }
 .p-inputtext.p-invalid:not(:disabled):focus,
 .p-inputtextarea.p-invalid:not(:disabled):focus {
-  box-shadow: 0 0 0 0.125rem var(--martis-danger-bg) !important;
+  border-color: var(--martis-danger) !important;
+  box-shadow: 0 0 0 3px var(--martis-danger-bg) !important;
 }
 
 /* Non-clickable rows — cursor reverts to default when row-click is disabled.
@@ -2697,6 +4789,66 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border-color: var(--martis-accent) !important;
 }
 
+/* ── Badges ─────────────────────────────────────────────────────
+   Shared chip class for status pills, tag markers and inline
+   meta. The `BadgeField` already ships inline styles for each
+   semantic type (info/success/warning/danger); these classes
+   provide a token-based alternative so consumers can drop
+   `<span class="martis-badge martis-badge-neutral">` anywhere
+   without reaching for colours by hand. */
+.martis-badge {
+  display: inline-flex;
+  align-items: center;
+  /* F7-34 — align with shell spec: gap 5px, height 22px, weight 500
+     (medium), tabular numerals so trailing counts read evenly. */
+  gap: 5px;
+  padding: 0 8px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium, 500);
+  font-feature-settings: 'tnum';
+  line-height: 1;
+  border: 1px solid transparent;
+  background: var(--martis-surface-alt, var(--martis-hover));
+  color: var(--martis-text);
+  white-space: nowrap;
+}
+.martis-badge-neutral {
+  background: var(--martis-surface-alt, var(--martis-hover));
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
+}
+.martis-badge-info {
+  background: var(--martis-badge-info-bg);
+  color: var(--martis-badge-info-text);
+  border-color: var(--martis-badge-info-border);
+}
+.martis-badge-success {
+  background: var(--martis-badge-success-bg);
+  color: var(--martis-badge-success-text);
+  border-color: var(--martis-badge-success-border);
+}
+.martis-badge-warning {
+  background: var(--martis-badge-warning-bg);
+  color: var(--martis-badge-warning-text);
+  border-color: var(--martis-badge-warning-border);
+}
+.martis-badge-danger {
+  background: var(--martis-badge-danger-bg);
+  color: var(--martis-badge-danger-text);
+  border-color: var(--martis-badge-danger-border);
+}
+/* Optional leading dot, used to mark "live" / connection states. */
+.martis-badge-dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
 
 
 /* ⭐ Standardized button classes used across dialogs, drawers, modals
@@ -2719,6 +4871,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.25rem;
+  white-space: nowrap;
   /* Resting chip shadow — shared by every variant for visual consistency. */
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
   transition:
@@ -2826,6 +4979,80 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   filter: brightness(0.93);
 }
 
+/* Ghost: transparent chip used inline in toolbars, row-actions and
+   dialogs where a full chip would feel heavy. Inherits base button
+   sizing so it mixes freely with other variants. */
+.martis-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--martis-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+.martis-btn-ghost:hover:not(:disabled) {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-btn-ghost:active:not(:disabled) {
+  background-color: var(--martis-surface-alt, var(--martis-hover));
+}
+.martis-btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.martis-btn-ghost:focus-visible {
+  outline: 2px solid var(--martis-accent);
+  outline-offset: 2px;
+}
+
+/* Icon-only chip — square, no text. Pairs with any variant via
+   composition (e.g. `class="martis-btn-ghost martis-btn-icon"`).
+   Default size matches `.martis-btn-md` (34px). */
+.martis-btn-icon {
+  width: 2.125rem;
+  height: 2.125rem;
+  padding: 0;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+.martis-btn-icon.martis-btn-sm {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+.martis-btn-icon.martis-btn-lg {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+/* Size tokens — apply alongside any variant to swap heights/padding
+   without rewriting colours. Default (no size class) stays at 36px
+   to keep existing call sites unchanged. */
+.martis-btn-sm {
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  border-radius: 0.3125rem;
+}
+.martis-btn-lg {
+  padding: 0.625rem 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  border-radius: 0.4375rem;
+}
+
 /* ──────────────────────────────────────────────────────────────────
    Relationship panel toolbar — responsive with container queries.
    Narrow (< 48rem container): heading + search + criar on row 1;
@@ -2881,7 +5108,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ─────────────────────────────────────────────────────────────────────
-   Stack + Line — composite display field (Nova parity + differentials)
+   Stack + Line — composite display field
 
    The Stack renders a vertical list of Lines as a single cell/detail
    slot. Each Line picks one variant → CSS class, so custom themes can
@@ -3183,6 +5410,41 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-avatar-rounded { border-radius: 0.5rem; }
 .martis-avatar-squared { border-radius: 0.125rem; }
 
+/* F7-36 — generic fallback when a record has no avatar AND no initials
+   seed. Muted background + user glyph. Sits in for the bare em-dash so
+   row layouts stay aligned. */
+.martis-avatar-fallback {
+  background: var(--martis-surface-alt, var(--martis-hover));
+  color: var(--martis-text-muted);
+  border: 1px solid var(--martis-border);
+}
+
+/* Size tokens — apply alongside the shape class. Default (no size) stays
+   at the legacy 36px so existing call sites are unaffected. */
+.martis-avatar-xs { width: 1.25rem; height: 1.25rem; font-size: 0.5625rem; } /* 20px */
+.martis-avatar-sm { width: 1.5rem;  height: 1.5rem;  font-size: 0.625rem;  } /* 24px */
+.martis-avatar-md { width: 1.75rem; height: 1.75rem; font-size: 0.6875rem; } /* 28px — row cells */
+.martis-avatar-lg { width: 2.5rem;  height: 2.5rem;  font-size: 0.8125rem; } /* 40px */
+.martis-avatar-xl { width: 3.5rem;  height: 3.5rem;  font-size: 1rem;       } /* 56px — detail / profile */
+
+/* Stacked avatars — overlap siblings with a subtle ring so the pile
+   reads clearly against any background. Used for team / assignee
+   summaries in index cells and detail headers. */
+.martis-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+.martis-avatar-stack > .martis-avatar {
+  box-shadow: 0 0 0 2px var(--martis-card);
+}
+.martis-avatar-stack > .martis-avatar + .martis-avatar {
+  margin-left: -0.5rem;
+}
+.martis-avatar-stack > .martis-avatar-xs + .martis-avatar-xs,
+.martis-avatar-stack > .martis-avatar-sm + .martis-avatar-sm {
+  margin-left: -0.375rem;
+}
+
 .martis-ui-avatar {
   /* colour + shape set inline by the component */
 }
@@ -3233,42 +5495,191 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ─────────────────────────────────────────────────────────────────────
-   Audio — inline player + canvas waveform (⭐ Task 07 PR B)
+   Audio — custom player (play/pause + waveform/progress + timestamps +
+   download) and dropzone empty state. Bypasses the native `<audio>`
+   controls so the look stays on-brand across light and dark themes.
    ──────────────────────────────────────────────────────────────────── */
-.martis-audio {
+.martis-audio-player {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
   min-width: 0;
   max-width: 100%;
 }
+.martis-audio-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--martis-accent);
+  color: var(--martis-accent-contrast, #fff);
+  border: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-play-btn:hover { transform: scale(1.05); }
+.martis-audio-play-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-audio-track {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.martis-audio-track-waveform {
+  height: 36px;
+  cursor: pointer;
+}
 .martis-audio-waveform {
   width: 100%;
-  height: 52px;
+  height: 100%;
   display: block;
-  background-color: var(--martis-surface-alt);
-  border-radius: 0.375rem;
-  border: 1px solid var(--martis-border);
 }
-.martis-audio-player {
-  width: 100%;
-  height: 36px;
+.martis-audio-track-bar {
+  height: 4px;
+  background: var(--martis-surface-alt);
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
 }
-.martis-audio-empty {
-  font-size: 0.8125rem;
-  padding: 0.5rem 0;
+.martis-audio-track-fill {
+  height: 100%;
+  background: var(--martis-accent);
+  border-radius: inherit;
+  transition: width var(--martis-dur-sm, 120ms) linear;
 }
+.martis-audio-time {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  color: var(--martis-text-muted);
+  line-height: 1;
+}
+.martis-audio-download {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--martis-radius-sm);
+  display: grid;
+  place-items: center;
+  color: var(--martis-text-muted);
+  flex-shrink: 0;
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-download:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+
+/* Input wrapper — adds dropzone + action row on top of the player. */
 .martis-audio-input {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
-.martis-audio-input.has-error .martis-audio-waveform {
+.martis-audio-input.has-error .martis-audio-player,
+.martis-audio-input.has-error .martis-audio-dropzone {
   border-color: var(--martis-danger);
 }
 .martis-audio-input-controls {
   display: flex;
-  gap: 0.5rem;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.martis-audio-input-controls .martis-btn-secondary,
+.martis-audio-input-controls .martis-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-medium);
+  border-radius: var(--martis-radius-md);
+  border: 1px solid var(--martis-border);
+  background: var(--martis-surface);
+  color: var(--martis-text);
+  cursor: pointer;
+  transition: background var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-input-controls .martis-btn-secondary:hover { background: var(--martis-hover); }
+.martis-audio-input-controls .martis-btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--martis-text-muted);
+}
+.martis-audio-input-controls .martis-btn-ghost:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-audio-input-controls .martis-audio-remove:hover { color: var(--martis-danger); }
+
+/* Dropzone empty state — dashed card that accepts drag-and-drop. */
+.martis-audio-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  background: var(--martis-surface);
+  border: 1px dashed var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--martis-dur-sm, 120ms) ease, background var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-dropzone:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+  background: var(--martis-hover);
+}
+.martis-audio-dropzone:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.martis-audio-input.is-drag-over .martis-audio-dropzone {
+  border-color: var(--martis-accent);
+  background: color-mix(in srgb, var(--martis-accent) 8%, var(--martis-surface));
+}
+.martis-audio-dropzone-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--martis-accent) 12%, transparent);
+  color: var(--martis-accent);
+  margin-bottom: 2px;
+}
+.martis-audio-dropzone-title {
+  font-size: 13px;
+  font-weight: var(--martis-weight-semibold);
+  color: var(--martis-text);
+}
+.martis-audio-dropzone-hint {
+  font-size: 12px;
+  color: var(--martis-text-muted);
+}
+.martis-audio-dropzone-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-accent);
+  border-radius: var(--martis-radius-sm);
+  background: color-mix(in srgb, var(--martis-accent) 10%, transparent);
 }
 
 
@@ -3331,4 +5742,1068 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-ofmany-tile-sub {
   font-size: 0.6875rem;
   color: var(--martis-text-muted);
+}
+
+/* Table column truncation — applied via bodyClassName when the field
+   declares ->truncate() or inherits it from a type default (URL, Email).
+   `max-width` is set inline from the column metadata; this just clips
+   the overflow and renders an ellipsis. */
+.martis-col-truncate {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shared pill / status badge — matches `.badge` in Martis Shell (height 22,
+   11px, weight medium, rounded-full, 1px transparent border). Every
+   inline-pill across the table, detail, and relation fields should use
+   this class instead of re-deriving Tailwind utilities. */
+.martis-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  font-feature-settings: 'tnum';
+  line-height: 1;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+/* Optional status dot inside a `.martis-badge` — mirrors `.badge .dot`
+   from Martis Shell. Uses `currentColor` so it inherits the badge's
+   text colour (which is tied to the semantic variant). */
+.martis-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+/* Cell helper — mono-spaced, 12px, muted. Matches `.table .cell-mono` in
+   Martis Shell. Apply via bodyClassName on fields that display IPs,
+   short codes, timestamps, or similar glyph-aligned data. */
+.martis-cell-mono {
+  font-family: var(--martis-font-mono);
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+}
+
+/* =================================================================
+   MODAL — mirrors design-system Catalog#modal so every dialog in
+   the package reads as the same component. Panel sits on `surface`,
+   foot sits on `surface-alt` with a border-top divider; scrim uses
+   the overlay token. Head/body/foot use the Catalog paddings. */
+.martis-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--martis-overlay);
+  padding: 1rem;
+}
+.martis-modal-surface {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background-color: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  box-shadow: var(--martis-shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+.martis-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-modal-head-title {
+  margin: 0;
+  font-family: var(--martis-font-sans);
+  font-size: 16px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+}
+.martis-modal-body {
+  padding: 18px 20px;
+  color: var(--martis-text-muted);
+  font-size: var(--martis-text-sm);
+  line-height: 1.55;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.martis-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--martis-border);
+  background-color: var(--martis-surface-alt);
+}
+.martis-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.martis-modal-close:hover {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+/* Size overrides — modals that need a wider panel (forms, wizards). */
+.martis-modal-surface.is-lg { max-width: 640px; }
+.martis-modal-surface.is-xl { max-width: 800px; }
+.martis-modal-surface.is-2xl { max-width: 960px; }
+
+/* =================================================================
+   Fase 7 F7-27 — PrimeReact Dropdown aligned to the Catalog `.input`
+   spec (Catalog.html:1265-1320). Height 36, padding 0 10, focus glow
+   3px accent ring, chevron on the right, placeholder muted, option
+   hover surface-alt. Consumed by Select / BelongsTo / RelationSelect
+   and every PrimeReact dropdown the package renders.
+
+   Kept as a single !important block at the end of the stylesheet so
+   it wins over the layered legacy rules above (PrimeReact ships its
+   own high-specificity selectors that otherwise re-win after the
+   legacy 2.5rem min-height, non-standard focus shadow, etc.).
+   ================================================================ */
+.p-dropdown {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 0 0 10px !important;
+  border: 1px solid var(--martis-border) !important;
+  border-radius: var(--martis-radius-md) !important;
+  background-color: var(--martis-input-bg) !important;
+  color: var(--martis-text) !important;
+  font-size: var(--martis-text-sm) !important;
+  transition: border-color var(--martis-dur-fast) var(--martis-ease-standard),
+              box-shadow var(--martis-dur-fast) var(--martis-ease-standard) !important;
+}
+.p-dropdown:not(.p-disabled):hover {
+  border-color: var(--martis-border) !important;
+}
+.p-dropdown:not(.p-disabled).p-focus,
+.p-dropdown:not(.p-disabled):focus,
+.p-dropdown:not(.p-disabled):focus-within {
+  border-color: var(--martis-accent) !important;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring) !important;
+  outline: none !important;
+}
+.p-dropdown.p-invalid,
+.p-dropdown[aria-invalid="true"] {
+  border-color: var(--martis-danger) !important;
+}
+.p-dropdown.p-invalid:not(.p-disabled).p-focus,
+.p-dropdown.p-invalid:not(.p-disabled):focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--martis-danger) 30%, transparent) !important;
+}
+.p-dropdown.p-disabled,
+.p-dropdown[aria-disabled="true"] {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+/* Label — the visible selected text / placeholder. Zero the internal
+   padding so the input sizes from the outer element. */
+.p-dropdown .p-dropdown-label {
+  padding: 0 !important;
+  line-height: 1.25rem !important;
+  color: var(--martis-text) !important;
+  font-size: var(--martis-text-sm) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.p-dropdown .p-dropdown-label.p-placeholder {
+  color: var(--martis-text-muted) !important;
+}
+/* Chevron — fixed 32px trigger column, muted by default, accent on
+   focus so it picks up the focus ring. */
+.p-dropdown .p-dropdown-trigger {
+  width: 32px !important;
+  color: var(--martis-text-muted) !important;
+}
+.p-dropdown:not(.p-disabled).p-focus .p-dropdown-trigger,
+.p-dropdown:not(.p-disabled):focus-within .p-dropdown-trigger {
+  color: var(--martis-accent) !important;
+}
+/* Panel — option list. `surface-alt` background on hover per spec,
+   `accent-bg-light` + accent text for the highlighted (selected)
+   option. Keeps the same rhythm as sidebar items. */
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item {
+  color: var(--martis-text) !important;
+  padding: 8px 12px !important;
+  font-size: var(--martis-text-sm) !important;
+  transition: background-color var(--martis-dur-fast) var(--martis-ease-standard) !important;
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover,
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-focus {
+  background-color: var(--martis-surface-alt) !important;
+  color: var(--martis-text) !important;
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight {
+  background-color: var(--martis-accent-bg-light) !important;
+  color: var(--martis-accent) !important;
+}
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight:hover {
+  background-color: var(--martis-accent-bg-light) !important;
+}
+
+/* =================================================================
+   Fase 7 F7-31 — Tabs
+   Catalog `.tabs` spec (Catalog.html:1401-1433): horizontal row with
+   a border-bottom, each tab a transparent button with muted text,
+   hover flips to default text colour, active tab picks up accent
+   text + 2px accent underline (`margin-bottom: -1px` so the 2px
+   border sits ON the container's border-bottom, not below it).
+   Optional `.count` pill on the right keeps numeric hints legible.
+   ================================================================ */
+.martis-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--martis-border);
+  margin-bottom: 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.martis-tabs-tab {
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: var(--martis-text-muted);
+  font-family: inherit;
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: color var(--martis-dur-fast) var(--martis-ease-standard),
+              border-color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-tabs-tab:hover {
+  color: var(--martis-text);
+}
+.martis-tabs-tab.is-active,
+.martis-tabs-tab[aria-selected="true"] {
+  color: var(--martis-accent);
+  border-bottom-color: var(--martis-accent);
+}
+.martis-tabs-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+  border-radius: var(--martis-radius-sm);
+}
+.martis-tabs-tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.martis-tabs-count {
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--martis-hover);
+  color: var(--martis-text-muted);
+}
+.martis-tabs-tab.is-active .martis-tabs-count,
+.martis-tabs-tab[aria-selected="true"] .martis-tabs-count {
+  background: var(--martis-accent-bg);
+  color: var(--martis-accent);
+}
+
+/* =================================================================
+   Fase 7 F7-32 — Segmented control
+   Catalog `.seg` spec (Catalog.html:1105-1128): input-bg container
+   with 1px border + `radius-md`, 2px inner padding. Each button is
+   a flex:1 equal-width, 26px tall, muted text at rest. Active
+   button gets a `surface` background + default text + `shadow-sm`
+   so it lifts off the track.
+
+   Used by PreferencesMenu theme/density pickers (which hand-rolled
+   the look with inline styles) and available for any view switcher.
+   ================================================================ */
+.martis-segmented {
+  display: inline-flex;
+  background: var(--martis-input-bg);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+.martis-segmented-btn {
+  flex: 1;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--martis-radius-md) - 2px);
+  cursor: pointer;
+  color: var(--martis-text-muted);
+  font-family: inherit;
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-medium);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px;
+  white-space: nowrap;
+  transition: background-color var(--martis-dur-fast) var(--martis-ease-standard),
+              color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-segmented-btn:hover:not(:disabled):not(.is-active) {
+  color: var(--martis-text);
+}
+.martis-segmented-btn.is-active,
+.martis-segmented-btn[aria-pressed="true"] {
+  background: var(--martis-surface);
+  color: var(--martis-text);
+  box-shadow: var(--martis-shadow-sm);
+}
+.martis-segmented-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-segmented-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Stretch variant — full-width bar (used in dense side panels). */
+.martis-segmented.is-full {
+  display: flex;
+  width: 100%;
+}
+
+/* =================================================================
+   Fase 7 F7-33 — Skeleton
+   Catalog `.skeleton` spec (Catalog.html:1609-1618): 3-stop linear
+   gradient (`hover → border → hover`) running 1.4s ease-in-out so
+   the shimmer sweeps from right to left. `--martis-dur-*` tokens
+   are already clamped under reduced-motion, but we also drop the
+   animation entirely on `prefers-reduced-motion` and the package
+   `[data-reduced-motion]` flag so the placeholder stays static
+   for users who opt out.
+   ================================================================ */
+.martis-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--martis-hover) 0%,
+    var(--martis-border) 50%,
+    var(--martis-hover) 100%
+  );
+  background-size: 200% 100%;
+  animation: martis-skeleton 1.4s ease-in-out infinite;
+  border-radius: var(--martis-radius-sm);
+  display: block;
+}
+@keyframes martis-skeleton {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .martis-skeleton { animation: none !important; }
+}
+html[data-reduced-motion="true"] .martis-skeleton { animation: none !important; }
+
+/* =================================================================
+   Fase 7 — Density wiring for form surfaces
+   The density tokens (`--martis-input-h`, `--martis-pad-x/y`,
+   `--martis-gap`) already existed but were not consumed by the form
+   content (ResourceCreate/Update bodies, drawers, field inputs). The
+   classes below plug into those tokens so the Dense preference has a
+   visible effect end-to-end instead of stopping at the shell chrome.
+   ================================================================ */
+
+/* Form body — replaces the hand-rolled `p-6 space-y-4` pairs on
+   Create / Update pages and drawer forms. Comfortable keeps the 24px
+   padding + 16px gap the package shipped; Dense compresses to 16px +
+   10px. */
+.martis-form-body {
+  padding: 24px;
+}
+.martis-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.martis-form-grid {
+  display: grid;
+  gap: 16px;
+}
+html[data-density="dense"] .martis-form-body {
+  padding: 14px 16px;
+}
+html[data-density="dense"] .martis-form-stack {
+  gap: 10px;
+}
+html[data-density="dense"] .martis-form-grid {
+  gap: 10px;
+}
+
+/* Input controls — `.martis-input` and `.p-dropdown` both lock a
+   36px height today. Dense shrinks them to 30px (matches
+   `--martis-input-h` dense token). Textareas opt out via their
+   `.martis-input-textarea` class. PrimeReact needs `!important` so
+   the legacy `min-height: 2.5rem` block doesn't win back. */
+html[data-density="dense"] .martis-input {
+  height: 30px;
+}
+html[data-density="dense"] .martis-input.martis-input-textarea {
+  height: auto;
+}
+html[data-density="dense"] .p-dropdown {
+  height: 30px !important;
+  min-height: 30px !important;
+}
+html[data-density="dense"] .martis-input-wrap {
+  gap: 4px;
+}
+html[data-density="dense"] .martis-section-grid {
+  gap: 10px;
+}
+
+/* =================================================================
+   Fase 7 F7-1 → F7-7 — DrawerShell to Catalog + drawers.jsx spec
+   Spec references:
+   - design-system/Martis/Drawers.html:1518-1534 (`.drawer` chrome)
+   - design-system/Martis/drawers.jsx:128-155 (DrawerHeader/Footer)
+
+   Tokens: header 16×20px padding with 72px min-height, title
+   16px/600 with -0.01em letter-spacing, subtitle 12px muted with
+   3px margin-top, icon badge 38×38 on `accent-bg-light` with accent
+   text + radius-md. Footer 14×20px padding on `surface-alt` with a
+   border-top. Default shell shadow uses `--martis-shadow-lg`.
+
+   Dense density compresses the head/foot paddings + title size.
+   ================================================================ */
+.martis-drawer-shell {
+  background-color: var(--martis-card);
+  box-shadow: var(--martis-shadow-lg);
+}
+.martis-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  min-height: 72px;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-drawer-head-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.martis-drawer-head-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.martis-drawer-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--martis-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-drawer-subtitle {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--martis-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-drawer-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--martis-radius-md);
+  background: var(--martis-accent-bg-light);
+  color: var(--martis-accent);
+  display: grid;
+  place-items: center;
+}
+.martis-drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.martis-drawer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--martis-border);
+  background: var(--martis-surface-alt);
+}
+html[data-density="dense"] .martis-drawer-head {
+  padding: 12px 16px;
+  min-height: 60px;
+}
+html[data-density="dense"] .martis-drawer-foot {
+  padding: 10px 16px;
+}
+html[data-density="dense"] .martis-drawer-title {
+  font-size: 15px;
+}
+html[data-density="dense"] .martis-drawer-icon {
+  width: 32px;
+  height: 32px;
+}
+
+/* =================================================================
+   Fase 7 F7-8 / F7-9 / F7-10 — Detail field panel
+   Spec references:
+   - design-system/Martis/Resource Detail.html:2415-2422 (Field row)
+   - design-system/Martis/Resource Detail.html:2426-2455 (panel wrapper)
+
+   Tokens: outer panel uses `surface` + `radius-lg` + `padding: 2px
+   18px` so the first/last field rows have the spec's 14px visual
+   padding without needing row-level top/bottom margins. Each row
+   becomes a `200px 1fr` grid (main detail page) or `140px 1fr`
+   inside drawers. Label 13/500 muted, value 14px default, mono
+   variant for code-like values.
+   ================================================================ */
+.martis-detail-panel {
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  padding: 2px 18px;
+}
+.martis-detail-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-detail-row:last-child {
+  border-bottom: none;
+}
+.martis-detail-panel.is-drawer .martis-detail-row {
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+}
+.martis-detail-label {
+  font-size: 13px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.martis-detail-value {
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+  min-width: 0;
+  word-break: break-word;
+}
+.martis-detail-value.is-mono {
+  font-family: var(--martis-font-mono);
+}
+/* Kicker label above a `.martis-detail-panel` — spec `metric-label`
+   typography (12px uppercase muted, 0.04em tracking, semibold). Used
+   to prefix the Details box on the main Detail page so the surface
+   reads as a named panel instead of a floating card. */
+.martis-detail-kicker {
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--martis-weight-medium);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+/* F7-11 Part 2 — sticky right-rail layout when `Resource::detailSidebar()`
+   returns fields. The grid lays out 1fr main / 320px sidebar with a
+   24px gap, and the aside sticks below the page header so it stays
+   visible while the main column scrolls long content. Below 1100px
+   the layout collapses to a single column with the sidebar pushed
+   to the bottom. */
+.martis-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+.martis-detail-grid > .martis-detail-main {
+  min-width: 0;
+}
+.martis-detail-sidebar {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .martis-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .martis-detail-sidebar {
+    position: static;
+  }
+}
+
+html[data-density="dense"] .martis-detail-row {
+  padding: 10px 0;
+  gap: 14px;
+}
+html[data-density="dense"] .martis-detail-panel.is-drawer .martis-detail-row {
+  gap: 12px;
+}
+html[data-density="dense"] .martis-detail-panel {
+  padding: 2px 14px;
+}
+/* Narrow viewports — collapse to vertical stack. */
+@media (max-width: 640px) {
+  .martis-detail-row,
+  .martis-detail-panel.is-drawer .martis-detail-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    align-items: start;
+  }
+}
+
+/* =================================================================
+   Fase 7 F7-14 / F7-15 / F7-16 — KPI / Metric card typography
+   Spec: Dashboard.html:1659-1681.
+   - `.kpi-label` 12px / 500 / uppercase / 0.04em tracking / muted
+     with a leading icon.
+   - `.kpi-value` 28px / 600 / -0.02em letter-spacing / `tnum`.
+   - `.kpi-delta` pill (mono) positioned next to / below the value.
+     `.is-up` / `.is-down` variants read from `--martis-success-text`
+     / `--martis-danger-text`.
+   ================================================================ */
+.martis-kpi-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  min-width: 0;
+}
+.martis-kpi-label .martis-kpi-label-icon {
+  flex-shrink: 0;
+  color: inherit;
+}
+.martis-kpi-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.martis-kpi-value {
+  font-size: 28px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: -0.02em;
+  font-feature-settings: 'tnum';
+  color: var(--martis-text);
+  line-height: 1.15;
+}
+.martis-kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--martis-font-mono);
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-medium);
+  line-height: 1;
+  color: var(--martis-text-muted);
+  white-space: nowrap;
+}
+.martis-kpi-delta.is-up {
+  color: var(--martis-success-text, var(--martis-success));
+}
+.martis-kpi-delta.is-down {
+  color: var(--martis-danger-text, var(--martis-danger));
+}
+.martis-kpi-delta-sub {
+  font-family: var(--martis-font-sans);
+  font-weight: var(--martis-weight-regular);
+  color: var(--martis-text-muted);
+  margin-left: 2px;
+}
+html[data-density="dense"] .martis-kpi-value {
+  font-size: 24px;
+}
+
+/* Fase 7 — pulsating live status dot (canonical shell pattern). Mirrors
+   the design-system `.status-dot` + `.pulse` from Martis Shell.html. Used
+   wherever we want to signal "this value auto-refreshes in the
+   background" — metric cards, live tables, streaming panels. */
+.martis-status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--martis-text-xs);
+  color: var(--martis-text-muted);
+  line-height: 1;
+}
+.martis-status-dot .martis-status-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--martis-success);
+  position: relative;
+  flex-shrink: 0;
+}
+.martis-status-dot .martis-status-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: var(--martis-success);
+  opacity: 0.35;
+  animation: martis-status-pulse 1.8s ease-out infinite;
+}
+@keyframes martis-status-pulse {
+  0%   { transform: scale(0.7); opacity: 0.5; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .martis-status-dot .martis-status-pulse::after {
+    animation: none;
+  }
+}
+
+/* Fase 7 F7-19 — Dashboard layout helpers
+   Matches `.dash-kpis` + `.dash-grid` from Dashboard.html:
+   - `.martis-dash-kpis` → 4-col row of KPI cards, collapses to 2 cols
+   - `.martis-dash-grid` → 3-col body grid, collapses to 1 col
+   Span helpers (`.span-2` / `.span-3`) let child cards stretch across
+   columns and reset at the same breakpoint. */
+.martis-dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.martis-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.martis-dash-grid > .span-2 { grid-column: span 2; }
+.martis-dash-grid > .span-3 { grid-column: span 3; }
+@media (max-width: 1100px) {
+  .martis-dash-kpis { grid-template-columns: repeat(2, 1fr); }
+  .martis-dash-grid { grid-template-columns: 1fr; }
+  .martis-dash-grid > .span-2,
+  .martis-dash-grid > .span-3 { grid-column: auto; }
+}
+
+/* F7-40 — Public dropzone used by File / Image / Upload fields. Two
+   shapes:
+     - default (`.martis-dropzone`)            — compact inline row,
+       suits replacing a small input on a form (FileField, ImageField).
+     - `.martis-dropzone.is-zone` variant      — full surface with a
+       dashed border, large icon and CTA, suits the canonical Upload
+       field empty state (mirrors the AudioField redesign).
+   States:
+     - default                                  — `--martis-input-bg`
+       background + 1px solid border.
+     - `:hover` / `.is-drag-over`               — accent-tinted bg +
+       accent border (animated).
+     - `.has-error`                             — danger border.
+     - `[disabled]` / `.is-readonly`            — 0.6 opacity, default
+       cursor. */
+.martis-dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--martis-radius-md);
+  border: 1px solid var(--martis-border);
+  background: var(--martis-input-bg);
+  transition: background var(--martis-dur-sm, 120ms) ease, border-color var(--martis-dur-sm, 120ms) ease;
+  min-width: 0;
+}
+.martis-dropzone:hover:not(.is-readonly):not([disabled]) {
+  border-color: var(--martis-accent);
+}
+.martis-dropzone.is-drag-over {
+  border-color: var(--martis-accent);
+  background: color-mix(in srgb, var(--martis-accent) 10%, var(--martis-input-bg));
+}
+.martis-dropzone.has-error {
+  border-color: var(--martis-danger);
+}
+.martis-dropzone.is-readonly,
+.martis-dropzone[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* Big-zone variant — dashed border, centred icon + CTA, used by the
+   Upload / Audio empty state. */
+.martis-dropzone.is-zone {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 20px;
+  border-style: dashed;
+  background: var(--martis-surface);
+}
+.martis-dropzone-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--martis-accent) 12%, transparent);
+  color: var(--martis-accent);
+  flex-shrink: 0;
+}
+.martis-dropzone-title {
+  font-size: 13px;
+  font-weight: var(--martis-weight-semibold);
+  color: var(--martis-text);
+}
+.martis-dropzone-hint {
+  font-size: 12px;
+  color: var(--martis-text-muted);
+}
+.martis-dropzone-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-accent);
+  border-radius: var(--martis-radius-sm);
+  background: color-mix(in srgb, var(--martis-accent) 10%, transparent);
+}
+
+/* F7-42 — Filter chip used by `<FilterPanel>` to render active filters
+   alongside the toggle. Matches the Catalog `.chip` spec: 24px height,
+   12px font, hover bg, radius-sm, 1px border, optional dismiss `.x`
+   button. The chip works standalone outside FilterPanel — drop the
+   class on any `<span>` carrying a label / value pair plus a close
+   button to inherit the look. */
+.martis-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--martis-hover);
+  color: var(--martis-text);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-sm);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.martis-filter-chip-label {
+  color: var(--martis-text-muted);
+  font-weight: var(--martis-weight-medium);
+}
+.martis-filter-chip-value {
+  color: var(--martis-text);
+}
+.martis-filter-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin-left: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.martis-filter-chip-x:hover {
+  background: var(--martis-surface);
+  color: var(--martis-text);
+}
+
+/* Public card chrome — used by `martis:card` scaffolds and by any
+   custom dashboard panel that wants to follow the canonical Martis
+   chrome (border, padded body, kicker-style head) without reaching
+   for the internal `.martis-metric-card` selectors. Mirrors the
+   `Dashboard.html` `.card / .card-head` design system spec. */
+.martis-card {
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  padding: 16px 18px 18px;
+  min-width: 0;
+}
+.martis-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+.martis-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Fase 7 F7-17 — TrendCard sparkline mode
+   Compact inline chart (under 40px tall) rendered next to the KPI value
+   instead of the full 160px line chart. Opt-in via `sparkline` prop. */
+.martis-sparkline {
+  display: block;
+  width: 100%;
+  height: 36px;
+  overflow: visible;
+}
+.martis-sparkline-inline {
+  width: 96px;
+  height: 28px;
+}
+
+/* Fase 7 F7-18 — ActivityFeed card
+   Stream of events with a coloured avatar square, actor/verb/target line,
+   and a mono timestamp. Spec mirrors `.activity-feed` / `.activity-item`
+   from Dashboard.html. */
+.martis-activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+}
+.martis-activity-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.martis-activity-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--martis-radius-md);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.martis-activity-icon svg { font-size: 14px; }
+.martis-activity-body {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.martis-activity-actor { font-weight: var(--martis-weight-semibold); }
+.martis-activity-verb { color: var(--martis-text-muted); }
+.martis-activity-target {
+  font-family: var(--martis-font-mono);
+  font-size: 12px;
+}
+.martis-activity-time {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--martis-text-muted);
+  font-family: var(--martis-font-mono);
+}
+
+/* Fase 7 F7-18 — EndpointTable card
+   Compact mono-numeric route table with coloured HTTP method chips and a
+   thin progress bar for the share column. Mirrors `.endpoint-table` +
+   `.method-*` from Dashboard.html. */
+.martis-endpoint-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.martis-endpoint-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--martis-text-muted);
+  font-weight: var(--martis-weight-semibold);
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-endpoint-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-endpoint-table tr:last-child td { border-bottom: none; }
+.martis-endpoint-table tr:hover td { background: var(--martis-row-hover); }
+.martis-endpoint-table td.is-mono,
+.martis-endpoint-table td.is-num {
+  font-family: var(--martis-font-mono);
+  font-size: 13px;
+}
+.martis-endpoint-table td.is-num { text-align: right; }
+.martis-endpoint-table td.is-warn { color: var(--martis-warning-text, var(--martis-warning)); }
+.martis-http-method {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: var(--martis-font-mono);
+  font-size: 10px;
+  font-weight: var(--martis-weight-semibold);
+  border-radius: var(--martis-radius-sm);
+  letter-spacing: 0.02em;
+}
+.martis-http-method.is-get    { background: var(--martis-badge-info-bg);    color: var(--martis-badge-info-text); }
+.martis-http-method.is-post   { background: var(--martis-badge-success-bg); color: var(--martis-badge-success-text); }
+.martis-http-method.is-patch  { background: var(--martis-badge-warning-bg); color: var(--martis-badge-warning-text); }
+.martis-http-method.is-put    { background: var(--martis-badge-warning-bg); color: var(--martis-badge-warning-text); }
+.martis-http-method.is-delete { background: var(--martis-badge-danger-bg);  color: var(--martis-badge-danger-text); }
+.martis-endpoint-share {
+  height: 4px;
+  width: 100%;
+  background: var(--martis-surface-alt);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.martis-endpoint-share-fill {
+  height: 100%;
+  background: var(--martis-accent);
+  border-radius: inherit;
 }

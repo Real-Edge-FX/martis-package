@@ -22,6 +22,7 @@ class MenuSection
         array $items = [],
         protected ?string $icon = null,
         protected bool $collapsable = true,
+        protected ?string $section = null,
     ) {
         $this->items = $this->normalizeItems($items);
     }
@@ -61,6 +62,19 @@ class MenuSection
     public function collapsable(bool $collapsable = true): self
     {
         $this->collapsable = $collapsable;
+
+        return $this;
+    }
+
+    /**
+     * Attach this group to a higher-level section heading (e.g. "Resources",
+     * "Platform"). Sections render as subtle dividers above the group label,
+     * letting you visually separate several related groups without nesting
+     * them under another collapsible.
+     */
+    public function section(?string $section): self
+    {
+        $this->section = $section;
 
         return $this;
     }
@@ -111,6 +125,7 @@ class MenuSection
             'label' => $this->label,
             'icon' => $this->icon,
             'collapsable' => $this->collapsable,
+            'section' => $this->section,
             'items' => array_values($resolvedItems),
         ], $this->meta);
     }

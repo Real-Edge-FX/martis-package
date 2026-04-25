@@ -9,8 +9,7 @@ use Illuminate\Support\Str;
 /**
  * Slug field — URL-safe identifier auto-generated from a source attribute.
  *
- * Laravel Nova v5 parity: Slug field (`from()`, `separator()`).
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
+ * Core API: `from()`, `separator()`.
  *
  * Martis differentials:
  *  - ⭐ Live preview — the React component streams the generated slug in

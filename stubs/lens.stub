@@ -2,6 +2,7 @@
 
 namespace {{ namespace }};
 
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Martis\Http\Requests\LensRequest;
@@ -11,9 +12,11 @@ class {{ class }} extends Lens
 {
     /**
      * Compose the lens dataset. Always select the resource's primary key
-     * — Nova v5 requires it for bulk selection and delete affordances.
+     * so bulk selection and delete affordances work as expected. Return
+     * a Builder for the standard pagination flow, or hand back a Paginator
+     * directly when the lens needs a custom pagination strategy.
      */
-    public function query(LensRequest $request, Builder $query): Builder
+    public function query(LensRequest $request, Builder $query): Builder|Paginator
     {
         return $request->withOrdering(
             $request->withFilters($query),

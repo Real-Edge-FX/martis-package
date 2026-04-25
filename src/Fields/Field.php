@@ -53,7 +53,6 @@ abstract class Field implements FieldContract
 
     /**
      * Callback that determines whether this field is visible to the current user.
-     * Nova v5 parity: canSee(callable).
      */
     protected ?\Closure $canSeeCallback = null;
 
@@ -109,10 +108,10 @@ abstract class Field implements FieldContract
      */
     protected ?string $tooltip = null;
 
-    /** Whether the field spans the full width of the form. Nova v5 parity. */
+    /** Whether the field spans the full width of the form. */
     protected bool $fullWidth = false;
 
-    /** Whether the field label is stacked above (true) or inline (false). Nova v5 parity. */
+    /** Whether the field label is stacked above (true) or inline (false). */
     protected bool $stacked = true;
 
     protected mixed $defaultValue = null;
@@ -221,6 +220,7 @@ abstract class Field implements FieldContract
                 'index' => $this->overrideForIndex?->toArray(),
                 'detail' => $this->overrideForDetail?->toArray(),
             ], fn (mixed $v): bool => $v !== null) ?: null,
+            'column' => $this->resolveColumnWidth(),
         ], $this->extraAttributes(), $this->meta);
     }
 
@@ -264,7 +264,6 @@ abstract class Field implements FieldContract
      * Set help text displayed below the field input.
      *
      * Supports inline HTML for rich help text (links, bold, code).
-     * Martis extension: Nova v5 only supports plain text.
      */
     public function help(string $text): static
     {
@@ -283,8 +282,6 @@ abstract class Field implements FieldContract
      * Raw HTML is allowed (line breaks, bold, lists) so callers can build
      * multi-line, formatted hints. The frontend opts in via the
      * `data-pr-tooltip-html` attribute on the trigger.
-     *
-     * ⭐ Martis differential — Nova v5 has no tooltip-on-label API.
      */
     public function tooltip(?string $text): static
     {
@@ -301,8 +298,8 @@ abstract class Field implements FieldContract
     /**
      * Make the field span the full width of the form container.
      *
-     * Nova v5 parity. Equivalent to ->span(12) in a 12-column section,
-     * but works outside of sections too.
+     * Equivalent to ->span(12) in a 12-column section, but works outside
+     * of sections too.
      */
     public function fullWidth(bool $fullWidth = true): static
     {
@@ -315,7 +312,7 @@ abstract class Field implements FieldContract
      * Control whether the field label is stacked above the input (true)
      * or displayed inline beside it (false).
      *
-     * Nova v5 parity. Default is stacked (true).
+     * Default is stacked (true).
      */
     public function stacked(bool $stacked = true): static
     {
@@ -392,7 +389,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Nova v5 parity — granular visibility flags
+    // Granular visibility flags
     // -------------------------------------------------------------------------
 
     /** {@inheritDoc} */
@@ -656,7 +653,7 @@ abstract class Field implements FieldContract
     }
 
     // -------------------------------------------------------------------------
-    // Authorization — field-level visibility (Nova v5 parity)
+    // Authorization — field-level visibility
     // -------------------------------------------------------------------------
 
     /**
@@ -664,8 +661,6 @@ abstract class Field implements FieldContract
      *
      * The callback receives the current Request and should return a boolean.
      * When the callback returns false, the field is excluded from the response.
-     *
-     * Nova v5 parity: canSee(callable).
      *
      * @param  callable(Request): bool  $callback
      */
@@ -680,8 +675,6 @@ abstract class Field implements FieldContract
      * Shorthand for canSee() that checks a policy ability.
      *
      * Equivalent to: canSee(fn($request) => $request->user()?->can($ability, $arguments))
-     *
-     * Nova v5 parity: canSeeWhen(string $ability, ...$arguments).
      *
      * @param  string  $ability  The policy ability to check
      * @param  mixed  ...$arguments  Arguments passed to the Gate check
@@ -862,7 +855,6 @@ abstract class Field implements FieldContract
      * Customize how the field value is formatted for display (index + detail).
      *
      * Applied AFTER resolveUsing(). Does NOT affect form values.
-     * Equivalent to Laravel Nova's displayUsing().
      *
      * @param  callable(mixed $value, Model $model, string $attribute): mixed  $callback
      */
@@ -1005,6 +997,124 @@ abstract class Field implements FieldContract
         $this->colSpanLg = max(1, min(12, $cols));
 
         return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Table column widths (index view)
+    // -------------------------------------------------------------------------
+
+    /** Fixed column width in the index table (e.g. "80px", "10rem"). Null = auto. */
+    protected ?string $columnWidth = null;
+
+    /** Minimum column width in the index table. */
+    protected ?string $columnMinWidth = null;
+
+    /** Maximum column width in the index table. */
+    protected ?string $columnMaxWidth = null;
+
+    /**
+     * Whether to truncate overflowing content with an ellipsis. Null =
+     * not set (inherit type default); bool = explicit user override.
+     */
+    protected ?bool $columnTruncate = null;
+
+    /**
+     * Set a fixed column width for the index table (e.g. "80px", "10rem").
+     *
+     * Most tables should let columns size themselves. Reach for this when
+     * a column holds a known-size token (an ID, a status pill) and you
+     * want to stop it from eating room that a longer column could use.
+     */
+    public function width(string $value): static
+    {
+        $this->columnWidth = $value;
+
+        return $this;
+    }
+
+    /** Set a minimum column width (e.g. "220px") for the index table. */
+    public function minWidth(string $value): static
+    {
+        $this->columnMinWidth = $value;
+
+        return $this;
+    }
+
+    /**
+     * Set a maximum column width (e.g. "280px") and clip overflow.
+     *
+     * Pairs naturally with `truncate()` on long text columns (URLs,
+     * emails) so one runaway row can't blow out the whole table.
+     */
+    public function maxWidth(string $value): static
+    {
+        $this->columnMaxWidth = $value;
+
+        return $this;
+    }
+
+    /**
+     * Truncate overflowing cell content with an ellipsis. Useful together
+     * with `maxWidth()` on long text columns.
+     */
+    public function truncate(bool $value = true): static
+    {
+        $this->columnTruncate = $value;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the effective column width metadata, blending explicit
+     * `->width()` / `->minWidth()` / ... calls with per-type defaults
+     * defined in `defaultColumnWidth()`. Explicit user calls always win.
+     *
+     * When `config('martis.index.column_defaults')` is false, the per-type
+     * heuristics are skipped entirely — only explicit fluent calls apply.
+     * Apps that want the pre-v0.7.0 fully auto-sizing behaviour set the
+     * flag to false.
+     *
+     * @return array{width: ?string, minWidth: ?string, maxWidth: ?string, truncate: bool}
+     */
+    public function resolveColumnWidth(): array
+    {
+        // Resolve the config flag defensively so unit tests (which may not
+        // boot the Laravel container) can still serialise a field without
+        // tripping a BindingResolutionException. When no container is
+        // available, fall back to the documented default of `true` and
+        // apply the per-type heuristics.
+        $useDefaults = true;
+        if (function_exists('app')) {
+            try {
+                $container = app();
+                if ($container->bound('config')) {
+                    $useDefaults = (bool) $container['config']->get('martis.index.column_defaults', true);
+                }
+            } catch (\Throwable) {
+                // Container not bootstrapped — keep $useDefaults = true.
+            }
+        }
+
+        $defaults = $useDefaults ? $this->defaultColumnWidth() : [];
+
+        return [
+            'width' => $this->columnWidth ?? ($defaults['width'] ?? null),
+            'minWidth' => $this->columnMinWidth ?? ($defaults['minWidth'] ?? null),
+            'maxWidth' => $this->columnMaxWidth ?? ($defaults['maxWidth'] ?? null),
+            'truncate' => $this->columnTruncate ?? ($defaults['truncate'] ?? false),
+        ];
+    }
+
+    /**
+     * Per-field-type defaults for the index column. Subclasses override
+     * to declare "URL columns truncate at 280px" etc. without forcing
+     * every resource to repeat the chainable calls.
+     *
+     * @return array{width?: string, minWidth?: string, maxWidth?: string, truncate?: bool}
+     */
+    protected function defaultColumnWidth(): array
+    {
+        return [];
     }
 
     /**

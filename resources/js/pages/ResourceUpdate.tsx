@@ -7,7 +7,7 @@ import { FieldInput } from '@/components/fields/FieldRenderer'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
-import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
+import { FieldWrapper } from '@/components/fields/FieldWrapper'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
@@ -16,6 +16,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -50,6 +51,8 @@ export function ResourceUpdatePage() {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
+  const { t: tNav } = useTranslation('navigation')
+  usePageTitle(schema ? `${tNav('edit', { defaultValue: 'Edit' })} ${schema.singularLabel}` : null)
 
   const allFormFields = (schema?.fieldsForUpdate ?? [])
 
@@ -274,7 +277,7 @@ export function ResourceUpdatePage() {
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order */}
-          <div className="p-6 space-y-4">
+          <div className="martis-form-body martis-form-stack">
             {allFormFields.map((item, idx) => {
               if (item.type === 'tab_group') {
                 return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
@@ -287,36 +290,25 @@ export function ResourceUpdatePage() {
               }
               const field = item as FieldDefinition
               return (
-                <div key={field.attribute} className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label
-                      htmlFor={field.attribute}
-                      className="block text-sm font-medium"
-                      style={{ color: 'var(--martis-text-muted)' }}
-                    >
-                      {field.label}
-                      {field.required && (
-                        <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                      )}
-                      <FieldLabelTooltip text={field.tooltip} />
-                    </label>
-                  </div>
-                  <div className="col-span-2">
-                    <FieldInput
-                      field={field}
-                      value={values[field.attribute] ?? null}
-                      onChange={(v) => handleChange(field.attribute, v)}
-                      error={errors[field.attribute]}
-                      resourceKey={resource}
-                      recordId={id ?? undefined}
-                      context="update"
-                      formValues={values}
-                    />
-                    {field.helpText && (
-                      <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-                    )}
-                  </div>
-                </div>
+                <FieldWrapper
+                  key={field.attribute}
+                  htmlFor={field.attribute}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
+                >
+                  <FieldInput
+                    field={field}
+                    value={values[field.attribute] ?? null}
+                    onChange={(v) => handleChange(field.attribute, v)}
+                    error={errors[field.attribute]}
+                    resourceKey={resource}
+                    recordId={id ?? undefined}
+                    context="update"
+                    formValues={values}
+                  />
+                </FieldWrapper>
               )
             })}
           </div>

@@ -12,9 +12,6 @@ use Martis\Enums\AggregateFunction;
 /**
  * MorphOneOfMany — "morph one of many" polymorphic relationship field.
  *
- * Laravel Nova v5 parity: MorphOneOfMany.
- * Reference: https://nova.laravel.com/docs/v5/resources/relationships#MorphOneOfMany
- *
  * Polymorphic counterpart of {@see HasOneOfMany}. Used when the parent
  * model defines a `morphMany(...)->latestOfMany()` / `->ofMany(...)`
  * relationship (e.g. "latest comment on a post").

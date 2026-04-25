@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('martis.brand.name', 'Martis') }} Admin</title>
+    <title>{{ app(\Martis\MartisManager::class)->resolvePageTitle(request()) }}</title>
     @php
         $faviconPath = config('martis.brand.favicon');
         $basePath = config('martis.path', 'martis');
@@ -15,20 +15,59 @@
     @else
         <link rel="icon" type="image/x-icon" href="/{{ $basePath }}/favicon.ico">
     @endif
+    @php
+        // Task 07.1 ⭐ D2 — resolve user preferences server-side and inject
+        // them BEFORE first paint so theme/accent/density apply without a flash.
+        $prefsEnabled = (bool) config('martis.preferences.enabled', true);
+        $prefsPayload = null;
+        if ($prefsEnabled) {
+            try {
+                /** @var \Martis\Preferences\PreferencesResolver $resolver */
+                $resolver = app(\Martis\Preferences\PreferencesResolver::class);
+                $prefsPayload = $resolver->resolve(request());
+            } catch (\Throwable) {
+                $prefsPayload = null;
+            }
+        }
+        $prefsConfig = [
+            'enabled' => $prefsEnabled,
+            'allowBrandColor' => (bool) config('martis.preferences.allowBrandColor', false),
+            'localeLabels' => (array) config('martis.preferences.locale_labels', []),
+            'initial' => $prefsPayload,
+        ];
+    @endphp
     <script>
         window.MartisConfig = {
             basePath: "/{{ $basePath }}",
-            locale: "{{ config('martis.locale', 'en') }}",
+            locale: "{{ $prefsPayload['locale'] ?? config('martis.locale', config('app.locale', 'en')) }}",
+            preferences: {!! json_encode($prefsConfig) !!},
             brand: "{{ config('martis.brand.name', 'Martis') }}",
             logo: {!! json_encode(config('martis.brand.logo')) !!},
+            version: {!! json_encode(app(\Martis\MartisManager::class)->version()) !!},
+            docsUrl: {!! json_encode(config('martis.brand.docs_url')) !!},
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},
             userMenu: {!! json_encode(config('martis.user_menu', ['showThemeToggle' => true, 'showProfile' => true, 'showNotifications' => true])) !!},
             search: {!! json_encode(config('martis.search', ['enabled' => true])) !!},
-            dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
+            dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showWelcomeCard' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
+            drawer: {!! json_encode([
+                'width' => config('martis.drawer.width', '560px'),
+                'expandedWidth' => config('martis.drawer.expanded_width', '800px'),
+                'expandable' => (bool) config('martis.drawer.expandable', true),
+            ]) !!},
             layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
+            navigation: {!! json_encode([
+                'pollInterval' => (int) config('martis.navigation.poll_interval', 60000),
+            ]) !!},
             loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
+            auth: {!! json_encode(config('martis.auth', [
+                'sso' => ['enabled' => false, 'url' => null],
+                'google' => ['enabled' => false, 'url' => null],
+                'passwordReset' => ['enabled' => false, 'url' => null],
+                'registration' => ['enabled' => false, 'url' => null],
+                'controls' => ['theme' => true, 'locale' => true],
+            ])) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
                 'sections' => array_values(array_intersect(
@@ -47,11 +86,34 @@
                 ],
             ]) !!}
         };
-        // Apply saved theme before first paint to prevent flash
+        // Apply preferences BEFORE first paint to prevent any flash.
+        // Priority: server-injected payload > localStorage cache > defaults.
         (function() {
-            var t = localStorage.getItem('martis-theme') || window.MartisConfig.theme.default || 'dark';
-            if (t === 'dark') document.documentElement.classList.add('dark');
-            else document.documentElement.classList.remove('dark');
+            var root = document.documentElement;
+            var prefs = (window.MartisConfig.preferences && window.MartisConfig.preferences.initial) || {};
+            var cached = {};
+            try {
+                var raw = localStorage.getItem('martis-preferences');
+                if (raw) cached = JSON.parse(raw) || {};
+            } catch (e) {}
+
+            var theme = prefs.theme || cached.theme || window.MartisConfig.theme.default || 'dark';
+            var accent = prefs.accent || cached.accent || 'martis';
+            var density = prefs.density || cached.density || 'comfortable';
+            var reducedMotion = prefs.reducedMotion || cached.reducedMotion || false;
+
+            // `theme = system` honours the OS preference at paint time.
+            if (theme === 'system') {
+                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                    ? 'light' : 'dark';
+            }
+
+            if (theme === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+            root.setAttribute('data-theme', theme);
+            root.setAttribute('data-accent', accent);
+            root.setAttribute('data-density', density);
+            if (reducedMotion) root.setAttribute('data-reduced-motion', 'true');
+            else root.removeAttribute('data-reduced-motion');
         })();
     </script>
     @php

@@ -7,7 +7,7 @@ import { FieldInput } from '@/components/fields/FieldRenderer'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
-import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
+import { FieldWrapper } from '@/components/fields/FieldWrapper'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
@@ -15,6 +15,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -39,7 +40,7 @@ export function ResourceCreatePage() {
     enabled: !!resource,
   })
 
-  // Fetch pre-fill data when replicating (Nova v5 parity)
+  // Fetch pre-fill data when replicating
   const replicateQuery = useQuery({
     queryKey: ['replicate', resource, fromResourceId],
     queryFn: () => api.get<{ data: { values: Record<string, unknown>; fromResourceId: string | number } }>(
@@ -49,11 +50,13 @@ export function ResourceCreatePage() {
   })
 
   const schema = schemaQuery.data?.data
+  const { t: tNav } = useTranslation('navigation')
+  usePageTitle(schema ? `${tNav('create', { defaultValue: 'Create' })} ${schema.singularLabel}` : null)
   const rawFormFields = (schema?.fieldsForCreate ?? [])
 
   // Marca a FK do pai como readonly quando criamos via rela\u00e7\u00e3o
-  // aninhada (Nova behavior): o utilizador n\u00e3o deve poder mudar o
-  // pai — s\u00f3 ver o seu nome. Deep-walk para apanhar o campo mesmo
+  // aninhada: o utilizador n\u00e3o deve poder mudar o pai —
+  // s\u00f3 ver o seu nome. Deep-walk para apanhar o campo mesmo
   // dentro de Panel/Section/TabGroup.
   const allFormFields = useMemo(() => {
     if (!isViaRelation) return rawFormFields
@@ -124,7 +127,8 @@ export function ResourceCreatePage() {
       return
     }
     let cancelled = false
-    // Busca o _title do pai para mostrar o nome em vez de "#id" no dropdown.
+    // Fetch the parent record's _title so the dropdown shows its label
+    // instead of just "#id".
     api
       .get<{ data: { id: string | number; _title?: string } }>(
         `/api/resources/${viaResource}/${viaResourceId}`,
@@ -317,48 +321,39 @@ export function ResourceCreatePage() {
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order — layout containers and scalar fields interleaved */}
-          <div className="p-6 space-y-4">
-            {allFormFields.map((item, idx) => {
+          <div className="martis-form-body martis-form-stack">
+            {allFormFields.map((raw, idx) => {
+              const item = raw as { type?: string } & Record<string, unknown>
               if (item.type === 'tab_group') {
-                return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+                return <TabsInput key={idx} tabGroup={item as unknown as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
               }
               if (item.type === 'section') {
-                return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+                return <SectionInput key={idx} section={item as unknown as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
               }
               if (item.type === 'panel') {
-                return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+                return <PanelInput key={idx} panel={item as unknown as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
               }
               // Scalar field
               const field = item as FieldDefinition
               return (
-                <div key={field.attribute} className="grid grid-cols-3 gap-4" style={{ borderColor: 'var(--martis-border)' }}>
-                  <div>
-                    <label
-                      htmlFor={field.attribute}
-                      className="block text-sm font-medium martis-text-muted"
-                    >
-                      {field.label}
-                      {field.required && (
-                        <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-                      )}
-                      <FieldLabelTooltip text={field.tooltip} />
-                    </label>
-                  </div>
-                  <div className="col-span-2">
-                    <FieldInput
-                      field={field}
-                      value={values[field.attribute] ?? null}
-                      onChange={(v) => handleChange(field.attribute, v)}
-                      error={errors[field.attribute]}
-                      resourceKey={resource}
-                      context="create"
-                      formValues={values}
-                    />
-                    {field.helpText && (
-                      <p className="mt-1 text-xs" style={{ color: 'var(--martis-text-muted)' }} dangerouslySetInnerHTML={{ __html: field.helpText }} />
-                    )}
-                  </div>
-                </div>
+                <FieldWrapper
+                  key={field.attribute}
+                  htmlFor={field.attribute}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
+                >
+                  <FieldInput
+                    field={field}
+                    value={values[field.attribute] ?? null}
+                    onChange={(v) => handleChange(field.attribute, v)}
+                    error={errors[field.attribute]}
+                    resourceKey={resource}
+                    context="create"
+                    formValues={values}
+                  />
+                </FieldWrapper>
               )
             })}
           </div>

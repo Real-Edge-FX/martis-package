@@ -65,7 +65,7 @@ it('config is overridable by the app', function () {
 });
 
 // ---------------------------------------------------------------------------
-// Testes de autenticação — Bloco 6
+// Authentication tests
 // ---------------------------------------------------------------------------
 
 it('POST /martis/login with valid credentials authenticates user', function () {

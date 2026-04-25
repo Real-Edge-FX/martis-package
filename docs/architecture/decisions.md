@@ -32,7 +32,7 @@
 **Date:** 2026-04-02 | **Status:** Accepted
 
 **Decision:** MySQL 8.0 (not PostgreSQL)
-**Rationale:** Laravel Nova uses MySQL as its reference database. Martis must test against the same database engine that users will most commonly use. MySQL 8.0 also provides JSON column support, CTEs, and window functions.
+**Rationale:** MySQL 8.0 is the most common database engine in Laravel production deployments. Martis must test against the engine users will most commonly rely on. MySQL 8.0 also provides JSON column support, CTEs, and window functions.
 
 ---
 
@@ -115,7 +115,7 @@
 **Date:** 2026-04-04 | **Status:** Accepted
 
 **Decision:** Component resolution follows a 4-tier priority chain: explicit key > per-resource > per-type > built-in default
-**Rationale:** Provides maximum flexibility without complexity. Users can override at the most appropriate level — a single field instance, all fields of a type within a resource, all fields of a type globally, or accept the default. This is Martis's key architectural advantage over Nova.
+**Rationale:** Provides maximum flexibility without complexity. Users can override at the most appropriate level — a single field instance, all fields of a type within a resource, all fields of a type globally, or accept the default. This is a key Martis architectural differentiator.
 
 ---
 

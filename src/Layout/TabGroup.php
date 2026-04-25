@@ -8,7 +8,7 @@ use Martis\FieldContext;
 /**
  * TabGroup — a set of named tabs rendered as a tabbed navigation UI.
  *
- * Nova v5 parity:
+ * Usage:
  *   TabGroup::make([
  *     Tab::make('General', [fields...]),
  *     Tab::make('Details', [fields...]),

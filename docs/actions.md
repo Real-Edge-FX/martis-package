@@ -13,7 +13,7 @@ Martis Actions allow you to run custom operations on resources. Four distinct ac
 | **Standalone** | Runs without any record selection | No |
 | **Sole** | Requires exactly one record to be selected | Yes (exactly 1) |
 
-Full Nova v5 parity plus Martis extensions: icons, menu grouping with submenus, dry-run preview, pivot actions, and custom components.
+Martis ships icons, menu grouping with submenus, dry-run preview, pivot actions, and custom components.
 
 ---
 
@@ -417,9 +417,9 @@ php artisan queue:work --once   # Process a single job and exit
 
 - User selects records, fills in fields, clicks Confirm
 - API responds immediately with `"Action has been queued for processing."`
-- A `queued` entry is written to `action_events`
+- A `queued` entry is written to `martis_action_events`
 - The Laravel job processes the records asynchronously
-- `action_events` status updates to `completed` or `failed` when done
+- `martis_action_events` status updates to `completed` or `failed` when done
 
 ---
 
@@ -474,7 +474,7 @@ public function handle(ActionFields $fields, Collection $models): ActionResponse
 
 ## Post-processing with then()
 
-The `then()` callback runs **after `handle()` completes** on a synchronous (non-queued) action. Use it to run code that should happen outside the action itself: sending notifications, invalidating caches, triggering follow-up jobs, or recording external audit entries beyond the built-in `action_events` log.
+The `then()` callback runs **after `handle()` completes** on a synchronous (non-queued) action. Use it to run code that should happen outside the action itself: sending notifications, invalidating caches, triggering follow-up jobs, or recording external audit entries beyond the built-in `martis_action_events` log.
 
 ### Signature
 
@@ -869,7 +869,7 @@ ExecuteAction::handle()
   6. Update ActionEvent rows — status = "completed" or "failed"
 ```
 
-### What lands in action_events
+### What lands in martis_action_events
 
 Every action execution writes one `ActionEvent` row per model. Example for "Publish Posts" on posts [1, 2, 3]:
 
@@ -926,11 +926,11 @@ For queued actions, if `handle()` throws inside the job, Laravel retries/fails t
 
 ## Action Events (Audit Log)
 
-Every action execution is logged to the `action_events` table automatically. Martis ships with a built-in **ActionEvent model**, a publishable **migration**, an **Actionable trait** for querying history, and a **built-in Resource** for browsing the audit log in the admin panel.
+Every action execution is logged to the `martis_action_events` table automatically. Martis ships with a built-in **ActionEvent model**, a publishable **migration**, an **Actionable trait** for querying history, and a **built-in Resource** for browsing the audit log in the admin panel.
 
 ### Setup
 
-Publish and run the migration to create the `action_events` table:
+Publish and run the migration to create the `martis_action_events` table:
 
 ```bash
 php artisan vendor:publish --tag=martis-migrations
@@ -1094,7 +1094,7 @@ Or via environment variable:
 MARTIS_ACTION_EVENTS_ENABLED=false
 ```
 
-When disabled globally, no `action_events` rows are created regardless of per-action settings.
+When disabled globally, no `martis_action_events` rows are created regardless of per-action settings.
 
 #### Per Action
 

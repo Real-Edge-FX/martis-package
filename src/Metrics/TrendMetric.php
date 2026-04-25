@@ -14,7 +14,7 @@ use Martis\Enums\TrendPeriod;
 /**
  * A metric that displays time-series data as a line or bar chart.
  *
- * Nova v5 parity: countByDays, countByWeeks, countByMonths, sumByDays, averageByDays.
+ * Supports countByDays, countByWeeks, countByMonths, sumByDays, averageByDays.
  *
  * @phpstan-consistent-constructor
  */

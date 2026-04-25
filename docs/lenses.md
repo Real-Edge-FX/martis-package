@@ -1,10 +1,9 @@
 # Lenses
 
 Lenses are alternative, resource-scoped views onto the dataset of a
-Martis Resource. They mirror Laravel Nova 5's lens concept — every
-lens is a subclass that composes its own query, fields, filters,
-cards, actions and optional polling cadence — and add a small set of
-Martis-specific extensions that are marked below.
+Martis Resource. Every lens is a subclass that composes its own query,
+fields, filters, cards, actions and optional polling cadence. Martis
+adds a small set of extensions that are marked below.
 
 ## Quick start
 
@@ -56,9 +55,9 @@ public function lenses(Request $request): array
 The admin UI gets a "Lenses" dropdown on the resource index. Selecting
 the lens navigates to `/resources/{resource}/lens/{lens}`.
 
-## Nova v5 parity
+## Core contract
 
-The base class exposes the same contract Nova developers expect:
+The base class exposes the following contract:
 
 | Hook | Signature | Default |
 |---|---|---|
@@ -108,7 +107,7 @@ for the full ruleset (Rules 1–3 apply identically here).
 
 ### Query composition helpers
 
-`LensRequest` exposes two composition helpers matching the Nova API:
+`LensRequest` exposes two composition helpers:
 
 - `withFilters(Builder): Builder` — applies filter values selected by
   the user.
@@ -192,9 +191,9 @@ expected to derive totals themselves).
 
 ### Authorization
 
-- `canSee(Closure $callback)` — Nova parity: closure that receives the
-  request and returns bool.
-- `canSeeWhen(string $ability, mixed $args = null)` — Nova shorthand
+- `canSee(Closure $callback)` — closure that receives the request and
+  returns bool.
+- `canSeeWhen(string $ability, mixed $args = null)` — shorthand
   delegating to `$user->can($ability, $args)`.
 
 When the closure denies, the lens is stripped from the schema and a
@@ -206,8 +205,8 @@ contract.
 
 ### D1 — Sticky summary row
 
-> Nova 5 does not have a built-in summary row. In Nova you create a
-> separate Metric card for totals.
+> Martis ships a built-in summary row; no separate Metric card is
+> needed for totals.
 
 Return aggregates from `summary()` and the UI renders them as a sticky
 row below the lens table:
@@ -227,8 +226,8 @@ Served inside the paginated response meta as
 
 ### D2 — Declarative query cache (with auto-invalidation)
 
-> Nova 5 has no built-in cache. Pass `cacheFor` to stop paying the
-> cost of heavy joins on every pageload.
+> Pass `cacheFor` to stop paying the cost of heavy joins on every
+> pageload.
 
 ```php
 public function lenses(Request $request): array
@@ -249,8 +248,8 @@ cache tags. TTL `0` (default) disables the cache.
 
 ### D3 — Default filters pre-applied
 
-> Nova 5 always opens a lens with no filters. Typical product
-> dashboards want the lens to open in a useful state.
+> Declare the filters the lens should open with so product dashboards
+> open in a useful state.
 
 ```php
 (new MostValuableClients())

@@ -11,7 +11,7 @@ use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 
 /**
- * MorphToMany polymorphic relationship field — Nova v5 parity.
+ * MorphToMany polymorphic relationship field.
  *
  * Renders as a full panel on the detail page showing a DataTable of attached
  * records with support for attach, detach, pivot fields, search, sort, and
@@ -71,7 +71,7 @@ class MorphToMany extends Field
     /** Optional modal height (CSS value like '70vh' or '500px'). */
     protected ?string $modalHeight = null;
 
-    /** Closure to filter the relatable query (Nova v5: relatableQueryUsing). */
+    /** Closure to filter the relatable query (exposed via relatableQueryUsing). */
     protected ?\Closure $relatableQueryClosure = null;
 
     /** Whether to keep the original order of attachables (disable auto-sort). */
@@ -93,7 +93,7 @@ class MorphToMany extends Field
 
     /** Tracks whether the developer explicitly called `->perPageOptions([...])`.
      *  When false, the panel falls back to the related resource's own
-     *  `perPageOptions()` — Nova-style "resource is the single source of truth". */
+     *  `perPageOptions()` — the resource is the single source of truth. */
     protected bool $perPageOptionsSet = false;
 
     /** Whether to show attach button. */
@@ -190,8 +190,6 @@ class MorphToMany extends Field
 
     /**
      * Enable search in the attach modal.
-     *
-     * Nova v5 parity: ->searchable()
      */
     public function searchable(bool $value = true): static
     {
@@ -222,8 +220,6 @@ class MorphToMany extends Field
 
     /**
      * Allow the same related record to be attached more than once.
-     *
-     * Nova v5 parity: ->allowDuplicateRelations()
      */
     public function allowDuplicateRelations(bool $value = true): static
     {
@@ -234,8 +230,6 @@ class MorphToMany extends Field
 
     /**
      * Enable the inline create button in the attach modal.
-     *
-     * Nova v5 parity: showCreateRelationButton() / showCreateRelationButton(fn($request) => ...)
      */
     public function showCreateRelationButton(bool|\Closure $callback = true): static
     {
@@ -265,8 +259,6 @@ class MorphToMany extends Field
 
     /**
      * Filter the list of attachable records.
-     *
-     * Nova v5 parity: ->relatableQueryUsing(fn($request, $query) => $query->where(...))
      *
      * @param  \Closure(Request, Builder<Model>): void  $closure
      */
@@ -299,8 +291,6 @@ class MorphToMany extends Field
 
     /**
      * Set which attribute to use as subtitle. Implicitly enables withSubtitles.
-     *
-     * Nova v5 parity: ->subtitleAttribute('description')
      */
     public function subtitleAttribute(string $attribute): static
     {
@@ -475,8 +465,6 @@ class MorphToMany extends Field
 
     /**
      * Per-page options for the inline listing.
-     *
-     * Nova v5 parity: ->perPageOptions([10, 25, 50])
      *
      * @param  list<int>  $options
      */

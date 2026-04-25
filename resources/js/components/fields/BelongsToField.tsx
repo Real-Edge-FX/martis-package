@@ -23,7 +23,7 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
 
 // ---------------------------------------------------------------------------
 // PeekCard — hover preview card fetching content from the resource's
-// fieldsForPreview() via the /peek endpoint (Nova v5 concept alignment).
+// fieldsForPreview() via the /peek endpoint.
 // The card is triggered exclusively by the preview icon, never by hover on the link.
 // ---------------------------------------------------------------------------
 
@@ -47,9 +47,9 @@ interface PeekCardProps {
   /** Bounding rect of the trigger element — the card flips above it when
    *  there isn't enough room below. */
   triggerRect: { top: number; bottom: number; left: number }
-  /** Notifica o pai quando o card foi virado acima do trigger. Permite
-   *  that the trigger's tooltip is repositioned to "bottom" and does not
-   *  fique sobreposto pelo próprio card. */
+  /** Notifies the parent when the card flipped above the trigger so the
+   *  trigger's tooltip can reposition to "bottom" and not get hidden
+   *  underneath the card itself. */
   onFlipChange?: (flipped: boolean) => void
 }
 
@@ -208,7 +208,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
   // true when the peek card didn't fit below and flipped above; in that
   // case the "Preview" tooltip must flip down so it isn't overlapped by
   // the card.
-  const [peekFlipped, setPeekFlipped] = useState(false)
+  const [, setPeekFlipped] = useState(false)
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerSpanRef = useRef<HTMLSpanElement>(null)
   const peekIconRef = useRef<HTMLAnchorElement>(null)
@@ -272,8 +272,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               <Link
                 key={item.id}
                 to={`/resources/${relatedResourceMulti}/${item.id}`}
-                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium hover:underline"
-                style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-accent)', border: '1px solid var(--martis-border)' }}
+                className="martis-badge hover:underline"
+                style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-accent)', borderColor: 'var(--martis-border)' }}
               >
                 {label}
               </Link>
@@ -282,8 +282,8 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
           return (
             <span
               key={item.id}
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-text)', border: '1px solid var(--martis-border)' }}
+              className="martis-badge"
+              style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-text)', borderColor: 'var(--martis-border)' }}
             >
               {label}
             </span>
@@ -317,8 +317,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
               ref={peekIconRef}
               href="#"
               onClick={(e) => e.preventDefault()}
-              data-pr-tooltip={tMsg('preview', { defaultValue: 'Preview' })}
-              data-pr-position={peekFlipped ? 'bottom' : 'top'}
+              aria-label={tMsg('preview', { defaultValue: 'Preview' })}
               style={{ color: 'var(--martis-text-muted)' }}
               className={`inline-flex items-center opacity-60 hover:opacity-100 transition-opacity ${peekArrowClass}`}
               onMouseEnter={handleMouseEnter}
@@ -507,8 +506,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           const text = heading?.text ?? first?.text
           return text != null ? String(text) : null
         }
-        // Um objecto genérico sem estrutura conhecida — prefere o
-        // fallback para _title em vez de devolver "[object Object]".
+        // Generic object with no known structure — prefer the _title
+        // fallback rather than returning "[object Object]".
         return null
       }
       return null

@@ -69,8 +69,6 @@ Martis::dashboards([
 
 ## Dashboard Filters (Martis Extension)
 
-> Nova 5 does not support dashboard-level filters.
-
 Martis allows declarative filters on dashboards that affect all cards. This reuses the same Filter system from resources:
 
 ```php
@@ -101,7 +99,7 @@ php artisan martis:dashboard SalesDashboard
 
 ## Cache Configuration
 
-> **Martis extension** — Nova only supports per-metric caching.
+> **Martis extension** — global defaults in addition to per-metric caching.
 
 Set global cache defaults in `config/martis.php`:
 
@@ -114,14 +112,28 @@ Set global cache defaults in `config/martis.php`:
 
 Individual metrics can override with `cacheFor()`. The global config acts as a fallback.
 
-## Fallback Dashboard
+## Default Dashboard
 
-When no dashboards are registered, Martis displays the default landing page with:
-- Welcome greeting
-- Resource count stats
-- Resource shortcut cards
+`Martis\Dashboards\DefaultDashboard` is the built-in landing dashboard. Register it alongside your custom dashboards to expose the default surface as a selectable tab:
 
-This ensures backward compatibility with existing installations.
+```php
+Martis::dashboards([
+    \Martis\Dashboards\DefaultDashboard::class,
+    MyCustomDashboard::class,
+]);
+```
+
+The default dashboard renders, top to bottom:
+
+- **Welcome hero card** — animated gradient surface with the configured heading, description, and the package version resolved dynamically from Composer's installed tag. Override the copy by publishing `lang/vendor/martis/*/resources.php` and editing `welcome_card_heading` / `welcome_card_description`. Hide the card via `config('martis.dashboard.showWelcomeCard', false)` or the `MARTIS_DASHBOARD_SHOW_WELCOME_CARD=false` env flag.
+- Resource count stats (total, groups, active).
+- Resource shortcut cards derived from the registered navigation.
+
+When **no** dashboards are registered at all, the same default view renders as a fallback so existing installations stay functional.
+
+### Density-aware surfaces
+
+`StatCard`, `MetricCard`, the resource shortcut cards, and the welcome hero all tighten their internal padding under `html[data-density="dense"]`. The mapping is CSS-only — the hook is the class prefix each surface already carries (`martis-stat-card`, `martis-metric-card-head` / `-body`, `martis-resource-card`, `mwc-root`) — so consumer-built metric cards that follow the same class convention pick up the density response automatically.
 
 ## API
 

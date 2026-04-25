@@ -1,20 +1,19 @@
 import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
-import { Navigate, useNavigate } from "react-router-dom"
-import { useAuth } from "@/contexts/AuthContext"
+import { Link, Navigate, useNavigate } from "react-router-dom"
+import { useAuth, TwoFactorRequiredError } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
 import { ApiError } from "@/lib/api"
-import { TwoFactorRequiredError } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { useTranslation } from "react-i18next"
-import { InputText } from "primereact/inputtext"
-import { Button } from "primereact/button"
-import { IconField } from "primereact/iconfield"
-import { InputIcon } from "primereact/inputicon"
-import logoSrc from "@images/logo.png"
-import { EnvelopeIcon, LockIcon, EyeIcon, EyeSlashIcon, SignInIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon, GoogleLogoIcon } from "@phosphor-icons/react"
+import { AuthFrame } from "@/components/auth/AuthFrame"
 
-function getBrand(): string {
-  return config.brand ?? "Martis"
+/** Tiny helper so the same rule applies to every optional auth flow:
+ *  a flow is "active" when the consumer has flipped its `enabled` flag.
+ *  The URL is separate so programmers can enable the UI shell first and
+ *  wire the destination later — the button shows a toast until then. */
+function isFlowEnabled(flow?: { enabled?: boolean }): boolean {
+  return flow?.enabled === true
 }
 
 export function LoginPage() {
@@ -25,16 +24,26 @@ export function LoginPage() {
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [keepSignedIn, setKeepSignedIn] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  // Detect session-expired redirect from api.ts global 401 handler
+  const sso = config.auth?.sso
+  const google = config.auth?.google
+  const passwordReset = config.auth?.passwordReset
+  const registration = config.auth?.registration
+  const showSso = isFlowEnabled(sso)
+  const showGoogle = isFlowEnabled(google)
+  const showDivider = showSso || showGoogle
+  const showForgot = isFlowEnabled(passwordReset)
+  const showRegister = isFlowEnabled(registration)
+
+  // Detect session-expired redirect from api.ts global 401 handler.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('expired') === '1') {
       addToast('warning', t('session_expired'))
-      // Clean up the query param from the URL without triggering a reload
       const url = new URL(window.location.href)
       url.searchParams.delete('expired')
       window.history.replaceState({}, '', url.toString())
@@ -73,102 +82,194 @@ export function LoginPage() {
     }
   }
 
-  function handlePasswordKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+  function handleFieldKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter" || submitting) return
-
     e.preventDefault()
     e.currentTarget.form?.requestSubmit()
   }
 
-  const brand = getBrand()
+  function handleFlowClick(flow: { enabled?: boolean; url?: string | null } | undefined) {
+    const url = flow?.url?.trim() ?? ''
+    if (url) {
+      window.location.href = url
+      return
+    }
+    addToast('info', t('sso_not_configured', { defaultValue: 'This sign-in method is not configured on this workspace.' }))
+  }
 
   return (
-    <div className="martis-bg flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm">
-        {/* Brand logo */}
-        <div className="mb-8 text-center">
-          <img
-            src={logoSrc}
-            alt={brand}
-            className="mx-auto h-16 w-auto object-contain"
-            style={{ maxWidth: 280 }}
+    <AuthFrame>
+      <h2 className="martis-auth-title">{t('login_title', { defaultValue: 'Sign in to your workspace' })}</h2>
+      <p className="martis-auth-sub">
+        {showDivider
+          ? t('login_sub_v2', { defaultValue: 'Welcome back. Continue with SSO or use your email.' })
+          : t('login_sub', { defaultValue: 'Welcome back. Use your email and password to continue.' })}
+      </p>
+
+      {showSso && (
+        <button
+          type="button"
+          onClick={() => handleFlowClick(sso)}
+          className="martis-btn-secondary"
+          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: 18 }}
+        >
+          <BuildingsIcon size={14} />
+          {t('continue_with_sso', { defaultValue: 'Continue with SSO' })}
+        </button>
+      )}
+      {showGoogle && (
+        <button
+          type="button"
+          onClick={() => handleFlowClick(google)}
+          className="martis-btn-secondary"
+          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: showSso ? 8 : 18 }}
+        >
+          <GoogleLogoIcon size={14} />
+          {t('continue_with_google', { defaultValue: 'Continue with Google' })}
+        </button>
+      )}
+
+      {showDivider && (
+        <div className="martis-auth-divider">
+          <span>{t('divider_or', { defaultValue: 'or' })}</span>
+        </div>
+      )}
+
+      <form
+        onSubmit={(e) => void handleSubmit(e)}
+        noValidate
+        style={{ marginTop: showDivider ? 0 : 20 }}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <label
+            htmlFor="login-email"
+            style={{ display: 'block', fontSize: 13, color: 'var(--martis-text-muted)', marginBottom: 6 }}
+          >
+            {t('email')}
+          </label>
+          <input
+            id="login-email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={handleFieldKeyDown}
+            placeholder={t('email_placeholder')}
+            required
+            className="w-full rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1"
+            style={{
+              backgroundColor: 'var(--martis-input-bg)',
+              border: `1px solid ${errors.email ? 'var(--martis-danger)' : 'var(--martis-border)'}`,
+              color: 'var(--martis-text)',
+            }}
           />
+          {errors.email && (
+            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>{errors.email}</p>
+          )}
         </div>
 
-        {/* Form card */}
-        <div className="martis-card-bg rounded-xl p-6 border martis-border">
-          <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-5">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="email" className="text-sm font-medium martis-text-muted">
-                {t("email")}
-              </label>
-              <IconField iconPosition="left">
-                <InputIcon><EnvelopeIcon size={14} /></InputIcon>
-                <InputText
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={handlePasswordKeyDown}
-                  invalid={!!errors.email}
-                  className="w-full"
-                  placeholder={t("email_placeholder")}
-                  required
-                />
-              </IconField>
-              {errors.email && <small className="p-error">{errors.email}</small>}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label htmlFor="password" className="text-sm font-medium martis-text-muted">
-                {t("password")}
-              </label>
-              <div className="relative">
-                <IconField iconPosition="left">
-                  <InputIcon><LockIcon size={14} /></InputIcon>
-                  <InputText
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={handlePasswordKeyDown}
-                    invalid={!!errors.password}
-                    className="w-full"
-                    placeholder={t("password_placeholder")}
-                    required
-                  />
-                </IconField>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 martis-text-muted hover:opacity-80 focus:outline-none bg-transparent border-0 cursor-pointer p-0"
-                  tabIndex={-1}
-                  aria-label={showPassword ? t("hide_password") : t("show_password")}
-                >
-                  {showPassword ? <EyeSlashIcon size={16} /> : <EyeIcon size={16} />}
-                </button>
-              </div>
-              {errors.password && <small className="p-error">{errors.password}</small>}
-            </div>
-
-            <Button
-              type="submit"
-              label={submitting ? t("signing_in") : t("sign_in")}
-              icon={submitting ? undefined : <SignInIcon size={20} weight="bold" />}
-              loading={submitting}
-              className="w-full"
-              raised
-              style={{ padding: '0.875rem 1.5rem', fontSize: '1rem', fontWeight: 700 }}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+            <label htmlFor="login-password" style={{ fontSize: 13, color: 'var(--martis-text-muted)' }}>
+              {t('password')}
+            </label>
+            {showForgot && (
+              <button
+                type="button"
+                onClick={() => handleFlowClick(passwordReset)}
+                className="martis-auth-forgot"
+              >
+                {t('forgot_password', { defaultValue: 'Forgot?' })}
+              </button>
+            )}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <input
+              id="login-password"
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleFieldKeyDown}
+              placeholder={t('password_placeholder')}
+              required
+              className="w-full rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1"
+              style={{
+                backgroundColor: 'var(--martis-input-bg)',
+                border: `1px solid ${errors.password ? 'var(--martis-danger)' : 'var(--martis-border)'}`,
+                color: 'var(--martis-text)',
+              }}
             />
-          </form>
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              tabIndex={-1}
+              aria-label={showPassword ? t('hide_password') : t('show_password')}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 0,
+                cursor: 'pointer',
+                color: 'var(--martis-text-muted)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: 4,
+              }}
+            >
+              {showPassword ? <EyeSlashIcon size={16} /> : <EyeIcon size={16} />}
+            </button>
+          </div>
+          {errors.password && (
+            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>{errors.password}</p>
+          )}
         </div>
 
-        <p className="mt-6 text-center text-xs martis-text-muted" style={{ opacity: 0.5 }}>
-          {t("powered_by", { brand })}
-        </p>
-      </div>
-    </div>
+        <label className="martis-auth-toggle" style={{ marginBottom: 16 }}>
+          <input
+            type="checkbox"
+            checked={keepSignedIn}
+            onChange={(e) => setKeepSignedIn(e.target.checked)}
+          />
+          <span className="martis-auth-toggle-track" aria-hidden="true" />
+          <span>{t('keep_signed_in', { defaultValue: 'Keep me signed in on this device' })}</span>
+        </label>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="martis-btn-primary"
+          style={{ width: '100%', justifyContent: 'center', height: 40 }}
+        >
+          {submitting ? t('signing_in') : t('sign_in')}
+          {!submitting && <ArrowRightIcon size={14} weight="bold" />}
+        </button>
+
+        {showRegister && (
+          <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--martis-text-muted)' }}>
+            {t('register_prompt', { defaultValue: "Don't have an account?" })}{' '}
+            {registration?.url?.trim() ? (
+              <a
+                href={registration.url}
+                style={{ color: 'var(--martis-accent)', textDecoration: 'none' }}
+              >
+                {t('register_link', { defaultValue: 'Create an account' })}
+              </a>
+            ) : (
+              <Link
+                to="/register"
+                style={{ color: 'var(--martis-accent)', textDecoration: 'none' }}
+              >
+                {t('register_link', { defaultValue: 'Create an account' })}
+              </Link>
+            )}
+          </div>
+        )}
+      </form>
+    </AuthFrame>
   )
 }

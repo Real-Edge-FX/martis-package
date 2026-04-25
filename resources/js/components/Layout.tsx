@@ -11,19 +11,78 @@ import { MinimalLayout } from "@/components/layouts/MinimalLayout"
 import { TableSkeleton } from "@/components/LoadingSkeleton"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { useState, useEffect } from "react"
-import type { ComponentType } from "react"
+import type { ComponentProps, ComponentType } from "react"
+
+/**
+ * Resolve a shell-level component (sidebar, topbar, footer) from the
+ * registry so consumers can swap any of them without replacing the
+ * entire shell. Resolution:
+ *
+ *   1. `config('martis.layout.components.<piece>')` — a custom registry
+ *      key set in PHP config. Wins when the key is registered.
+ *   2. `layout:<piece>` — the default registry key. Any component
+ *      registered there wins when no config override is set.
+ *   3. Fallback to the bundled component.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveShellComponent<C extends ComponentType<any>>(
+  piece: "shell" | "sidebar" | "topbar" | "footer",
+  fallback: C,
+): C {
+  const configured = config.layout?.components?.[piece]
+  if (configured && componentRegistry.has(configured)) {
+    const override = componentRegistry.resolve(configured)
+    if (override) return override as unknown as C
+  }
+  const defaultKey = `layout:${piece}`
+  if (componentRegistry.has(defaultKey)) {
+    const override = componentRegistry.resolve(defaultKey)
+    if (override) return override as unknown as C
+  }
+  return fallback
+}
 
 function SidebarLayout() {
   const isMobile = useIsMobile()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem("martis-sidebar-collapsed") === "true"
+  })
   const location = useLocation()
 
-  // Close sidebar on navigation
+  const SidebarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Sidebar>>>(
+    "sidebar",
+    Sidebar,
+  )
+  const TopbarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Topbar>>>(
+    "topbar",
+    Topbar,
+  )
+
   useEffect(() => {
     setMobileSidebarOpen(false)
   }, [location.pathname])
 
-  // Prevent body scroll while mobile sidebar is open
+  useEffect(() => {
+    localStorage.setItem("martis-sidebar-collapsed", String(collapsed))
+  }, [collapsed])
+
+  // Mirror the shell's layout flags onto <html> so portal'd overlays
+  // (command palette, toasts, modals) can read them via `html[data-*]`
+  // selectors — a React portal into document.body does not inherit the
+  // attribute from .martis-shell, which is a sibling subtree.
+  useEffect(() => {
+    const root = document.documentElement
+    if (isMobile) root.setAttribute("data-mobile", "true")
+    else root.removeAttribute("data-mobile")
+    if (!isMobile && collapsed) root.setAttribute("data-sidebar-collapsed", "true")
+    else root.removeAttribute("data-sidebar-collapsed")
+    return () => {
+      root.removeAttribute("data-mobile")
+      root.removeAttribute("data-sidebar-collapsed")
+    }
+  }, [isMobile, collapsed])
+
   useEffect(() => {
     if (isMobile && mobileSidebarOpen) {
       document.body.style.overflow = "hidden"
@@ -36,30 +95,38 @@ function SidebarLayout() {
   }, [isMobile, mobileSidebarOpen])
 
   return (
-    <div className="martis-bg flex h-screen overflow-hidden">
-      {/* Mobile backdrop */}
-      {isMobile && mobileSidebarOpen && (
+    <div
+      className="martis-shell martis-bg"
+      data-mobile={isMobile ? "true" : undefined}
+      data-sidebar-collapsed={!isMobile && collapsed ? "true" : undefined}
+    >
+      <SidebarComponent
+        mobileOpen={isMobile ? mobileSidebarOpen : undefined}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+        collapsed={!isMobile && collapsed}
+      />
+
+      <TopbarComponent
+        onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
+        onToggleCollapse={!isMobile ? () => setCollapsed((c) => !c) : undefined}
+        sidebarCollapsed={collapsed}
+      />
+
+      <main className="martis-shell-content">
+        <div className="martis-page">
+          <Outlet />
+        </div>
+        <Footer />
+      </main>
+
+      {isMobile && (
         <div
-          className="fixed inset-0 z-40 bg-black/50"
+          className="martis-shell-backdrop"
+          data-open={mobileSidebarOpen ? "true" : undefined}
           onClick={() => setMobileSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
-
-      <Sidebar
-        mobileOpen={isMobile ? mobileSidebarOpen : undefined}
-        onMobileClose={() => setMobileSidebarOpen(false)}
-      />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar
-          onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
-        />
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </main>
-        <Footer />
-      </div>
     </div>
   )
 }
@@ -85,14 +152,41 @@ export function Layout() {
 
   if (!user) return <Navigate to="/login" replace />
 
-  // Check for user-registered custom shell layout
+  // Whole-shell override — honours both the PHP config key and the
+  // default `layout:shell` registry entry.
+  const shellConfigKey = config.layout?.components?.shell
+  if (shellConfigKey && componentRegistry.has(shellConfigKey)) {
+    const CustomShell = componentRegistry.resolve(shellConfigKey) as ComponentType
+    return <CustomShell />
+  }
   if (componentRegistry.has("layout:shell")) {
     const CustomShell = componentRegistry.resolve("layout:shell") as ComponentType
     return <CustomShell />
   }
 
-  // Resolve layout preset from config
+  // Resolve layout preset from config. `custom` means the app promises
+  // to register its own shell via `layout:shell` — we deliberately
+  // don't silently fall back to the bundled sidebar layout so the
+  // missing registration surfaces loudly instead of being masked.
   const preset = config.layout?.preset ?? "sidebar"
+  if (preset === "custom") {
+    return (
+      <div className="martis-bg flex min-h-screen items-center justify-center p-6">
+        <div className="max-w-md rounded-lg border p-4 text-sm" style={{
+          borderColor: "var(--martis-danger)",
+          color: "var(--martis-text)",
+          backgroundColor: "var(--martis-danger-bg)",
+        }}>
+          <strong>Layout preset is <code>custom</code></strong> but no component
+          is registered under <code>layout:shell</code>. Register one via{" "}
+          <code>componentRegistry.register('layout:shell', MyShell)</code> in{" "}
+          <code>resources/js/martis/boot.ts</code>, or set{" "}
+          <code>config('martis.layout.components.shell')</code> to the key of
+          an existing component.
+        </div>
+      </div>
+    )
+  }
   const LayoutComponent = presets[preset] ?? SidebarLayout
 
   return (

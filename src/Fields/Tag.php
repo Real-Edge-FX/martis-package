@@ -9,9 +9,6 @@ use Martis\Enums\ModalSize;
 /**
  * Tag field — relational tagging via BelongsToMany.
  *
- * Laravel Nova v5 parity: Tag field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#tag-field
- *
  * Tag is NOT a free string input — it is a relational field that operates on
  * a BelongsToMany Eloquent relation, with attach/detach, autocomplete and
  * preview/list options.
@@ -136,7 +133,7 @@ class Tag extends Field
     /**
      * Set the size of the inline creation modal.
      *
-     * Accepts Nova-style sizes: 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl'
+     * Accepts sizes: 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl'
      */
     public function modalSize(ModalSize $size): static
     {

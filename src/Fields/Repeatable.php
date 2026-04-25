@@ -11,24 +11,20 @@ use Martis\Contracts\FieldContract;
 /**
  * Base class for rows inside a {@see Repeater}.
  *
- * Laravel Nova v5 parity: `Laravel\Nova\Fields\Repeater\Repeatable`.
- * Reference: https://nova.laravel.com/docs/v5/resources/repeater-fields
- *
  * Subclasses declare the field set via {@see self::fields()} and, when the
  * parent repeater is in HasMany mode, a target Eloquent model via the
  * static {@see self::$model} property.
  *
- * ⭐ Martis differentials beyond Nova:
+ * ⭐ Martis differentials:
  *  - Row header is **fully configurable**: icon, accent color, live title
  *    template resolved per row, and a badge with the 1-based row index.
- *    Nova renders only the class basename.
  *  - `uniqueKey()` / `shortName()` are cached on the instance so subclasses
  *    can freely override without the Repeater having to introspect.
  */
 abstract class Repeatable
 {
     /**
-     * Target model for HasMany storage. Nova v5 parity (`static $model`).
+     * Target model for HasMany storage.
      *
      * @var class-string<Model>|null
      */
@@ -45,7 +41,7 @@ abstract class Repeatable
      *
      * Accepts a Closure (`fn (array $rowValues, int $index) => string`) or a
      * template string using `{attribute}` placeholders (e.g. `'{name}'`).
-     * ⭐ Martis differential — Nova shows only the class basename.
+     * ⭐ Martis differential.
      *
      * @var Closure|string|null
      */
@@ -69,9 +65,9 @@ abstract class Repeatable
     /**
      * Stable short name used as the row type discriminator in the payload.
      *
-     * Nova v5 parity: defaults to `Str::kebab(class_basename(static::class))`
-     * so the frontend can identify the row type without exposing the raw
-     * FQCN. Subclasses can override to freeze a specific name when the PHP
+     * Defaults to `Str::kebab(class_basename(static::class))` so the
+     * frontend can identify the row type without exposing the raw FQCN.
+     * Subclasses can override to freeze a specific name when the PHP
      * class is renamed.
      */
     public function shortName(): string
@@ -81,7 +77,7 @@ abstract class Repeatable
 
     /**
      * Human-readable label used in the multi-type "Add" menu and the row
-     * header fallback. Nova v5 parity: defaults to the class basename.
+     * header fallback. Defaults to the class basename.
      */
     public function label(): string
     {
@@ -90,9 +86,8 @@ abstract class Repeatable
 
     /**
      * Unique key used by the frontend to group rows of the same type.
-     * Nova v5 parity — Nova uses the FQCN; Martis uses the stable short
-     * name so renames don't invalidate existing payloads as long as
-     * subclasses pin their shortName.
+     * Uses the stable short name so renames don't invalidate existing
+     * payloads as long as subclasses pin their shortName.
      */
     public function uniqueKey(): string
     {

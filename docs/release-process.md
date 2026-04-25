@@ -36,7 +36,7 @@ Before creating a new TAG, verify all of the following:
 ### E. Documentation
 - README reflects all new fields and features
 - `docs/` updated for new capabilities
-- `PARITY_MAP.md` updated if Nova parity status changed
+- `PARITY_MAP.md` updated if parity status changed
 
 ## Execution Steps
 
@@ -207,7 +207,7 @@ Confirm the GitHub Release is visible at: `github.com/Real-Edge-FX/martis/releas
 
 The project may exit alpha (→ beta) when:
 
-- All Nova v5 parity features are implemented (see `PARITY_MAP.md`)
+- All parity features are implemented (see `PARITY_MAP.md`)
 - Zero known critical bugs in core CRUD flows
 - Public API contracts are stable (Resources, Fields, Actions)
 - Authentication is production-hardened

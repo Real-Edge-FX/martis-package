@@ -20,6 +20,8 @@ export interface NavigationGroup {
   label: string | null
   icon?: string | null
   collapsable?: boolean
+  /** Optional top-level section this group belongs to (e.g. "Resources"). */
+  section?: string | null
   items: NavigationItem[]
 }
 
@@ -33,6 +35,8 @@ export interface NavigationItemBase {
 
 export interface NavigationResourceItem extends NavigationItemBase, ResourceMeta {
   type: "resource"
+  /** Optional count badge surfaced by the backend. null = hidden. */
+  count?: number | null
 }
 
 export interface NavigationLinkItem extends NavigationItemBase {
@@ -98,8 +102,9 @@ export type ActiveFilters = Record<string, unknown>
 export type MetricType = 'value' | 'trend' | 'partition' | 'progress'
 
 export interface MetricDefinition {
-  type: 'metric'
-  metricType: MetricType
+  /** `metric` for Metric subclasses, `card` for plain Card components. */
+  type: 'metric' | 'card'
+  metricType?: MetricType
   name: string
   uriKey: string
   component: string | null
@@ -199,6 +204,13 @@ export interface FieldDefinition {
   showOnDetail: boolean
   showOnForms: boolean
   rules: string[]
+  /** Per-column width metadata resolved from `->width()/minWidth/maxWidth/truncate()` + type defaults. */
+  column?: {
+    width?: string | null
+    minWidth?: string | null
+    maxWidth?: string | null
+    truncate?: boolean
+  }
   options?: SelectOption[]
   relatedResource?: string
   relatedLabel?: string
@@ -229,9 +241,9 @@ export interface FieldDefinition {
    * Supports inline HTML (line breaks, bold, lists). ⭐ Martis differential.
    */
   tooltip?: string | null
-  /** Whether the field spans the full width of the form. Nova v5 parity. */
+  /** Whether the field spans the full width of the form. */
   fullWidth?: boolean
-  /** Whether the label is stacked above (true) or inline (false). Nova v5 parity. */
+  /** Whether the label is stacked above (true) or inline (false). */
   stacked?: boolean
   /** Allow access to arbitrary meta properties set via withMeta(). */
   [key: string]: unknown
@@ -326,6 +338,13 @@ export interface ResourceSchema extends ResourceEmbedded {
   fields: FieldDefinition[]
   fieldsForIndex?: FieldDefinition[]
   fieldsForDetail?: DetailItem[]
+  /**
+   * Sticky right-rail panel on the detail page. Populated by
+   * `Resource::detailSidebar()`. When empty, ResourceDetail renders a
+   * single column. When non-empty, the layout switches to a 1fr 320px
+   * grid and the sidebar attributes are removed from the main body.
+   */
+  detailSidebar?: FieldDefinition[]
   fieldsForCreate?: DetailItem[]
   fieldsForUpdate?: DetailItem[]
   fieldsForInlineCreate?: FieldDefinition[]
@@ -346,6 +365,11 @@ export interface ResourceSchema extends ResourceEmbedded {
   tableShowGridlines?: boolean
   tableSize?: 'normal' | 'small' | 'large'
   tableRowHover?: boolean
+  tableLayout?: 'auto' | 'fixed'
+  /** Default sort column applied on the initial index load (null = none). */
+  defaultSort?: string | null
+  /** Default sort direction paired with `defaultSort`. */
+  defaultSortDirection?: 'asc' | 'desc'
   authorization?: CollectionAuthorizationMetadata
   overrides?: {
     create?: OverrideDefinition | null

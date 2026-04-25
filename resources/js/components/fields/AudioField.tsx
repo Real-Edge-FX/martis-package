@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { PlayIcon, PauseIcon, DownloadSimpleIcon, TrashIcon, MusicNoteIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface AudioSchema {
@@ -12,7 +14,12 @@ type StoredValue = {
   name?: string | null
 } | File | null | undefined
 
-function resolveUrl(value: StoredValue): { url: string; name: string | null } | null {
+interface Resolved {
+  url: string
+  name: string | null
+}
+
+function resolveUrl(value: StoredValue): Resolved | null {
   if (!value) return null
   if (value instanceof File) {
     return { url: URL.createObjectURL(value), name: value.name }
@@ -21,6 +28,13 @@ function resolveUrl(value: StoredValue): { url: string; name: string | null } | 
     return { url: value.url, name: value.name ?? null }
   }
   return null
+}
+
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 /**
@@ -58,7 +72,12 @@ async function decodePeaks(url: string, bucketCount: number): Promise<Float32Arr
   }
 }
 
-function Waveform({ url, accent }: { url: string; accent: string }) {
+/**
+ * Canvas waveform — paints bars for the decoded peaks. The `progress`
+ * prop (0..1) drives the two-tone fill so bars before the playhead use
+ * the accent colour and bars after fall back to the muted surface tint.
+ */
+function Waveform({ url, accent, progress }: { url: string; accent: string; progress: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [ready, setReady] = useState(false)
   const peaksRef = useRef<Float32Array | null>(null)
@@ -91,15 +110,132 @@ function Waveform({ url, accent }: { url: string; accent: string }) {
     ctx.clearRect(0, 0, w, h)
     const barWidth = w / peaks.length
     const center = h / 2
-    ctx.fillStyle = accent
+    const playheadX = progress * w
     for (let i = 0; i < peaks.length; i++) {
       const peak = peaks[i]
       const barHeight = Math.max(2, peak * h * 0.9)
-      ctx.fillRect(i * barWidth + 1 * dpr, center - barHeight / 2, Math.max(1, barWidth - 2 * dpr), barHeight)
+      const x = i * barWidth + 1 * dpr
+      const y = center - barHeight / 2
+      const width = Math.max(1, barWidth - 2 * dpr)
+      ctx.fillStyle = x < playheadX ? accent : 'rgba(128, 128, 128, 0.35)'
+      ctx.fillRect(x, y, width, barHeight)
     }
-  }, [ready, accent])
+  }, [ready, accent, progress])
 
   return <canvas ref={canvasRef} className="martis-audio-waveform" aria-hidden="true" />
+}
+
+/**
+ * Custom inline audio player: play/pause button, waveform (optional) or
+ * progress bar, current/total timestamps, and a download affordance.
+ * Replaces the native `<audio controls>` element so the look stays
+ * on-brand across light and dark themes.
+ */
+function AudioPlayer({
+  resolved,
+  showWaveform,
+  downloadable,
+}: {
+  resolved: Resolved
+  showWaveform: boolean
+  downloadable: boolean
+}) {
+  const { t } = useTranslation('messages')
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+
+  useEffect(() => {
+    const el = audioRef.current
+    if (!el) return
+
+    const onTime = () => setCurrentTime(el.currentTime)
+    const onMeta = () => setDuration(el.duration)
+    const onEnd = () => setPlaying(false)
+
+    el.addEventListener('timeupdate', onTime)
+    el.addEventListener('loadedmetadata', onMeta)
+    el.addEventListener('ended', onEnd)
+    return () => {
+      el.removeEventListener('timeupdate', onTime)
+      el.removeEventListener('loadedmetadata', onMeta)
+      el.removeEventListener('ended', onEnd)
+    }
+  }, [resolved.url])
+
+  const togglePlay = useCallback(() => {
+    const el = audioRef.current
+    if (!el) return
+    if (el.paused) {
+      void el.play()
+      setPlaying(true)
+    } else {
+      el.pause()
+      setPlaying(false)
+    }
+  }, [])
+
+  const progress = duration > 0 ? currentTime / duration : 0
+
+  const handleScrub = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = audioRef.current
+    if (!el || duration <= 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    el.currentTime = ratio * duration
+  }, [duration])
+
+  return (
+    <div className="martis-audio-player">
+      <button
+        type="button"
+        className="martis-audio-play-btn"
+        onClick={togglePlay}
+        aria-label={playing ? t('audio_pause') : t('audio_play')}
+      >
+        {playing ? <PauseIcon size={14} weight="fill" /> : <PlayIcon size={14} weight="fill" />}
+      </button>
+
+      <div className="martis-audio-track">
+        {showWaveform ? (
+          <div className="martis-audio-track-waveform" onClick={handleScrub} role="slider" aria-valuemin={0} aria-valuemax={duration} aria-valuenow={currentTime}>
+            <Waveform url={resolved.url} accent="var(--martis-accent)" progress={progress} />
+          </div>
+        ) : (
+          <div
+            className="martis-audio-track-bar"
+            onClick={handleScrub}
+            role="slider"
+            aria-valuemin={0}
+            aria-valuemax={duration}
+            aria-valuenow={currentTime}
+          >
+            <div className="martis-audio-track-fill" style={{ width: `${progress * 100}%` }} />
+          </div>
+        )}
+        <div className="martis-audio-time">
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+
+      {downloadable && (
+        <a
+          href={resolved.url}
+          download={resolved.name ?? undefined}
+          className="martis-audio-download"
+          aria-label={t('audio_download')}
+          data-pr-tooltip={t('audio_download')}
+          data-pr-position="top"
+        >
+          <DownloadSimpleIcon size={14} />
+        </a>
+      )}
+
+      <audio ref={audioRef} src={resolved.url} preload="metadata" />
+    </div>
+  )
 }
 
 export function AudioFieldDisplay({ field, value }: FieldDisplayProps) {
@@ -110,50 +246,101 @@ export function AudioFieldDisplay({ field, value }: FieldDisplayProps) {
   }
 
   return (
-    <div className="martis-audio">
-      {schema.showWaveform !== false && <Waveform url={resolved.url} accent="var(--martis-accent)" />}
-      <audio
-        className="martis-audio-player"
-        src={resolved.url}
-        controls
-        controlsList={schema.downloadable === false ? 'nodownload' : undefined}
-        preload="metadata"
-      />
-    </div>
+    <AudioPlayer
+      resolved={resolved}
+      showWaveform={schema.showWaveform !== false}
+      downloadable={schema.downloadable !== false}
+    />
   )
 }
 
 export function AudioFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const { t } = useTranslation('messages')
   const schema = field as unknown as AudioSchema
-  const accepted = (schema.acceptedTypes ?? ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'])
-    .map((ext) => `.${ext}`)
-    .join(',')
+  const accepted = useMemo(() => {
+    return (schema.acceptedTypes ?? ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'])
+      .map((ext) => `.${ext}`)
+      .join(',')
+  }, [schema.acceptedTypes])
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const [dragOver, setDragOver] = useState(false)
   const resolved = resolveUrl(value as StoredValue)
 
+  const handleFile = useCallback((file: File | null | undefined) => {
+    if (file) onChange(file)
+  }, [onChange])
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setDragOver(false)
+    handleFile(e.dataTransfer.files?.[0])
+  }, [handleFile])
+
+  const wrapClass = [
+    'martis-audio-input',
+    error ? 'has-error' : '',
+    dragOver ? 'is-drag-over' : '',
+    resolved ? 'has-file' : 'is-empty',
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className={`martis-audio-input${error ? ' has-error' : ''}`}>
+    <div
+      className={wrapClass}
+      onDragOver={(e) => {
+        e.preventDefault()
+        if (!field.readonly) setDragOver(true)
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        if (field.readonly) return
+        handleDrop(e)
+      }}
+    >
       {resolved ? (
-        <AudioFieldDisplay field={field} value={value} />
+        <>
+          <AudioPlayer
+            resolved={resolved}
+            showWaveform={schema.showWaveform !== false}
+            downloadable={schema.downloadable !== false}
+          />
+          {!field.readonly && (
+            <div className="martis-audio-input-controls">
+              <button type="button" className="martis-btn-secondary" onClick={() => inputRef.current?.click()}>
+                <UploadSimpleIcon size={13} weight="bold" />
+                {t('audio_replace')}
+              </button>
+              <button type="button" className="martis-btn-ghost martis-audio-remove" onClick={() => onChange(null)}>
+                <TrashIcon size={13} weight="bold" />
+                {t('audio_remove')}
+              </button>
+            </div>
+          )}
+        </>
       ) : (
-        <p className="martis-text-muted martis-audio-empty">Sem áudio anexado</p>
-      )}
-      <div className="martis-audio-input-controls">
-        <button type="button" className="martis-btn-secondary" onClick={() => inputRef.current?.click()}>
-          {resolved ? 'Substituir áudio' : 'Carregar áudio'}
+        <button
+          type="button"
+          className="martis-audio-dropzone"
+          onClick={() => !field.readonly && inputRef.current?.click()}
+          disabled={field.readonly}
+        >
+          <span className="martis-audio-dropzone-icon" aria-hidden="true">
+            <MusicNoteIcon size={22} weight="duotone" />
+          </span>
+          <span className="martis-audio-dropzone-title">{t('audio_empty_title')}</span>
+          <span className="martis-audio-dropzone-hint">{t('audio_empty_hint')}</span>
+          <span className="martis-audio-dropzone-cta">
+            <UploadSimpleIcon size={13} weight="bold" />
+            {t('audio_browse')}
+          </span>
         </button>
-        {resolved && (
-          <button type="button" className="martis-btn-secondary" onClick={() => onChange(null)}>
-            Remover
-          </button>
-        )}
-      </div>
+      )}
+
       <input
         ref={inputRef}
         type="file"
         accept={accepted}
         style={{ display: 'none' }}
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        onChange={(e) => handleFile(e.target.files?.[0])}
       />
       {error && <p className="martis-field-error">{error}</p>}
     </div>

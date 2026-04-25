@@ -17,8 +17,8 @@ use Martis\Models\ActionEvent;
 /**
  * Job for executing queued actions.
  *
- * Nova v5 parity: queued actions dispatch as real Laravel jobs
- * with connection/queue customization and per-model status tracking.
+ * Queued actions dispatch as real Laravel jobs with connection/queue
+ * customization and per-model status tracking.
  */
 class ExecuteAction implements ShouldQueue
 {

@@ -1,4 +1,4 @@
-import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from '@phosphor-icons/react'
+import { ArrowUpRightIcon, ArrowDownRightIcon, MinusIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 
 interface ValueCardProps {
@@ -14,46 +14,31 @@ export function ValueCard({ data }: ValueCardProps) {
   const suffix = data.suffix as string | undefined
 
   const formattedValue = `${prefix ?? ''}${value.toLocaleString()}${suffix ?? ''}`
+  const hasDelta = previous !== undefined && value !== previous
+  const trend = (change ?? 0) > 0 ? 'up' : (change ?? 0) < 0 ? 'down' : 'flat'
+  const deltaClass =
+    trend === 'up' ? 'martis-kpi-delta is-up'
+    : trend === 'down' ? 'martis-kpi-delta is-down'
+    : 'martis-kpi-delta'
 
   return (
-    <div className="text-center">
-      <p
-        className="text-3xl font-bold"
-        style={{ color: 'var(--martis-text)' }}
-      >
-        {formattedValue}
-      </p>
+    <div>
+      <p className="martis-kpi-value">{formattedValue}</p>
 
-      {previous !== undefined && value !== previous && (
-        <div className="mt-2 flex items-center justify-center gap-1.5">
-          {(change ?? 0) > 0 ? (
-            <ArrowUpIcon size={14} weight="bold" style={{ color: 'var(--martis-success)' }} />
-          ) : (change ?? 0) < 0 ? (
-            <ArrowDownIcon size={14} weight="bold" style={{ color: 'var(--martis-danger)' }} />
-          ) : (
-            <MinusIcon size={14} weight="bold" style={{ color: 'var(--martis-text-muted)' }} />
-          )}
-          {change !== undefined && (
-            <span
-              className="text-sm font-medium"
-              style={{
-                color:
-                  change > 0
-                    ? 'var(--martis-success)'
-                    : change < 0
-                      ? 'var(--martis-danger)'
-                      : 'var(--martis-text-muted)',
-              }}
-            >
-              {change > 0 ? '+' : ''}
-              {change}%
-            </span>
-          )}
-          <span
-            className="text-xs"
-            style={{ color: 'var(--martis-text-muted)' }}
-          >
-            {t('vs', 'vs')} {prefix ?? ''}{previous.toLocaleString()}{suffix ?? ''}
+      {hasDelta && (
+        <div className="mt-2 flex items-center gap-2">
+          <span className={deltaClass}>
+            {trend === 'up'
+              ? <ArrowUpRightIcon size={12} weight="bold" />
+              : trend === 'down'
+                ? <ArrowDownRightIcon size={12} weight="bold" />
+                : <MinusIcon size={12} weight="bold" />}
+            {change !== undefined && <>{change > 0 ? '+' : ''}{change}%</>}
+            {previous !== undefined && (
+              <span className="martis-kpi-delta-sub">
+                {t('vs', 'vs')} {prefix ?? ''}{previous.toLocaleString()}{suffix ?? ''}
+              </span>
+            )}
           </span>
         </div>
       )}

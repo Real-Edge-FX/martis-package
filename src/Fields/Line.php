@@ -9,9 +9,6 @@ use Martis\Enums\LineVariant;
 /**
  * Line — a single text line inside a {@see Stack}.
  *
- * Laravel Nova v5 parity: Line field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#stack-field
- *
  * A Line resolves its value the same way any other field does (model
  * attribute or `resolveUsing` callback) and renders as a single styled
  * text node inside the parent Stack.

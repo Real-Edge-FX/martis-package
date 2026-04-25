@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
+import { config } from '@/lib/config'
 
 export interface DrawerShellProps {
   /** Title displayed in the header. */
@@ -13,9 +14,9 @@ export interface DrawerShellProps {
   icon?: string | null
   /** Optional icon color (CSS color value). Defaults to accent color. */
   iconColor?: string | null
-  /** Initial width (default: '520px'). */
+  /** Initial width (default: '720px', inherits `config('martis.drawer.width')`). */
   width?: string
-  /** Width when expanded (default: '800px'). */
+  /** Width when expanded (default: '960px', inherits `config('martis.drawer.expanded_width')`). */
   expandedWidth?: string
   /** Show expand/collapse button (default: true). */
   allowExpand?: boolean
@@ -56,8 +57,8 @@ export function DrawerShell({
   subtitle,
   icon,
   iconColor,
-  width = '520px',
-  expandedWidth = '800px',
+  width = '720px',
+  expandedWidth = '960px',
   allowExpand = true,
   allowFullscreen = true,
   showCloseButton = true,
@@ -68,6 +69,12 @@ export function DrawerShell({
   children,
   beforeClose,
 }: DrawerShellProps) {
+  // F7-13 — global gate. When `config.drawer.expandable === false`, force
+  // both buttons off so an app that locks the drawer to a single width
+  // doesn't need to audit every `DrawerOverride` caller.
+  const expandableGate = config.drawer?.expandable !== false
+  const canExpand = allowExpand && expandableGate
+  const canFullscreen = allowFullscreen && expandableGate
   const { t: tMsg } = useTranslation('messages')
   const [visible, setVisible] = useState(false)
   const [state, setState] = useState<DrawerState>('normal')
@@ -265,63 +272,51 @@ export function DrawerShell({
           regardless of inner content (Trix, Tabs, etc.) or scrollbar
           behaviour that could otherwise let flex-shrink trim the panel. */}
       <div
-        className="relative flex h-full flex-col shadow-xl transition-all duration-200 ease-out"
+        className="martis-drawer-shell relative flex h-full flex-col transition-all duration-200 ease-out"
         style={{
           width: currentWidth,
           minWidth: currentWidth,
           maxWidth: '100vw',
           flex: `0 0 ${currentWidth}`,
-          backgroundColor: 'var(--martis-card)',
           borderLeft: isRight ? '1px solid var(--martis-border)' : 'none',
           borderRight: isRight ? 'none' : '1px solid var(--martis-border)',
           transform: visible ? translateVisible : translateHidden,
         }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b px-6 py-4"
-          style={{ borderColor: 'var(--martis-border)' }}
-        >
-          {/* Icon + Title + Subtitle */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              {icon && (
-                <div
-                  className="flex-shrink-0 flex items-center justify-center rounded-lg"
-                  style={{
-                    width: 36,
-                    height: 36,
-                    backgroundColor: iconColor ? `${iconColor}18` : 'var(--martis-surface)',
-                    color: iconColor || 'var(--martis-accent)',
-                  }}
-                >
-                  <ResourceIcon iconName={icon} size={20} />
-                </div>
-              )}
-              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-                {title}
-              </h2>
+        {/* Header — spec: 16×20 padding, 72px min-height, 12px gap. */}
+        <div className="martis-drawer-head">
+          {icon && (
+            <div
+              className="martis-drawer-icon"
+              style={
+                iconColor
+                  ? {
+                      background: `color-mix(in srgb, ${iconColor} 14%, transparent)`,
+                      color: iconColor,
+                    }
+                  : undefined
+              }
+            >
+              <ResourceIcon iconName={icon} size={20} />
             </div>
-            {subtitle && (
-              <p
-                className="mt-0.5 truncate text-sm"
-                style={{ color: 'var(--martis-text-muted)', marginLeft: icon ? 'calc(36px + 0.75rem)' : undefined }}
-              >
-                {subtitle}
-              </p>
-            )}
+          )}
+          <div className="martis-drawer-head-main">
+            <div className="martis-drawer-head-row">
+              <h2 className="martis-drawer-title">{title}</h2>
+            </div>
+            {subtitle && <p className="martis-drawer-subtitle">{subtitle}</p>}
           </div>
 
           {/* Action buttons */}
-          <div className="ml-4 flex items-center gap-1">
-            {allowExpand && (
+          <div className="martis-drawer-actions">
+            {canExpand && (
               <button
                 type="button"
                 onClick={toggleExpand}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={state === 'expanded' ? tMsg('collapse', 'Collapse') : tMsg('expand', 'Expand')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 {state === 'expanded' ? (
                   /* Arrow right to bar — collapse */
@@ -332,14 +327,14 @@ export function DrawerShell({
                 )}
               </button>
             )}
-            {allowFullscreen && (
+            {canFullscreen && (
               <button
                 type="button"
                 onClick={toggleFullscreen}
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={state === 'fullscreen' ? tMsg('exit_fullscreen', 'Exit fullscreen') : tMsg('fullscreen', 'Fullscreen')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 {state === 'fullscreen' ? (
                   /* Arrows in — exit fullscreen */
@@ -357,7 +352,7 @@ export function DrawerShell({
                 className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 style={{ color: 'var(--martis-text-muted)' }}
                 data-pr-tooltip={tMsg('close', 'Close')}
-                data-pr-position="top"
+                data-pr-position="bottom"
               >
                 <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
               </button>
@@ -370,15 +365,9 @@ export function DrawerShell({
           {children}
         </div>
 
-        {/* Footer */}
+        {/* Footer — spec: 14×20 padding, surface-alt bg, border-top. */}
         {footer && (
-          <div
-            className="flex items-center justify-end gap-3 border-t px-6 py-4"
-            style={{
-              borderColor: 'var(--martis-border)',
-              backgroundColor: 'var(--martis-surface-alt)',
-            }}
-          >
+          <div className="martis-drawer-foot">
             {footer}
           </div>
         )}

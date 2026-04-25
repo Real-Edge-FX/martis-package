@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Badge } from 'primereact/badge'
-import { Dialog } from 'primereact/dialog'
 import { ShieldCheckIcon, ShieldSlashIcon, CopyIcon, CheckIcon, ArrowsClockwiseIcon, WarningIcon, XIcon, TrashIcon } from '@phosphor-icons/react'
 import { TwoFactorWizard } from './TwoFactorWizard'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { useModalHistoryLock } from '@/lib/historyLock'
 
 interface SecuritySectionProps {
   twoFactorEnabled: boolean
@@ -24,6 +25,9 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
   const [regenerating, setRegenerating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [passwordError, setPasswordError] = useState('')
+
+  useModalHistoryLock(disableConfirmOpen)
+  useModalHistoryLock(recoveryOpen)
 
   function openDisableConfirm() {
     setCurrentPassword('')
@@ -118,12 +122,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                 type="button"
                 disabled={regenerating}
                 onClick={() => void handleViewRecoveryCodes()}
-                className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-                style={{
-                  backgroundColor: 'var(--martis-surface-alt)',
-                  borderColor: 'var(--martis-border)',
-                  color: 'var(--martis-text)',
-                }}
+                className="martis-btn-secondary"
               >
                 <ArrowsClockwiseIcon size={14} />
                 {regenerating ? t('2fa_regenerating') : t('2fa_view_recovery')}
@@ -131,12 +130,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               <button
                 type="button"
                 onClick={openDisableConfirm}
-                className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-                style={{
-                  backgroundColor: 'var(--martis-surface-alt)',
-                  borderColor: 'var(--martis-danger-hover)',
-                  color: 'var(--martis-danger-hover)',
-                }}
+                className="martis-btn-danger"
               >
                 <ShieldSlashIcon size={14} />
                 {t('2fa_disable')}
@@ -146,8 +140,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
             <button
               type="button"
               onClick={() => setWizardOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
+              className="martis-btn-primary"
             >
               <ShieldCheckIcon size={14} />
               {t('2fa_enable')}
@@ -163,129 +156,138 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
       />
 
       {/* Confirm Disable 2FA Dialog */}
-      <Dialog
-        visible={disableConfirmOpen}
-        onHide={closeDisableConfirm}
-        header={
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-              <WarningIcon size={18} className="text-red-600 dark:text-red-400" weight="fill" />
+      {disableConfirmOpen && createPortal((
+        <div className="martis-modal-scrim" onClick={closeDisableConfirm}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="martis-modal-surface"
+            style={{ maxWidth: '420px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="martis-modal-head">
+              <div className="flex items-center gap-3">
+                <WarningIcon size={18} weight="fill" style={{ color: 'var(--martis-danger)' }} />
+                <h3 className="martis-modal-head-title">{t('2fa_disable_confirm_title')}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeDisableConfirm}
+                className="martis-modal-close"
+                aria-label={t('2fa_cancel')}
+              >
+                <XIcon size={16} />
+              </button>
             </div>
-            <span>{t('2fa_disable_confirm_title')}</span>
-          </div>
-        }
-        style={{ width: '420px' }}
-        modal
-        draggable={false}
-        resizable={false}
-        footer={
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              disabled={disabling}
-              onClick={closeDisableConfirm}
-              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-              style={{
-                backgroundColor: 'var(--martis-surface-alt)',
-                borderColor: 'var(--martis-border)',
-                color: 'var(--martis-text)',
-              }}
-            >
-              <XIcon size={14} />
-              {t('2fa_cancel')}
-            </button>
-            <button
-              type="button"
-              disabled={disabling || !currentPassword}
-              onClick={() => void handleDisable()}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: 'var(--martis-danger-hover)' }}
-            >
-              <TrashIcon size={14} />
-              {disabling ? t('saving') : t('2fa_disable_confirm')}
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <p className="text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-            {t('2fa_disable_confirm_body')}
-          </p>
-          <div>
-            <label
-              htmlFor="disable-2fa-password"
-              className="block text-sm font-medium martis-text mb-1"
-            >
-              {t('current_password')}
-            </label>
-            <input
-              id="disable-2fa-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError('') }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && currentPassword) void handleDisable() }}
-              className="w-full rounded-lg border px-3 py-2 text-sm martis-text martis-card-bg focus:outline-none focus:ring-2"
-              style={{ borderColor: passwordError ? 'var(--martis-danger)' : 'var(--martis-border)' }}
-              autoComplete="current-password"
-            />
-            {passwordError && (
-              <p className="mt-1 text-xs text-red-500">{passwordError}</p>
-            )}
+
+            <div className="martis-modal-body space-y-4">
+              <p>{t('2fa_disable_confirm_body')}</p>
+              <div>
+                <label
+                  htmlFor="disable-2fa-password"
+                  className="block text-sm font-medium martis-text mb-1"
+                >
+                  {t('current_password')}
+                </label>
+                <input
+                  id="disable-2fa-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError('') }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && currentPassword) void handleDisable() }}
+                  className="w-full rounded-lg border px-3 py-2 text-sm martis-text martis-card-bg focus:outline-none focus:ring-2"
+                  style={{ borderColor: passwordError ? 'var(--martis-danger)' : 'var(--martis-border)' }}
+                  autoComplete="current-password"
+                />
+                {passwordError && (
+                  <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{passwordError}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="martis-modal-foot">
+              <button
+                type="button"
+                disabled={disabling}
+                onClick={closeDisableConfirm}
+                className="martis-btn-secondary"
+              >
+                <XIcon size={14} />
+                {t('2fa_cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={disabling || !currentPassword}
+                onClick={() => void handleDisable()}
+                className="martis-btn-danger"
+              >
+                <TrashIcon size={14} />
+                {disabling ? t('saving') : t('2fa_disable_confirm')}
+              </button>
+            </div>
           </div>
         </div>
-      </Dialog>
+      ), document.body)}
 
       {/* Recovery Codes Dialog */}
-      <Dialog
-        visible={recoveryOpen}
-        onHide={() => setRecoveryOpen(false)}
-        header={t('2fa_recovery_codes')}
-        style={{ width: '420px' }}
-        modal
-        draggable={false}
-        resizable={false}
-      >
-        <div className="space-y-4">
-          <p className="text-sm martis-text-muted">{t('2fa_regen_warning')}</p>
-
+      {recoveryOpen && createPortal((
+        <div className="martis-modal-scrim" onClick={() => setRecoveryOpen(false)}>
           <div
-            className="rounded-lg p-4 border martis-border"
-            style={{ backgroundColor: 'var(--martis-hover)' }}
+            role="dialog"
+            aria-modal="true"
+            className="martis-modal-surface"
+            style={{ maxWidth: '420px' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="grid grid-cols-2 gap-1">
-              {recoveryCodes.map((code) => (
-                <code key={code} className="text-sm font-mono martis-text p-1">
-                  {code}
-                </code>
-              ))}
+            <div className="martis-modal-head">
+              <h3 className="martis-modal-head-title">{t('2fa_recovery_codes')}</h3>
+              <button
+                type="button"
+                onClick={() => setRecoveryOpen(false)}
+                className="martis-modal-close"
+                aria-label={t('2fa_cancel')}
+              >
+                <XIcon size={16} />
+              </button>
+            </div>
+
+            <div className="martis-modal-body space-y-4">
+              <p>{t('2fa_regen_warning')}</p>
+
+              <div
+                className="rounded-lg p-4 border martis-border"
+                style={{ backgroundColor: 'var(--martis-hover)' }}
+              >
+                <div className="grid grid-cols-2 gap-1">
+                  {recoveryCodes.map((code) => (
+                    <code key={code} className="text-sm font-mono martis-text p-1">
+                      {code}
+                    </code>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="martis-modal-foot">
+              <button
+                type="button"
+                onClick={() => void handleCopyCodes()}
+                className="martis-btn-secondary"
+              >
+                {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+                {copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecoveryOpen(false)}
+                className="martis-btn-primary"
+              >
+                {t('2fa_done')}
+              </button>
             </div>
           </div>
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => void handleCopyCodes()}
-              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
-              style={{
-                backgroundColor: 'var(--martis-surface-alt)',
-                borderColor: 'var(--martis-border)',
-                color: 'var(--martis-text)',
-              }}
-            >
-              {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
-              {copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRecoveryOpen(false)}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
-              style={{ backgroundColor: 'var(--martis-accent)' }}
-            >
-              {t('2fa_done')}
-            </button>
-          </div>
         </div>
-      </Dialog>
+      ), document.body)}
     </section>
   )
 }

@@ -9,24 +9,20 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThro
  * HasManyThrough — reaches many distant records through an
  * intermediate model.
  *
- * Laravel Nova v5 parity: HasManyThrough.
- * Reference: https://nova.laravel.com/docs/v5/resources/relationships#HasManyThrough
- *
  * The relationship on the parent model is defined as
  *   `hasManyThrough(Invoice::class, Project::class)`
  * and the field renders visually like `HasMany` — inline DataTable —
  * read-only because the traversal goes through an intermediate.
  *
  * ⭐ Martis differentials:
- *  - **Read-only by default** — no Create/Edit/Delete buttons; Nova
- *    tacitly doesn't support these but doesn't document it. Martis
- *    makes it explicit and safe.
+ *  - **Read-only by default** — no Create/Edit/Delete buttons because
+ *    the traversal goes through an intermediate model the UI cannot
+ *    populate.
  *  - **`throughBreadcrumb(bool $enabled = true)`** — tooltip describing
  *    the intermediate hop (e.g. `Client → Projects → Invoices`).
  *  - **`countBadge(bool $enabled = true)`** — shows a count pill on
  *    the parent's index cell, matching the `showRelationCount` API
- *    already available on `HasMany`. Default: on for Through (Nova
- *    doesn't expose this knob on Through at all).
+ *    already available on `HasMany`. Default: on for Through.
  */
 class HasManyThrough extends HasMany
 {
@@ -40,10 +36,10 @@ class HasManyThrough extends HasMany
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Read-only by default, aligned with Nova: a Through relationship is
-        // a traversal — there is no direct FK to populate on create (the
-        // intermediate model is ambiguous). Callers can re-enable mutations
-        // explicitly via ->canCreate(true) etc. when they have custom logic.
+        // Read-only by default: a Through relationship is a traversal —
+        // there is no direct FK to populate on create (the intermediate
+        // model is ambiguous). Callers can re-enable mutations explicitly
+        // via ->canCreate(true) etc. when they have custom logic.
         $this->canCreateRelated = false;
         $this->canUpdateRelated = false;
         $this->canDeleteRelated = false;

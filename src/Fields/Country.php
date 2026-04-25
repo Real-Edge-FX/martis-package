@@ -5,7 +5,6 @@ namespace Martis\Fields;
 /**
  * Country selection field — ISO 3166-1 alpha-2 country picker.
  *
- * Laravel Nova v5 parity: Country field.
  * Stores the 2-letter country code (e.g. US, BR, PT).
  * Displays the full country name in detail/index views.
  *
@@ -34,7 +33,7 @@ class Country extends Field
 
     /**
      * Enable flag emoji display alongside country names.
-     * Martis extension — not part of Nova API.
+     * Martis extension.
      */
     public function withFlags(): static
     {
@@ -45,7 +44,7 @@ class Country extends Field
 
     /**
      * Disable flag emoji display (default behavior).
-     * Martis extension — not part of Nova API.
+     * Martis extension.
      */
     public function withoutFlags(): static
     {

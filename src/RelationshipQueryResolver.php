@@ -11,7 +11,7 @@ use Martis\Contracts\FieldContract;
 use Martis\Fields\BelongsTo;
 
 /**
- * Central resolver for relatable query hooks — Nova v5 parity.
+ * Central resolver for relatable query hooks.
  *
  * Given a source resource, a target (related) resource, and optionally a Field,
  * this resolver determines which query hook to call:

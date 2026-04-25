@@ -214,7 +214,7 @@ class AuthzBeforePolicy
     }
 }
 
-// Denies all relational abilities using Nova v5 convention: {ability}{ModelBaseName}
+// Denies all relational abilities using the convention: {ability}{ModelBaseName}
 class AuthzRelationshipPolicy
 {
     public function viewAny($user): bool
@@ -437,7 +437,7 @@ it('denies operations with restrictive policy', function () {
 
 // ── Defaults Matrix (Partial Policy) ────────────────────────────
 
-it('defaults missing abilities per Nova v5 matrix', function () {
+it('defaults missing abilities per the defaults matrix', function () {
     $this->actingAs(testUser());
     $resource = new AuthzPartialPolicyResource(new AuthzModel(['id' => 1]));
 

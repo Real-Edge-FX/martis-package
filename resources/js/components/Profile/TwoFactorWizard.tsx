@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Dialog } from 'primereact/dialog'
 import { InputText } from 'primereact/inputtext'
-import { CopyIcon, CheckIcon } from '@phosphor-icons/react'
+import { CopyIcon, CheckIcon, XIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { useModalHistoryLock } from '@/lib/historyLock'
 
 interface TwoFactorSetupData {
   qr_code_svg: string
@@ -143,8 +144,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
           type="button"
           disabled={!setupData}
           onClick={() => setStep('verify')}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: 'var(--martis-accent)' }}
+          className="martis-btn-primary"
         >
           {t('2fa_next')}
         </button>
@@ -183,12 +183,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
         <button
           type="button"
           onClick={() => setStep('setup')}
-          className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
-          style={{
-            backgroundColor: 'var(--martis-surface-alt)',
-            borderColor: 'var(--martis-border)',
-            color: 'var(--martis-text)',
-          }}
+          className="martis-btn-secondary"
         >
           {t('2fa_scan_qr')}
         </button>
@@ -196,8 +191,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
           type="button"
           disabled={verifying}
           onClick={() => void handleVerify()}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: 'var(--martis-accent)' }}
+          className="martis-btn-primary"
         >
           {verifying ? t('2fa_verifying') : t('2fa_verify')}
         </button>
@@ -226,12 +220,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
         <button
           type="button"
           onClick={() => void handleCopyCodes()}
-          className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
-          style={{
-            backgroundColor: 'var(--martis-surface-alt)',
-            borderColor: 'var(--martis-border)',
-            color: 'var(--martis-text)',
-          }}
+          className="martis-btn-secondary"
         >
           {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
           {copied ? t('2fa_codes_copied') : t('2fa_copy_codes')}
@@ -239,8 +228,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
         <button
           type="button"
           onClick={handleDone}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
-          style={{ backgroundColor: 'var(--martis-accent)' }}
+          className="martis-btn-primary"
         >
           {t('2fa_done')}
         </button>
@@ -254,33 +242,49 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
     recovery: t('2fa_recovery_codes'),
   }
 
-  return (
-    <Dialog
-      visible={visible}
-      onHide={onClose}
-      header={t('2fa_wizard_title')}
-      style={{ width: '420px' }}
-      modal
-      draggable={false}
-      resizable={false}
-    >
-      <div className="space-y-4">
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 text-xs martis-text-muted mb-4">
-          {(['setup', 'verify', 'recovery'] as WizardStep[]).map((s, i) => (
-            <span key={s} className="flex items-center gap-2">
-              {i > 0 && <span className="opacity-40">›</span>}
-              <span className={step === s ? 'font-semibold martis-text' : ''}>
-                {stepTitles[s]}
-              </span>
-            </span>
-          ))}
+  useModalHistoryLock(visible)
+
+  if (!visible) return null
+
+  return createPortal((
+    <div className="martis-modal-scrim" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="martis-modal-surface"
+        style={{ maxWidth: '420px' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="martis-modal-head">
+          <h3 className="martis-modal-head-title">{t('2fa_wizard_title')}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="martis-modal-close"
+            aria-label={t('2fa_cancel')}
+          >
+            <XIcon size={16} />
+          </button>
         </div>
 
-        {step === 'setup' && renderSetup()}
-        {step === 'verify' && renderVerify()}
-        {step === 'recovery' && renderRecovery()}
+        <div className="martis-modal-body">
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 text-xs martis-text-muted mb-4">
+            {(['setup', 'verify', 'recovery'] as WizardStep[]).map((s, i) => (
+              <span key={s} className="flex items-center gap-2">
+                {i > 0 && <span className="opacity-40">›</span>}
+                <span className={step === s ? 'font-semibold martis-text' : ''}>
+                  {stepTitles[s]}
+                </span>
+              </span>
+            ))}
+          </div>
+
+          {step === 'setup' && renderSetup()}
+          {step === 'verify' && renderVerify()}
+          {step === 'recovery' && renderRecovery()}
+        </div>
       </div>
-    </Dialog>
-  )
+    </div>
+  ), document.body)
 }

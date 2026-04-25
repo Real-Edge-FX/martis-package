@@ -21,12 +21,12 @@ import { Pagination } from '@/components/Pagination'
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
  *
  * Owns ephemeral UI state (search, page, perPage, sort, delete target) and
- * renders the Nova-style panel. Callers supply endpoint builders and meta;
+ * renders the relationship panel. Callers supply endpoint builders and meta;
  * the shell is agnostic of HasMany vs MorphMany semantics.
  *
  * Authorization gates (`canCreate`/`canUpdate`/`canDelete`) AND programmer
  * hide flags (`hideXxx`) compose: an action appears only when authorized AND
- * not explicitly hidden. Unauthorized actions never render — Nova-fidelity.
+ * not explicitly hidden. Unauthorized actions never render.
  */
 export interface RelationshipTableShellProps {
   title: string
@@ -243,11 +243,11 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
           <span>{title}</span>
           {showRelationCount && (
             <span
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+              className="martis-badge"
               style={{
                 backgroundColor: 'var(--martis-surface)',
                 color: 'var(--martis-text-muted)',
-                border: '1px solid var(--martis-border)',
+                borderColor: 'var(--martis-border)',
               }}
             >
               {totalCount}
@@ -380,7 +380,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   style={{ width: '5rem' }}
                   body={(row: ResourceRecord) =>
                     row.deleted_at != null ? (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                      <span className="martis-badge martis-badge-danger">
                         {tMsg('archived', 'Archived')}
                       </span>
                     ) : null

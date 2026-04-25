@@ -172,11 +172,11 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
   return (
     <div className="flex flex-col gap-1">
       <div
-        className={`martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
-        style={{
-          backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
-        }}
+        className={[
+          'martis-dropzone',
+          dragOver ? 'is-drag-over' : '',
+          error ? 'has-error' : '',
+        ].filter(Boolean).join(' ')}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
@@ -201,9 +201,12 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
             <button
               type="button"
               onClick={handleClear}
-              className="flex-shrink-0 rounded p-1 hover:bg-red-500/10"
+              className="flex-shrink-0 rounded p-1 transition-colors"
+              style={{ color: 'var(--martis-danger)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
-              <TrashIcon size={16} className="text-red-500" />
+              <TrashIcon size={16} />
             </button>
           </>
         ) : (
@@ -360,9 +363,12 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
                 <button
                   type="button"
                   onClick={() => handleRemove(item.id)}
-                  className="flex-shrink-0 rounded p-1 hover:bg-red-500/10"
+                  className="flex-shrink-0 rounded p-1 transition-colors"
+                  style={{ color: 'var(--martis-danger)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <TrashIcon size={14} className="text-red-500" />
+                  <TrashIcon size={14} />
                 </button>
               </div>
             )
@@ -372,11 +378,11 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
 
       {/* Drop zone / add button */}
       <div
-        className={`martis-dropzone relative flex items-center gap-3 rounded-md border px-4 py-3 transition-colors ${dragOver ? 'border-indigo-500 bg-indigo-500/10' : ''}`}
-        style={{
-          backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
-        }}
+        className={[
+          'martis-dropzone',
+          dragOver ? 'is-drag-over' : '',
+          error ? 'has-error' : '',
+        ].filter(Boolean).join(' ')}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}

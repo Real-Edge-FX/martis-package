@@ -28,6 +28,8 @@ export interface MartisDashboardConfig {
   showGreeting?: boolean
   /** Show the welcome subtitle below the greeting. Default: true. */
   showWelcome?: boolean
+  /** Show the animated welcome hero card at the top of the default dashboard. Default: true. */
+  showWelcomeCard?: boolean
   showMetrics?: boolean
   showResourceCards?: boolean
 }
@@ -40,6 +42,19 @@ export interface MartisFooterConfig {
   enabled?: boolean
   /** Custom footer text. null = auto-generate from brand.name */
   text?: string | null
+}
+
+export interface MartisDrawerConfig {
+  /** Default width for every DrawerOverride (override per-resource via `->width()`). */
+  width?: string
+  /** Width when the user toggles the drawer into its expanded state. */
+  expandedWidth?: string
+  /**
+   * Global gate for the expand / fullscreen buttons. When `false`, both
+   * controls are suppressed on every drawer regardless of the per-drawer
+   * `allowExpand` / `allowFullscreen` props. Default: true.
+   */
+  expandable?: boolean
 }
 
 export interface MartisLoaderConfig {
@@ -67,9 +82,31 @@ export interface MartisLoaderConfig {
   }
 }
 
+export interface MartisNavigationConfig {
+  /**
+   * Interval in milliseconds at which the sidebar and top-nav menus
+   * re-fetch the navigation endpoint while the tab is focused. Keeps
+   * resource count badges in sync when a second user mutates data.
+   *
+   * Set to `0` to disable polling. Default: 60000 (60 seconds).
+   */
+  pollInterval?: number
+}
+
 export interface MartisLayoutConfig {
   /** Layout preset: "sidebar" (default), "topnav", "minimal", "custom" */
   preset?: "sidebar" | "topnav" | "minimal" | "custom"
+  /**
+   * Optional registry-key overrides for individual shell pieces. Each
+   * value is a key registered via `componentRegistry.register(...)` in
+   * the consumer's `boot.ts`. Null keeps the bundled piece.
+   */
+  components?: {
+    shell?: string | null
+    sidebar?: string | null
+    topbar?: string | null
+    footer?: string | null
+  }
 }
 
 export interface MartisProfileMenuConfig {
@@ -97,20 +134,80 @@ export interface MartisProfileConfig {
   two_factor?: MartisProfileTwoFactorConfig
 }
 
+export interface MartisPreferencesInitialPayload {
+  theme?: 'dark' | 'light' | 'system'
+  accent?: 'martis' | 'blue' | 'teal' | 'violet' | 'amber' | 'custom'
+  brandColor?: string | null
+  density?: 'comfortable' | 'dense'
+  locale?: string
+  reducedMotion?: boolean
+  source?: 'default' | 'user' | 'preset'
+  preset?: string | null
+}
+
+export interface MartisPreferencesConfig {
+  enabled: boolean
+  allowBrandColor: boolean
+  /** Map of locale code → human-readable label (e.g. `en` → "English"). */
+  localeLabels?: Record<string, string>
+  initial: MartisPreferencesInitialPayload | null
+}
+
+/** Generic shape for each alternative auth flow (SSO, Google, password reset,
+ *  registration). `enabled` renders the UI piece; `url` is where the button
+ *  or link points. When `enabled` is `true` but `url` is empty, the UI
+ *  surfaces an "not configured" toast to the programmer. */
+export interface MartisAuthFlowConfig {
+  enabled?: boolean
+  url?: string | null
+}
+
+/** Visibility toggles for the compact guest-mode controls (theme cycle,
+ *  language picker) rendered in the top-right of every auth surface
+ *  (Login, Register, 2FA, error pages). Hiding a control does not change
+ *  its underlying preference value — only the widget. */
+export interface MartisAuthControlsConfig {
+  theme?: boolean
+  locale?: boolean
+}
+
+export interface MartisAuthConfig {
+  /** SSO sign-in button on the Login page. */
+  sso?: MartisAuthFlowConfig
+  /** Continue with Google button on the Login page. */
+  google?: MartisAuthFlowConfig
+  /** "Forgot?" link next to the password label. */
+  passwordReset?: MartisAuthFlowConfig
+  /** Self-service registration — gates the `/register` route and the
+   *  "Create an account" link on Login. */
+  registration?: MartisAuthFlowConfig
+  /** Visibility of the theme cycle button and the language picker on
+   *  every pre-login surface. Both default to `true`. */
+  controls?: MartisAuthControlsConfig
+}
+
 export interface MartisConfigShape {
   basePath?: string
   locale?: string
   brand?: string
   logo?: string | null
+  /** Martis package version surfaced in the sidebar footer. */
+  version?: string
+  /** Optional link to the project's docs shown in the sidebar footer. */
+  docsUrl?: string | null
   theme?: MartisThemeConfig
   userMenu?: MartisUserMenuConfig
   search?: MartisSearchConfig
   dashboard?: MartisDashboardConfig
   toast?: MartisToastConfig
   footer?: MartisFooterConfig
+  drawer?: MartisDrawerConfig
   layout?: MartisLayoutConfig
+  navigation?: MartisNavigationConfig
   loader?: MartisLoaderConfig
   profile?: MartisProfileConfig
+  preferences?: MartisPreferencesConfig
+  auth?: MartisAuthConfig
 }
 
 declare global {

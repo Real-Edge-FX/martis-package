@@ -80,4 +80,10 @@ class Date extends Field
             'displayFormat' => $this->displayFormat,
         ];
     }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['width' => '140px'];
+    }
 }

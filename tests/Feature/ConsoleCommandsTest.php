@@ -11,15 +11,24 @@ function cleanupMartisInstallArtifacts(): void
     $filesystem = new Filesystem;
 
     $patterns = [
-        'migrations/*_create_action_events_table.php',
+        'migrations/*_create_martis_action_events_table.php',
         'migrations/*_add_martis_profile_picture_column_to_users_table.php',
         'migrations/*_add_martis_two_factor_columns_to_users_table.php',
     ];
 
+    // Parallel-safe — multiple Pest workers share the testbench
+    // database path, and another worker may have already unlinked the
+    // file between glob() and delete(). Guard each delete.
     foreach ($patterns as $pattern) {
-        collect(glob(database_path($pattern)) ?: [])->each(
-            fn (string $path) => $filesystem->delete($path)
-        );
+        collect(glob(database_path($pattern)) ?: [])->each(function (string $path) use ($filesystem): void {
+            try {
+                if ($filesystem->exists($path)) {
+                    $filesystem->delete($path);
+                }
+            } catch (\Throwable) {
+                // Another worker beat us to it — ignore.
+            }
+        });
     }
 
     $envPath = app()->environmentFilePath();
@@ -59,7 +68,7 @@ it('martis:install publishes the action events migration once', function () {
     $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
     $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
-    $migrations = glob(database_path('migrations/*_create_action_events_table.php')) ?: [];
+    $migrations = glob(database_path('migrations/*_create_martis_action_events_table.php')) ?: [];
 
     expect($migrations)->toHaveCount(1);
 });

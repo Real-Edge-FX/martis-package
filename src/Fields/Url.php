@@ -8,9 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * URL field — renders clickable links on index/detail and a text input on forms.
  *
- * Laravel Nova v5 parity: URL field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
- *
  * Contexts:
  *  - index: clickable link
  *  - detail: clickable link
@@ -71,8 +68,8 @@ class Url extends Field
     {
         // Replace Laravel's strict `url` rule with a closure that first
         // normalises the value — auto-prepending `http://` when no scheme
-        // is present — and then runs FILTER_VALIDATE_URL. This matches
-        // Nova v5's forgiving behaviour.
+        // is present — and then runs FILTER_VALIDATE_URL. This keeps
+        // the field forgiving for authors who paste bare domains.
         return array_merge(parent::buildRules(), [
             function (string $attribute, mixed $value, \Closure $fail): void {
                 if ($value === null || $value === '' || ! is_string($value)) {
@@ -117,5 +114,11 @@ class Url extends Field
             }
         }
         parent::fill($model, $value);
+    }
+
+    /** {@inheritDoc} */
+    protected function defaultColumnWidth(): array
+    {
+        return ['maxWidth' => '280px', 'truncate' => true];
     }
 }

@@ -1,6 +1,6 @@
 # Menus
 
-Martis exposes a declarative navigation API inspired by Nova 5 while staying package-native.
+Martis exposes a declarative, package-native navigation API.
 
 Use it in two layers:
 
@@ -98,6 +98,78 @@ Resource menu items still respect:
 
 Declarative link items can be hidden with `canSee(...)`.
 
+## Sections
+
+Groups can sit under a higher-level **section** divider (think "Resources",
+"Platform") to split a dense sidebar into clusters without nesting another
+collapsible. Sections render as small all-caps headings above their groups
+and stay visually subtler than group labels so the two levels remain
+distinguishable.
+
+Declared only on `MenuSection` inside a custom `Martis::mainMenu(...)`
+builder — i.e. the same service provider where you build the menu.
+Run every user-facing string through `__(...)` so the heading localises
+with the rest of the UI:
+
+```php
+Martis::mainMenu(function ($request, $menu) {
+    $workspace = __('menu.section_workspace');
+    $platform  = __('menu.section_platform');
+
+    return $menu->sections([
+        MenuSection::make(__('menu.operations'), [...])->section($workspace),
+        MenuSection::make(__('menu.talents'),    [...])->section($workspace),
+        MenuSection::make(__('menu.audit'),      [...])->section($platform),
+        MenuSection::make(__('menu.settings'),   [...])->section($platform),
+    ]);
+});
+```
+
+Leave `->section(...)` off to skip the section heading for that group.
+
+## Count Badges
+
+Each resource publishes a count badge next to its label (`Users 1,284`).
+The value comes from the same `indexQuery()` hook that powers the listing
+page, so tenancy and policy scopes apply automatically.
+
+Opt out per-resource:
+
+```php
+public static function showMenuCount(): bool
+{
+    return false;
+}
+```
+
+Customise the value (useful for "unread", "pending", or computed counts):
+
+```php
+use Illuminate\Http\Request;
+
+public static function menuCount(Request $request): ?int
+{
+    return Ticket::where('assignee_id', $request->user()->id)
+        ->whereNull('resolved_at')
+        ->count();
+}
+```
+
+Return `null` from `menuCount()` to hide the badge without turning off
+`showMenuCount()`.
+
+Disable badges globally with:
+
+```php
+// config/martis.php
+'navigation' => [
+    'counts' => ['enabled' => false],
+],
+```
+
+or the `MARTIS_NAV_COUNTS=false` env var. The global switch wins over
+per-resource opt-ins.
+
 ## Navigation API Response
 
 `GET /martis/api/navigation` returns an array of menu sections:
@@ -134,7 +206,24 @@ Declarative link items can be hidden with `canSee(...)`.
         "group": "Support",
         "icon": "lifebuoy",
         "url": "/support/help-desk",
-        "external": false
+        "external": false,
+        "count": 42
+      }
+    ],
+    "section": "Resources"
+  },
+  {
+    "label": "Platform",
+    "icon": "stack",
+    "collapsable": true,
+    "section": "Platform",
+    "items": [
+      {
+        "type": "resource",
+        "uriKey": "queues",
+        "label": "Queues",
+        "url": "/resources/queues",
+        "count": 0
       }
     ]
   }

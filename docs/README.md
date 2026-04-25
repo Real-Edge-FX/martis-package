@@ -1,6 +1,6 @@
 # Martis Documentation
 
-A modern, open-source admin engine for Laravel — the developer-friendly alternative to Laravel Nova.
+A modern, open-source admin engine for Laravel.
 
 ## What is Martis?
 
@@ -36,7 +36,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 
 ### Architecture Philosophy
 
-> **Nova parity is the baseline. Architectural superiority in customization is the competitive edge.**
+> **Architectural superiority in customization is the competitive edge.**
 
 1. Backend never renders UI — everything is contract-based
 2. Nothing is hardcoded to the default frontend
@@ -71,8 +71,11 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
 | 8.5 | **[Menus](menus.md)** | Declarative navigation — `Martis::mainMenu(...)`, `Menu`, `MenuSection`, `MenuItem`, resource-level `menuItem()`, and `/api/navigation` |
 | 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
-| 10 | **[Authentication](authentication.md)** | Login, logout, two-factor authentication (2FA), user profile, avatar uploads, user menu configuration |
+| 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), SSO + Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
+| 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |
+| 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
+| 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching |
 
 ### Architecture & Design
 
@@ -87,7 +90,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 15 | **[Martis Differentials](differentials.md)** | All features unique to Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
-| 16 | **[Nova v5 Parity Map](PARITY_MAP.md)** | Feature-by-feature comparison with Laravel Nova v5 — what is done, in progress, and planned |
+| 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature status map — what is done, in progress, and planned |
 
 ---
 
@@ -109,8 +112,11 @@ docs/
 ├── components.md ................... Built-in UI components
 ├── authentication.md ............... Login, 2FA, profile
 ├── configuration.md ................ Config reference
+├── theming.md ...................... 94-token design system
+├── preferences.md .................. User preferences (⭐ D1/D2/D3)
+├── i18n.md ......................... Adding locales & translations
 ├── differentials.md ................ Martis differentials (unique features)
-├── PARITY_MAP.md ................... Nova v5 parity tracker
+├── PARITY_MAP.md ................... Parity status tracker
 ├── api/
 │   └── overview.md ................. REST API reference
 ├── architecture/

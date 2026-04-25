@@ -78,54 +78,35 @@ export function UnsavedChangesDialog({ open, onConfirm, onCancel, config, skipHi
 
   return createPortal(
     <div
-      className="fixed inset-0 flex items-center justify-center"
-      style={{ zIndex: 10000, backgroundColor: 'rgba(0,0,0,0.55)' }}
+      className="martis-modal-scrim"
+      style={{ zIndex: 10000 }}
       onClick={onCancel}
       data-testid="unsaved-changes-dialog"
     >
       <div
-        className="rounded-lg p-5 shadow-2xl"
-        style={{
-          backgroundColor: 'var(--martis-card)',
-          border: '1px solid var(--martis-border)',
-          color: 'var(--martis-text)',
-          width: '400px',
-          maxWidth: '92vw',
-        }}
+        role="dialog"
+        aria-modal="true"
+        className="martis-modal-surface"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3">
-          {/* Hide the icon when the resource explicitly returned `null`
-              via UnsavedChangesConfig::icon(null). Otherwise render the
-              requested Phosphor glyph, or the default warning triangle. */}
-          {iconName !== '' && (
-            <span
-              className="flex flex-shrink-0 items-center justify-center rounded-full"
-              style={{
-                width: '2.25rem',
-                height: '2.25rem',
-                backgroundColor: `color-mix(in oklab, ${iconColor ?? 'var(--martis-warning)'} 16%, transparent)`,
-                color: iconColor,
-              }}
-            >
-              {iconName ? (
-                <ResourceIcon iconName={iconName} size={20} />
-              ) : (
-                <WarningIcon size={20} weight="fill" />
-              )}
-            </span>
-          )}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold" style={{ color: 'var(--martis-text)' }}>
-              {title}
-            </h2>
-            <p className="mt-1 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-              {body}
-            </p>
+        <div className="martis-modal-head">
+          <div className="flex items-center gap-3">
+            {iconName !== '' && (
+              <span style={{ color: iconColor, display: 'inline-flex', alignItems: 'center' }}>
+                {iconName ? (
+                  <ResourceIcon iconName={iconName} size={18} />
+                ) : (
+                  <WarningIcon size={18} weight="fill" />
+                )}
+              </span>
+            )}
+            <h3 className="martis-modal-head-title">{title}</h3>
           </div>
         </div>
 
-        <div className="mt-5 flex items-center justify-end gap-2">
+        <div className="martis-modal-body">{body}</div>
+
+        <div className="martis-modal-foot">
           <button
             type="button"
             onClick={onCancel}
@@ -138,7 +119,7 @@ export function UnsavedChangesDialog({ open, onConfirm, onCancel, config, skipHi
             type="button"
             onClick={onConfirm}
             className="martis-btn-filled"
-            style={{ backgroundColor: confirmColor }}
+            style={{ backgroundColor: confirmColor, color: '#fff', borderColor: confirmColor }}
             data-testid="unsaved-discard"
           >
             {confirmLabel}

@@ -7,16 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * BooleanGroup — map of named boolean flags stored as JSON.
  *
- * Laravel Nova v5 parity: BooleanGroup field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#booleangroup-field
- *
  * The stored value is an associative array `['key' => bool, ...]`; the UI
  * renders one checkbox per option with its translated label.
  *
  * ⭐ Martis differentials:
  *  - `grouped([section => keys])` — organise options into collapsible
  *    sections so long flag lists (permissions, feature gates) stay
- *    manageable. Nova is a flat list only.
+ *    manageable.
  *  - `minChecked(int)` / `maxChecked(int)` — validation constraints
  *    enforced on the backend AND surfaced as a live counter in the UI.
  *  - `requireAll()` / `requireAny()` convenience presets that compile

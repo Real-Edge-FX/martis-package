@@ -7,16 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * KeyValue field — edits dynamic key-value pairs stored as JSON.
  *
- * Laravel Nova v5 parity: KeyValue field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields#keyvalue-field
- *
  * Contexts:
  *  - create: yes
  *  - update: yes
  *  - detail: yes
  *  - index: no (hidden by default — not suitable as a table column)
  *
- * Intentional divergences from Nova:
+ * Notes:
  *  - Index hidden by default; developer can call ->showOnIndex() if needed.
  *  - KeyValue does not live-report changes to the dependent fields system.
  */

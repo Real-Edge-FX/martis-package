@@ -1,6 +1,6 @@
 # Override System
 
-The override system is Martis's competitive advantage over Nova. **Everything can be customized without forking** — React components, layouts, and server-side behaviors.
+The override system is a core Martis differential. **Everything can be customized without forking** — React components, layouts, and server-side behaviors.
 
 ## Overview
 
@@ -269,8 +269,8 @@ public function overrides(): array
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `width()` | `width(string $width)` | Set the collapsed drawer width (CSS value, e.g. `'40rem'`). |
-| `expandedWidth()` | `expandedWidth(string $width)` | Set the expanded drawer width. |
+| `width()` | `width(string $width)` | Set the collapsed drawer width (CSS value, e.g. `'40rem'`). Default: `720px` (configurable via `config('martis.drawer.width')`). |
+| `expandedWidth()` | `expandedWidth(string $width)` | Set the expanded drawer width. Default: `960px` (configurable via `config('martis.drawer.expanded_width')`). |
 | `allowExpand()` | `allowExpand(bool $value = true)` | Show the expand/collapse toggle button. |
 | `allowFullscreen()` | `allowFullscreen(bool $value = true)` | Show the fullscreen toggle button. |
 | `showCloseButton()` | `showCloseButton(bool $value = true)` | Show the close (×) button in the header. |
@@ -384,30 +384,100 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 ## 6. Creating Custom Components (Artisan)
 
-Use the `martis:component` artisan command to scaffold and auto-register a component:
+Use the `martis:component` artisan command to scaffold and auto-register a component (alias: `martis:override`, kept for back-compat).
 
 ```bash
 php artisan martis:component StatusBadge --type=field
-php artisan martis:component DashboardLayout --type=layout
-php artisan martis:component CustomFooter --type=footer
+php artisan martis:component AcmeShell --type=shell
+php artisan martis:component AcmeSidebar --type=sidebar
+php artisan martis:component AcmeTopbar --type=topbar
+php artisan martis:component AcmeFooter --type=footer
 php artisan martis:component InfoPanel --type=generic
+
+# Generate all four shell pieces at once (prefix defaults to "Custom"):
+php artisan martis:component --type=complete-layout
+# → CustomShell.tsx, CustomSidebar.tsx, CustomTopbar.tsx, CustomFooter.tsx
+
+# Or pass a prefix to namespace them:
+php artisan martis:component Acme --type=complete-layout
+# → AcmeShell.tsx, AcmeSidebar.tsx, AcmeTopbar.tsx, AcmeFooter.tsx
 ```
 
-This command:
-1. Creates the React component file at `resources/js/martis/components/`
-2. Generates or updates `resources/js/martis/boot.ts` with the import and registration
-3. For field types, registers both display and input components
+The command:
+1. Creates the React component file(s) at `resources/js/martis/components/`.
+2. Generates or updates `resources/js/martis/boot.ts` with the import and registration.
+3. For `field`, registers both display and input components.
+4. For shell types, uses stubs that document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
 
-**Component types:**
+> **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead — that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis/fields/<name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
 
-| Type | Description | Registry Key |
-|------|-------------|-------------|
-| `field` | Display + Input pair | `{kebab-name}` + `{kebab-name}-input` |
-| `layout` | Page layout shell | `layout:shell` |
-| `footer` | Page footer | `layout:footer` |
-| `generic` | General purpose | `{kebab-name}` |
+**Arguments:**
 
-After creating a component, rebuild assets with `make build`.
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `name` | Required for all types except `complete-layout` | PHP `StudlyCase` name. Becomes the React export name and — kebab-cased — the registry key for field/generic types. For `complete-layout` it becomes the prefix (e.g. `Acme` → `AcmeShell`, `AcmeSidebar`, …). Optional for `complete-layout`; defaults to `Custom`. |
+| `--type` | Optional, defaults to `generic` | See table below. |
+| `--force` | Optional | Overwrite an existing file. Without it, the command aborts when the destination already exists. |
+
+**Component types (--type):**
+
+| Type | What it generates | Registry key |
+|------|-------------------|--------------|
+| `field` | Display + Input pair for overriding a field visual | `{kebab-name}` + `{kebab-name}-input` |
+| `shell` | Entire shell replacement (composes sidebar + topbar + content + footer) | `layout:shell` |
+| `sidebar` | Left nav column only | `layout:sidebar` |
+| `topbar` | Top bar only | `layout:topbar` |
+| `footer` | Page footer only | `layout:footer` |
+| `complete-layout` | All four shell pieces at once (shell + sidebar + topbar + footer), each under its default key | `layout:shell`, `layout:sidebar`, `layout:topbar`, `layout:footer` |
+| `generic` | Free-form component | `{kebab-name}` |
+
+After creating a component, rebuild assets:
+```bash
+MARTIS_USER_DIR=$(pwd)/resources/martis-extensions npm run build
+```
+
+### Shell piece-by-piece overrides
+
+Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without touching the rest. Two equivalent wiring options — pick the one that matches your workflow:
+
+**Option A — JS boot file** (register directly under the default key):
+
+```typescript
+// resources/js/martis/boot.ts
+import { componentRegistry } from '@/lib/componentRegistry'
+import { MyTopbar } from './components/MyTopbar'
+import { MyFooter } from './components/MyFooter'
+
+componentRegistry.register('layout:topbar', MyTopbar)
+componentRegistry.register('layout:footer', MyFooter)
+```
+
+**Option B — PHP config + any registry key** (useful when multiple candidates are registered and PHP owns the selection, e.g. for feature-flagged deploys):
+
+```typescript
+// resources/js/martis/boot.ts
+componentRegistry.register('my-topbar', MyTopbar)
+componentRegistry.register('my-footer', MyFooter)
+```
+
+```php
+// config/martis.php
+'layout' => [
+    'preset' => 'sidebar',
+    'components' => [
+        'shell'   => null,         // whole shell; skips grid + drawer
+        'sidebar' => null,
+        'topbar'  => 'my-topbar',  // the key from boot.ts
+        'footer'  => 'my-footer',
+    ],
+],
+```
+
+Resolution precedence for each piece: `config.layout.components.<piece>` → `layout:<piece>` → bundled component.
+
+Your replacement receives the same props the bundled component does, so the shell's state (`sidebarCollapsed`, `onToggleCollapse`, `onToggleSidebar`, `mobileOpen`, `onMobileClose`) keeps flowing. Use piece-by-piece overrides when you want to change one piece's visual design but keep the overall shell mechanics (mobile drawer, grid, collapse animation) intact.
+
+Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuild the entire layout from scratch and don't need Martis's default mobile drawer / collapse behaviour.
 
 ## Component Registry API
 
@@ -434,3 +504,24 @@ componentRegistry.keys()
 // Resolve a component (follows 4-tier priority)
 componentRegistry.resolve(type, field, resource, explicitKey, fallback)
 ```
+
+## Page Title Hook
+
+Custom pages (layouts, custom resource views, dashboards built outside the default router) should set the browser tab title so navigation inside the SPA stays consistent with the server-side title on hard reload.
+
+```tsx
+import { usePageTitle } from '@/hooks/usePageTitle'
+
+export function MyCustomPage({ resource }) {
+  // Passing a segment → `"${segment} · ${brand}"`.
+  usePageTitle(resource.label)
+
+  // Passing null/undefined → the bundled "brand — Admin Control" default
+  // in the active locale.
+  // usePageTitle(null)
+
+  return <div>…</div>
+}
+```
+
+The hook restores the previous title on unmount so stacked modals/drawers don't leave stale segments in the tab bar. See [configuration.md](configuration.md#customising-the-page-title) for the server-side half (static config + closure API).

@@ -56,7 +56,7 @@ function StackEntryRow({ entry }: { entry: StackEntry }) {
   )
 }
 
-export function StackFieldDisplay({ field, value }: FieldDisplayProps) {
+export function StackFieldDisplay({ value }: FieldDisplayProps) {
   const payload = isStackPayload(value) ? value : null
 
   if (!payload || payload.entries.length === 0) {
@@ -67,13 +67,9 @@ export function StackFieldDisplay({ field, value }: FieldDisplayProps) {
 
   return (
     <div className={`martis-stack${withDivider ? ' martis-stack--divided' : ''}`}>
-      {payload.entries.map((entry, idx) => {
-        const row = <StackEntryRow entry={entry} key={idx} />
-        if (!row) return null
-        return row
-      })}
-      {/* silence unused */}
-      {void field && null}
+      {payload.entries.map((entry, idx) => (
+        <StackEntryRow entry={entry} key={idx} />
+      ))}
     </div>
   )
 }

@@ -42,6 +42,34 @@ return [
         'name' => env('MARTIS_BRAND_NAME', 'Martis'),
         'logo' => null,
         'favicon' => env('MARTIS_FAVICON', null),
+
+        /*
+         | The browser tab title shown in `<title>`. Accepts:
+         |   - null     → use the bundled translation "{brand} — Admin Control"
+         |   - string   → literal title, e.g. "Acme Back Office"
+         |   - callable → invokable class or array callable that returns a string
+         |                and receives the current Request
+         |
+         | For per-route titles (callback with request inspection), register
+         | via `Martis::pageTitleUsing(fn (Request $r) => ...)` from the
+         | application's service provider instead — closures cannot live in
+         | config files because `php artisan config:cache` fails to serialise
+         | them.
+         */
+        'page_title' => env('MARTIS_PAGE_TITLE'),
+
+        /*
+         | Optional version string printed in the sidebar footer. Useful to
+         | surface the tenant's deployed build (e.g. "v0.7.0-beta", "2025.11.04").
+         | Null hides the version segment.
+         */
+        'version' => env('MARTIS_BRAND_VERSION'),
+
+        /*
+         | Optional docs link rendered on the right-hand side of the sidebar
+         | footer. Can be an external URL or an in-app path. Null hides it.
+         */
+        'docs_url' => env('MARTIS_BRAND_DOCS_URL'),
     ],
 
     /*
@@ -66,6 +94,57 @@ return [
     */
     'layout' => [
         'preset' => env('MARTIS_LAYOUT', 'sidebar'),
+
+        /*
+         | Swap individual shell pieces by registry key, without ejecting
+         | the bundled layout entirely. Each value must be a key that the
+         | consumer registered via `componentRegistry.register(...)` in
+         | `resources/js/martis/boot.ts`. Null keeps the bundled component.
+         |
+         |   'components' => [
+         |       'shell'   => 'my-shell',       // whole shell; skips grid + drawer
+         |       'sidebar' => 'my-sidebar',     // just the left column
+         |       'topbar'  => 'my-topbar',      // just the top bar
+         |       'footer'  => 'my-footer',      // just the page footer
+         |   ],
+         |
+         | The frontend also honours direct keys — `layout:sidebar`,
+         | `layout:topbar`, `layout:footer`, `layout:shell` — so apps that
+         | only touch JS can register under those names and skip this
+         | config entirely.
+         */
+        'components' => [
+            'shell' => null,
+            'sidebar' => null,
+            'topbar' => null,
+            'footer' => null,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Navigation
+    |--------------------------------------------------------------------------
+    | Tweaks for the sidebar and top-nav menus.
+    |
+    | counts.enabled
+    |     Master switch for the resource count badge ("Users 1,284"). When
+    |     true (default), every resource that doesn't opt out publishes a
+    |     count. Set to false to silence all badges globally without
+    |     touching individual resources.
+    */
+    'navigation' => [
+        'counts' => [
+            'enabled' => env('MARTIS_NAV_COUNTS', true),
+        ],
+
+        /*
+         | How often (in milliseconds) the sidebar and top-nav re-fetch the
+         | navigation endpoint while a tab is focused. Keeps count badges
+         | in sync when a second user mutates data in parallel.
+         | Set to 0 to disable polling entirely.
+         */
+        'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
     ],
 
     /*
@@ -79,16 +158,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | API Throttle
+    | Throttling
     |--------------------------------------------------------------------------
-    | Configure rate limiting for the Martis API routes.
-    | Set enabled to false to disable throttling entirely.
-    | max_attempts = maximum requests per decay_minutes window.
+    | Rate limits for Martis routes. Two distinct buckets:
+    |   - `api` — protects general authenticated API routes (resource CRUD,
+    |     dashboards, metrics). Default 120 req/min is generous because the
+    |     SPA is chatty on navigation.
+    |   - `login` — brute-force protection on the login form, 2FA challenge,
+    |     and API login endpoint. Tight by design (20 req/min) but loose
+    |     enough that a typo-prone human doesn't get locked out.
+    | Set `api.enabled = false` to disable throttling on API routes entirely.
     */
     'throttle' => [
         'enabled' => env('MARTIS_THROTTLE_ENABLED', true),
         'max_attempts' => (int) env('MARTIS_THROTTLE_MAX', 120),
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
+        'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
+        'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
     ],
 
     /*
@@ -103,6 +189,68 @@ return [
         'default' => env('MARTIS_THEME', 'dark'),
         'allowToggle' => true,
         'name' => env('MARTIS_THEME_NAME', null),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Preferences (Task 07.1 ⭐ D2)
+    |--------------------------------------------------------------------------
+    | Runtime UI preferences (theme, accent, density, locale, reduced-motion)
+    | persisted per-user in `martis_user_preferences`. Disable with
+    | 'enabled' => false to fall back to stateless defaults everywhere.
+    |
+    | Presets: named bundles applied via ?preset=<name> in the URL. Useful
+    | for role-based shareable links (exec dashboards, ops compact mode).
+    */
+    'preferences' => [
+        'enabled' => env('MARTIS_PREFERENCES_ENABLED', true),
+
+        'defaults' => [
+            'theme' => 'dark',
+            'accent' => 'martis',
+            'brandColor' => null,
+            'density' => 'comfortable',
+            'locale' => env('MARTIS_DEFAULT_LOCALE', 'en'),
+            'reducedMotion' => false,
+        ],
+
+        // Locales the UI exposes in the language picker. Null = use the
+        // three bundled by the package (en, pt_PT, pt_BR). Add any code
+        // here once you ship translations for it under
+        // resources/lang/{locale}/ (or lang/vendor/martis/{locale}/).
+        'locales' => ['en', 'pt_PT', 'pt_BR'],
+
+        // Human-readable labels rendered in the language dropdown. Any
+        // locale missing here falls back to its code (e.g. "fr_CA").
+        // The code itself is what gets persisted / sent to the API.
+        'locale_labels' => [
+            'en' => 'English',
+            'pt_PT' => 'Português (PT)',
+            'pt_BR' => 'Português (BR)',
+        ],
+
+        // Allow users to set an arbitrary brand hex (⭐ D1). Off by default —
+        // apps opt in via env or config override when multi-tenant branding
+        // is a real requirement.
+        'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
+
+        // Named presets. Apply via `/resources/...?preset=<name>`.
+        'presets' => [
+            'exec-comfort' => [
+                'accent' => 'violet',
+                'density' => 'comfortable',
+            ],
+            'ops-compact' => [
+                'accent' => 'teal',
+                'density' => 'dense',
+                'reducedMotion' => true,
+            ],
+            'focus-amber' => [
+                'theme' => 'dark',
+                'accent' => 'amber',
+                'density' => 'comfortable',
+            ],
+        ],
     ],
 
     /*
@@ -157,6 +305,11 @@ return [
     |                     ("Welcome to Martis Admin Engine."). Set to false
     |                     to hide just the subtitle while keeping the greeting.
     |
+    | showWelcomeCard   - Show the animated welcome hero card at the top of
+    |                     the default dashboard. Displays the package version
+    |                     resolved from the installed composer tag. Set to
+    |                     false to hide the card.
+    |
     | showMetrics       - Show the summary metrics row at the top of the
     |                     dashboard (total resources, groups, active count).
     |                     Set to false to hide the entire metrics section.
@@ -173,8 +326,61 @@ return [
     'dashboard' => [
         'showGreeting' => env('MARTIS_DASHBOARD_SHOW_GREETING', true),
         'showWelcome' => env('MARTIS_DASHBOARD_SHOW_WELCOME', true),
+        'showWelcomeCard' => env('MARTIS_DASHBOARD_SHOW_WELCOME_CARD', true),
         'showMetrics' => true,
         'showResourceCards' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication UI — optional flows
+    |--------------------------------------------------------------------------
+    |
+    | Configure which alternative sign-in flows the Login page surfaces and
+    | whether the self-service registration path is available. Each flow
+    | follows the same shape:
+    |
+    |   enabled — renders the button / link on the Login page.
+    |   url     — where the button / link redirects. When omitted, clicking
+    |              the control shows a "not configured" toast so the
+    |              programmer is reminded to wire the flow up.
+    |
+    | Registration gates both the `/register` route and the "Create an
+    | account" link that appears underneath the Sign in button. Martis does
+    | not ship a built-in registration controller — the consumer app is
+    | expected to expose a POST endpoint (default convention:
+    | `/martis/api/auth/register`) and pass its path / URL here if the form
+    | should submit to a different location.
+    |
+    */
+    'auth' => [
+        'sso' => [
+            'enabled' => env('MARTIS_AUTH_SSO_ENABLED', false),
+            'url' => env('MARTIS_AUTH_SSO_URL'),
+        ],
+        'google' => [
+            'enabled' => env('MARTIS_AUTH_GOOGLE_ENABLED', false),
+            'url' => env('MARTIS_AUTH_GOOGLE_URL'),
+        ],
+        'passwordReset' => [
+            'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
+            'url' => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
+        ],
+        'registration' => [
+            'enabled' => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
+            'url' => env('MARTIS_AUTH_REGISTRATION_URL'),
+        ],
+        // Compact guest-mode controls rendered in the top-right of every
+        // auth surface (Login, Register, 2FA challenge, error pages).
+        // Each toggle hides its widget without removing the underlying
+        // preference: a hidden language picker still keeps the locale
+        // applied, a hidden theme button still respects the configured
+        // default. Set both to false on single-locale, single-theme
+        // deployments so the pre-login screens stay clean.
+        'controls' => [
+            'theme' => env('MARTIS_AUTH_CONTROL_THEME', true),
+            'locale' => env('MARTIS_AUTH_CONTROL_LOCALE', true),
+        ],
     ],
 
     /*
@@ -220,9 +426,9 @@ return [
     |     Master kill-switch for the View/Edit/Delete (and Restore/ForceDelete
     |     when soft-deletes apply) actions column. When `true`, Martis renders
     |     these actions gated by per-row policies — authorized actions show
-    |     enabled, unauthorized ones show disabled (greyed-out, non-clickable),
-    |     consistent with Nova 5 behaviour. When `false`, Martis never renders
-    |     the default actions anywhere (custom resource actions still appear).
+    |     enabled, unauthorized ones show disabled (greyed-out, non-clickable).
+    |     When `false`, Martis never renders the default actions anywhere
+    |     (custom resource actions still appear).
     |
     |     Per-action visibility is NOT configurable here — it is determined by
     |     the per-row authorization plus optional per-instance overrides on
@@ -242,7 +448,7 @@ return [
     |
     | default_trashed_filter
     |     Starting value of the "Incluir apagados" filter on resources that
-    |     use soft deletes, matching Nova 5's default. Valid values:
+    |     use soft deletes. Valid values:
     |         - 'active'  (default) : list only non-deleted records.
     |         - 'with'              : include deleted records alongside live.
     |         - 'only'              : only deleted records.
@@ -255,6 +461,16 @@ return [
         'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
 
         'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
+
+        /*
+         | Master switch for the per-type column-width heuristics (Id → 80px,
+         | Email/Url → maxWidth 280px + truncate, Date → 140px, title column →
+         | minWidth 220px, etc.). When `false`, Martis ships the pre-v0.7.0
+         | behaviour — every column auto-sizes and nothing truncates.
+         | Explicit per-field calls like `->width()` / `->truncate()` still
+         | apply regardless.
+         */
+        'column_defaults' => env('MARTIS_INDEX_COLUMN_DEFAULTS', true),
     ],
 
     /*
@@ -430,8 +646,14 @@ return [
     */
 
     'drawer' => [
-        'width' => '520px',
-        'expanded_width' => '800px',
+        'width' => '720px',
+        'expanded_width' => '960px',
+        // When `false`, the expand + fullscreen buttons are suppressed on
+        // every drawer regardless of per-instance `allowExpand` /
+        // `allowFullscreen` props. Lets an app lock the drawer to a single
+        // width without auditing every resource that registers a
+        // `DrawerOverride`.
+        'expandable' => env('MARTIS_DRAWER_EXPANDABLE', true),
     ],
 
 ];

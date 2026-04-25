@@ -204,6 +204,32 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 
 Used automatically by `PartitionCard` (donut/pie) when no custom colors provided. Resolved at runtime via JavaScript (Chart.js can't read CSS vars natively).
 
+### 11b. Avatar Palette (16 variables)
+
+16 deterministic hues used by `AvatarField` and `UiAvatarField` when the backend doesn't supply an explicit colour. The `lib/avatarPalette.ts` helper picks one of `--martis-avatar-1..16` from a stable hash of the seed (name, email, slug), so two users with the same name always get the same colour.
+
+```css
+--martis-avatar-1 ... --martis-avatar-16
+```
+
+The hex values are intentionally identical across light and dark themes — a user's avatar colour cannot change when the theme toggles.
+
+### 11c. Brand Gradient (7 variables)
+
+Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`). Override these in your theme CSS to reskin the brand without touching React.
+
+| Variable | Description |
+|----------|-------------|
+| `--martis-brand-gradient` | Base 135° gradient. Three stops; defaults to indigo / violet / purple. |
+| `--martis-brand-aurora-cyan` | Cyan aurora blob colour (drifts top-left). |
+| `--martis-brand-aurora-pink` | Pink aurora blob colour (drifts bottom-right). |
+| `--martis-brand-pointer-glow` | Spot-glow that tracks the cursor. |
+| `--martis-brand-grid-dot` | Dot-grid overlay opacity. |
+| `--martis-brand-shadow` | Shadow pushed under the brand surface. |
+| `--martis-brand-text` | Default text colour on top of the brand surface. |
+
+Light and dark themes ship the same recipe with stops keyed for the canvas — hero surfaces stay dark by design (white type on a saturated gradient reads better than the inverse), so the difference between themes is mostly trimmed opacity on the auroras.
+
 ### 12. File Icon Colors (6 variables)
 
 Semantic colors for file type icons in `FileField`.
@@ -228,6 +254,73 @@ Kept for backward compatibility with existing Badge field components. New code s
 ```
 
 Where `{type}` is one of: `info`, `success`, `warning`, `danger`.
+
+---
+
+## Attribute-Driven Theming
+
+The scaffolded theme layers three orthogonal axes on top of dark/light mode, all driven by attributes on `<html>`. The Preferences panel writes these automatically; you can also toggle them via DevTools to preview a change.
+
+### Accent variants — `[data-accent]`
+
+Switch the brand colour without editing the file. Five built-in accents ship in the stub:
+
+| Attribute | Accent |
+|-----------|--------|
+| `data-accent="martis"` (default) | Martis blue (`#4F7BF9`) |
+| `data-accent="blue"` | `#3B82F6` |
+| `data-accent="teal"` | `#14B8A6` |
+| `data-accent="violet"` | `#8B5CF6` |
+| `data-accent="amber"` | `#F59E0B` |
+
+Each accent overrides six tokens: `--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring` — in both dark and light modes.
+
+To add a sixth accent, append two selectors to your theme file and define those six tokens:
+
+```css
+html.dark[data-accent="crimson"],
+html[data-theme="dark"][data-accent="crimson"] {
+  --martis-accent: #DC143C;
+  /* ... 5 more tokens */
+}
+html:not(.dark)[data-accent="crimson"],
+html[data-theme="light"][data-accent="crimson"] {
+  /* light-mode values */
+}
+```
+
+### Density tokens — `[data-density]`
+
+Control spacing globally or per-surface.
+
+| Token | Comfortable | Dense |
+|-------|-------------|-------|
+| `--martis-row-h` | `44px` | `32px` |
+| `--martis-nav-item-h` | `34px` | `28px` |
+| `--martis-input-h` | `36px` | `30px` |
+| `--martis-btn-h` | `34px` | `28px` |
+| `--martis-pad-x` | `20px` | `14px` |
+| `--martis-pad-y` | `18px` | `12px` |
+| `--martis-gap` | `14px` | `10px` |
+
+Override per-surface by adding `[data-density="dense"]` on any ancestor — a dense financial table inside an otherwise-comfortable app.
+
+### Motion tokens — `--martis-dur-*`, `--martis-ease-*`
+
+Five duration stops (80ms → 320ms) and five easing curves. Custom themes inherit them; override any value to slow down / speed up your whole app without touching component CSS.
+
+Both `@media (prefers-reduced-motion: reduce)` and `html[data-reduced-motion="true"]` clamp every duration to `1ms` — transitions still resolve (focus rings keep working), just instantly.
+
+### Dark / Light selector
+
+The stub targets both the legacy class selector and the new attribute:
+
+```css
+:root, html.dark, html[data-theme="dark"]        { /* dark tokens */ }
+html:not(.dark), html[data-theme="light"]        { /* light tokens */ }
+```
+
+This means any app that sets either `.dark` or `data-theme` on `<html>` gets the right palette without extra glue.
 
 ---
 

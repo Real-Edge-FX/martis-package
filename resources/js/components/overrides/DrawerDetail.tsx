@@ -24,18 +24,6 @@ const STANDALONE_RELATIONSHIP_TYPES = new Set([
   'morph_many',
 ])
 
-/** Resolve the effective column span for a field. */
-function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): { base: number; md?: number; lg?: number } {
-  const base = field.colSpan ?? 12
-  return { base, md: field.colSpanMd ?? undefined, lg: field.colSpanLg ?? undefined }
-}
-
-/** Build inline gridColumn style. */
-function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): React.CSSProperties {
-  const span = resolveColSpan(field)
-  return { gridColumn: `span ${span.base} / span ${span.base}` } as React.CSSProperties
-}
-
 /**
  * Built-in drawer override for the DETAIL context.
  *
@@ -75,15 +63,19 @@ export function DrawerDetail(props: OverrideProps) {
   // drawer. Loose scalar fields still fall back to a single-grid layout at
   // the top, before the structured blocks and the relationship cards.
   const detailFields = (schema.fieldsForDetail ?? []) as FieldDefinition[]
-  const panelItems = detailFields.filter((f) => f.type === 'panel') as PanelDefinition[]
-  const tabGroupItems = detailFields.filter((f) => f.type === 'tab_group') as TabGroupDefinition[]
-  const sectionItems = detailFields.filter((f) => f.type === 'section') as SectionDefinition[]
-  const scalarFields = detailFields.filter((f) =>
-    !STANDALONE_RELATIONSHIP_TYPES.has(f.type) &&
-    f.type !== 'panel' &&
-    f.type !== 'tab_group' &&
-    f.type !== 'section',
-  ) as FieldDefinition[]
+  const kindOf = (f: FieldDefinition): string => (f as { type?: string }).type ?? ''
+  const panelItems = detailFields.filter((f) => kindOf(f) === 'panel') as unknown as PanelDefinition[]
+  const tabGroupItems = detailFields.filter((f) => kindOf(f) === 'tab_group') as unknown as TabGroupDefinition[]
+  const sectionItems = detailFields.filter((f) => kindOf(f) === 'section') as unknown as SectionDefinition[]
+  const scalarFields = detailFields.filter((f) => {
+    const kind = kindOf(f)
+    return (
+      !STANDALONE_RELATIONSHIP_TYPES.has(f.type) &&
+      kind !== 'panel' &&
+      kind !== 'tab_group' &&
+      kind !== 'section'
+    )
+  }) as FieldDefinition[]
   const relationshipFields = detailFields.filter((f) => STANDALONE_RELATIONSHIP_TYPES.has(f.type)) as FieldDefinition[]
   const isLoading = !activeRecord || recordQuery.isLoading
 
@@ -139,42 +131,29 @@ export function DrawerDetail(props: OverrideProps) {
           </div>
         ) : (
           <div className="px-6 py-4 space-y-5">
-            {/* Loose scalar fields — rendered as a bordered fields card so
-             *  they read visually the same as an explicit Section. */}
+            {/* Loose scalar fields — spec-compliant Detail panel with
+             *  140px label column inside drawers, 14×0 row padding,
+             *  and a 13/500 muted label. Matches Resource Detail.html
+             *  Field() helper in the design-system reference. */}
             {scalarFields.length > 0 && (
-              <div
-                className="rounded-lg"
-                style={{
-                  border: '1px solid var(--martis-border)',
-                  backgroundColor: 'var(--martis-surface)',
-                }}
-              >
-                <dl className="grid grid-cols-12 gap-0">
-                  {scalarFields.map((field) => (
-                    <div
-                      key={field.attribute}
-                      className="border-b px-4 py-3 last:border-b-0"
-                      style={{ ...colSpanStyle(field), borderColor: 'var(--martis-border)' }}
-                    >
-                      <dt
-                        className="mb-1 text-xs font-medium uppercase tracking-wider"
-                        style={{ color: 'var(--martis-text-muted)' }}
-                      >
-                        {field.label}
-                        <FieldLabelTooltip text={field.tooltip} />
-                      </dt>
-                      <dd className="text-sm" style={{ color: 'var(--martis-text)' }}>
-                        <FieldDisplay
-                          field={field}
-                          value={activeRecord![field.attribute]}
-                          resourceKey={resource}
-                          context="detail"
-                        />
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
+              <dl className="martis-detail-panel is-drawer">
+                {scalarFields.map((field) => (
+                  <div key={field.attribute} className="martis-detail-row">
+                    <dt className="martis-detail-label">
+                      {field.label}
+                      <FieldLabelTooltip text={field.tooltip} />
+                    </dt>
+                    <dd className="martis-detail-value">
+                      <FieldDisplay
+                        field={field}
+                        value={activeRecord![field.attribute]}
+                        resourceKey={resource}
+                        context="detail"
+                      />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             )}
 
             {/* Structured layout containers (tabs / panels / sections) —

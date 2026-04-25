@@ -13,7 +13,7 @@ use Martis\Models\ActionEvent;
 use Martis\Resource;
 
 /**
- * Built-in resource for browsing the action_events audit log.
+ * Built-in resource for browsing the martis_action_events audit log.
  *
  * Registered automatically by MartisServiceProvider when
  * config("martis.action_events.resource") is true (default).

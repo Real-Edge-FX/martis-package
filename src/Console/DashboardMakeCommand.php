@@ -16,7 +16,7 @@ class DashboardMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../../stubs/dashboard.stub';
+        return __DIR__.'/../../stubs/dashboard.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string

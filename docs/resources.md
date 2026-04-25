@@ -66,6 +66,24 @@ public function fields(Request $request): array
 
 See the [Fields Reference](fields.md) for all 31 available field types.
 
+### detailSidebar() (⭐ Martis differential)
+
+Returns fields rendered in the **sticky right rail** of the detail page. When non-empty, the page lays out as a 1fr / 320px grid: the main column scrolls while the sidebar stays pinned beside it. Use it for at-a-glance metadata (status, owner, dates, IDs) so it doesn't compete with the long-form fields below.
+
+```php
+public function detailSidebar(Request $request): array
+{
+    return [
+        Status::make('status'),
+        BelongsTo::make('owner', 'owner', UserResource::class),
+        DateTime::make('created_at'),
+        DateTime::make('updated_at'),
+    ];
+}
+```
+
+Fields rendered in the sidebar are automatically removed from the main `fieldsForDetail()` body so they only appear once. Below 1100px the layout collapses to a single column and the sidebar pushes to the bottom. Default: empty (single-column layout).
+
 ## Configuration Methods
 
 ### titleAttribute()
@@ -256,7 +274,7 @@ public static function indexQuery(Request $request, Builder $query): Builder
 
 Override when: you need a global constraint on the index that is *not* a user-configurable filter (filters are opt-in; `indexQuery()` is always applied).
 
-Nova v5 parity: `indexQuery(NovaRequest, Builder): Builder`. Source: `src/Resource.php::indexQuery()`.
+Source: `src/Resource.php::indexQuery()`.
 
 ### relatableQuery()
 
@@ -271,7 +289,7 @@ public static function relatableQuery(Request $request, Builder $query): Builder
 
 Override when: a BelongsTo/MorphTo selector should hide records that are otherwise valid on the index.
 
-Nova v5 parity: `relatableQuery(NovaRequest, Builder): Builder`. Source: `src/Resource.php::relatableQuery()`.
+Source: `src/Resource.php::relatableQuery()`.
 
 ## Table Configuration
 
@@ -285,6 +303,49 @@ public function tableShowGridlines(): bool { return false; }     // Cell borders
 public static function tableSize(): TableSize { return TableSize::Normal; } // Small, Normal, Large
 public function tableRowHover(): bool      { return true; }      // Highlight on hover
 ```
+
+### tableLayout()
+
+Controls how the index `<table>` distributes column widths.
+
+```php
+use Martis\Enums\TableLayout;
+
+public static function tableLayout(): TableLayout
+{
+    return TableLayout::Auto; // default
+}
+```
+
+- `Auto` (default) — the browser sizes each column by content. Martis ships sensible per-type defaults (Id → 80px, Email/Url → 280px max + ellipsis, Date → 140px, Boolean/Status → 120px; the `titleAttribute` column gets `minWidth: 220px`). Override per field with `->width()`, `->minWidth()`, `->maxWidth()`, `->truncate()`.
+- `Fixed` — applies CSS `table-layout: fixed`, locking every column to its declared `->width()` (or the type default). Only pick this when you need pixel-perfect alignment across pages and can afford to width every visible column.
+
+Per-field examples:
+
+```php
+Url::make('homepage')->maxWidth('200px')->truncate();
+Id::make();                      // auto: 80px from the type default
+Text::make('name');              // auto: minWidth 220px when name = titleAttribute
+Badge::make('state')->width('96px');
+```
+
+#### Opting out of the type-default heuristics
+
+If you prefer the pre-v0.7.0 behaviour where every column auto-sizes and nothing truncates, flip the global switch:
+
+```php
+// config/martis.php
+'index' => [
+    'column_defaults' => env('MARTIS_INDEX_COLUMN_DEFAULTS', true),
+],
+```
+
+Set to `false` (or `MARTIS_INDEX_COLUMN_DEFAULTS=false` in `.env`) and Martis:
+
+- skips every per-type default (`Id`, `Email`/`Url`, `Boolean`/`Status`/`Badge`, `Date`/`DateTime`);
+- no longer injects the `minWidth: 220px` on the `titleAttribute` column.
+
+Explicit per-field calls (`->width()`, `->minWidth()`, `->maxWidth()`, `->truncate()`) still apply regardless of the flag, so you can opt out globally and then whitelist individual columns as needed.
 
 ### actionsColumnLabel() / actionsMenuLabel() / bulkActionsMenuLabel()
 
@@ -310,7 +371,7 @@ See [Default Row Actions — Row click](default_row_actions.md#row-click) for th
 
 ### confirmUnsavedChanges()
 
-Martis differential (no Nova v5 equivalent). Opts the create/update surfaces — both drawer overrides and full-page create/update routes — into the **UnsavedChangesDialog**. When the user tries to discard changes (close the drawer, navigate away, click Cancel), the dialog asks for confirmation.
+Martis differential. Opts the create/update surfaces — both drawer overrides and full-page create/update routes — into the **UnsavedChangesDialog**. When the user tries to discard changes (close the drawer, navigate away, click Cancel), the dialog asks for confirmation.
 
 ```php
 // Enable with package defaults (generic copy).
@@ -513,7 +574,7 @@ When `canViewTrashed()` returns false:
 
 Note: `findModel()` and `serializeModel()` remain ungated so that users with `restore` or `forceDelete` permissions can still act on trashed records via direct URL.
 
-**Nova v5 comparison:** Nova always shows the SoftDeletes filter for all users. `canViewTrashed()` goes beyond Nova, giving per-resource role-based control.
+`canViewTrashed()` gives per-resource role-based control over the SoftDeletes filter visibility.
 
 ## Search
 
@@ -537,7 +598,7 @@ public static function globallySearchable(): bool
 }
 ```
 
-Nova v5 parity: `public static $globallySearchable = true;`. Source: `src/Resource.php::globallySearchable()`.
+Source: `src/Resource.php::globallySearchable()`.
 
 ### searchSubtitle()
 
@@ -550,7 +611,7 @@ public function searchSubtitle(Model $model): ?string
 }
 ```
 
-Return `null` (default) to show no subtitle. Nova v5 parity: `public function subtitle($resource)`. Source: `src/Resource.php::searchSubtitle()`.
+Return `null` (default) to show no subtitle. Source: `src/Resource.php::searchSubtitle()`.
 
 ### Laravel Scout integration
 
@@ -573,11 +634,11 @@ public static function scoutQuery(Request $request, mixed $query): mixed
 }
 ```
 
-The `public static ?int $scoutSearchResults = null;` static property caps the number of hits Scout returns (Nova v5 parity). Source: `src/Resource.php` (Scout integration section).
+The `public static ?int $scoutSearchResults = null;` static property caps the number of hits Scout returns. Source: `src/Resource.php` (Scout integration section).
 
 ## Authorization
 
-Martis implements full **Nova v5 parity** for authorization with dedicated resource policies, auto-discovery, and comprehensive ability checking.
+Martis provides dedicated resource policies, auto-discovery, and comprehensive ability checking.
 
 ### Policy Resolution Chain
 

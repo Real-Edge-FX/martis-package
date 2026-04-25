@@ -1,30 +1,36 @@
 import { useRef, useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
-import { useTheme } from "@/contexts/ThemeContext"
 import { config } from "@/lib/config"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
+import { isMacPlatform } from "@/lib/platform"
+import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
-import { MagnifyingGlassIcon, CaretDownIcon, SunIcon, MoonIcon, SignOutIcon, UserCircleIcon, ListIcon } from "@phosphor-icons/react"
+import { MagnifyingGlassIcon, CaretDownIcon, SignOutIcon, UserCircleIcon, ListIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon } from "@phosphor-icons/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 
 interface TopbarProps {
+  /** Callback for the mobile hamburger — undefined on desktop. */
   onToggleSidebar?: () => void
+  /** Callback to toggle the desktop collapsed state. When provided, a
+   *  chevron button renders on the left of the topbar. */
+  onToggleCollapse?: () => void
+  /** Current collapsed state, used to pick chevron direction + tooltip. */
+  sidebarCollapsed?: boolean
 }
 
-export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
+export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = false }: TopbarProps = {}) {
   const { user, logout } = useAuth()
-  const { theme, toggle } = useTheme()
   const { t } = useTranslation("navigation")
   const navigate = useNavigate()
   const menuRef = useRef<Menu>(null)
+  const prefsRef = useRef<PreferencesMenuHandle>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const isMobile = useIsMobile()
 
-  const showThemeToggle = config.userMenu?.showThemeToggle !== false && config.theme?.allowToggle !== false
   const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
 
   // Search mode resolution
@@ -32,13 +38,25 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
   const mobileMode = config.search?.mobileMode ?? "icon"
   const searchMode = isMobile ? mobileMode : desktopMode
 
-  // Keyboard shortcut: "/" to open search
+  // Keyboard shortcuts:
+  // - "/" opens the palette when focus is not in an input.
+  // - ⌘K (macOS) / Ctrl+K (Windows + Linux) is the canonical shortcut
+  //   from the design-system spec and works regardless of focus — users
+  //   expect it to toggle the palette even while typing in a field.
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (searchMode === "disabled") return
+      const tag = (e.target as HTMLElement)?.tagName
+      const inEditable = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        setSearchOpen((open) => !open)
+        return
+      }
+
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
-        const tag = (e.target as HTMLElement)?.tagName
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+        if (inEditable) return
         e.preventDefault()
         setSearchOpen(true)
       }
@@ -65,35 +83,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
       ),
     },
     { separator: true },
-    ...(showThemeToggle
-      ? [
-          {
-            template: (
-              _item: MenuItem,
-              options: { className: string; onClick: (e: React.SyntheticEvent) => void },
-            ) => (
-              <a
-                className={options.className}
-                onClick={(e) => {
-                  toggle()
-                  options.onClick(e)
-                }}
-                role="menuitem"
-              >
-                {theme === "dark" ? (
-                  <SunIcon size={16} className="p-menuitem-icon" />
-                ) : (
-                  <MoonIcon size={16} className="p-menuitem-icon" />
-                )}
-                <span className="p-menuitem-text">
-                  {theme === "dark" ? t("light_mode") : t("dark_mode")}
-                </span>
-              </a>
-            ),
-          },
-          { separator: true } as MenuItem,
-        ]
-      : []),
     ...(config.userMenu?.customItems?.map((item) =>
       item.separator
         ? ({ separator: true } as MenuItem)
@@ -148,91 +137,85 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
     },
   ]
 
-  return (
-    <header className="martis-topbar-bg flex h-14 items-center justify-between border-b martis-border px-5">
-      <div className="flex items-center gap-3">
-        {/* Hamburger — only on mobile when sidebar is managed externally */}
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
-            style={{ color: "var(--martis-text-muted)", backgroundColor: "transparent" }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-            aria-label={t("open_sidebar", "Menu")}
-          >
-            <ListIcon size={20} />
-          </button>
-        )}
-        <Breadcrumbs />
-      </div>
+  const hasAvatar = !!user?.avatar_url?.trim()
+  const avatarInitial = (user?.name ?? user?.email ?? '?')[0].toUpperCase()
 
-      {/* Search — full bar mode */}
+  return (
+    <header className="martis-tb" data-mobile={onToggleSidebar ? "true" : undefined}>
+      {onToggleSidebar && (
+        <button
+          type="button"
+          className="martis-tb-menu-btn"
+          onClick={onToggleSidebar}
+          aria-label={t("open_sidebar", "Menu")}
+          title={t("open_sidebar", "Menu")}
+        >
+          <ListIcon size={18} />
+        </button>
+      )}
+
+      {onToggleCollapse && (
+        <button
+          type="button"
+          className="martis-tb-collapse-btn"
+          onClick={onToggleCollapse}
+          aria-label={sidebarCollapsed ? t("expand_sidebar") : t("collapse_sidebar")}
+          data-pr-tooltip={
+            sidebarCollapsed ? t("expand_sidebar") : t("collapse_sidebar")
+          }
+          data-pr-position="bottom"
+        >
+          {sidebarCollapsed ? (
+            <CaretDoubleRightIcon size={16} />
+          ) : (
+            <CaretDoubleLeftIcon size={16} />
+          )}
+        </button>
+      )}
+
+      <nav className="martis-tb-breadcrumbs">
+        <Breadcrumbs />
+      </nav>
+
       {searchMode === "bar" && (
         <button
           type="button"
+          className="martis-tb-search"
           onClick={() => setSearchOpen(true)}
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer border-0"
-          style={{
-            backgroundColor: "var(--martis-search-bg)",
-            border: "1px solid var(--martis-search-border)",
-            color: "var(--martis-text-muted)",
-            minWidth: 220,
-          }}
+          aria-label={t("search_placeholder", "Press / to search")}
         >
-          <MagnifyingGlassIcon size={12} />
-          <span>
+          <MagnifyingGlassIcon size={14} />
+          <span className="martis-tb-search-placeholder">
             {config.search?.placeholder ?? t("search_placeholder", "Press / to search")}
           </span>
-          <kbd
-            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-mono"
-            style={{
-              backgroundColor: "var(--martis-hover)",
-              border: "1px solid var(--martis-search-border)",
-              color: "var(--martis-text-muted)",
-            }}
+          <kbd className="martis-kbd">{isMacPlatform() ? "\u2318K" : "Ctrl K"}</kbd>
+        </button>
+      )}
+
+      <div className="martis-tb-right">
+        {searchMode === "icon" && (
+          <button
+            type="button"
+            className="martis-tb-icon-btn"
+            onClick={() => setSearchOpen(true)}
+            aria-label={t("search_placeholder", "Search")}
           >
-            /
-          </kbd>
-        </button>
-      )}
+            <MagnifyingGlassIcon size={16} />
+          </button>
+        )}
 
-      {/* Search — icon-only mode */}
-      {searchMode === "icon" && (
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors cursor-pointer border-0"
-          style={{
-            backgroundColor: "transparent",
-            color: "var(--martis-text-muted)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-          aria-label="Search"
-        >
-          <MagnifyingGlassIcon size={16} />
-        </button>
-      )}
+        <PreferencesMenu ref={prefsRef} />
 
-      <div className="flex items-center gap-3">
-        {/* User avatar + dropdown menu */}
+        <span className="martis-tb-divider" aria-hidden="true" />
+
         <Menu model={userMenuItems} popup ref={menuRef} className="min-w-[220px]" />
+
         <div
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer transition-colors"
-          style={{ backgroundColor: "transparent" }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--martis-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-          onClick={(e) => menuRef.current?.toggle(e)}
+          className="martis-tb-user"
+          onClick={(e) => {
+            prefsRef.current?.hide()
+            menuRef.current?.toggle(e)
+          }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
@@ -240,21 +223,32 @@ export function Topbar({ onToggleSidebar }: TopbarProps = {}) {
               menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
           }}
         >
-          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold overflow-hidden flex-shrink-0 ${user?.avatar_url?.trim() ? '' : 'bg-indigo-600 text-white'}`}>
-            {user?.avatar_url?.trim() ? (
-              <img src={user.avatar_url} alt={user?.name ?? ''} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          <div
+            className="martis-tb-user-avatar"
+            style={{
+              backgroundColor: hasAvatar ? "transparent" : "var(--martis-accent)",
+            }}
+          >
+            {hasAvatar ? (
+              <img
+                src={user!.avatar_url!}
+                alt={user?.name ?? ""}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).style.display = "none"
+                }}
+              />
             ) : (
-              (user?.name ?? user?.email ?? '?')[0].toUpperCase()
+              avatarInitial
             )}
           </div>
-          <span className="hidden sm:inline text-sm font-medium martis-text">
+          <span className="martis-tb-user-name">
             {user?.name ?? user?.email}
           </span>
           <CaretDownIcon size={12} className="martis-text-muted" />
         </div>
       </div>
 
-      {/* Global search modal */}
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
     </header>
   )

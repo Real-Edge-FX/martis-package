@@ -8,17 +8,14 @@ use Martis\Enums\CodeLanguage;
 /**
  * Code editor field — provides syntax-highlighted code editing.
  *
- * Laravel Nova v5 parity: Code field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
- *
  * Contexts:
  *  - index: hidden by default (not suitable as a column)
  *  - detail: displayed with syntax highlighting
  *  - create: code editor
  *  - update: code editor
  *
- * Intentional divergences from Nova:
- *  - Uses CodeMirror 6 (via @uiw/react-codemirror) instead of CodeMirror 5.
+ * Notes:
+ *  - Uses CodeMirror 6 (via @uiw/react-codemirror).
  *  - Language modes mapped to CodeMirror 6 extensions.
  */
 class Code extends Field

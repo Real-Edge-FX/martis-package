@@ -34,7 +34,7 @@ export interface MartisLoaderProps {
  * - overlayOpacity: 0-1 overlay opacity
  * - overlayColor: CSS color for overlay background
  *
- * This is a Martis extension (not Nova v5). Fully customizable per config.
+ * This is a Martis extension. Fully customizable per config.
  */
 export function MartisLoader({
   loading = true,

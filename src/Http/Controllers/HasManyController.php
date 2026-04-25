@@ -75,7 +75,7 @@ class HasManyController extends MartisController
         /** @var Builder<Model> $query */
         $query = $relation->getQuery();
 
-        // Soft-delete filter — Nova v5 parity
+        // Soft-delete filter
         if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
             $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
                 ?? TrashedFilter::Active;

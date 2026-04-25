@@ -17,10 +17,10 @@ use Martis\Enums\MetricWidthPreset;
 /**
  * Base class for all Martis metrics.
  *
- * Nova v5 parity: metrics compute analytical data displayed as cards
- * on dashboards and resource index pages.
+ * Metrics compute analytical data displayed as cards on dashboards and
+ * resource index pages.
  *
- * Martis extensions beyond Nova v5:
+ * Martis extensions:
  * - Responsive 12-column grid with widthMd/widthLg breakpoints
  * - Auto-refresh polling via refreshEvery()
  *
@@ -95,16 +95,19 @@ abstract class Metric implements MetricContract
      */
     abstract public function metricType(): MetricType;
 
+    /** {@inheritDoc} */
     public function name(): string
     {
         return $this->name;
     }
 
+    /** {@inheritDoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
+    /** {@inheritDoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -121,15 +124,15 @@ abstract class Metric implements MetricContract
     }
 
     // -------------------------------------------------------------------------
-    // Width — Nova parity + Martis responsive extension
+    // Width — 12-column grid with responsive breakpoints
     // -------------------------------------------------------------------------
 
     /**
      * Set the card width.
      *
      * Accepts either a 12-column grid value (1-12) or a {@see MetricWidthPreset}
-     * case. Nova-style strings ('1/3', '1/2', '2/3', 'full') are still accepted
-     * for BC and auto-converted via the preset enum.
+     * case. Fraction strings ('1/3', '1/2', '2/3', 'full') are also accepted
+     * and auto-converted via the preset enum.
      */
     public function width(int|string|MetricWidthPreset $width): static
     {
@@ -140,7 +143,7 @@ abstract class Metric implements MetricContract
 
     /**
      * Set responsive width from md breakpoint (>= 768px).
-     * Martis extension — Nova uses fixed widths.
+     * Martis extension.
      */
     public function widthMd(int $width): static
     {
@@ -151,7 +154,7 @@ abstract class Metric implements MetricContract
 
     /**
      * Set responsive width from lg breakpoint (>= 1024px).
-     * Martis extension — Nova uses fixed widths.
+     * Martis extension.
      */
     public function widthLg(int $width): static
     {
@@ -161,7 +164,7 @@ abstract class Metric implements MetricContract
     }
 
     /**
-     * Convert Nova-style width strings or {@see MetricWidthPreset} to a
+     * Convert fraction width strings or {@see MetricWidthPreset} to a
      * 12-column grid value.
      */
     protected function normalizeWidth(int|string|MetricWidthPreset $width): int
@@ -251,7 +254,11 @@ abstract class Metric implements MetricContract
 
         $range = $request->query('range', '30');
         $filters = $request->query('filters', '');
-        $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters);
+        // Include the current locale so `__()`-derived labels (trend buckets,
+        // partition slice names, progress summaries) stay in sync when the
+        // user switches language — otherwise a cached payload keeps serving
+        // the previous locale until the TTL expires.
+        $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
 
         return Cache::remember($cacheKey, $cacheFor, fn () => $this->resolveResult($request));
     }
@@ -313,6 +320,7 @@ abstract class Metric implements MetricContract
     // Authorization
     // -------------------------------------------------------------------------
 
+    /** {@inheritDoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -320,6 +328,7 @@ abstract class Metric implements MetricContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {
@@ -360,7 +369,6 @@ abstract class Metric implements MetricContract
      * Set the visual card style. Martis extension.
      *
      * Applies a colored accent to the card (left border + header tint).
-     * Nova v5 does not support card styling.
      */
     public function style(CardStyle $style): static
     {

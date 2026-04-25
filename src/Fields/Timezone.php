@@ -8,9 +8,6 @@ use DateTimeZone;
  * Timezone dropdown field — stores an IANA timezone identifier
  * (e.g. `Europe/Lisbon`, `America/New_York`).
  *
- * Laravel Nova v5 parity: Timezone field.
- * Reference: https://nova.laravel.com/docs/v5/resources/fields
- *
  * Martis differentials:
  *  - ⭐ Live current time — the React dropdown streams the current local
  *    time for each timezone option (ticks every 60s).

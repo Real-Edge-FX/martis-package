@@ -18,10 +18,10 @@ class ActionMakeCommand extends GeneratorCommand
     protected function getStub(): string
     {
         if ($this->option('destructive')) {
-            return __DIR__.'/../../../stubs/action.destructive.stub';
+            return __DIR__.'/../../stubs/action.destructive.stub';
         }
 
-        return __DIR__.'/../../../stubs/action.stub';
+        return __DIR__.'/../../stubs/action.stub';
     }
 
     /** Get the default namespace for the class. */
