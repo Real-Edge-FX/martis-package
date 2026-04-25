@@ -208,6 +208,35 @@ export interface MartisConfigShape {
   profile?: MartisProfileConfig
   preferences?: MartisPreferencesConfig
   auth?: MartisAuthConfig
+  stickyViews?: MartisStickyViewsConfig
+}
+
+/**
+ * Per-user view state persistence (filters / sort / pagination / etc.)
+ * on resource index pages. URL params remain the source of truth and
+ * deep-link friendly; sessionStorage (or localStorage) is the
+ * tab-scoped memory of "last state per resource" so navigating to a
+ * detail page and back restores the previous view automatically.
+ */
+export interface MartisStickyViewsConfig {
+  /** Master switch. Falsey disables the entire feature. */
+  enabled?: boolean
+  /**
+   * Where the per-resource state lives:
+   *   - `session` (default) — sessionStorage. Wipes on tab close.
+   *   - `local` — localStorage. Survives tab close.
+   *   - `server` — reserved for the next iteration; not yet wired.
+   */
+  scope?: 'session' | 'local' | 'server'
+  /** Per-bucket toggles. Set any to false to keep that bucket un-sticky. */
+  persist?: {
+    filters?: boolean
+    sorting?: boolean
+    pagination?: boolean
+    per_page?: boolean
+    columns?: boolean
+    scroll?: boolean
+  }
 }
 
 declare global {

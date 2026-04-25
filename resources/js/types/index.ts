@@ -254,6 +254,13 @@ export interface ResourceEmbedded {
   label: string
   singularLabel: string
   softDeletes: boolean
+  /**
+   * Whether this resource participates in the Sticky Views feature
+   * (per-user view state persistence on the index page). Combines
+   * `config('martis.sticky_views.enabled')` with the resource's own
+   * `protected static bool $stickyView`. Defaults to true.
+   */
+  stickyView: boolean
   group: string | null
   titleAttribute?: string
   subtitle?: string | null

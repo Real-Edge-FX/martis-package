@@ -19,6 +19,8 @@ import { FilterPanel } from '@/components/FilterPanel'
 import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
+import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -42,6 +44,13 @@ export function ResourceIndexPage() {
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  // Controls the FilterPanel collapsed/expanded affordance. Tracked in
+  // ResourceIndex (rather than inside FilterPanel) so it can be
+  // persisted per-resource via sticky views — without this, opening
+  // the filters on Clients leaked the expanded state into Projects
+  // when navigating between resources because FilterPanel stayed
+  // mounted across the route change.
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
   // Track whether the current action was triggered inline (single row)
@@ -51,11 +60,34 @@ export function ResourceIndexPage() {
   // Track which row IDs the inline action targets (separate from visual selection)
   const [inlineActionRowIds, setInlineActionRowIds] = useState<(string | number)[]>([])
 
-  // Reset view state when navigating between resources. Without this,
-  // page/sort/filter state leaks across resources (e.g. opening Projects
-  // after browsing Clients page 2 would also open on page 2).
+  // Restore sticky view state when navigating between resources, or
+  // fall back to defaults when no saved state exists. Each resource
+  // gets its own sessionStorage entry (`martis:view:{uriKey}`) so
+  // page / sort / filter state never leaks across resources, but
+  // navigating to a record's detail and clicking back DOES preserve
+  // the view. See `lib/useStickyView.ts`.
   useEffect(() => {
     setSelectedIds(new Set())
+    clearTimeout(searchTimerRef.current)
+
+    if (!resource) return
+
+    const saved = readStickyView(resource)
+    if (saved) {
+      setSearch(typeof saved.search === 'string' ? saved.search : '')
+      setDebouncedSearch(typeof saved.search === 'string' ? saved.search : '')
+      setActiveFilters((saved.activeFilters as ActiveFilters) ?? {})
+      setPage(typeof saved.page === 'number' ? saved.page : 1)
+      setPerPage(typeof saved.perPage === 'number' ? saved.perPage : null)
+      setSortBy(typeof saved.sortBy === 'string' ? saved.sortBy : null)
+      setSortDir(saved.sortDir === 'desc' ? 'desc' : 'asc')
+      setTrashedFilter(
+        saved.trashedFilter === 'with' || saved.trashedFilter === 'only' ? saved.trashedFilter : '',
+      )
+      setFiltersOpen(saved.filtersOpen === true)
+      return
+    }
+
     setSearch('')
     setDebouncedSearch('')
     setActiveFilters({})
@@ -64,7 +96,7 @@ export function ResourceIndexPage() {
     setSortBy(null)
     setSortDir('asc')
     setTrashedFilter('')
-    clearTimeout(searchTimerRef.current)
+    setFiltersOpen(false)
   }, [resource])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
@@ -97,6 +129,43 @@ export function ResourceIndexPage() {
   }, [schema?.defaultSort, schema?.defaultSortDirection, sortBy])
 
   usePageTitle(schema?.label ?? null)
+
+  // Sticky view writer — every meaningful state change rolls into
+  // sessionStorage under `martis:view:{uriKey}` so the next visit to
+  // this resource (e.g. via "Back" from a record's detail page)
+  // restores the table exactly as the user left it. Gated on the
+  // schema's `stickyView` flag so opted-out resources never write.
+  const stickyEnabled = schema !== undefined && schema.stickyView !== false
+  useStickyView(
+    resource ?? '',
+    {
+      page,
+      perPage,
+      sortBy,
+      sortDir,
+      trashedFilter,
+      activeFilters,
+      search: debouncedSearch,
+      filtersOpen,
+    },
+    stickyEnabled,
+  )
+
+  // Reset the saved view for THIS resource and bring the table back
+  // to its defaults. Called from the "Reset view" toolbar button.
+  const handleResetView = useCallback(() => {
+    if (!resource) return
+    clearStickyView(resource)
+    setSearch('')
+    setDebouncedSearch('')
+    setActiveFilters({})
+    setPage(1)
+    setPerPage(null)
+    setSortBy(schema?.defaultSort ?? null)
+    setSortDir(schema?.defaultSortDirection ?? 'asc')
+    setTrashedFilter('')
+    setFiltersOpen(false)
+  }, [resource, schema?.defaultSort, schema?.defaultSortDirection])
 
   // Resolve effective per-page (state overrides schema default)
   const effectivePerPage = perPage ?? schema?.perPage ?? 25
@@ -413,17 +482,57 @@ export function ResourceIndexPage() {
           const hasFilters = (schema.filters?.length ?? 0) > 0
           const showTrashed = schema.softDeletes
 
+          // The view is "dirty" when any persisted bucket differs from
+          // its default. Drives the Reset View button's visibility.
+          const isViewDirty =
+            stickyEnabled && (
+              page !== 1 ||
+              perPage !== null ||
+              debouncedSearch.length > 0 ||
+              Object.keys(activeFilters).length > 0 ||
+              trashedFilter !== '' ||
+              (sortBy !== null && sortBy !== (schema.defaultSort ?? null)) ||
+              (sortBy !== null && sortDir !== (schema.defaultSortDirection ?? 'asc'))
+            )
+
+          const resetButton = isViewDirty ? (
+            <button
+              type="button"
+              onClick={handleResetView}
+              className="martis-btn-ghost martis-btn-sm inline-flex items-center gap-1.5"
+              data-pr-tooltip={tMsg('reset_view_tooltip', { defaultValue: 'Reset filters, sort and pagination for this view.' })}
+              data-pr-position="top"
+            >
+              <ArrowsClockwiseIcon size={13} weight="bold" />
+              {tMsg('reset_view', { defaultValue: 'Reset view' })}
+            </button>
+          ) : null
+
           const filterRow = hasFilters ? (
             <FilterPanel
               filters={schema.filters!}
               value={activeFilters}
               onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
+              rightSlot={resetButton}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
             />
+          ) : null
+
+          // When the resource has no filter panel, surface the Reset
+          // button on its own row so the affordance still shows up
+          // when the user has applied a sort / search / pagination
+          // change worth resetting.
+          const standaloneReset = !hasFilters && isViewDirty ? (
+            <div className="flex items-center justify-end">
+              {resetButton}
+            </div>
           ) : null
 
           return (
             <div className="martis-index-toolbar">
               {filterRow}
+              {standaloneReset}
               <div className="flex items-center gap-3">
                 {showSearch && (
                   <div className="relative flex-1">

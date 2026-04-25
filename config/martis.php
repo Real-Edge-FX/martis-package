@@ -255,6 +255,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Sticky Views (v0.8 — Task 15)
+    |--------------------------------------------------------------------------
+    | Persists per-user view state on resource index pages — filters,
+    | sort, pagination, per-page selector and column visibility — so a
+    | user who applies a filter, opens a record, and clicks back finds
+    | the table exactly as they left it. URL query params remain the
+    | source of truth (deep-linkable, shareable); sessionStorage is the
+    | tab-scoped memory of the last state per resource.
+    |
+    | `scope` controls where the state is persisted:
+    |   - `session` (default) — sessionStorage. Wipes on tab close.
+    |   - `local`             — localStorage. Survives the tab.
+    |   - `server`            — reserved for the next iteration; DB-backed.
+    |
+    | Per-resource opt-out via `protected static bool $stickyView = false`
+    | on the Resource class. Per-page opt-out via the `persist` toggles
+    | below (e.g. set `pagination` to false to keep page numbers
+    | un-sticky while filters and sort persist).
+    */
+    'sticky_views' => [
+        'enabled' => env('MARTIS_STICKY_VIEWS_ENABLED', true),
+        'scope' => env('MARTIS_STICKY_VIEWS_SCOPE', 'session'),
+        'persist' => [
+            'filters' => true,
+            'sorting' => true,
+            'pagination' => true,
+            'per_page' => true,
+            'columns' => true,
+            'scroll' => false,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | User Menu
     |--------------------------------------------------------------------------
     | Configure what appears in the user profile context menu.

@@ -183,6 +183,8 @@ return [
     // Preferences panel (Task 07.1 ⭐ D2)
     'preferences' => 'Preferences',
     'reset' => 'Reset',
+    'reset_view' => 'Reset view',
+    'reset_view_tooltip' => 'Reset filters, sort and pagination for this resource.',
     'reset_to_defaults' => 'Reset to defaults',
     'theme' => 'Theme',
     'theme_dark' => 'Dark',
