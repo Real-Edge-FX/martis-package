@@ -183,6 +183,8 @@ return [
     // Painel de preferências (Task 07.1 ⭐ D2)
     'preferences' => 'Preferências',
     'reset' => 'Restaurar',
+    'reset_view' => 'Restaurar visualização',
+    'reset_view_tooltip' => 'Restaura filtros, ordenação e paginação deste recurso.',
     'reset_to_defaults' => 'Restaurar padrões',
     'theme' => 'Tema',
     'theme_dark' => 'Escuro',

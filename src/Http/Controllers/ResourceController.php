@@ -822,6 +822,7 @@ class ResourceController extends MartisController
             'singularLabel' => $resourceClass::singularLabel(),
             'subtitle' => $resourceClass::subtitle(),
             'softDeletes' => $resourceClass::softDeletes() && $resourceClass::canViewTrashed(),
+            'stickyView' => $resourceClass::stickyView(),
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),

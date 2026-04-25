@@ -84,6 +84,22 @@ public function detailSidebar(Request $request): array
 
 Fields rendered in the sidebar are automatically removed from the main `fieldsForDetail()` body so they only appear once. Below 1100px the layout collapses to a single column and the sidebar pushes to the bottom. Default: empty (single-column layout).
 
+### `$stickyView` (⭐ Martis differential)
+
+Controls whether this resource participates in the [Sticky Views](sticky_views.md) feature — per-user view state persistence on the index page (filters, sort, pagination, per-page, search). Default: `true`.
+
+```php
+class AuditEventResource extends Resource
+{
+    // Audit logs always want to show "today first" — opt out so the
+    // index never restores a stale page / filter from the previous
+    // session.
+    protected static bool $stickyView = false;
+}
+```
+
+When the global `config('martis.sticky_views.enabled')` is `false`, the per-resource flag is ignored and the feature is off everywhere.
+
 ## Configuration Methods
 
 ### titleAttribute()
