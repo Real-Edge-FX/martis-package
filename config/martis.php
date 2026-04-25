@@ -255,6 +255,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | In-app Notifications (v0.8 — Task 12)
+    |--------------------------------------------------------------------------
+    | A persistent notification subsystem distinct from toasts. Backed by
+    | Laravel's standard `notifications` table — any Notification class
+    | that uses the `database` channel writes into the Martis bell
+    | dropdown automatically, no extra wiring.
+    |
+    | The dropdown polls `/martis/api/notifications/unread-count` at the
+    | configured interval to keep the badge in sync. Set the interval to
+    | `0` to disable polling (consumers can drive refreshes manually
+    | from their own code via React Query).
+    */
+    'notifications' => [
+        'enabled' => env('MARTIS_NOTIFICATIONS_ENABLED', true),
+
+        // Polling interval for the unread-count badge, in milliseconds.
+        // Set to 0 to disable polling.
+        'poll_interval' => env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 60000),
+
+        // Maximum number of notifications shown in the dropdown panel.
+        // The full list lives behind a "View all" link for users who
+        // need to see older entries.
+        'max_in_dropdown' => env('MARTIS_NOTIFICATIONS_MAX_DROPDOWN', 10),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Sticky Views (v0.8 — Task 15)
     |--------------------------------------------------------------------------
     | Persists per-user view state on resource index pages — filters,

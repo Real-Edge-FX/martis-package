@@ -185,6 +185,13 @@ return [
     'reset' => 'Restaurar',
     'reset_view' => 'Restaurar visualização',
     'reset_view_tooltip' => 'Restaura filtros, ordenação e paginação deste recurso.',
+    // Notifications
+    'notifications' => 'Notificações',
+    'notifications_empty' => 'Nenhuma notificação ainda.',
+    'notifications_mark_all_read' => 'Marcar todas como lidas',
+    'notifications_clear_all' => 'Limpar tudo',
+    'notifications_dismiss' => 'Dispensar',
+    'time_just_now' => 'agora mesmo',
     'reset_to_defaults' => 'Restaurar padrões',
     'theme' => 'Tema',
     'theme_dark' => 'Escuro',

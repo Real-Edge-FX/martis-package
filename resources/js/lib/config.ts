@@ -209,6 +209,31 @@ export interface MartisConfigShape {
   preferences?: MartisPreferencesConfig
   auth?: MartisAuthConfig
   stickyViews?: MartisStickyViewsConfig
+  notifications?: MartisNotificationsConfig
+}
+
+/**
+ * In-app notifications subsystem (the bell dropdown in the topbar).
+ * Backed by Laravel's standard `notifications` table — any
+ * Notification class delivered via the `database` channel surfaces
+ * here automatically.
+ */
+export interface MartisNotificationsConfig {
+  /** Master switch. When false, the bell never renders. */
+  enabled?: boolean
+  /**
+   * Polling interval for the unread-count badge in milliseconds.
+   * Set to 0 to disable polling (consumers can refresh manually
+   * via React Query, e.g. when a Pusher / Reverb broadcast event
+   * fires).
+   */
+  poll_interval?: number
+  /**
+   * Maximum number of notifications shown in the dropdown panel.
+   * Older entries live behind a future "View all" page. Capped at
+   * 50 server-side regardless of this value.
+   */
+  max_in_dropdown?: number
 }
 
 /**
