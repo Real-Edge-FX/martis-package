@@ -108,6 +108,10 @@ Martis ships the Login shell for all common sign-in patterns (SSO, Google, passw
         'enabled' => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
         'url'     => env('MARTIS_AUTH_REGISTRATION_URL'),
     ],
+    'controls' => [
+        'theme'  => env('MARTIS_AUTH_CONTROL_THEME', true),
+        'locale' => env('MARTIS_AUTH_CONTROL_LOCALE', true),
+    ],
 ],
 ```
 
@@ -198,6 +202,24 @@ The page posts to `/{martis-path}/api/auth/register`. Martis does **not** ship a
 | `404` / `501` | anything | Toast "Registration endpoint is not available. Ask a workspace admin to finish setting it up." |
 
 If the consumer prefers to redirect the user off-platform to an external signup page (common for invite-only workspaces), set `auth.registration.url` to the external URL — the "Create an account" link on Login becomes a normal `<a>` to that URL instead of the internal SPA route.
+
+### Guest controls visibility (`auth.controls`)
+
+Two compact widgets live in the top-right of every auth surface (Login, Register, 2FA challenge, error pages): a theme cycle button (dark → light → system) and a language picker. Each one is independently togglable via `config/martis.php`:
+
+```php
+'controls' => [
+    'theme'  => env('MARTIS_AUTH_CONTROL_THEME', true),
+    'locale' => env('MARTIS_AUTH_CONTROL_LOCALE', true),
+],
+```
+
+| Toggle | Default | Effect when `false` |
+|--------|---------|----------------------|
+| `theme`  | `true` | Hides the theme cycle button. Theme still resolves from `config/martis.theme.default`, the user's stored preference, or the system setting — only the visual control disappears. |
+| `locale` | `true` | Hides the language picker. The active locale stays in effect from the per-user preference / `config/martis.locale` / `config/app.locale` — only the picker disappears. |
+
+When both flags are `false`, the strip itself doesn't render, so a single-locale single-theme deployment gets a pristine login screen.
 
 ### Minimal consumer recipe
 

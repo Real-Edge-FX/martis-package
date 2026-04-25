@@ -162,6 +162,15 @@ export interface MartisAuthFlowConfig {
   url?: string | null
 }
 
+/** Visibility toggles for the compact guest-mode controls (theme cycle,
+ *  language picker) rendered in the top-right of every auth surface
+ *  (Login, Register, 2FA, error pages). Hiding a control does not change
+ *  its underlying preference value — only the widget. */
+export interface MartisAuthControlsConfig {
+  theme?: boolean
+  locale?: boolean
+}
+
 export interface MartisAuthConfig {
   /** SSO sign-in button on the Login page. */
   sso?: MartisAuthFlowConfig
@@ -172,6 +181,9 @@ export interface MartisAuthConfig {
   /** Self-service registration — gates the `/register` route and the
    *  "Create an account" link on Login. */
   registration?: MartisAuthFlowConfig
+  /** Visibility of the theme cycle button and the language picker on
+   *  every pre-login surface. Both default to `true`. */
+  controls?: MartisAuthControlsConfig
 }
 
 export interface MartisConfigShape {

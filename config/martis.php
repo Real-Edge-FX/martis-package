@@ -370,6 +370,17 @@ return [
             'enabled' => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
             'url' => env('MARTIS_AUTH_REGISTRATION_URL'),
         ],
+        // Compact guest-mode controls rendered in the top-right of every
+        // auth surface (Login, Register, 2FA challenge, error pages).
+        // Each toggle hides its widget without removing the underlying
+        // preference: a hidden language picker still keeps the locale
+        // applied, a hidden theme button still respects the configured
+        // default. Set both to false on single-locale, single-theme
+        // deployments so the pre-login screens stay clean.
+        'controls' => [
+            'theme' => env('MARTIS_AUTH_CONTROL_THEME', true),
+            'locale' => env('MARTIS_AUTH_CONTROL_LOCALE', true),
+        ],
     ],
 
     /*

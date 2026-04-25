@@ -66,6 +66,7 @@
                 'google' => ['enabled' => false, 'url' => null],
                 'passwordReset' => ['enabled' => false, 'url' => null],
                 'registration' => ['enabled' => false, 'url' => null],
+                'controls' => ['theme' => true, 'locale' => true],
             ])) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
