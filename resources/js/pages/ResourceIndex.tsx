@@ -44,6 +44,13 @@ export function ResourceIndexPage() {
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  // Controls the FilterPanel collapsed/expanded affordance. Tracked in
+  // ResourceIndex (rather than inside FilterPanel) so it can be
+  // persisted per-resource via sticky views — without this, opening
+  // the filters on Clients leaked the expanded state into Projects
+  // when navigating between resources because FilterPanel stayed
+  // mounted across the route change.
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
   // Track whether the current action was triggered inline (single row)
@@ -77,6 +84,7 @@ export function ResourceIndexPage() {
       setTrashedFilter(
         saved.trashedFilter === 'with' || saved.trashedFilter === 'only' ? saved.trashedFilter : '',
       )
+      setFiltersOpen(saved.filtersOpen === true)
       return
     }
 
@@ -88,6 +96,7 @@ export function ResourceIndexPage() {
     setSortBy(null)
     setSortDir('asc')
     setTrashedFilter('')
+    setFiltersOpen(false)
   }, [resource])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
@@ -137,6 +146,7 @@ export function ResourceIndexPage() {
       trashedFilter,
       activeFilters,
       search: debouncedSearch,
+      filtersOpen,
     },
     stickyEnabled,
   )
@@ -154,6 +164,7 @@ export function ResourceIndexPage() {
     setSortBy(schema?.defaultSort ?? null)
     setSortDir(schema?.defaultSortDirection ?? 'asc')
     setTrashedFilter('')
+    setFiltersOpen(false)
   }, [resource, schema?.defaultSort, schema?.defaultSortDirection])
 
   // Resolve effective per-page (state overrides schema default)
@@ -503,6 +514,8 @@ export function ResourceIndexPage() {
               value={activeFilters}
               onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
               rightSlot={resetButton}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
             />
           ) : null
 

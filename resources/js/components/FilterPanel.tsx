@@ -17,6 +17,13 @@ interface FilterPanelProps {
       Stays on the toggle row even when the filter panel is open, so the
       expandable box below can claim the full width. */
   rightSlot?: React.ReactNode
+  /** Controlled open state. When omitted the panel manages its own state.
+   *  When supplied, the parent owns the toggle and can persist it (the
+   *  ResourceIndex page does this via sticky views so the open / closed
+   *  state is restored per-resource). */
+  open?: boolean
+  /** Called whenever the panel toggles. Required when `open` is supplied. */
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -35,9 +42,18 @@ function computeDefaults(filters: FilterDefinition[]): ActiveFilters {
 
 const calendarLocale = getCalendarLocale()
 
-export function FilterPanel({ filters, value, onChange, prefix, rightSlot }: FilterPanelProps) {
+export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open: controlledOpen, onOpenChange }: FilterPanelProps) {
   const { t } = useTranslation('resources')
-  const [open, setOpen] = useState(false)
+  // Dual-mode open state — when the parent supplies `open` + `onOpenChange`
+  // we run controlled (used by ResourceIndex so the open/closed flag
+  // can persist per-resource via sticky views). Otherwise fall back to
+  // the local-state behaviour for any callers that don't care.
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
+  const setOpen = (next: boolean): void => {
+    if (onOpenChange) onOpenChange(next)
+    if (controlledOpen === undefined) setUncontrolledOpen(next)
+  }
   const defaultsApplied = useRef(false)
 
   // Differential 3: Apply default values on initial load

@@ -34,11 +34,14 @@ function applyPersistFilter(state: StickyState): StickyState {
   const persist = config.stickyViews?.persist ?? {}
   const filtered: StickyState = {}
 
-  // Filters bucket — applied filters, search query, soft-delete toggle.
+  // Filters bucket — applied filters, search query, soft-delete toggle,
+  // and the panel's expanded / collapsed flag (so opening the panel on
+  // one resource doesn't leak the open state into the next one).
   if (persist.filters !== false) {
     if ('activeFilters' in state) filtered.activeFilters = state.activeFilters
     if ('search' in state) filtered.search = state.search
     if ('trashedFilter' in state) filtered.trashedFilter = state.trashedFilter
+    if ('filtersOpen' in state) filtered.filtersOpen = state.filtersOpen
   }
   // Sort bucket.
   if (persist.sorting !== false) {
