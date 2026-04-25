@@ -6294,6 +6294,32 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   .martis-dash-grid > .span-3 { grid-column: auto; }
 }
 
+/* Public card chrome — used by `martis:card` scaffolds and by any
+   custom dashboard panel that wants to follow the canonical Martis
+   chrome (border, padded body, kicker-style head) without reaching
+   for the internal `.martis-metric-card` selectors. Mirrors the
+   `Dashboard.html` `.card / .card-head` design system spec. */
+.martis-card {
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  padding: 16px 18px 18px;
+  min-width: 0;
+}
+.martis-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+.martis-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
 /* Fase 7 F7-17 — TrendCard sparkline mode
    Compact inline chart (under 40px tall) rendered next to the KPI value
    instead of the full 160px line chart. Opt-in via `sparkline` prop. */
