@@ -200,6 +200,9 @@ return [
     'clear_brand_color' => 'Clear brand color',
     'applied_preset' => 'Preset applied',
     'details' => 'Details',
+    // Avatar field
+    'avatar_choose_file' => 'Choose file',
+    'avatar_remove' => 'Remove',
     // Audio field
     'audio_empty_title' => 'No audio attached',
     'audio_empty_hint' => 'Drop an audio file here or click to browse.',

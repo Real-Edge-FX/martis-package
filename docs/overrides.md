@@ -269,8 +269,8 @@ public function overrides(): array
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `width()` | `width(string $width)` | Set the collapsed drawer width (CSS value, e.g. `'40rem'`). |
-| `expandedWidth()` | `expandedWidth(string $width)` | Set the expanded drawer width. |
+| `width()` | `width(string $width)` | Set the collapsed drawer width (CSS value, e.g. `'40rem'`). Default: `720px` (configurable via `config('martis.drawer.width')`). |
+| `expandedWidth()` | `expandedWidth(string $width)` | Set the expanded drawer width. Default: `960px` (configurable via `config('martis.drawer.expanded_width')`). |
 | `allowExpand()` | `allowExpand(bool $value = true)` | Show the expand/collapse toggle button. |
 | `allowFullscreen()` | `allowFullscreen(bool $value = true)` | Show the fullscreen toggle button. |
 | `showCloseButton()` | `showCloseButton(bool $value = true)` | Show the close (×) button in the header. |

@@ -1071,15 +1071,31 @@ abstract class Field implements FieldContract
      *
      * When `config('martis.index.column_defaults')` is false, the per-type
      * heuristics are skipped entirely — only explicit fluent calls apply.
-     * Apps that want the pre-v0.7.0 (Nova 5-like) behaviour set the flag.
+     * Apps that want the pre-v0.7.0 fully auto-sizing behaviour set the
+     * flag to false.
      *
      * @return array{width: ?string, minWidth: ?string, maxWidth: ?string, truncate: bool}
      */
     public function resolveColumnWidth(): array
     {
-        $defaults = (bool) config('martis.index.column_defaults', true)
-            ? $this->defaultColumnWidth()
-            : [];
+        // Resolve the config flag defensively so unit tests (which may not
+        // boot the Laravel container) can still serialise a field without
+        // tripping a BindingResolutionException. When no container is
+        // available, fall back to the documented default of `true` and
+        // apply the per-type heuristics.
+        $useDefaults = true;
+        if (function_exists('app')) {
+            try {
+                $container = app();
+                if ($container->bound('config')) {
+                    $useDefaults = (bool) $container['config']->get('martis.index.column_defaults', true);
+                }
+            } catch (\Throwable) {
+                // Container not bootstrapped — keep $useDefaults = true.
+            }
+        }
+
+        $defaults = $useDefaults ? $this->defaultColumnWidth() : [];
 
         return [
             'width' => $this->columnWidth ?? ($defaults['width'] ?? null),

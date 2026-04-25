@@ -11,15 +11,20 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 
-/** ⭐ Martis differential helper — human labels for OfMany aggregate tile. */
-function fnLabel(fn: string): string {
-  switch (fn) {
-    case 'count': return 'Total'
-    case 'sum': return 'Soma'
-    case 'avg': return 'Média'
-    case 'min': return 'Mínimo'
-    case 'max': return 'Máximo'
-    default: return fn
+/** ⭐ Martis differential helper — human labels for OfMany aggregate tile.
+ *  Falls through `t(...)` against the resources locale so each label
+ *  picks up the active translation. */
+function useFnLabel(): (fn: string) => string {
+  const { t } = useTranslation('resources')
+  return (fn: string): string => {
+    switch (fn) {
+      case 'count': return t('aggregate_total', 'Total')
+      case 'sum': return t('aggregate_sum', 'Sum')
+      case 'avg': return t('aggregate_avg', 'Average')
+      case 'min': return t('aggregate_min', 'Min')
+      case 'max': return t('aggregate_max', 'Max')
+      default: return fn
+    }
   }
 }
 
@@ -50,6 +55,7 @@ export function HasOneFieldDisplay({ field }: FieldDisplayProps) {
 function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const fnLabel = useFnLabel()
   const navigate = useNavigate()
   const qc = useQueryClient()
 
@@ -70,8 +76,9 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const relatedResource = field.relatedResource as string
 
   // Parent context: read NestedParent when rendered inside another
-  // relationship (e.g. Última fatura inside a HasOneThrough Project).
-  // Fallback to the URL when we are at the top level of the detail page.
+  // relationship (e.g. a Latest Invoice nested inside a HasOneThrough
+  // Project). Fallback to the URL when we are at the top level of the
+  // detail page.
   const nested = useNestedParent()
   const pathParts = window.location.pathname.split('/')
   const resourcesIdx = pathParts.indexOf('resources')

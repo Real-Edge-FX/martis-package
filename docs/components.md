@@ -281,6 +281,23 @@ public function icon(): string
 
 Skeleton loading placeholders with pulse animation. Displayed while data is being fetched.
 
+### Sparkline (`components/metrics/Sparkline.tsx`)
+
+Tiny SVG area sparkline used by `TrendCard` when the backend opts into sparkline mode (`TrendResult::sparkline()`). Exported from `@/components/metrics` so custom framed cards can reuse it.
+
+```tsx
+import { Sparkline } from '@/components/metrics'
+
+<Sparkline values={[32, 38, 41, 44, 52, 60, 70]} variant="inline" color="var(--martis-chart-2)" />
+```
+
+| Prop | Default | Description |
+|------|---------|-------------|
+| `values` | required | Numeric series. Renders nothing when fewer than 2 points. |
+| `color` | `var(--martis-accent)` | Stroke + gradient colour. |
+| `variant` | `block` | `block` (36px, fills width) or `inline` (96×28, fits next to a KPI value). |
+| `label` | — | Optional `aria-label` for the SVG. |
+
 ### ErrorBoundary
 
 Catches and displays React rendering errors gracefully instead of crashing the entire application.
@@ -647,7 +664,7 @@ Compose a variant with an optional size and the `martis-btn-icon` helper for ico
 
 | Class | Effect |
 |-------|--------|
-| `martis-badge` | Base chip shape (pill, 20px, 11px font). Always required. |
+| `martis-badge` | Base chip shape (pill, 22px, 11px font, weight 500, tabular numerals). Always required. |
 | `martis-badge-info` / `success` / `warning` / `danger` | Semantic colour tokens (background + text + border). |
 | `martis-badge-neutral` | Muted chip for "draft" / "unassigned" states. |
 | `martis-badge-dot` | Prepends a small dot for "live" / connection states. |
@@ -674,3 +691,109 @@ Use `.martis-avatar-stack` on a wrapper to overlap several avatars with a subtle
   <span class="martis-avatar martis-avatar-sm martis-avatar-circle">+3</span>
 </div>
 ```
+
+`.martis-avatar-fallback` paints a muted user glyph slot for records with no image and no initials seed, keeping row layouts aligned.
+
+The `lib/avatarPalette.ts` helper returns a deterministic colour for any seed string, picking one of the 16 `--martis-avatar-1..16` token hues. Two users with the same name always get the same colour, and the colour stays stable across light/dark themes:
+
+```ts
+import { avatarColorForSeed } from '@/lib/avatarPalette'
+
+<span
+  className="martis-avatar martis-avatar-md martis-avatar-circle"
+  style={{ backgroundColor: avatarColorForSeed(user.name) }}
+>
+  {user.initials}
+</span>
+```
+
+### KPI typography
+
+KPI cards (Value, Trend, Progress, framed custom cards) share three typography classes:
+
+| Class | Effect |
+|-------|--------|
+| `martis-kpi-label` | 12px uppercase muted text with a 0.04em tracking. Wraps an icon (`martis-kpi-label-icon`, 14px) and the label text (`martis-kpi-label-text`). |
+| `martis-kpi-value` | 28px semibold, tabular numerals. Collapses to 24px under `[data-density="dense"]`. |
+| `martis-kpi-delta` | Inline pill rendered next to the value; `is-up` / `is-down` colour variants. `.martis-kpi-delta-sub` styles the "vs previous" suffix. |
+
+```html
+<h3 class="martis-kpi-label">
+  <span class="martis-kpi-label-icon">{icon}</span>
+  <span class="martis-kpi-label-text">Total revenue</span>
+</h3>
+<p class="martis-kpi-value">€389,785</p>
+<span class="martis-kpi-delta is-up">↗ +12.4%
+  <span class="martis-kpi-delta-sub">vs €346,521</span>
+</span>
+```
+
+### Status dot (Live indicator)
+
+The shell's pulsating green dot is exposed as a public utility so any surface that signals "this value auto-refreshes" uses the same visual:
+
+```html
+<span class="martis-status-dot">
+  <span class="martis-status-pulse"></span>
+  Live
+</span>
+```
+
+The pulse halo respects the user's reduced-motion preference (both `[data-reduced-motion="true"]` and `prefers-reduced-motion`).
+
+### Notification dot
+
+A reusable danger-coloured dot for unread / notification indicators on icon buttons:
+
+```html
+<button class="martis-tb-icon-btn" aria-label="Notifications">
+  <svg/>
+  <span class="martis-notif-dot"></span>
+</button>
+```
+
+The selector `.martis-tb-icon-btn .martis-notif-dot` keeps the topbar's exact spec geometry (6×6 + 2px topbar border). Using `.martis-notif-dot` outside the topbar produces the same hue without the border.
+
+### Detail panel rows
+
+Stacked label/value rows used by the resource detail page right rail and the drawer detail surface:
+
+```html
+<dl class="martis-detail-panel">
+  <div class="martis-detail-row">
+    <dt class="martis-detail-label">Status</dt>
+    <dd class="martis-detail-value">Active</dd>
+  </div>
+</dl>
+```
+
+Add `.martis-detail-panel.is-drawer` on the wrapper for drawer-tighter spacing. `.martis-detail-kicker` is the eyebrow text rendered above the panel title.
+
+### Form density helpers
+
+Wrap form bodies in these classes so the create / update pages and drawer forms react to the active density token:
+
+| Class | Effect |
+|-------|--------|
+| `martis-form-body` | Padded form container. Tightens on `[data-density="dense"]`. |
+| `martis-form-stack` | Vertical flex stack of fields with token-driven gap. |
+| `martis-form-grid` | 12-column form grid container; pair with `martis-input-wrap` per field. |
+
+### Tabs / Segmented / Skeleton
+
+Generalised primitives previously living inline only inside specific surfaces:
+
+| Class | Effect |
+|-------|--------|
+| `martis-tabs` + `martis-tab` | Underline-active tab strip (2px `--martis-accent` border-bottom). |
+| `martis-segmented` | Equal-width segmented control with focus-visible ring. |
+| `martis-skeleton` | 1.6s linear shimmer gradient. Replaces ad-hoc `animate-pulse` usage. |
+
+### Dashboard layout helpers
+
+Two grid classes mirror the Dashboard.html spec so a custom dashboard renders the same as the built-in one:
+
+| Class | Effect |
+|-------|--------|
+| `martis-dash-kpis` | 4-column row of KPI cards (collapses to 2 cols below 1100px). |
+| `martis-dash-grid` | 3-column body grid; supports `.span-2` / `.span-3` cell helpers. Collapses to 1 col below 1100px. |

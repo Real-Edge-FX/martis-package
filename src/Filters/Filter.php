@@ -63,16 +63,19 @@ abstract class Filter implements FilterContract
      */
     abstract public function filterType(): FilterType;
 
+    /** {@inheritDoc} */
     public function name(): string
     {
         return $this->name;
     }
 
+    /** {@inheritDoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
+    /** {@inheritDoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -200,6 +203,8 @@ abstract class Filter implements FilterContract
     }
 
     /**
+     * {@inheritDoc}
+     *
      * @return array<string, mixed>
      */
     public function meta(): array
@@ -250,6 +255,8 @@ abstract class Filter implements FilterContract
     }
 
     /**
+     * {@inheritDoc}
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array

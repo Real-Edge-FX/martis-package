@@ -1,6 +1,6 @@
 # Metrics
 
-Metrics compute and display analytical data on dashboards and resource index pages. Martis provides four built-in metric types.
+Metrics compute and display analytical data on dashboards and resource index pages. Martis provides six built-in metric types: `Value`, `Trend`, `Partition`, `Progress`, `ActivityFeed`, and `EndpointTable`.
 
 ## Metric Types
 
@@ -103,6 +103,109 @@ class MonthlySignups extends ProgressMetric
 ```
 
 Use `->avoid()` when the goal is to minimize rather than maximize.
+
+### Activity Feed Metric (Martis Extension)
+
+Renders a chronological stream of recent events with a coloured Phosphor avatar tile, an actor / verb / target line, and a mono timestamp. Useful for "Recent activity" or "Latest deployments" cards on dashboards.
+
+```php
+use Illuminate\Http\Request;
+use Martis\Metrics\ActivityFeedMetric;
+use Martis\Metrics\ActivityFeedResult;
+
+class RecentDeploys extends ActivityFeedMetric
+{
+    public function calculate(Request $request): ActivityFeedResult
+    {
+        return $this->result()
+            ->add(
+                actor: 'Ana Pereira',
+                verb: 'deployed',
+                time: '2m ago',
+                target: 'api-core@v2.4.1',
+                icon: 'rocket-launch',
+                color: 'var(--martis-chart-2)',
+            )
+            ->add(
+                actor: 'João Marques',
+                verb: 'rotated key',
+                time: '14m ago',
+                target: 'production-api',
+                icon: 'key',
+                color: 'var(--martis-chart-1)',
+            );
+    }
+}
+```
+
+`ActivityFeedResult::add()` parameters:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `actor`   | yes      | Bold name at the start of the line. |
+| `verb`    | yes      | Muted action description after the actor. |
+| `time`    | yes      | Relative timestamp shown on a second mono line ("2m ago", "yesterday"). |
+| `target`  | no       | Identifier rendered in mono (commit sha, route, key id). |
+| `icon`    | no       | Phosphor icon name for the leading avatar tile. |
+| `color`   | no       | CSS colour or token for the tile background (defaults to `--martis-accent`). |
+
+Bulk-set entries via `$result->items([...])` if the data already comes back from a query in the right shape.
+
+Generator: `php artisan martis:activity-feed RecentDeploys`.
+
+### Endpoint Table Metric (Martis Extension)
+
+Renders a compact HTTP route table with coloured method chips (`GET` / `POST` / `PUT` / `PATCH` / `DELETE`), mono numeric columns (req/min, P95 latency, error %), and a thin share-of-traffic bar. Drops cleanly into a `card-span-3` slot on the dashboard.
+
+```php
+use Illuminate\Http\Request;
+use Martis\Metrics\EndpointTableMetric;
+use Martis\Metrics\EndpointTableResult;
+
+class TopEndpoints extends EndpointTableMetric
+{
+    public function calculate(Request $request): EndpointTableResult
+    {
+        return $this->result()
+            ->errorWarnThreshold(0.2)
+            ->add(method: 'GET', path: '/v1/resources', rpm: 482, latencyMs: 42, errorRate: 0.02, share: 28)
+            ->add(method: 'POST', path: '/v1/events', rpm: 312, latencyMs: 88, errorRate: 0.12, share: 18)
+            ->add(method: 'PATCH', path: '/v1/deployments/:id', rpm: 188, latencyMs: 126, errorRate: 0.18, share: 11);
+    }
+}
+```
+
+`EndpointTableResult::add()` parameters:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `method`     | yes | HTTP verb. Drives the coloured chip in the first column. |
+| `path`       | yes | Route path (rendered in mono). |
+| `rpm`        | no  | Requests per minute. |
+| `latencyMs`  | no  | P95 latency in milliseconds. |
+| `errorRate`  | no  | 0..1. Highlights the cell amber when above `errorWarnThreshold` (default `0.2`). |
+| `share`      | no  | 0..100. Renders the thin share bar. Omit on every row to hide the column entirely. |
+
+Bulk-set via `$result->rows([...])`. Generator: `php artisan martis:endpoint-table TopEndpoints`.
+
+### Sparkline mode on Trend metrics
+
+`TrendResult` accepts a `sparkline` flag. When set, the `MetricCard` renders an inline SVG sparkline + delta pill instead of the full Chart.js panel. Pair with the `.martis-dash-kpis` row layout to fit four trend metrics across the top of a dashboard:
+
+```php
+class WeeklyRevenue extends TrendMetric
+{
+    public function calculate(Request $request): TrendResult
+    {
+        return $this->countByDays($request, Order::class)
+            ->sparkline()                // ← compact mode
+            ->showLatestValue()
+            ->prefix('€');
+    }
+}
+```
+
+The `<Sparkline>` React component used internally is also exported (`@/components/metrics`) for use inside custom cards or framed components.
 
 ## Ranges
 

@@ -56,16 +56,19 @@ class Card implements CardContract
         return new static($name, $uriKey);
     }
 
+    /** {@inheritDoc} */
     public function name(): string
     {
         return $this->name;
     }
 
+    /** {@inheritDoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
+    /** {@inheritDoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -111,6 +114,8 @@ class Card implements CardContract
     }
 
     /**
+     * {@inheritDoc}
+     *
      * @return array<string, mixed>
      */
     public function meta(): array
@@ -118,6 +123,7 @@ class Card implements CardContract
         return $this->meta;
     }
 
+    /** {@inheritDoc} */
     public function toArray(): array
     {
         return [

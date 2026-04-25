@@ -1,4 +1,7 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { UserIcon } from '@phosphor-icons/react'
+import { avatarColorForSeed, avatarHexForSeed } from '@/lib/avatarPalette'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface AvatarSchema {
@@ -50,7 +53,8 @@ function asPayload(value: Value): StoredPayload | null {
 }
 
 /** WCAG-ish contrast pick: return black on pale bg, white otherwise. */
-function readableTextColor(hex: string): string {
+function readableTextColor(hex: string | null): string {
+  if (!hex) return '#fff'
   const h = hex.replace('#', '')
   if (h.length !== 6) return '#fff'
   const r = parseInt(h.substring(0, 2), 16)
@@ -63,19 +67,41 @@ function readableTextColor(hex: string): string {
 function InitialsCircle({
   initials,
   color,
+  seed,
   shapeClass,
 }: {
   initials: string
-  color: string
+  color: string | null | undefined
+  seed: string | null | undefined
   shapeClass: string
 }) {
+  // F7-36 — empty initials → muted user glyph instead of '?'.
+  if (!initials) {
+    return (
+      <span
+        className={`martis-avatar ${shapeClass} martis-ui-avatar martis-avatar-fallback`}
+        aria-hidden="true"
+      >
+        <UserIcon size={14} weight="bold" />
+      </span>
+    )
+  }
+
+  // F7-35 — fall back to the deterministic 16-hue palette when no
+  // explicit colour is supplied. The CSS variable resolves at paint
+  // time so the colour stays consistent across themes.
+  const bg = color && color.length > 0 ? color : avatarColorForSeed(seed)
+  const textColor = color && color.length > 0
+    ? readableTextColor(color)
+    : readableTextColor(avatarHexForSeed(seed))
+
   return (
     <span
       className={`martis-avatar ${shapeClass} martis-ui-avatar`}
-      style={{ backgroundColor: color, color: readableTextColor(color) }}
+      style={{ backgroundColor: bg, color: textColor }}
       aria-hidden="true"
     >
-      {initials || '?'}
+      {initials}
     </span>
   )
 }
@@ -90,7 +116,8 @@ export function AvatarFieldDisplay({ field, value }: FieldDisplayProps) {
     return (
       <InitialsCircle
         initials={payload.initials}
-        color={payload.color ?? '#475569'}
+        color={payload.color}
+        seed={payload.seed ?? payload.name ?? payload.initials}
         shapeClass={shapeClass}
       />
     )
@@ -98,6 +125,19 @@ export function AvatarFieldDisplay({ field, value }: FieldDisplayProps) {
 
   const url = resolveUrl(value as Value)
   if (!url) {
+    // F7-36 — display-mode fallback when a record has no avatar at all
+    // (no image, no initials seed). Drops the bare em-dash for a muted
+    // user glyph that visually slots into row layouts.
+    if (payload?.seed || payload?.name) {
+      return (
+        <InitialsCircle
+          initials=""
+          color={payload?.color}
+          seed={payload?.seed ?? payload?.name}
+          shapeClass={shapeClass}
+        />
+      )
+    }
     return <span className="martis-text-muted">—</span>
   }
 
@@ -115,6 +155,7 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
     .map((ext) => `.${ext}`)
     .join(',')
 
+  const { t } = useTranslation('messages')
   const inputRef = useRef<HTMLInputElement | null>(null)
   const payload = asPayload(value as Value)
   const initialPreview = resolveUrl(value as Value)
@@ -155,11 +196,11 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
       </button>
       <div className="martis-avatar-input-meta">
         <button type="button" className="martis-btn-secondary" onClick={() => inputRef.current?.click()}>
-          Escolher ficheiro
+          {t('avatar_choose_file', 'Choose file')}
         </button>
         {preview && (
           <button type="button" className="martis-btn-secondary" onClick={() => handleFile(null)}>
-            Remover
+            {t('avatar_remove', 'Remove')}
           </button>
         )}
       </div>

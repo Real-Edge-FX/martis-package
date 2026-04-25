@@ -1,0 +1,29 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Metrics\ActivityFeedMetric;
+use Martis\Metrics\ActivityFeedResult;
+
+class {{ class }} extends ActivityFeedMetric
+{
+    /**
+     * Calculate the activity feed.
+     *
+     * Add entries with `$result->add(actor, verb, time, target, icon, color)`
+     * or feed a pre-built array via `$result->items([...])`.
+     */
+    public function calculate(Request $request): ActivityFeedResult
+    {
+        return $this->result()
+            ->add(
+                actor: 'System',
+                verb: 'recorded',
+                time: 'just now',
+                target: 'placeholder.event',
+                icon: 'activity',
+                color: 'var(--martis-accent)',
+            );
+    }
+}

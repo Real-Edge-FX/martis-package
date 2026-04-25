@@ -16,7 +16,7 @@ class ProgressMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../../stubs/metric.progress.stub';
+        return __DIR__.'/../../stubs/metric.progress.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string

@@ -16,7 +16,7 @@ class PartitionMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../../stubs/metric.partition.stub';
+        return __DIR__.'/../../stubs/metric.partition.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string

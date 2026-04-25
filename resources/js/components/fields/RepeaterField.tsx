@@ -449,7 +449,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
         <div className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
           {meta.minRows != null && belowMin && (
             <span style={{ color: 'var(--martis-danger)' }}>
-              {t('repeater_min_rows', { count: meta.minRows, defaultValue: `Mínimo ${meta.minRows} linha(s).` })}
+              {t('repeater_min_rows', { count: meta.minRows, defaultValue: `Minimum ${meta.minRows} row(s).` })}
             </span>
           )}
           {meta.maxRows != null && (
@@ -584,15 +584,15 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-semibold">{t('repeater_paste_title', 'Colar linhas em lote')}</h2>
+            <h2 className="text-base font-semibold">{t('repeater_paste_title', 'Bulk paste rows')}</h2>
             <p className="mt-1 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-              {t('repeater_paste_help', 'Colar TSV/CSV (com ou sem cabeçalho) ou JSON array. A primeira linha não-vazia é detetada automaticamente como cabeçalho se os nomes baterem com os campos.')}
+              {t('repeater_paste_help', 'Paste TSV/CSV (with or without header) or a JSON array. The first non-empty row is detected as the header automatically when its column names match the field attributes.')}
             </p>
 
             {isMultiType && (
               <div className="mt-3">
                 <label className="block text-xs font-medium" style={{ color: 'var(--martis-text-muted)' }}>
-                  {t('repeater_paste_type', 'Tipo de linha')}
+                  {t('repeater_paste_type', 'Row type')}
                 </label>
                 <select
                   value={bulkPasteType}
@@ -749,7 +749,7 @@ function parseBulkRows(text: string, rep: RepeatableDef): Array<Record<string, u
           return row
         })
     } catch (e) {
-      return new Error(`JSON inválido: ${(e as Error).message}`)
+      return new Error(`Invalid JSON: ${(e as Error).message}`)
     }
   }
 

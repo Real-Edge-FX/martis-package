@@ -34,6 +34,16 @@ export function AuthControls() {
 
   if (!enabled) return null
 
+  // Per-surface visibility toggles from `martis.auth.controls`. Both
+  // default to true so existing installs keep the current behaviour.
+  const controls = config.auth?.controls ?? {}
+  const showTheme = controls.theme !== false
+  const showLocale = controls.locale !== false
+
+  // Whole strip hides when both knobs are off — avoids rendering an
+  // empty padded container in the corner.
+  if (!showTheme && !showLocale) return null
+
   const availableLocales = meta?.locales ?? ['en', 'pt_PT', 'pt_BR']
   const localeLabels = { ...BUILTIN_LOCALE_LABELS, ...(config.preferences?.localeLabels ?? {}) }
 
@@ -56,27 +66,31 @@ export function AuthControls() {
 
   return (
     <div className="martis-auth-controls" aria-label={t('preferences', { defaultValue: 'Preferences' })}>
-      <button
-        type="button"
-        onClick={onThemeCycle}
-        className="martis-auth-control"
-        aria-label={`${t('theme', { defaultValue: 'Theme' })}: ${themeLabel}`}
-        title={`${t('theme', { defaultValue: 'Theme' })}: ${themeLabel}`}
-      >
-        {themeIcon}
-      </button>
-      <label className="martis-auth-control martis-auth-control-select">
-        <TranslateIcon size={16} aria-hidden="true" />
-        <select
-          value={prefs.locale}
-          onChange={(e) => void onLocalePick(e.target.value)}
-          aria-label={t('language', { defaultValue: 'Language' })}
+      {showTheme && (
+        <button
+          type="button"
+          onClick={onThemeCycle}
+          className="martis-auth-control"
+          aria-label={`${t('theme', { defaultValue: 'Theme' })}: ${themeLabel}`}
+          title={`${t('theme', { defaultValue: 'Theme' })}: ${themeLabel}`}
         >
-          {availableLocales.map((l) => (
-            <option key={l} value={l}>{localeLabels[l] ?? l}</option>
-          ))}
-        </select>
-      </label>
+          {themeIcon}
+        </button>
+      )}
+      {showLocale && (
+        <label className="martis-auth-control martis-auth-control-select">
+          <TranslateIcon size={16} aria-hidden="true" />
+          <select
+            value={prefs.locale}
+            onChange={(e) => void onLocalePick(e.target.value)}
+            aria-label={t('language', { defaultValue: 'Language' })}
+          >
+            {availableLocales.map((l) => (
+              <option key={l} value={l}>{localeLabels[l] ?? l}</option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   )
 }

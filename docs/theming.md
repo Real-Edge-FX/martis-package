@@ -204,6 +204,16 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 
 Used automatically by `PartitionCard` (donut/pie) when no custom colors provided. Resolved at runtime via JavaScript (Chart.js can't read CSS vars natively).
 
+### 11b. Avatar Palette (16 variables)
+
+16 deterministic hues used by `AvatarField` and `UiAvatarField` when the backend doesn't supply an explicit colour. The `lib/avatarPalette.ts` helper picks one of `--martis-avatar-1..16` from a stable hash of the seed (name, email, slug), so two users with the same name always get the same colour.
+
+```css
+--martis-avatar-1 ... --martis-avatar-16
+```
+
+The hex values are intentionally identical across light and dark themes — a user's avatar colour cannot change when the theme toggles.
+
 ### 12. File Icon Colors (6 variables)
 
 Semantic colors for file type icons in `FileField`.
