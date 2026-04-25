@@ -191,6 +191,19 @@
   --martis-avatar-15: #BE185D; /* rose-700 */
   --martis-avatar-16: #475569; /* slate-600 */
 
+  /* 3.11c Brand gradient tokens (dark) — feed every "hero / welcome /
+     marquee" surface so the brand look stays in one place. The cyan
+     and pink auroras drift over the base gradient and a pointer-aware
+     spot-glow tracks the cursor. Override via theme CSS to reskin
+     the hero without touching the React. */
+  --martis-brand-gradient:        linear-gradient(135deg, #1A1F4B 0%, #2A1F66 45%, #3B1F7A 100%);
+  --martis-brand-aurora-cyan:     rgba(56, 189, 248, 0.55);
+  --martis-brand-aurora-pink:     rgba(236, 72, 153, 0.45);
+  --martis-brand-pointer-glow:    rgba(124, 140, 255, 0.35);
+  --martis-brand-grid-dot:        rgba(255, 255, 255, 0.09);
+  --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.55);
+  --martis-brand-text:             #FFFFFF;
+
   /* 3.12 File icon colors (dark-tuned) */
   --martis-file-icon-pdf:     #EF4444;
   --martis-file-icon-doc:     #3B82F6;
@@ -341,6 +354,21 @@ html:not(.dark) {
   --martis-avatar-14: #65A30D;
   --martis-avatar-15: #BE185D;
   --martis-avatar-16: #475569;
+
+  /* 3.11c Brand gradient tokens (light) — same conceptual recipe as
+     dark, with stops keyed for the lighter canvas. Hero / welcome
+     surfaces remain dark by design (white type on a saturated
+     gradient reads better than the inverse), so the gradient stops
+     stay close to the dark theme's. Aurora / glow opacities are
+     trimmed slightly so they don't dominate against the lighter
+     surrounding shell. */
+  --martis-brand-gradient:        linear-gradient(135deg, #1F2566 0%, #2E2173 45%, #4324A0 100%);
+  --martis-brand-aurora-cyan:     rgba(56, 189, 248, 0.45);
+  --martis-brand-aurora-pink:     rgba(236, 72, 153, 0.38);
+  --martis-brand-pointer-glow:    rgba(124, 140, 255, 0.30);
+  --martis-brand-grid-dot:        rgba(255, 255, 255, 0.10);
+  --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.40);
+  --martis-brand-text:             #FFFFFF;
 
   /* 3.12 File icon colors */
   --martis-file-icon-pdf:     #DC2626;
@@ -840,9 +868,13 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
   font-size: 15px;
 }
 .martis-cmdk-search input::placeholder { color: var(--martis-text-muted); }
-.martis-cmdk-search kbd {
+/* `.martis-cmdk-search kbd` and friends below now inherit from the
+   public `.martis-kbd` class; the bare-`<kbd>` selectors stay for
+   backward compatibility (markup that hasn't yet adopted the class). */
+.martis-cmdk-search kbd,
+.martis-cmdk-search .martis-kbd {
   font-family: var(--martis-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 6px;
   border-radius: var(--martis-radius-sm);
   background: var(--martis-hover);
@@ -902,9 +934,10 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
   font-family: var(--martis-font-mono);
   flex-shrink: 0;
 }
-.martis-cmdk-item kbd {
+.martis-cmdk-item kbd,
+.martis-cmdk-item .martis-kbd {
   font-family: var(--martis-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 6px;
   border-radius: var(--martis-radius-sm);
   background: var(--martis-hover);
@@ -923,11 +956,12 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
   color: var(--martis-text-muted);
 }
 .martis-cmdk-foot-spacer { flex: 1 1 auto; }
-.martis-cmdk-foot kbd {
+.martis-cmdk-foot kbd,
+.martis-cmdk-foot .martis-kbd {
   font-family: var(--martis-font-mono);
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 3px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--martis-radius-sm);
   background: var(--martis-hover);
   border: 1px solid var(--martis-border);
   color: var(--martis-text-muted);
@@ -1436,7 +1470,28 @@ html[data-reduced-motion="true"] *::after {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.martis-tb-search kbd {
+/* F7-37 — public `.martis-kbd` class. Used by the topbar search trigger,
+   the command palette (search row, item shortcut hint, footer chips),
+   tooltip "press X" hints and any consumer that wants a uniform
+   shortcut chip. Mirrors the design-system Shell.html `.tb-search kbd`
+   spec exactly. The legacy bare-`<kbd>` selectors below cascade onto
+   any descendant `<kbd>` for backward compatibility, but new code
+   should use the public class on the element directly. */
+.martis-kbd {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--martis-radius-sm);
+  background: var(--martis-hover);
+  border: 1px solid var(--martis-border);
+  color: var(--martis-text-muted);
+  line-height: 1;
+}
+
+.martis-tb-search kbd,
+.martis-tb-search .martis-kbd {
   font-family: var(--martis-font-mono);
   font-size: 11px;
   padding: 2px 6px;

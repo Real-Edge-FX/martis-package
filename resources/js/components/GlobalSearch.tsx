@@ -241,7 +241,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
             placeholder={t('palette_placeholder', 'Type a command or search…')}
             autoFocus
           />
-          <kbd>esc</kbd>
+          <kbd className="martis-kbd">esc</kbd>
         </div>
 
         <div className="martis-cmdk-list" ref={listRef}>
@@ -284,11 +284,11 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
         </div>
 
         <div className="martis-cmdk-foot">
-          <span><kbd>&uarr;&darr;</kbd>{t('navigate', 'navigate')}</span>
-          <span><kbd>&crarr;</kbd>{t('select', 'select')}</span>
+          <span><kbd className="martis-kbd">&uarr;&darr;</kbd>{t('navigate', 'navigate')}</span>
+          <span><kbd className="martis-kbd">&crarr;</kbd>{t('select', 'select')}</span>
           <span>
-            <kbd>{isMacPlatform() ? '\u2318K' : 'Ctrl K'}</kbd>
-            <kbd>/</kbd>
+            <kbd className="martis-kbd">{isMacPlatform() ? '\u2318K' : 'Ctrl K'}</kbd>
+            <kbd className="martis-kbd">/</kbd>
             {t('palette_toggle', 'toggle')}
           </span>
           <span className="martis-cmdk-foot-spacer" />

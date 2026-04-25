@@ -214,6 +214,22 @@ Used automatically by `PartitionCard` (donut/pie) when no custom colors provided
 
 The hex values are intentionally identical across light and dark themes — a user's avatar colour cannot change when the theme toggles.
 
+### 11c. Brand Gradient (7 variables)
+
+Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`). Override these in your theme CSS to reskin the brand without touching React.
+
+| Variable | Description |
+|----------|-------------|
+| `--martis-brand-gradient` | Base 135° gradient. Three stops; defaults to indigo / violet / purple. |
+| `--martis-brand-aurora-cyan` | Cyan aurora blob colour (drifts top-left). |
+| `--martis-brand-aurora-pink` | Pink aurora blob colour (drifts bottom-right). |
+| `--martis-brand-pointer-glow` | Spot-glow that tracks the cursor. |
+| `--martis-brand-grid-dot` | Dot-grid overlay opacity. |
+| `--martis-brand-shadow` | Shadow pushed under the brand surface. |
+| `--martis-brand-text` | Default text colour on top of the brand surface. |
+
+Light and dark themes ship the same recipe with stops keyed for the canvas — hero surfaces stay dark by design (white type on a saturated gradient reads better than the inverse), so the difference between themes is mostly trimmed opacity on the auroras.
+
 ### 12. File Icon Colors (6 variables)
 
 Semantic colors for file type icons in `FileField`.

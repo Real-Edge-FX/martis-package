@@ -436,6 +436,26 @@ API_BASE_URL               // e.g. 'http://app.test/martis'
 BASE_PATH                  // e.g. '/martis'
 ```
 
+### usePrefersReducedMotion (`lib/usePrefersReducedMotion.ts`)
+
+Reactive React hook that returns `true` when motion should be paused. Combines the OS-level signal (`@media (prefers-reduced-motion: reduce)`) with the per-user Martis preference (`html[data-reduced-motion="true"]` written by `PreferencesContext`).
+
+```tsx
+import { usePrefersReducedMotion } from '@/lib/usePrefersReducedMotion'
+
+const reducedMotion = usePrefersReducedMotion()
+
+useEffect(() => {
+  if (reducedMotion) return                   // skip JS-driven motion
+  el.addEventListener('mousemove', onTilt)
+  return () => el.removeEventListener('mousemove', onTilt)
+}, [reducedMotion])                            // re-runs when the user toggles
+```
+
+Use it whenever you write a `mousemove`-driven parallax, a `requestAnimationFrame` loop, or any other motion that CSS cannot clamp. CSS-driven animations (Tailwind `animate-*`, the `martis-` keyframes) already get clamped to 1ms via the global `*` selector under both `[data-reduced-motion="true"]` and `prefers-reduced-motion: reduce`, so simple CSS animations don't need the hook.
+
+The hook listens to both signals and re-renders on any change, so toggling the Preferences panel switch pauses motion immediately without remount.
+
 ### i18n.ts
 
 Internationalization setup using react-i18next.
