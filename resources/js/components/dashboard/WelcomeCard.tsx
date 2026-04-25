@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { config } from '@/lib/config'
+import { usePrefersReducedMotion } from '@/lib/usePrefersReducedMotion'
 
 interface WelcomeCardProps {
   /** Optional heading override. Falls back to the `welcome_card_heading` translation. */
@@ -26,6 +27,7 @@ interface WelcomeCardProps {
 export function WelcomeCard({ heading, description, version }: WelcomeCardProps = {}) {
   const { t } = useTranslation('resources')
   const rootRef = useRef<HTMLDivElement>(null)
+  const reducedMotion = usePrefersReducedMotion()
 
   const resolvedHeading = heading ?? t('welcome_card_heading', { defaultValue: 'Welcome to Martis' })
   const resolvedDescription = description ?? t('welcome_card_description', {
@@ -38,11 +40,15 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
     if (!el) return
     // Skip the parallax tilt when motion is reduced via either the OS
     // setting (`prefers-reduced-motion: reduce`) or the user toggle
-    // (`html[data-reduced-motion="true"]`), which Martis Preferences sets.
-    const prefersReduced = () =>
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-      document.documentElement.getAttribute('data-reduced-motion') === 'true'
-    if (prefersReduced()) return
+    // (`html[data-reduced-motion="true"]`). The hook is reactive, so
+    // toggling either at runtime (via Preferences) immediately
+    // pauses / resumes the listeners.
+    if (reducedMotion) {
+      // Reset any tilt left over from a previous active session.
+      el.style.setProperty('--tilt-x', '0deg')
+      el.style.setProperty('--tilt-y', '0deg')
+      return
+    }
 
     const onMove = (e: MouseEvent) => {
       const rect = el.getBoundingClientRect()
@@ -64,7 +70,7 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
       el.removeEventListener('mousemove', onMove)
       el.removeEventListener('mouseleave', onLeave)
     }
-  }, [])
+  }, [reducedMotion])
 
   return (
     <>
@@ -96,7 +102,7 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
           position: 'relative',
           borderRadius: 'var(--martis-radius-xl, 16px)',
           padding: 'var(--mwc-pad-y, 2.25rem) var(--mwc-pad-x, 2.5rem)',
-          color: '#ffffff',
+          color: 'var(--martis-brand-text, #fff)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -104,11 +110,11 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
           overflow: 'hidden',
           minHeight: 'var(--mwc-min-h, 120px)',
           background:
-            'radial-gradient(circle at var(--pointer-x, 20%) var(--pointer-y, 30%), rgba(124, 140, 255, 0.35) 0%, transparent 55%),' +
-            ' linear-gradient(135deg, #1a1f4b 0%, #2a1f66 45%, #3b1f7a 100%)',
+            'radial-gradient(circle at var(--pointer-x, 20%) var(--pointer-y, 30%), var(--martis-brand-pointer-glow) 0%, transparent 55%),' +
+            ' var(--martis-brand-gradient)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
           boxShadow:
-            '0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -20px rgba(76, 56, 200, 0.55)',
+            '0 1px 0 rgba(255,255,255,0.06) inset, var(--martis-brand-shadow)',
           transform: 'perspective(1000px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0))',
           transition: 'transform 220ms cubic-bezier(.2,.7,.3,1)',
           transformStyle: 'preserve-3d',
@@ -125,7 +131,7 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
             width: '55%',
             height: '220%',
             background:
-              'radial-gradient(circle, rgba(56, 189, 248, 0.55) 0%, transparent 70%)',
+              'radial-gradient(circle, var(--martis-brand-aurora-cyan) 0%, transparent 70%)',
             filter: 'blur(30px)',
             animation: 'mwc-float-a 14s ease-in-out infinite',
             pointerEvents: 'none',
@@ -142,7 +148,7 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
             width: '55%',
             height: '220%',
             background:
-              'radial-gradient(circle, rgba(236, 72, 153, 0.45) 0%, transparent 70%)',
+              'radial-gradient(circle, var(--martis-brand-aurora-pink) 0%, transparent 70%)',
             filter: 'blur(36px)',
             animation: 'mwc-float-b 18s ease-in-out infinite',
             pointerEvents: 'none',
@@ -155,7 +161,7 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
             position: 'absolute',
             inset: 0,
             backgroundImage:
-              'radial-gradient(circle, rgba(255,255,255,0.09) 1px, transparent 1px)',
+              'radial-gradient(circle, var(--martis-brand-grid-dot) 1px, transparent 1px)',
             backgroundSize: '14px 14px',
             maskImage:
               'radial-gradient(ellipse at center, black 40%, transparent 85%)',

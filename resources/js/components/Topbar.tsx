@@ -188,7 +188,7 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
           <span className="martis-tb-search-placeholder">
             {config.search?.placeholder ?? t("search_placeholder", "Press / to search")}
           </span>
-          <kbd>{isMacPlatform() ? "\u2318K" : "Ctrl K"}</kbd>
+          <kbd className="martis-kbd">{isMacPlatform() ? "\u2318K" : "Ctrl K"}</kbd>
         </button>
       )}
 
