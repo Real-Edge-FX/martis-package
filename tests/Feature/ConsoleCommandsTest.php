@@ -16,10 +16,19 @@ function cleanupMartisInstallArtifacts(): void
         'migrations/*_add_martis_two_factor_columns_to_users_table.php',
     ];
 
+    // Parallel-safe — multiple Pest workers share the testbench
+    // database path, and another worker may have already unlinked the
+    // file between glob() and delete(). Guard each delete.
     foreach ($patterns as $pattern) {
-        collect(glob(database_path($pattern)) ?: [])->each(
-            fn (string $path) => $filesystem->delete($path)
-        );
+        collect(glob(database_path($pattern)) ?: [])->each(function (string $path) use ($filesystem): void {
+            try {
+                if ($filesystem->exists($path)) {
+                    $filesystem->delete($path);
+                }
+            } catch (\Throwable) {
+                // Another worker beat us to it — ignore.
+            }
+        });
     }
 
     $envPath = app()->environmentFilePath();
