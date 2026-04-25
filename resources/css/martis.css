@@ -170,6 +170,27 @@
   --martis-chart-9:  #4ADE80;
   --martis-chart-10: #C084FC;
 
+  /* 3.11b Avatar palette (dark) — 16 hues for the deterministic
+     hash(seed) % 16 colour lookup used by AvatarField when no explicit
+     colour is supplied. Tuned for legibility against white text on a
+     dark canvas; readableTextColor() picks black for the lighter hues. */
+  --martis-avatar-1:  #2563EB; /* blue-600 */
+  --martis-avatar-2:  #059669; /* emerald-600 */
+  --martis-avatar-3:  #DB2777; /* pink-600 */
+  --martis-avatar-4:  #D97706; /* amber-600 */
+  --martis-avatar-5:  #7C3AED; /* violet-600 */
+  --martis-avatar-6:  #0891B2; /* cyan-600 */
+  --martis-avatar-7:  #EA580C; /* orange-600 */
+  --martis-avatar-8:  #DC2626; /* red-600 */
+  --martis-avatar-9:  #16A34A; /* green-600 */
+  --martis-avatar-10: #9333EA; /* purple-600 */
+  --martis-avatar-11: #4F46E5; /* indigo-600 */
+  --martis-avatar-12: #0D9488; /* teal-600 */
+  --martis-avatar-13: #C026D3; /* fuchsia-600 */
+  --martis-avatar-14: #65A30D; /* lime-600 */
+  --martis-avatar-15: #BE185D; /* rose-700 */
+  --martis-avatar-16: #475569; /* slate-600 */
+
   /* 3.12 File icon colors (dark-tuned) */
   --martis-file-icon-pdf:     #EF4444;
   --martis-file-icon-doc:     #3B82F6;
@@ -299,6 +320,27 @@ html:not(.dark) {
   --martis-chart-8:  #DC2626;
   --martis-chart-9:  #16A34A;
   --martis-chart-10: #9333EA;
+
+  /* 3.11b Avatar palette (light) — same 16 deterministic hues. The
+     light-theme variant uses identical hex values: avatar circles read
+     well on both backgrounds and the lookup must stay deterministic
+     across themes (a user's colour cannot change with the theme). */
+  --martis-avatar-1:  #2563EB;
+  --martis-avatar-2:  #059669;
+  --martis-avatar-3:  #DB2777;
+  --martis-avatar-4:  #D97706;
+  --martis-avatar-5:  #7C3AED;
+  --martis-avatar-6:  #0891B2;
+  --martis-avatar-7:  #EA580C;
+  --martis-avatar-8:  #DC2626;
+  --martis-avatar-9:  #16A34A;
+  --martis-avatar-10: #9333EA;
+  --martis-avatar-11: #4F46E5;
+  --martis-avatar-12: #0D9488;
+  --martis-avatar-13: #C026D3;
+  --martis-avatar-14: #65A30D;
+  --martis-avatar-15: #BE185D;
+  --martis-avatar-16: #475569;
 
   /* 3.12 File icon colors */
   --martis-file-icon-pdf:     #DC2626;
@@ -1113,7 +1155,10 @@ html[data-reduced-motion="true"] *::after {
   font-weight: var(--martis-weight-bold);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--martis-text-faint, var(--martis-text-muted));
+  /* F7-23 — spec uses `--martis-text-muted`. Previously fell back to a
+     non-spec `--martis-text-faint` token; the muted token already gives
+     the dimmed treatment we want, so drop the extra hop. */
+  color: var(--martis-text-muted);
   padding: 14px 10px 4px;
   margin-top: 6px;
   border-top: 1px solid var(--martis-border);
@@ -1149,8 +1194,11 @@ html[data-reduced-motion="true"] *::after {
   margin-left: auto;
   transition: transform var(--martis-dur-base) var(--martis-ease-standard);
 }
-.martis-sb-group[data-open="false"] .caret {
-  transform: rotate(-90deg);
+/* F7-22 — match the design-system spec: caret-right by default, rotate
+   90deg when open so it points down. Reads naturally as "expand
+   right → rotate to down when expanded". */
+.martis-sb-group[data-open="true"] .caret {
+  transform: rotate(90deg);
 }
 
 .martis-sb-item {
@@ -1424,7 +1472,8 @@ html[data-reduced-motion="true"] *::after {
   background: var(--martis-hover);
   color: var(--martis-text);
 }
-.martis-tb-icon-btn .dot {
+.martis-tb-icon-btn .dot,
+.martis-tb-icon-btn .martis-notif-dot {
   position: absolute;
   top: 7px;
   right: 7px;
@@ -1433,6 +1482,20 @@ html[data-reduced-motion="true"] *::after {
   background: var(--martis-danger);
   border-radius: 50%;
   border: 2px solid var(--martis-topbar);
+}
+/* F7-21 — public notification dot. Generic pulsing-free indicator that
+   any icon-button (topbar bell, sidebar item with unread, drawer
+   toolbar) can stamp on top of itself. The selector inside
+   `.martis-tb-icon-btn` above keeps the topbar's exact spec geometry;
+   this rule covers other surfaces with the same hue but no border. */
+.martis-notif-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--martis-danger);
+  border-radius: 50%;
 }
 
 .martis-tb-divider {
@@ -4529,12 +4592,15 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  /* F7-34 — align with shell spec: gap 5px, height 22px, weight 500
+     (medium), tabular numerals so trailing counts read evenly. */
+  gap: 5px;
   padding: 0 8px;
-  height: 20px;
+  height: 22px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: var(--martis-weight-semibold, 600);
+  font-weight: var(--martis-weight-medium, 500);
+  font-feature-settings: 'tnum';
   line-height: 1;
   border: 1px solid transparent;
   background: var(--martis-surface-alt, var(--martis-hover));
@@ -5136,6 +5202,15 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-avatar-circle { border-radius: 999px; }
 .martis-avatar-rounded { border-radius: 0.5rem; }
 .martis-avatar-squared { border-radius: 0.125rem; }
+
+/* F7-36 — generic fallback when a record has no avatar AND no initials
+   seed. Muted background + user glyph. Sits in for the bare em-dash so
+   row layouts stay aligned. */
+.martis-avatar-fallback {
+  background: var(--martis-surface-alt, var(--martis-hover));
+  color: var(--martis-text-muted);
+  border: 1px solid var(--martis-border);
+}
 
 /* Size tokens — apply alongside the shape class. Default (no size) stays
    at the legacy 36px so existing call sites are unaffected. */

@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
   SquaresFourIcon,
-  CaretDownIcon,
+  CaretRightIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "./ResourceIcon"
 
@@ -132,7 +132,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                     <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
                   )}
                   <span>{group.label}</span>
-                  <CaretDownIcon size={10} className="caret" />
+                  <CaretRightIcon size={10} className="caret" />
                 </button>
               )}
               {(isExpanded || (!isMobile && collapsed)) &&
