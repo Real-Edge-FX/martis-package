@@ -266,7 +266,7 @@ Navigation breadcrumbs showing the current path (Dashboard > Resource > Record).
 
 ### ResourceIcon
 
-Renders Phosphor icons by name. Backed by the curated `iconRegistry` (130+ icons covering every internal use plus the most common consumer requests). Accepts kebab-case (`shopping-cart`), PascalCase (`ShoppingCart`), snake_case (`shopping_cart`), or any of the above suffixed with `Icon`.
+Renders Phosphor icons by name. Backed by `iconRegistry`, a three-tier resolver that gives consumers access to all 1500+ Phosphor icons without the up-front bundle cost.
 
 ```php
 // In Resource
@@ -277,7 +277,21 @@ public function icon(): string
 }
 ```
 
-Unknown names fall back to `DatabaseIcon` (no crash). To add an icon outside the curated set, register it from your consumer app's boot file:
+Accepts kebab-case (`shopping-cart`), PascalCase (`ShoppingCart`), snake_case (`shopping_cart`), or any of those suffixed with `Icon`.
+
+#### Resolution strategy
+
+`iconRegistry.resolve(name)` walks three tiers, fastest first:
+
+1. **Custom registry** — consumer-registered icons (synchronous).
+2. **Curated built-ins** — 130 most-used Phosphor icons bundled eagerly with the main app chunk (synchronous, no network roundtrip).
+3. **Dynamic CSR import** — every other Phosphor icon (1380+) loads on demand from `@phosphor-icons/react/dist/csr/<Name>.es.js`. Each becomes its own ~1-3 KB chunk wrapped in `<Suspense fallback={null}>`. Only icons actually rendered ship to the browser.
+
+Names that don't match any Phosphor export fall back silently to `DatabaseIcon` so the page never crashes on a typo.
+
+#### Registering custom icons
+
+For icons outside Phosphor (custom SVGs) or to skip the dynamic-import roundtrip on a hot path, register synchronously from a consumer boot file:
 
 ```ts
 // resources/martis-extensions/martis/boot.ts
@@ -287,7 +301,13 @@ import { CrownIcon } from '@phosphor-icons/react'
 iconRegistry.register('crown', CrownIcon)
 ```
 
-**Why the curated set**: pre-v0.8 the package imported the entire `@phosphor-icons/react` namespace inside `ResourceIcon`, which defeated tree-shaking and produced a ~5 MB minified `phosphor-icons-*.js` chunk on every build. The curated registry drops that to ~350 KB while still covering the vast majority of consumer icon strings.
+Custom registrations win over the built-in curated set (use this to override a built-in too).
+
+#### Bundle impact
+
+Pre-v0.8 the package imported the entire `@phosphor-icons/react` namespace inside `ResourceIcon`, which defeated tree-shaking and produced a ~5 MB minified `phosphor-icons-*.js` chunk on every build (1 MB gzip).
+
+After v0.8 the curated set bundles eagerly with the main app chunk and the remaining 1380+ icons each become a ~1-3 KB lazy chunk fetched on first render. Total saving on first paint: ~3 MB raw per page load while preserving access to all 1500+ Phosphor icons.
 
 ### LoadingSkeleton
 

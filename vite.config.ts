@@ -67,23 +67,43 @@ export default defineConfig({
                         return 'codemirror'
                     }
 
-                    if (id.includes('@phosphor-icons/react')) {
-                        return 'phosphor-icons'
-                    }
-
                     if (id.includes('primereact') || id.includes('primeicons')) {
                         return 'primereact'
                     }
 
-                    if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+                    // Phosphor icons — eagerly-imported set folds into
+                    // the importing chunk (main app); the
+                    // `import.meta.glob` fallback under `dist/csr/*`
+                    // emits one chunk per icon. The rule explicitly
+                    // skips Phosphor so the React rule below doesn't
+                    // sweep up `IconBase` and force the entire
+                    // 1500-icon set into `react-vendor`.
+                    if (id.includes('@phosphor-icons/react')) {
+                        return undefined
+                    }
+
+                    // Match ONLY the React core packages, not anything
+                    // that happens to contain the word `react`. The
+                    // looser rule used to swallow Phosphor and Tabler
+                    // and triggered a 5 MB react-vendor chunk.
+                    if (
+                        id.includes('/node_modules/react/') ||
+                        id.includes('/node_modules/react-dom/') ||
+                        id.includes('/node_modules/react-router-dom/') ||
+                        id.includes('/node_modules/scheduler/')
+                    ) {
                         return 'react-vendor'
                     }
 
-                    if (id.includes('@tanstack/react-query') || id.includes('i18next') || id.includes('react-i18next')) {
+                    if (
+                        id.includes('@tanstack/react-query') ||
+                        id.includes('/node_modules/i18next') ||
+                        id.includes('react-i18next')
+                    ) {
                         return 'app-vendor'
                     }
 
-                    if (id.includes('trix') || id.includes('marked')) {
+                    if (id.includes('/node_modules/trix') || id.includes('/node_modules/marked')) {
                         return 'richtext'
                     }
                 },

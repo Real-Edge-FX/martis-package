@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import { lazy, Suspense, createElement, type ComponentType } from 'react'
 import type { IconProps } from '@phosphor-icons/react'
 
 import {
@@ -279,31 +279,115 @@ function normalise(name: string): string {
     .toLowerCase()
 }
 
+/** kebab-case → PascalCase. `shopping-cart` → `ShoppingCart`. */
+function pascalize(kebab: string): string {
+  return kebab
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('')
+}
+
+/**
+ * Per-icon loader map. `import.meta.glob` enumerates every CSR icon
+ * file at build time and emits one chunk per file (~5-15 KB each).
+ * Only the icons actually requested at runtime ever ship to the
+ * browser. The eager array `eagerlyImported` above stays the synchronous
+ * fast path; this glob handles the remaining 1380+ icons that consumer
+ * apps reference by name without paying a 5 MB up-front cost.
+ *
+ * Keys look like:
+ *   `/node_modules/@phosphor-icons/react/dist/csr/Database.es.js`
+ *
+ * The map is consulted lazily — referencing `iconLoaders` at module
+ * init does NOT trigger any network request.
+ */
+const iconLoaders = import.meta.glob<{ [key: string]: ComponentType<IconProps> | undefined }>(
+  '/node_modules/@phosphor-icons/react/dist/csr/*.es.js',
+)
+
+const dynamicCache = new Map<string, ComponentType<IconProps>>()
+
+function buildLazyIcon(pascal: string): ComponentType<IconProps> {
+  const path = `/node_modules/@phosphor-icons/react/dist/csr/${pascal}.es.js`
+  const loader = iconLoaders[path]
+
+  // Pascal name didn't match a Phosphor file — short-circuit to the
+  // synchronous fallback so the page never blocks waiting for an
+  // import that will never resolve.
+  if (!loader) return DatabaseIcon
+
+  const Lazy = lazy(async () => {
+    try {
+      const module = await loader()
+      const Component = (module[`${pascal}Icon`] ?? module[pascal]) as ComponentType<IconProps> | undefined
+      return { default: Component ?? DatabaseIcon }
+    } catch {
+      return { default: DatabaseIcon }
+    }
+  })
+
+  const Wrapped: ComponentType<IconProps> = (props) =>
+    createElement(
+      Suspense,
+      { fallback: null },
+      createElement(Lazy, props as Parameters<typeof Lazy>[0]),
+    )
+  Wrapped.displayName = `Lazy${pascal}Icon`
+  return Wrapped
+}
+
 class IconRegistry {
   private readonly custom = new Map<string, ComponentType<IconProps>>()
 
   /**
    * Register a custom icon under a kebab-case name. Overrides any
-   * built-in entry with the same name.
+   * built-in entry with the same name. Use this from a consumer
+   * boot file when you want a synchronous, eagerly-bundled icon
+   * instead of waiting for the dynamic-import fallback to load.
    */
   register(name: string, component: ComponentType<IconProps>): void {
     this.custom.set(normalise(name), component)
   }
 
   /**
-   * Resolve an icon by name. Falls back to `DatabaseIcon` when the
-   * name is unknown so the page never crashes on a typo.
+   * Resolve an icon by name. Three-tier strategy:
+   *
+   *   1. **Custom registry** — consumer-registered icons win.
+   *   2. **Curated built-ins** — 130 most-used Phosphor icons,
+   *      bundled eagerly. Synchronous resolution, no async render.
+   *   3. **Dynamic CSR import** — every other Phosphor icon (1380+
+   *      of them) loads on demand from
+   *      `@phosphor-icons/react/dist/csr/<Name>.es.js`. Each becomes
+   *      its own ~5–15 KB chunk; only the icons actually requested
+   *      at runtime ever ship to the browser.
+   *
+   * Names that don't match any Phosphor export fall back silently
+   * to `DatabaseIcon` so the page never crashes on a typo.
    */
   resolve(name: string | null | undefined): ComponentType<IconProps> {
     if (!name) return DatabaseIcon
     const key = normalise(name)
-    return this.custom.get(key) ?? builtIns[key] ?? DatabaseIcon
+
+    const customMatch = this.custom.get(key)
+    if (customMatch) return customMatch
+
+    if (key in builtIns) return builtIns[key]
+
+    const cached = dynamicCache.get(key)
+    if (cached) return cached
+
+    const pascal = pascalize(key)
+    const lazyIcon = buildLazyIcon(pascal)
+    dynamicCache.set(key, lazyIcon)
+    return lazyIcon
   }
 
   /**
-   * Returns true when the given name resolves to a real icon
-   * (not the database fallback). Useful for conditionally rendering
-   * an icon only when one exists for the name.
+   * Returns true when the given name is in the eagerly-bundled set
+   * (custom or curated). Names served by the dynamic-import
+   * fallback return `false` here even though they DO render — the
+   * method is intended for "do I need to wait for a network round
+   * trip" decisions, not "does this icon exist".
    */
   has(name: string | null | undefined): boolean {
     if (!name) return false
