@@ -1,42 +1,51 @@
+import { useTranslation } from 'react-i18next'
+
 interface {{ class }}Props {
   card: {
     uriKey: string
     name: string
     component: string
-    meta: Record<string, unknown>
+    /**
+     * Per-request data pushed by the PHP descriptor (via `withMeta()` or
+     * an overridden `meta()` method). Type narrows naturally as the
+     * card matures — typed shape suggested below.
+     */
+    meta: {
+      icon?: string
+      subtitle?: string
+      [key: string]: unknown
+    }
   }
 }
 
+/**
+ * Custom dashboard card.
+ *
+ * The wrapper picks classes that follow the design system tokens, so the
+ * card adapts to the active theme (dark / light), density preset and
+ * accent without inline styles. When the PHP descriptor calls
+ * `framed(true)` the parent already wraps this component in the
+ * `MetricCard` chrome (border + header + padded body); in that case
+ * remove the outer `<div>` here and render only the body.
+ */
 export function {{ class }}({ card }: {{ class }}Props) {
+  const { t } = useTranslation('messages')
+  const subtitle = card.meta.subtitle ?? t('details', 'Details')
+
   return (
-    <div
-      style={{
-        gridColumn: 'span 12 / span 12',
-        borderRadius: '0.75rem',
-        border: '1px solid var(--martis-border)',
-        backgroundColor: 'var(--martis-surface)',
-        padding: '1.5rem 2rem',
-      }}
-    >
-      <h3
-        style={{
-          margin: 0,
-          fontSize: '1rem',
-          fontWeight: 600,
-          color: 'var(--martis-text)',
-        }}
-      >
-        {card.name}
-      </h3>
-      <p
-        style={{
-          margin: '0.5rem 0 0',
-          fontSize: '0.875rem',
-          color: 'var(--martis-text-muted)',
-        }}
-      >
-        Custom card component. Edit this file to build your UI.
-      </p>
+    <div className="martis-card">
+      <header className="martis-card-head">
+        <h3 className="martis-kpi-label">
+          <span className="martis-kpi-label-text">{card.name}</span>
+        </h3>
+      </header>
+
+      <div className="martis-card-body">
+        {/* Replace this body with the card UI. The line below renders
+            the subtitle pushed via `meta` so the placeholder is
+            functional even before any tweak. */}
+        <p className="martis-text-muted text-sm">{subtitle}</p>
+      </div>
     </div>
   )
 }

@@ -797,3 +797,26 @@ Two grid classes mirror the Dashboard.html spec so a custom dashboard renders th
 |-------|--------|
 | `martis-dash-kpis` | 4-column row of KPI cards (collapses to 2 cols below 1100px). |
 | `martis-dash-grid` | 3-column body grid; supports `.span-2` / `.span-3` cell helpers. Collapses to 1 col below 1100px. |
+
+### Card chrome
+
+Public wrapper used by `martis:card` scaffolds and by any custom dashboard panel that wants the canonical Martis card look without reaching for the internal `.martis-metric-card` selectors:
+
+```html
+<article class="martis-card">
+  <header class="martis-card-head">
+    <h3 class="martis-kpi-label">
+      <span class="martis-kpi-label-text">My custom card</span>
+    </h3>
+  </header>
+  <div class="martis-card-body">
+    <p>Card content…</p>
+  </div>
+</article>
+```
+
+| Class | Effect |
+|-------|--------|
+| `martis-card` | Surface + border + 16/18 padding + `--martis-radius-lg`. |
+| `martis-card-head` | Flex row, space-between alignment, baseline gap. Pair with `.martis-kpi-label` for the title. |
+| `martis-card-body` | Vertical stack with token-driven gap. |

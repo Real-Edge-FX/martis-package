@@ -2,8 +2,18 @@
 
 namespace {{ namespace }};
 
+use Illuminate\Http\Request;
 use Martis\Cards\Card;
 
+/**
+ * Custom dashboard card.
+ *
+ * `componentKey` ties this PHP descriptor to the React component
+ * registered under the same kebab key in
+ * `resources/martis-extensions/martis/boot.ts`. Push runtime data to
+ * the React side via `withMeta([...])` from a Dashboard, or pre-fill
+ * it here by overriding `meta()`.
+ */
 class {{ class }} extends Card
 {
     public function __construct()
@@ -11,5 +21,36 @@ class {{ class }} extends Card
         parent::__construct('{{ label }}');
 
         $this->componentKey('{{ key }}');
+
+        // Optional knobs — uncomment as needed.
+        //
+        // $this->width(6);     // 12-column grid span (1-12). Default: 4.
+        // $this->framed(true); // Wrap in MetricCard chrome (border + header).
+    }
+
+    /**
+     * Static metadata serialised into the schema. Reachable from React
+     * as `card.meta`. Override when the card needs data that does not
+     * change per-request — for per-request data prefer `withMeta()`
+     * from the Dashboard.
+     *
+     * @return array<string, mixed>
+     */
+    public function meta(): array
+    {
+        return array_merge(parent::meta(), [
+            // 'icon'    => 'sparkle',
+            // 'subtitle' => 'Custom card subtitle',
+        ]);
+    }
+
+    /**
+     * Per-request authorization. Return false to hide the card from the
+     * dashboard for this user. Remove the override entirely to leave
+     * the card visible to everyone.
+     */
+    public function authorizedToSee(Request $request): bool
+    {
+        return parent::authorizedToSee($request);
     }
 }
