@@ -200,4 +200,13 @@ return [
     'clear_brand_color' => 'Clear brand color',
     'applied_preset' => 'Preset applied',
     'details' => 'Details',
+    // Audio field
+    'audio_empty_title' => 'No audio attached',
+    'audio_empty_hint' => 'Drop an audio file here or click to browse.',
+    'audio_browse' => 'Choose file',
+    'audio_replace' => 'Replace',
+    'audio_remove' => 'Remove',
+    'audio_play' => 'Play',
+    'audio_pause' => 'Pause',
+    'audio_download' => 'Download',
 ];

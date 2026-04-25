@@ -5213,42 +5213,191 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 
 
 /* ─────────────────────────────────────────────────────────────────────
-   Audio — inline player + canvas waveform (⭐ Task 07 PR B)
+   Audio — custom player (play/pause + waveform/progress + timestamps +
+   download) and dropzone empty state. Bypasses the native `<audio>`
+   controls so the look stays on-brand across light and dark themes.
    ──────────────────────────────────────────────────────────────────── */
-.martis-audio {
+.martis-audio-player {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-md);
   min-width: 0;
   max-width: 100%;
 }
+.martis-audio-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--martis-accent);
+  color: var(--martis-accent-contrast, #fff);
+  border: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-play-btn:hover { transform: scale(1.05); }
+.martis-audio-play-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+}
+.martis-audio-track {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.martis-audio-track-waveform {
+  height: 36px;
+  cursor: pointer;
+}
 .martis-audio-waveform {
   width: 100%;
-  height: 52px;
+  height: 100%;
   display: block;
-  background-color: var(--martis-surface-alt);
-  border-radius: 0.375rem;
-  border: 1px solid var(--martis-border);
 }
-.martis-audio-player {
-  width: 100%;
-  height: 36px;
+.martis-audio-track-bar {
+  height: 4px;
+  background: var(--martis-surface-alt);
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
 }
-.martis-audio-empty {
-  font-size: 0.8125rem;
-  padding: 0.5rem 0;
+.martis-audio-track-fill {
+  height: 100%;
+  background: var(--martis-accent);
+  border-radius: inherit;
+  transition: width var(--martis-dur-sm, 120ms) linear;
 }
+.martis-audio-time {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  color: var(--martis-text-muted);
+  line-height: 1;
+}
+.martis-audio-download {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--martis-radius-sm);
+  display: grid;
+  place-items: center;
+  color: var(--martis-text-muted);
+  flex-shrink: 0;
+  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-download:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+
+/* Input wrapper — adds dropzone + action row on top of the player. */
 .martis-audio-input {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
-.martis-audio-input.has-error .martis-audio-waveform {
+.martis-audio-input.has-error .martis-audio-player,
+.martis-audio-input.has-error .martis-audio-dropzone {
   border-color: var(--martis-danger);
 }
 .martis-audio-input-controls {
   display: flex;
-  gap: 0.5rem;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.martis-audio-input-controls .martis-btn-secondary,
+.martis-audio-input-controls .martis-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: var(--martis-text-xs);
+  font-weight: var(--martis-weight-medium);
+  border-radius: var(--martis-radius-md);
+  border: 1px solid var(--martis-border);
+  background: var(--martis-surface);
+  color: var(--martis-text);
+  cursor: pointer;
+  transition: background var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-input-controls .martis-btn-secondary:hover { background: var(--martis-hover); }
+.martis-audio-input-controls .martis-btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--martis-text-muted);
+}
+.martis-audio-input-controls .martis-btn-ghost:hover {
+  background: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-audio-input-controls .martis-audio-remove:hover { color: var(--martis-danger); }
+
+/* Dropzone empty state — dashed card that accepts drag-and-drop. */
+.martis-audio-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  background: var(--martis-surface);
+  border: 1px dashed var(--martis-border);
+  border-radius: var(--martis-radius-md);
+  color: var(--martis-text-muted);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--martis-dur-sm, 120ms) ease, background var(--martis-dur-sm, 120ms) ease;
+}
+.martis-audio-dropzone:hover:not(:disabled) {
+  border-color: var(--martis-accent);
+  background: var(--martis-hover);
+}
+.martis-audio-dropzone:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.martis-audio-input.is-drag-over .martis-audio-dropzone {
+  border-color: var(--martis-accent);
+  background: color-mix(in srgb, var(--martis-accent) 8%, var(--martis-surface));
+}
+.martis-audio-dropzone-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--martis-accent) 12%, transparent);
+  color: var(--martis-accent);
+  margin-bottom: 2px;
+}
+.martis-audio-dropzone-title {
+  font-size: 13px;
+  font-weight: var(--martis-weight-semibold);
+  color: var(--martis-text);
+}
+.martis-audio-dropzone-hint {
+  font-size: 12px;
+  color: var(--martis-text-muted);
+}
+.martis-audio-dropzone-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium);
+  color: var(--martis-accent);
+  border-radius: var(--martis-radius-sm);
+  background: color-mix(in srgb, var(--martis-accent) 10%, transparent);
 }
 
 
@@ -6042,4 +6191,146 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   .martis-status-dot .martis-status-pulse::after {
     animation: none;
   }
+}
+
+/* Fase 7 F7-19 — Dashboard layout helpers
+   Matches `.dash-kpis` + `.dash-grid` from Dashboard.html:
+   - `.martis-dash-kpis` → 4-col row of KPI cards, collapses to 2 cols
+   - `.martis-dash-grid` → 3-col body grid, collapses to 1 col
+   Span helpers (`.span-2` / `.span-3`) let child cards stretch across
+   columns and reset at the same breakpoint. */
+.martis-dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.martis-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.martis-dash-grid > .span-2 { grid-column: span 2; }
+.martis-dash-grid > .span-3 { grid-column: span 3; }
+@media (max-width: 1100px) {
+  .martis-dash-kpis { grid-template-columns: repeat(2, 1fr); }
+  .martis-dash-grid { grid-template-columns: 1fr; }
+  .martis-dash-grid > .span-2,
+  .martis-dash-grid > .span-3 { grid-column: auto; }
+}
+
+/* Fase 7 F7-17 — TrendCard sparkline mode
+   Compact inline chart (under 40px tall) rendered next to the KPI value
+   instead of the full 160px line chart. Opt-in via `sparkline` prop. */
+.martis-sparkline {
+  display: block;
+  width: 100%;
+  height: 36px;
+  overflow: visible;
+}
+.martis-sparkline-inline {
+  width: 96px;
+  height: 28px;
+}
+
+/* Fase 7 F7-18 — ActivityFeed card
+   Stream of events with a coloured avatar square, actor/verb/target line,
+   and a mono timestamp. Spec mirrors `.activity-feed` / `.activity-item`
+   from Dashboard.html. */
+.martis-activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+}
+.martis-activity-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.martis-activity-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--martis-radius-md);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.martis-activity-icon svg { font-size: 14px; }
+.martis-activity-body {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.martis-activity-actor { font-weight: var(--martis-weight-semibold); }
+.martis-activity-verb { color: var(--martis-text-muted); }
+.martis-activity-target {
+  font-family: var(--martis-font-mono);
+  font-size: 12px;
+}
+.martis-activity-time {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--martis-text-muted);
+  font-family: var(--martis-font-mono);
+}
+
+/* Fase 7 F7-18 — EndpointTable card
+   Compact mono-numeric route table with coloured HTTP method chips and a
+   thin progress bar for the share column. Mirrors `.endpoint-table` +
+   `.method-*` from Dashboard.html. */
+.martis-endpoint-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.martis-endpoint-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--martis-text-muted);
+  font-weight: var(--martis-weight-semibold);
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-endpoint-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--martis-border);
+}
+.martis-endpoint-table tr:last-child td { border-bottom: none; }
+.martis-endpoint-table tr:hover td { background: var(--martis-row-hover); }
+.martis-endpoint-table td.is-mono,
+.martis-endpoint-table td.is-num {
+  font-family: var(--martis-font-mono);
+  font-size: 13px;
+}
+.martis-endpoint-table td.is-num { text-align: right; }
+.martis-endpoint-table td.is-warn { color: var(--martis-warning-text, var(--martis-warning)); }
+.martis-http-method {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: var(--martis-font-mono);
+  font-size: 10px;
+  font-weight: var(--martis-weight-semibold);
+  border-radius: var(--martis-radius-sm);
+  letter-spacing: 0.02em;
+}
+.martis-http-method.is-get    { background: var(--martis-badge-info-bg);    color: var(--martis-badge-info-text); }
+.martis-http-method.is-post   { background: var(--martis-badge-success-bg); color: var(--martis-badge-success-text); }
+.martis-http-method.is-patch  { background: var(--martis-badge-warning-bg); color: var(--martis-badge-warning-text); }
+.martis-http-method.is-put    { background: var(--martis-badge-warning-bg); color: var(--martis-badge-warning-text); }
+.martis-http-method.is-delete { background: var(--martis-badge-danger-bg);  color: var(--martis-badge-danger-text); }
+.martis-endpoint-share {
+  height: 4px;
+  width: 100%;
+  background: var(--martis-surface-alt);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.martis-endpoint-share-fill {
+  height: 100%;
+  background: var(--martis-accent);
+  border-radius: inherit;
 }

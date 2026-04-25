@@ -200,4 +200,13 @@ return [
     'clear_brand_color' => 'Limpar cor personalizada',
     'applied_preset' => 'Predefinição aplicada',
     'details' => 'Detalhes',
+    // Audio field
+    'audio_empty_title' => 'Sem áudio anexado',
+    'audio_empty_hint' => 'Arrasta um ficheiro de áudio para aqui ou clica para procurar.',
+    'audio_browse' => 'Escolher ficheiro',
+    'audio_replace' => 'Substituir',
+    'audio_remove' => 'Remover',
+    'audio_play' => 'Reproduzir',
+    'audio_pause' => 'Pausar',
+    'audio_download' => 'Descarregar',
 ];

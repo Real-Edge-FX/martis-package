@@ -1,5 +1,6 @@
 import { Chart } from 'primereact/chart'
 import { accentColor as getAccent, mutedTextColor, resolveColor } from '@/lib/themeColors'
+import { Sparkline } from './Sparkline'
 
 interface TrendCardProps {
   data: Record<string, unknown>
@@ -13,6 +14,10 @@ export function TrendCard({ data, color }: TrendCardProps) {
   const sumValue = data.sumValue as number | undefined
   const prefix = (data.prefix as string) ?? ''
   const suffix = (data.suffix as string) ?? ''
+  // F7-17 — backend opt-in: `sparkline: true` on a TrendMetric renders a
+  // compact SVG line next to the value instead of the full Chart.js panel.
+  const sparkline = data.sparkline === true
+  const change = data.change as number | undefined
 
   const displayValue = sumValue ?? latestValue
   const formattedDisplay = displayValue !== undefined
@@ -71,6 +76,33 @@ export function TrendCard({ data, color }: TrendCardProps) {
         beginAtZero: true,
       },
     },
+  }
+
+  // F7-17 — sparkline mode: inline KPI value + trend delta + 28px chart.
+  // No axis, no legend, no ticks. Used when the metric is shown on a
+  // compact dashboard row (`.martis-dash-kpis`).
+  if (sparkline) {
+    const trend = (change ?? 0) > 0 ? 'up' : (change ?? 0) < 0 ? 'down' : 'flat'
+    const deltaClass =
+      trend === 'up' ? 'martis-kpi-delta is-up'
+      : trend === 'down' ? 'martis-kpi-delta is-down'
+      : 'martis-kpi-delta'
+
+    return (
+      <div>
+        {formattedDisplay && <p className="martis-kpi-value">{formattedDisplay}</p>}
+        <div className="mt-2 flex items-end justify-between gap-3">
+          {change !== undefined ? (
+            <span className={deltaClass}>
+              {change > 0 ? '+' : ''}{change}%
+            </span>
+          ) : (
+            <span />
+          )}
+          <Sparkline values={values} color={lineColor} variant="inline" />
+        </div>
+      </div>
+    )
   }
 
   return (
