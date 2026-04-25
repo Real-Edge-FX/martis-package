@@ -225,8 +225,19 @@ describe('TwoFactorChallengePage', () => {
   it('calls 2fa challenge api on submit', async () => {
     vi.mocked(api.post).mockResolvedValue({})
     wrap(<TwoFactorChallengePage />)
-    const input = screen.getByRole('textbox')
-    fireEvent.change(input, { target: { value: '123456' } })
+
+    // The OTP input is six discrete `<input>` cells (Fase 6 redesign).
+    // The component supports paste-to-fill — fire a paste event on the
+    // first cell and let the component distribute the digits.
+    const cells = screen.getAllByRole('textbox')
+    expect(cells.length).toBe(6)
+
+    fireEvent.paste(cells[0], {
+      clipboardData: {
+        getData: () => '123456',
+      },
+    })
+
     fireEvent.click(screen.getByRole('button', { name: /verify/i }))
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith('/api/2fa/challenge', expect.any(Object))

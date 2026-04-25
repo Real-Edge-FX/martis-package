@@ -273,3 +273,86 @@ it('UserCommand is registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:user');
 });
+
+// ---------------------------------------------------------------------------
+// martis:value / trend / partition / progress / activity-feed / endpoint-table
+//
+// These metric generators all share the same `GeneratorCommand` recipe —
+// the regression that prompted this coverage was a wrong `__DIR__`
+// chain in the v0.6 cycle that resolved their stub paths to
+// `vendor/martis/martis/../../stubs/...` (outside the package), so
+// every invocation threw `FileNotFoundException`. The matrix below
+// fires each generator with a synthetic name, asserts the file lands,
+// the namespace is correct, and the produced class extends the right
+// parent. Each test cleans up its own artefact in `afterEach`.
+// ---------------------------------------------------------------------------
+
+dataset('metric_generators', [
+    // [command, name, parentClass, expectedClassDeclaration, namespacePart]
+    ['martis:value',          'TotalUsers',          'ValueMetric',          'class TotalUsers extends ValueMetric',          'App\\Martis\\Metrics'],
+    ['martis:trend',          'UsersPerDay',         'TrendMetric',          'class UsersPerDay extends TrendMetric',         'App\\Martis\\Metrics'],
+    ['martis:partition',      'UsersByRole',         'PartitionMetric',      'class UsersByRole extends PartitionMetric',     'App\\Martis\\Metrics'],
+    ['martis:progress',       'MonthlyGoal',         'ProgressMetric',       'class MonthlyGoal extends ProgressMetric',      'App\\Martis\\Metrics'],
+    ['martis:activity-feed',  'RecentDeploys',       'ActivityFeedMetric',   'class RecentDeploys extends ActivityFeedMetric', 'App\\Martis\\Metrics'],
+    ['martis:endpoint-table', 'TopEndpoints',        'EndpointTableMetric',  'class TopEndpoints extends EndpointTableMetric', 'App\\Martis\\Metrics'],
+]);
+
+it('metric generators write the expected class file', function (
+    string $command,
+    string $name,
+    string $parent,
+    string $declaration,
+    string $namespacePart,
+) {
+    $path = app_path("Martis/Metrics/{$name}.php");
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Metrics'));
+
+    $this->artisan($command, ['name' => $name])->assertSuccessful();
+
+    expect(file_exists($path))->toBeTrue();
+
+    $contents = file_get_contents($path);
+    expect($contents)
+        ->toContain($declaration)
+        ->toContain("namespace {$namespacePart}");
+})->with('metric_generators')->afterEach(function () {
+    foreach (['TotalUsers', 'UsersPerDay', 'UsersByRole', 'MonthlyGoal', 'RecentDeploys', 'TopEndpoints'] as $cls) {
+        (new Filesystem)->delete(app_path("Martis/Metrics/{$cls}.php"));
+    }
+});
+
+it('metric generator commands are registered in the service provider', function () {
+    $commands = $this->app->make(Kernel::class)->all();
+    expect($commands)
+        ->toHaveKey('martis:value')
+        ->toHaveKey('martis:trend')
+        ->toHaveKey('martis:partition')
+        ->toHaveKey('martis:progress')
+        ->toHaveKey('martis:activity-feed')
+        ->toHaveKey('martis:endpoint-table');
+});
+
+// ---------------------------------------------------------------------------
+// martis:dashboard
+// ---------------------------------------------------------------------------
+
+it('martis:dashboard generates a Dashboard class file', function () {
+    $path = app_path('Martis/Dashboards/SalesDashboard.php');
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Dashboards'));
+
+    $this->artisan('martis:dashboard', ['name' => 'SalesDashboard'])->assertSuccessful();
+
+    expect(file_exists($path))->toBeTrue();
+
+    $contents = file_get_contents($path);
+    expect($contents)
+        ->toContain('class SalesDashboard extends Dashboard')
+        ->toContain('namespace App\\Martis\\Dashboards');
+})->afterEach(function () {
+    (new Filesystem)->delete(app_path('Martis/Dashboards/SalesDashboard.php'));
+});
+
+it('DashboardMakeCommand is registered in the service provider', function () {
+    $commands = $this->app->make(Kernel::class)->all();
+    expect($commands)->toHaveKey('martis:dashboard');
+});
