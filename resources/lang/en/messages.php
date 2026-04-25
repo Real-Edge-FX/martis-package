@@ -185,6 +185,13 @@ return [
     'reset' => 'Reset',
     'reset_view' => 'Reset view',
     'reset_view_tooltip' => 'Reset filters, sort and pagination for this resource.',
+    // Notifications
+    'notifications' => 'Notifications',
+    'notifications_empty' => 'No notifications yet.',
+    'notifications_mark_all_read' => 'Mark all read',
+    'notifications_clear_all' => 'Clear all',
+    'notifications_dismiss' => 'Dismiss',
+    'time_just_now' => 'just now',
     'reset_to_defaults' => 'Reset to defaults',
     'theme' => 'Theme',
     'theme_dark' => 'Dark',

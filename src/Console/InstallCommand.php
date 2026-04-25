@@ -192,6 +192,17 @@ class InstallCommand extends Command
             __DIR__.'/../../stubs/create_user_preferences_table.php.stub',
             'create_martis_user_preferences_table'
         );
+
+        // In-app notifications (Task 12). Uses the standard Laravel
+        // `notifications` table shape so any consumer-side Notification
+        // class with the `database` channel delivers into the Martis
+        // bell dropdown automatically. The migration is idempotent —
+        // skipped when the table already exists (some apps already
+        // ran `php artisan notifications:table`).
+        $this->publishMigrationStub(
+            __DIR__.'/../../stubs/create_martis_notifications_table.php.stub',
+            'create_notifications_table'
+        );
     }
 
     /**

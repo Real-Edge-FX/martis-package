@@ -120,6 +120,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Menus](docs/menus.md) | Declarative navigation API for sidebar groups and items |
 | [Preferences](docs/preferences.md) | Per-user theme, accent, density, locale, reduced-motion |
 | [Sticky Views](docs/sticky_views.md) | Per-user view state persistence on resource index pages |
+| [Notifications](docs/notifications.md) | In-app bell dropdown, distinct from toasts, backed by Laravel notifications |
 | [Internationalisation](docs/i18n.md) | Locale layers (PHP + i18next + preferences) |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer |
 | [Built-in Components](docs/components.md) | UI components, hooks (useEventBus, useError), tooltip standard |

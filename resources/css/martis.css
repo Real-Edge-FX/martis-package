@@ -1438,12 +1438,16 @@ html[data-reduced-motion="true"] *::after {
      distributed leftover space unevenly when the breadcrumb and the
      user-chip cluster had different widths, pulling the search to the
      left of the content-area center (and visibly misaligning the command
-     palette that anchors to it). */
+     palette that anchors to it).
+     Width budget — the right cluster grew with v0.8 (notification bell
+     joined preferences + user chip), so we keep more headroom: cap the
+     bar at 420px and reserve at least 480px for siblings. The previous
+     520 / 420 split used to overlap into the bell on narrower viewports. */
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(520px, calc(100% - 420px));
+  width: min(420px, calc(100% - 480px));
   height: 34px;
   background: var(--martis-search-bg);
   border: 1px solid var(--martis-search-border);
@@ -6806,4 +6810,166 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   height: 100%;
   background: var(--martis-accent);
   border-radius: inherit;
+}
+
+
+/* v0.8 — Task 12: in-app notifications bell + dropdown.
+   The bell button itself reuses `.martis-tb-icon-btn` + the public
+   `.martis-notif-dot` set up in v0.7. The styles here are scoped to
+   the dropdown panel so the topbar surface stays untouched. */
+.martis-notif-wrap {
+  display: inline-flex;
+}
+.martis-notif-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--martis-surface);
+  border: 1px solid var(--martis-border);
+  border-radius: var(--martis-radius-lg);
+  box-shadow: var(--martis-shadow-md);
+  z-index: 1000;
+  overflow: hidden;
+  /* Open animation — short fade + 4px lift. The universal reduced-motion
+     clamp at the top of this file ('*' selector under
+     `[data-reduced-motion="true"]` and `prefers-reduced-motion: reduce`)
+     forces `animation-duration: 1ms`, so the panel just appears on
+     users who opted out of motion. No explicit override needed here. */
+  animation: martis-notif-panel-in 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  transform-origin: top right;
+}
+@keyframes martis-notif-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.martis-notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--martis-border);
+  font-size: var(--martis-text-sm);
+}
+.martis-notif-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.martis-notif-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.martis-notif-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--martis-text-muted);
+  font-size: var(--martis-text-sm);
+}
+.martis-notif-item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--martis-border);
+  position: relative;
+  transition: background var(--martis-dur-sm, 120ms) ease;
+}
+.martis-notif-item:last-child {
+  border-bottom: 0;
+}
+.martis-notif-item:hover {
+  background: var(--martis-hover);
+}
+.martis-notif-item.is-unread {
+  background: color-mix(in srgb, var(--martis-accent) 5%, transparent);
+}
+.martis-notif-item.is-unread:hover {
+  background: color-mix(in srgb, var(--martis-accent) 10%, transparent);
+}
+.martis-notif-item.is-unread::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--martis-accent);
+  transform: translateY(-50%);
+}
+.martis-notif-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.martis-notif-icon.is-info    { background: color-mix(in srgb, var(--martis-info) 18%, transparent); color: var(--martis-info); }
+.martis-notif-icon.is-success { background: color-mix(in srgb, var(--martis-success) 18%, transparent); color: var(--martis-success); }
+.martis-notif-icon.is-warning { background: color-mix(in srgb, var(--martis-warning) 18%, transparent); color: var(--martis-warning); }
+.martis-notif-icon.is-danger  { background: color-mix(in srgb, var(--martis-danger) 18%, transparent); color: var(--martis-danger); }
+.martis-notif-body {
+  min-width: 0;
+}
+.martis-notif-title {
+  font-size: 13px;
+  font-weight: var(--martis-weight-semibold, 600);
+  color: var(--martis-text);
+  line-height: 1.3;
+  word-break: break-word;
+}
+.martis-notif-message {
+  font-size: 12px;
+  color: var(--martis-text-muted);
+  line-height: 1.4;
+  margin-top: 2px;
+  word-break: break-word;
+}
+.martis-notif-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--martis-text-muted);
+  font-family: var(--martis-font-mono);
+  margin-top: 4px;
+}
+.martis-notif-action-label {
+  font-family: var(--martis-font-sans);
+  color: var(--martis-accent);
+}
+.martis-notif-dismiss {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  border-radius: var(--martis-radius-sm);
+  opacity: 0;
+  transition: opacity var(--martis-dur-sm, 120ms) ease, background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+}
+.martis-notif-item:hover .martis-notif-dismiss,
+.martis-notif-item:focus-within .martis-notif-dismiss {
+  opacity: 1;
+}
+.martis-notif-dismiss:hover {
+  background: var(--martis-hover);
+  color: var(--martis-danger);
 }
