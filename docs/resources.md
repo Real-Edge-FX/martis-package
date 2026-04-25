@@ -313,7 +313,7 @@ Badge::make('state')->width('96px');
 
 #### Opting out of the type-default heuristics
 
-If you prefer the pre-v0.7.0 (Nova 5-like) behaviour where every column auto-sizes and nothing truncates, flip the global switch:
+If you prefer the pre-v0.7.0 behaviour where every column auto-sizes and nothing truncates, flip the global switch:
 
 ```php
 // config/martis.php

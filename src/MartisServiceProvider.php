@@ -6,8 +6,10 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Martis\Console\ActionMakeCommand;
+use Martis\Console\ActivityFeedMakeCommand;
 use Martis\Console\CardMakeCommand;
 use Martis\Console\DashboardMakeCommand;
+use Martis\Console\EndpointTableMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\ComponentMakeCommand;
 use Martis\Console\PartitionMakeCommand;
@@ -78,6 +80,8 @@ class MartisServiceProvider extends ServiceProvider
                 TrendMakeCommand::class,
                 PartitionMakeCommand::class,
                 ProgressMakeCommand::class,
+                ActivityFeedMakeCommand::class,
+                EndpointTableMakeCommand::class,
                 DashboardMakeCommand::class,
                 LensMakeCommand::class,
             ]);

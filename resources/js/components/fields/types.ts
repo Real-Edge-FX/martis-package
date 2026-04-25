@@ -1,12 +1,12 @@
 import type { FieldDefinition } from '@/types'
 
-/** Props compartilhados entre todos os renderers de field. */
+/** Shared props for every field renderer. */
 export interface FieldDisplayProps {
   field: FieldDefinition
   value: unknown
 }
 
-/** Props para renderers em contexto de formulário (create/update). */
+/** Props for renderers used inside a form context (create/update). */
 export interface FieldInputProps {
   field: FieldDefinition
   value: unknown

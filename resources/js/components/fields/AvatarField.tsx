@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { UserIcon } from '@phosphor-icons/react'
 import { avatarColorForSeed, avatarHexForSeed } from '@/lib/avatarPalette'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -154,6 +155,7 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
     .map((ext) => `.${ext}`)
     .join(',')
 
+  const { t } = useTranslation('messages')
   const inputRef = useRef<HTMLInputElement | null>(null)
   const payload = asPayload(value as Value)
   const initialPreview = resolveUrl(value as Value)
@@ -194,11 +196,11 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
       </button>
       <div className="martis-avatar-input-meta">
         <button type="button" className="martis-btn-secondary" onClick={() => inputRef.current?.click()}>
-          Escolher ficheiro
+          {t('avatar_choose_file', 'Choose file')}
         </button>
         {preview && (
           <button type="button" className="martis-btn-secondary" onClick={() => handleFile(null)}>
-            Remover
+            {t('avatar_remove', 'Remove')}
           </button>
         )}
       </div>

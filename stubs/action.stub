@@ -22,7 +22,7 @@ class {{ class }} extends Action
             //
         }
 
-        return ActionResponse::message('Action executed successfully.');
+        return ActionResponse::message(__('martis::messages.record_updated'));
     }
 
     /**

@@ -33,15 +33,17 @@ class Override implements OverrideContract
         protected array $params = [],
     ) {}
 
-    /**
-     * Component.
-     */
+    /** {@inheritDoc} */
     public function component(): string
     {
         return $this->component;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * {@inheritDoc}
+     *
+     * @return array<string, mixed>
+     */
     public function params(): array
     {
         return $this->params;
@@ -62,15 +64,17 @@ class Override implements OverrideContract
         return $this;
     }
 
-    /**
-     * Get redirect after.
-     */
+    /** {@inheritDoc} */
     public function getRedirectAfter(): ?string
     {
         return $this->redirectAfterValue;
     }
 
-    /** @return array{component: string, params: array<string, mixed>, redirectAfter: string|null} */
+    /**
+     * {@inheritDoc}
+     *
+     * @return array{component: string, params: array<string, mixed>, redirectAfter: string|null}
+     */
     public function toArray(): array
     {
         return [

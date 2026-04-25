@@ -40,16 +40,19 @@ class Dashboard implements DashboardContract
         return new static($name, $uriKey);
     }
 
+    /** {@inheritDoc} */
     public function name(): string
     {
         return $this->name;
     }
 
+    /** {@inheritDoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
+    /** {@inheritDoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -121,6 +124,7 @@ class Dashboard implements DashboardContract
     // Authorization
     // -------------------------------------------------------------------------
 
+    /** {@inheritDoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -128,6 +132,7 @@ class Dashboard implements DashboardContract
         return $this;
     }
 
+    /** {@inheritDoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {

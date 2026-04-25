@@ -47,9 +47,9 @@ interface PeekCardProps {
   /** Bounding rect of the trigger element — the card flips above it when
    *  there isn't enough room below. */
   triggerRect: { top: number; bottom: number; left: number }
-  /** Notifica o pai quando o card foi virado acima do trigger. Permite
-   *  that the trigger's tooltip is repositioned to "bottom" and does not
-   *  fique sobreposto pelo próprio card. */
+  /** Notifies the parent when the card flipped above the trigger so the
+   *  trigger's tooltip can reposition to "bottom" and not get hidden
+   *  underneath the card itself. */
   onFlipChange?: (flipped: boolean) => void
 }
 
@@ -506,8 +506,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           const text = heading?.text ?? first?.text
           return text != null ? String(text) : null
         }
-        // Um objecto genérico sem estrutura conhecida — prefere o
-        // fallback para _title em vez de devolver "[object Object]".
+        // Generic object with no known structure — prefer the _title
+        // fallback rather than returning "[object Object]".
         return null
       }
       return null

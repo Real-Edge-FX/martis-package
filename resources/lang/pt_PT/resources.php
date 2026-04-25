@@ -48,6 +48,12 @@ return [
     'showing' => 'A mostrar',
     'of' => 'de',
     'records' => 'registos',
+    // OfMany aggregate tile labels
+    'aggregate_total' => 'Total',
+    'aggregate_sum' => 'Soma',
+    'aggregate_avg' => 'Média',
+    'aggregate_min' => 'Mínimo',
+    'aggregate_max' => 'Máximo',
     // EndpointTable metric card
     'endpoint_method' => 'Método',
     'endpoint_path' => 'Caminho',

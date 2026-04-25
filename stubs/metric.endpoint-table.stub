@@ -1,0 +1,23 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Metrics\EndpointTableMetric;
+use Martis\Metrics\EndpointTableResult;
+
+class {{ class }} extends EndpointTableMetric
+{
+    /**
+     * Calculate the endpoint table rows.
+     *
+     * Add rows with `$result->add(method, path, rpm, latencyMs, errorRate, share)`
+     * or feed a pre-built array via `$result->rows([...])`.
+     */
+    public function calculate(Request $request): EndpointTableResult
+    {
+        return $this->result()
+            ->errorWarnThreshold(0.2)
+            ->add(method: 'GET', path: '/v1/example', rpm: 0, latencyMs: 0, errorRate: 0.0, share: 0.0);
+    }
+}

@@ -48,6 +48,12 @@ return [
     'showing' => 'Showing',
     'of' => 'of',
     'records' => 'records',
+    // OfMany aggregate tile labels
+    'aggregate_total' => 'Total',
+    'aggregate_sum' => 'Sum',
+    'aggregate_avg' => 'Average',
+    'aggregate_min' => 'Min',
+    'aggregate_max' => 'Max',
     // EndpointTable metric card
     'endpoint_method' => 'Method',
     'endpoint_path' => 'Path',

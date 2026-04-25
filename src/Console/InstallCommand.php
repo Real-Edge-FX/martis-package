@@ -184,10 +184,10 @@ class InstallCommand extends Command
             'create_martis_action_events_table'
         );
 
-        // Task 07.1 ⭐ D2 — user preferences (theme/accent/density/locale/
-        // reduced-motion). The preferences resolver falls back to config
-        // defaults if this migration is never run, so the table is core
-        // but not strictly blocking for apps that disable the feature.
+        // User preferences (theme/accent/density/locale/reduced-motion).
+        // The preferences resolver falls back to config defaults if this
+        // migration is never run, so the table is core but not strictly
+        // blocking for apps that disable the feature.
         $this->publishMigrationStub(
             __DIR__.'/../../stubs/create_user_preferences_table.php.stub',
             'create_martis_user_preferences_table'

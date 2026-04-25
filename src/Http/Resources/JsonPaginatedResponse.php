@@ -54,55 +54,45 @@ final class JsonPaginatedResponse implements PaginationContract
         return new self($data, $paginationMeta, $links, $extraMeta);
     }
 
-    /**
-     * Total.
-     */
+    /** {@inheritDoc} */
     public function total(): int
     {
         return $this->paginationMeta['total'];
     }
 
-    /**
-     * Per page.
-     */
+    /** {@inheritDoc} */
     public function perPage(): int
     {
         return $this->paginationMeta['per_page'];
     }
 
-    /**
-     * Current page.
-     */
+    /** {@inheritDoc} */
     public function currentPage(): int
     {
         return $this->paginationMeta['current_page'];
     }
 
-    /**
-     * Last page.
-     */
+    /** {@inheritDoc} */
     public function lastPage(): int
     {
         return $this->paginationMeta['last_page'];
     }
 
-    /**
-     * From.
-     */
+    /** {@inheritDoc} */
     public function from(): ?int
     {
         return $this->paginationMeta['from'];
     }
 
-    /**
-     * To.
-     */
+    /** {@inheritDoc} */
     public function to(): ?int
     {
         return $this->paginationMeta['to'];
     }
 
     /**
+     * {@inheritDoc}
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array

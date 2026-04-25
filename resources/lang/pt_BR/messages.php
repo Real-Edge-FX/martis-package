@@ -200,6 +200,9 @@ return [
     'clear_brand_color' => 'Limpar cor personalizada',
     'applied_preset' => 'Predefinição aplicada',
     'details' => 'Detalhes',
+    // Avatar field
+    'avatar_choose_file' => 'Escolher arquivo',
+    'avatar_remove' => 'Remover',
     // Audio field
     'audio_empty_title' => 'Nenhum áudio anexado',
     'audio_empty_hint' => 'Arraste um arquivo de áudio aqui ou clique para procurar.',

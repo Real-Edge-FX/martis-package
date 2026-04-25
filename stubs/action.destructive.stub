@@ -22,7 +22,7 @@ class {{ class }} extends DestructiveAction
             //
         }
 
-        return ActionResponse::danger('Records have been permanently affected.');
+        return ActionResponse::danger(__('martis::messages.record_force_deleted'));
     }
 
     /**

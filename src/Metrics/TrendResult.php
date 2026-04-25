@@ -21,6 +21,10 @@ class TrendResult extends MetricResult
 
     protected bool $showSumValue = false;
 
+    protected bool $sparkline = false;
+
+    protected ?float $change = null;
+
     /**
      * @param  list<string>  $labels
      * @param  list<float|int>  $values
@@ -65,6 +69,31 @@ class TrendResult extends MetricResult
         return $this;
     }
 
+    /**
+     * Render the metric as an inline sparkline + delta pill instead of
+     * the full Chart.js panel. Pairs with `.martis-dash-kpis` rows to
+     * fit four trend metrics across the top of a dashboard.
+     */
+    public function sparkline(bool $enabled = true): static
+    {
+        $this->sparkline = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Override the period-over-period delta percentage shown next to
+     * the sparkline. By default the result computes its own delta
+     * between the last and first value, so most callers leave this
+     * alone.
+     */
+    public function change(?float $percentage): static
+    {
+        $this->change = $percentage;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         $data = [
@@ -84,7 +113,30 @@ class TrendResult extends MetricResult
         if ($this->showSumValue) {
             $data['sumValue'] = array_sum($this->values);
         }
+        if ($this->sparkline) {
+            $data['sparkline'] = true;
+            $data['change'] = $this->change ?? $this->computeDelta();
+        }
 
         return $data;
+    }
+
+    /**
+     * Period-over-period percentage change from the first non-null
+     * value in the series to the last. Returns null when the data
+     * cannot produce a meaningful delta (empty / first value zero).
+     */
+    protected function computeDelta(): ?float
+    {
+        if ($this->values === []) {
+            return null;
+        }
+        $first = $this->values[0];
+        $last = end($this->values);
+        if ($first === 0 || $first === 0.0 || ! is_numeric($first) || ! is_numeric($last)) {
+            return null;
+        }
+
+        return round((($last - $first) / $first) * 100, 1);
     }
 }

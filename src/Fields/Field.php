@@ -1071,7 +1071,8 @@ abstract class Field implements FieldContract
      *
      * When `config('martis.index.column_defaults')` is false, the per-type
      * heuristics are skipped entirely — only explicit fluent calls apply.
-     * Apps that want the pre-v0.7.0 (Nova 5-like) behaviour set the flag.
+     * Apps that want the pre-v0.7.0 fully auto-sizing behaviour set the
+     * flag to false.
      *
      * @return array{width: ?string, minWidth: ?string, maxWidth: ?string, truncate: bool}
      */

@@ -18,14 +18,14 @@ class FilterMakeCommand extends GeneratorCommand
     protected function getStub(): string
     {
         if ($this->option('boolean')) {
-            return __DIR__.'/../../../stubs/filter.boolean.stub';
+            return __DIR__.'/../../stubs/filter.boolean.stub';
         }
 
         if ($this->option('date')) {
-            return __DIR__.'/../../../stubs/filter.date.stub';
+            return __DIR__.'/../../stubs/filter.date.stub';
         }
 
-        return __DIR__.'/../../../stubs/filter.select.stub';
+        return __DIR__.'/../../stubs/filter.select.stub';
     }
 
     /** Get the default namespace for the class. */

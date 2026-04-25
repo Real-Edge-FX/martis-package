@@ -17,7 +17,7 @@
 
 ---
 
-Martis is a full-featured admin panel engine for Laravel, designed as a React-first alternative to Laravel Nova. It is built on **PrimeReact**, **Tailwind CSS**, and **Inertia.js**, giving you a modern SPA experience with the power and simplicity of Laravel on the backend.
+Martis is a full-featured, React-first admin panel engine for Laravel. It is built on **PrimeReact**, **Tailwind CSS**, and **Inertia.js**, giving you a modern SPA experience with the power and simplicity of Laravel on the backend.
 
 ## Installation
 
@@ -111,15 +111,20 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Relationships](docs/relationships.md) | BelongsTo, HasOne, HasMany, BelongsToMany (pivot fields), MorphTo, MorphOne, MorphMany, MorphToMany |
 | [Filters](docs/filters.md) | Select, boolean, date, and date-range filters — defining, customizing, and composing index filters |
 | [Lenses](docs/lenses.md) | Alternative resource views (query, fields, filters, polling) + summary rows, query cache, default filters, URL state sync |
-| [Metrics](docs/metrics.md) | Value, trend, partition, and progress metrics — query helpers, ranges, caching, card width, auto-refresh |
+| [Metrics](docs/metrics.md) | Value, trend, partition, progress, activity feed, and endpoint table metrics — query helpers, ranges, caching, card width, auto-refresh |
 | [Dashboards](docs/dashboards.md) | Multiple dashboards, dashboard filters, refresh button, registration |
 | [Actions](docs/actions.md) | Inline, bulk, standalone, queued, custom components, authorization, audit log |
 | [Default Row Actions](docs/default_row_actions.md) | Built-in view/edit/delete column on every index, auto-disabled per policy, composable with custom inline actions |
+| [Panels & Tabs](docs/panels-and-tabs.md) | Form/detail panel layout primitives + tab navigation |
+| [Repeater](docs/repeater.md) | JSON, HasMany, polymorphic and templated row editor |
+| [Menus](docs/menus.md) | Declarative navigation API for sidebar groups and items |
+| [Preferences](docs/preferences.md) | Per-user theme, accent, density, locale, reduced-motion |
+| [Internationalisation](docs/i18n.md) | Locale layers (PHP + i18next + preferences) |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer |
 | [Built-in Components](docs/components.md) | UI components, hooks (useEventBus, useError), tooltip standard |
 | [Theming Guide](docs/theming.md) | Complete reference for all 94 CSS variables (colors, typography, radius, shadows, charts) |
 | [Authentication](docs/authentication.md) | Login, 2FA, user profile, avatar, user menu |
-| [Authorization](docs/authorization.md) | Policy contract, enforcement endpoints, UI flags, Nova 5 parity |
+| [Authorization](docs/authorization.md) | Policy contract, enforcement endpoints, UI flags |
 | [Configuration](docs/configuration.md) | Complete `config/martis.php` reference |
 | [Loader](docs/loader.md) | Page loader configuration and customization |
 
@@ -135,8 +140,9 @@ Full documentation lives in the [`docs/`](docs/) directory.
 
 | Document | Description |
 |----------|-------------|
-| [Martis Differentials](docs/differentials.md) | All features unique to Martis that do not exist in Nova 5 |
-| [Nova v5 Parity Map](docs/PARITY_MAP.md) | Feature-by-feature tracker vs Laravel Nova v5 |
+| [Martis Differentials](docs/differentials.md) | All Martis-only features grouped by subsystem |
+| [Parity Map](docs/PARITY_MAP.md) | Feature-by-feature parity scorecard |
+| [Release Process](docs/release-process.md) | Tag creation playbook |
 | [Documentation Index](docs/README.md) | Full docs hub with quick links |
 
 ## Tech Stack

@@ -127,7 +127,8 @@ export function ResourceCreatePage() {
       return
     }
     let cancelled = false
-    // Busca o _title do pai para mostrar o nome em vez de "#id" no dropdown.
+    // Fetch the parent record's _title so the dropdown shows its label
+    // instead of just "#id".
     api
       .get<{ data: { id: string | number; _title?: string } }>(
         `/api/resources/${viaResource}/${viaResourceId}`,

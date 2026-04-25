@@ -570,7 +570,9 @@ Avatar::make('avatar_path')
 |---|---|---|
 | 1 | Stored file exists | `<img src={uploaded_url}>` |
 | 2 | Developer set `fallback($url \| Closure)` | `<img src={fallback}>` |
-| 3 | Neither of the above | Inline coloured initials — no external request |
+| 3 | Seed has initials | Inline coloured initials — no external request |
+| 4 | Seed exists but produces no initials | Muted user-glyph chip (`.martis-avatar-fallback`) |
+| 5 | Nothing at all | em-dash placeholder |
 
 | Method | Description |
 |---|---|
@@ -583,6 +585,8 @@ Avatar::make('avatar_path')
 
 **⭐ Martis differentials:**
 - **Zero-config inline initials fallback** — no external service, no extra closures, works out of the box.
+- **Deterministic 16-hue palette** declared as `--martis-avatar-1..16` tokens, stable across light/dark themes. The `lib/avatarPalette.ts` helper picks one from a hash of the seed (`name`, `email`, `slug`) — two users with the same name always get the same colour.
+- **Empty-seed glyph** — when the record has no name/initials, the field renders a muted user icon inside `.martis-avatar-fallback` instead of a bare em-dash.
 - Per-row Closure-aware `fallback()` when you *do* want a custom URL.
 - Typed `AvatarShape` enum instead of a boolean `rounded()`.
 - Deterministic palette shared with `UiAvatar`, login, topbar and profile surfaces via the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait.
@@ -629,7 +633,7 @@ UiAvatar::make('avatar_initials')
 **Extends:** `File`
 **File:** `src/Fields/Audio.php`
 
-File upload specialised for audio clips. Renders an inline HTML5 player + a canvas waveform painted client-side (zero server dependencies).
+File upload specialised for audio clips. Renders a fully custom on-brand player (accent play/pause button, waveform OR progress track, mono current/total timestamps, optional download affordance) and a drag-and-drop dropzone empty state. The native `<audio controls>` element is intentionally bypassed so the look stays consistent under both light and dark themes.
 
 ```php
 Audio::make('intro_audio_path')
@@ -641,11 +645,17 @@ Audio::make('intro_audio_path')
 
 | Method | Description |
 |---|---|
-| `waveform(bool)` ⭐ | Toggle the canvas waveform (default `true`) |
-| `downloadable(bool)` | Toggle the download button on the player |
-| `acceptedTypes(array)` | Override the default `mp3/wav/ogg/m4a/flac/aac` allow-list |
+| `waveform(bool)` ⭐ | Toggle the canvas waveform (default `true`). When false the player falls back to a thin progress track. |
+| `downloadable(bool)` | Toggle the download icon next to the player. |
+| `acceptedTypes(array)` | Override the default `mp3/wav/ogg/m4a/flac/aac` allow-list. |
 
-**⭐ Martis differentials:** **client-side canvas waveform** (Web Audio API decode + peak sampling — no server rendering, no external dependency), package-native player chrome, `downloadable(bool)` toggle.
+**Empty state.** When no file is attached, the input renders a dashed dropzone with a Phosphor `MusicNote` icon, the `audio_empty_title` and `audio_empty_hint` copy, and a "Choose file" CTA. Drag-and-drop is supported.
+
+**i18n keys** (in `messages.php`, all three locales):
+
+`audio_empty_title`, `audio_empty_hint`, `audio_browse`, `audio_replace`, `audio_remove`, `audio_play`, `audio_pause`, `audio_download`.
+
+**⭐ Martis differentials:** client-side canvas waveform via Web Audio API (no server rendering), custom player chrome that follows the design tokens, drag-and-drop dropzone, `downloadable(bool)` toggle.
 
 ---
 

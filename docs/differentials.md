@@ -303,6 +303,18 @@ SalaryFilter::make('Salary Range')
 
 Hidden filters are excluded from the schema AND ignored on the backend.
 
+### Lens-exempt filters (`lensExempt()`)
+
+Some filters belong to the resource index but make no sense inside lenses (custom date scopes, internal-only toggles). Mark them with `lensExempt()` so they stay out of the lens schema:
+
+```php
+StatusFilter::make('Status')->lensExempt()
+```
+
+### Per-resource SoftDeletes filter control
+
+Resources expose `softDeletesFilter(bool)` (and the inverse `hideSoftDeletesFilter()`) so individual resources can opt out of the standard "Trashed" toggle even when the underlying model uses `SoftDeletes`. Useful for internal tables where the trashed view would leak information that other resources should keep visible.
+
 ### Action Authorization — closure-first, policy-second
 
 Martis lets you declare authorization inline on the Action while
@@ -381,8 +393,8 @@ All included without additional packages:
 | `Status` | Status indicator with color mapping |
 | `Code` | Code editor with syntax highlighting |
 | `Color` | Color picker with preview |
-| `Country` | Country selector dropdown |
-| `Currency` | Formatted currency display with symbol |
+| `Country` ⭐ | Country selector with `withFlags()` emoji renderer toggle |
+| `Currency` ⭐ | Currency display with `displayMode` (text / badge / badge_text), `badgeColor`, `showBadge`, `showText` knobs |
 | `Gravatar` | Gravatar avatar from email |
 | `Icon` ⭐ | Phosphor icon picker (Martis differential) |
 | `KeyValue` | Editable key-value pair table |
@@ -399,6 +411,20 @@ All included without additional packages:
 | `Url` | URL field with validation and auto-scheme normalisation |
 | `Heading` | Section divider with optional content |
 | `Hidden` | Hidden field for form data |
+
+### Relationship toolbar hide flags (`ControlsRelationshipToolbar`)
+
+> Every HasMany / MorphMany / BelongsToMany / MorphToMany / HasManyThrough field exposes nine fluent flags to hide affordances inside the relationship card without forking the component.
+
+```php
+HasMany::make('Invoices')
+    ->hideCreateButton()
+    ->hideSearch()
+    ->hideTrashedFilter()
+    ->hidePagination();
+```
+
+Full set: `hideCreateButton`, `hideSearch`, `hidePerPage`, `hideTrashedFilter`, `hidePagination`, `hideEditAction`, `hideDeleteAction`, `hideDetachAction`, `hideRestoreAction`. Each one degrades cleanly: hidden controls are stripped from the schema and ignored on the backend.
 
 ### Label Tooltips on Any Field (⭐ Martis 100% differential)
 
@@ -709,6 +735,60 @@ DateRangeFilter::make('Period')->span(8)       // 2/3 width
     'navigation' => 1,     // 1 minute
 ],
 ```
+
+### ActivityFeedMetric (Martis-only metric type)
+
+> Stream of recent events as a card. Each entry is rendered with a coloured Phosphor avatar tile + actor / verb / target line + mono timestamp.
+
+```php
+class RecentDeploys extends ActivityFeedMetric
+{
+    public function calculate(Request $request): ActivityFeedResult
+    {
+        return $this->result()->add(
+            actor: 'Ana Pereira', verb: 'deployed', time: '2m ago',
+            target: 'api-core@v2.4.1', icon: 'rocket-launch',
+        );
+    }
+}
+```
+
+Generator: `php artisan martis:activity-feed`. Full reference in [docs/metrics.md](metrics.md#activity-feed-metric-martis-extension).
+
+### EndpointTableMetric (Martis-only metric type)
+
+> Compact HTTP route table card with method chips (GET / POST / PATCH / PUT / DELETE), mono numeric columns and a thin share-of-traffic bar. Drops cleanly into `card-span-3`.
+
+```php
+class TopEndpoints extends EndpointTableMetric
+{
+    public function calculate(Request $request): EndpointTableResult
+    {
+        return $this->result()
+            ->errorWarnThreshold(0.2)
+            ->add(method: 'GET', path: '/v1/resources', rpm: 482, latencyMs: 42, errorRate: 0.02, share: 28);
+    }
+}
+```
+
+Generator: `php artisan martis:endpoint-table`. Full reference in [docs/metrics.md](metrics.md#endpoint-table-metric-martis-extension).
+
+### Trend sparkline mode
+
+> `TrendResult::sparkline()` swaps the full Chart.js panel for an inline SVG sparkline + delta pill. Pairs with `.martis-dash-kpis` rows so four trend metrics fit across the top of a dashboard.
+
+```php
+return $this->countByDays($request, Order::class)
+    ->sparkline()
+    ->showLatestValue()
+    ->prefix('€');
+```
+
+The `<Sparkline>` component is also exported (`@/components/metrics`) for custom framed cards.
+
+### Dashboard layout helpers
+
+> `.martis-dash-kpis` (4-col KPI row, collapses to 2) and `.martis-dash-grid` (3-col body grid, collapses to 1) ship as public utility classes so consumer dashboards render with the same scaffold as the built-in one. `.span-2` / `.span-3` cell helpers reset on the same breakpoint.
 
 ---
 

@@ -16,7 +16,7 @@ class TrendMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../../stubs/metric.trend.stub';
+        return __DIR__.'/../../stubs/metric.trend.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string

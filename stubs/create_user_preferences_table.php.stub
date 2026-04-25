@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Martis user preferences (Task 07.1 ⭐ D2).
+ * Martis user preferences.
  *
  * Persists per-user UI preferences (theme, accent, density, locale,
  * reduced-motion flag, optional brand_color hex) so settings travel
