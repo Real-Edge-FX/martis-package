@@ -189,6 +189,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Global Search
+    |--------------------------------------------------------------------------
+    | Defaults applied by `SearchController` when a resource does not declare
+    | its own per-resource override via `globallySearchable()`. A resource can
+    | return an array shape `['enabled' => bool, 'limit' => int, 'min_query' => int]`
+    | to override any of these values; the bool form (legacy) keeps working
+    | and resolves to `enabled=$bool` with the defaults below.
+    |
+    |   - `default_limit`: max results returned per resource group. Bumping
+    |     this is OK for small important tables (clients, team members);
+    |     huge tables should keep this small to bound the response payload.
+    |   - `min_query`: minimum query length before search executes. Defaults
+    |     to 2 because single-character searches turn LIKE-pattern queries
+    |     into full-table scans on most engines.
+    */
+    'search' => [
+        'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
+        'min_query' => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Throttling
     |--------------------------------------------------------------------------
     | Rate limits for Martis routes. Two distinct buckets:

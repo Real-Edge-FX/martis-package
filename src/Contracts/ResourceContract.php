@@ -5,12 +5,10 @@ namespace Martis\Contracts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Martis\Contracts\CardContract;
-use Martis\Contracts\DashboardContract;
 use Martis\Enums\ErrorDisplayMode;
+use Martis\Enums\SortDirection;
+use Martis\Enums\TableLayout;
 use Martis\Enums\TableSize;
-use Martis\Contracts\FilterContract;
-use Martis\Contracts\LensContract;
 use Martis\Menu\MenuItem;
 
 /**
@@ -214,7 +212,7 @@ interface ResourceContract
     public static function defaultSort(): ?string;
 
     /** Return the default sort direction for the index listing. */
-    public static function defaultSortDirection(): \Martis\Enums\SortDirection;
+    public static function defaultSortDirection(): SortDirection;
 
     /** Determine whether this resource should appear in the navigation menu. */
     public static function displayInNavigation(): bool;
@@ -223,7 +221,7 @@ interface ResourceContract
     public static function showMenuCount(): bool;
 
     /** Compute the navigation count badge (null hides it). */
-    public static function menuCount(\Illuminate\Http\Request $request): ?int;
+    public static function menuCount(Request $request): ?int;
 
     /** Return a custom search placeholder, or null for the i18n default. */
     public static function searchPlaceholder(): ?string;
@@ -245,7 +243,7 @@ interface ResourceContract
     public static function tableSize(): TableSize;
 
     /** How column widths distribute: auto (default) or fixed. */
-    public static function tableLayout(): \Martis\Enums\TableLayout;
+    public static function tableLayout(): TableLayout;
 
     /** Whether rows highlight on hover. */
     public static function tableRowHover(): bool;
@@ -461,10 +459,15 @@ interface ResourceContract
     /**
      * Determine whether this resource is included in global search (Cmd+K).
      *
-     * Return false to exclude this resource from the global search modal.
-     * Defaults to true for all resources.
+     * - `bool` (legacy): true to opt-in (uses package defaults), false to
+     *   exclude entirely.
+     * - `array`: `['enabled' => bool, 'limit' => int, 'min_query' => int]`
+     *   to override the global defaults from `config('martis.search')`.
+     *   `enabled` defaults to true when an array is returned.
+     *
+     * @return bool|array{enabled?: bool, limit?: int, min_query?: int}
      */
-    public static function globallySearchable(): bool;
+    public static function globallySearchable(): bool|array;
 
     /**
      * Return a per-record subtitle for global search results.
@@ -475,6 +478,18 @@ interface ResourceContract
      * Example: return $model->email; // for a User resource
      */
     public function searchSubtitle(Model $model): ?string;
+
+    /**
+     * Customise result ordering for global search. Called AFTER the
+     * search filter, so any `orderBy()` here runs on the filtered set.
+     * Default implementation is a no-op.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public function searchOrderBy(Builder $query, string $term): Builder;
 
     // -------------------------------------------------------------------------
     // Page overrides

@@ -72,6 +72,34 @@ export function ResourceIndexPage() {
 
     if (!resource) return
 
+    // ?search=… in the URL wins over sticky view on mount. Used by the
+    // Cmd+K palette's "View all" footer to land on the index with the
+    // query already applied. We strip the param after reading so the
+    // user's later manual edits don't get overridden by browser back/
+    // forward navigation. Other URL params keep their existing flow.
+    const initialUrlParams = new URLSearchParams(window.location.search)
+    const urlSearch = initialUrlParams.get('search') ?? ''
+    if (urlSearch) {
+      setSearch(urlSearch)
+      setDebouncedSearch(urlSearch)
+      setActiveFilters({})
+      setPage(1)
+      setPerPage(null)
+      setSortBy(null)
+      setSortDir('asc')
+      setTrashedFilter('')
+      setFiltersOpen(false)
+
+      initialUrlParams.delete('search')
+      const next = initialUrlParams.toString()
+      window.history.replaceState(
+        {},
+        '',
+        window.location.pathname + (next ? `?${next}` : '') + window.location.hash,
+      )
+      return
+    }
+
     const saved = readStickyView(resource)
     if (saved) {
       setSearch(typeof saved.search === 'string' ? saved.search : '')
