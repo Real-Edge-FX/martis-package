@@ -23,6 +23,7 @@ use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\SlugController;
+use Martis\Http\Controllers\SsoController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
 
@@ -36,6 +37,19 @@ Route::middleware(config('martis.middleware', ['web']))
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+        // SSO entry points — public (no auth middleware). The provider
+        // sub-segment is whatever the user registered (azure, google,
+        // github, custom-okta, …). Routes only resolve when SSO is
+        // enabled in config and the requested provider is registered.
+        if (config('martis.auth.sso.enabled', false)) {
+            Route::get('/sso/{provider}/redirect', [SsoController::class, 'redirect'])
+                ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+                ->name('sso.redirect');
+            Route::get('/sso/{provider}/callback', [SsoController::class, 'callback'])
+                ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+                ->name('sso.callback');
+        }
 
         // Favicon — public, served from configured path, published assets,
         // or the package's own resources/ directory as final fallback (so

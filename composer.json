@@ -15,7 +15,8 @@
         "laravel/pint": "^1.0",
         "dedoc/scramble": "^0.12",
         "orchestra/testbench": "^10.11",
-        "laravel/scout": "^11.1"
+        "laravel/scout": "^11.1",
+        "laravel/socialite": "^5.26"
     },
     "autoload": {
         "psr-4": {
@@ -42,6 +43,9 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "suggest": {
-        "laravel/scout": "Required for Scout search integration (auto-detected when model uses Searchable trait)"
+        "laravel/scout": "Required for Scout search integration (auto-detected when model uses Searchable trait)",
+        "laravel/socialite": "Required when using martis:sso (any provider)",
+        "socialiteproviders/microsoft": "Required when using martis:sso azure",
+        "spatie/laravel-permission": "Auto-detected when present; SsoManager picks the SpatieAdapter for role sync"
     }
 }

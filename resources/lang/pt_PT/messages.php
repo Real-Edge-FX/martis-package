@@ -240,6 +240,12 @@ return [
     'cache_reset_tip' => '<strong>Voltar à config</strong><br>Remover o override em runtime desta camada.<br><br>O estado efectivo passa a seguir o que estiver na config.',
     'cache_clear_tip' => '<strong>Limpar</strong><br>Invalidar todas as entradas desta camada agora.<br><br>Incrementa a version key — atómico e O(1) em qualquer driver.',
     'cache_clear_all_tip' => '<strong>Limpar tudo</strong><br>Incrementa a versão de todas as camadas de uma vez.<br><br>Todas as entradas ficam órfãs e o próximo pedido recalcula.',
+
+    // SSO subsystem (Task 14)
+    'sso_provider_disabled' => 'Este método de início de sessão não está disponível neste momento.',
+    'sso_callback_failed' => 'Falha no início de sessão. Tenta novamente ou contacta o administrador.',
+    'sso_user_not_provisioned' => 'A tua conta ainda não está provisionada neste workspace. Contacta o administrador.',
+    'sso_no_role_match' => 'A tua conta não tem as roles necessárias para aceder a este workspace.',
     'reset_to_defaults' => 'Repor predefinições',
     'theme' => 'Tema',
     'theme_dark' => 'Escuro',

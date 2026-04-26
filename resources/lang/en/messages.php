@@ -240,6 +240,12 @@ return [
     'cache_reset_tip' => '<strong>Reset to config</strong><br>Drop the runtime override for this layer.<br><br>Effective state falls back to whatever the config file says.',
     'cache_clear_tip' => '<strong>Clear</strong><br>Invalidate every entry in this layer right now.<br><br>Bumps the version key — atomic and O(1) on any cache backend.',
     'cache_clear_all_tip' => '<strong>Clear all</strong><br>Bumps the version key of every layer at once.<br><br>Every cached entry becomes orphaned and the next request recomputes.',
+
+    // SSO subsystem (Task 14)
+    'sso_provider_disabled' => 'This sign-in method is not available right now.',
+    'sso_callback_failed' => 'Sign-in failed. Please try again or contact your administrator.',
+    'sso_user_not_provisioned' => 'Your account is not provisioned in this workspace yet. Contact your administrator.',
+    'sso_no_role_match' => "Your account doesn't have the roles required to access this workspace.",
     'reset_to_defaults' => 'Reset to defaults',
     'theme' => 'Theme',
     'theme_dark' => 'Dark',
