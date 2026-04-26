@@ -367,6 +367,39 @@ interface FieldContract
      */
     public function rules(array|\Closure $rules): static;
 
+    // -------------------------------------------------------------------------
+    // Reactive fields — dependsOn()
+    // -------------------------------------------------------------------------
+
+    /**
+     * Declare a reactive dependency on one or more sibling fields. The
+     * frontend re-syncs this field by posting the live form payload
+     * whenever any of the listed fields changes.
+     *
+     * @param  list<string>  $fields  Sibling attributes to watch.
+     * @param  \Closure(array<string, mixed>, Request, static): void|null  $callback
+     */
+    public function dependsOn(array $fields, ?\Closure $callback = null): static;
+
+    /**
+     * Return the list of attributes this field reacts to.
+     *
+     * @return list<string>
+     */
+    public function dependentFields(): array;
+
+    /**
+     * Whether `dependsOn()` was configured for this field.
+     */
+    public function isDependent(): bool;
+
+    /**
+     * Run the reactivity callback against the supplied form payload.
+     *
+     * @param  array<string, mixed>  $formData
+     */
+    public function syncDependent(array $formData, Request $request): static;
+
     /**
      * Build the final validation rules array (merges required/nullable
      * flags + context-specific rules from `creationRules()` /

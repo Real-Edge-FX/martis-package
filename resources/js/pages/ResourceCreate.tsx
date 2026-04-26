@@ -16,6 +16,7 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useDependsOnSync } from '@/hooks/useDependsOnSync'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -86,6 +87,75 @@ export function ResourceCreatePage() {
   const [replicateApplied, setReplicateApplied] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const baselineRef = useRef<string | null>(null)
+
+  /**
+   * Controls the post-save redirect on the create form.
+   *  - `detail`       — default behaviour: open the freshly created record
+   *  - `add_another`  — clear the form and stay on /create for another row
+   *  - `list`         — go back to the resource index
+   * Stored in a ref so we can read the user's button choice from inside
+   * the mutation callback without triggering an extra render.
+   */
+  const submitModeRef = useRef<'detail' | 'add_another' | 'list'>('detail')
+
+  // Reactive `dependsOn(...)` fields — server-side closures re-evaluate
+  // whenever a watched sibling changes. The hook returns the latest
+  // overrides so the renderer can layer them on top of the static
+  // schema. We feed it the FLAT field list so the watch detection is
+  // O(n) — layout containers are walked separately by the renderer.
+  const flatFormFields = useMemo<FieldDefinition[]>(() => {
+    const out: FieldDefinition[] = []
+    const walk = (items: unknown[]): void => {
+      for (const item of items as Record<string, unknown>[]) {
+        if (item.type === 'panel' || item.type === 'section') {
+          walk((item.fields as unknown[]) ?? [])
+        } else if (item.type === 'tab_group') {
+          const tabs = (item.tabs as { fields?: unknown[] }[]) ?? []
+          for (const t of tabs) walk(t.fields ?? [])
+        } else {
+          out.push(item as unknown as FieldDefinition)
+        }
+      }
+    }
+    walk(allFormFields as unknown[])
+    return out
+  }, [allFormFields])
+
+  const dependsOnOverrides = useDependsOnSync({
+    resource: resource ?? '',
+    context: 'create',
+    fields: flatFormFields,
+    formValues: values,
+    disabled: !resource,
+  })
+
+  /** Layer the latest sync override (if any) on top of the static descriptor. */
+  function applyOverride(field: FieldDefinition): FieldDefinition {
+    const override = dependsOnOverrides.get(field.attribute)
+    return override ? { ...field, ...override } : field
+  }
+
+  /** Walk layout containers and apply scalar overrides everywhere. */
+  const renderedFormFields = useMemo(() => {
+    if (dependsOnOverrides.size === 0) return allFormFields
+    const walk = (items: unknown[]): unknown[] =>
+      items.map((item) => {
+        const f = item as Record<string, unknown>
+        if (f.type === 'panel' || f.type === 'section') {
+          return { ...f, fields: walk((f.fields as unknown[]) ?? []) }
+        }
+        if (f.type === 'tab_group') {
+          const tabs = ((f.tabs as { fields?: unknown[] }[]) ?? []).map((t) => ({
+            ...t,
+            fields: walk(t.fields ?? []),
+          }))
+          return { ...f, tabs }
+        }
+        return applyOverride(item as FieldDefinition)
+      })
+    return walk(allFormFields as unknown[])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFormFields, dependsOnOverrides])
 
   // Pre-fill form with replicated values when data loads
   useEffect(() => {
@@ -198,10 +268,31 @@ export function ResourceCreatePage() {
       // Clear form
       setValues({})
       setErrors({})
-      // Navigate to the newly created record. When the create flow was
-      // launched from a nested relation panel, prefer the `from` URL so
-      // the user returns to the exact page they clicked from (which may
-      // sit higher up the tree than the immediate viaResource).
+
+      const mode = submitModeRef.current
+      // "Create & add another" stays on the create page so the user can
+      // start a fresh row immediately. We reset the mode so the next
+      // submit defaults back to "detail" unless the user picks add-another
+      // again.
+      if (mode === 'add_another') {
+        submitModeRef.current = 'detail'
+        // The form is already cleared above; nothing to navigate.
+        return
+      }
+
+      // "Create & view list" jumps back to the resource index, ignoring
+      // any nested-create return URL — the user explicitly asked for the
+      // list view.
+      if (mode === 'list') {
+        submitModeRef.current = 'detail'
+        navigate(`/resources/${resource}`)
+        return
+      }
+
+      // Default — navigate to the newly created record. When the create
+      // flow was launched from a nested relation panel, prefer the `from`
+      // URL so the user returns to the exact page they clicked from
+      // (which may sit higher up the tree than the immediate viaResource).
       const fromParam = searchParams.get('from')
       if (fromParam) {
         navigate(fromParam)
@@ -322,7 +413,7 @@ export function ResourceCreatePage() {
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order — layout containers and scalar fields interleaved */}
           <div className="martis-form-body martis-form-stack">
-            {allFormFields.map((raw, idx) => {
+            {renderedFormFields.map((raw, idx) => {
               const item = raw as { type?: string } & Record<string, unknown>
               if (item.type === 'tab_group') {
                 return <TabsInput key={idx} tabGroup={item as unknown as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
@@ -333,8 +424,10 @@ export function ResourceCreatePage() {
               if (item.type === 'panel') {
                 return <PanelInput key={idx} panel={item as unknown as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
               }
-              // Scalar field
-              const field = item as FieldDefinition
+              // Scalar field — re-resolve through dependsOn() overrides so
+              // visibility, readonly, required, options, etc. reflect the
+              // server-side reactive callback's latest decision.
+              const field = applyOverride(item as FieldDefinition)
               return (
                 <FieldWrapper
                   key={field.attribute}
@@ -386,10 +479,39 @@ export function ResourceCreatePage() {
             >
               {tAct('cancel')}
             </button>
+            {/*
+              Save variants — Nova-parity. The default Create button
+              navigates to the new record's detail page; the secondary
+              buttons stay on the create page (add another) or jump to
+              the list. Hidden in nested-relation flows because those
+              are launched from a parent surface that already manages
+              the post-save redirect.
+            */}
+            {!isViaRelation && (
+              <>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  className="martis-btn-secondary"
+                  onClick={() => { submitModeRef.current = 'add_another' }}
+                >
+                  {tAct('create_and_add_another')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  className="martis-btn-secondary"
+                  onClick={() => { submitModeRef.current = 'list' }}
+                >
+                  {tAct('create_and_view_list')}
+                </button>
+              </>
+            )}
             <button
               type="submit"
               disabled={createMutation.isPending}
               className="martis-btn-primary"
+              onClick={() => { submitModeRef.current = 'detail' }}
             >
               {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
             </button>

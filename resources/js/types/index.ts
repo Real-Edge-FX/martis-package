@@ -226,6 +226,14 @@ export interface FieldDefinition {
   placeholder?: string
   /** Content text for heading fields. */
   content?: string | null
+  /**
+   * Reactive dependency declaration. Set by `Field::dependsOn(fields, fn)`
+   * on the backend. When present, the form runtime watches the listed
+   * sibling attributes and POSTs to `/api/resources/{r}/sync-field`
+   * every time one of them changes, replacing this field's local
+   * descriptor with the resolved response.
+   */
+  dependsOn?: { fields: string[] } | null
   /** Whether the field accepts multiple values (File/Image fields). */
   multiple?: boolean
   /** Column span in a 12-column grid (1-12, default 12). */

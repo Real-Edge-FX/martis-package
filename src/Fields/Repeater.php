@@ -77,8 +77,14 @@ class Repeater extends Field
     /** Hide the "Paste rows" bulk-import button (⭐ differential toolbar toggle). */
     protected bool $hideBulkPaste = false;
 
-    /** ⭐ Attributes on the parent model to expose to field context. */
-    protected array $dependsOn = [];
+    // The Repeater forwards a list of parent-model attributes into row
+    // scope so child fields can read them via the React `useFieldContext`
+    // hook. Historically this was a private `$dependsOn` array on the
+    // Repeater. Since v0.9.0 every field shares the same name with a
+    // richer reactive callback (see `Field::dependsOn`); the Repeater
+    // reuses the parent's `$dependentFields` so both APIs converge on
+    // one wire-format key without breaking RepeaterField.tsx (which
+    // continues to read a flat `dependsOn: string[]`).
 
     /**
      * ⭐ Pre-filled templates surfaced in the Add menu. Each entry is an
@@ -226,11 +232,13 @@ class Repeater extends Field
      *
      * @param  list<string>  $attributes
      */
-    public function dependsOn(array $attributes): static
+    public function dependsOn(array $attributes, ?\Closure $callback = null): static
     {
-        $this->dependsOn = array_values(array_unique($attributes));
-
-        return $this;
+        // Forward to the parent: same array storage + optional callback.
+        // Repeater's own usage ignores the closure (it only forwards
+        // parent attributes into row context) but accepts it so the
+        // signature stays compatible with the base `Field::dependsOn`.
+        return parent::dependsOn($attributes, $callback);
     }
 
     /**
@@ -240,8 +248,8 @@ class Repeater extends Field
      * insert a row that comes with a sensible default payload (e.g. a
      * "Standard shipping" delivery phase with owner + effort already set).
      *
-     * @param  string  $label       Human-readable label for the menu entry
-     * @param  string  $type        Repeatable shortName this template fills
+     * @param  string  $label  Human-readable label for the menu entry
+     * @param  string  $type  Repeatable shortName this template fills
      * @param  array<string, mixed>  $fields  Initial field values
      * @param  array{icon?: string|null, color?: string|null}  $options  Optional decorations
      */
@@ -636,7 +644,13 @@ class Repeater extends Field
             'collapsible' => $this->collapsible,
             'collapsedByDefault' => $this->collapsedByDefault,
             'reorderable' => $this->reorderable,
-            'dependsOn' => $this->dependsOn,
+            // Repeater keeps the legacy flat-array shape that
+            // RepeaterField.tsx already consumes. The base Field
+            // serialiser would emit `{fields, ...}` — here, in
+            // `extraAttributes`, we override it with the simpler
+            // string list because the Repeater's "depends on" is
+            // attribute-forwarding, not request-time reactivity.
+            'dependsOn' => $this->dependentFields(),
             'hideDuplicate' => $this->hideDuplicate,
             'hideBulkPaste' => $this->hideBulkPaste,
             'rowTemplates' => $this->rowTemplates,

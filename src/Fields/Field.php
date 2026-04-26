@@ -127,6 +127,26 @@ abstract class Field implements FieldContract
     protected bool $immutable = false;
 
     /**
+     * List of OTHER field attributes whose values this field reacts to.
+     * Set by `dependsOn(array $fields, Closure $cb)`. The schema
+     * surfaces this list so the frontend knows which inputs to watch
+     * before posting back to `POST /resources/{r}/sync-field`.
+     *
+     * @var list<string>
+     */
+    protected array $dependentFields = [];
+
+    /**
+     * Reactivity callback. Runs at field-sync time with the current
+     * form payload, the active Request, and a mutable reference to
+     * `$this`. The callback should call any of the regular fluent
+     * methods (`->required(...)`, `->readonly(...)`, `->placeholder(...)`,
+     * `->options(...)`, `->withMeta(...)`, etc.) so the resolved
+     * descriptor reflects the live form state.
+     */
+    protected ?\Closure $dependentCallback = null;
+
+    /**
      * Unique validation config: [table] or [table, column].
      *
      * @var array{0: string, 1?: string}|null
@@ -313,6 +333,7 @@ abstract class Field implements FieldContract
             'creationRules' => $this->creationRules !== [] ? $this->creationRules : null,
             'updateRules' => $this->updateRules !== [] ? $this->updateRules : null,
             'immutable' => $this->immutable,
+            'dependsOn' => $this->isDependent() ? ['fields' => $this->dependentFields] : null,
             'component' => $this->componentKey,
             'placeholder' => $this->getPlaceholder(),
             'helpText' => $this->getHelp(),
@@ -445,6 +466,97 @@ abstract class Field implements FieldContract
     public function isImmutable(): bool
     {
         return $this->immutable;
+    }
+
+    // -------------------------------------------------------------------------
+    // Reactive fields — dependsOn()
+    // -------------------------------------------------------------------------
+
+    /**
+     * Declare a reactive dependency on one or more sibling fields.
+     *
+     * The frontend watches the listed `$fields` while the user edits the
+     * form and, every time any of them changes, posts the live form
+     * payload to `POST /resources/{r}/sync-field`. The controller
+     * re-instantiates this field, runs `$callback` against the live
+     * payload, and returns the updated descriptor. The frontend then
+     * applies the new state (visibility, readonly, required,
+     * placeholder, options, help, default, meta…) to the live form.
+     *
+     * The callback receives:
+     *   - `array<string, mixed> $formData` — the current form values,
+     *     keyed by field attribute (only the dependent fields are
+     *     guaranteed to be present, but any sibling that has been
+     *     touched is forwarded too)
+     *   - `\Illuminate\Http\Request $request` — the active request
+     *   - `static $field` — `$this`, mutable. The closure should call
+     *     the regular fluent methods on it (e.g. `$field->required()`,
+     *     `$field->readonly(true)`, `$field->placeholder('…')`,
+     *     `$field->withMeta([...])`).
+     *
+     * Examples:
+     *
+     *     // Make `price` required only when `is_paid` is true
+     *     Number::make('price')->dependsOn(['is_paid'],
+     *         function (array $form, \Illuminate\Http\Request $r, $field) {
+     *             $field->required((bool) ($form['is_paid'] ?? false));
+     *         });
+     *
+     *     // Reload Select options whenever `category_id` changes
+     *     Select::make('subcategory_id')->dependsOn(['category_id'],
+     *         function (array $form, \Illuminate\Http\Request $r, $field) {
+     *             $field->options(
+     *                 \App\Models\Subcategory::query()
+     *                     ->where('category_id', $form['category_id'] ?? null)
+     *                     ->pluck('name', 'id')->all()
+     *             );
+     *         });
+     *
+     * @param  list<string>  $fields  Sibling attributes to watch.
+     * @param  \Closure(array<string, mixed>, Request, static): void|null  $callback
+     */
+    public function dependsOn(array $fields, ?\Closure $callback = null): static
+    {
+        $this->dependentFields = array_values(array_unique(array_filter(
+            array_map('strval', $fields),
+            static fn (string $f): bool => $f !== '',
+        )));
+        $this->dependentCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Return the list of attributes this field reacts to.
+     *
+     * @return list<string>
+     */
+    public function dependentFields(): array
+    {
+        return $this->dependentFields;
+    }
+
+    /**
+     * Whether `dependsOn()` was configured for this field.
+     */
+    public function isDependent(): bool
+    {
+        return $this->dependentCallback !== null && $this->dependentFields !== [];
+    }
+
+    /**
+     * Run the reactivity callback against the supplied form payload.
+     * Mutates `$this` in place. Returns `$this` for chaining.
+     *
+     * @param  array<string, mixed>  $formData
+     */
+    public function syncDependent(array $formData, Request $request): static
+    {
+        if ($this->dependentCallback !== null) {
+            ($this->dependentCallback)($formData, $request, $this);
+        }
+
+        return $this;
     }
 
     /**
