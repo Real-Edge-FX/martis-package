@@ -8,7 +8,22 @@ class TranslationsController extends MartisController
 {
     /**
      * Return all translation strings for the given locale as JSON.
-     * Falls back to 'en' when the requested locale is not found.
+     *
+     * Layered with `array_replace_recursive` so each layer's keys win
+     * over the previous one without throwing the rest of the namespace
+     * away. Layers, applied bottom → top:
+     *
+     *   1. Each locale in `martis.locales.fallback_chain` (default `['en']`),
+     *      using package defaults for that locale. Earlier entries seed
+     *      missing keys for the requested locale.
+     *   2. Package defaults for the requested locale itself.
+     *   3. Host-app namespaces declared in `martis.locales.app_namespaces`,
+     *      probed at `lang/<locale>/<ns>.php`.
+     *   4. Consumer overrides published to `lang/vendor/martis/<locale>/`.
+     *
+     * Result: a consumer can override a single key without copying the
+     * whole namespace file, and any namespace the package adds in a
+     * future release flows through automatically.
      *
      * Accepts Laravel locale identifiers such as `en`, `pt_BR`, and `pt_PT`.
      *
@@ -27,37 +42,136 @@ class TranslationsController extends MartisController
     {
         $locale = $this->normalizeLocale($locale);
 
-        $langBase = realpath(__DIR__.'/../../../resources/lang');
+        $packageLangBase = realpath(__DIR__.'/../../../resources/lang');
 
-        if ($langBase === false) {
+        if ($packageLangBase === false) {
             return response()->json([]);
         }
 
-        // Prefer published overrides (lang/vendor/martis), then package defaults
-        $paths = [
-            resource_path("lang/vendor/martis/{$locale}"),
-            "{$langBase}/{$locale}",
-            "{$langBase}/en",
-        ];
-
         $translations = [];
-        foreach ($paths as $path) {
-            if (! is_dir($path)) {
-                continue;
-            }
 
-            $files = glob("{$path}/*.php") ?: [];
-            foreach ($files as $file) {
-                $ns = basename($file, '.php');
-                if (! isset($translations[$ns])) {
-                    $translations[$ns] = require $file;
-                }
-            }
+        // Layer 1 — fallback chain seeds the namespace.
+        foreach ($this->fallbackChain($locale) as $fallback) {
+            $this->mergeFromDirectory($translations, "{$packageLangBase}/{$fallback}");
         }
+
+        // Layer 2 — package defaults for the requested locale.
+        $this->mergeFromDirectory($translations, "{$packageLangBase}/{$locale}");
+
+        // Layer 3 — host-app namespaces (lang/<locale>/<ns>.php).
+        foreach ($this->appNamespaces() as $namespace) {
+            $this->mergeAppNamespace($translations, $locale, $namespace);
+        }
+
+        // Layer 4 — consumer overrides (lang/vendor/martis/<locale>/).
+        $this->mergeFromDirectory($translations, resource_path("lang/vendor/martis/{$locale}"));
 
         $this->mergeLaravelValidationTranslations($translations, $locale);
 
         return response()->json($this->convertPlaceholders($translations));
+    }
+
+    /**
+     * Merge every `<ns>.php` file under `$path` into `$translations`,
+     * with `array_replace_recursive` so per-key overrides survive.
+     *
+     * @param  array<string, mixed>  $translations
+     */
+    private function mergeFromDirectory(array &$translations, string $path): void
+    {
+        if (! is_dir($path)) {
+            return;
+        }
+
+        $files = glob("{$path}/*.php") ?: [];
+        foreach ($files as $file) {
+            $namespace = basename($file, '.php');
+            $loaded = require $file;
+            if (! is_array($loaded)) {
+                continue;
+            }
+
+            $existing = is_array($translations[$namespace] ?? null) ? $translations[$namespace] : [];
+            $translations[$namespace] = array_replace_recursive($existing, $loaded);
+        }
+    }
+
+    /**
+     * Merge a host-app translation namespace (lang/<locale>/<ns>.php).
+     *
+     * @param  array<string, mixed>  $translations
+     */
+    private function mergeAppNamespace(array &$translations, string $locale, string $namespace): void
+    {
+        $file = resource_path("lang/{$locale}/{$namespace}.php");
+        if (! is_file($file)) {
+            return;
+        }
+
+        $loaded = require $file;
+        if (! is_array($loaded)) {
+            return;
+        }
+
+        $existing = is_array($translations[$namespace] ?? null) ? $translations[$namespace] : [];
+        $translations[$namespace] = array_replace_recursive($existing, $loaded);
+    }
+
+    /**
+     * Resolve the fallback chain for a given locale. Empty / invalid
+     * config defaults to `['en']` to preserve historical behaviour.
+     * The requested locale is filtered out so it never seeds itself.
+     *
+     * @return list<string>
+     */
+    private function fallbackChain(string $requestedLocale): array
+    {
+        $configured = config('martis.locales.fallback_chain', ['en']);
+        if (! is_array($configured)) {
+            $configured = ['en'];
+        }
+
+        $chain = [];
+        foreach ($configured as $entry) {
+            if (! is_string($entry) || $entry === '') {
+                continue;
+            }
+            $normalized = $this->normalizeLocale($entry);
+            if ($normalized === $requestedLocale) {
+                continue;
+            }
+            $chain[] = $normalized;
+        }
+
+        return $chain === [] ? [] : $chain;
+    }
+
+    /**
+     * Resolve the host-app namespaces config (`martis.locales.app_namespaces`).
+     * Empty by default so existing consumers see no behaviour change.
+     *
+     * @return list<string>
+     */
+    private function appNamespaces(): array
+    {
+        $configured = config('martis.locales.app_namespaces', []);
+        if (! is_array($configured)) {
+            return [];
+        }
+
+        $namespaces = [];
+        foreach ($configured as $entry) {
+            if (! is_string($entry) || $entry === '') {
+                continue;
+            }
+            // Block path traversal and namespace collisions on disk.
+            if (! preg_match('/^[a-z][a-z0-9_]*$/i', $entry)) {
+                continue;
+            }
+            $namespaces[] = $entry;
+        }
+
+        return $namespaces;
     }
 
     private function normalizeLocale(string $locale): string
