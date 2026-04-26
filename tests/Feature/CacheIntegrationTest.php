@@ -65,7 +65,15 @@ class CachedAccountsResource extends Resource
 
     public function fields(Request $request): array
     {
-        return [Text::make('name')];
+        return [
+            // Regression guard — Closure-based validation rules are
+            // common (Laravel's invokable rule shorthand) and must not
+            // crash the schema cache layer on backends that PHP-
+            // serialize their entries (Redis, file, db). The schema
+            // controller strips non-serializable values via JSON
+            // round-trip before handing them to the cache.
+            Text::make('name')->rules(['required', fn ($attr, $val, $fail) => null]),
+        ];
     }
 }
 
