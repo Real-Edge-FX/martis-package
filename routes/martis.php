@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Martis\Http\Controllers\ActionController;
 use Martis\Http\Controllers\AttachmentController;
+use Martis\Http\Controllers\CacheController;
 use Martis\Http\Controllers\MetricController;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\BelongsToManyController;
@@ -114,6 +115,20 @@ Route::middleware(config('martis.middleware', ['web']))
                                     Route::get('/preferences', [PreferencesController::class, 'show'])->name('preferences.show');
                                     Route::put('/preferences', [PreferencesController::class, 'update'])->name('preferences.update');
                                     Route::delete('/preferences', [PreferencesController::class, 'reset'])->name('preferences.reset');
+                                }
+
+                                // Cache admin (v0.8 — Task 17)
+                                if (config('martis.cache.admin_ui', true)) {
+                                    Route::get('/cache', [CacheController::class, 'status'])
+                                        ->name('cache.status');
+                                    Route::post('/cache/clear', [CacheController::class, 'clear'])
+                                        ->name('cache.clear');
+                                    Route::post('/cache/disable', [CacheController::class, 'disable'])
+                                        ->name('cache.disable');
+                                    Route::post('/cache/enable', [CacheController::class, 'enable'])
+                                        ->name('cache.enable');
+                                    Route::post('/cache/reset-override', [CacheController::class, 'resetOverride'])
+                                        ->name('cache.reset-override');
                                 }
 
                                 // In-app notifications (v0.8 — Task 12)

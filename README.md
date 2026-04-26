@@ -121,13 +121,14 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Preferences](docs/preferences.md) | Per-user theme, accent, density, locale, reduced-motion |
 | [Sticky Views](docs/sticky_views.md) | Per-user view state persistence on resource index pages |
 | [Notifications](docs/notifications.md) | In-app bell dropdown, distinct from toasts, backed by Laravel notifications |
+| [Cache](docs/cache.md) | Per-subsystem cache layer with config/env/runtime control, bypass header, and admin panel |
 | [Internationalisation](docs/i18n.md) | Locale layers (PHP + i18next + preferences) |
 | [Override System](docs/overrides.md) | 4-tier component resolution: replace any view, field, layout, or drawer |
 | [Built-in Components](docs/components.md) | UI components, hooks (useEventBus, useError), tooltip standard |
 | [Theming Guide](docs/theming.md) | Complete reference for all 94 CSS variables (colors, typography, radius, shadows, charts) |
 | [Authentication](docs/authentication.md) | Login, 2FA, user profile, avatar, user menu |
 | [Authorization](docs/authorization.md) | Policy contract, enforcement endpoints, UI flags |
-| [Configuration](docs/configuration.md) | Complete `config/martis.php` reference |
+| [Configuration](docs/configuration.md) | Complete `config/martis.php` reference + host `MartisServiceProvider` for code-side registrations |
 | [Loader](docs/loader.md) | Page loader configuration and customization |
 
 ### Architecture & API

@@ -117,10 +117,16 @@ export function NotificationBell() {
         aria-expanded={open}
       >
         <BellIcon size={16} />
-        {unreadCount > 0 && <span className="martis-notif-dot" />}
+        {unreadCount > 0 && (
+          <span className="martis-notif-count" aria-label={`${unreadCount} unread`}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
       </button>
 
       {open && (
+        <>
+          <span className="martis-notif-arrow" aria-hidden="true" />
         <div className="martis-notif-panel" role="dialog" aria-label={t('notifications', 'Notifications')}>
           <header className="martis-notif-head">
             <strong>{t('notifications', 'Notifications')}</strong>
@@ -213,6 +219,7 @@ export function NotificationBell() {
             })}
           </div>
         </div>
+        </>
       )}
     </div>
   )

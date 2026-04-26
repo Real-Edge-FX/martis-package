@@ -7,6 +7,7 @@ use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Martis\Cache\MartisCache;
 use Martis\Contracts\MetricContract;
 use Martis\Enums\CardStyle;
 use Martis\Enums\MetricType;
@@ -236,19 +237,24 @@ abstract class Metric implements MetricContract
     {
         $cacheFor = $this->cacheFor();
 
-        // Fall back to global config cache TTL (Martis extension)
-        if ($cacheFor === null) {
-            try {
-                $globalTtl = config('martis.cache.metrics');
-                if ($globalTtl !== null) {
-                    $cacheFor = now()->addMinutes((int) $globalTtl);
-                }
-            } catch (\Throwable) {
-                // Config not available outside Laravel app (e.g. unit tests)
-            }
+        // Per-class `cacheFor()` short-circuits the global Martis cache —
+        // honour it directly and skip the centralized layer so users
+        // overriding the method retain full control.
+        if ($cacheFor !== null) {
+            $range = $request->query('range', '30');
+            $filters = $request->query('filters', '');
+            $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
+
+            return Cache::remember($cacheKey, $cacheFor, fn () => $this->resolveResult($request));
         }
 
-        if ($cacheFor === null) {
+        // Fall through to the central MartisCache so the runtime kill-
+        // switch ("cache.metrics.enabled = false", `martis:cache:disable
+        // metrics`, `?nocache=1`) and the master switch all apply.
+        try {
+            $cache = app(MartisCache::class);
+        } catch (\Throwable) {
+            // Outside Laravel (raw unit tests) — fall back to direct compute.
             return $this->resolveResult($request);
         }
 
@@ -258,9 +264,9 @@ abstract class Metric implements MetricContract
         // partition slice names, progress summaries) stay in sync when the
         // user switches language — otherwise a cached payload keeps serving
         // the previous locale until the TTL expires.
-        $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
+        $key = md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
 
-        return Cache::remember($cacheKey, $cacheFor, fn () => $this->resolveResult($request));
+        return $cache->remember('metrics', $key, fn () => $this->resolveResult($request));
     }
 
     /**

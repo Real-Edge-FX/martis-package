@@ -1542,6 +1542,32 @@ html[data-reduced-motion="true"] *::after {
   border-radius: 50%;
   border: 2px solid var(--martis-topbar);
 }
+/* Discreet unread counter pill stamped on icon-buttons (bell). Replaces
+   the plain dot when the consumer wants the actual count visible. Same
+   anchor as the dot, sized for a single digit or the "9+" overflow. */
+.martis-tb-icon-btn .martis-notif-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  background: var(--martis-danger);
+  /* Hard-coded white because `--martis-danger-text` resolves to red in
+     some accent themes — the digit must stay legible on red fill. */
+  color: #fff;
+  border: 1.5px solid var(--martis-topbar);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: var(--martis-weight-semibold, 600);
+  font-family: var(--martis-font-sans);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+  pointer-events: none;
+}
 /* F7-21 — public notification dot. Generic pulsing-free indicator that
    any icon-button (topbar bell, sidebar item with unread, drawer
    toolbar) can stamp on top of itself. The selector inside
@@ -4323,6 +4349,37 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   border-top-color: var(--martis-surface) !important;
 }
 
+/* Reduced-motion edge case: PrimeReact may add the
+   `p-overlaypanel-flipped` class even when the panel does not
+   actually flip — the entrance transition is clamped to 1ms and
+   the panel-position calculator runs against unstable measurements,
+   leaving both the inline `--overlayArrowLeft` custom property and
+   the resulting `left` at off-screen values (~11000 px). Result:
+   the arrow disappears from sight. We re-anchor the flipped-state
+   arrow with `right` (independent of the broken variable) and
+   reuse the default arrow geometry so the pointer stays visible
+   under the gear icon. The Preferences panel is always
+   right-aligned to its trigger, so a fixed right anchor lines up
+   with the gear regardless of viewport width. */
+.p-overlaypanel.p-overlaypanel-flipped::before,
+.p-overlaypanel.p-overlaypanel-flipped::after {
+  left: auto !important;
+  margin-left: 0 !important;
+  bottom: 100% !important;
+  top: auto !important;
+  border-color: transparent !important;
+}
+.p-overlaypanel.p-overlaypanel-flipped::before {
+  right: 14px !important;
+  border-bottom-color: var(--martis-border) !important;
+  border-width: 0 10px 10px 10px !important;
+}
+.p-overlaypanel.p-overlaypanel-flipped::after {
+  right: 16px !important;
+  border-bottom-color: var(--martis-surface) !important;
+  border-width: 0 8px 8px 8px !important;
+}
+
 /* ── PrimeReact Tooltip overlay z-index + max width.
    Visual styling (font / padding / border / arrow / duration) lives in
    the F7-38 spec block further down. */
@@ -6842,6 +6899,44 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   animation: martis-notif-panel-in 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
   transform-origin: top right;
 }
+/* Triangle pointer connecting the panel to the bell icon button.
+   Rendered as a sibling of `.martis-notif-panel` so the panel itself
+   keeps `overflow: hidden` (rounded corner clipping for unread/hover
+   backgrounds). The bell button is 34px wide and the panel anchors
+   `right: 0` to the same wrapper, so centring the arrow at `right:
+   13px` lines it up under the middle of the bell. */
+.martis-notif-arrow {
+  position: absolute;
+  top: calc(100% + 1px);
+  right: 13px;
+  width: 16px;
+  height: 8px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: martis-notif-panel-in 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  transform-origin: top right;
+}
+.martis-notif-arrow::before,
+.martis-notif-arrow::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-color: transparent;
+}
+.martis-notif-arrow::before {
+  top: 0;
+  left: 0;
+  border-width: 0 8px 8px 8px;
+  border-bottom-color: var(--martis-border);
+}
+.martis-notif-arrow::after {
+  top: 1px;
+  left: 1px;
+  border-width: 0 7px 7px 7px;
+  border-bottom-color: var(--martis-surface);
+}
 @keyframes martis-notif-panel-in {
   from {
     opacity: 0;
@@ -6972,4 +7067,211 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
 .martis-notif-dismiss:hover {
   background: var(--martis-hover);
   color: var(--martis-danger);
+}
+
+
+/* v0.8 — Task 17: cache admin page styles. Renders the four Martis
+   cache layers in a status table with toggle/clear/reset controls.
+   Reuses existing `.martis-card` / `.martis-btn-ghost` primitives;
+   the bespoke classes here just glue the table together.
+   Density-aware: paddings/row heights adapt to `[data-density]`.
+   Reduced-motion-aware: every animation duration uses Martis tokens
+   that clamp to 1ms under `prefers-reduced-motion` / the explicit
+   `[data-reduced-motion="true"]` flag. */
+.martis-cache-admin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--martis-gap, 14px);
+  padding: var(--martis-pad-y, 18px) var(--martis-pad-x, 20px);
+}
+.martis-cache-admin__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--martis-gap, 14px);
+  flex-wrap: wrap;
+}
+.martis-cache-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--martis-radius-md);
+  font-size: var(--martis-text-sm);
+  font-weight: var(--martis-weight-medium, 500);
+  border: 1px solid var(--martis-border);
+}
+.martis-cache-banner.is-on {
+  background: color-mix(in srgb, var(--martis-success) 12%, transparent);
+  color: var(--martis-success);
+  border-color: color-mix(in srgb, var(--martis-success) 30%, var(--martis-border));
+}
+.martis-cache-banner.is-off {
+  background: color-mix(in srgb, var(--martis-warning) 12%, transparent);
+  color: var(--martis-warning);
+  border-color: color-mix(in srgb, var(--martis-warning) 30%, var(--martis-border));
+}
+.martis-cache-table-wrap {
+  padding: 0;
+  /* Allow horizontal scroll on small viewports — keeps the 8-column
+     layout intact instead of crushing it. The card itself preserves
+     its rounded corners via `border-radius` on the wrap. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.martis-cache-table {
+  width: 100%;
+  min-width: 720px; /* below this, the wrapper scrolls horizontally */
+  border-collapse: collapse;
+  font-size: var(--martis-text-sm);
+  color: var(--martis-text);
+}
+.martis-cache-table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-semibold, 600);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--martis-text-muted);
+  background: var(--martis-card);
+  border-bottom: 1px solid var(--martis-border);
+  white-space: nowrap;
+}
+.martis-cache-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--martis-border);
+  vertical-align: middle;
+}
+/* Density: rows tighten in dense mode to match `.martis-datatable`
+   spacing. Header height stays unchanged — same rule as the rest of
+   the design system. */
+html[data-density="dense"] .martis-cache-table tbody td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+html[data-density="dense"] .martis-cache-admin {
+  gap: var(--martis-gap, 10px);
+}
+.martis-cache-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.martis-cache-table tbody tr[data-state="off"] td {
+  color: var(--martis-text-muted);
+}
+.martis-cache-table tbody tr[data-state="off"] td strong {
+  color: var(--martis-text-muted);
+}
+.martis-cache-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-semibold, 600);
+  letter-spacing: 0.02em;
+}
+.martis-cache-pill.is-on {
+  background: color-mix(in srgb, var(--martis-success) 18%, transparent);
+  color: var(--martis-success);
+}
+.martis-cache-pill.is-off {
+  background: color-mix(in srgb, var(--martis-text-muted) 18%, transparent);
+  color: var(--martis-text-muted);
+}
+.martis-cache-runtime {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium, 500);
+  border: 1px dashed transparent;
+}
+.martis-cache-runtime.is-default {
+  color: var(--martis-text-muted);
+  border-color: var(--martis-border);
+}
+.martis-cache-runtime.is-on {
+  color: var(--martis-success);
+  border-color: color-mix(in srgb, var(--martis-success) 40%, var(--martis-border));
+}
+.martis-cache-runtime.is-off {
+  color: var(--martis-warning);
+  border-color: color-mix(in srgb, var(--martis-warning) 40%, var(--martis-border));
+}
+.martis-cache-cleared-at {
+  font-family: var(--martis-font-mono);
+  font-size: 11px;
+  color: var(--martis-text-muted);
+  white-space: nowrap;
+}
+/* The actions column wraps the buttons inside a flex `div` so the
+   surrounding `<td>` keeps `display: table-cell` and stays aligned with
+   the rest of the columns. Putting `inline-flex` directly on the td
+   collapses the cell width and breaks the row borders. */
+.martis-cache-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+.martis-cache-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/* Mobile / narrow viewports: the page already scrolls horizontally
+   inside the table wrap, but the page chrome itself can still tighten
+   so the title stops crowding the "Clear all" button on phone-width
+   screens. */
+@media (max-width: 640px) {
+  .martis-cache-admin {
+    padding: 14px 16px;
+  }
+  .martis-cache-admin__head {
+    align-items: stretch;
+  }
+  .martis-cache-admin__head > .martis-btn {
+    align-self: flex-start;
+  }
+}
+/* Toggle button — green when ON, muted when OFF, with a clearly
+   different background bubble so the state is obvious at a glance.
+   Transitions use Martis duration tokens which clamp to 1ms under
+   reduced motion (no extra rule needed here). */
+.martis-cache-toggle {
+  width: 28px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--martis-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--martis-dur-fast, 120ms) var(--martis-ease-standard, ease),
+              color var(--martis-dur-fast, 120ms) var(--martis-ease-standard, ease);
+}
+html[data-density="dense"] .martis-cache-toggle {
+  width: 24px;
+  height: 22px;
+}
+.martis-cache-toggle.is-on {
+  background: color-mix(in srgb, var(--martis-success) 15%, transparent);
+  color: var(--martis-success);
+}
+.martis-cache-toggle.is-on:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--martis-success) 25%, transparent);
+}
+.martis-cache-toggle.is-off {
+  background: color-mix(in srgb, var(--martis-text-muted) 12%, transparent);
+  color: var(--martis-text-muted);
+}
+.martis-cache-toggle.is-off:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--martis-text-muted) 20%, transparent);
+  color: var(--martis-text);
+}
+.martis-cache-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

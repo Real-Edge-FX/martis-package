@@ -4,9 +4,16 @@ namespace Martis;
 
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Martis\Cache\MartisCache;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
+use Martis\Console\CacheClearCommand;
+use Martis\Console\CacheDisableCommand;
+use Martis\Console\CacheEnableCommand;
+use Martis\Console\CacheStatusCommand;
 use Martis\Console\CardMakeCommand;
 use Martis\Console\DashboardMakeCommand;
 use Martis\Console\EndpointTableMakeCommand;
@@ -48,6 +55,13 @@ class MartisServiceProvider extends ServiceProvider
 
         $this->app->singleton(MartisManager::class);
         $this->app->singleton(TwoFactorService::class);
+
+        // Cache facade is bound during boot, but Cache::store() resolves
+        // through the manager which itself depends on config — safe to
+        // call lazily inside the closure.
+        $this->app->singleton(MartisCache::class, function (): MartisCache {
+            return new MartisCache(Cache::store());
+        });
     }
 
     /** Boot package services: routes, views, translations, assets, and console commands. */
@@ -55,6 +69,7 @@ class MartisServiceProvider extends ServiceProvider
     {
         $this->registerMiddlewareAlias();
         $this->registerExceptionHandling();
+        $this->registerCacheGate();
         $this->discoverResources();
 
         $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
@@ -84,6 +99,10 @@ class MartisServiceProvider extends ServiceProvider
                 EndpointTableMakeCommand::class,
                 DashboardMakeCommand::class,
                 LensMakeCommand::class,
+                CacheStatusCommand::class,
+                CacheClearCommand::class,
+                CacheDisableCommand::class,
+                CacheEnableCommand::class,
             ]);
 
             $this->publishes([
@@ -126,7 +145,39 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
             ], 'martis-preferences-migration');
+
+            // Task 17 — host-app MartisServiceProvider stub. Holds main
+            // menu / dashboards / cache layers / gate definitions —
+            // anything that can't live in `config/martis.php` because
+            // closures don't survive `config:cache`. The InstallCommand
+            // publishes this automatically and wires it into
+            // `bootstrap/providers.php`; the tag below lets advanced
+            // users republish it on demand.
+            $this->publishes([
+                __DIR__.'/../stubs/MartisServiceProvider.php.stub' => app_path('Providers/MartisServiceProvider.php'),
+            ], 'martis-provider');
         }
+    }
+
+    /**
+     * Register the default `manage-martis-cache` gate.
+     *
+     * Default behaviour: any authenticated user is allowed. Host apps
+     * should override this in their own service provider when they want
+     * to restrict the cache admin page to a subset of users:
+     *
+     *     Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
+     *
+     * Calling `Gate::define()` from the host app replaces the closure
+     * registered here, so order doesn't matter.
+     */
+    protected function registerCacheGate(): void
+    {
+        if (Gate::has('manage-martis-cache')) {
+            return;
+        }
+
+        Gate::define('manage-martis-cache', fn ($user) => $user !== null);
     }
 
     /** Register the custom exception handler for Martis routes. */

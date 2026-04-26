@@ -446,22 +446,58 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Cache — Martis Extension
+    | Cache — Martis Extension (Task 17 ⭐ runtime control)
     |--------------------------------------------------------------------------
     |
-    | Global cache TTL defaults for different Martis subsystems.
-    | Individual metrics can override via cacheFor() on the class.
-    | Set to null to disable caching for that area.
+    | Per-subsystem cache layer with three control planes:
+    |   1. Config (this file).
+    |   2. Env vars (override per environment).
+    |   3. Runtime (Artisan + admin panel — overrides survive restart, no
+    |      deploy required).
     |
-    | TTL values are in minutes.
+    | `enabled` is the master switch. When false, every Martis cache is
+    | bypassed regardless of per-type values.
+    |
+    | Each subsystem accepts the modern shape `['enabled' => bool, 'ttl' =>
+    | int|null]` (TTL in minutes, null means "no expiration"). The legacy
+    | shape — bare int = TTL with cache enabled, null = disabled — is still
+    | accepted for backward compatibility.
+    |
+    | Bypass per-request:
+    |   • Header `X-Martis-No-Cache: 1`
+    |   • Query param `?nocache=1`
     |
     */
 
     'cache' => [
-        'metrics' => env('MARTIS_CACHE_METRICS', 5),
-        'dashboards' => env('MARTIS_CACHE_DASHBOARDS', null),
-        'navigation' => env('MARTIS_CACHE_NAVIGATION', 1),
-        'schema' => env('MARTIS_CACHE_SCHEMA', null),
+        'enabled' => env('MARTIS_CACHE_ENABLED', true),
+
+        'metrics' => [
+            'enabled' => env('MARTIS_CACHE_METRICS_ENABLED', true),
+            'ttl' => env('MARTIS_CACHE_METRICS_TTL', env('MARTIS_CACHE_METRICS', 5)),
+        ],
+        'navigation' => [
+            'enabled' => env('MARTIS_CACHE_NAVIGATION_ENABLED', true),
+            'ttl' => env('MARTIS_CACHE_NAVIGATION_TTL', env('MARTIS_CACHE_NAVIGATION', 1)),
+        ],
+        'dashboards' => [
+            'enabled' => env('MARTIS_CACHE_DASHBOARDS_ENABLED', true),
+            'ttl' => env('MARTIS_CACHE_DASHBOARDS_TTL', env('MARTIS_CACHE_DASHBOARDS', null)),
+        ],
+        'schema' => [
+            'enabled' => env('MARTIS_CACHE_SCHEMA_ENABLED', true),
+            'ttl' => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null)),
+        ],
+
+        // When true, Martis registers `/api/cache/*` admin endpoints and
+        // surfaces the "Sistema → Cache" page. The Gate `manage-martis-cache`
+        // still has to pass for any user to actually reach the page; by
+        // default the gate allows any authenticated user — apps should
+        // tighten it in their `AppServiceProvider`:
+        //
+        //   Gate::define('manage-martis-cache', fn ($u) => $u->is_admin);
+        //
+        'admin_ui' => env('MARTIS_CACHE_ADMIN_UI', true),
     ],
 
     /*
