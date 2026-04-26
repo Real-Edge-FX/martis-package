@@ -159,9 +159,9 @@ class Password extends Field
      * when the incoming value is non-empty — a password-leave-blank update
      * remains valid.
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
-        $rules = parent::buildRules();
+        $rules = parent::buildRules($context);
 
         if ($this->minLength !== null) {
             $rules[] = 'min:'.$this->minLength;

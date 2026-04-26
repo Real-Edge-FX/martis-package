@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 
 /**
  * MultiSelect field — select multiple values from a predefined option list.
@@ -30,6 +31,13 @@ class MultiSelect extends Field
      */
     protected array $options = [];
 
+    /**
+     * Lazy resolver — set when `options()` was called with a Closure
+     * instead of an array. The closure runs at schema-render time so
+     * options can pull from the DB / config / current user.
+     */
+    protected ?\Closure $optionsResolver = null;
+
     protected bool $displayLabels = false;
 
     /**
@@ -51,21 +59,48 @@ class MultiSelect extends Field
     /**
      * Set the available options.
      *
-     * Accepts three formats:
+     * Accepts four formats:
      *   - Sequential: ['php', 'laravel']          (value used as label)
      *   - Associative: ['PHP' => 'php']            (label => value)
      *   - Grouped: ['Backend' => ['PHP' => 'php']] (group => [label => value])
+     *   - Closure: fn (Request|null $r) => [...]   (any of the above shapes)
      *
-     * @param  array<string, scalar|array<string, scalar>>|list<scalar>  $options
+     * The closure form is evaluated lazily via `getOptions()` — perfect
+     * for options that come from the database, depend on the active
+     * user, or change per locale.
+     *
+     * @param  array<string, scalar|array<string, scalar>>|list<scalar>|\Closure(Request|null): array  $options
      */
-    public function options(array $options): static
+    public function options(array|\Closure $options): static
     {
-        $this->options = [];
+        if ($options instanceof \Closure) {
+            $this->optionsResolver = $options;
+            $this->options = [];
 
-        foreach ($options as $key => $value) {
+            return $this;
+        }
+
+        $this->optionsResolver = null;
+        $this->options = $this->normalizeOptions($options);
+
+        return $this;
+    }
+
+    /**
+     * Normalize a raw options array into the internal label/value/group
+     * shape. Extracted so the Closure path can reuse it.
+     *
+     * @param  array<int|string, scalar|array<string, scalar>>  $raw
+     * @return list<array{label: string, value: scalar, group?: string}>
+     */
+    protected function normalizeOptions(array $raw): array
+    {
+        $out = [];
+
+        foreach ($raw as $key => $value) {
             // Sequential
             if (is_int($key) && ! is_array($value)) {
-                $this->options[] = ['label' => (string) $value, 'value' => $value];
+                $out[] = ['label' => (string) $value, 'value' => $value];
 
                 continue;
             }
@@ -73,7 +108,7 @@ class MultiSelect extends Field
             // Grouped: key is group label, value is nested array
             if (is_string($key) && is_array($value)) {
                 foreach ($value as $label => $val) {
-                    $this->options[] = ['label' => (string) $label, 'value' => $val, 'group' => $key];
+                    $out[] = ['label' => (string) $label, 'value' => $val, 'group' => $key];
                 }
 
                 continue;
@@ -81,11 +116,11 @@ class MultiSelect extends Field
 
             // Associative: key is label, value is stored value
             if (is_string($key)) {
-                $this->options[] = ['label' => $key, 'value' => $value];
+                $out[] = ['label' => $key, 'value' => $value];
             }
         }
 
-        return $this;
+        return $out;
     }
 
     /**
@@ -121,6 +156,13 @@ class MultiSelect extends Field
      */
     public function getOptions(): array
     {
+        if ($this->optionsResolver !== null) {
+            $request = $this->safeRequest();
+            $resolved = ($this->optionsResolver)($request);
+
+            return is_array($resolved) ? $this->normalizeOptions($resolved) : [];
+        }
+
         return $this->options;
     }
 
@@ -144,6 +186,7 @@ class MultiSelect extends Field
                 $model->getAttribute($attribute ?? $this->attribute),
                 $model,
                 $attribute ?? $this->attribute,
+                $this->safeRequest(),
             );
         }
 
@@ -162,7 +205,7 @@ class MultiSelect extends Field
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->attribute);
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
             return;
         }
@@ -202,7 +245,7 @@ class MultiSelect extends Field
     protected function extraAttributes(): array
     {
         return [
-            'options' => $this->options,
+            'options' => $this->getOptions(),
             'displayLabels' => $this->displayLabels,
             'colorMap' => $this->colorMap,
         ];

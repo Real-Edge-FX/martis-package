@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Martis\Contracts\FieldContract;
@@ -95,17 +96,17 @@ class StubField implements FieldContract
         return ['attribute' => $this->attr, 'type' => 'text'];
     }
 
-    public function nullable(): static
+    public function nullable(bool|Closure $value = true): static
     {
         return $this;
     }
 
-    public function readonly(): static
+    public function readonly(bool|Closure $value = true): static
     {
         return $this;
     }
 
-    public function required(): static
+    public function required(bool|Closure $value = true): static
     {
         return $this;
     }
@@ -222,7 +223,7 @@ class StubField implements FieldContract
         return new static($attribute);
     }
 
-    public function placeholder(string $text): static
+    public function placeholder(string|Closure $text): static
     {
         return $this;
     }
@@ -247,12 +248,12 @@ class StubField implements FieldContract
         return false;
     }
 
-    public function rules(array $rules): static
+    public function rules(array|Closure $rules): static
     {
         return $this;
     }
 
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
         return [];
     }
@@ -267,7 +268,7 @@ class StubField implements FieldContract
         return $this;
     }
 
-    public function displayUsing(callable $callback): static
+    public function displayUsing(callable|array $callback): static
     {
         return $this;
     }
@@ -440,15 +441,16 @@ it('stickyView returns false when global config disables the feature', function 
 });
 
 it('stickyView returns false when the resource opts out via $stickyView = false', function () {
-    $cls = new class extends \Martis\Resource {
+    $cls = new class extends Martis\Resource
+    {
         protected static bool $stickyView = false;
 
         public static function model(): string
         {
-            return \Illuminate\Foundation\Auth\User::class;
+            return User::class;
         }
 
-        public function fields(\Illuminate\Http\Request $request): array
+        public function fields(Request $request): array
         {
             return [];
         }

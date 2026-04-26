@@ -237,7 +237,7 @@ class Tag extends Field
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)(null, $model, $this->relationship);
+            return ($this->resolveCallback)(null, $model, $this->relationship, $this->safeRequest());
         }
 
         if (! method_exists($model, $this->relationship)) {
@@ -269,7 +269,7 @@ class Tag extends Field
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->relationship);
+            ($this->fillCallback)($model, $value, $this->relationship, $this->safeRequest());
 
             return;
         }

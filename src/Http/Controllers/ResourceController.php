@@ -1265,8 +1265,20 @@ class ResourceController extends MartisController
      */
     private function fillFields(Request $request, array $fields, Model $model): void
     {
+        // `exists()` is the cheapest way to tell create from update at
+        // fill time — `$model->exists` is `true` once the record has
+        // a primary key (i.e. we're updating an existing row).
+        $isUpdate = $model->exists;
+
         foreach ($fields as $field) {
             $attr = $field->attribute();
+
+            // Immutable fields are writable on create, read-only on
+            // update. Silent skip mirrors the readonly path so the
+            // request is accepted but the model is not mutated.
+            if ($isUpdate && $field instanceof Field && $field->isImmutable()) {
+                continue;
+            }
 
             if ($field instanceof File && $field->isMultiple()) {
                 // Multiple file mode: gather new uploads + existing paths to keep
@@ -1446,8 +1458,10 @@ class ResourceController extends MartisController
         $rules = [];
         $attributes = [];
 
+        $context = $isUpdate ? 'update' : 'create';
+
         foreach ($fields as $field) {
-            $fieldRules = $field->buildRules();
+            $fieldRules = $field->buildRules($context);
 
             if ($isUpdate) {
                 // On update, fields are optional unless explicitly provided.

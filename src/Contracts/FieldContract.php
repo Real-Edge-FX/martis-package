@@ -85,26 +85,36 @@ interface FieldContract
     // -------------------------------------------------------------------------
 
     /**
-     * Mark this field as nullable.
-     */
-    public function nullable(): static;
-
-    /**
-     * Prevent this field from being modified through the UI.
-     */
-    public function readonly(): static;
-
-    /**
-     * Require a non-null value on create/update.
-     */
-    public function required(): static;
-
-    /**
-     * Set a placeholder text for the input.
+     * Mark this field as nullable. Accepts a static `bool` or a closure
+     * that resolves at request time.
      *
-     * @param  string  $text  The placeholder text to display in the input.
+     * @param  bool|\Closure(Request|null): bool  $value
      */
-    public function placeholder(string $text): static;
+    public function nullable(bool|\Closure $value = true): static;
+
+    /**
+     * Prevent this field from being modified through the UI. Accepts a
+     * static `bool` or a closure that resolves at request time.
+     *
+     * @param  bool|\Closure(Request|null): bool  $value
+     */
+    public function readonly(bool|\Closure $value = true): static;
+
+    /**
+     * Require a non-null value on create/update. Accepts a static
+     * `bool` or a closure that resolves at request time.
+     *
+     * @param  bool|\Closure(Request|null): bool  $value
+     */
+    public function required(bool|\Closure $value = true): static;
+
+    /**
+     * Set a placeholder text for the input. Accepts a static string or
+     * a closure that resolves at render time.
+     *
+     * @param  string|\Closure(Request|null): string  $text
+     */
+    public function placeholder(string|\Closure $text): static;
 
     /**
      * Mark this field as sortable on the index view.
@@ -350,16 +360,21 @@ interface FieldContract
     /**
      * Set validation rules for this field.
      *
-     * @param  list<string|Rule>  $rules  Laravel validation rules (strings or Rule objects).
+     * Accepts either a static list of Laravel rules (strings or Rule
+     * objects) or a closure that resolves at request time.
+     *
+     * @param  list<string|Rule>|\Closure(Request|null): list<string|Rule>  $rules
      */
-    public function rules(array $rules): static;
+    public function rules(array|\Closure $rules): static;
 
     /**
-     * Build the final validation rules array (merges required/nullable flags).
+     * Build the final validation rules array (merges required/nullable
+     * flags + context-specific rules from `creationRules()` /
+     * `updateRules()` when `$context` is `'create'` / `'update'`).
      *
      * @return list<string|Rule>
      */
-    public function buildRules(): array;
+    public function buildRules(?string $context = null): array;
 
     // -------------------------------------------------------------------------
     // Callbacks
@@ -368,23 +383,28 @@ interface FieldContract
     /**
      * Override how the value is resolved from the model.
      *
-     * @param  callable  $callback  Receives (Model $model, string $attribute); must return the resolved value.
+     * Callback signature: `fn(mixed $value, Model $model, string $attribute, ?Request $request): mixed`.
+     * The 4th argument is opt-in; closures declared with three parameters keep working.
      */
     public function resolveUsing(callable $callback): static;
 
     /**
      * Override how the value is filled into the model.
      *
-     * @param  callable  $callback  Receives (Model $model, mixed $value, string $attribute).
+     * Callback signature: `fn(Model $model, mixed $value, string $attribute, ?Request $request): void`.
+     * The 4th argument is opt-in; closures declared with three parameters keep working.
      */
     public function fillUsing(callable $callback): static;
 
     /**
      * Override how the resolved value is transformed for display.
      *
-     * @param  callable  $callback  Receives (mixed $value, Model $model, string $attribute); must return the display value.
+     * Single callable signature: `fn(mixed $value, Model $model, string $attribute, ?Request $request): mixed`.
+     * When passed an array, each entry receives the output of the previous one (chainable pipeline).
+     *
+     * @param  callable|list<callable>  $callback
      */
-    public function displayUsing(callable $callback): static;
+    public function displayUsing(callable|array $callback): static;
 
     // -------------------------------------------------------------------------
     // Serialization
