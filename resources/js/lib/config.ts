@@ -171,11 +171,29 @@ export interface MartisAuthControlsConfig {
   locale?: boolean
 }
 
+/** Per-provider SSO config (Task 14). The Login page renders one
+ *  button per enabled provider; the URL points at
+ *  `/{martis-path}/sso/{provider-name}/redirect`. */
+export interface MartisSsoProviderConfig {
+  /** Master switch for this provider. */
+  enabled?: boolean
+  /** Human-readable button label. */
+  label?: string | null
+  /** Phosphor icon name. */
+  icon?: string | null
+}
+
+export interface MartisSsoConfig {
+  /** Master switch — when `false`, no SSO buttons render and the
+   *  `/sso/*` routes are not registered server-side either. */
+  enabled?: boolean
+  /** Map of provider-name → per-provider config. */
+  providers?: Record<string, MartisSsoProviderConfig>
+}
+
 export interface MartisAuthConfig {
-  /** SSO sign-in button on the Login page. */
-  sso?: MartisAuthFlowConfig
-  /** Continue with Google button on the Login page. */
-  google?: MartisAuthFlowConfig
+  /** SSO subsystem. Replaces the legacy `sso` / `google` flat blocks. */
+  sso?: MartisSsoConfig
   /** "Forgot?" link next to the password label. */
   passwordReset?: MartisAuthFlowConfig
   /** Self-service registration — gates the `/register` route and the

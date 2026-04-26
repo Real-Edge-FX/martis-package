@@ -1,0 +1,44 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Adds the IdP group column to the `roles` table so the SSO role
+ * mapper can resolve external groups → local roles via:
+ *
+ *     Role::query()->whereIn('{{column_name}}', $externalNames)->get()
+ *
+ * When the `roles` table does not exist yet, the migration is a no-op
+ * and prints a notice. Run `vendor:publish` for spatie/laravel-permission
+ * (or your own role migration) first.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('roles')) {
+            return;
+        }
+
+        if (Schema::hasColumn('roles', '{{column_name}}')) {
+            return;
+        }
+
+        Schema::table('roles', function (Blueprint $table) {
+            $table->string('{{column_name}}')->nullable()->after('name')->index();
+        });
+    }
+
+    public function down(): void
+    {
+        if (! Schema::hasTable('roles') || ! Schema::hasColumn('roles', '{{column_name}}')) {
+            return;
+        }
+
+        Schema::table('roles', function (Blueprint $table) {
+            $table->dropColumn('{{column_name}}');
+        });
+    }
+};

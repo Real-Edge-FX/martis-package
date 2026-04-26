@@ -415,14 +415,61 @@ return [
     |
     */
     'auth' => [
+        /*
+        |----------------------------------------------------------------------
+        | SSO Subsystem (Task 14 ⭐ differential)
+        |----------------------------------------------------------------------
+        |
+        | Per-provider SSO with three orthogonal configuration axes:
+        |
+        |   role_source        — where external roles come from
+        |                        (`groups`, `app_role_assignments`, `callable`)
+        |   role_strategy      — how to map external → local roles
+        |                        (`column`, `config`, `callable`)
+        |   permission_adapter — how to write the local roles back onto
+        |                        the user (`auto`, `spatie`, `native`,
+        |                        `callable`)
+        |
+        | Use `php artisan martis:sso azure` to scaffold a provider
+        | block, or hand-craft any combination here. See `docs/sso.md`
+        | for the full reference and the four canonical recipes.
+        */
         'sso' => [
-            'enabled' => env('MARTIS_AUTH_SSO_ENABLED', false),
-            'url' => env('MARTIS_AUTH_SSO_URL'),
+            'enabled' => env('MARTIS_SSO_ENABLED', false),
+
+            'providers' => [
+                // Microsoft Azure AD example block — flip MARTIS_SSO_AZURE_ENABLED
+                // and fill the AZURE_* env vars to activate.
+                // 'azure' => [
+                //     'enabled' => env('MARTIS_SSO_AZURE_ENABLED', false),
+                //     'driver' => 'azure',
+                //     'label' => 'Continue with Microsoft',
+                //     'icon' => 'microsoft-outlook-logo',
+                //     'scopes' => [
+                //         'openid', 'profile', 'email',
+                //         'GroupMember.Read.All',
+                //         'User.ReadBasic.All',
+                //     ],
+                //
+                //     'role_source' => 'app_role_assignments',
+                //     'resource_id' => env('AZURE_RESOURCE_ID'),
+                //
+                //     'role_strategy' => 'column',
+                //     'role_column' => 'azure_group_name',
+                //
+                //     'auto_create_user' => true,
+                //     'identity_match_attribute' => 'email',
+                //     'sync_user_attributes' => ['name', 'email'],
+                //
+                //     'sync_roles' => true,
+                //     'permission_adapter' => 'auto',
+                //
+                //     'on_no_role_match' => 'deny',
+                //     'redirect_to' => null,
+                // ],
+            ],
         ],
-        'google' => [
-            'enabled' => env('MARTIS_AUTH_GOOGLE_ENABLED', false),
-            'url' => env('MARTIS_AUTH_GOOGLE_URL'),
-        ],
+
         'passwordReset' => [
             'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
             'url' => env('MARTIS_AUTH_PASSWORD_RESET_URL'),

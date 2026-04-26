@@ -5,8 +5,10 @@ import { useToast } from "@/contexts/ToastContext"
 import { ApiError } from "@/lib/api"
 import { config } from "@/lib/config"
 import { useTranslation } from "react-i18next"
-import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon, GoogleLogoIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { AuthFrame } from "@/components/auth/AuthFrame"
+import { ResourceIcon } from "@/components/ResourceIcon"
+import { BASE_PATH } from "@/lib/config"
 
 /** Tiny helper so the same rule applies to every optional auth flow:
  *  a flow is "active" when the consumer has flipped its `enabled` flag.
@@ -29,13 +31,13 @@ export function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  const sso = config.auth?.sso
-  const google = config.auth?.google
   const passwordReset = config.auth?.passwordReset
   const registration = config.auth?.registration
-  const showSso = isFlowEnabled(sso)
-  const showGoogle = isFlowEnabled(google)
-  const showDivider = showSso || showGoogle
+  const ssoEnabled = config.auth?.sso?.enabled === true
+  const ssoProviders = ssoEnabled
+    ? Object.entries(config.auth?.sso?.providers ?? {}).filter(([, p]) => p?.enabled === true)
+    : []
+  const showDivider = ssoProviders.length > 0
   const showForgot = isFlowEnabled(passwordReset)
   const showRegister = isFlowEnabled(registration)
 
@@ -106,28 +108,22 @@ export function LoginPage() {
           : t('login_sub', { defaultValue: 'Welcome back. Use your email and password to continue.' })}
       </p>
 
-      {showSso && (
+      {ssoProviders.map(([providerName, provider], idx) => (
         <button
+          key={providerName}
           type="button"
-          onClick={() => handleFlowClick(sso)}
+          onClick={() => {
+            window.location.href = `${BASE_PATH}/sso/${providerName}/redirect`
+          }}
           className="martis-btn-secondary"
-          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: 18 }}
+          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: idx === 0 ? 18 : 8 }}
         >
-          <BuildingsIcon size={14} />
-          {t('continue_with_sso', { defaultValue: 'Continue with SSO' })}
+          {provider.icon
+            ? <ResourceIcon iconName={provider.icon} size={14} />
+            : <BuildingsIcon size={14} />}
+          {provider.label ?? t('continue_with', { provider: providerName, defaultValue: `Continue with ${providerName}` })}
         </button>
-      )}
-      {showGoogle && (
-        <button
-          type="button"
-          onClick={() => handleFlowClick(google)}
-          className="martis-btn-secondary"
-          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: showSso ? 8 : 18 }}
-        >
-          <GoogleLogoIcon size={14} />
-          {t('continue_with_google', { defaultValue: 'Continue with Google' })}
-        </button>
-      )}
+      ))}
 
       {showDivider && (
         <div className="martis-auth-divider">

@@ -28,6 +28,7 @@ use Martis\Console\InstallCommand;
 use Martis\Console\LensMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ResourceMakeCommand;
+use Martis\Console\SsoMakeCommand;
 use Martis\Console\ThemeMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\VendorPublishCommand;
@@ -62,6 +63,8 @@ class MartisServiceProvider extends ServiceProvider
         $this->app->singleton(MartisCache::class, function (): MartisCache {
             return new MartisCache(Cache::store());
         });
+
+        $this->app->singleton(\Martis\Sso\SsoManager::class);
     }
 
     /** Boot package services: routes, views, translations, assets, and console commands. */
@@ -103,6 +106,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheClearCommand::class,
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
+                SsoMakeCommand::class,
             ]);
 
             $this->publishes([
