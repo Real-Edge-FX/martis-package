@@ -14,6 +14,11 @@ return [
     'error_restore' => 'Erro ao restaurar registo.',
     'error_forbidden' => 'Não tem permissão para executar esta acção.',
     'error_throttled' => 'Demasiadas tentativas. Tente novamente num momento.',
+    // Títulos de severidade dos toasts
+    'toast_success' => 'Sucesso',
+    'toast_error' => 'Erro',
+    'toast_warning' => 'Aviso',
+    'toast_info' => 'Informação',
     // Editor de texto rico (Trix)
     'trix_attach' => 'Anexar ficheiros',
     'trix_bold' => 'Negrito',

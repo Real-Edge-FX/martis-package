@@ -14,6 +14,11 @@ return [
     'error_restore' => 'Error restoring record.',
     'error_forbidden' => 'You are not authorized to perform this action.',
     'error_throttled' => 'Too many attempts. Please try again in a moment.',
+    // Toast severity titles
+    'toast_success' => 'Success',
+    'toast_error' => 'Error',
+    'toast_warning' => 'Warning',
+    'toast_info' => 'Info',
     // Trix rich-text editor toolbar
     'trix_attach' => 'Attach Files',
     'trix_bold' => 'Bold',
