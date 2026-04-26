@@ -40,4 +40,5 @@ return [
     'palette_records' => 'Registos',
     'palette_toggle' => 'alternar',
     'palette_results' => '{{count}} resultados',
+    'palette_view_all' => 'Ver todos os {{count}} em {{resource}}',
 ];

@@ -10,6 +10,7 @@ import {
   LightningIcon,
   ClockCounterClockwiseIcon,
   FileIcon,
+  ArrowRightIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { isMacPlatform } from "@/lib/platform"
@@ -62,6 +63,11 @@ interface SearchRecordGroup {
   resource: string
   label: string
   items: SearchRecordItem[]
+  /** Total matches in the resource — present only when the returned set
+   *  hit the resource's per-search limit. Used to render the "View all"
+   *  footer item with the real count. */
+  total?: number
+  viewAllUrl: string
 }
 
 interface SearchRecordsResponse {
@@ -73,6 +79,7 @@ type PaletteItem =
   | { kind: 'action'; label: string; hint: string | null; url: string; icon: string | null; destructive: boolean }
   | { kind: 'recent'; label: string; hint: string | null; url: string | null; icon: ReactNode }
   | { kind: 'record'; label: string; hint: string | null; url: string }
+  | { kind: 'view-all'; label: string; hint: string | null; url: string }
 
 interface PaletteSection {
   label: string
@@ -173,16 +180,35 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     sections.push({ label: t('palette_recent', 'Recent activity'), items: recentItems })
   }
 
-  const recordItems: PaletteItem[] = (searchResponse?.results ?? []).flatMap((group) =>
-    group.items.map<PaletteItem>((item) => ({
+  // ⭐ Differential 2 — render each resource as its own section with a
+  // trailing "View all N matches in {resource}" item when the backend
+  // signalled overflow (`total` present + > items.length). Promotes
+  // discoverability when a query has dozens of hits without forcing
+  // the user to leave the palette.
+  for (const group of searchResponse?.results ?? []) {
+    const groupItems: PaletteItem[] = group.items.map<PaletteItem>((item) => ({
       kind: 'record',
       label: item.title,
       hint: item.subtitle ?? group.label,
       url: item.url,
-    })),
-  )
-  if (recordItems.length > 0) {
-    sections.push({ label: t('palette_records', 'Records'), items: recordItems })
+    }))
+
+    if (typeof group.total === 'number' && group.total > group.items.length) {
+      groupItems.push({
+        kind: 'view-all',
+        label: t('palette_view_all', {
+          count: group.total,
+          resource: group.label,
+          defaultValue: 'View all {{count}} in {{resource}}',
+        }),
+        hint: null,
+        url: group.viewAllUrl,
+      })
+    }
+
+    if (groupItems.length > 0) {
+      sections.push({ label: group.label, items: groupItems })
+    }
   }
 
   // Flatten for keyboard navigation — the click targets must line up with
@@ -276,7 +302,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
             </div>
           ))}
 
-          {searchingRecords && recordItems.length === 0 && debouncedQuery.length >= MIN_QUERY_LEN_RECORDS && (
+          {searchingRecords && (searchResponse?.results.length ?? 0) === 0 && debouncedQuery.length >= MIN_QUERY_LEN_RECORDS && (
             <div className="martis-cmdk-empty">
               {t('searching', 'Searching...')}
             </div>
@@ -313,6 +339,9 @@ function renderItemIcon(item: PaletteItem): ReactNode {
   }
   if (item.kind === 'record') {
     return <FileIcon size={16} />
+  }
+  if (item.kind === 'view-all') {
+    return <ArrowRightIcon size={16} weight="bold" />
   }
   return item.icon ?? <ClockCounterClockwiseIcon size={16} />
 }
