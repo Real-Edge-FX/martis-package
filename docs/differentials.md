@@ -836,6 +836,61 @@ Configurable avatar storage with thumbnail preview:
 ],
 ```
 
+### SSO Subsystem (⭐ Martis 100% differential)
+
+> Pluggable single sign-on with Azure AD, Google, GitHub, or any custom provider — config-driven, role-mapping built-in, Spatie/laravel-permission auto-detected, generator scaffolds the entire flow with one command.
+
+Most Laravel admin packages either bundle one provider with hard-coded behaviour, or hand off to the host app entirely. Martis splits SSO into **three orthogonal axes** that compose freely:
+
+| Axis | Values | What it controls |
+|---|---|---|
+| `role_source` | `groups` / `app_role_assignments` / `callable` | Where external role names come from |
+| `role_strategy` | `column` / `config` / `callable` | How external names map to local roles |
+| `permission_adapter` | `auto` / `spatie` / `native` / `callable` | How resolved roles get written onto the user |
+
+#### Generator command
+
+```bash
+php artisan martis:sso azure --with-spatie --with-migration
+```
+
+Scaffolds the provider end-to-end: config block, env stubs, optional `azure_group_name` migration on the `roles` table, and printed next steps (composer require, Azure portal config). After the user fills in `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`, the **Continue with Microsoft** button auto-renders on the login page. Zero code changes.
+
+#### Five host-app hooks
+
+```php
+use Martis\Sso\Facades\MartisSso;
+
+MartisSso::resolveUserUsing(fn ($identity, $provider) => User::firstOrCreate(...));
+MartisSso::resolveRolesUsing(fn ($externalRoles, $user, $provider) => Role::whereIn(...)->get());
+MartisSso::syncRolesUsing(fn ($user, $roles) => $user->syncRoles($roles));
+MartisSso::afterLogin(fn ($user, $identity, $provider) => AuditLog::record(...));
+MartisSso::onNoRoleMatchUsing(fn ($identity, $provider) => redirect(...)->withErrors(...));
+```
+
+#### Migration win
+
+Apps with a 200-line custom `AzureOauthController` (Socialite scopes, Microsoft Graph fetch, find-or-create, role attach/detach, custom main_role flag, soft-delete restore, type derivation) collapse to **~30 lines** in `MartisServiceProvider`. See `docs/sso.md → "Migration from a custom OAuth controller"`.
+
+#### Spatie integration is automatic
+
+`permission_adapter = 'auto'` (default) detects `spatie/laravel-permission` via `class_exists()` and routes role sync through `$user->syncRoles($collection)`. Apps without Spatie use the `NativeAdapter` against the standard `model_has_roles` schema. Apps with bespoke schemas use `permission_adapter = 'callable'` + `MartisSso::syncRolesUsing(...)`.
+
+#### Per-environment role mapping via env
+
+Roles change between QA / Staging / Production. Map once in config, override per env:
+
+```php
+'role_map' => [
+    'admin' => env('AZURE_GROUP_ROLE_ADMIN'),
+    'sales_rep' => env('AZURE_GROUP_ROLE_SALES_REP'),
+],
+```
+
+`.env.qa` and `.env.production` carry different group identifiers. The mapper resolves through env, no code change to ship a new environment.
+
+Full reference: `docs/sso.md`.
+
 ---
 
 ## Frontend Utilities
