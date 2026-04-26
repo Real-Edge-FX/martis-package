@@ -186,8 +186,10 @@ Skip flags for CI / production deploys:
 | Flag | What it skips |
 |---|---|
 | `--no-composer` | Composer require step (deps must already be installed) |
-| `--no-listener` | Auto-registering the Socialite listener |
+| `--no-publish-spatie` | Spatie's `vendor:publish` (config + migrations) |
+| `--no-listener` | Auto-registering the Socialite listener in `AppServiceProvider::boot()` |
 | `--no-migrate` | The `php artisan migrate` step |
+| `--no-map` | The interactive role-mapping prompt |
 
 ### Step 2 — Register the app in the Azure portal
 
@@ -626,27 +628,59 @@ The `provider` segment is **whatever the user registered** — `azure`, `google`
 
 ```bash
 php artisan martis:sso <provider>
+    # Behaviour flags
     [--with-spatie]
     [--with-migration]
     [--strategy=column|config|callable]
     [--no-auto-create-user]
     [--custom]
+    # Skip flags (opt-out of automated steps)
+    [--no-composer]
+    [--no-publish-spatie]
+    [--no-listener]
+    [--no-migrate]
+    [--no-map]
 ```
+
+### Behaviour flags
 
 | Flag | Meaning |
 |---|---|
-| `--with-spatie` | Defaults `permission_adapter` to `'spatie'` in the generated config. |
+| `--with-spatie` | Installs `spatie/laravel-permission` (when missing), runs Spatie's `vendor:publish`, sets `permission_adapter = 'spatie'` in the generated config. |
 | `--with-migration` | Publishes a migration adding `{provider}_group_name` to `roles`. No-op if `roles` doesn't exist. |
 | `--strategy` | Sets the default `role_strategy` (default `column`). |
 | `--no-auto-create-user` | Sets `auto_create_user = false` in the generated config. |
 | `--custom` | Skips the validation that the provider is one of `azure / google / github`. Use when registering a custom provider via `MartisSso::extend()`. |
+
+### Skip flags
+
+| Flag | Skips |
+|---|---|
+| `--no-composer` | The `composer require` step (deps must already be installed). |
+| `--no-publish-spatie` | Spatie's `vendor:publish` (config + migrations). |
+| `--no-listener` | Auto-registering the Socialite extension listener in `AppServiceProvider::boot()`. Azure-only — has no effect on other providers. |
+| `--no-migrate` | The `php artisan migrate` step. |
+| `--no-map` | The interactive prompt that maps existing Spatie roles to provider display names. |
 
 Built-in scaffolding shapes for `azure`, `google`, `github` differ in:
 - Default scopes
 - Default `role_source` (Azure → `app_role_assignments`, others → `callable`)
 - Button label and icon
 
-The generator is idempotent — re-running with the same provider name does NOT duplicate the config block. To refresh the block, delete it manually and re-run.
+### Idempotency
+
+The generator is fully idempotent. Re-running with the same provider name on a fully-configured project is a no-op:
+
+| Step | What "already done" looks like |
+|---|---|
+| Composer require | All packages already declared in `composer.json` |
+| Config block | `'azure' => [` already present in `config/martis.php` |
+| Env vars | Each `MARTIS_SSO_*` / `AZURE_*` line already in `.env` |
+| Listener | `MicrosoftExtendSocialite` string already in `AppServiceProvider.php` |
+| Spatie publish | `config/permission.php` AND `*_create_permission_tables.php` already exist |
+| Martis migration | A matching `*_add_{provider}_group_name_to_roles_table.php` already published |
+| Migrate | Standard Laravel — no pending migrations is a no-op |
+| Role mapping | Empty input keeps current value; same input is no-op |
 
 ---
 
