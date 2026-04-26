@@ -560,3 +560,111 @@ See [fields.md § MorphToMany](fields.md#morphtomany) for the full API.
 | Polymorphic has-one (single child across types) | `MorphOne` |
 | Polymorphic has-many (many children across types) | `MorphMany` |
 | Polymorphic many-to-many with pivot | `MorphToMany` |
+
+## Hardening — guaranteed behaviour matrix (Task 10)
+
+The Task 10 hardening pass codified the contract every relationship surface guarantees. Each row below has a feature test in `tests/Feature/`. Use this as your spec when building or migrating a relationship-heavy resource.
+
+### Per-type controller behaviour
+
+| Behaviour | HasMany | HasOne | BelongsToMany | MorphMany | MorphOne | MorphToMany |
+|---|---|---|---|---|---|---|
+| Listing scoped to parent | ✅ | n/a (single) | ✅ | ✅ | n/a (single) | ✅ |
+| **Cross-type isolation** (same ID, different morph type) | n/a | n/a | n/a | ✅ | ✅ | ✅ |
+| Pagination + per-page | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
+| Search (against searchable fields on the related resource) | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
+| Sort (asc / desc on sortable fields) | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
+| Inline create / store with FK or morph keys auto-filled | ✅ | ✅ | ✅ (attach) | ✅ | ✅ | ✅ (attach) |
+| Update preserves FK / morph keys | ✅ | ✅ | n/a | ✅ | ✅ | n/a |
+| Delete / detach scoped — never touches another parent's records | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 404 on unknown parent / record / relationship | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 422 on missing required input | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### Pivot data API (BelongsToMany & MorphToMany)
+
+Pivot fields declared via `->fields(fn () => [Number::make('weight'), ...])` round-trip through three surfaces:
+
+| Surface | Body shape | Notes |
+|---|---|---|
+| Index response | `data[*]._pivot` | Pivot keys are merged into `_pivot` on each related row. Underscore prefix is intentional — keeps them visually distinct from real columns. |
+| Attach | flat keys at top level: `{ related_id: X, weight: 12 }` | Pivot fields read directly from request input via `extractPivotData()`. |
+| Update pivot (`PUT .../{relatedId}/pivot`) | flat keys at top level: `{ weight: 99 }` | Same shape as attach — no nested `pivot` key. |
+
+### Multi-relations to the same target model
+
+A resource can declare multiple `BelongsTo` / `HasMany` / `BelongsToMany` fields whose related model is the same class. The hardening pass guarantees they stay isolated:
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        BelongsTo::make('manager', 'Manager')->relatedResource('users'),
+        BelongsTo::make('lead', 'Lead')->relatedResource('users'),
+    ];
+}
+```
+
+- Each field has its own `attribute()` (the foreign key — `manager_id` and `lead_id`).
+- `/relatable/{attribute}` resolves the right field independently.
+- The detail payload serializes both relations with their own values.
+- `relatable{PluralModelName}(Request, Builder, ?FieldContract)` accepts an optional third parameter — when present, the resolver passes the active field instance so the hook can branch per-field:
+
+```php
+public static function relatableUsers(Request $request, Builder $query, ?FieldContract $field = null): Builder
+{
+    return match ($field?->attribute()) {
+        'manager_id' => $query->where('role', 'manager'),
+        'lead_id'    => $query->where('role', 'lead'),
+        default      => $query,
+    };
+}
+```
+
+### Relatable scoping precedence
+
+When the relatable list is computed, scopes apply in this order:
+
+1. **`relatable{PluralModelName}` on the source resource** (specific override, gets passed the field).
+2. **`relatableQuery` on the target resource** (generic fallback, applies whenever the source did not override).
+3. **Field-level `relatableQueryUsing(fn ($request, $query) => ...)`** (BelongsTo / BelongsToMany).
+4. **Field-level `withoutTrashed()`** (BelongsTo / BelongsToMany when the model uses `SoftDeletes`).
+
+Each layer is composable — declaring a scope at one layer does not disable the others.
+
+### Polymorphic cross-type isolation
+
+For every morph relation (`MorphMany`, `MorphOne`, `MorphToMany`), the controllers scope reads, writes, and deletes by `{morph_type, morph_id}` together — never by `morph_id` alone. Concrete guarantees:
+
+- Listing comments on a `Post` never includes comments belonging to a `Video` with the same numeric id.
+- Updating a comment via `/morph-many/comments/{id}` from the wrong parent type returns 404, the comment is not modified.
+- Detaching a tag via `/morph-to-many/tags/{id}/detach` only removes attachments where `taggable_type` matches the parent class.
+- `MorphOneController::destroy` never deletes a sibling morph type's relation that happens to share the same `imageable_id`.
+
+### Detach idempotency
+
+`DELETE /belongs-to-many/{relatedId}/detach` and `DELETE /morph-to-many/{relatedId}/detach` are safe to retry. Detaching a record that was never attached returns 200, 204, 404, or 422 — **never 500**. Useful in retry-prone surfaces (mass detach, optimistic UI rollback).
+
+### Error matrix
+
+| Status | When |
+|---|---|
+| `200` / `201` / `204` | Success. |
+| `403` | Policy / `authorizedToCreate` / `authorizedToView` denial. |
+| `404` | Unknown source resource, unknown parent record, unknown relationship name, OR a related id that exists in the DB but does not belong to this morph parent. |
+| `422` | Validation failure (missing required field, missing `related_id`, invalid pivot data). |
+| `500` | Bug — please file an issue. |
+
+### Test coverage
+
+Per-type feature tests:
+
+- `tests/Feature/HasManyControllerTest.php` (19)
+- `tests/Feature/HasOneControllerTest.php` (10)
+- `tests/Feature/BelongsToManyControllerTest.php` (21)
+- `tests/Feature/MorphManyControllerTest.php` (16)
+- `tests/Feature/MorphOneControllerTest.php` (12)
+- `tests/Feature/MorphToManyControllerTest.php` (13)
+- `tests/Feature/PivotActionControllerTest.php` (5)
+- `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
