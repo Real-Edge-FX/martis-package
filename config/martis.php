@@ -158,6 +158,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Locale extensibility
+    |--------------------------------------------------------------------------
+    | Knobs for the translations endpoint that consumers tweak when their
+    | i18n needs go beyond the defaults shipped with Martis.
+    |
+    |   - `app_namespaces`: extra translation files in the host app's
+    |     `lang/<locale>/<ns>.php`. Each name listed here is loaded for
+    |     the requested locale and surfaced under its namespace key in
+    |     the JSON payload, alongside the package's own namespaces.
+    |     Default `[]` means no app-side namespaces are merged.
+    |
+    |   - `fallback_chain`: ordered list of locales searched when a key
+    |     is missing in the requested locale. Applied in order, with
+    |     `array_replace_recursive` so per-key overrides survive.
+    |     Default `['en']` matches the historical behaviour. A multi-step
+    |     example: `['pt_BR', 'en']` for `pt_PT` requests so European
+    |     Portuguese first borrows from Brazilian, then from English.
+    */
+    'locales' => [
+        'app_namespaces' => array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_APP_LOCALE_NAMESPACES', ''))),
+            static fn (string $ns): bool => $ns !== '',
+        ),
+        'fallback_chain' => array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_LOCALE_FALLBACK_CHAIN', 'en'))),
+            static fn (string $locale): bool => $locale !== '',
+        ),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Throttling
     |--------------------------------------------------------------------------
     | Rate limits for Martis routes. Two distinct buckets:
