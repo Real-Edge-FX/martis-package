@@ -31,13 +31,16 @@ class SsoMakeCommand extends Command
 {
     protected $signature = 'martis:sso
                             {provider : Provider name (azure, google, github, or a custom name)}
-                            {--with-spatie : Default the permission adapter to "spatie"}
+                            {--with-spatie : Default the permission adapter to "spatie" + install spatie/laravel-permission if missing}
                             {--with-migration : Publish a migration adding {provider}_group_name to roles}
                             {--strategy=column : Default role mapping strategy (column|config|callable)}
                             {--no-auto-create-user : Disable auto user provisioning}
-                            {--custom : Treat the provider as a custom one (no built-in scopes / driver)}';
+                            {--custom : Treat the provider as a custom one (no built-in scopes / driver)}
+                            {--no-composer : Skip the composer require step (deps must already be installed)}
+                            {--no-migrate : Skip the php artisan migrate step}
+                            {--no-listener : Skip auto-registering the Socialite extension listener in AppServiceProvider}';
 
-    protected $description = 'Scaffold an SSO provider — config block, env vars, optional migration.';
+    protected $description = 'Scaffold an SSO provider end-to-end — composer deps, config, env, listener, migrations.';
 
     private const KNOWN_PROVIDERS = ['azure', 'google', 'github'];
 
@@ -59,16 +62,188 @@ class SsoMakeCommand extends Command
 
         $this->components->info("Scaffolding SSO provider: {$name}");
 
+        // 1. Composer dependencies (idempotent — skips installed packages).
+        if (! $this->option('no-composer')) {
+            $this->installComposerDependencies($name);
+        }
+
+        // 2. Config block + env stubs (already idempotent).
         $this->updateConfig($name);
         $this->updateEnv($name);
 
+        // 3. Wire the Socialite extension listener (Azure-specific).
+        if (! $this->option('no-listener') && $name === 'azure') {
+            $this->registerSocialiteListener();
+        }
+
+        // 4. Publish migration (only when --with-migration).
         if ($this->option('with-migration')) {
             $this->publishMigration($name);
+        }
+
+        // 5. Run migrations (only when migration was published OR Spatie
+        //    was just installed — interactive mode prompts; non-interactive
+        //    mode runs unless --no-migrate).
+        if (! $this->option('no-migrate') && $this->shouldRunMigrate()) {
+            $this->runMigrations();
         }
 
         $this->printNextSteps($name);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Run `composer require` for the packages a given provider needs,
+     * skipping any that are already declared in the host app's
+     * composer.json. Honours `--with-spatie` to also install
+     * spatie/laravel-permission.
+     */
+    protected function installComposerDependencies(string $providerName): void
+    {
+        $composerJsonPath = base_path('composer.json');
+        if (! file_exists($composerJsonPath)) {
+            $this->components->warn('No composer.json found in the project root — skipping composer require step.');
+
+            return;
+        }
+
+        $manifest = json_decode((string) file_get_contents($composerJsonPath), true);
+        $required = array_merge(
+            (array) ($manifest['require'] ?? []),
+            (array) ($manifest['require-dev'] ?? []),
+        );
+
+        $packages = $this->packagesFor($providerName);
+
+        $missing = array_values(array_filter(
+            $packages,
+            static fn (string $pkg): bool => ! array_key_exists($pkg, $required),
+        ));
+
+        if ($missing === []) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> composer', 'all required packages already installed');
+
+            return;
+        }
+
+        $list = implode(' ', $missing);
+        $this->components->twoColumnDetail('<fg=cyan>Installing</> composer', $list);
+
+        // Run composer require. We surface stdout so the user sees
+        // progress (composer downloads can take 30s+).
+        $process = \Symfony\Component\Process\Process::fromShellCommandline(
+            'composer require '.$list,
+            base_path(),
+            null,
+            null,
+            300, // 5 minute timeout
+        );
+
+        $process->run(function ($_, $line): void {
+            $this->getOutput()->write($line);
+        });
+
+        if (! $process->isSuccessful()) {
+            $this->components->error('composer require failed. Install the packages manually:  composer require '.$list);
+
+            return;
+        }
+
+        $this->components->twoColumnDetail('<fg=green>Installed</> composer', $list);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function packagesFor(string $provider): array
+    {
+        $base = ['laravel/socialite'];
+
+        $providerSpecific = match ($provider) {
+            'azure'  => ['socialiteproviders/microsoft'],
+            'google' => [],   // Socialite ships google natively
+            'github' => [],   // Socialite ships github natively
+            default  => [],
+        };
+
+        $spatie = $this->option('with-spatie') ? ['spatie/laravel-permission'] : [];
+
+        return array_values(array_merge($base, $providerSpecific, $spatie));
+    }
+
+    /**
+     * Add the SocialiteProviders extension listener to
+     * `AppServiceProvider::boot()` if missing. Idempotent — bails out
+     * when the listener line is already present.
+     */
+    protected function registerSocialiteListener(): void
+    {
+        $providerPath = app_path('Providers/AppServiceProvider.php');
+        if (! file_exists($providerPath)) {
+            $this->components->warn('app/Providers/AppServiceProvider.php not found — register the SocialiteProviders listener manually.');
+
+            return;
+        }
+
+        $contents = (string) file_get_contents($providerPath);
+        $needle = 'MicrosoftExtendSocialite';
+
+        if (str_contains($contents, $needle)) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> listener', 'MicrosoftExtendSocialite already registered');
+
+            return;
+        }
+
+        $listenerCode = "        \\Illuminate\\Support\\Facades\\Event::listen(\n".
+            "            \\SocialiteProviders\\Manager\\SocialiteWasCalled::class,\n".
+            "            [\\SocialiteProviders\\Microsoft\\MicrosoftExtendSocialite::class, 'handle'],\n".
+            "        );";
+
+        // Insert at the top of `boot()` — find the first `public function boot()` block.
+        $updated = (string) preg_replace(
+            '/(public function boot\(\)\s*:\s*void\s*\{)/',
+            "$1\n".$listenerCode,
+            $contents,
+            1,
+        );
+
+        if ($updated === $contents) {
+            $this->components->warn('Could not auto-register the listener — paste this block at the top of AppServiceProvider::boot():');
+            $this->line($listenerCode);
+
+            return;
+        }
+
+        file_put_contents($providerPath, $updated);
+        $this->components->twoColumnDetail('<fg=green>Registered</> listener', 'AppServiceProvider::boot() (MicrosoftExtendSocialite)');
+    }
+
+    /**
+     * Migrate is worth running when:
+     *  - The user passed --with-migration (a new migration was published).
+     *  - Spatie was just installed (its own published migrations need to run).
+     *
+     * Skipped when the host has uncommitted migrations the user might
+     * be reviewing — non-interactive mode just runs.
+     */
+    protected function shouldRunMigrate(): bool
+    {
+        return (bool) $this->option('with-migration') || (bool) $this->option('with-spatie');
+    }
+
+    protected function runMigrations(): void
+    {
+        if ($this->input->isInteractive()
+            && ! app()->runningUnitTests()
+            && ! $this->confirm('Run pending migrations now?', true)) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> migrate', 'user declined');
+
+            return;
+        }
+
+        $this->components->twoColumnDetail('<fg=cyan>Running</> migrate', 'php artisan migrate');
+        $this->call('migrate', ['--force' => true]);
     }
 
     /**
@@ -228,27 +403,28 @@ class SsoMakeCommand extends Command
     protected function printNextSteps(string $name): void
     {
         $this->newLine();
-        $this->line('<fg=cyan>Next steps:</>');
-        $this->line('  1. Install the OAuth driver:');
-        $this->line('     <fg=gray>composer require laravel/socialite</>');
+        $this->line('<fg=cyan>Almost done — manual steps left:</>');
 
         if ($name === 'azure') {
-            $this->line('     <fg=gray>composer require socialiteproviders/microsoft</>');
-            $this->newLine();
-            $this->line('  2. Register the Microsoft Socialite extension in your AppServiceProvider boot():');
-            $this->line('     <fg=gray>Event::listen(SocialiteWasCalled::class, [MicrosoftExtendSocialite::class.\'@handle\']);</>');
-            $this->newLine();
-            $this->line('  3. Create the Azure AD app registration in the Azure portal:');
+            $this->line('  1. Create the Azure AD app registration in the Azure portal:');
             $this->line('     <fg=gray>- App Registrations → New registration</>');
             $this->line('     <fg=gray>- Redirect URI: '.url('/'.config('martis.path', 'martis').'/sso/azure/callback').'</>');
-            $this->line('     <fg=gray>- Copy the Application (client) ID into AZURE_CLIENT_ID</>');
-            $this->line('     <fg=gray>- Generate a client secret → AZURE_CLIENT_SECRET</>');
-            $this->line('     <fg=gray>- The same Application ID also goes into AZURE_RESOURCE_ID</>');
+            $this->line('     <fg=gray>- API permissions: openid, profile, email, GroupMember.Read.All, User.ReadBasic.All — grant admin consent</>');
+            $this->line('     <fg=gray>- App roles: define one per local role you want to map (display name = roles.azure_group_name)</>');
+            $this->line('     <fg=gray>- Enterprise applications → Users and groups → assign each user to an App Role</>');
+            $this->newLine();
+            $this->line('  2. Fill the AZURE_* env vars in .env:');
+            $this->line('     <fg=gray>AZURE_CLIENT_ID         = the Application (client) ID</>');
+            $this->line('     <fg=gray>AZURE_CLIENT_SECRET     = the secret value (NOT the Secret ID)</>');
+            $this->line('     <fg=gray>AZURE_REDIRECT_URI      = '.url('/'.config('martis.path', 'martis').'/sso/azure/callback').'</>');
+            $this->line('     <fg=gray>AZURE_RESOURCE_ID       = same as AZURE_CLIENT_ID</>');
+            $this->newLine();
+            $this->line('  3. Populate roles.azure_group_name to match your Azure App Role display names:');
+            $this->line('     <fg=gray>Role::where(\'name\', \'admin\')->update([\'azure_group_name\' => \'Admin\']);</>');
         }
 
         $this->newLine();
-        $this->line('  4. Fill the AZURE_* / SSO_* env vars in .env (the command stubbed empty placeholders).');
-        $this->line('  5. Reload the page — the "Continue with '.ucfirst($name).'" button appears on /login.');
+        $this->line('  Reload <fg=cyan>'.url('/'.config('martis.path', 'martis').'/login').'</> — the "Continue with '.ucfirst($name).'" button is there.');
         $this->newLine();
     }
 }

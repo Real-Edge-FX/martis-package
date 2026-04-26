@@ -126,33 +126,23 @@ Every layer is overridable via a host-app hook — the layered design is opt-in.
 ## 3. Quick start (Azure, Spatie)
 
 ```bash
-composer require laravel/socialite socialiteproviders/microsoft spatie/laravel-permission
-
 php artisan martis:sso azure --with-spatie --with-migration
-php artisan migrate
-
-# Fill .env (the generator stubbed empty placeholders)
-# MARTIS_SSO_ENABLED=true
-# MARTIS_SSO_AZURE_ENABLED=true
-# AZURE_CLIENT_ID=...
-# AZURE_CLIENT_SECRET=...
-# AZURE_REDIRECT_URI=https://your-app.test/martis/sso/azure/callback
-# AZURE_RESOURCE_ID=... (same as AZURE_CLIENT_ID)
 ```
 
-Add the Microsoft Socialite extension listener in `app/Providers/AppServiceProvider.php`:
+That's it. The command runs end-to-end:
 
-```php
-public function boot(): void
-{
-    \Illuminate\Support\Facades\Event::listen(
-        \SocialiteProviders\Manager\SocialiteWasCalled::class,
-        [\SocialiteProviders\Microsoft\MicrosoftExtendSocialite::class, 'handle'],
-    );
-}
-```
+1. ✅ `composer require laravel/socialite socialiteproviders/microsoft spatie/laravel-permission` — only for packages not already installed.
+2. ✅ Inserts `auth.sso.providers.azure` block in `config/martis.php`.
+3. ✅ Stubs `AZURE_*` and `MARTIS_SSO_*` env vars in `.env` and `.env.example`.
+4. ✅ Auto-registers the Microsoft Socialite listener in `AppServiceProvider::boot()`.
+5. ✅ Publishes the `azure_group_name` migration on the `roles` table.
+6. ✅ Runs `php artisan migrate`.
 
-Populate `azure_group_name` on each Spatie role:
+Then complete the 3 manual steps the command prints:
+
+1. Register the Azure AD app in https://portal.azure.com (Redirect URI = `/martis/sso/azure/callback`, permissions, App Roles, user assignments).
+2. Fill `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_REDIRECT_URI` / `AZURE_RESOURCE_ID` in `.env`.
+3. Populate `azure_group_name` on each Spatie role:
 
 ```php
 Role::where('name', 'admin')->update(['azure_group_name' => 'Admin']);
@@ -161,88 +151,47 @@ Role::where('name', 'sales_rep')->update(['azure_group_name' => 'Sales Rep']);
 
 Reload `/martis/login` — the **Continue with Microsoft** button is there.
 
+### Skipping individual steps
+
+If your CI / production deploy already manages Composer or migrations independently, opt out:
+
+```bash
+php artisan martis:sso azure --with-spatie --with-migration \
+    --no-composer    \  # skip composer require (deps already installed)
+    --no-migrate     \  # skip php artisan migrate
+    --no-listener       # skip auto-registering the Socialite listener
+```
+
 ---
 
 ## 4. Azure AD — full step-by-step
 
 The canonical recipe. Copy/paste straight through.
 
-### Step 1 — Install Composer dependencies
-
-```bash
-# OAuth core (required)
-composer require laravel/socialite
-
-# Microsoft driver for Socialite (required for Azure)
-composer require socialiteproviders/microsoft
-
-# Recommended: spatie/laravel-permission for role storage
-composer require spatie/laravel-permission
-php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
-php artisan migrate
-```
-
-### Step 2 — Run the Martis generator
+### Step 1 — Run the Martis generator
 
 ```bash
 php artisan martis:sso azure --with-spatie --with-migration
 ```
 
-This:
-- Inserts the `auth.sso.providers.azure` config block in `config/martis.php`.
-- Stubs the env vars in `.env` and `.env.example`:
-  ```
-  MARTIS_SSO_ENABLED=true
-  MARTIS_SSO_AZURE_ENABLED=true
-  AZURE_CLIENT_ID=
-  AZURE_CLIENT_SECRET=
-  AZURE_REDIRECT_URI=
-  AZURE_RESOURCE_ID=
-  ```
-- Publishes the migration that adds `azure_group_name` to the `roles` table.
-- Defaults `permission_adapter` to `'spatie'`.
+The command is idempotent and self-sufficient. It:
 
-### Step 3 — Register the Microsoft Socialite extension
+1. **Composer** — runs `composer require` for any missing packages: `laravel/socialite`, `socialiteproviders/microsoft`, and `spatie/laravel-permission` (with `--with-spatie`). Skips packages already declared in `composer.json`.
+2. **Config** — inserts the `auth.sso.providers.azure` block in `config/martis.php`.
+3. **Env** — stubs the `AZURE_*` and `MARTIS_SSO_*` env vars in `.env` and `.env.example`.
+4. **Listener** — adds the `MicrosoftExtendSocialite` event listener at the top of `AppServiceProvider::boot()` (idempotent — checks if already there).
+5. **Migration** — publishes `add_azure_group_name_to_roles_table` (with `--with-migration`).
+6. **Migrate** — runs `php artisan migrate` (interactive prompt; non-interactive auto-runs unless `--no-migrate`).
 
-The `socialiteproviders/microsoft` package adds the `microsoft` driver via an event listener. Wire it in your `AppServiceProvider::boot()`:
+Skip flags for CI / production deploys:
 
-```php
-// app/Providers/AppServiceProvider.php
-namespace App\Providers;
+| Flag | What it skips |
+|---|---|
+| `--no-composer` | Composer require step (deps must already be installed) |
+| `--no-listener` | Auto-registering the Socialite listener |
+| `--no-migrate` | The `php artisan migrate` step |
 
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\ServiceProvider;
-use SocialiteProviders\Manager\SocialiteWasCalled;
-
-class AppServiceProvider extends ServiceProvider
-{
-    public function boot(): void
-    {
-        Event::listen(SocialiteWasCalled::class, [
-            \SocialiteProviders\Microsoft\MicrosoftExtendSocialite::class.'@handle',
-        ]);
-    }
-}
-```
-
-> Why `microsoft` and not `azure`? The `socialiteproviders/microsoft` package registers a driver named `microsoft`. The provider-name in Martis is `azure` for clarity (most users think "Azure SSO"), but the underlying Socialite driver is `microsoft`. Martis's `AzureProvider` reads `'driver' => 'azure'` from the config and looks up that key — set it to `'microsoft'` if you renamed it, or rely on the generator default.
-
-To make Martis use the right driver, the config block emitted by the generator looks like:
-
-```php
-'azure' => [
-    'driver' => 'azure', // ← Socialite driver name. Set to 'microsoft' if you use that.
-    // ...
-],
-```
-
-If `socialiteproviders/microsoft` registers as `microsoft` (which is the default), edit the generator output to:
-
-```php
-'driver' => 'microsoft',
-```
-
-### Step 4 — Register the app in the Azure portal
+### Step 2 — Register the app in the Azure portal
 
 1. Go to https://portal.azure.com → **Azure Active Directory** → **App registrations** → **New registration**.
 
@@ -291,7 +240,7 @@ If `socialiteproviders/microsoft` registers as `microsoft` (which is the default
 
 9. **Enterprise applications** → find your app → **Users and groups** → **Add user/group** → assign each user the right App Role. Users without an App Role assignment will be denied login (`on_no_role_match = 'deny'`).
 
-### Step 5 — Run the published migration
+### Step 3 — Run the published migration (only if you used `--no-migrate`)
 
 ```bash
 php artisan migrate
@@ -299,7 +248,7 @@ php artisan migrate
 
 This adds the nullable `azure_group_name` column to the existing `roles` table. (Spatie's migration must already have run — if `roles` doesn't exist, the Martis stub no-ops with a notice.)
 
-### Step 6 — Populate `azure_group_name` on each Spatie role
+### Step 4 — Populate `azure_group_name` on each Spatie role
 
 For every Spatie role that should map to an Azure App Role:
 
@@ -313,7 +262,7 @@ Role::where('name', 'backoffice')->update(['azure_group_name' => 'Backoffice']);
 
 The `azure_group_name` value must match the App Role display name in Azure **exactly** (case-sensitive). If you're using **Groups** instead (`role_source = 'groups'`), match against the group's `displayName`.
 
-### Step 7 — Confirm `.env`
+### Step 5 — Confirm `.env`
 
 ```env
 MARTIS_SSO_ENABLED=true
@@ -325,7 +274,7 @@ AZURE_REDIRECT_URI=https://your-app.example/martis/sso/azure/callback
 AZURE_RESOURCE_ID=00000000-0000-0000-0000-000000000000
 ```
 
-### Step 8 — Reload `/martis/login`
+### Step 6 — Reload `/martis/login`
 
 The **Continue with Microsoft** button is there. Click → Azure consent screen → callback → Martis logs the user in and assigns the matching Spatie roles.
 
