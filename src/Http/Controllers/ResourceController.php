@@ -754,7 +754,23 @@ class ResourceController extends MartisController
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
         $cacheKey = 'schema:'.$resource.':'.$userKey.':'.app()->getLocale();
 
-        $data = $cache->remember('schema', $cacheKey, fn () => $this->buildSchema($request, $resourceClass, $instance));
+        $data = $cache->remember('schema', $cacheKey, function () use ($request, $resourceClass, $instance): array {
+            $raw = $this->buildSchema($request, $resourceClass, $instance);
+
+            // Strip non-serializable values (e.g. validation rule
+            // Closures stored under `rules`) before the cache layer
+            // tries to PHP-serialize the payload — Redis / file stores
+            // refuse to serialize closures and crash the request. JSON
+            // round-trip drops every Closure / non-public state, which
+            // matches the wire format clients ultimately receive
+            // anyway. Lossless for everything that's allowed in JSON.
+            $encoded = json_encode($raw);
+            if ($encoded === false) {
+                return $raw;
+            }
+
+            return json_decode($encoded, true);
+        });
 
         return JsonResponse::make($data)->toResponse();
     }
