@@ -441,6 +441,40 @@ public static function errorDisplay(): ErrorDisplayMode
 }
 ```
 
+## Form save variants (⭐ Martis differential)
+
+Both the create and update forms ship with three submit buttons each, mirroring Nova-style power-user shortcuts. The default button preserves the historical behaviour; the two extra buttons stay on or jump out of the form depending on the operator's intent.
+
+| Page | Button | Post-save destination |
+|---|---|---|
+| Create | `Create {Resource}` (primary) | Detail page of the new record |
+| Create | `Create & add another` | Same `/create` page with a freshly cleared form |
+| Create | `Create & view list` | Resource index |
+| Update | `Save changes` (primary) | Detail page of the record |
+| Update | `Save & continue editing` | Same `/edit` page (baseline refreshed so the unsaved-changes guard does NOT re-trigger) |
+| Update | `Save & view list` | Resource index |
+
+The two extra buttons are **hidden when the form is launched from a nested relation** (i.e. `?viaResource=…&viaResourceId=…`). Nested flows already manage their own post-save redirect to the parent surface, and a "view list" jump from inside a relation panel would be confusing.
+
+Translations live in `actions.php`:
+
+| Key | English |
+|---|---|
+| `create_and_add_another` | Create & add another |
+| `create_and_view_list` | Create & view list |
+| `save_and_continue_editing` | Save & continue editing |
+| `save_and_view_list` | Save & view list |
+| `reset_filters` | Reset filters |
+
+## Index toolbar resets
+
+The index toolbar surfaces two reset affordances:
+
+- **Reset filters** — clears only the active filters and resets to page 1. Sort, search, pagination size, and the trashed-toggle are preserved. Visible whenever any filter is active. Phase 5 of Task 09.
+- **Reset view** — the bigger hammer that clears filters + search + sort + per-page + trashed-toggle and forgets the [sticky view](sticky_views.md) for this resource. Visible whenever any of those drift away from the resource's defaults.
+
+Both buttons coexist on the toolbar — they target different aggressiveness levels so users can pick the right one for the moment.
+
 ## Lifecycle Hooks
 
 ### beforeSave()

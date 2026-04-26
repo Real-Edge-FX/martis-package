@@ -253,6 +253,26 @@ class StubField implements FieldContract
         return $this;
     }
 
+    public function dependsOn(array $fields, ?Closure $callback = null): static
+    {
+        return $this;
+    }
+
+    public function dependentFields(): array
+    {
+        return [];
+    }
+
+    public function isDependent(): bool
+    {
+        return false;
+    }
+
+    public function syncDependent(array $formData, Request $request): static
+    {
+        return $this;
+    }
+
     public function buildRules(?string $context = null): array
     {
         return [];

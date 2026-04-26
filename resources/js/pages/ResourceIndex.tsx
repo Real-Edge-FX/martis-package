@@ -167,6 +167,21 @@ export function ResourceIndexPage() {
     setFiltersOpen(false)
   }, [resource, schema?.defaultSort, schema?.defaultSortDirection])
 
+  /**
+   * Clear ONLY the active filters — keeps sort, search, pagination,
+   * and trashed-toggle intact. Surfaced as the "Reset filters" toolbar
+   * button (Phase 5 of Task 09 — Nova-parity affordance).
+   *
+   * Distinct from `handleResetView`, which is the bigger hammer that
+   * resets everything to the resource's defaults. The two coexist
+   * because filters are the most common reset target by far and
+   * users frequently want to keep their sort + page size.
+   */
+  const handleResetFilters = useCallback(() => {
+    setActiveFilters({})
+    setPage(1)
+  }, [])
+
   // Resolve effective per-page (state overrides schema default)
   const effectivePerPage = perPage ?? schema?.perPage ?? 25
 
@@ -495,6 +510,21 @@ export function ResourceIndexPage() {
               (sortBy !== null && sortDir !== (schema.defaultSortDirection ?? 'asc'))
             )
 
+          const hasActiveFilters = Object.keys(activeFilters).length > 0
+
+          const resetFiltersButton = hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="martis-btn-ghost martis-btn-sm inline-flex items-center gap-1.5"
+              data-pr-tooltip={tMsg('reset_filters_tooltip', { defaultValue: 'Clear only the active filters; keep sort, search, and pagination.' })}
+              data-pr-position="top"
+            >
+              <XIcon size={13} weight="bold" />
+              {tAct('reset_filters', { defaultValue: 'Reset filters' })}
+            </button>
+          ) : null
+
           const resetButton = isViewDirty ? (
             <button
               type="button"
@@ -508,24 +538,33 @@ export function ResourceIndexPage() {
             </button>
           ) : null
 
+          // The two buttons coexist on the toolbar: filters-only sits
+          // on the left of the broader view reset.
+          const combinedReset = (resetFiltersButton || resetButton) ? (
+            <div className="inline-flex items-center gap-1.5">
+              {resetFiltersButton}
+              {resetButton}
+            </div>
+          ) : null
+
           const filterRow = hasFilters ? (
             <FilterPanel
               filters={schema.filters!}
               value={activeFilters}
               onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
-              rightSlot={resetButton}
+              rightSlot={combinedReset}
               open={filtersOpen}
               onOpenChange={setFiltersOpen}
             />
           ) : null
 
           // When the resource has no filter panel, surface the Reset
-          // button on its own row so the affordance still shows up
+          // buttons on their own row so the affordance still shows up
           // when the user has applied a sort / search / pagination
           // change worth resetting.
-          const standaloneReset = !hasFilters && isViewDirty ? (
+          const standaloneReset = !hasFilters && (isViewDirty || hasActiveFilters) ? (
             <div className="flex items-center justify-end">
-              {resetButton}
+              {combinedReset}
             </div>
           ) : null
 

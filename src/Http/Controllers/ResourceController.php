@@ -11,18 +11,22 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Martis\Cache\MartisCache;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
+use Martis\Contracts\UnsavedChangesConfigContract;
 use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\DeferredRelationSync;
+use Martis\Fields\DeferredRepeaterSync;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\MorphTo;
 use Martis\Fields\Tag as TagField;
+use Martis\Filters\Filter;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -649,6 +653,100 @@ class ResourceController extends MartisController
     }
 
     /**
+     * Sync a single dependent field against the live form payload.
+     *
+     * Frontend invokes this when a user edits a field that another
+     * field declared as a dependency via `Field::dependsOn(...)`. The
+     * server re-instantiates the dependent field, runs its reactivity
+     * callback against the supplied form values, and returns the
+     * fresh field descriptor so the client can update visibility,
+     * readonly, required, options, etc. live.
+     *
+     * Body: `{ field: string, formData: object, context?: 'create'|'update' }`
+     *
+     * Response: same shape as a single entry in `schema.fields[]`.
+     */
+    public function syncField(Request $request, string $resource): IlluminateJsonResponse
+    {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        $instance = new $resourceClass;
+
+        $attribute = (string) $request->input('field', '');
+        if ($attribute === '') {
+            return JsonErrorResponse::validation(['field' => ['Field attribute is required.']])->toResponse();
+        }
+
+        /** @var array<string, mixed> $formData */
+        $formData = (array) $request->input('formData', []);
+        $context = $request->input('context');
+        $context = in_array($context, ['create', 'update'], true) ? $context : 'create';
+
+        // Resolve the field set for the current context, flatten layout
+        // containers (Panel/Section/TabGroup), and locate the requested
+        // attribute. We hit the standard authorization gates so a user
+        // who cannot create/update the resource cannot probe sync data.
+        if ($context === 'update' && ! $instance->authorizedToCreate($request) && ! $instance->authorizedToViewAny($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+        if ($context === 'create' && ! $instance->authorizedToCreate($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        $rawFields = $context === 'update'
+            ? $instance->fieldsForUpdate($request)
+            : $instance->fieldsForCreate($request);
+
+        $flatten = function (array $items) use (&$flatten): array {
+            $out = [];
+            foreach ($items as $item) {
+                if ($item instanceof FieldContract) {
+                    $out[] = $item;
+                } elseif (method_exists($item, 'getFields')) {
+                    $out = array_merge($out, $flatten($item->getFields()));
+                } elseif (method_exists($item, 'fields')) {
+                    $out = array_merge($out, $flatten($item->fields()));
+                }
+            }
+
+            return $out;
+        };
+
+        $field = null;
+        foreach ($flatten($rawFields) as $candidate) {
+            if ($candidate->attribute() === $attribute) {
+                $field = $candidate;
+                break;
+            }
+        }
+
+        if ($field === null) {
+            return JsonErrorResponse::validation(['field' => ["Unknown field [{$attribute}]."]])->toResponse();
+        }
+
+        if (! $field instanceof Field || ! $field->isDependent()) {
+            return JsonErrorResponse::validation(['field' => ["Field [{$attribute}] is not reactive."]])->toResponse();
+        }
+
+        $field->syncDependent($formData, $request);
+
+        // JSON round-trip mirrors the schema endpoint: drops non-
+        // serializable values (closures inside resolved rules, etc.)
+        // so the wire payload matches what the rest of the schema
+        // surface emits.
+        $payload = $field->toArray();
+        $encoded = json_encode($payload);
+        $payload = $encoded === false ? $payload : (array) json_decode($encoded, true);
+
+        return JsonResponse::make($payload)->toResponse();
+    }
+
+    /**
      * Store a new resource record created via inline create modal.
      *
      * Same as store() but uses fieldsForInlineCreate context for field resolution.
@@ -750,7 +848,7 @@ class ResourceController extends MartisController
         // dashboards/actions) and stable for the lifetime of a release —
         // perfect cache target. Key includes the resource class because
         // different resources sharing a uri key would otherwise collide.
-        $cache = app(\Martis\Cache\MartisCache::class);
+        $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
         $cacheKey = 'schema:'.$resource.':'.$userKey.':'.app()->getLocale();
 
@@ -800,6 +898,7 @@ class ResourceController extends MartisController
                     $out = array_merge($out, $flattenFields($item->fields()));
                 }
             }
+
             return $out;
         };
         $fields = $flattenFields($instance->fields($request));
@@ -930,7 +1029,7 @@ class ResourceController extends MartisController
 
         foreach ($filters as $filter) {
             // Skip filters the user is not authorized to see (Martis extension)
-            if ($filter instanceof \Martis\Filters\Filter) {
+            if ($filter instanceof Filter) {
                 if (! $filter->authorizedToSee($request)) {
                     continue;
                 }
@@ -1212,7 +1311,7 @@ class ResourceController extends MartisController
         if (is_bool($value)) {
             return $value;
         }
-        if ($value instanceof \Martis\Contracts\UnsavedChangesConfigContract) {
+        if ($value instanceof UnsavedChangesConfigContract) {
             return $value->toArray();
         }
 
@@ -1583,7 +1682,7 @@ class ResourceController extends MartisController
     private function syncDeferredRelations(Model $model): void
     {
         DeferredRelationSync::sync($model);
-        \Martis\Fields\DeferredRepeaterSync::sync($model);
+        DeferredRepeaterSync::sync($model);
     }
 
     /**

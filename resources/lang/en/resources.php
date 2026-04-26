@@ -37,7 +37,6 @@ return [
     'filters' => 'Filters',
     'clear_filter' => 'Clear filter',
     'clear_all' => 'Clear all',
-    'clear_filters' => 'Clear all filters',
     'filter_from' => 'From',
     'filter_to' => 'To',
     'refresh' => 'Refresh',

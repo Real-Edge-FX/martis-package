@@ -265,6 +265,57 @@ Text::make('slug')->immutable()->required();
 
 Common cases: slugs, account numbers, document references.
 
+### Reactive fields — `dependsOn(['field'], Closure)`
+
+⭐ **Martis differential** — declare that a field reacts to one or more sibling fields. The frontend watches the listed attributes and, every time the user edits any of them, posts the live form payload to `POST /api/resources/{r}/sync-field`. The backend re-runs the closure with the fresh data and returns the updated field descriptor (visibility, readonly, required, options, placeholder, help, default, meta, …) — the live form replaces its local descriptor with the response.
+
+The closure receives:
+- `array<string, mixed> $formData` — the live form values, keyed by field attribute (the watched siblings are guaranteed; any other touched attribute is forwarded too).
+- `Illuminate\Http\Request $request` — the active request (auth user, locale, headers).
+- `static $field` — the field instance, mutable. Call any of the regular fluent methods on it.
+
+Examples:
+
+```php
+// Make `price` required only when `is_paid` is true:
+Number::make('price')
+    ->dependsOn(['is_paid'], function (array $form, Request $r, Number $field) {
+        $field->required((bool) ($form['is_paid'] ?? false));
+    });
+
+// Reload Select options whenever `category_id` changes:
+Select::make('subcategory_id')
+    ->dependsOn(['category_id'], function (array $form, Request $r, Select $field) {
+        $field->options(
+            \App\Models\Subcategory::query()
+                ->where('category_id', $form['category_id'] ?? null)
+                ->pluck('name', 'id')
+                ->all(),
+        );
+    });
+
+// Branch on the current user — works in both create and update contexts:
+Text::make('access_code')
+    ->dependsOn(['plan'], function (array $form, Request $r, Text $field) {
+        if (($form['plan'] ?? null) === 'enterprise' && $r->user()?->isAdmin()) {
+            $field->readonly(false);
+        } else {
+            $field->readonly(true);
+        }
+    });
+```
+
+| Method | Signature | Description |
+|---|---|---|
+| `dependsOn` | `dependsOn(array $fields, ?Closure $callback = null): static` | Declare reactivity. The closure is optional; passing `null` lets layouts forward the watch list without running a callback (the Repeater uses this form for parent-attribute exposure). |
+| `dependentFields` | `dependentFields(): list<string>` | Read the watched attributes. |
+| `isDependent` | `isDependent(): bool` | True only when both `$fields` and a `Closure` are configured. The sync endpoint refuses non-reactive fields. |
+| `syncDependent` | `syncDependent(array $formData, Request $request): static` | Run the closure against the given payload. Mutates `$this`. Useful in tests. |
+
+**Wire format.** The schema endpoint serializes `dependsOn: { fields: ['attr1', 'attr2'] }` (an object) for reactive fields and `null` for non-reactive ones. The frontend `useDependsOnSync` hook subscribes to the listed attributes, debounces 200ms, and POSTs the payload when any watched value changes — older requests are aborted via `AbortController` so the latest value always wins.
+
+**Endpoint.** `POST /api/resources/{r}/sync-field` body: `{ field: string, formData: object, context?: 'create' | 'update' }`. Response: a single field descriptor in the same shape as `schema.fields[]`. Authorization gates the same as create/update.
+
 ### Closure-aware setters
 
 Most field setters accept either a static value or a closure that resolves at request time. Reach for the closure form whenever the result depends on the authenticated user, the locale, the active tenant, or anything else that lives on the `Request`.

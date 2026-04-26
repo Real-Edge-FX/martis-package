@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
@@ -17,6 +17,7 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useDependsOnSync } from '@/hooks/useDependsOnSync'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -60,6 +61,72 @@ export function ResourceUpdatePage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [initialized, setInitialized] = useState(false)
   const baselineRef = useRef<string | null>(null)
+
+  /**
+   * Controls the post-save redirect on the update form.
+   *  - `detail`            — default: navigate to the record detail page
+   *  - `continue_editing`  — stay on /edit so the user can keep tweaking
+   *  - `list`              — go back to the resource index
+   * Stored in a ref so we can read the user's button choice from inside
+   * the mutation callback without triggering an extra render.
+   */
+  const submitModeRef = useRef<'detail' | 'continue_editing' | 'list'>('detail')
+
+  // Reactive `dependsOn(...)` fields — server-side closures re-evaluate
+  // whenever a watched sibling changes. See `useDependsOnSync` for the
+  // debounce + cancellation contract. We feed it the FLAT field list so
+  // the watch detection is O(n); layout containers are walked separately.
+  const flatFormFields = useMemo<FieldDefinition[]>(() => {
+    const out: FieldDefinition[] = []
+    const walk = (items: unknown[]): void => {
+      for (const item of items as Record<string, unknown>[]) {
+        if (item.type === 'panel' || item.type === 'section') {
+          walk((item.fields as unknown[]) ?? [])
+        } else if (item.type === 'tab_group') {
+          const tabs = (item.tabs as { fields?: unknown[] }[]) ?? []
+          for (const t of tabs) walk(t.fields ?? [])
+        } else {
+          out.push(item as unknown as FieldDefinition)
+        }
+      }
+    }
+    walk(allFormFields as unknown[])
+    return out
+  }, [allFormFields])
+
+  const dependsOnOverrides = useDependsOnSync({
+    resource: resource ?? '',
+    context: 'update',
+    fields: flatFormFields,
+    formValues: values,
+    disabled: !resource || !initialized,
+  })
+
+  function applyOverride(field: FieldDefinition): FieldDefinition {
+    const override = dependsOnOverrides.get(field.attribute)
+    return override ? { ...field, ...override } : field
+  }
+
+  const renderedFormFields = useMemo(() => {
+    if (dependsOnOverrides.size === 0) return allFormFields
+    const walk = (items: unknown[]): unknown[] =>
+      items.map((item) => {
+        const f = item as Record<string, unknown>
+        if (f.type === 'panel' || f.type === 'section') {
+          return { ...f, fields: walk((f.fields as unknown[]) ?? []) }
+        }
+        if (f.type === 'tab_group') {
+          const tabs = ((f.tabs as { fields?: unknown[] }[]) ?? []).map((t) => ({
+            ...t,
+            fields: walk(t.fields ?? []),
+          }))
+          return { ...f, tabs }
+        }
+        return applyOverride(item as FieldDefinition)
+      })
+    return walk(allFormFields as unknown[])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFormFields, dependsOnOverrides])
 
   // Pre-populate form only after BOTH schema and record are loaded.
   // Walks all form items (scalar fields + layout containers) to extract field attributes.
@@ -121,9 +188,28 @@ export function ResourceUpdatePage() {
           void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
         }
       }
-      // Prefer the explicit `from` URL so the user returns to the exact
-      // page they clicked from, even when that page sits above the
-      // immediate parent in the resource tree.
+
+      const mode = submitModeRef.current
+      // "Save & continue editing" stays on the edit page. We refresh the
+      // baseline so the unsaved-changes guard does not re-trigger on the
+      // values we just persisted, and reset the mode so the next submit
+      // defaults back to "detail".
+      if (mode === 'continue_editing') {
+        submitModeRef.current = 'detail'
+        baselineRef.current = JSON.stringify(values)
+        return
+      }
+
+      // "Save & view list" jumps back to the resource index.
+      if (mode === 'list') {
+        submitModeRef.current = 'detail'
+        navigate(`/resources/${resource}`)
+        return
+      }
+
+      // Default — prefer the explicit `from` URL so the user returns to
+      // the exact page they clicked from, even when that page sits above
+      // the immediate parent in the resource tree.
       const fromParam = searchParams.get('from')
       if (fromParam) {
         navigate(fromParam)
@@ -278,17 +364,17 @@ export function ResourceUpdatePage() {
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order */}
           <div className="martis-form-body martis-form-stack">
-            {allFormFields.map((item, idx) => {
+            {(renderedFormFields as Array<Record<string, unknown>>).map((item, idx) => {
               if (item.type === 'tab_group') {
-                return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+                return <TabsInput key={idx} tabGroup={item as unknown as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
               }
               if (item.type === 'section') {
-                return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+                return <SectionInput key={idx} section={item as unknown as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
               }
               if (item.type === 'panel') {
-                return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
+                return <PanelInput key={idx} panel={item as unknown as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
               }
-              const field = item as FieldDefinition
+              const field = item as unknown as FieldDefinition
               return (
                 <FieldWrapper
                   key={field.attribute}
@@ -337,10 +423,39 @@ export function ResourceUpdatePage() {
             >
               {tAct('cancel')}
             </button>
+            {/*
+              Save variants — Nova-parity. The default Save button
+              navigates to the record's detail page; the secondary
+              buttons stay on the edit page (continue editing) or jump
+              to the list. Hidden in nested-relation flows because those
+              are launched from a parent surface that already manages
+              the post-save redirect.
+            */}
+            {!isViaRelation && (
+              <>
+                <button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="martis-btn-secondary"
+                  onClick={() => { submitModeRef.current = 'continue_editing' }}
+                >
+                  {tAct('save_and_continue_editing')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="martis-btn-secondary"
+                  onClick={() => { submitModeRef.current = 'list' }}
+                >
+                  {tAct('save_and_view_list')}
+                </button>
+              </>
+            )}
             <button
               type="submit"
               disabled={updateMutation.isPending}
               className="martis-btn-primary"
+              onClick={() => { submitModeRef.current = 'detail' }}
             >
               {updateMutation.isPending ? tAct('saving') : tAct('save')}
             </button>
