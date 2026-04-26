@@ -38,7 +38,9 @@ class SsoMakeCommand extends Command
                             {--custom : Treat the provider as a custom one (no built-in scopes / driver)}
                             {--no-composer : Skip the composer require step (deps must already be installed)}
                             {--no-migrate : Skip the php artisan migrate step}
-                            {--no-listener : Skip auto-registering the Socialite extension listener in AppServiceProvider}';
+                            {--no-listener : Skip auto-registering the Socialite extension listener in AppServiceProvider}
+                            {--no-publish-spatie : Skip publishing the Spatie permission config + migrations}
+                            {--no-map : Skip the interactive role-mapping prompt}';
 
     protected $description = 'Scaffold an SSO provider end-to-end — composer deps, config, env, listener, migrations.';
 
@@ -76,16 +78,28 @@ class SsoMakeCommand extends Command
             $this->registerSocialiteListener();
         }
 
-        // 4. Publish migration (only when --with-migration).
+        // 4. Publish Spatie's own config + migrations when --with-spatie.
+        if ($this->option('with-spatie')) {
+            $this->publishSpatieAssets();
+        }
+
+        // 5. Publish Martis migration (only when --with-migration).
         if ($this->option('with-migration')) {
             $this->publishMigration($name);
         }
 
-        // 5. Run migrations (only when migration was published OR Spatie
+        // 6. Run migrations (only when migration was published OR Spatie
         //    was just installed — interactive mode prompts; non-interactive
         //    mode runs unless --no-migrate).
         if (! $this->option('no-migrate') && $this->shouldRunMigrate()) {
             $this->runMigrations();
+        }
+
+        // 7. Interactive role mapping — for each existing Spatie role,
+        //    prompt the operator for the matching Azure App Role display
+        //    name. Skipped in non-interactive mode and via --no-map.
+        if ($this->shouldOfferRoleMapping($name)) {
+            $this->mapExistingRoles($name);
         }
 
         $this->printNextSteps($name);
@@ -247,6 +261,128 @@ class SsoMakeCommand extends Command
     }
 
     /**
+     * Publish Spatie's permission config + migrations. Idempotent — the
+     * Spatie command itself skips files that already exist unless
+     * --force is passed.
+     */
+    protected function publishSpatieAssets(): void
+    {
+        if ($this->option('no-publish-spatie')) {
+            return;
+        }
+
+        if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'spatie/laravel-permission not installed');
+
+            return;
+        }
+
+        // Check if config + migration are already published — skip when both are.
+        $configPublished = file_exists(config_path('permission.php'));
+        $migrationPublished = (bool) glob(database_path('migrations/*_create_permission_tables.php'));
+
+        if ($configPublished && $migrationPublished) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'config + migration already published');
+
+            return;
+        }
+
+        $this->components->twoColumnDetail('<fg=cyan>Publishing</> spatie', 'config + migrations');
+        $this->callSilent('vendor:publish', [
+            '--provider' => 'Spatie\\Permission\\PermissionServiceProvider',
+        ]);
+        $this->components->twoColumnDetail('<fg=green>Published</> spatie', 'config + migrations');
+    }
+
+    /**
+     * Offer to map existing Spatie roles to Azure App Role display
+     * names interactively. We only run this when:
+     *   - the operator passed --with-spatie (so Spatie is the target),
+     *   - AND `roles` table exists with at least one row,
+     *   - AND `roles.{column}` column exists (migration has run),
+     *   - AND we're in interactive mode and not --no-map.
+     */
+    protected function shouldOfferRoleMapping(string $providerName): bool
+    {
+        if ($this->option('no-map')) {
+            return false;
+        }
+        if (! $this->input->isInteractive() || app()->runningUnitTests()) {
+            return false;
+        }
+
+        $cfg = config("martis.auth.sso.providers.{$providerName}", []);
+        $strategy = $cfg['role_strategy'] ?? 'column';
+        if ($strategy !== 'column') {
+            return false;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Schema::hasTable('roles');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Walk every row in the `roles` table and prompt the operator for
+     * the matching Azure App Role display name. Empty input keeps the
+     * existing value (or null). Idempotent — running twice with the
+     * same answers is a no-op.
+     */
+    protected function mapExistingRoles(string $providerName): void
+    {
+        $cfg = config("martis.auth.sso.providers.{$providerName}", []);
+        $column = $cfg['role_column'] ?? "{$providerName}_group_name";
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('roles', $column)) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> role mapping', "column `roles.{$column}` not present");
+
+            return;
+        }
+
+        $roles = \Illuminate\Support\Facades\DB::table('roles')->select(['id', 'name', $column])->get();
+        if ($roles->isEmpty()) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> role mapping', '`roles` table is empty');
+
+            return;
+        }
+
+        $this->newLine();
+        $this->line("<fg=cyan>Map your Spatie roles to Azure App Role display names</> (press Enter to keep current value):");
+        $this->newLine();
+
+        $providerLabel = ucfirst($providerName);
+        $changes = 0;
+
+        foreach ($roles as $role) {
+            $current = $role->{$column};
+            $prompt = "  → '{$role->name}' ({$providerLabel} display name)";
+
+            $value = $this->ask($prompt, $current ?? '');
+            $value = is_string($value) ? trim($value) : '';
+
+            if ($value === '') {
+                continue;
+            }
+            if ($value === ($current ?? '')) {
+                continue;
+            }
+
+            \Illuminate\Support\Facades\DB::table('roles')
+                ->where('id', $role->id)
+                ->update([$column => $value]);
+            $changes++;
+        }
+
+        if ($changes > 0) {
+            $this->components->twoColumnDetail('<fg=green>Updated</> roles', "{$changes} role(s) mapped");
+        } else {
+            $this->components->twoColumnDetail('<fg=yellow>No changes</>', 'role mapping');
+        }
+    }
+
+    /**
      * Add (or refresh) the `auth.sso.providers.{name}` block in
      * `config/martis.php`. Idempotent — re-running replaces the entry
      * cleanly without duplicating.
@@ -403,24 +539,22 @@ class SsoMakeCommand extends Command
     protected function printNextSteps(string $name): void
     {
         $this->newLine();
-        $this->line('<fg=cyan>Almost done — manual steps left:</>');
+        $this->line('<fg=cyan>Almost done — Azure portal steps remain (intrinsically manual):</>');
 
         if ($name === 'azure') {
-            $this->line('  1. Create the Azure AD app registration in the Azure portal:');
+            $this->line('  1. Register the app in https://portal.azure.com:');
             $this->line('     <fg=gray>- App Registrations → New registration</>');
-            $this->line('     <fg=gray>- Redirect URI: '.url('/'.config('martis.path', 'martis').'/sso/azure/callback').'</>');
-            $this->line('     <fg=gray>- API permissions: openid, profile, email, GroupMember.Read.All, User.ReadBasic.All — grant admin consent</>');
-            $this->line('     <fg=gray>- App roles: define one per local role you want to map (display name = roles.azure_group_name)</>');
+            $this->line('     <fg=gray>- Redirect URI (Web): '.url('/'.config('martis.path', 'martis').'/sso/azure/callback').'</>');
+            $this->line('     <fg=gray>- API permissions: openid, profile, email, GroupMember.Read.All, User.ReadBasic.All</>');
+            $this->line('     <fg=gray>  → Grant admin consent</>');
+            $this->line('     <fg=gray>- App roles: define one per local role (display name = roles.azure_group_name you set just now)</>');
             $this->line('     <fg=gray>- Enterprise applications → Users and groups → assign each user to an App Role</>');
             $this->newLine();
-            $this->line('  2. Fill the AZURE_* env vars in .env:');
-            $this->line('     <fg=gray>AZURE_CLIENT_ID         = the Application (client) ID</>');
-            $this->line('     <fg=gray>AZURE_CLIENT_SECRET     = the secret value (NOT the Secret ID)</>');
-            $this->line('     <fg=gray>AZURE_REDIRECT_URI      = '.url('/'.config('martis.path', 'martis').'/sso/azure/callback').'</>');
-            $this->line('     <fg=gray>AZURE_RESOURCE_ID       = same as AZURE_CLIENT_ID</>');
-            $this->newLine();
-            $this->line('  3. Populate roles.azure_group_name to match your Azure App Role display names:');
-            $this->line('     <fg=gray>Role::where(\'name\', \'admin\')->update([\'azure_group_name\' => \'Admin\']);</>');
+            $this->line('  2. Fill the .env values from the portal:');
+            $this->line('     <fg=gray>AZURE_CLIENT_ID         the Application (client) ID</>');
+            $this->line('     <fg=gray>AZURE_CLIENT_SECRET     the secret VALUE (not the Secret ID)</>');
+            $this->line('     <fg=gray>AZURE_REDIRECT_URI      '.url('/'.config('martis.path', 'martis').'/sso/azure/callback').'</>');
+            $this->line('     <fg=gray>AZURE_RESOURCE_ID       same as AZURE_CLIENT_ID</>');
         }
 
         $this->newLine();

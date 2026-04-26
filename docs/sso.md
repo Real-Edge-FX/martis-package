@@ -135,31 +135,29 @@ That's it. The command runs end-to-end:
 2. ✅ Inserts `auth.sso.providers.azure` block in `config/martis.php`.
 3. ✅ Stubs `AZURE_*` and `MARTIS_SSO_*` env vars in `.env` and `.env.example`.
 4. ✅ Auto-registers the Microsoft Socialite listener in `AppServiceProvider::boot()`.
-5. ✅ Publishes the `azure_group_name` migration on the `roles` table.
-6. ✅ Runs `php artisan migrate`.
+5. ✅ Publishes Spatie's permission config + migrations (`vendor:publish` for the package).
+6. ✅ Publishes the `azure_group_name` migration on the `roles` table.
+7. ✅ Runs `php artisan migrate`.
+8. ✅ Interactive prompt (one row at a time) to populate `azure_group_name` on each existing Spatie role.
 
-Then complete the 3 manual steps the command prints:
+Then complete the 2 manual steps the command prints (intrinsically Azure-portal-only):
 
 1. Register the Azure AD app in https://portal.azure.com (Redirect URI = `/martis/sso/azure/callback`, permissions, App Roles, user assignments).
 2. Fill `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_REDIRECT_URI` / `AZURE_RESOURCE_ID` in `.env`.
-3. Populate `azure_group_name` on each Spatie role:
-
-```php
-Role::where('name', 'admin')->update(['azure_group_name' => 'Admin']);
-Role::where('name', 'sales_rep')->update(['azure_group_name' => 'Sales Rep']);
-```
 
 Reload `/martis/login` — the **Continue with Microsoft** button is there.
 
 ### Skipping individual steps
 
-If your CI / production deploy already manages Composer or migrations independently, opt out:
+If your CI / production deploy already manages composer / migrations / role mapping independently, opt out:
 
 ```bash
 php artisan martis:sso azure --with-spatie --with-migration \
-    --no-composer    \  # skip composer require (deps already installed)
-    --no-migrate     \  # skip php artisan migrate
-    --no-listener       # skip auto-registering the Socialite listener
+    --no-composer        \  # skip composer require
+    --no-publish-spatie  \  # skip Spatie vendor:publish
+    --no-listener        \  # skip auto-registering the Socialite listener
+    --no-migrate         \  # skip php artisan migrate
+    --no-map                # skip the interactive role-mapping prompt
 ```
 
 ---
