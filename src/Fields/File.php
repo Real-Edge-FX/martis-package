@@ -520,7 +520,7 @@ class File extends Field
     /**
      * @return list<string|Rule>
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
         if ($this->multiple) {
             $rules = [];
@@ -538,7 +538,7 @@ class File extends Field
             return array_merge($rules, $this->extraRules);
         }
 
-        $rules = parent::buildRules();
+        $rules = parent::buildRules($context);
         $rules[] = 'file';
 
         if (! empty($this->acceptedTypes)) {

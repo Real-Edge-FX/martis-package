@@ -64,13 +64,13 @@ class Url extends Field
     /**
      * @return list<string|Rule|\Closure>
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
         // Replace Laravel's strict `url` rule with a closure that first
         // normalises the value — auto-prepending `http://` when no scheme
         // is present — and then runs FILTER_VALIDATE_URL. This keeps
         // the field forgiving for authors who paste bare domains.
-        return array_merge(parent::buildRules(), [
+        return array_merge(parent::buildRules($context), [
             function (string $attribute, mixed $value, \Closure $fail): void {
                 if ($value === null || $value === '' || ! is_string($value)) {
                     return;

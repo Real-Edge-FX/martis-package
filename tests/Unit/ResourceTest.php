@@ -252,7 +252,7 @@ class StubField implements FieldContract
         return $this;
     }
 
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
         return [];
     }

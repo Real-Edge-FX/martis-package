@@ -119,9 +119,9 @@ class Slug extends Field
         return Str::slug($value, $this->separator);
     }
 
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
-        return array_merge(parent::buildRules(), [
+        return array_merge(parent::buildRules($context), [
             function (string $attribute, mixed $value, Closure $fail): void {
                 if ($value === null || $value === '' || ! is_string($value)) {
                     return;

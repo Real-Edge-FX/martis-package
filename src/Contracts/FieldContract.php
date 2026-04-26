@@ -355,11 +355,13 @@ interface FieldContract
     public function rules(array $rules): static;
 
     /**
-     * Build the final validation rules array (merges required/nullable flags).
+     * Build the final validation rules array (merges required/nullable
+     * flags + context-specific rules from `creationRules()` /
+     * `updateRules()` when `$context` is `'create'` / `'update'`).
      *
      * @return list<string|Rule>
      */
-    public function buildRules(): array;
+    public function buildRules(?string $context = null): array;
 
     // -------------------------------------------------------------------------
     // Callbacks

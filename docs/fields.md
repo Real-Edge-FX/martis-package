@@ -235,9 +235,48 @@ Text::make('first_name', 'First Name') // explicit label
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `rules` | `rules(array $rules): static` | `$this` | Add validation rules (merged with existing). |
-| `buildRules` | `buildRules(): array` | `array` | Build the final validation rule array (merges required/nullable/unique + extra rules). |
+| `rules` | `rules(array $rules): static` | `$this` | Add validation rules that apply on every context (merged with existing). |
+| `creationRules` | `creationRules(array $rules): static` | `$this` | Rules that apply ONLY on POST `/resources/{r}` (create context). Layered on top of `rules()`. |
+| `updateRules` | `updateRules(array $rules): static` | `$this` | Rules that apply ONLY on PUT `/resources/{r}/{id}` (update context). Layered on top of `rules()`. |
+| `buildRules` | `buildRules(?string $context = null): array` | `array` | Build the final rule array. Pass `'create'` or `'update'` to layer the matching context rules. |
 | `validationMessages` | `validationMessages(): array` | `array` | Custom validation messages (e.g. for unique). |
+
+**Context-aware example** — password is required on create but optional on update (the canonical Nova-parity pattern):
+
+```php
+Password::make('password')
+    ->rules(['min:8'])              // applies on every context
+    ->creationRules(['required'])   // create only
+    ->updateRules(['nullable']);    // update only
+```
+
+The controller hits `buildRules('create')` for POST and `buildRules('update')` for PUT. The schema endpoint also exposes both rule sets under `creationRules` / `updateRules` keys so the React frontend can pre-validate per context.
+
+When `creationRules` contains `required`, the base `sometimes` rule is automatically stripped — `sometimes` short-circuits validation when a key is missing and would defeat the `required` directive otherwise.
+
+### Immutable fields
+
+`immutable()` flags a field as **writable on create, readonly on update**. The controller silently skips the fill on update (the request is accepted, the column is not mutated). The schema also exposes the flag so the frontend can render the input as disabled on the edit page.
+
+```php
+Text::make('slug')->immutable()->required();
+```
+
+Common cases: slugs, account numbers, document references.
+
+### Closure-aware `readonly()` and `default()`
+
+Both methods accept a closure that resolves at request time — useful when readonly state depends on the user, or when defaults need data from the request:
+
+```php
+Text::make('owner_id')
+    ->default(fn ($request) => $request?->user()?->id);
+
+Text::make('email')
+    ->readonly(fn ($request) => $request?->user()?->cannot('change-email'));
+```
+
+Closures receive the active `Request` (or `null` when called outside an HTTP context, e.g. from a queue worker) and must return the resolved value. Static values still work (`->default('active')`, `->readonly()`) — the closure form is purely additive.
 
 ### Unique Validation
 

@@ -298,9 +298,9 @@ class Image extends File
      *
      * @return list<string|Rule>
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
-        $rules = parent::buildRules();
+        $rules = parent::buildRules($context);
 
         // Replace 'file' with 'image' (more specific) — only for single mode
         $key = array_search('file', $rules, true);

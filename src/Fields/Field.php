@@ -33,6 +33,16 @@ abstract class Field implements FieldContract
 
     protected bool $readonly = false;
 
+    /**
+     * Lazy resolver — set by `readonly(bool|Closure)`. Closures
+     * receive the active Request and decide at render time. `null`
+     * means the resolver was never set; falls back to the legacy
+     * `$readonly` boolean.
+     *
+     * @var bool|\Closure(\Illuminate\Http\Request|null): bool|null
+     */
+    protected mixed $readonlyResolver = null;
+
     protected bool $required = false;
 
     protected bool $showOnIndex = true;
@@ -67,6 +77,32 @@ abstract class Field implements FieldContract
 
     /** @var list<string|Rule> */
     protected array $extraRules = [];
+
+    /**
+     * Rules that apply ONLY on `POST /resources/{r}` (create context).
+     * Merged on top of base + extraRules at validation time when the
+     * controller calls `buildRules('create')`. Common pattern: a
+     * password field that's required on create but optional on update.
+     *
+     * @var list<string|Rule>
+     */
+    protected array $creationRules = [];
+
+    /**
+     * Rules that apply ONLY on `PUT /resources/{r}/{id}` (update
+     * context). Merged the same way as `creationRules` but on the
+     * update path.
+     *
+     * @var list<string|Rule>
+     */
+    protected array $updateRules = [];
+
+    /**
+     * Marks the field as immutable: writable on create, readonly on
+     * every subsequent update. Set by `immutable()` — the controller
+     * + schema honour it via the existing readonly path.
+     */
+    protected bool $immutable = false;
 
     /**
      * Unique validation config: [table] or [table, column].
@@ -194,7 +230,7 @@ abstract class Field implements FieldContract
             'label' => $this->label,
             'type' => $this->type(),
             'nullable' => $this->nullable,
-            'readonly' => $this->readonly,
+            'readonly' => $this->isReadonly(),
             'required' => $this->required,
             'sortable' => $this->sortable,
             'searchable' => $this->searchable,
@@ -204,6 +240,9 @@ abstract class Field implements FieldContract
             'showOnCreate' => $this->showOnCreate,
             'showOnUpdate' => $this->showOnUpdate,
             'rules' => $this->buildRules(),
+            'creationRules' => $this->creationRules !== [] ? $this->creationRules : null,
+            'updateRules' => $this->updateRules !== [] ? $this->updateRules : null,
+            'immutable' => $this->immutable,
             'component' => $this->componentKey,
             'placeholder' => $this->placeholder,
             'helpText' => $this->helpText,
@@ -213,7 +252,7 @@ abstract class Field implements FieldContract
             'colSpan' => $this->colSpan,
             'colSpanMd' => $this->colSpanMd,
             'colSpanLg' => $this->colSpanLg,
-            'defaultValue' => $this->defaultValue,
+            'defaultValue' => $this->getDefaultValue(),
             'overrides' => array_filter([
                 'create' => $this->overrideForCreate?->toArray(),
                 'update' => $this->overrideForUpdate?->toArray(),
@@ -236,12 +275,78 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
-    public function readonly(): static
+    /**
+     * Mark the field as readonly. Accepts a static `bool` (default
+     * `true`) or a closure that decides at request time. When a
+     * closure is passed, it receives the active `Request` and must
+     * return a boolean.
+     *
+     *     Text::make('email')->readonly()
+     *     Text::make('slug')->readonly(fn ($request) => $request->user()?->cannot('rename'))
+     *
+     * @param  bool|\Closure(\Illuminate\Http\Request): bool  $value
+     */
+    public function readonly(bool|\Closure $value = true): static
     {
-        $this->readonly = true;
+        $this->readonlyResolver = $value;
+        // Mirror the static value into the legacy boolean so existing
+        // code paths that read `$this->readonly` directly still work.
+        // Closure values defer until `isReadonly()` is called.
+        if (is_bool($value)) {
+            $this->readonly = $value;
+        }
 
         return $this;
+    }
+
+    /**
+     * Resolve the current readonly state — closures evaluate lazily
+     * so the request, locale, authenticated user, and any other
+     * request-scoped state is fresh.
+     */
+    public function isReadonly(): bool
+    {
+        if ($this->readonlyResolver instanceof \Closure) {
+            $request = $this->safeRequest();
+
+            return (bool) ($this->readonlyResolver)($request);
+        }
+
+        return $this->readonly;
+    }
+
+    /**
+     * Resolve the active Request safely — returns null when the
+     * container is not bootstrapped yet (raw PHPUnit tests, queue
+     * workers without HTTP context, etc.).
+     */
+    protected function safeRequest(): ?\Illuminate\Http\Request
+    {
+        try {
+            $resolved = function_exists('app') ? app('request') : null;
+
+            return $resolved instanceof \Illuminate\Http\Request ? $resolved : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Mark the field as immutable: writable on create, readonly on
+     * update. Equivalent to chaining `readonly()` only when an `id`
+     * already exists, but expressed as a single intent so the schema
+     * serializer can surface the right contract per context.
+     */
+    public function immutable(bool $value = true): static
+    {
+        $this->immutable = $value;
+
+        return $this;
+    }
+
+    public function isImmutable(): bool
+    {
+        return $this->immutable;
     }
 
     /** {@inheritDoc} */
@@ -323,6 +428,14 @@ abstract class Field implements FieldContract
 
     /**
      * Set a default value for the field on create forms.
+     *
+     * Accepts either a static value or a closure that receives the
+     * active `Request` and returns the default. The closure form is
+     * evaluated lazily on `getDefaultValue()` so the result honours
+     * the current user / locale / environment.
+     *
+     *     Text::make('status')->default('active')
+     *     BelongsTo::make('owner')->default(fn ($req) => $req->user()->id)
      */
     public function default(mixed $value): static
     {
@@ -333,10 +446,16 @@ abstract class Field implements FieldContract
     }
 
     /**
-     * Get the default value for this field.
+     * Get the default value for this field. Resolves closures at the
+     * moment of access — the request, locale, authenticated user, and
+     * any other request-scoped state is fresh.
      */
     public function getDefaultValue(): mixed
     {
+        if ($this->defaultValue instanceof \Closure) {
+            return ($this->defaultValue)($this->safeRequest());
+        }
+
         return $this->defaultValue;
     }
 
@@ -756,6 +875,40 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * Validation rules that apply ONLY on the create context (POST
+     * /resources/{r}). Merged on top of `rules()` at validation time
+     * when the controller calls `buildRules('create')`. Common pattern:
+     * a `password` field that's `required` on create but `sometimes`
+     * on update.
+     *
+     *     Password::make('password')
+     *         ->rules(['nullable', 'min:8'])
+     *         ->creationRules(['required'])
+     *         ->updateRules(['sometimes']);
+     *
+     * @param  list<string|Rule>  $rules
+     */
+    public function creationRules(array $rules): static
+    {
+        $this->creationRules = array_merge($this->creationRules, $rules);
+
+        return $this;
+    }
+
+    /**
+     * Validation rules that apply ONLY on the update context
+     * (PUT /resources/{r}/{id}). See `creationRules()` for usage.
+     *
+     * @param  list<string|Rule>  $rules
+     */
+    public function updateRules(array $rules): static
+    {
+        $this->updateRules = array_merge($this->updateRules, $rules);
+
+        return $this;
+    }
+
+    /**
      * Mark this field as unique in the database.
      *
      * @param  array{0: string, 1?: string}  $config  [table] or [table, column]
@@ -793,11 +946,17 @@ abstract class Field implements FieldContract
     }
 
     /**
-     * {@inheritDoc}
+     * Build the full validation rule list for the field.
+     *
+     * Pass `'create'` or `'update'` as the context to layer the
+     * matching `creationRules()` / `updateRules()` on top. Without
+     * a context (default), only the base + extraRules are returned —
+     * matches the schema endpoint's pre-Task-09 behaviour, so frontend
+     * consumers that introspect the schema keep working unchanged.
      *
      * @return list<string|Rule>
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
         $rules = [];
 
@@ -820,7 +979,23 @@ abstract class Field implements FieldContract
             $rules[] = $rule;
         }
 
-        return array_merge($rules, $this->extraRules);
+        $contextRules = match ($context) {
+            'create' => $this->creationRules,
+            'update' => $this->updateRules,
+            default => [],
+        };
+
+        $merged = array_merge($rules, $this->extraRules, $contextRules);
+
+        // `sometimes` short-circuits validation when the key is
+        // missing — including `required`. When the context-specific
+        // rules promote the field to required, strip `sometimes` from
+        // the base so the missing-key case actually fails validation.
+        if (in_array('required', $contextRules, true)) {
+            $merged = array_values(array_filter($merged, static fn ($r) => $r !== 'sometimes'));
+        }
+
+        return $merged;
     }
 
     // -------------------------------------------------------------------------
