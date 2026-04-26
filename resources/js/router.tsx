@@ -39,6 +39,13 @@ export const router = createBrowserRouter([
         },
       },
       {
+        path: 'system/cache',
+        lazy: async () => {
+          const { CacheAdminPage } = await import('@/pages/CacheAdmin')
+          return { element: <CacheAdminPage />, handle: { crumb: 'system_cache' } }
+        },
+      },
+      {
         path: 'resources/:resource',
         lazy: async () => {
           const { ResourceIndexPage } = await import('@/pages/ResourceIndex')

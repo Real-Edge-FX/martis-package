@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Martis\Http\Controllers\ActionController;
 use Martis\Http\Controllers\AttachmentController;
+use Martis\Http\Controllers\CacheController;
 use Martis\Http\Controllers\MetricController;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\BelongsToManyController;
@@ -16,6 +17,7 @@ use Martis\Http\Controllers\MorphOneController;
 use Martis\Http\Controllers\MorphToManyController;
 use Martis\Http\Controllers\CommandPaletteController;
 use Martis\Http\Controllers\NavigationController;
+use Martis\Http\Controllers\NotificationController;
 use Martis\Http\Controllers\PreferencesController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
@@ -113,6 +115,36 @@ Route::middleware(config('martis.middleware', ['web']))
                                     Route::get('/preferences', [PreferencesController::class, 'show'])->name('preferences.show');
                                     Route::put('/preferences', [PreferencesController::class, 'update'])->name('preferences.update');
                                     Route::delete('/preferences', [PreferencesController::class, 'reset'])->name('preferences.reset');
+                                }
+
+                                // Cache admin (v0.8 — Task 17)
+                                if (config('martis.cache.admin_ui', true)) {
+                                    Route::get('/cache', [CacheController::class, 'status'])
+                                        ->name('cache.status');
+                                    Route::post('/cache/clear', [CacheController::class, 'clear'])
+                                        ->name('cache.clear');
+                                    Route::post('/cache/disable', [CacheController::class, 'disable'])
+                                        ->name('cache.disable');
+                                    Route::post('/cache/enable', [CacheController::class, 'enable'])
+                                        ->name('cache.enable');
+                                    Route::post('/cache/reset-override', [CacheController::class, 'resetOverride'])
+                                        ->name('cache.reset-override');
+                                }
+
+                                // In-app notifications (v0.8 — Task 12)
+                                if (config('martis.notifications.enabled', true)) {
+                                    Route::get('/notifications', [NotificationController::class, 'index'])
+                                        ->name('notifications.index');
+                                    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
+                                        ->name('notifications.unread-count');
+                                    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])
+                                        ->name('notifications.read-all');
+                                    Route::delete('/notifications', [NotificationController::class, 'clearAll'])
+                                        ->name('notifications.clear');
+                                    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])
+                                        ->name('notifications.read');
+                                    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])
+                                        ->name('notifications.destroy');
                                 }
 
                                 // Dashboards and Metrics

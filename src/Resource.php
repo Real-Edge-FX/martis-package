@@ -381,6 +381,46 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
+    // Sticky Views (v0.8 — Task 15)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Per-resource opt-out for the global Sticky Views feature.
+     *
+     * When the global flag (`config('martis.sticky_views.enabled')`)
+     * is `true`, every Resource opts in by default. Set this to
+     * `false` on individual Resources whose tables should NOT
+     * remember the previous view state across navigation (e.g.
+     * audit logs that always want to show "today" first).
+     *
+     * Override:
+     *
+     * ```php
+     * class ClientResource extends Resource
+     * {
+     *     protected static bool $stickyView = false;
+     * }
+     * ```
+     */
+    protected static bool $stickyView = true;
+
+    /**
+     * Returns whether the resource currently participates in the
+     * Sticky Views feature. Combines the global config flag and the
+     * per-resource override above. Surfaced to the React layer in
+     * the schema payload as `stickyView` so `useStickyView()` can
+     * branch without an extra round trip.
+     */
+    public static function stickyView(): bool
+    {
+        if (! (bool) config('martis.sticky_views.enabled', true)) {
+            return false;
+        }
+
+        return static::$stickyView;
+    }
+
+    // -------------------------------------------------------------------------
     // Soft delete awareness
     // -------------------------------------------------------------------------
 

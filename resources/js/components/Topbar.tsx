@@ -5,6 +5,7 @@ import { config } from "@/lib/config"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { isMacPlatform } from "@/lib/platform"
+import { NotificationBell } from "@/components/NotificationBell"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
@@ -203,6 +204,8 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
             <MagnifyingGlassIcon size={16} />
           </button>
         )}
+
+        <NotificationBell />
 
         <PreferencesMenu ref={prefsRef} />
 

@@ -29,12 +29,11 @@ class SalesDashboard extends Dashboard
 
 ## Registering Dashboards
 
-Register dashboards in your `AppServiceProvider`:
+Register dashboards in `app/Providers/MartisServiceProvider.php` (published by `martis:install`):
 
 ```php
-use Martis\Facades\Martis;
-
-public function boot(): void
+// app/Providers/MartisServiceProvider.php
+protected function registerDashboards(): void
 {
     Martis::dashboards([
         \App\Martis\Dashboards\MainDashboard::class,

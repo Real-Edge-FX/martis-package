@@ -208,6 +208,60 @@ export interface MartisConfigShape {
   profile?: MartisProfileConfig
   preferences?: MartisPreferencesConfig
   auth?: MartisAuthConfig
+  stickyViews?: MartisStickyViewsConfig
+  notifications?: MartisNotificationsConfig
+}
+
+/**
+ * In-app notifications subsystem (the bell dropdown in the topbar).
+ * Backed by Laravel's standard `notifications` table — any
+ * Notification class delivered via the `database` channel surfaces
+ * here automatically.
+ */
+export interface MartisNotificationsConfig {
+  /** Master switch. When false, the bell never renders. */
+  enabled?: boolean
+  /**
+   * Polling interval for the unread-count badge in milliseconds.
+   * Set to 0 to disable polling (consumers can refresh manually
+   * via React Query, e.g. when a Pusher / Reverb broadcast event
+   * fires).
+   */
+  poll_interval?: number
+  /**
+   * Maximum number of notifications shown in the dropdown panel.
+   * Older entries live behind a future "View all" page. Capped at
+   * 50 server-side regardless of this value.
+   */
+  max_in_dropdown?: number
+}
+
+/**
+ * Per-user view state persistence (filters / sort / pagination / etc.)
+ * on resource index pages. URL params remain the source of truth and
+ * deep-link friendly; sessionStorage (or localStorage) is the
+ * tab-scoped memory of "last state per resource" so navigating to a
+ * detail page and back restores the previous view automatically.
+ */
+export interface MartisStickyViewsConfig {
+  /** Master switch. Falsey disables the entire feature. */
+  enabled?: boolean
+  /**
+   * Where the per-resource state lives:
+   *   - `session` (default) — sessionStorage. Wipes on tab close.
+   *   - `local` — localStorage. Survives tab close.
+   *   - `server` — reserved for the next iteration; not yet wired.
+   */
+  scope?: 'session' | 'local' | 'server'
+  /** Per-bucket toggles. Set any to false to keep that bucket un-sticky. */
+  persist?: {
+    filters?: boolean
+    sorting?: boolean
+    pagination?: boolean
+    per_page?: boolean
+    columns?: boolean
+    scroll?: boolean
+  }
 }
 
 declare global {

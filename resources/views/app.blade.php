@@ -61,6 +61,23 @@
                 'pollInterval' => (int) config('martis.navigation.poll_interval', 60000),
             ]) !!},
             loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
+            notifications: {!! json_encode(config('martis.notifications', [
+                'enabled' => true,
+                'poll_interval' => 60000,
+                'max_in_dropdown' => 10,
+            ])) !!},
+            stickyViews: {!! json_encode(config('martis.sticky_views', [
+                'enabled' => true,
+                'scope' => 'session',
+                'persist' => [
+                    'filters' => true,
+                    'sorting' => true,
+                    'pagination' => true,
+                    'per_page' => true,
+                    'columns' => true,
+                    'scroll' => false,
+                ],
+            ])) !!},
             auth: {!! json_encode(config('martis.auth', [
                 'sso' => ['enabled' => false, 'url' => null],
                 'google' => ['enabled' => false, 'url' => null],

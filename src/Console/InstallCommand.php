@@ -30,6 +30,7 @@ class InstallCommand extends Command
         $this->publishCoreMigrations();
         $this->publishTranslations();
         $this->publishOptionalMigrations($options);
+        $this->publishServiceProvider();
         $this->writeEnvironmentConfiguration($options);
         $this->clearConfigCache();
         $this->runMigrations();
@@ -192,6 +193,17 @@ class InstallCommand extends Command
             __DIR__.'/../../stubs/create_user_preferences_table.php.stub',
             'create_martis_user_preferences_table'
         );
+
+        // In-app notifications (Task 12). Uses the standard Laravel
+        // `notifications` table shape so any consumer-side Notification
+        // class with the `database` channel delivers into the Martis
+        // bell dropdown automatically. The migration is idempotent —
+        // skipped when the table already exists (some apps already
+        // ran `php artisan notifications:table`).
+        $this->publishMigrationStub(
+            __DIR__.'/../../stubs/create_martis_notifications_table.php.stub',
+            'create_notifications_table'
+        );
     }
 
     /**
@@ -271,6 +283,100 @@ class InstallCommand extends Command
         }
 
         throw new RuntimeException('The --existing-avatar-column option requires --avatar-column=<column_name> in non-interactive mode.');
+    }
+
+    /**
+     * Publish `app/Providers/MartisServiceProvider.php` and wire it
+     * into the application's provider list. Idempotent: the file is
+     * never overwritten without `--force`, and the bootstrap entry is
+     * only appended when missing.
+     *
+     * The provider hosts host-app registrations that cannot live in
+     * config — main menu, dashboards, cache layers, gate definitions.
+     * Every section in the stub is commented-out, so an unmodified
+     * stub registers nothing and Martis runs on its built-in defaults.
+     */
+    protected function publishServiceProvider(): void
+    {
+        $stubPath = __DIR__.'/../../stubs/MartisServiceProvider.php.stub';
+
+        if (! file_exists($stubPath)) {
+            $this->components->warn('MartisServiceProvider stub not found. Skipping.');
+
+            return;
+        }
+
+        $target = app_path('Providers/MartisServiceProvider.php');
+        $force = (bool) $this->option('force');
+
+        if (file_exists($target) && ! $force) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> provider', 'app/Providers/MartisServiceProvider.php already exists');
+        } else {
+            $filesystem = new Filesystem;
+            $filesystem->ensureDirectoryExists(dirname($target));
+            $filesystem->put($target, (string) file_get_contents($stubPath));
+
+            $action = file_exists($target) && $force ? '<fg=green>Updated</>' : '<fg=green>Created</>';
+            $this->components->twoColumnDetail($action.' provider', 'app/Providers/MartisServiceProvider.php');
+        }
+
+        $this->registerProviderInBootstrap();
+    }
+
+    /**
+     * Append the provider to `bootstrap/providers.php` (Laravel 11+)
+     * or `config/app.php → providers` (Laravel 10) when missing.
+     * No-op when the entry is already there.
+     */
+    protected function registerProviderInBootstrap(): void
+    {
+        $providerClass = 'App\\Providers\\MartisServiceProvider::class';
+
+        // Laravel 11+ — bootstrap/providers.php is the canonical list.
+        $bootstrapPath = base_path('bootstrap/providers.php');
+        if (file_exists($bootstrapPath)) {
+            $contents = (string) file_get_contents($bootstrapPath);
+            if (str_contains($contents, 'MartisServiceProvider')) {
+                return;
+            }
+
+            $updated = (string) preg_replace(
+                '/return\s*\[\s*/',
+                "return [\n    {$providerClass},\n",
+                $contents,
+                1,
+            );
+
+            if ($updated !== $contents) {
+                file_put_contents($bootstrapPath, $updated);
+                $this->components->twoColumnDetail('<fg=green>Registered</> provider', 'bootstrap/providers.php');
+            }
+
+            return;
+        }
+
+        // Laravel 10 fallback — config/app.php providers array.
+        $configPath = config_path('app.php');
+        if (! file_exists($configPath)) {
+            return;
+        }
+
+        $contents = (string) file_get_contents($configPath);
+        if (str_contains($contents, 'MartisServiceProvider')) {
+            return;
+        }
+
+        $updated = (string) preg_replace(
+            '/(App\\\\Providers\\\\AppServiceProvider::class,)/',
+            "$1\n        {$providerClass},",
+            $contents,
+            1,
+        );
+
+        if ($updated !== $contents) {
+            file_put_contents($configPath, $updated);
+            $this->components->twoColumnDetail('<fg=green>Registered</> provider', 'config/app.php');
+        }
     }
 
     protected function publishMigrationStub(string $stubPath, string $migrationName, ?callable $transform = null): void

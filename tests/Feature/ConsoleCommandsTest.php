@@ -10,6 +10,33 @@ function cleanupMartisInstallArtifacts(): void
 {
     $filesystem = new Filesystem;
 
+    // Service provider stub published by martis:install lives in
+    // app_path('Providers'). Remove between tests so each run starts
+    // from a clean slate. Same for the bootstrap registration.
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    if ($filesystem->exists($providerPath)) {
+        try {
+            $filesystem->delete($providerPath);
+        } catch (\Throwable) {
+            // Ignore parallel-worker race.
+        }
+    }
+
+    $bootstrapPath = base_path('bootstrap/providers.php');
+    if ($filesystem->exists($bootstrapPath)) {
+        try {
+            $contents = (string) $filesystem->get($bootstrapPath);
+            $stripped = preg_replace(
+                '/\s*App\\\\Providers\\\\MartisServiceProvider::class,\n?/',
+                '',
+                $contents,
+            ) ?? '';
+            $filesystem->put($bootstrapPath, $stripped);
+        } catch (\Throwable) {
+            // Ignore parallel-worker race.
+        }
+    }
+
     $patterns = [
         'migrations/*_create_martis_action_events_table.php',
         'migrations/*_add_martis_profile_picture_column_to_users_table.php',
@@ -134,6 +161,71 @@ it('martis:install skips config publish when config already exists', function ()
 it('InstallCommand class is registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:install');
+});
+
+it('martis:install publishes the host MartisServiceProvider stub', function () {
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    expect(file_exists($providerPath))->toBeFalse();
+
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    expect(file_exists($providerPath))->toBeTrue();
+    $contents = (string) file_get_contents($providerPath);
+    expect($contents)->toContain('class MartisServiceProvider');
+    expect($contents)->toContain('Martis::dashboards');
+    expect($contents)->toContain('Martis::mainMenu');
+    expect($contents)->toContain('MartisCache::extend');
+    expect($contents)->toContain('manage-martis-cache');
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+it('martis:install does not overwrite an existing host MartisServiceProvider', function () {
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+    (new Filesystem)->put($providerPath, '<?php // custom user content');
+
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    expect(file_get_contents($providerPath))->toBe('<?php // custom user content');
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+it('martis:install --force overwrites an existing host MartisServiceProvider', function () {
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+    (new Filesystem)->put($providerPath, '<?php // custom user content');
+
+    $this->artisan('martis:install', ['--no-interaction' => true, '--force' => true])->assertSuccessful();
+
+    expect(file_get_contents($providerPath))->toContain('class MartisServiceProvider');
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+it('martis:install registers the host MartisServiceProvider in bootstrap/providers.php', function () {
+    $bootstrapPath = base_path('bootstrap/providers.php');
+    if (! file_exists($bootstrapPath)) {
+        // Some testbench setups don't have this file. Skip.
+        return;
+    }
+
+    // Reset to a clean providers.php with no Martis entry.
+    (new Filesystem)->put($bootstrapPath, "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n");
+
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    $contents = (string) file_get_contents($bootstrapPath);
+    expect($contents)->toContain('App\\Providers\\MartisServiceProvider::class');
+
+    // Re-running install does not duplicate the entry.
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    $occurrences = substr_count((string) file_get_contents($bootstrapPath), 'App\\Providers\\MartisServiceProvider::class');
+    expect($occurrences)->toBe(1);
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
 });
 
 // ---------------------------------------------------------------------------
@@ -272,4 +364,87 @@ it('martis:user fails when password is empty', function () {
 it('UserCommand is registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:user');
+});
+
+// ---------------------------------------------------------------------------
+// martis:value / trend / partition / progress / activity-feed / endpoint-table
+//
+// These metric generators all share the same `GeneratorCommand` recipe —
+// the regression that prompted this coverage was a wrong `__DIR__`
+// chain in the v0.6 cycle that resolved their stub paths to
+// `vendor/martis/martis/../../stubs/...` (outside the package), so
+// every invocation threw `FileNotFoundException`. The matrix below
+// fires each generator with a synthetic name, asserts the file lands,
+// the namespace is correct, and the produced class extends the right
+// parent. Each test cleans up its own artefact in `afterEach`.
+// ---------------------------------------------------------------------------
+
+dataset('metric_generators', [
+    // [command, name, parentClass, expectedClassDeclaration, namespacePart]
+    ['martis:value',          'TotalUsers',          'ValueMetric',          'class TotalUsers extends ValueMetric',          'App\\Martis\\Metrics'],
+    ['martis:trend',          'UsersPerDay',         'TrendMetric',          'class UsersPerDay extends TrendMetric',         'App\\Martis\\Metrics'],
+    ['martis:partition',      'UsersByRole',         'PartitionMetric',      'class UsersByRole extends PartitionMetric',     'App\\Martis\\Metrics'],
+    ['martis:progress',       'MonthlyGoal',         'ProgressMetric',       'class MonthlyGoal extends ProgressMetric',      'App\\Martis\\Metrics'],
+    ['martis:activity-feed',  'RecentDeploys',       'ActivityFeedMetric',   'class RecentDeploys extends ActivityFeedMetric', 'App\\Martis\\Metrics'],
+    ['martis:endpoint-table', 'TopEndpoints',        'EndpointTableMetric',  'class TopEndpoints extends EndpointTableMetric', 'App\\Martis\\Metrics'],
+]);
+
+it('metric generators write the expected class file', function (
+    string $command,
+    string $name,
+    string $parent,
+    string $declaration,
+    string $namespacePart,
+) {
+    $path = app_path("Martis/Metrics/{$name}.php");
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Metrics'));
+
+    $this->artisan($command, ['name' => $name])->assertSuccessful();
+
+    expect(file_exists($path))->toBeTrue();
+
+    $contents = file_get_contents($path);
+    expect($contents)
+        ->toContain($declaration)
+        ->toContain("namespace {$namespacePart}");
+})->with('metric_generators')->afterEach(function () {
+    foreach (['TotalUsers', 'UsersPerDay', 'UsersByRole', 'MonthlyGoal', 'RecentDeploys', 'TopEndpoints'] as $cls) {
+        (new Filesystem)->delete(app_path("Martis/Metrics/{$cls}.php"));
+    }
+});
+
+it('metric generator commands are registered in the service provider', function () {
+    $commands = $this->app->make(Kernel::class)->all();
+    expect($commands)
+        ->toHaveKey('martis:value')
+        ->toHaveKey('martis:trend')
+        ->toHaveKey('martis:partition')
+        ->toHaveKey('martis:progress')
+        ->toHaveKey('martis:activity-feed')
+        ->toHaveKey('martis:endpoint-table');
+});
+
+// ---------------------------------------------------------------------------
+// martis:dashboard
+// ---------------------------------------------------------------------------
+
+it('martis:dashboard generates a Dashboard class file', function () {
+    $path = app_path('Martis/Dashboards/SalesDashboard.php');
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Dashboards'));
+
+    $this->artisan('martis:dashboard', ['name' => 'SalesDashboard'])->assertSuccessful();
+
+    expect(file_exists($path))->toBeTrue();
+
+    $contents = file_get_contents($path);
+    expect($contents)
+        ->toContain('class SalesDashboard extends Dashboard')
+        ->toContain('namespace App\\Martis\\Dashboards');
+})->afterEach(function () {
+    (new Filesystem)->delete(app_path('Martis/Dashboards/SalesDashboard.php'));
+});
+
+it('DashboardMakeCommand is registered in the service provider', function () {
+    $commands = $this->app->make(Kernel::class)->all();
+    expect($commands)->toHaveKey('martis:dashboard');
 });

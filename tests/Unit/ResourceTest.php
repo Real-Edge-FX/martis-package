@@ -424,6 +424,38 @@ it('softDeletes returns false when model does not use SoftDeletes', function () 
 it('softDeletes returns true when model uses SoftDeletes', function () {
     expect(SoftDeletableResource::softDeletes())->toBeTrue();
 });
+
+// ---------------------------------------------------------------------------
+// Sticky Views (Task 15)
+// ---------------------------------------------------------------------------
+
+it('stickyView returns true by default', function () {
+    expect(SimpleResource::stickyView())->toBeTrue();
+});
+
+it('stickyView returns false when global config disables the feature', function () {
+    config()->set('martis.sticky_views.enabled', false);
+    expect(SimpleResource::stickyView())->toBeFalse();
+    config()->set('martis.sticky_views.enabled', true);
+});
+
+it('stickyView returns false when the resource opts out via $stickyView = false', function () {
+    $cls = new class extends \Martis\Resource {
+        protected static bool $stickyView = false;
+
+        public static function model(): string
+        {
+            return \Illuminate\Foundation\Auth\User::class;
+        }
+
+        public function fields(\Illuminate\Http\Request $request): array
+        {
+            return [];
+        }
+    };
+
+    expect($cls::stickyView())->toBeFalse();
+});
 // ---------------------------------------------------------------------------
 // Context-aware field resolution — all 7 cenarios
 //

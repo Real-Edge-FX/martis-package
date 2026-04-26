@@ -431,6 +431,75 @@ Namespace for auto-discovery of resource policies. When a resource does not defi
 
 Individual actions can opt out via `->withoutActionEvents()`.
 
+## Code-side registrations: `app/Providers/MartisServiceProvider.php`
+
+`config/martis.php` cannot hold closures — Laravel's `config:cache` fails to serialize them. So Martis splits configuration into two layers:
+
+| Layer | What it holds | File |
+|---|---|---|
+| **Static config** | Paths, throttle, theme, profile, cache TTLs, drawer widths, sticky-views scope, notifications poll interval, … | `config/martis.php` |
+| **Code registrations** | Main menu resolver, dashboards, custom cache layers, gate definitions, page-title closures | `app/Providers/MartisServiceProvider.php` |
+
+`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` (Laravel 11+) or `config/app.php` (Laravel 10) automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. Use `--force` to refresh the stub.
+
+The stub ships every section commented-out, so an unmodified provider registers nothing and Martis runs on its built-in defaults. Uncomment what you need:
+
+```php
+// app/Providers/MartisServiceProvider.php
+
+protected function registerMainMenu(): void
+{
+    // Layout-agnostic — feeds sidebar / topnav / minimal presets equally.
+    Martis::mainMenu(function ($request, $menu) {
+        return $menu->sections([
+            MenuSection::make('Operations', [
+                MenuItem::resource(\App\Martis\Resources\ClientResource::class),
+            ])->icon('briefcase'),
+        ]);
+    });
+}
+
+protected function registerDashboards(): void
+{
+    Martis::dashboards([
+        \App\Martis\Dashboards\OperationsDashboard::class,
+    ]);
+}
+
+protected function registerCacheLayers(): void
+{
+    MartisCache::extend('orders', enabled: true, ttl: 30);
+}
+
+protected function registerGates(): void
+{
+    Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
+}
+```
+
+Why a dedicated provider instead of `AppServiceProvider`?
+- Separation of concerns — Martis bootstrap stays out of host-app providers.
+- Self-documenting — section names (`registerMainMenu`, `registerDashboards`, `registerCacheLayers`, `registerGates`) act as a catalogue of every code-side hook Martis exposes.
+- Easier upgrades — when Martis adds a new registration point, the stub gains a section; `AppServiceProvider` is never touched.
+- Mirrors the pattern Nova and Filament use.
+
+To republish the stub manually (e.g. after package upgrade adds a new section): `php artisan vendor:publish --tag=martis-provider --force`.
+
+## Cache
+
+```php
+'cache' => [
+    'enabled'    => true,
+    'metrics'    => ['enabled' => true, 'ttl' => 5],
+    'navigation' => ['enabled' => true, 'ttl' => 1],
+    'dashboards' => ['enabled' => true, 'ttl' => null],
+    'schema'     => ['enabled' => true, 'ttl' => null],
+    'admin_ui'   => true,
+],
+```
+
+Per-subsystem cache layer with three control planes (config / env / runtime), bypass header, and admin page. See [Cache](cache.md) for the full reference.
+
 ## Profile
 
 ```php
