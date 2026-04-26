@@ -37,7 +37,6 @@ return [
     'filters' => 'Filtros',
     'clear_filter' => 'Limpar filtro',
     'clear_all' => 'Limpar todos',
-    'clear_filters' => 'Limpar todos os filtros',
     'filter_from' => 'De',
     'filter_to' => 'Até',
     'refresh' => 'Atualizar',

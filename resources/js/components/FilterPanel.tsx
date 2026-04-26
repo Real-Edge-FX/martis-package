@@ -207,20 +207,6 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
             })}
           </div>
 
-          {activeCount > 0 && (
-            <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--martis-border)' }}>
-              <button
-                type="button"
-                data-testid="filter-clear-all"
-                onClick={handleClearAll}
-                className="inline-flex items-center gap-1.5 text-xs font-medium"
-                style={{ color: 'var(--martis-text-muted)' }}
-              >
-                <XIcon size={12} weight="bold" />
-                {t('clear_filters', 'Clear all filters')}
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
