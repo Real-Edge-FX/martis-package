@@ -21,6 +21,7 @@ return [
     'error_server_error' => 'Erro do servidor',
     'index' => 'Listagem',
     'profile' => 'Perfil',
+    'system_cache' => 'Cache do sistema',
     'open_sidebar' => 'Abrir menu',
     'search_resources' => 'Pesquisar recursos...',
     'search_placeholder' => 'Pesquisar tudo…',

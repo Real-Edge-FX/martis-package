@@ -10,6 +10,33 @@ function cleanupMartisInstallArtifacts(): void
 {
     $filesystem = new Filesystem;
 
+    // Service provider stub published by martis:install lives in
+    // app_path('Providers'). Remove between tests so each run starts
+    // from a clean slate. Same for the bootstrap registration.
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    if ($filesystem->exists($providerPath)) {
+        try {
+            $filesystem->delete($providerPath);
+        } catch (\Throwable) {
+            // Ignore parallel-worker race.
+        }
+    }
+
+    $bootstrapPath = base_path('bootstrap/providers.php');
+    if ($filesystem->exists($bootstrapPath)) {
+        try {
+            $contents = (string) $filesystem->get($bootstrapPath);
+            $stripped = preg_replace(
+                '/\s*App\\\\Providers\\\\MartisServiceProvider::class,\n?/',
+                '',
+                $contents,
+            ) ?? '';
+            $filesystem->put($bootstrapPath, $stripped);
+        } catch (\Throwable) {
+            // Ignore parallel-worker race.
+        }
+    }
+
     $patterns = [
         'migrations/*_create_martis_action_events_table.php',
         'migrations/*_add_martis_profile_picture_column_to_users_table.php',
@@ -134,6 +161,71 @@ it('martis:install skips config publish when config already exists', function ()
 it('InstallCommand class is registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:install');
+});
+
+it('martis:install publishes the host MartisServiceProvider stub', function () {
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    expect(file_exists($providerPath))->toBeFalse();
+
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    expect(file_exists($providerPath))->toBeTrue();
+    $contents = (string) file_get_contents($providerPath);
+    expect($contents)->toContain('class MartisServiceProvider');
+    expect($contents)->toContain('Martis::dashboards');
+    expect($contents)->toContain('Martis::mainMenu');
+    expect($contents)->toContain('MartisCache::extend');
+    expect($contents)->toContain('manage-martis-cache');
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+it('martis:install does not overwrite an existing host MartisServiceProvider', function () {
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+    (new Filesystem)->put($providerPath, '<?php // custom user content');
+
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    expect(file_get_contents($providerPath))->toBe('<?php // custom user content');
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+it('martis:install --force overwrites an existing host MartisServiceProvider', function () {
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+    (new Filesystem)->put($providerPath, '<?php // custom user content');
+
+    $this->artisan('martis:install', ['--no-interaction' => true, '--force' => true])->assertSuccessful();
+
+    expect(file_get_contents($providerPath))->toContain('class MartisServiceProvider');
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+it('martis:install registers the host MartisServiceProvider in bootstrap/providers.php', function () {
+    $bootstrapPath = base_path('bootstrap/providers.php');
+    if (! file_exists($bootstrapPath)) {
+        // Some testbench setups don't have this file. Skip.
+        return;
+    }
+
+    // Reset to a clean providers.php with no Martis entry.
+    (new Filesystem)->put($bootstrapPath, "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n");
+
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    $contents = (string) file_get_contents($bootstrapPath);
+    expect($contents)->toContain('App\\Providers\\MartisServiceProvider::class');
+
+    // Re-running install does not duplicate the entry.
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    $occurrences = substr_count((string) file_get_contents($bootstrapPath), 'App\\Providers\\MartisServiceProvider::class');
+    expect($occurrences)->toBe(1);
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
 });
 
 // ---------------------------------------------------------------------------

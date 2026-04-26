@@ -70,3 +70,27 @@ it('vendor publish tag martis-config is registered', function () {
 
     expect($paths)->not->toBeEmpty();
 });
+
+it('vendor publish tag martis-provider exposes the host MartisServiceProvider stub', function () {
+    $paths = ServiceProvider::pathsToPublish(
+        MartisServiceProvider::class,
+        'martis-provider'
+    );
+
+    expect($paths)->not->toBeEmpty();
+    $stubPath = array_key_first($paths);
+    expect($stubPath)->toEndWith('MartisServiceProvider.php.stub');
+    expect(file_exists($stubPath))->toBeTrue();
+
+    $contents = (string) file_get_contents($stubPath);
+    expect($contents)->toContain('class MartisServiceProvider');
+    expect($contents)->toContain('registerMainMenu');
+    expect($contents)->toContain('registerDashboards');
+    expect($contents)->toContain('registerCacheLayers');
+    expect($contents)->toContain('registerGates');
+    // The stub must not reference any specific application class so
+    // it works in every host project — only the framework's facades
+    // and our own facade.
+    expect($contents)->toContain('Martis\\Facades\\Martis');
+    expect($contents)->toContain('Martis\\Cache\\MartisCache');
+});

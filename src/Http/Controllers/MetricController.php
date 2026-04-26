@@ -5,6 +5,7 @@ namespace Martis\Http\Controllers;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
+use Martis\Cache\MartisCache;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\MetricContract;
@@ -33,12 +34,18 @@ class MetricController
 
     public function dashboards(Request $request): IlluminateJsonResponse
     {
-        $manager = app(MartisManager::class);
-        $dashboards = $manager->resolveDashboards($request);
+        // Cache the dashboard list shape per user — `authorizedToSee` runs
+        // against the active user, so two users may see different lists.
+        $cache = app(MartisCache::class);
+        $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+        $payload = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale(), function () use ($request): array {
+            $manager = app(MartisManager::class);
+            $dashboards = $manager->resolveDashboards($request);
 
-        $data = array_map(fn (DashboardContract $d) => $d->toArray(), $dashboards);
+            return array_values(array_map(fn (DashboardContract $d) => $d->toArray(), $dashboards));
+        });
 
-        return JsonResponse::make(['dashboards' => array_values($data)])->toResponse();
+        return JsonResponse::make(['dashboards' => $payload])->toResponse();
     }
 
     // -------------------------------------------------------------------------
@@ -53,14 +60,22 @@ class MetricController
             return JsonErrorResponse::notFound('Dashboard not found.')->toResponse();
         }
 
-        $cards = $this->serializeCards($instance->cards($request), $request);
-        $filters = $this->serializeFilters($instance->filters($request), $request);
+        // Cache the dashboard shape (definition + cards/filters metadata).
+        // The metric values themselves are NOT cached here — `Metric::resolve`
+        // owns its own per-metric cache so polling intervals stay correct.
+        $cache = app(MartisCache::class);
+        $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+        $cacheKey = 'show:'.$dashboard.':'.$userKey.':'.app()->getLocale();
 
-        return JsonResponse::make([
-            'dashboard' => $instance->toArray(),
-            'cards' => $cards,
-            'filters' => $filters,
-        ])->toResponse();
+        $payload = $cache->remember('dashboards', $cacheKey, function () use ($instance, $request): array {
+            return [
+                'dashboard' => $instance->toArray(),
+                'cards' => $this->serializeCards($instance->cards($request), $request),
+                'filters' => $this->serializeFilters($instance->filters($request), $request),
+            ];
+        });
+
+        return JsonResponse::make($payload)->toResponse();
     }
 
     // -------------------------------------------------------------------------

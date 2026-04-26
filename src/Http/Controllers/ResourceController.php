@@ -744,6 +744,31 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
+        // Cache the schema payload per (resource, user, locale). The
+        // schema is heavy to compute (flattens panels/tabs, calls
+        // `toArray()` on every field, resolves filters/lenses/cards/
+        // dashboards/actions) and stable for the lifetime of a release —
+        // perfect cache target. Key includes the resource class because
+        // different resources sharing a uri key would otherwise collide.
+        $cache = app(\Martis\Cache\MartisCache::class);
+        $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+        $cacheKey = 'schema:'.$resource.':'.$userKey.':'.app()->getLocale();
+
+        $data = $cache->remember('schema', $cacheKey, fn () => $this->buildSchema($request, $resourceClass, $instance));
+
+        return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * Build the heavy schema payload. Extracted so `schema()` can wrap
+     * it in `MartisCache::remember()` cleanly.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array<string, mixed>
+     */
+    protected function buildSchema(Request $request, string $resourceClass, \Martis\Resource $instance): array
+    {
+
         // Flatten layout containers (Panel/Section/TabGroup) a resource may
         // have placed inside fields(). The schema/fieldData endpoint wants
         // FieldContract instances only — Sections exist for rendering,
@@ -871,7 +896,7 @@ class ResourceController extends MartisController
             'defaultSortDirection' => $resourceClass::defaultSortDirection()->value,
         ];
 
-        return JsonResponse::make($data)->toResponse();
+        return $data;
     }
 
     /**

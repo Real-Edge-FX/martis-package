@@ -513,7 +513,7 @@ use Martis\Events\AfterSave;
 use Martis\Events\BeforeDelete;
 use Martis\Events\AfterDelete;
 
-// In AppServiceProvider::boot()
+// In a service provider's boot() — typically MartisServiceProvider for app-side concerns.
 Event::listen(AfterSave::class, function (AfterSave $event) {
     AuditLog::record('saved', $event->resourceClass, $event->model->id, $event->creating);
 });

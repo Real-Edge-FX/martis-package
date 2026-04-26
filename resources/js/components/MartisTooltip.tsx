@@ -201,14 +201,19 @@ export function MartisTooltip() {
           backgroundColor: 'var(--martis-tooltip-bg, var(--martis-text))',
           color: 'var(--martis-tooltip-text, var(--martis-bg))',
           border: 'none',
-          fontSize: '11px',
-          padding: '4px 8px',
+          // HTML tooltips need more breathing room — bigger box, slightly
+          // larger font, generous line-height — so multi-line explanations
+          // read like a paragraph instead of a stacked column. Plain
+          // tooltips stay tight (single line label, 11px).
+          fontSize: isHtml ? '12px' : '11px',
+          padding: isHtml ? '8px 12px' : '4px 8px',
+          lineHeight: isHtml ? 1.45 : 1.2,
           borderRadius: '0.375rem',
-          // HTML tooltips may contain <br>, <ul>, etc. — they need `normal`
-          // wrapping so those line breaks actually render. Plain tooltips
-          // keep `nowrap` so short labels don't word-wrap next to edges.
           whiteSpace: isHtml ? 'normal' : 'nowrap',
-          maxWidth: 300,
+          // The HTML variant typically wraps two or three lines of prose;
+          // 360 keeps it readable without becoming a banner.
+          maxWidth: isHtml ? 360 : 300,
+          minWidth: isHtml ? 220 : undefined,
           position: 'relative',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -2px rgba(0, 0, 0, 0.08)',
         }}
