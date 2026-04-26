@@ -155,7 +155,7 @@ class Sparkline extends Field
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attribute ?? $this->attribute), $model, $attribute ?? $this->attribute);
+            return ($this->resolveCallback)($model->getAttribute($attribute ?? $this->attribute), $model, $attribute ?? $this->attribute, $this->safeRequest());
         }
 
         if ($this->chartData !== null) {

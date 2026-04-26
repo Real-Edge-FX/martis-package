@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
-import { Link, Navigate, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useAuth, TwoFactorRequiredError } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
 import { ApiError } from "@/lib/api"
@@ -42,17 +42,37 @@ export function LoginPage() {
   const showRegister = isFlowEnabled(registration)
 
   // Detect session-expired redirect from api.ts global 401 handler.
+  // The toast + history rewrite are deferred to the next macrotask so
+  // they do NOT fire synchronously during the first paint. Doing both
+  // inside the initial commit can race with the Toast portal mount and
+  // confuse browser automation (CDP-based extensions report a
+  // "frame detached" the moment `replaceState` lands in the same tick
+  // as a portal mount), and the user-visible behaviour is identical.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('expired') === '1') {
+    if (params.get('expired') !== '1') return
+
+    const handle = window.setTimeout(() => {
       addToast('warning', t('session_expired'))
       const url = new URL(window.location.href)
       url.searchParams.delete('expired')
       window.history.replaceState({}, '', url.toString())
-    }
+    }, 0)
+
+    return () => window.clearTimeout(handle)
   }, [])
 
-  if (!isLoading && user) return <Navigate to="/" replace />
+  // Redirect already-authenticated users out of the login page via an
+  // effect rather than a render-time `<Navigate>` so the navigation
+  // happens outside of React's render cycle. This avoids racing with
+  // the auth context's `isLoading` flip on the very first commit, which
+  // could otherwise leave the login DOM half-built when a logged-in
+  // user lands here directly.
+  useEffect(() => {
+    if (!isLoading && user) navigate('/', { replace: true })
+  }, [isLoading, user, navigate])
+
+  if (!isLoading && user) return null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

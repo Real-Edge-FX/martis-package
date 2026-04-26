@@ -81,7 +81,7 @@ class Image extends File
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->attribute);
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
             return;
         }
@@ -183,7 +183,7 @@ class Image extends File
         $attr = $attribute ?? $this->attribute;
 
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr);
+            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr, $this->safeRequest());
         }
 
         if ($this->multiple) {

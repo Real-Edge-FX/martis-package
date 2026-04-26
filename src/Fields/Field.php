@@ -10,6 +10,8 @@ use Martis\Contracts\FieldContract;
 use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
 use Martis\FieldContext;
+use Martis\Resource;
+use Martis\ResourceRegistry;
 
 /**
  * Abstract base class for all Martis fields.
@@ -31,6 +33,16 @@ abstract class Field implements FieldContract
 {
     protected bool $nullable = false;
 
+    /**
+     * Lazy resolver — set by `nullable(bool|Closure)`. Closures
+     * receive the active Request and decide at render time. `null`
+     * means the resolver was never set; falls back to the legacy
+     * `$nullable` boolean.
+     *
+     * @var bool|\Closure(Request|null): bool|null
+     */
+    protected mixed $nullableResolver = null;
+
     protected bool $readonly = false;
 
     /**
@@ -39,11 +51,21 @@ abstract class Field implements FieldContract
      * means the resolver was never set; falls back to the legacy
      * `$readonly` boolean.
      *
-     * @var bool|\Closure(\Illuminate\Http\Request|null): bool|null
+     * @var bool|\Closure(Request|null): bool|null
      */
     protected mixed $readonlyResolver = null;
 
     protected bool $required = false;
+
+    /**
+     * Lazy resolver — set by `required(bool|Closure)`. Closures
+     * receive the active Request and decide at render time. `null`
+     * means the resolver was never set; falls back to the legacy
+     * `$required` boolean.
+     *
+     * @var bool|\Closure(Request|null): bool|null
+     */
+    protected mixed $requiredResolver = null;
 
     protected bool $showOnIndex = true;
 
@@ -135,7 +157,11 @@ abstract class Field implements FieldContract
 
     protected ?string $placeholder = null;
 
+    protected ?\Closure $placeholderResolver = null;
+
     protected ?string $helpText = null;
+
+    protected ?\Closure $helpResolver = null;
 
     /**
      * Inline tooltip content shown when the user hovers the (?) icon next to
@@ -143,6 +169,12 @@ abstract class Field implements FieldContract
      * caller can build richer hints than a single-line help string.
      */
     protected ?string $tooltip = null;
+
+    protected ?\Closure $tooltipResolver = null;
+
+    protected ?\Closure $labelResolver = null;
+
+    protected ?\Closure $rulesResolver = null;
 
     /** Whether the field spans the full width of the form. */
     protected bool $fullWidth = false;
@@ -157,7 +189,7 @@ abstract class Field implements FieldContract
     /** Create a new field instance. */
     protected function __construct(
         protected readonly string $attribute,
-        protected readonly string $label,
+        protected string $label,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -183,7 +215,41 @@ abstract class Field implements FieldContract
     /** {@inheritDoc} */
     public function label(): string
     {
+        if ($this->labelResolver !== null) {
+            $resolved = ($this->labelResolver)($this->safeRequest());
+
+            return is_string($resolved) ? $resolved : $this->label;
+        }
+
         return $this->label;
+    }
+
+    /**
+     * Override the field label after construction.
+     *
+     * Accepts either a static string (replaces the constructor label) or a
+     * closure that resolves at render time. Use the closure form when the
+     * label depends on the locale, the authenticated user, or any other
+     * request-scoped state.
+     *
+     *     Text::make('name')->withLabel('Full Name')
+     *     Text::make('status')->withLabel(fn () => __('fields.status'))
+     *
+     * Named `withLabel()` rather than overloading `label()` because
+     * `label()` is already the getter contract method.
+     *
+     * @param  string|\Closure(Request|null): string  $value
+     */
+    public function withLabel(string|\Closure $value): static
+    {
+        if ($value instanceof \Closure) {
+            $this->labelResolver = $value;
+        } else {
+            $this->labelResolver = null;
+            $this->label = $value;
+        }
+
+        return $this;
     }
 
     // -------------------------------------------------------------------------
@@ -196,7 +262,9 @@ abstract class Field implements FieldContract
         $attr = $attribute ?? $this->attribute;
 
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr);
+            // 4th argument (Request|null) is optional — closures with 3
+            // params still work because PHP accepts more args than declared.
+            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr, $this->safeRequest());
         }
 
         return $model->getAttribute($attr);
@@ -210,7 +278,9 @@ abstract class Field implements FieldContract
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->attribute);
+            // 4th argument (Request|null) is optional — closures with 3
+            // params still work because PHP accepts more args than declared.
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
             return;
         }
@@ -227,11 +297,11 @@ abstract class Field implements FieldContract
     {
         return array_merge([
             'attribute' => $this->attribute(),
-            'label' => $this->label,
+            'label' => $this->label(),
             'type' => $this->type(),
-            'nullable' => $this->nullable,
+            'nullable' => $this->isNullable(),
             'readonly' => $this->isReadonly(),
-            'required' => $this->required,
+            'required' => $this->isRequired(),
             'sortable' => $this->sortable,
             'searchable' => $this->searchable,
             'showOnIndex' => $this->showOnIndex,
@@ -244,9 +314,9 @@ abstract class Field implements FieldContract
             'updateRules' => $this->updateRules !== [] ? $this->updateRules : null,
             'immutable' => $this->immutable,
             'component' => $this->componentKey,
-            'placeholder' => $this->placeholder,
-            'helpText' => $this->helpText,
-            'tooltip' => $this->tooltip,
+            'placeholder' => $this->getPlaceholder(),
+            'helpText' => $this->getHelp(),
+            'tooltip' => $this->getTooltip(),
             'fullWidth' => $this->fullWidth,
             'stacked' => $this->stacked,
             'colSpan' => $this->colSpan,
@@ -267,12 +337,40 @@ abstract class Field implements FieldContract
     // FieldContract — visibility
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
-    public function nullable(): static
+    /**
+     * Mark the field as nullable. Accepts a static `bool` (default `true`)
+     * or a closure that decides at request time. When a closure is passed
+     * it receives the active `Request` and must return a boolean.
+     *
+     *     Text::make('subtitle')->nullable()
+     *     Text::make('comment')->nullable(fn ($r) => $r->user()->cannot('require-comment'))
+     *
+     * @param  bool|\Closure(Request|null): bool  $value
+     */
+    public function nullable(bool|\Closure $value = true): static
     {
-        $this->nullable = true;
+        $this->nullableResolver = $value;
+        if (is_bool($value)) {
+            $this->nullable = $value;
+        }
 
         return $this;
+    }
+
+    /**
+     * Resolve the current nullable state — closures evaluate lazily so
+     * the request, locale, authenticated user, and any other
+     * request-scoped state is fresh.
+     */
+    public function isNullable(): bool
+    {
+        if ($this->nullableResolver instanceof \Closure) {
+            $request = $this->safeRequest();
+
+            return (bool) ($this->nullableResolver)($request);
+        }
+
+        return $this->nullable;
     }
 
     /**
@@ -284,7 +382,7 @@ abstract class Field implements FieldContract
      *     Text::make('email')->readonly()
      *     Text::make('slug')->readonly(fn ($request) => $request->user()?->cannot('rename'))
      *
-     * @param  bool|\Closure(\Illuminate\Http\Request): bool  $value
+     * @param  bool|\Closure(Request): bool  $value
      */
     public function readonly(bool|\Closure $value = true): static
     {
@@ -320,12 +418,12 @@ abstract class Field implements FieldContract
      * container is not bootstrapped yet (raw PHPUnit tests, queue
      * workers without HTTP context, etc.).
      */
-    protected function safeRequest(): ?\Illuminate\Http\Request
+    protected function safeRequest(): ?Request
     {
         try {
             $resolved = function_exists('app') ? app('request') : null;
 
-            return $resolved instanceof \Illuminate\Http\Request ? $resolved : null;
+            return $resolved instanceof Request ? $resolved : null;
         } catch (\Throwable) {
             return null;
         }
@@ -349,32 +447,117 @@ abstract class Field implements FieldContract
         return $this->immutable;
     }
 
-    /** {@inheritDoc} */
-    public function required(): static
+    /**
+     * Mark the field as required. Accepts a static `bool` (default `true`)
+     * or a closure that decides at request time. When a closure is passed
+     * it receives the active `Request` and must return a boolean.
+     *
+     *     Text::make('email')->required()
+     *     Text::make('reason')->required(fn ($r) => $r->user()->cannot('skip-reason'))
+     *
+     * @param  bool|\Closure(Request|null): bool  $value
+     */
+    public function required(bool|\Closure $value = true): static
     {
-        $this->required = true;
+        $this->requiredResolver = $value;
+        if (is_bool($value)) {
+            $this->required = $value;
+        }
 
         return $this;
     }
 
-    /** {@inheritDoc} */
-    public function placeholder(string $text): static
+    /**
+     * Resolve the current required state — closures evaluate lazily so
+     * the request, locale, authenticated user, and any other
+     * request-scoped state is fresh.
+     */
+    public function isRequired(): bool
     {
-        $this->placeholder = $text;
+        if ($this->requiredResolver instanceof \Closure) {
+            $request = $this->safeRequest();
+
+            return (bool) ($this->requiredResolver)($request);
+        }
+
+        return $this->required;
+    }
+
+    /**
+     * Set the placeholder text shown when the field is empty.
+     *
+     * Accepts either a static string or a closure that resolves at
+     * render time. Use the closure form when the placeholder depends on
+     * the locale, the authenticated user, or any other request-scoped
+     * state.
+     *
+     *     Text::make('email')->placeholder('you@company.com')
+     *     Text::make('greeting')->placeholder(fn () => __('fields.greeting.placeholder'))
+     *
+     * @param  string|\Closure(Request|null): string  $text
+     */
+    public function placeholder(string|\Closure $text): static
+    {
+        if ($text instanceof \Closure) {
+            $this->placeholderResolver = $text;
+        } else {
+            $this->placeholderResolver = null;
+            $this->placeholder = $text;
+        }
 
         return $this;
+    }
+
+    /**
+     * Resolve the current placeholder text — closures evaluate lazily.
+     */
+    public function getPlaceholder(): ?string
+    {
+        if ($this->placeholderResolver !== null) {
+            $resolved = ($this->placeholderResolver)($this->safeRequest());
+
+            return is_string($resolved) ? $resolved : null;
+        }
+
+        return $this->placeholder;
     }
 
     /**
      * Set help text displayed below the field input.
      *
      * Supports inline HTML for rich help text (links, bold, code).
+     * Accepts either a static string or a closure that resolves at
+     * render time.
+     *
+     *     Text::make('username')->help('Letters and numbers only.')
+     *     Text::make('quota')->help(fn ($r) => "Quota left: {$r->user()->quota()}")
+     *
+     * @param  string|\Closure(Request|null): string  $text
      */
-    public function help(string $text): static
+    public function help(string|\Closure $text): static
     {
-        $this->helpText = $text;
+        if ($text instanceof \Closure) {
+            $this->helpResolver = $text;
+        } else {
+            $this->helpResolver = null;
+            $this->helpText = $text;
+        }
 
         return $this;
+    }
+
+    /**
+     * Resolve the current help text — closures evaluate lazily.
+     */
+    public function getHelp(): ?string
+    {
+        if ($this->helpResolver !== null) {
+            $resolved = ($this->helpResolver)($this->safeRequest());
+
+            return is_string($resolved) ? $resolved : null;
+        }
+
+        return $this->helpText;
     }
 
     /**
@@ -387,16 +570,32 @@ abstract class Field implements FieldContract
      * Raw HTML is allowed (line breaks, bold, lists) so callers can build
      * multi-line, formatted hints. The frontend opts in via the
      * `data-pr-tooltip-html` attribute on the trigger.
+     *
+     * Accepts either a static string or a closure that resolves at
+     * render time.
+     *
+     * @param  string|\Closure(Request|null): ?string|null  $text
      */
-    public function tooltip(?string $text): static
+    public function tooltip(string|\Closure|null $text): static
     {
-        $this->tooltip = $text;
+        if ($text instanceof \Closure) {
+            $this->tooltipResolver = $text;
+        } else {
+            $this->tooltipResolver = null;
+            $this->tooltip = $text;
+        }
 
         return $this;
     }
 
     public function getTooltip(): ?string
     {
+        if ($this->tooltipResolver !== null) {
+            $resolved = ($this->tooltipResolver)($this->safeRequest());
+
+            return is_string($resolved) ? $resolved : null;
+        }
+
         return $this->tooltip;
     }
 
@@ -863,12 +1062,33 @@ abstract class Field implements FieldContract
     // -------------------------------------------------------------------------
 
     /**
-     * {@inheritDoc}
+     * Set validation rules for this field.
      *
-     * @param  list<string|Rule>  $rules
+     * Accepts either a static `list<string|Rule>` or a closure that
+     * receives the active `Request` and returns one. The closure form
+     * is evaluated lazily at `buildRules()` time, so the rule set can
+     * vary per user, role, or any other request-scoped state.
+     *
+     *     Text::make('email')->rules(['required', 'email'])
+     *     Text::make('cap')->rules(fn ($r) => $r->user()->isAdmin()
+     *         ? ['nullable']
+     *         : ['required', 'integer', 'max:100']);
+     *
+     * Static and closure variants do NOT compose. The last call wins —
+     * a later `rules(fn ...)` replaces a prior `rules([...])`, and a
+     * later `rules([...])` clears any prior closure.
+     *
+     * @param  list<string|Rule>|\Closure(Request|null): list<string|Rule>  $rules
      */
-    public function rules(array $rules): static
+    public function rules(array|\Closure $rules): static
     {
+        if ($rules instanceof \Closure) {
+            $this->rulesResolver = $rules;
+
+            return $this;
+        }
+
+        $this->rulesResolver = null;
         $this->extraRules = array_merge($this->extraRules, $rules);
 
         return $this;
@@ -960,9 +1180,9 @@ abstract class Field implements FieldContract
     {
         $rules = [];
 
-        if ($this->required) {
+        if ($this->isRequired()) {
             $rules[] = 'required';
-        } elseif ($this->nullable) {
+        } elseif ($this->isNullable()) {
             $rules[] = 'nullable';
         } else {
             $rules[] = 'sometimes';
@@ -979,13 +1199,24 @@ abstract class Field implements FieldContract
             $rules[] = $rule;
         }
 
+        // Resolve closure-based rules() lazily so the active request is
+        // available. Static rules() and the closure form are mutually
+        // exclusive — only one path is in effect at any time.
+        $extraRules = $this->extraRules;
+        if ($this->rulesResolver !== null) {
+            $resolved = ($this->rulesResolver)($this->safeRequest());
+            if (is_array($resolved)) {
+                $extraRules = $resolved;
+            }
+        }
+
         $contextRules = match ($context) {
             'create' => $this->creationRules,
             'update' => $this->updateRules,
             default => [],
         };
 
-        $merged = array_merge($rules, $this->extraRules, $contextRules);
+        $merged = array_merge($rules, $extraRules, $contextRules);
 
         // `sometimes` short-circuits validation when the key is
         // missing — including `required`. When the context-specific
@@ -1005,7 +1236,15 @@ abstract class Field implements FieldContract
     /**
      * Customize how the field value is resolved from the model.
      *
-     * @param  callable(mixed $value, Model $model, string $attribute): mixed  $callback
+     * The callback receives `(mixed $value, Model $model, string $attribute, ?Request $request)`.
+     * The `$request` parameter is optional — closures declared with three
+     * parameters keep working unchanged.
+     *
+     * ⭐ Martis differential: the active `Request` is forwarded to the
+     * callback so per-user / per-locale / per-tenant resolution does not
+     * need to call the `request()` helper manually.
+     *
+     * @param  callable(mixed $value, Model $model, string $attribute, ?Request $request=): mixed  $callback
      */
     public function resolveUsing(callable $callback): static
     {
@@ -1017,7 +1256,15 @@ abstract class Field implements FieldContract
     /**
      * Customize how incoming values are written to the model.
      *
-     * @param  callable(Model $model, mixed $value, string $attribute): void  $callback
+     * The callback receives `(Model $model, mixed $value, string $attribute, ?Request $request)`.
+     * The `$request` parameter is optional — closures declared with three
+     * parameters keep working unchanged.
+     *
+     * ⭐ Martis differential: the active `Request` is forwarded to the
+     * callback so per-user / per-locale / per-tenant write logic does not
+     * need to call the `request()` helper manually.
+     *
+     * @param  callable(Model $model, mixed $value, string $attribute, ?Request $request=): void  $callback
      */
     public function fillUsing(callable $callback): static
     {
@@ -1029,12 +1276,52 @@ abstract class Field implements FieldContract
     /**
      * Customize how the field value is formatted for display (index + detail).
      *
-     * Applied AFTER resolveUsing(). Does NOT affect form values.
+     * Applied AFTER `resolveUsing()`. Does NOT affect form values.
      *
-     * @param  callable(mixed $value, Model $model, string $attribute): mixed  $callback
+     * The callback receives `(mixed $value, Model $model, string $attribute, ?Request $request)`.
+     * Closures declared with three parameters keep working unchanged.
+     *
+     * ⭐ Martis differential — chainable pipeline. Pass an array of
+     * callbacks to compose multiple transformations: each callback
+     * receives the output of the previous one. Equivalent in spirit to
+     * `array_reduce`. The static / single-callable form is unchanged.
+     *
+     *     Text::make('amount')
+     *         ->displayUsing([
+     *             fn ($v) => (float) $v,
+     *             fn ($v) => number_format($v, 2),
+     *             fn ($v) => "$ {$v}",
+     *         ]);
+     *
+     * @param  callable|list<callable>  $callback
      */
-    public function displayUsing(callable $callback): static
+    public function displayUsing(callable|array $callback): static
     {
+        if (is_array($callback)) {
+            // Compose the array into a single closure that pipes the
+            // value through each callback in order. Validates that
+            // every entry is callable so we fail loud at definition
+            // time, not deep inside `resolveForDisplay()`.
+            foreach ($callback as $i => $cb) {
+                if (! is_callable($cb)) {
+                    throw new \InvalidArgumentException(
+                        "displayUsing(): entry {$i} is not callable.",
+                    );
+                }
+            }
+
+            $pipeline = $callback;
+            $this->displayCallback = function (mixed $value, Model $model, string $attribute, ?Request $request = null) use ($pipeline): mixed {
+                foreach ($pipeline as $cb) {
+                    $value = $cb($value, $model, $attribute, $request);
+                }
+
+                return $value;
+            };
+
+            return $this;
+        }
+
         $this->displayCallback = $callback;
 
         return $this;
@@ -1052,7 +1339,9 @@ abstract class Field implements FieldContract
         $value = $this->resolve($model, $attribute);
 
         if ($this->displayCallback !== null) {
-            return ($this->displayCallback)($value, $model, $attribute ?? $this->attribute);
+            // 4th argument (Request|null) is optional — closures with 3
+            // params still work because PHP accepts more args than declared.
+            return ($this->displayCallback)($value, $model, $attribute ?? $this->attribute, $this->safeRequest());
         }
 
         return $value;
@@ -1354,8 +1643,8 @@ abstract class Field implements FieldContract
             return [];
         }
 
-        /** @var \Martis\ResourceRegistry $registry */
-        $registry = app(\Martis\ResourceRegistry::class);
+        /** @var ResourceRegistry $registry */
+        $registry = app(ResourceRegistry::class);
 
         if (! $registry->has($relatedUriKey)) {
             return [];

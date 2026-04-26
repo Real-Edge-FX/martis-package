@@ -108,7 +108,7 @@ class Code extends Field
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->attribute);
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
             return;
         }
