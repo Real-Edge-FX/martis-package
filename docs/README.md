@@ -98,6 +98,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 9.1 | **[Loader](loader.md)** | Global loader and per-surface skeletons — when each one fires, accessibility behaviour |
 | 9.2 | **[In-app Notifications](notifications.md)** | Topbar bell + standard `notifications` table + `MartisNotification::make()` (v0.8) |
 | 9.3 | **[Custom Tools](tools.md)** | Free-form sidebar pages — `Martis::tools([...])`, `MenuItem::tool()`, `/martis/api/tools` (v0.10) |
+| 9.3.1 | **[Tool boot() patterns](tool-boot-patterns.md)** | When to put setup in `Tool::boot()` vs `AppServiceProvider::boot()` — decision rubric + 4 in-app patterns (routes, gates, schedules, listeners) |
 | 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
 | 10.5 | **[SSO Subsystem](sso.md)** | Pluggable provider contract, identity-to-user resolver, role mapping, permission adapters, `martis:sso` generator (v0.9) |
 | 10.6 | **[Impersonation](impersonation.md)** | Login as another user — opt-in master switch + `martis-impersonate` gate + REST + banner contract (v0.10) |
@@ -154,6 +155,7 @@ docs/
 ├── loader.md ....................... Global loader & skeletons
 ├── notifications.md ................ In-app notifications (v0.8)
 ├── tools.md ........................ Custom Tools — free-form sidebar pages (v0.10)
+├── tool-boot-patterns.md ........... Decision rubric: Tool::boot() vs AppServiceProvider::boot()
 ├── authentication.md ............... Login, 2FA, profile
 ├── sso.md .......................... SSO subsystem (v0.9)
 ├── impersonation.md ................ Impersonation subsystem (v0.10)

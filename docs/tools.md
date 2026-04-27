@@ -110,6 +110,8 @@ $this->canSee(fn (Request $request) =>
 
 The most powerful per-tool hook. Runs **once** during host application boot, **after** Martis has loaded its own routes / views / config — so tool-owned routes register on top of an initialised package.
 
+> **When to put setup in `Tool::boot()` vs `AppServiceProvider::boot()`?** Read [tool-boot-patterns.md](tool-boot-patterns.md) — it has a decision rubric and 4 worked examples (routes, gates, schedules, event listeners) with the trade-offs spelt out.
+
 ```php
 public function boot(): void
 {
