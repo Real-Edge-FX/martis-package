@@ -7,25 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-The branch `release/v1.0.0` carries the work toward the first stable
-tag. Live tracker: [docs/v1-roadmap.md](docs/v1-roadmap.md).
+## [1.0.0] — 2026-04-27
 
-### Documentation
+First stable release. The post-v0.10.0-rc1 cycle closed the documentation
+audit, the v1.0 readiness checklist, and a handful of polish items found
+during release-candidate baking.
 
-- Definitive cleanup pass for v1.0: Nova v5 references consolidated
-  into `docs/PARITY_MAP.md` only (every other doc is now self-contained).
-- Deleted `docs/migration-from-nova.md`, `docs/nova-ecosystem-catalog.md`,
-  `docs/release-v0.3.0-alpha.md`, `docs/PROJECT_CONTEXT.md`.
-- Filled 4 missing config-key sections (`preferences`, `sticky_views`,
-  `loader`, `impersonation`) in `docs/configuration.md`.
-- Filled 7 missing endpoint families (Dashboards, Tools, Preferences,
-  Notifications, Cache Admin, Profile, Impersonation, Sync Field) in
-  `docs/api/overview.md`.
-- Documented `RelationshipQueryResolver`, `RedirectAfter`,
-  `MetricResult`, and `useUnsavedChangesGuard`.
-- Cross-links between related docs (dashboards ↔ metrics, authentication
-  ↔ sso/impersonation).
-- New `docs/v1-roadmap.md` — live readiness checklist.
+### Added
+
+- **Visual regression baseline** — `tests/e2e/visual-baseline.spec.ts`
+  in the playground covers 7 canonical pages (dashboard, resource
+  index, resource create, profile, system cache, custom tool, login)
+  with `toHaveScreenshot()` assertions and committed PNG baselines.
+- **README screenshot showcase** — six inline screenshots in the root
+  README, sourced from the visual-baseline captures.
+- **GitHub Actions CI** — new `.github/workflows/ci.yml` runs:
+  - `pest` matrix: PHP 8.2/8.3 × Laravel 11.*/12.* (4 cells)
+  - `phpstan` at level 8
+  - `pint` style check
+  - `vitest` JS test suite
+- **PHPStan baseline** — `phpstan-baseline.neon` locks 220 pre-v1.0
+  errors so CI fails on new errors without blocking the cut. Track the
+  count down to zero post-1.0.
+- **`docs/v1-roadmap.md`** — live readiness checklist used to drive
+  this release.
+
+### Changed
+
+- **Documentation overhaul** — Nova v5 references consolidated into
+  `docs/PARITY_MAP.md` as the single canonical reference. Migration
+  guide and ecosystem map folded in as appended sections; every other
+  doc is now self-contained and reads as a Martis explainer.
+  - Deleted `docs/migration-from-nova.md`, `docs/nova-ecosystem-catalog.md`,
+    `docs/release-v0.3.0-alpha.md`, `docs/PROJECT_CONTEXT.md`.
+  - Filled 4 missing config-key sections (`preferences`, `sticky_views`,
+    `loader`, `impersonation`) in `docs/configuration.md`.
+  - Filled 7 missing endpoint families (Dashboards, Tools, Preferences,
+    Notifications, Cache Admin, Profile, Impersonation, Sync Field) in
+    `docs/api/overview.md`.
+  - Documented `RelationshipQueryResolver`, `RedirectAfter`,
+    `MetricResult`, and `useUnsavedChangesGuard`.
+- **`composer.json`** — `minimum-stability` bumped from `dev` to
+  `stable` for the first stable release.
+- **`composer.json`** — license corrected from `proprietary` to `MIT`
+  (matches the LICENSE file content all along).
+
+### Fixed
+
+- **Route name collision** — RC-only routes registered under
+  `Route::name('api.')->group(...)` and named `api.X` produced
+  double-prefixed names (`martis.api.api.tools.index` etc). Affected
+  7 routes from the v0.10.0-rc1 surface; dropped the inner `api.` so
+  the canonical names are now `martis.api.tools.index`,
+  `martis.api.impersonation.{status,start,stop}`,
+  `martis.api.navigation`, `martis.api.command-palette`.
+- **PHP 8.2/8.3 syntax compatibility** — `(new class { ... })::class`
+  now wrapped in parens (8 occurrences across 4 test files). The
+  unparenthesised form requires PHP 8.4+ and was breaking CI on the
+  8.2/8.3 matrix cells.
+- **Style baseline** — auto-fixed 80 files of pre-existing Pint drift
+  (single_quote, ordered_imports, fully_qualified_strict_types, etc).
+  Pure formatting; no semantic changes.
+- **Playwright auth setup** — login form selector moved from
+  `#email`/`#password` to `#login-email`/`#login-password` at some
+  point; the test setups never picked up the rename and were silently
+  timing out. Fixed in playground PR #6.
 
 ## [0.10.0-rc1] — 2026-04-27
 
