@@ -97,8 +97,11 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
 | 9.1 | **[Loader](loader.md)** | Global loader and per-surface skeletons — when each one fires, accessibility behaviour |
 | 9.2 | **[In-app Notifications](notifications.md)** | Topbar bell + standard `notifications` table + `MartisNotification::make()` (v0.8) |
+| 9.3 | **[Custom Tools](tools.md)** | Free-form sidebar pages — `Martis::tools([...])`, `MenuItem::tool()`, `/martis/api/tools` (v0.10) |
+| 9.3.1 | **[Tool boot() patterns](tool-boot-patterns.md)** | When to put setup in `Tool::boot()` vs `AppServiceProvider::boot()` — decision rubric + 4 in-app patterns (routes, gates, schedules, listeners) |
 | 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
 | 10.5 | **[SSO Subsystem](sso.md)** | Pluggable provider contract, identity-to-user resolver, role mapping, permission adapters, `martis:sso` generator (v0.9) |
+| 10.6 | **[Impersonation](impersonation.md)** | Login as another user — opt-in master switch + `martis-impersonate` gate + REST + banner contract (v0.10) |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
 | 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |
 | 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
@@ -120,6 +123,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 15 | **[Martis Differentials](differentials.md)** | All features unique to Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
 | 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature status map — what is done, in progress, and planned |
 | 17 | **[Migrating from Nova 5](migration-from-nova.md)** | What ports cleanly, what's renamed, what's intentionally different — for teams coming from Laravel Nova v5 |
+| 17.5 | **[Nova v5 Ecosystem Catalog](nova-ecosystem-catalog.md)** | Common Nova add-ons mapped to Martis status (built-in / build-it-yourself / won't-ship) |
 | 18 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
 
 ---
@@ -150,8 +154,11 @@ docs/
 ├── components.md ................... Built-in UI components
 ├── loader.md ....................... Global loader & skeletons
 ├── notifications.md ................ In-app notifications (v0.8)
+├── tools.md ........................ Custom Tools — free-form sidebar pages (v0.10)
+├── tool-boot-patterns.md ........... Decision rubric: Tool::boot() vs AppServiceProvider::boot()
 ├── authentication.md ............... Login, 2FA, profile
 ├── sso.md .......................... SSO subsystem (v0.9)
+├── impersonation.md ................ Impersonation subsystem (v0.10)
 ├── configuration.md ................ Config reference
 ├── theming.md ...................... 94-token design system
 ├── preferences.md .................. User preferences (⭐ D1/D2/D3)
@@ -160,6 +167,7 @@ docs/
 ├── differentials.md ................ Martis differentials (unique features)
 ├── PARITY_MAP.md ................... Parity status tracker
 ├── migration-from-nova.md .......... Migration guide for Nova v5 teams
+├── nova-ecosystem-catalog.md ....... Nova add-on ↔ Martis status map
 ├── release-process.md .............. How a release tag is cut
 ├── api/
 │   └── overview.md ................. REST API reference

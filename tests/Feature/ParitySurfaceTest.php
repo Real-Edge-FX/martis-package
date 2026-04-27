@@ -24,12 +24,18 @@ declare(strict_types=1);
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Martis\Cache\MartisCache;
+use Martis\Contracts\ToolContract;
+use Martis\Facades\Martis;
 use Martis\Fields\Field;
 use Martis\Fields\Text;
+use Martis\Impersonation\Facades\Impersonation;
+use Martis\Impersonation\ImpersonationManager;
+use Martis\Menu\MenuItem;
 use Martis\Notifications\MartisNotification;
 use Martis\Resource;
 use Martis\Sso\Facades\MartisSso;
 use Martis\Sso\SsoManager;
+use Martis\Tools\Tool;
 
 class ParitySurfaceFakeModel extends Model
 {
@@ -272,4 +278,136 @@ it('martis.locales config exposes app_namespaces + fallback_chain', function () 
     expect($defaults['locales'])->toHaveKey('app_namespaces');
     expect($defaults['locales'])->toHaveKey('fallback_chain');
     expect($defaults['locales']['fallback_chain'])->toBeArray();
+});
+
+// ---------------------------------------------------------------------------
+// Tools (v0.10) — Tool base + Martis::tools() + MenuItem::tool()
+// ---------------------------------------------------------------------------
+
+it('Tool implements ToolContract and exposes the documented hooks', function () {
+    expect(is_subclass_of(Tool::class, ToolContract::class))
+        ->toBeTrue('Tool must implement ToolContract.');
+
+    $reflection = new ReflectionClass(Tool::class);
+    // Identity + descriptor surface.
+    foreach (['name', 'uriKey', 'icon', 'component', 'menuSection', 'canSee', 'authorizedToSee', 'toArray'] as $method) {
+        expect($reflection->hasMethod($method))
+            ->toBeTrue("Tool::{$method}() must exist.");
+        expect($reflection->getMethod($method)->isPublic())->toBeTrue();
+    }
+
+    // The fluent setters that bind a tool to its visual identity.
+    foreach (['withIcon', 'withComponent', 'withMenuSection', 'withMeta'] as $setter) {
+        expect($reflection->hasMethod($setter))
+            ->toBeTrue("Tool::{$setter}() must exist.");
+    }
+
+    // v0.10 Nova-parity: per-tool lifecycle + publishing.
+    foreach (['boot', 'publishes', 'publishesAssets'] as $method) {
+        expect($reflection->hasMethod($method))
+            ->toBeTrue("Tool::{$method}() must exist (Nova-parity lifecycle).");
+        expect($reflection->getMethod($method)->isPublic())->toBeTrue();
+    }
+});
+
+it('ToolServiceProvider is the documented base for Composer-package tool distribution', function () {
+    expect(class_exists(\Martis\Tools\ToolServiceProvider::class))
+        ->toBeTrue('Martis\\Tools\\ToolServiceProvider must exist for Composer-package tools.');
+
+    expect(is_subclass_of(\Martis\Tools\ToolServiceProvider::class, \Illuminate\Support\ServiceProvider::class))
+        ->toBeTrue('ToolServiceProvider must extend Illuminate\\Support\\ServiceProvider.');
+
+    $reflection = new ReflectionClass(\Martis\Tools\ToolServiceProvider::class);
+    expect($reflection->isAbstract())
+        ->toBeTrue('ToolServiceProvider must be abstract — consumers subclass it.');
+
+    expect($reflection->hasMethod('tools'))
+        ->toBeTrue('ToolServiceProvider::tools() abstract hook must exist.');
+    expect($reflection->getMethod('boot')->isPublic())
+        ->toBeTrue('ToolServiceProvider::boot() must be public so Laravel calls it.');
+});
+
+it('MartisManager exposes bootTools() so Tool::boot() runs once per request lifecycle', function () {
+    $reflection = new ReflectionMethod(\Martis\MartisManager::class, 'bootTools');
+    expect($reflection->isPublic())->toBeTrue();
+    expect($reflection->getNumberOfParameters())->toBe(0);
+});
+
+it('Martis::tools() round-trips a registered Tool through resolveTools() + findTool()', function () {
+    $tool = Tool::make('Parity Surface Tool', 'parity-surface-tool')
+        ->withIcon('wrench')
+        ->withComponent('tool:parity-surface')
+        ->withMenuSection('Parity');
+
+    Martis::tools([$tool]);
+
+    try {
+        $resolved = Martis::resolveTools(request());
+        expect($resolved)->toHaveCount(1);
+        expect($resolved[0]->uriKey())->toBe('parity-surface-tool');
+
+        $found = Martis::findTool(request(), 'parity-surface-tool');
+        expect($found)->toBeInstanceOf(ToolContract::class);
+        expect($found?->name())->toBe('Parity Surface Tool');
+
+        expect(Martis::findTool(request(), 'unknown'))->toBeNull();
+    } finally {
+        Martis::tools([]);
+    }
+});
+
+it('MenuItem::tool() builds a tool entry with the documented payload shape', function () {
+    $tool = Tool::make('System Status', 'system-status')
+        ->withIcon('pulse')
+        ->withComponent('tool:system-status');
+
+    $resolved = MenuItem::tool($tool)->resolve(request());
+
+    expect($resolved)->not->toBeNull();
+    expect($resolved)->toMatchArray([
+        'type' => 'tool',
+        'label' => 'System Status',
+        'url' => '/tools/system-status',
+        'icon' => 'pulse',
+        'uriKey' => 'system-status',
+        'component' => 'tool:system-status',
+    ]);
+});
+
+// ---------------------------------------------------------------------------
+// Impersonation (v0.10) — manager surface + facade + config keys
+// ---------------------------------------------------------------------------
+
+it('ImpersonationManager exposes the documented public surface', function () {
+    foreach ([
+        'start',
+        'stop',
+        'isActive',
+        'originalUser',
+        'currentTarget',
+        'enabled',
+        'guard',
+        'snapshot',
+    ] as $method) {
+        $reflection = new ReflectionMethod(ImpersonationManager::class, $method);
+        expect($reflection->isPublic())
+            ->toBeTrue("ImpersonationManager::{$method}() must remain public.");
+    }
+});
+
+it('Impersonation facade resolves to the singleton manager', function () {
+    $resolved = Impersonation::getFacadeRoot();
+    expect($resolved)->toBeInstanceOf(ImpersonationManager::class);
+});
+
+it('martis.impersonation config exposes enabled + guard + session_key with safe defaults', function () {
+    $defaults = require __DIR__.'/../../config/martis.php';
+
+    expect($defaults)->toHaveKey('impersonation');
+    expect($defaults['impersonation'])->toHaveKeys(['enabled', 'guard', 'session_key']);
+
+    // Master switch must default to OFF — impersonation is opt-in.
+    expect($defaults['impersonation']['enabled'])->toBeFalse(
+        'Impersonation master switch must default to false; flipping it on requires explicit opt-in.',
+    );
 });

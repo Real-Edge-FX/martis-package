@@ -19,6 +19,7 @@ import { DrawerCreate } from '@/components/overrides/DrawerCreate'
 import { DrawerUpdate } from '@/components/overrides/DrawerUpdate'
 import { DemoCustomAction } from '@/components/Actions/DemoCustomAction'
 import { DrawerDetail } from '@/components/overrides/DrawerDetail'
+import { SystemStatusDemo } from '@/components/tools/SystemStatusDemo'
 
 // Register all default field renderers into the global component registry
 registerDefaultFields()
@@ -28,6 +29,10 @@ componentRegistry.register('martis:drawer-create', DrawerCreate as never)
 componentRegistry.register('martis:drawer-update', DrawerUpdate as never)
 componentRegistry.register('martis:drawer-detail', DrawerDetail as never)
 componentRegistry.register('demo-custom-action', DemoCustomAction as never)
+
+// Built-in Tools demo component (v0.10) — apps that want a quick
+// "system overview" page can ship a Tool subclass binding to this key.
+componentRegistry.register('martis:tool:system-status-demo', SystemStatusDemo as never)
 
 // Load user-defined component overrides (if any)
 try {

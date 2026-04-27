@@ -448,3 +448,100 @@ it('DashboardMakeCommand is registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:dashboard');
 });
+
+// ---------------------------------------------------------------------------
+// martis:tool (v0.10)
+// ---------------------------------------------------------------------------
+
+it('martis:tool generates a Tool class with the documented stub shape', function () {
+    $path = app_path('Martis/Tools/SystemHealth.php');
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    $this->artisan('martis:tool', ['name' => 'SystemHealth'])->assertSuccessful();
+
+    expect(file_exists($path))->toBeTrue();
+
+    $contents = (string) file_get_contents($path);
+    expect($contents)
+        ->toContain('class SystemHealth extends Tool')
+        ->toContain('namespace App\\Martis\\Tools')
+        ->toContain("uriKey: 'system-health'")
+        ->toContain("withComponent('tool:system-health')")
+        ->toContain("withIcon('wrench')");
+})->afterEach(function () {
+    (new Filesystem)->delete(app_path('Martis/Tools/SystemHealth.php'));
+});
+
+it('martis:tool --use-bundled binds to the package SystemStatusDemo component key', function () {
+    $path = app_path('Martis/Tools/Quick.php');
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    $this->artisan('martis:tool', ['name' => 'Quick', '--use-bundled' => true])->assertSuccessful();
+
+    $contents = (string) file_get_contents($path);
+    expect($contents)
+        ->toContain("withComponent('martis:tool:system-status-demo')");
+})->afterEach(function () {
+    (new Filesystem)->delete(app_path('Martis/Tools/Quick.php'));
+});
+
+it('martis:tool --component-key honours the explicit React component key', function () {
+    $path = app_path('Martis/Tools/Reports.php');
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    $this->artisan('martis:tool', [
+        'name' => 'Reports',
+        '--component-key' => 'app:reports-page',
+    ])->assertSuccessful();
+
+    $contents = (string) file_get_contents($path);
+    expect($contents)->toContain("withComponent('app:reports-page')");
+})->afterEach(function () {
+    (new Filesystem)->delete(app_path('Martis/Tools/Reports.php'));
+});
+
+it('martis:tool --menu-section embeds the section call in the Tool stub', function () {
+    $path = app_path('Martis/Tools/Backups.php');
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    $this->artisan('martis:tool', [
+        'name' => 'Backups',
+        '--menu-section' => 'Operations',
+    ])->assertSuccessful();
+
+    $contents = (string) file_get_contents($path);
+    expect($contents)->toContain("withMenuSection('Operations')");
+})->afterEach(function () {
+    (new Filesystem)->delete(app_path('Martis/Tools/Backups.php'));
+});
+
+it('martis:tool --with-component drops a paired TSX stub', function () {
+    $php = app_path('Martis/Tools/Imports.php');
+    $tsx = base_path('resources/js/tools/ImportsTool.tsx');
+    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    $this->artisan('martis:tool', [
+        'name' => 'Imports',
+        '--with-component' => true,
+    ])->assertSuccessful();
+
+    expect(file_exists($php))->toBeTrue();
+    expect(file_exists($tsx))->toBeTrue();
+
+    $contents = (string) file_get_contents($tsx);
+    expect($contents)
+        ->toContain('export function ImportsTool')
+        ->toContain("componentRegistry.register('tool:imports'");
+})->afterEach(function () {
+    $fs = new Filesystem;
+    $fs->delete(app_path('Martis/Tools/Imports.php'));
+    $fs->delete(base_path('resources/js/tools/ImportsTool.tsx'));
+    if (is_dir(base_path('resources/js/tools')) && count(scandir(base_path('resources/js/tools'))) === 2) {
+        rmdir(base_path('resources/js/tools'));
+    }
+});
+
+it('ToolMakeCommand is registered in the service provider', function () {
+    $commands = $this->app->make(Kernel::class)->all();
+    expect($commands)->toHaveKey('martis:tool');
+});
