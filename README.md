@@ -75,6 +75,35 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 | Node.js | 20+ (contributors only) |
 | pnpm | 8+ (contributors only) |
 
+## Screenshots
+
+<table>
+<tr>
+<td><img src="docs/screenshots/dashboard.png" alt="Dashboard with metric cards" width="100%"></td>
+<td><img src="docs/screenshots/resource-index.png" alt="Resource index with filters and sticky views" width="100%"></td>
+</tr>
+<tr>
+<td align="center"><sub>Dashboard — multiple dashboards with metric cards, filters, polling</sub></td>
+<td align="center"><sub>Resource index — sticky filters, sort, pagination, per-row actions</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/resource-create.png" alt="Resource create form with grid layout" width="100%"></td>
+<td><img src="docs/screenshots/tool-system-status.png" alt="Custom Tool — System Status" width="100%"></td>
+</tr>
+<tr>
+<td align="center"><sub>Resource create — multi-column grid layout, reactive fields, save variants</sub></td>
+<td align="center"><sub>Custom Tool — free-form sidebar pages with <code>Tool::boot()</code> lifecycle</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/system-cache.png" alt="Cache control admin page" width="100%"></td>
+<td><img src="docs/screenshots/profile.png" alt="User profile + 2FA" width="100%"></td>
+</tr>
+<tr>
+<td align="center"><sub>System cache — per-subsystem toggle / version / clear</sub></td>
+<td align="center"><sub>Profile — avatar, 2FA enrolment, recovery codes</sub></td>
+</tr>
+</table>
+
 ## Features at a Glance
 
 - **50 field types** — text, select, date, file, image, code, markdown, rich text, badge, status, currency, country, key-value, sparkline, audio, slug, timezone, icon picker, and 32 more
