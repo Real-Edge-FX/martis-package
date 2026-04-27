@@ -132,3 +132,103 @@ it('MenuItem::tool() accepts a class-string and instantiates it lazily', functio
     expect($resolved)->not->toBeNull();
     expect($resolved['uriKey'])->toBe('system-status');
 });
+
+// ---------------------------------------------------------------------------
+// Per-tool boot() lifecycle hook (Nova parity)
+// ---------------------------------------------------------------------------
+
+class BootHookTool extends \Martis\Tools\Tool
+{
+    /** @var int */
+    public static int $bootCount = 0;
+
+    public function __construct()
+    {
+        parent::__construct(name: 'Boot Hook', uriKey: 'boot-hook');
+    }
+
+    public function boot(): void
+    {
+        static::$bootCount++;
+    }
+}
+
+class ThrowingBootTool extends \Martis\Tools\Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Throwing Boot', uriKey: 'throwing-boot');
+    }
+
+    public function boot(): void
+    {
+        throw new \RuntimeException('boom');
+    }
+}
+
+it('MartisManager::bootTools() runs boot() on every registered tool exactly once', function () {
+    BootHookTool::$bootCount = 0;
+    \Martis\Facades\Martis::tools([BootHookTool::class]);
+
+    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+    \Martis\Facades\Martis::getFacadeRoot()?->bootTools(); // idempotent
+
+    expect(BootHookTool::$bootCount)->toBe(1);
+});
+
+it('MartisManager::bootTools() materialises class-string registrations into instances', function () {
+    \Martis\Facades\Martis::tools([BootHookTool::class]);
+    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+
+    $resolved = \Martis\Facades\Martis::resolveTools(request());
+
+    expect($resolved[0])->toBeInstanceOf(BootHookTool::class);
+});
+
+it('MartisManager::bootTools() swallows exceptions so a broken tool does not kill admin boot', function () {
+    \Martis\Facades\Martis::tools([
+        new ThrowingBootTool(),
+        new BootHookTool(),
+    ]);
+    BootHookTool::$bootCount = 0;
+
+    // Must not throw — the broken tool gets logged + skipped, the
+    // healthy tool's boot still runs.
+    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+
+    expect(BootHookTool::$bootCount)->toBe(1);
+});
+
+class PublishingTool extends \Martis\Tools\Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Publishing Tool', uriKey: 'publishing-tool');
+    }
+
+    public function boot(): void
+    {
+        $this->publishes([
+            __DIR__.'/../../config/martis.php' => config_path('martis-publishing-tool-test.php'),
+        ], 'publishing-tool-config');
+    }
+}
+
+it('Tool::publishes() registers paths under the standard ServiceProvider buckets', function () {
+    $reset = function () {
+        \Illuminate\Support\ServiceProvider::$publishes[PublishingTool::class] = [];
+        unset(\Illuminate\Support\ServiceProvider::$publishGroups['publishing-tool-config']);
+    };
+    $reset();
+
+    \Martis\Facades\Martis::tools([new PublishingTool()]);
+    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+
+    $perProvider = \Illuminate\Support\ServiceProvider::$publishes[PublishingTool::class] ?? [];
+    $perTag = \Illuminate\Support\ServiceProvider::$publishGroups['publishing-tool-config'] ?? [];
+
+    expect($perProvider)->not->toBeEmpty();
+    expect(array_values($perTag)[0] ?? null)->toBe(config_path('martis-publishing-tool-test.php'));
+
+    $reset();
+});

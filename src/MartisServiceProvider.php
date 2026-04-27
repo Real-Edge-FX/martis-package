@@ -89,6 +89,17 @@ class MartisServiceProvider extends ServiceProvider
 
         $this->registerBuiltInResources();
 
+        // Boot every registered Tool's lifecycle hook AFTER Martis
+        // itself has loaded routes / views / config. Tools can hook
+        // their own routes, listeners, view namespaces, and
+        // publishables on top of the now-initialised package.
+        // Defer to the post-register phase so tools registered in
+        // consumer service providers (which typically run AFTER this
+        // package's own register) are picked up before we boot them.
+        $this->app->booted(function () {
+            \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+        });
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 InstallCommand::class,

@@ -25,6 +25,9 @@ class MartisManager
     /** @var list<class-string<ToolContract>|ToolContract> */
     protected array $tools = [];
 
+    /** Tracks whether `bootTools()` already ran for this request lifecycle. */
+    protected bool $bootedTools = false;
+
     /**
      * Register a custom main menu builder.
      *
@@ -94,6 +97,12 @@ class MartisManager
     public function tools(array $tools): static
     {
         $this->tools = $tools;
+        // Re-arm the boot lifecycle: registering a new tool list
+        // means the host has new tools to initialise. Without this,
+        // tools registered after the first request (in tests, or
+        // in a deferred service provider) would never have their
+        // `boot()` hook fired.
+        $this->bootedTools = false;
 
         return $this;
     }
@@ -132,6 +141,57 @@ class MartisManager
         }
 
         return null;
+    }
+
+    /**
+     * Run each registered tool's `boot()` hook exactly once. Called
+     * from `MartisServiceProvider::boot()` after Martis has loaded
+     * its own routes / views / config so the tool-owned routes and
+     * publishables register on top of an initialised package.
+     *
+     * Tools registered as class-strings are instantiated lazily into
+     * a long-lived instance held in `$this->tools` so `resolveTools()`
+     * sees the same object the boot ran against (otherwise a tool
+     * that mutated internal state during boot would lose it on the
+     * first request).
+     *
+     * Idempotent — a re-run is a no-op once `$booted` flips on.
+     */
+    public function bootTools(): void
+    {
+        if ($this->bootedTools) {
+            return;
+        }
+
+        $this->bootedTools = true;
+
+        foreach ($this->tools as $i => $tool) {
+            $instance = is_string($tool) ? new $tool : $tool;
+
+            if (! $instance instanceof ToolContract) {
+                continue;
+            }
+
+            // Materialise the instance back into the registry so
+            // later resolveTools() / findTool() calls reuse the same
+            // booted object.
+            $this->tools[$i] = $instance;
+
+            try {
+                $instance->boot();
+            } catch (Throwable $e) {
+                // A broken tool must not bring down the whole admin
+                // panel boot. Surface the error through the standard
+                // logger and keep going.
+                if (function_exists('logger')) {
+                    logger()->error('[martis] Tool boot() threw — registration kept, hook skipped.', [
+                        'tool' => $instance::class,
+                        'uriKey' => $instance->uriKey(),
+                        'exception' => $e,
+                    ]);
+                }
+            }
+        }
     }
 
     // -------------------------------------------------------------------------

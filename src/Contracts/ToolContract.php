@@ -76,6 +76,20 @@ interface ToolContract
     public function authorizedToSee(Request $request): bool;
 
     /**
+     * Per-tool lifecycle hook. Runs once during the host application
+     * boot, after Martis has loaded its own routes / views / config.
+     *
+     * Use this to register tool-owned routes, event listeners,
+     * Blade view namespaces, gate definitions, scheduled tasks,
+     * publishable assets, or anything else that would normally live
+     * in a service provider's `boot()`.
+     *
+     * Default implementation is a no-op so consumers only override
+     * it when they actually need the hook.
+     */
+    public function boot(): void;
+
+    /**
      * Serialise the tool definition for the `/martis/api/tools`
      * endpoint and the menu.
      *

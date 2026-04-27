@@ -171,14 +171,102 @@ Tools render through the standard Martis layout. Inside your React component you
 - The full PrimeReact + theme system.
 - The component-override registry — your tool's component CAN itself be replaced by a downstream consumer using the same 4-tier override mechanism that resources use.
 
-## Known parity gaps vs Nova v5
+## Lifecycle: `boot()`
 
-The v0.10 Tools primitive ships the surface most consumers need but is intentionally simpler than Nova's. Two Nova features Martis does **not** ship today:
+Tools have a per-tool `boot()` hook (Nova-parity, shipped in v0.10). Override it on your subclass to register tool-owned routes, event listeners, view namespaces, gates, scheduled tasks, etc. — anything that would normally live in a ServiceProvider's `boot()` works here:
 
-- **Per-tool `boot()` hook.** Nova tools can register custom routes, event listeners, view composers, etc. in their own `boot()` method. Martis tools are passive — they declare metadata and bind to a React component, nothing more. Workaround: register tool-specific routes in `routes/web.php` directly (or in your service provider's `boot()`).
-- **Per-tool ServiceProvider / Composer-package convention.** Nova tools are typically distributed as Composer packages with their own service provider, view publishing, asset publishing, and migrations. Martis assumes one bundle, one consumer-side service provider. If you need to ship a tool as a reusable package, you wire it up the same way any Laravel package would (your own provider that calls `Martis::tools([...])` from its `boot()`).
+```php
+class FinanceImports extends Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: __('Finance Imports'), uriKey: 'finance-imports');
+        $this->withIcon('upload')->withComponent('tool:finance-imports');
+    }
 
-These gaps are deliberate — they keep the Tool primitive small enough that consumers can ship a Tool in 5 minutes without learning a new package convention. Watch [PARITY_MAP.md](PARITY_MAP.md) for status if either gap becomes a real blocker.
+    public function boot(): void
+    {
+        // Tool-owned routes — mounted alongside the standard Martis SPA.
+        \Route::middleware(['web', 'martis.auth'])
+            ->prefix('martis/api/tools/finance-imports')
+            ->group(function () {
+                \Route::post('/upload', [FinanceImportsController::class, 'upload']);
+                \Route::get('/status/{job}', [FinanceImportsController::class, 'status']);
+            });
+
+        // Listen for an app-wide event.
+        \Event::listen(InvoicePaid::class, RecordImportSuccess::class);
+    }
+}
+```
+
+The hook fires once during the host application's boot, AFTER Martis itself has loaded its routes / views / config — so tool-owned routes register on top of an already-initialised package. Exceptions thrown from `boot()` are logged and swallowed so a broken tool cannot bring down the whole admin panel.
+
+## Asset & file publishing
+
+Two helpers on the `Tool` base class let a Tool ship config, migrations, lang files, and compiled JS / CSS without touching the host service provider:
+
+```php
+public function boot(): void
+{
+    // Standard "publish-with-tag" pattern. Composer-package tools
+    // typically ship config + lang + migrations from their own
+    // package directory.
+    $this->publishes([
+        __DIR__.'/../config/finance-imports.php' => config_path('finance-imports.php'),
+    ], 'finance-imports-config');
+
+    $this->publishes([
+        __DIR__.'/../database/migrations' => database_path('migrations'),
+    ], 'finance-imports-migrations');
+
+    // Convenience for compiled JS / CSS — publishes to
+    // `public/vendor/martis-tools/{uriKey}/` so the SPA can lazy-load.
+    $this->publishesAssets(__DIR__.'/../public', 'finance-imports-assets');
+}
+```
+
+Run `php artisan vendor:publish --tag=finance-imports-config` (or any of the other tags) to copy the files. The publishables register through Laravel's standard `ServiceProvider::$publishes` map — `vendor:publish --provider=...` works the same way it does for any Laravel package.
+
+## Distributing a Tool as a Composer package
+
+For Tools that ship as standalone Composer packages, subclass `Martis\Tools\ToolServiceProvider` and let Laravel's package auto-discovery wire it up:
+
+```php
+namespace YourVendor\YourTool;
+
+use Martis\Tools\ToolServiceProvider;
+
+class YourToolServiceProvider extends ToolServiceProvider
+{
+    protected function tools(): array
+    {
+        return [new YourTool()];
+    }
+
+    public function boot(): void
+    {
+        parent::boot(); // registers the tools with Martis
+
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'your-tool');
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+    }
+}
+```
+
+Add the provider to your package's `composer.json`:
+
+```json
+{
+    "extra": {
+        "laravel": {
+            "providers": ["YourVendor\\YourTool\\YourToolServiceProvider"]
+        }
+    }
+}
+```
+
+The consumer never touches their own service provider — `composer require your-vendor/your-tool` is enough. The per-tool `boot()` lifecycle still fires on top, so the tool can register routes, listeners, and publishables the same way an in-app tool does.
 
 ## Anti-patterns
 
