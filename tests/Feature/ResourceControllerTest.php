@@ -14,6 +14,7 @@ use Martis\Filters\Filter as ResourceFilter;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Http\Requests\LensRequest;
 use Martis\Layout\Panel;
+use Martis\Layout\Section;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -289,6 +290,59 @@ it('index ignores sort on non-sortable field', function () {
     $response->assertStatus(200);
     // body is not sortable — default insertion order preserved
     expect($response->json('data.0.title'))->toBe('A');
+});
+
+it('index search flattens layout containers in fields() (regression)', function () {
+    // Same shape as the sorting regression below — when `fields()` wraps
+    // a `searchable()` field inside Panel/Section/TabGroup, the search
+    // filter must still see it. Otherwise the LIKE clause is never
+    // attached to the query and `?search=…` silently returns every row
+    // (the bug originally reported on the Tasks index, which has a
+    // `Section::make('Linkage', [Text::make('title')->searchable()])`
+    // fields tree).
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+
+    $registry->register(new class extends Resource
+    {
+        public static function model(): string
+        {
+            return PostModel::class;
+        }
+
+        public static function uriKey(): string
+        {
+            return 'sectioned-posts';
+        }
+
+        public static function titleAttribute(): string
+        {
+            return 'title';
+        }
+
+        public function fields(Request $request): array
+        {
+            return [
+                Section::make('Linkage', [
+                    Text::make('title')->sortable()->searchable()->required(),
+                    Text::make('body')->nullable()->searchable(),
+                ]),
+            ];
+        }
+    }::class);
+
+    PostModel::create(['title' => 'Pipeline build', 'body' => null]);
+    PostModel::create(['title' => 'Other task', 'body' => 'mentions pipeline somewhere']);
+    PostModel::create(['title' => 'Unrelated', 'body' => null]);
+
+    $response = $this->getJson('/martis/api/resources/sectioned-posts?search=pipeline');
+
+    $response->assertStatus(200);
+    expect($response->json('meta.total'))->toBe(2);
+    $titles = collect($response->json('data'))->pluck('title')->all();
+    expect($titles)->toContain('Pipeline build');
+    expect($titles)->toContain('Other task');
+    expect($titles)->not->toContain('Unrelated');
 });
 
 it('index sorting flattens layout containers in fields() (regression)', function () {

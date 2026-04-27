@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\Field;
 
 /**
  * Central resolver for resource search — decides between Scout and database.
@@ -131,15 +132,18 @@ class SearchResolver
         string $search,
     ): Builder {
         $instance = new $resourceClass;
-        // fields() can contain Section / Panel / TabGroup layout wrappers
-        // alongside real FieldContract instances. A strict `FieldContract`
-        // type-hint in the filter callback throws `TypeError` when the
-        // layout nodes come through — turning every /api/search call into
-        // a 500. Guard with `instanceof` instead so layout nodes are
-        // simply skipped.
+
+        // `fields()` may return Section / Panel / TabGroup layout
+        // wrappers alongside real FieldContract instances. Flatten the
+        // tree FIRST so searchable fields nested inside a layout are
+        // discoverable. Iterating the raw array with a top-level
+        // `instanceof` guard would silently drop every nested field,
+        // turning the resource's full-text search into a no-op (the
+        // exact bug reported on the Tasks index, where `title` lives
+        // inside a `Section::make('Linkage', [...])`).
         $searchableFields = array_filter(
-            $instance->fields($request),
-            fn (mixed $field): bool => $field instanceof FieldContract && $field->isSearchable(),
+            Field::flattenLayoutFields($instance->fields($request)),
+            fn (FieldContract $field): bool => $field->isSearchable(),
         );
 
         if ($searchableFields === []) {
