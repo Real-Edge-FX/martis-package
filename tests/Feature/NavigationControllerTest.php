@@ -217,13 +217,13 @@ it('omits the count when showMenuCount is false on the resource', function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    $registry->register(new class extends NavigationAccountsResource
+    $registry->register((new class extends NavigationAccountsResource
     {
         public static function showMenuCount(): bool
         {
             return false;
         }
-    }::class);
+    })::class);
 
     $response = $this->getJson('/martis/api/navigation');
     $sections = collect($response->json());

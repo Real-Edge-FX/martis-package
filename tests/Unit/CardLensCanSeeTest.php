@@ -36,11 +36,11 @@ it('Card receives the current request in the canSee closure', function () {
 });
 
 it('Lens defaults to visible when no canSee callback is set', function () {
-    $lens = new _RecentlyUpdatedLens();
+    $lens = new _RecentlyUpdatedLens;
     expect($lens->authorizedToSee(Request::create('/')))->toBeTrue();
 });
 
 it('Lens hides itself when canSee returns false', function () {
-    $lens = (new _RecentlyUpdatedLens())->canSee(fn () => false);
+    $lens = (new _RecentlyUpdatedLens)->canSee(fn () => false);
     expect($lens->authorizedToSee(Request::create('/')))->toBeFalse();
 });

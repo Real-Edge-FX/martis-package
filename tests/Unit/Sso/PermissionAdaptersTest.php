@@ -9,19 +9,23 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Sso\PermissionAdapters\CallableAdapter;
 use Martis\Sso\PermissionAdapters\NativeAdapter;
 use Martis\Sso\PermissionAdapters\SpatieAdapter;
+use Martis\Tests\TestCase;
 
-uses(\Martis\Tests\TestCase::class);
+uses(TestCase::class);
 
 class AdapterTestUser extends User
 {
     protected $table = 'users';
+
     protected $guarded = [];
 }
 
 class AdapterTestRoleStub extends Model
 {
     protected $table = 'adapter_test_roles';
+
     protected $guarded = [];
+
     public $timestamps = false;
 }
 
@@ -102,7 +106,7 @@ it('NativeAdapter inserts pivot rows for the resolved roles', function () {
     $adapter = new NativeAdapter;
     $adapter->syncRoles($user, $roles);
 
-    $pivot = \DB::table('model_has_roles')
+    $pivot = DB::table('model_has_roles')
         ->where('model_type', AdapterTestUser::class)
         ->where('model_id', $user->id)
         ->pluck('role_id')
@@ -122,13 +126,13 @@ it('NativeAdapter detaches roles that are no longer in the resolved set', functi
 
     // Initial: assign all three.
     $adapter->syncRoles($user, $allThree);
-    expect(\DB::table('model_has_roles')->where('model_id', $user->id)->count())->toBe(3);
+    expect(DB::table('model_has_roles')->where('model_id', $user->id)->count())->toBe(3);
 
     // Re-sync with only admin.
     $admin = AdapterTestRoleStub::query()->where('name', 'admin')->get();
     $adapter->syncRoles($user, $admin);
 
-    $remaining = \DB::table('model_has_roles')->where('model_id', $user->id)->pluck('role_id')->toArray();
+    $remaining = DB::table('model_has_roles')->where('model_id', $user->id)->pluck('role_id')->toArray();
     expect($remaining)->toEqual($admin->pluck('id')->all());
 });
 
@@ -139,10 +143,10 @@ it('NativeAdapter detaches everything when an empty collection is passed', funct
 
     $adapter = new NativeAdapter;
     $adapter->syncRoles($user, AdapterTestRoleStub::query()->get());
-    expect(\DB::table('model_has_roles')->where('model_id', $user->id)->count())->toBeGreaterThan(0);
+    expect(DB::table('model_has_roles')->where('model_id', $user->id)->count())->toBeGreaterThan(0);
 
     $adapter->syncRoles($user, new Collection);
-    expect(\DB::table('model_has_roles')->where('model_id', $user->id)->count())->toBe(0);
+    expect(DB::table('model_has_roles')->where('model_id', $user->id)->count())->toBe(0);
 });
 
 // -----------------------------------------------------------------------------
@@ -180,7 +184,7 @@ it('CallableAdapter is a no-op when no closure is registered', function () {
 });
 
 it('CallableAdapter::forgetCallback wipes the registered closure', function () {
-    CallableAdapter::setCallback(fn () => throw new \RuntimeException('should not fire'));
+    CallableAdapter::setCallback(fn () => throw new RuntimeException('should not fire'));
     CallableAdapter::forgetCallback();
 
     $adapter = new CallableAdapter;

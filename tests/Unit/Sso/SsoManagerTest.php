@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\PermissionAdapters\CallableAdapter;
 use Martis\Sso\PermissionAdapters\NativeAdapter;
@@ -9,14 +12,24 @@ use Martis\Sso\PermissionAdapters\SpatieAdapter;
 use Martis\Sso\Providers\AzureProvider;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
+use Martis\Tests\TestCase;
 
-uses(\Martis\Tests\TestCase::class);
+uses(TestCase::class);
 
 class SsoManagerTestProvider implements SsoProviderContract
 {
-    public function name(): string { return 'fake'; }
-    public function redirect(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse { return redirect('/'); }
-    public function resolveIdentity(\Illuminate\Http\Request $request): SsoIdentity {
+    public function name(): string
+    {
+        return 'fake';
+    }
+
+    public function redirect(Request $request): RedirectResponse
+    {
+        return redirect('/');
+    }
+
+    public function resolveIdentity(Request $request): SsoIdentity
+    {
         return new SsoIdentity('fake', '1', 'a@b', 'A');
     }
 }
@@ -114,11 +127,15 @@ it('hooks fire when manually invoked', function () {
     $afterFired = 0;
     $noMatchFired = 0;
 
-    $manager->afterLogin(function () use (&$afterFired) { $afterFired++; });
-    $manager->onNoRoleMatchUsing(function () use (&$noMatchFired) { $noMatchFired++; });
+    $manager->afterLogin(function () use (&$afterFired) {
+        $afterFired++;
+    });
+    $manager->onNoRoleMatchUsing(function () use (&$noMatchFired) {
+        $noMatchFired++;
+    });
 
     $identity = new SsoIdentity('azure', '1', 'a@b', 'A');
-    $userClass = config('auth.providers.users.model', \Illuminate\Foundation\Auth\User::class);
+    $userClass = config('auth.providers.users.model', User::class);
     $user = new $userClass;
 
     $manager->fireAfterLogin($user, $identity, 'azure');
@@ -140,12 +157,14 @@ it('flushHooksForTesting wipes every registered closure', function () {
     $manager->flushHooksForTesting();
 
     $identity = new SsoIdentity('azure', '1', 'a@b', 'A');
-    $userClass = config('auth.providers.users.model', \Illuminate\Foundation\Auth\User::class);
+    $userClass = config('auth.providers.users.model', User::class);
     $user = new $userClass;
 
     // Nothing should fire after flush.
     $afterCount = 0;
-    $manager->afterLogin(function () use (&$afterCount) { $afterCount++; });
+    $manager->afterLogin(function () use (&$afterCount) {
+        $afterCount++;
+    });
     $manager->flushHooksForTesting();
     $manager->fireAfterLogin($user, $identity, 'azure');
     expect($afterCount)->toBe(0);

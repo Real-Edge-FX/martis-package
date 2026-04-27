@@ -162,9 +162,17 @@ it('navigation cache is scoped per user', function () {
     $registry = app(ResourceRegistry::class);
     $registry->flush();
 
-    $hiddenForFirst = new class extends CachedAccountsResource {
-        public static function uriKey(): string { return 'cached-hidden'; }
-        public static function label(): string { return 'Per-user hidden'; }
+    $hiddenForFirst = new class extends CachedAccountsResource
+    {
+        public static function uriKey(): string
+        {
+            return 'cached-hidden';
+        }
+
+        public static function label(): string
+        {
+            return 'Per-user hidden';
+        }
 
         public function authorizedToViewAny(Request $request): bool
         {
@@ -246,12 +254,13 @@ it('schema cache returns a fresh payload after a registry change + clear', funct
     // Re-register with the same uriKey but a richer fields() — simulates
     // a code change. Without clear() we'd serve the old payload.
     app(ResourceRegistry::class)->flush();
-    app(ResourceRegistry::class)->register(new class extends CachedAccountsResource {
+    app(ResourceRegistry::class)->register((new class extends CachedAccountsResource
+    {
         public function fields(Request $request): array
         {
             return [Text::make('name'), Text::make('extra_field')];
         }
-    }::class);
+    })::class);
 
     $stale = $this->getJson('/martis/api/resources/cached-accounts/schema')->json();
     expect($stale)->toEqual($original);
@@ -269,12 +278,13 @@ it('schema bypass via ?nocache=1 query skips the cache', function () {
     $primed = $this->getJson('/martis/api/resources/cached-accounts/schema')->json();
 
     app(ResourceRegistry::class)->flush();
-    app(ResourceRegistry::class)->register(new class extends CachedAccountsResource {
+    app(ResourceRegistry::class)->register((new class extends CachedAccountsResource
+    {
         public function fields(Request $request): array
         {
             return [Text::make('name'), Text::make('bypassed_field')];
         }
-    }::class);
+    })::class);
 
     $bypassed = $this->getJson('/martis/api/resources/cached-accounts/schema?nocache=1')->json();
     $names = collect($bypassed['data']['fields'] ?? [])->pluck('attribute')->all();
@@ -316,12 +326,13 @@ it('runtime disable on schema bypasses cache for every subsequent request', func
 
     // Mutate the registry — without cache, second call reflects the change.
     app(ResourceRegistry::class)->flush();
-    app(ResourceRegistry::class)->register(new class extends CachedAccountsResource {
+    app(ResourceRegistry::class)->register((new class extends CachedAccountsResource
+    {
         public function fields(Request $request): array
         {
             return [Text::make('name'), Text::make('mutated_field')];
         }
-    }::class);
+    })::class);
 
     $second = $this->getJson('/martis/api/resources/cached-accounts/schema')->json();
     $secondNames = collect($second['data']['fields'] ?? [])->pluck('attribute')->all();

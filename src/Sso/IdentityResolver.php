@@ -6,7 +6,6 @@ namespace Martis\Sso;
 
 use Closure;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Support\Facades\Auth;
 
 /**
  * Find-or-create the local user that corresponds to an external SSO

@@ -4,13 +4,14 @@ namespace Martis\Contracts;
 
 use Closure;
 use Illuminate\Http\Request;
+use Martis\Lenses\Lens;
 
 /**
  * Contract for Martis lenses.
  *
  * A lens represents an alternative query / view of a Resource's dataset
  * (e.g. "Most Valuable Clients"). The full engine lives in
- * {@see \Martis\Lenses\Lens}; this contract enumerates the minimum API
+ * {@see Lens}; this contract enumerates the minimum API
  * shared by all lens implementations — concrete lenses extend the
  * abstract base class.
  */

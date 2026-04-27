@@ -115,7 +115,7 @@ it('clamps motion tokens under reduced-motion preference', function () {
 });
 
 it('updates theme.name without touching brand.name in config/martis.php', function () {
-    $original = <<<PHP
+    $original = <<<'PHP'
 <?php
 return [
     'brand' => [

@@ -28,7 +28,7 @@ class MenuSection
     }
 
     /**
-     * @param  list<MenuItem|class-string<Resource>>  $items
+     * @param  list<MenuItem|class-string<resource>>  $items
      */
     public static function make(?string $label = null, array $items = []): self
     {
@@ -36,7 +36,7 @@ class MenuSection
     }
 
     /**
-     * @param  list<MenuItem|class-string<Resource>>  $items
+     * @param  list<MenuItem|class-string<resource>>  $items
      */
     public function items(array $items): self
     {
@@ -144,7 +144,7 @@ class MenuSection
     }
 
     /**
-     * @param  list<MenuItem|class-string<Resource>>  $items
+     * @param  list<MenuItem|class-string<resource>>  $items
      * @return list<MenuItem>
      */
     protected function normalizeItems(array $items): array

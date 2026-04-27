@@ -1,5 +1,6 @@
 <?php
 
+use App\Martis\Resources\InvoiceResource;
 use Martis\Enums\AggregateFunction;
 use Martis\Fields\HasManyThrough;
 use Martis\Fields\HasOne;
@@ -11,7 +12,7 @@ use Martis\Fields\MorphOneOfMany;
 // ── HasOneOfMany + factory ────────────────────────────────────────────
 
 it('HasOne::ofMany returns a HasOneOfMany field with the correct relationship', function () {
-    $field = HasOne::ofMany('Latest Invoice', 'latestInvoice', class_exists(\App\Martis\Resources\InvoiceResource::class) ? \App\Martis\Resources\InvoiceResource::class : \stdClass::class);
+    $field = HasOne::ofMany('Latest Invoice', 'latestInvoice', class_exists(InvoiceResource::class) ? InvoiceResource::class : stdClass::class);
 
     expect($field)->toBeInstanceOf(HasOneOfMany::class)
         ->and($field->type())->toBe('has_one_of_many')
@@ -52,7 +53,7 @@ it('HasOneOfMany without aggregate serialises aggregate as null', function () {
 // ── MorphOneOfMany + factory ──────────────────────────────────────────
 
 it('MorphOne::ofMany returns a MorphOneOfMany field', function () {
-    $field = MorphOne::ofMany('Latest Note', 'latestNote', \stdClass::class);
+    $field = MorphOne::ofMany('Latest Note', 'latestNote', stdClass::class);
 
     expect($field)->toBeInstanceOf(MorphOneOfMany::class)
         ->and($field->type())->toBe('morph_one_of_many');

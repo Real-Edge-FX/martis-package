@@ -70,7 +70,7 @@ class NavigationController extends MartisController
      */
     protected function buildNavigation(Request $request): array
     {
-        /** @var array<string, list<\Martis\Menu\MenuItem>> $grouped */
+        /** @var array<string, list<MenuItem>> $grouped */
         $grouped = [];
 
         foreach ($this->registry->list() as $resourceClass) {

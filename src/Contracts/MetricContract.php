@@ -5,6 +5,7 @@ namespace Martis\Contracts;
 use Closure;
 use DateTimeInterface;
 use Illuminate\Http\Request;
+use Martis\Enums\MetricType;
 
 /**
  * Contract for resource and dashboard metrics.
@@ -27,7 +28,7 @@ interface MetricContract
     /**
      * The metric type identifier.
      */
-    public function metricType(): \Martis\Enums\MetricType;
+    public function metricType(): MetricType;
 
     /**
      * Human-readable metric name.

@@ -6,6 +6,7 @@ namespace Martis\Sso;
 
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 
 /**
@@ -63,10 +64,10 @@ class RoleMapper
         $strategy = $cfg['role_strategy'] ?? 'column';
 
         return match ($strategy) {
-            'column'   => $this->mapByColumn($externalRoles, $cfg),
-            'config'   => $this->mapByConfig($externalRoles, $cfg),
+            'column' => $this->mapByColumn($externalRoles, $cfg),
+            'config' => $this->mapByConfig($externalRoles, $cfg),
             'callable' => $this->mapByCallable($externalRoles, $cfg, $user, $provider),
-            default    => new Collection,
+            default => new Collection,
         };
     }
 
@@ -84,7 +85,7 @@ class RoleMapper
             return new Collection;
         }
 
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $modelClass */
+        /** @var class-string<Model> $modelClass */
         $result = $modelClass::query()->whereIn($column, $externalRoles)->get();
 
         /** @var Collection<int, mixed> $result */
@@ -125,7 +126,7 @@ class RoleMapper
             return new Collection;
         }
 
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $modelClass */
+        /** @var class-string<Model> $modelClass */
         $result = $modelClass::query()->whereIn($column, $localSlugs)->get();
 
         /** @var Collection<int, mixed> $result */

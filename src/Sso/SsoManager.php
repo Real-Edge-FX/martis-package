@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Martis\Sso;
 
 use Closure;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Http\Request;
 use Martis\Sso\Contracts\PermissionAdapterContract;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\PermissionAdapters\CallableAdapter;
 use Martis\Sso\PermissionAdapters\NativeAdapter;
 use Martis\Sso\PermissionAdapters\SpatieAdapter;
+use Martis\Sso\Providers\AzureProvider;
 
 /**
  * Central SSO subsystem orchestrator.
@@ -146,7 +147,7 @@ class SsoManager
      * before a user exists when `auto_create_user = true` and the
      * resolver runs before user creation), and the provider name.
      *
-     * @param  Closure(array<int, string>, User|null, string): \Illuminate\Database\Eloquent\Collection<int, mixed>  $callback
+     * @param  Closure(array<int, string>, User|null, string): Collection<int, mixed>  $callback
      */
     public function resolveRolesUsing(Closure $callback): void
     {
@@ -157,7 +158,7 @@ class SsoManager
      * Override the role-sync step. Activates the `CallableAdapter`
      * automatically — there's no need to also flip the config flag.
      *
-     * @param  Closure(User, \Illuminate\Database\Eloquent\Collection<int, mixed>): void  $callback
+     * @param  Closure(User, Collection<int, mixed>): void  $callback
      */
     public function syncRolesUsing(Closure $callback): void
     {
@@ -228,6 +229,6 @@ class SsoManager
         // The Azure provider class lives in the package; only loaded
         // when actually instantiated, so apps that never enable Azure
         // pay no overhead.
-        $this->providers['azure'] = \Martis\Sso\Providers\AzureProvider::class;
+        $this->providers['azure'] = AzureProvider::class;
     }
 }

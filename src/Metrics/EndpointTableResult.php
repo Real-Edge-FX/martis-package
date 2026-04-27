@@ -17,12 +17,12 @@ class EndpointTableResult extends MetricResult
     /**
      * Add a route row.
      *
-     * @param  string     $method      HTTP verb (GET/POST/PUT/PATCH/DELETE).
-     * @param  string     $path        Route path (rendered in mono).
-     * @param  int|null   $rpm         Requests per minute.
-     * @param  int|null   $latencyMs   P95 latency in milliseconds.
-     * @param  float|null $errorRate   Error ratio 0..1.
-     * @param  float|null $share       Share of total traffic 0..100.
+     * @param  string  $method  HTTP verb (GET/POST/PUT/PATCH/DELETE).
+     * @param  string  $path  Route path (rendered in mono).
+     * @param  int|null  $rpm  Requests per minute.
+     * @param  int|null  $latencyMs  P95 latency in milliseconds.
+     * @param  float|null  $errorRate  Error ratio 0..1.
+     * @param  float|null  $share  Share of total traffic 0..100.
      */
     public function add(
         string $method,

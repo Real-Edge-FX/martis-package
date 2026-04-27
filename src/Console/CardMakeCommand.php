@@ -33,7 +33,7 @@ class CardMakeCommand extends GeneratorCommand
         return $rootNamespace.'\\Martis\\Cards';
     }
 
-    public function handle(): bool|null
+    public function handle(): ?bool
     {
         $name = $this->getNameInput();
         $className = Str::studly($name);

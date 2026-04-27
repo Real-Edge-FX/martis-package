@@ -3,7 +3,6 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Text;
@@ -312,7 +311,8 @@ describe('BelongsToManyController', function () {
 
     it('returns 403 when pivot update is denied by policy', function () {
         // Swap the parent resource for one that denies update.
-        $deniedResourceClass = new class(null) extends BTMParentResource {
+        $deniedResourceClass = new class(null) extends BTMParentResource
+        {
             public static function uriKey(): string
             {
                 return 'btm-denied-parents';

@@ -5,6 +5,7 @@ namespace Martis\Http\Requests;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Martis\Contracts\FilterContract;
 use Martis\Enums\SortDirection;
 
 /**
@@ -18,7 +19,7 @@ use Martis\Enums\SortDirection;
  */
 class LensRequest extends Request
 {
-    /** @var array<string, \Martis\Contracts\FilterContract> uriKey → filter instance */
+    /** @var array<string, FilterContract> uriKey → filter instance */
     public array $availableFilters = [];
 
     /** @var array<string, mixed> Values currently selected (uriKey → value). */
@@ -80,12 +81,12 @@ class LensRequest extends Request
      * Build a LensRequest from the incoming HTTP request plus the
      * context the controller has already resolved.
      *
-     * @param  array<string, \Martis\Contracts\FilterContract>  $availableFilters
+     * @param  array<string, FilterContract>  $availableFilters
      */
     public static function fromRequest(Request $source, array $availableFilters): self
     {
         /** @var self $req */
-        $req = self::createFrom($source, new self());
+        $req = self::createFrom($source, new self);
 
         $req->availableFilters = $availableFilters;
 

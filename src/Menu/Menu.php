@@ -10,7 +10,7 @@ class Menu
     protected array $sections = [];
 
     /**
-     * @param  list<MenuSection|MenuItem|class-string<Resource>>  $sections
+     * @param  list<MenuSection|MenuItem|class-string<resource>>  $sections
      */
     public function __construct(array $sections = [])
     {
@@ -18,7 +18,7 @@ class Menu
     }
 
     /**
-     * @param  list<MenuSection|MenuItem|class-string<Resource>>  $sections
+     * @param  list<MenuSection|MenuItem|class-string<resource>>  $sections
      */
     public static function make(array $sections = []): self
     {
@@ -26,7 +26,7 @@ class Menu
     }
 
     /**
-     * @param  list<MenuSection|MenuItem|class-string<Resource>>  $sections
+     * @param  list<MenuSection|MenuItem|class-string<resource>>  $sections
      */
     public function sections(array $sections): self
     {
@@ -58,7 +58,7 @@ class Menu
     }
 
     /**
-     * @param  list<MenuSection|MenuItem|class-string<Resource>>  $sections
+     * @param  list<MenuSection|MenuItem|class-string<resource>>  $sections
      * @return list<MenuSection>
      */
     protected function normalizeSections(array $sections): array

@@ -20,10 +20,10 @@ class ComponentMakeCommand extends Command
 
     /** @var array<string, array{key: string, stub: string}> */
     private const SHELL_PIECES = [
-        'shell'   => ['key' => 'layout:shell',   'stub' => 'component-shell.tsx.stub'],
+        'shell' => ['key' => 'layout:shell',   'stub' => 'component-shell.tsx.stub'],
         'sidebar' => ['key' => 'layout:sidebar', 'stub' => 'component-sidebar.tsx.stub'],
-        'topbar'  => ['key' => 'layout:topbar',  'stub' => 'component-topbar.tsx.stub'],
-        'footer'  => ['key' => 'layout:footer',  'stub' => 'component-footer.tsx.stub'],
+        'topbar' => ['key' => 'layout:topbar',  'stub' => 'component-topbar.tsx.stub'],
+        'footer' => ['key' => 'layout:footer',  'stub' => 'component-footer.tsx.stub'],
     ];
 
     public function handle(): int
@@ -105,7 +105,7 @@ class ComponentMakeCommand extends Command
 
             if (in_array($type, ['sidebar', 'topbar', 'footer', 'shell'], true)) {
                 $this->line('This component plugs into the shell — no further wiring needed.');
-                $this->line("Optional: pin it explicitly from PHP by setting");
+                $this->line('Optional: pin it explicitly from PHP by setting');
                 $this->line("  <comment>'layout' => ['components' => ['{$type}' => '{$registryKey}']]</comment>");
             } else {
                 $this->line('Usage in PHP (field type):');
@@ -115,7 +115,7 @@ class ComponentMakeCommand extends Command
 
         $this->newLine();
         $this->line('Rebuild assets with:');
-        $this->line("  <comment>MARTIS_USER_DIR=".resource_path($extensionsPath)." npm run build</comment>");
+        $this->line('  <comment>MARTIS_USER_DIR='.resource_path($extensionsPath).' npm run build</comment>');
 
         return self::SUCCESS;
     }
@@ -180,7 +180,7 @@ class ComponentMakeCommand extends Command
 
         $this->newLine();
         $this->line('Edit the generated files to match your brand, then rebuild:');
-        $this->line("  <comment>MARTIS_USER_DIR=".resource_path($extensionsPath)." npm run build</comment>");
+        $this->line('  <comment>MARTIS_USER_DIR='.resource_path($extensionsPath).' npm run build</comment>');
         $this->newLine();
         $this->line('No config change required — the pieces are registered under the default');
         $this->line("`layout:*` keys. Set <comment>config('martis.layout.preset') = 'custom'</comment> if you");

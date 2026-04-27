@@ -6,7 +6,9 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
-use RuntimeException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 
 /**
  * `martis:sso <provider>` — scaffold an SSO provider in the host app.
@@ -146,7 +148,7 @@ class SsoMakeCommand extends Command
 
         // Run composer require. We surface stdout so the user sees
         // progress (composer downloads can take 30s+).
-        $process = \Symfony\Component\Process\Process::fromShellCommandline(
+        $process = Process::fromShellCommandline(
             'composer require '.$list,
             base_path(),
             null,
@@ -175,10 +177,10 @@ class SsoMakeCommand extends Command
         $base = ['laravel/socialite'];
 
         $providerSpecific = match ($provider) {
-            'azure'  => ['socialiteproviders/microsoft'],
+            'azure' => ['socialiteproviders/microsoft'],
             'google' => [],   // Socialite ships google natively
             'github' => [],   // Socialite ships github natively
-            default  => [],
+            default => [],
         };
 
         $spatie = $this->option('with-spatie') ? ['spatie/laravel-permission'] : [];
@@ -212,7 +214,7 @@ class SsoMakeCommand extends Command
         $listenerCode = "        \\Illuminate\\Support\\Facades\\Event::listen(\n".
             "            \\SocialiteProviders\\Manager\\SocialiteWasCalled::class,\n".
             "            [\\SocialiteProviders\\Microsoft\\MicrosoftExtendSocialite::class, 'handle'],\n".
-            "        );";
+            '        );';
 
         // Insert at the top of `boot()` — find the first `public function boot()` block.
         $updated = (string) preg_replace(
@@ -318,7 +320,7 @@ class SsoMakeCommand extends Command
         }
 
         try {
-            return \Illuminate\Support\Facades\Schema::hasTable('roles');
+            return Schema::hasTable('roles');
         } catch (\Throwable) {
             return false;
         }
@@ -335,13 +337,13 @@ class SsoMakeCommand extends Command
         $cfg = config("martis.auth.sso.providers.{$providerName}", []);
         $column = $cfg['role_column'] ?? "{$providerName}_group_name";
 
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('roles', $column)) {
+        if (! Schema::hasColumn('roles', $column)) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> role mapping', "column `roles.{$column}` not present");
 
             return;
         }
 
-        $roles = \Illuminate\Support\Facades\DB::table('roles')->select(['id', 'name', $column])->get();
+        $roles = DB::table('roles')->select(['id', 'name', $column])->get();
         if ($roles->isEmpty()) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> role mapping', '`roles` table is empty');
 
@@ -349,7 +351,7 @@ class SsoMakeCommand extends Command
         }
 
         $this->newLine();
-        $this->line("<fg=cyan>Map your Spatie roles to Azure App Role display names</> (press Enter to keep current value):");
+        $this->line('<fg=cyan>Map your Spatie roles to Azure App Role display names</> (press Enter to keep current value):');
         $this->newLine();
 
         $providerLabel = ucfirst($providerName);
@@ -369,7 +371,7 @@ class SsoMakeCommand extends Command
                 continue;
             }
 
-            \Illuminate\Support\Facades\DB::table('roles')
+            DB::table('roles')
                 ->where('id', $role->id)
                 ->update([$column => $value]);
             $changes++;

@@ -240,6 +240,7 @@ class Icon extends Field
                     'color' => isset($raw['color']) ? (string) $raw['color'] : $this->color,
                 ];
             }
+
             return ['icon' => null, 'color' => null];
         }
 

@@ -9,6 +9,7 @@ use Martis\Fields\Field;
 use Martis\Fields\Slug;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\Resource;
 use Martis\ResourceRegistry;
 
 /**
@@ -148,6 +149,7 @@ class SlugController extends MartisController
         foreach ($items as $item) {
             if (is_object($item) && method_exists($item, 'flattenFields')) {
                 yield from $item->flattenFields();
+
                 continue;
             }
             if (is_object($item)) {

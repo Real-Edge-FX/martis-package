@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
-use Martis\FieldContext;
 use Martis\Fields\Icon;
 
 class IconTestModel extends Model
