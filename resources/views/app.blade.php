@@ -101,6 +101,15 @@
                 'two_factor' => [
                     'enabled' => (bool) config('martis.profile.two_factor.enabled', true),
                 ],
+            ]) !!},
+            impersonation: {!! json_encode([
+                // Master switch surfaced at boot so the React banner
+                // can short-circuit its `/api/impersonation/status`
+                // poll when impersonation is disabled. Without this
+                // the banner fires one round-trip per page mount even
+                // when the feature is off, which adds ~1s to every
+                // navigation under a cold cache.
+                'enabled' => (bool) config('martis.impersonation.enabled', false),
             ]) !!}
         };
         // Apply preferences BEFORE first paint to prevent any flash.

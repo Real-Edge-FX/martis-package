@@ -853,4 +853,25 @@ return [
         'expandable' => env('MARTIS_DRAWER_EXPANDABLE', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Impersonation (v0.10)
+    |--------------------------------------------------------------------------
+    |
+    | Lets a privileged operator log in as another user for the duration of
+    | a session. Disabled by default — flip the master switch *and* define
+    | the `martis-impersonate` Gate to make it reachable.
+    |
+    | The session_key under which the operator's id is stashed defaults to
+    | a Martis-prefixed value so it never clashes with host-app session
+    | data. Pick a different value if you need cross-tenant isolation.
+    |
+    */
+
+    'impersonation' => [
+        'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
+        'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+        'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
+    ],
+
 ];

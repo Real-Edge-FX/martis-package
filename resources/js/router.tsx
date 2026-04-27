@@ -46,6 +46,13 @@ export const router = createBrowserRouter([
         },
       },
       {
+        path: 'tools/:uriKey',
+        lazy: async () => {
+          const { ToolPage } = await import('@/pages/ToolPage')
+          return { element: <ToolPage />, handle: { crumb: 'tool' } }
+        },
+      },
+      {
         path: 'resources/:resource',
         lazy: async () => {
           const { ResourceIndexPage } = await import('@/pages/ResourceIndex')

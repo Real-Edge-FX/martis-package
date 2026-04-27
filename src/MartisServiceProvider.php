@@ -30,6 +30,7 @@ use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\ThemeMakeCommand;
+use Martis\Console\ToolMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Discovery\ResourceDiscovery;
@@ -65,6 +66,13 @@ class MartisServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(\Martis\Sso\SsoManager::class);
+
+        $this->app->singleton(\Martis\Impersonation\ImpersonationManager::class, function ($app) {
+            return new \Martis\Impersonation\ImpersonationManager(
+                $app,
+                $app->make(\Illuminate\Auth\AuthManager::class),
+            );
+        });
     }
 
     /** Boot package services: routes, views, translations, assets, and console commands. */
@@ -80,6 +88,17 @@ class MartisServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'martis');
 
         $this->registerBuiltInResources();
+
+        // Boot every registered Tool's lifecycle hook AFTER Martis
+        // itself has loaded routes / views / config. Tools can hook
+        // their own routes, listeners, view namespaces, and
+        // publishables on top of the now-initialised package.
+        // Defer to the post-register phase so tools registered in
+        // consumer service providers (which typically run AFTER this
+        // package's own register) are picked up before we boot them.
+        $this->app->booted(function () {
+            \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+        });
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -102,6 +121,7 @@ class MartisServiceProvider extends ServiceProvider
                 EndpointTableMakeCommand::class,
                 DashboardMakeCommand::class,
                 LensMakeCommand::class,
+                ToolMakeCommand::class,
                 CacheStatusCommand::class,
                 CacheClearCommand::class,
                 CacheDisableCommand::class,

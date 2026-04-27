@@ -1,0 +1,70 @@
+import { useTranslation } from 'react-i18next'
+
+interface ToolDescriptor {
+  name: string
+  uriKey: string
+  icon: string | null
+  component: string | null
+  menuSection: string | null
+  meta: Record<string, unknown>
+}
+
+/**
+ * {{ display_name }} — Custom Tool React component.
+ *
+ * Bound to the PHP Tool by registering this component in
+ * `resources/js/martis/boot.ts` (or wherever your consumer-side
+ * componentRegistry initialisation lives):
+ *
+ *   import { componentRegistry } from '@martis/admin'
+ *   import { {{ component_name }} } from '@/tools/{{ component_name }}'
+ *
+ *   componentRegistry.register('{{ component_key }}', {{ component_name }})
+ *
+ * The package's `ToolPage` shell (router path `/tools/:uriKey`)
+ * fetches `/api/tools/{uriKey}` and resolves this component by key.
+ * The descriptor below matches the JSON shape returned by that
+ * endpoint — read meta to access the `withMeta(...)` bag set on the
+ * PHP side.
+ */
+export function {{ component_name }}({ tool }: { tool: ToolDescriptor }) {
+  const { t } = useTranslation('messages')
+
+  return (
+    <div className="martis-tool-page">
+      <header className="martis-tool-header">
+        <div>
+          <h1>{tool.name}</h1>
+          <p className="martis-tool-subtitle">
+            {t('{{ component_key }}_subtitle', '{{ display_name }} page.')}
+          </p>
+        </div>
+      </header>
+
+      <section className="martis-tool-grid">
+        <article className="martis-tool-card">
+          <header>
+            <h2>Hello from {{ display_name }}</h2>
+          </header>
+          <p>
+            Replace this body with your own UI. The full <code>tool</code>{' '}
+            descriptor is available as a prop, including any keys passed
+            to <code>withMeta(...)</code> on the PHP side.
+          </p>
+          {Object.keys(tool.meta).length > 0 && (
+            <ul className="martis-tool-rows">
+              {Object.entries(tool.meta).map(([k, v]) => (
+                <li key={k} className="martis-tool-row">
+                  <span>{k}</span>
+                  <span>
+                    <code>{typeof v === 'string' ? v : JSON.stringify(v)}</code>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+      </section>
+    </div>
+  )
+}

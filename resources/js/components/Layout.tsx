@@ -6,6 +6,7 @@ import { componentRegistry } from "@/lib/componentRegistry"
 import { Sidebar } from "@/components/Sidebar"
 import { Topbar } from "@/components/Topbar"
 import { Footer } from "@/components/Footer"
+import { ImpersonationBanner } from "@/components/ImpersonationBanner"
 import { TopnavLayout } from "@/components/layouts/TopnavLayout"
 import { MinimalLayout } from "@/components/layouts/MinimalLayout"
 import { TableSkeleton } from "@/components/LoadingSkeleton"
@@ -113,6 +114,7 @@ function SidebarLayout() {
       />
 
       <main className="martis-shell-content">
+        <ImpersonationBanner />
         <div className="martis-page">
           <Outlet />
         </div>
