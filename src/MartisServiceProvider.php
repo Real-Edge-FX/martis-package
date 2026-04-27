@@ -65,6 +65,13 @@ class MartisServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(\Martis\Sso\SsoManager::class);
+
+        $this->app->singleton(\Martis\Impersonation\ImpersonationManager::class, function ($app) {
+            return new \Martis\Impersonation\ImpersonationManager(
+                $app,
+                $app->make(\Illuminate\Auth\AuthManager::class),
+            );
+        });
     }
 
     /** Boot package services: routes, views, translations, assets, and console commands. */

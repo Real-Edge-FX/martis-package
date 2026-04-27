@@ -217,9 +217,9 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | Soft-delete trashed dropdown in relation panels | — | DONE | Shared `?trashed=with\|only` toolbar filter |
 | Modal history locks | — | DONE | Hard + soft locks (`useModalHistoryLock`, `useModalHistoryBackToClose`) |
 | `resolvedPerPage()` clamp | — | DONE | Shared between `Resource` and `Lens` |
-| Impersonation | Admin impersonation | TODO | Low priority |
+| Impersonation | Admin impersonation | DONE | v0.10 — opt-in master switch + `martis-impersonate` gate + start/stop/status REST surface + banner contract documented (see `docs/impersonation.md`) |
 | Notifications | In-app notifications | DONE | v0.8.0 — topbar bell dropdown over Laravel's standard `notifications` table + `MartisNotification::make(title:, message:, level:)` inline factory |
-| Custom Tools | Sidebar tools/pages | TODO | Medium priority |
+| Custom Tools | Sidebar tools/pages | DONE | v0.10 — `Martis\Tools\Tool` base class + `Martis::tools([...])` registration + `MenuItem::tool()` factory + `/martis/api/tools` REST (see `docs/tools.md`) |
 | Repeater | Dynamic field groups | DONE | ⭐ asPolymorphic() + rowTemplates + duplicate row + bulk-paste CSV/JSON + collapse/reorder/min-max + dependsOn |
 | Sticky Views | — | DONE | ⭐ v0.8.0 — per-resource session state for search/sort/filters/pagination/trashed/`filtersOpen` |
 | Cache Control Surface | — | DONE | ⭐ v0.8.0 — `MartisCache::extend(...)` + `/martis/system/cache` admin page (toggle/version/clear per-type) |
@@ -251,6 +251,9 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 - **i18n** — EN + PT-BR + PT-PT with dynamic loading
 - **File/Image Upload** — Disk config, thumbnails, drag-drop, type/size validation
 - **Icons** — 1,512 Phosphor Icons
+- **Custom Tools** — `Martis\Tools\Tool` base class + `Martis::tools([...])` registration + `MenuItem::tool()` factory + REST list/show
+- **Impersonation** — opt-in `ImpersonationManager` with master switch + `martis-impersonate` gate + start/stop/status REST surface
+- **Tests** — 1601 Pest + 84 Vitest = **1685 passing**, 6 skipped, 0 failed (incl. the Task-18 ParitySurface tripwire + Tools + Impersonation suites)
 - **CI** — make ci PASS, GitHub Actions self-hosted runner
 
 ---

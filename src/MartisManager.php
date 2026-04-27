@@ -6,6 +6,7 @@ use Closure;
 use Composer\InstalledVersions;
 use Illuminate\Http\Request;
 use Martis\Contracts\DashboardContract;
+use Martis\Contracts\ToolContract;
 use Martis\Menu\Menu;
 use Martis\Menu\MenuSection;
 use Throwable;
@@ -20,6 +21,9 @@ class MartisManager
 
     /** @var list<class-string<DashboardContract>|DashboardContract> */
     protected array $dashboards = [];
+
+    /** @var list<class-string<ToolContract>|ToolContract> */
+    protected array $tools = [];
 
     /**
      * Register a custom main menu builder.
@@ -67,6 +71,67 @@ class MartisManager
         }
 
         return $resolved;
+    }
+
+    // -------------------------------------------------------------------------
+    // Tools — free-form sidebar pages (v0.10)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Register Tools (free-form sidebar pages) for the application.
+     *
+     * Tools are non-resource, non-dashboard, non-lens admin pages —
+     * import wizards, system status, ad-hoc reports, third-party
+     * embeds. They get an automatic route at `/martis/tools/{uriKey}`
+     * and surface in the menu under `menuSection()` (or a default
+     * "Tools" section).
+     *
+     * Pass either a class-string or an instance. Class-strings are
+     * lazily instantiated per-request; instances are kept verbatim.
+     *
+     * @param  list<class-string<ToolContract>|ToolContract>  $tools
+     */
+    public function tools(array $tools): static
+    {
+        $this->tools = $tools;
+
+        return $this;
+    }
+
+    /**
+     * Resolve all registered tools the current user is authorised to see.
+     *
+     * @return list<ToolContract>
+     */
+    public function resolveTools(Request $request): array
+    {
+        $resolved = [];
+
+        foreach ($this->tools as $tool) {
+            $instance = is_string($tool) ? new $tool : $tool;
+
+            if ($instance instanceof ToolContract && $instance->authorizedToSee($request)) {
+                $resolved[] = $instance;
+            }
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * Look up a single registered tool by its uriKey, applying the
+     * same authorisation gate as `resolveTools()`. Returns null when
+     * the key is unknown or the user is not allowed to see it.
+     */
+    public function findTool(Request $request, string $uriKey): ?ToolContract
+    {
+        foreach ($this->resolveTools($request) as $tool) {
+            if ($tool->uriKey() === $uriKey) {
+                return $tool;
+            }
+        }
+
+        return null;
     }
 
     // -------------------------------------------------------------------------

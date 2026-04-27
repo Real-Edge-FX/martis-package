@@ -9,4 +9,5 @@ enum MenuItemType: string
 {
     case Link = 'link';
     case Resource = 'resource';
+    case Tool = 'tool';
 }

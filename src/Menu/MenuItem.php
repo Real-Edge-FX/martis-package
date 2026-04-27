@@ -4,6 +4,7 @@ namespace Martis\Menu;
 
 use Closure;
 use Illuminate\Http\Request;
+use Martis\Contracts\ToolContract;
 use Martis\Enums\MenuItemType;
 use Martis\Resource;
 
@@ -14,6 +15,9 @@ class MenuItem
 
     /** @var array<string, mixed> */
     protected array $meta = [];
+
+    /** @var class-string<ToolContract>|ToolContract|null */
+    protected string|ToolContract|null $tool = null;
 
     protected function __construct(
         protected MenuItemType $type,
@@ -45,6 +49,22 @@ class MenuItem
     public static function resource(string $resourceClass): self
     {
         return new self(MenuItemType::Resource, resourceClass: $resourceClass);
+    }
+
+    /**
+     * Build a menu item from a registered Tool. Pass either a class-string
+     * or an instance — the menu reads `name()`, `uriKey()`, `icon()` and
+     * `authorizedToSee()` lazily at request time so the rendered menu
+     * reflects the live state of the tool.
+     *
+     * @param  class-string<ToolContract>|ToolContract  $tool
+     */
+    public static function tool(string|ToolContract $tool): self
+    {
+        $item = new self(MenuItemType::Tool);
+        $item->tool = $tool;
+
+        return $item;
     }
 
     public function label(string $label): self
@@ -112,6 +132,10 @@ class MenuItem
             return null;
         }
 
+        if ($this->tool !== null) {
+            return $this->resolveToolItem($request);
+        }
+
         if ($this->resourceClass !== null) {
             return $this->resolveResourceItem($request);
         }
@@ -126,6 +150,31 @@ class MenuItem
             'url' => $this->url,
             'icon' => $this->icon,
             'external' => $this->external,
+        ], $this->meta);
+    }
+
+    /**
+     * Resolve a Tool-backed menu entry. Tools that deny `authorizedToSee()`
+     * for the current user are silently dropped from the menu.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function resolveToolItem(Request $request): ?array
+    {
+        $tool = is_string($this->tool) ? new $this->tool : $this->tool;
+
+        if (! $tool instanceof ToolContract || ! $tool->authorizedToSee($request)) {
+            return null;
+        }
+
+        return array_merge([
+            'type' => MenuItemType::Tool->value,
+            'label' => $this->label ?? $tool->name(),
+            'url' => $this->url ?? '/tools/'.$tool->uriKey(),
+            'icon' => $this->icon ?? $tool->icon(),
+            'external' => $this->external,
+            'uriKey' => $tool->uriKey(),
+            'component' => $tool->component(),
         ], $this->meta);
     }
 

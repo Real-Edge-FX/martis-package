@@ -1,0 +1,201 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Martis\Tools;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Martis\Contracts\ToolContract;
+
+/**
+ * Base class for Martis Tools — free-form sidebar pages that are not
+ * resources, dashboards, or lenses.
+ *
+ * Subclass and override the hooks the consumer cares about:
+ *
+ * ```php
+ * class SystemStatus extends Tool
+ * {
+ *     public function __construct()
+ *     {
+ *         parent::__construct(
+ *             name: __('System Status'),
+ *             uriKey: 'system-status',
+ *         );
+ *     }
+ *
+ *     public function icon(): ?string
+ *     {
+ *         return 'pulse';
+ *     }
+ *
+ *     public function component(): ?string
+ *     {
+ *         return 'tool:system-status';
+ *     }
+ *
+ *     public function menuSection(): ?string
+ *     {
+ *         return __('Operations');
+ *     }
+ * }
+ * ```
+ *
+ * Register tools from a service provider:
+ *
+ * ```php
+ * Martis::tools([
+ *     new App\Martis\Tools\SystemStatus(),
+ *     SystemBackups::class, // class-string also accepted
+ * ]);
+ * ```
+ *
+ * @phpstan-consistent-constructor
+ */
+class Tool implements ToolContract
+{
+    protected ?string $icon = null;
+
+    protected ?string $component = null;
+
+    protected ?string $menuSection = null;
+
+    /** @var array<string, mixed> */
+    protected array $meta = [];
+
+    /** @var Closure(Request): bool|null */
+    protected ?Closure $canSeeCallback = null;
+
+    public function __construct(
+        protected string $name,
+        protected ?string $uriKey = null,
+    ) {}
+
+    public static function make(string $name, ?string $uriKey = null): static
+    {
+        return new static($name, $uriKey);
+    }
+
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+    public function uriKey(): string
+    {
+        return $this->uriKey ?? Str::kebab($this->name);
+    }
+
+    // -------------------------------------------------------------------------
+    // Visual hooks
+    // -------------------------------------------------------------------------
+
+    public function icon(): ?string
+    {
+        return $this->icon;
+    }
+
+    /**
+     * Set the Phosphor icon for this tool. Returns the same instance
+     * so the call can chain in registration arrays.
+     */
+    public function withIcon(string $icon): static
+    {
+        $this->icon = $icon;
+
+        return $this;
+    }
+
+    public function component(): ?string
+    {
+        return $this->component;
+    }
+
+    /**
+     * Bind this tool to a React component key. The frontend looks up
+     * the key in `componentRegistry` when the user navigates to
+     * `/martis/tools/{uriKey}`.
+     */
+    public function withComponent(string $component): static
+    {
+        $this->component = $component;
+
+        return $this;
+    }
+
+    public function menuSection(): ?string
+    {
+        return $this->menuSection;
+    }
+
+    public function withMenuSection(?string $section): static
+    {
+        $this->menuSection = $section;
+
+        return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Authorization
+    // -------------------------------------------------------------------------
+
+    public function canSee(Closure $callback): static
+    {
+        $this->canSeeCallback = $callback;
+
+        return $this;
+    }
+
+    public function authorizedToSee(Request $request): bool
+    {
+        if ($this->canSeeCallback === null) {
+            return true;
+        }
+
+        return (bool) call_user_func($this->canSeeCallback, $request);
+    }
+
+    // -------------------------------------------------------------------------
+    // Metadata
+    // -------------------------------------------------------------------------
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function withMeta(array $meta): static
+    {
+        $this->meta = array_merge($this->meta, $meta);
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function meta(): array
+    {
+        return $this->meta;
+    }
+
+    // -------------------------------------------------------------------------
+    // Serialization
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'type' => 'tool',
+            'name' => $this->name(),
+            'uriKey' => $this->uriKey(),
+            'icon' => $this->icon(),
+            'component' => $this->component(),
+            'menuSection' => $this->menuSection(),
+            'meta' => $this->meta(),
+        ];
+    }
+}
