@@ -2,7 +2,7 @@
     "name": "martis/martis",
     "description": "Martis \u2014 React-first Laravel admin engine with full-stack resources, lenses, metrics, and a token-driven design system.",
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "php": "^8.2",
         "laravel/framework": "^11.0|^12.0",

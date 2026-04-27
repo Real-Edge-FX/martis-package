@@ -119,7 +119,7 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->name('api.')
                             ->middleware($throttle)
                             ->group(function () {
-                                Route::get('/navigation', [NavigationController::class, 'index'])->name('api.navigation');
+                                Route::get('/navigation', [NavigationController::class, 'index'])->name('navigation');
 
                                 // Tools — free-form sidebar pages registered
                                 // via `Martis::tools([...])`. List + per-key
@@ -127,24 +127,24 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // page itself by looking up the React
                                 // component bound to the tool's component()
                                 // key.
-                                Route::get('/tools', [ToolsController::class, 'index'])->name('api.tools.index');
-                                Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])->name('api.tools.show');
+                                Route::get('/tools', [ToolsController::class, 'index'])->name('tools.index');
+                                Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])->name('tools.show');
 
                                 // Impersonation — v0.10 opt-in subsystem.
                                 // Master switch is off by default; gate
                                 // `martis-impersonate` must be defined by
                                 // the consumer. See docs/impersonation.md.
                                 Route::get('/impersonation/status', [ImpersonationController::class, 'status'])
-                                    ->name('api.impersonation.status');
+                                    ->name('impersonation.status');
                                 Route::post('/impersonation/start/{userId}', [ImpersonationController::class, 'start'])
-                                    ->name('api.impersonation.start');
+                                    ->name('impersonation.start');
                                 Route::post('/impersonation/stop', [ImpersonationController::class, 'stop'])
-                                    ->name('api.impersonation.stop');
+                                    ->name('impersonation.stop');
 
                                 // Global command palette aggregate — resources,
                                 // standalone actions, and the user's recent
                                 // action-events in one round-trip.
-                                Route::get('/command-palette', [CommandPaletteController::class, 'index'])->name('api.command-palette');
+                                Route::get('/command-palette', [CommandPaletteController::class, 'index'])->name('command-palette');
 
                                 // User preferences (Task 07.1 ⭐ D2)
                                 if (config('martis.preferences.enabled', true)) {

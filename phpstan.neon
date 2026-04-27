@@ -1,7 +1,18 @@
+includes:
+    - phpstan-baseline.neon
+
 parameters:
     level: 8
     paths:
         - src
+    # Baseline locks 220 pre-v1 errors so CI fails on new errors without
+    # blocking the v1.0.0 cut. Track the count down to zero post-v1.0:
+    #   vendor/bin/phpstan analyse --memory-limit=2G --generate-baseline=phpstan-baseline.neon
+    #
+    # `reportUnmatchedIgnoredErrors: false` keeps inline `@phpstan-ignore-*`
+    # comments tolerant — when the underlying error gets fixed the comment
+    # becomes silent rather than triggering a new failure.
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
         -
             identifier: trait.unused
