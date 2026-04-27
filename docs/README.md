@@ -23,16 +23,36 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 - **Auto-Discovery** — Resources are registered automatically, no manual configuration needed
 - **API-First** — Full REST API with automatic Swagger documentation via Scramble
 
-### Highlights since v0.3
+### Highlights since v0.6
+
+#### v0.9.0-beta (Forms / Index UX, Locale Extensibility, Global Search, SSO)
+
+- **Reactive fields** — `Field::dependsOn(['attr'], Closure)` with server-side resolution via `POST /api/resources/{r}/sync-field`, debounced and `AbortController`-cancelled on the client ([fields.md § Reactive fields](fields.md#reactive-fields--dependsonfield-closure))
+- **Closure-aware setters** — 13 field setters (`nullable`, `required`, `readonly`, `default`, `placeholder`, `help`, `tooltip`, `withLabel`, `rules`, `Select::options`, `MultiSelect::options`, `BooleanGroup::options`, etc.) accept a `Closure` resolved at request time
+- **Customisation hooks `?Request` 4th argument** — `resolveUsing` / `fillUsing` / `displayUsing` callbacks; `displayUsing(array)` accepts a chainable transformation pipeline
+- **Context-aware validation** — `creationRules()` / `updateRules()` layer on top of `rules()`; `immutable()` flags a field as writable on create, readonly on update
+- **Save variants** — `Create & add another`, `Create & view list`, `Save & continue editing`, `Save & view list` ([resources.md § Save variants](resources.md))
+- **Reset filters** toolbar button — clears only the active filter set; coexists with `Reset view`
+- **Global Search per-resource config** — `globallySearchable()` accepts `bool|array{enabled?, limit?, min_query?}`; new `searchOrderBy()` hook ([global-search.md](global-search.md))
+- **"View all N matches in {resource}"** palette overflow item lands on the resource index with the search query pre-applied
+- **Locale extensibility** — per-key deep merge of consumer overrides, configurable host-app namespaces (`martis.locales.app_namespaces`), configurable fallback chain (`martis.locales.fallback_chain`) ([i18n.md](i18n.md))
+- **SSO subsystem** — pluggable provider contract (`AzureProvider` reference impl), identity-to-user resolver, role mapping (column / config / callable), permission adapters (Spatie / native / callable), idempotent `martis:sso <provider>` generator ([sso.md](sso.md))
+
+#### v0.8.0-beta (Sticky Views, Notifications, Cache control)
+
+- **Sticky views** — per-resource session storage of search / sort / filters / pagination / trashed-toggle / `filtersOpen`; survives back-navigation; drops on resource change ([sticky_views.md](sticky_views.md))
+- **In-app notifications** — topbar bell dropdown over Laravel's standard `notifications` table + `MartisNotification::make(title:, message:, level:)` inline factory ([notifications.md](notifications.md))
+- **Cache control surface** — `MartisCache::extend('name', enabled, ttl)` for host-app layers + `/martis/system/cache` admin page (toggle / version / clear per-type) ([cache.md](cache.md))
+
+#### Track B foundation (v0.4–v0.6)
 
 - **Lenses** — custom filtered views with sticky summary rows, per-lens query cache, default filters pre-applied, URL state sync ([lenses.md](lenses.md))
 - **Metrics & Dashboards** — Value / Trend / Partition / Progress cards, dashboard-level filters, 12-column responsive grid, polling with LIVE indicator ([metrics.md](metrics.md), [dashboards.md](dashboards.md))
 - **Declarative menus** — `Martis::mainMenu(...)` with `Menu`, `MenuSection`, `MenuItem` and per-resource overrides ([menus.md](menus.md))
-- **Relationship toolbar hide flags** — 9 per-field toggles (`hideSearch`, `hideCreateButton`, `hidePerPageSelector`, `hideSoftDeleteToggle`, `hideViewAction`, `hideEditAction`, `hideDeleteAction`, `hideRestoreAction`, `hideForceDeleteAction`) via `src/Fields/Concerns/ControlsRelationshipToolbar.php`
-- **Soft-delete filter dropdown in relation panels** — `HasMany` / `MorphMany` relation toolbars now expose the same `?trashed=with|only` filter used on the resource index (Option A clamp shared with `resolvedPerPage()`)
-- **Modal history locks** — two hooks in `resources/js/lib/historyLock.ts`: `useModalHistoryLock` (hard — absorbs browser back until UI closes the modal) and `useModalHistoryBackToClose` (soft — first back closes, second navigates). See [differentials.md](differentials.md#modal-history-locks)
-- **`resolvedPerPage()` clamp** — if a resource declares a `perPage()` that is not present in `perPageOptions()`, the effective value clamps to the first option so the dropdown and the actual filter stay in sync
-- **`BelongsToMany` / `MorphToMany` shell migration** — both fields now share `RelationshipTableShell` with `HasMany`, unifying search, pagination, toolbar controls and modal stack (AttachModal, DetachConfirmModal, EditPivotModal, PivotActionModal)
+- **Relationship toolbar hide flags** — 9 per-field toggles via `src/Fields/Concerns/ControlsRelationshipToolbar.php`
+- **Soft-delete filter dropdown in relation panels** — `HasMany` / `MorphMany` relation toolbars expose `?trashed=with|only`
+- **Modal history locks** — `useModalHistoryLock` (hard) and `useModalHistoryBackToClose` (soft) in `resources/js/lib/historyLock.ts`
+- **`BelongsToMany` / `MorphToMany` shell migration** — share `RelationshipTableShell` with the rest of the relation suite
 
 ### Architecture Philosophy
 
@@ -65,17 +85,25 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 6 | **[Relationships](relationships.md)** | Relationship fields — 12 types (`BelongsTo`, `HasOne`, `HasOneOfMany`, `HasOneThrough`, `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany`), pivot fields, attach/detach, toolbar hide flags, soft-delete filter dropdown |
 | 6.1 | **[Repeater](repeater.md)** | Repeatable row widget — JSON / HasMany / ⭐ Polymorphic storage, multi-type, row templates, duplicate, bulk paste, collapse, drag-and-drop reorder, min/max, dependsOn |
 | 6.5 | **[Filters](filters.md)** | Filters framework — SelectFilter, BooleanFilter, DateFilter, DateRangeFilter, custom filters, default values, dynamic filters, API reference |
-| 6.6 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
-| 6.7 | **[Dashboards](dashboards.md)** | Dashboard system — multiple dashboards, dashboard filters, refresh button, registration, fallback |
+| 6.6 | **[Lenses](lenses.md)** | Custom filtered views — `Lens` base class, `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync |
+| 6.7 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
+| 6.8 | **[Dashboards](dashboards.md)** | Dashboard system — multiple dashboards, dashboard filters, refresh button, registration, fallback |
+| 6.9 | **[Global Search](global-search.md)** | Cross-resource search — per-resource `globallySearchable(bool\|array)`, `searchOrderBy()`, "View all N matches" overflow |
+| 6.10 | **[Sticky Views](sticky_views.md)** | Per-resource session state for search / sort / filters / pagination / trashed / `filtersOpen` (v0.8) |
 | 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
+| 7.5 | **[Default Row Actions](default_row_actions.md)** | Built-in inline action set per relation panel and index row |
 | 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
 | 8.5 | **[Menus](menus.md)** | Declarative navigation — `Martis::mainMenu(...)`, `Menu`, `MenuSection`, `MenuItem`, resource-level `menuItem()`, and `/api/navigation` |
 | 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
-| 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), SSO + Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
+| 9.1 | **[Loader](loader.md)** | Global loader and per-surface skeletons — when each one fires, accessibility behaviour |
+| 9.2 | **[In-app Notifications](notifications.md)** | Topbar bell + standard `notifications` table + `MartisNotification::make()` (v0.8) |
+| 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
+| 10.5 | **[SSO Subsystem](sso.md)** | Pluggable provider contract, identity-to-user resolver, role mapping, permission adapters, `martis:sso` generator (v0.9) |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
 | 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |
 | 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
-| 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching |
+| 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching, per-key deep merge, `app_namespaces`, `fallback_chain` |
+| 11.4 | **[Cache Control Surface](cache.md)** | `MartisCache::extend()`, runtime per-type toggle, `/martis/system/cache` admin page (v0.8) |
 
 ### Architecture & Design
 
@@ -91,6 +119,8 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 |---|----------|---------------------|
 | 15 | **[Martis Differentials](differentials.md)** | All features unique to Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
 | 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature status map — what is done, in progress, and planned |
+| 17 | **[Migrating from Nova 5](migration-from-nova.md)** | What ports cleanly, what's renamed, what's intentionally different — for teams coming from Laravel Nova v5 |
+| 18 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
 
 ---
 
@@ -106,17 +136,31 @@ docs/
 ├── panels-and-tabs.md .............. Panels & Tabs layout guide
 ├── fields.md ....................... Fields reference (50 types)
 ├── relationships.md ................ Relationship fields guide
+├── repeater.md ..................... Repeater widget
 ├── filters.md ...................... Filters framework
+├── lenses.md ....................... Lenses (custom filtered views)
+├── metrics.md ...................... Metrics (Value / Trend / Partition / Progress)
+├── dashboards.md ................... Dashboards
+├── menus.md ........................ Declarative navigation
+├── global-search.md ................ Cross-resource search
+├── sticky_views.md ................. Per-resource session state (v0.8)
 ├── actions.md ...................... Actions system
+├── default_row_actions.md .......... Built-in inline action set
 ├── overrides.md .................... Override system
 ├── components.md ................... Built-in UI components
+├── loader.md ....................... Global loader & skeletons
+├── notifications.md ................ In-app notifications (v0.8)
 ├── authentication.md ............... Login, 2FA, profile
+├── sso.md .......................... SSO subsystem (v0.9)
 ├── configuration.md ................ Config reference
 ├── theming.md ...................... 94-token design system
 ├── preferences.md .................. User preferences (⭐ D1/D2/D3)
 ├── i18n.md ......................... Adding locales & translations
+├── cache.md ........................ Cache control surface (v0.8)
 ├── differentials.md ................ Martis differentials (unique features)
 ├── PARITY_MAP.md ................... Parity status tracker
+├── migration-from-nova.md .......... Migration guide for Nova v5 teams
+├── release-process.md .............. How a release tag is cut
 ├── api/
 │   └── overview.md ................. REST API reference
 ├── architecture/
@@ -164,16 +208,18 @@ The playground application ships with pre-configured resources for development a
 
 ## Current State
 
-- **50 field types** implemented and tested (including 12 relation field types)
+- **50 field types** implemented (including 12 relation field types)
 - **Full CRUD** — Index, Detail, Create, Edit, Delete with soft-delete support
 - **Override System v1** — componentRegistry + layoutRegistry + drawer overrides
-- **i18n** — EN + PT-BR + PT-PT, dynamic translation endpoint
-- **Relationship panels** — Inline tables with full CRUD on detail pages for `HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany`, including shared toolbar, soft-delete dropdown, and per-field hide flags
+- **i18n** — EN + PT-BR + PT-PT with dynamic loading + per-key deep merge + configurable host-app namespaces + configurable fallback chain
+- **Relationship panels** — Inline tables with full CRUD on detail pages for all 12 relation types (shared `RelationshipTableShell`, soft-delete dropdown, 9 per-field hide flags)
+- **Reactive forms** — `Field::dependsOn()` server-side resolution + closure-aware setters across the field API + context-aware validation
+- **In-app Notifications + Cache control + Sticky views** — see the v0.8 highlights above
+- **SSO subsystem** — pluggable provider contract + role mapping + permission adapters + `martis:sso` generator (see [sso.md](sso.md))
 - **File/Image uploads** — Configurable disk, thumbnails, drag-drop, validation
 - **Phosphor Icons** — 1,512 icons available via `icon()`
-- **Global Search** — Cross-resource search from the top bar
+- **Global Search** — Cross-resource search with per-resource config + `searchOrderBy()` + "View all N matches" overflow
 - **Lenses, Metrics, Dashboards, Menus** — full implementations (see [lenses.md](lenses.md), [metrics.md](metrics.md), [dashboards.md](dashboards.md), [menus.md](menus.md))
-- **Test Coverage** — 180+ PHP tests, 43 TypeScript tests, 13 E2E tests
 - **CI/CD** — Automated via GitHub Actions self-hosted runner
 
 ---
