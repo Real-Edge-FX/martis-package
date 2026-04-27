@@ -668,3 +668,31 @@ Per-type feature tests:
 - `tests/Feature/MorphToManyControllerTest.php` (13)
 - `tests/Feature/PivotActionControllerTest.php` (5)
 - `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
+
+---
+
+## RelationshipQueryResolver
+
+Internal resolver that powers the per-relationship `relatable*` overrides. Most consumers never touch it directly; it's documented here because it shows up in stack traces and is part of the public contract for advanced overrides.
+
+### Resolution chain
+
+When a `BelongsTo` (or any relation field) needs to populate its dropdown, the resolver looks for a query hook in this order:
+
+1. `relatable{PluralModelName}(Request $request, Builder $query [, FieldContract $field]): Builder` — pluralized model basename of the **related** resource. Example: a `BelongsTo::make('Author', 'author', UserResource::class)` looks for `relatableUsers()` on the **source** resource (the one calling `BelongsTo::make`).
+2. `relatableQuery(Request $request, Builder $query): Builder` — generic fallback on the **target** resource (the related resource itself).
+
+The dynamic method name uses `Str::plural(class_basename($model))`. The third parameter is optional — declare it if you need to know which field is asking (useful when one resource exposes multiple `BelongsTo` to the same target).
+
+### Override-side hook
+
+For overrides on a `BelongsTo` field, prefer:
+
+```php
+BelongsTo::make('Author', 'author', UserResource::class)
+    ->relatableQueryUsing(fn (Request $request, Builder $query) =>
+        $query->where('is_active', true)
+    );
+```
+
+`relatableQueryUsing()` runs alongside the resolver and stacks on top of any resource-level method. See `tests/Feature/RelationshipsHardeningTest.php` for the full priority matrix.

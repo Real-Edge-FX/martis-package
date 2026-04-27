@@ -1,4 +1,4 @@
-# Sticky Views (⭐ Martis differential)
+# Sticky Views
 
 > Per-user view state persistence on resource index pages — filters, sort, pagination, per-page selector and search query survive navigation.
 
@@ -10,7 +10,7 @@ The state is scoped per-resource and per-tab, so each resource remembers its own
 
 ## Why it matters
 
-Every Nova-style admin panel forgets the user's setup the moment they navigate away. It's small enough that nobody asks for it, but every user feels the friction every day. Martis's Sticky Views remove the friction without any developer setup — it just works.
+Most admin panels forget the user's setup the moment they navigate away. It's small enough that nobody asks for it, but every user feels the friction every day. Sticky Views remove the friction without any developer setup — it just works.
 
 ## How it works
 

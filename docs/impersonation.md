@@ -1,7 +1,7 @@
 # Impersonation
 
 > Lets a privileged operator log in as another user for the duration of a session, then return to their own account with one click.
-> Shipped in v0.10. Closes the "Impersonation" gap from the Nova v5 compatibility audit.
+> Shipped in v0.10.
 
 ## Why this exists
 

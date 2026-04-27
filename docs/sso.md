@@ -30,7 +30,7 @@ This document is the long-form reference. For a 30-second TL;DR see the **Quick 
 
 ## 1. What is the Martis SSO subsystem?
 
-A configurable, layered SSO stack you wire up via config + 5 optional hooks. Replaces the 200-line custom `AzureOauthController extends Nova\LoginController` pattern that most admin apps end up with.
+A configurable, layered SSO stack you wire up via config + 5 optional hooks. Replaces the 200-line custom `AzureOauthController extends LoginController` pattern that most admin apps end up writing by hand.
 
 ### What it differentiates
 
@@ -686,7 +686,7 @@ The generator is fully idempotent. Re-running with the same provider name on a f
 
 ## 12. Migration from a custom OAuth controller
 
-Apps that already have a custom `AzureOauthController` (often extending Nova's `LoginController`) typically have ~200 lines covering:
+Apps that already have a custom `AzureOauthController` (typically extending the host's `LoginController`) usually carry ~200 lines covering:
 
 1. Socialite driver + scope setup.
 2. Microsoft Graph `appRoleAssignments` fetch.
@@ -848,7 +848,7 @@ MartisSso::resolveUserUsing(function (SsoIdentity $identity) {
 });
 ```
 
-To allow re-login (default Nova-parity behaviour):
+To allow re-login (typical permissive behaviour):
 
 ```php
 ->tap(fn ($u) => $u->trashed() && $u->restore());

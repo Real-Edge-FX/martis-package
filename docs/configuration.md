@@ -481,7 +481,7 @@ Why a dedicated provider instead of `AppServiceProvider`?
 - Separation of concerns — Martis bootstrap stays out of host-app providers.
 - Self-documenting — section names (`registerMainMenu`, `registerDashboards`, `registerCacheLayers`, `registerGates`) act as a catalogue of every code-side hook Martis exposes.
 - Easier upgrades — when Martis adds a new registration point, the stub gains a section; `AppServiceProvider` is never touched.
-- Mirrors the pattern Nova and Filament use.
+- Mirrors the dedicated-provider pattern other admin engines use.
 
 To republish the stub manually (e.g. after package upgrade adds a new section): `php artisan vendor:publish --tag=martis-provider --force`.
 
@@ -524,6 +524,88 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
 ```
 
 See [Authentication](authentication.md#user-profile) for full profile documentation.
+
+## User Preferences
+
+```php
+'preferences' => [
+    'enabled' => env('MARTIS_PREFERENCES_ENABLED', true),
+    'allowBrandColor' => env('MARTIS_PREFERENCES_ALLOW_BRAND_COLOR', false),
+    'locale_labels' => [
+        // 'pt_BR' => 'Português (Brasil)',
+    ],
+],
+```
+
+| Key | Type | Default | Effect |
+|---|---|---|---|
+| `enabled` | bool | `true` | Master switch for the per-user preferences panel (theme, density, locale, accent). |
+| `allowBrandColor` | bool | `false` | When true, exposes a custom-hex brand colour picker in the preferences panel. |
+| `locale_labels` | array | `[]` | Override the human-readable labels surfaced in the locale dropdown. |
+
+See [User Preferences](preferences.md) for the D1/D2/D3 spec and [i18n](i18n.md) for the locale layer.
+
+## Sticky Views
+
+```php
+'sticky_views' => [
+    'enabled' => env('MARTIS_STICKY_VIEWS_ENABLED', true),
+    'scope' => env('MARTIS_STICKY_VIEWS_SCOPE', 'session'),
+    'persist' => [
+        'filters' => true,
+        'sorting' => true,
+        'pagination' => true,
+        'per_page' => true,
+        'columns' => true,
+        'scroll' => false,
+    ],
+],
+```
+
+| Key | Type | Default | Effect |
+|---|---|---|---|
+| `enabled` | bool | `true` | Master switch. Falsey disables the entire feature. |
+| `scope` | enum | `session` | Where state lives: `session` (sessionStorage, wipes on tab close) or `local` (localStorage, survives). |
+| `persist.filters` | bool | `true` | Remember filter values per resource. |
+| `persist.sorting` | bool | `true` | Remember sort column + direction. |
+| `persist.pagination` | bool | `true` | Remember current page. |
+| `persist.per_page` | bool | `true` | Remember per-page selector. |
+| `persist.columns` | bool | `true` | Remember visible columns toggle. |
+| `persist.scroll` | bool | `false` | Remember scroll position on the index. |
+
+See [Sticky Views](sticky_views.md) for the full behaviour spec.
+
+## Loader
+
+```php
+'loader' => [
+    'disabled' => env('MARTIS_LOADER_DISABLED', false),
+],
+```
+
+| Key | Type | Default | Effect |
+|---|---|---|---|
+| `disabled` | bool | `false` | Globally suppress the page loader. Useful in tests or for apps that ship their own loading UI. |
+
+See [Loader](loader.md) for the surface-by-surface behaviour matrix.
+
+## Impersonation
+
+```php
+'impersonation' => [
+    'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
+    'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+    'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
+],
+```
+
+| Key | Type | Default | Effect |
+|---|---|---|---|
+| `enabled` | bool | `false` | Master switch. Default OFF — opt-in. When false, the impersonation REST endpoints return 503 and the banner short-circuits its mount-time fetch. |
+| `guard` | string | `web` | Auth guard the impersonation operates on. |
+| `session_key` | string | `martis.impersonation` | Session bag where the operator's id is stashed. Change for cross-tenant isolation. |
+
+The package ships **no default Gate**. Define `martis-impersonate` in your `AuthServiceProvider` to gate which users can start an impersonation session. See [Impersonation](impersonation.md).
 
 ## Environment Variables
 

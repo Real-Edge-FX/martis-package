@@ -19,7 +19,7 @@
 
 Martis is a full-featured, React-first admin panel engine for Laravel. It is built on **PrimeReact**, **Tailwind CSS**, **React Router**, and **TanStack Query**, giving you a modern SPA experience with the power and simplicity of Laravel on the backend.
 
-**Nova v5 parity score: 167/169 (98.8%)** — see [PARITY_MAP.md](docs/PARITY_MAP.md) and the [migration guide](docs/migration-from-nova.md).
+See the **[Parity Map](docs/PARITY_MAP.md)** for the feature-by-feature scorecard and the migration guide.
 
 ## Installation
 
@@ -80,7 +80,7 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 - **50 field types** — text, select, date, file, image, code, markdown, rich text, badge, status, currency, country, key-value, sparkline, audio, slug, timezone, icon picker, and 32 more
 - **12 relationship fields** — BelongsTo, HasOne, HasOneOfMany, HasOneThrough, HasMany, HasManyThrough, BelongsToMany, MorphTo, MorphOne, MorphOneOfMany, MorphMany, MorphToMany — all with full inline CRUD, attach/detach, pivot fields, soft-delete dropdown, and 9 toolbar hide flags
 - **Reactive forms** — `Field::dependsOn()` server-side resolution, closure-aware setters across the field API, context-aware validation (creationRules / updateRules / immutable), 4 save variants
-- **Filters & Lenses & Metrics & Dashboards & Menus** — all feature-complete, Nova v5 parity
+- **Filters & Lenses & Metrics & Dashboards & Menus** — all feature-complete
 - **Actions** — row-level, bulk, standalone, queued, with confirmation, validation, pivot fields, custom React components, dry-run, and per-action icons
 - **Custom Tools (v0.10)** — free-form sidebar pages with `Tool::boot()` lifecycle, `ToolServiceProvider` for Composer-package distribution, asset publishing, and the `martis:tool` generator
 - **Impersonation (v0.10)** — opt-in master switch + `martis-impersonate` Gate + REST surface + built-in banner
@@ -144,9 +144,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Authorization](docs/authorization.md) | Policy contract, enforcement endpoints, UI flags |
 | [Configuration](docs/configuration.md) | Complete `config/martis.php` reference + host `MartisServiceProvider` for code-side registrations |
 | [Loader](docs/loader.md) | Page loader configuration and customization |
-| [Migrating from Nova v5](docs/migration-from-nova.md) | What ports cleanly, what's renamed, what's intentionally different — for teams coming from Laravel Nova v5 |
-| [Nova v5 Ecosystem Catalog](docs/nova-ecosystem-catalog.md) | 60+ Nova add-ons mapped to Martis status (built-in / build-it-yourself / won't-ship) |
-| [Parity Map](docs/PARITY_MAP.md) | Feature-by-feature parity score vs Laravel Nova v5 (currently 167/169) |
+| [Parity Map](docs/PARITY_MAP.md) | Feature-by-feature scorecard, migration guide, and ecosystem map (single canonical reference) |
 
 ### Architecture & API
 

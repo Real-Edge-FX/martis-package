@@ -2,6 +2,8 @@
 
 Martis provides a complete authentication system with login, logout, two-factor authentication (2FA), and a user profile page — all configurable and overridable.
 
+> See also: [SSO](sso.md) for OAuth/OIDC providers (Azure / Google / GitHub / custom), and [Impersonation](impersonation.md) for the v0.10 login-as-another-user subsystem.
+
 ## Login Flow
 
 Martis uses Laravel's authentication guards. By default, it uses the application's default guard.
