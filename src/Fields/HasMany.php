@@ -5,10 +5,12 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Support\Str;
-use Martis\Fields\Concerns\ControlsRelationshipToolbar;
-use Martis\Fields\Concerns\ResolvesRelatableOptions;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\ResolvesRelatableOptions;
+use Martis\Resource;
+use Martis\ResourceRegistry;
 
 /**
  * HasMany relationship field.
@@ -181,8 +183,8 @@ class HasMany extends Field
         $uriKey = $this->getRelatedResourceKey();
         if ($uriKey !== null) {
             try {
-                /** @var \Martis\ResourceRegistry $registry */
-                $registry = app(\Martis\ResourceRegistry::class);
+                /** @var ResourceRegistry $registry */
+                $registry = app(ResourceRegistry::class);
                 if ($registry->has($uriKey)) {
                     /** @var class-string<\Martis\Resource> $class */
                     $class = $registry->get($uriKey);

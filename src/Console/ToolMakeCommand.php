@@ -167,25 +167,25 @@ class ToolMakeCommand extends GeneratorCommand
 
         $this->newLine();
         $this->components->info('Next steps:');
-        $this->line("  <fg=gray>1.</> Register the Tool in your service provider:");
-        $this->line("");
+        $this->line('  <fg=gray>1.</> Register the Tool in your service provider:');
+        $this->line('');
         $this->line("     <fg=cyan>use {$fullClass};</>");
         $this->line("     <fg=cyan>Martis::tools([{$shortName}::class]);</>");
-        $this->line("");
-        $this->line("  <fg=gray>2.</> Surface it in the menu (optional):");
-        $this->line("");
+        $this->line('');
+        $this->line('  <fg=gray>2.</> Surface it in the menu (optional):');
+        $this->line('');
         $this->line("     <fg=cyan>MenuItem::tool({$shortName}::class)</>");
-        $this->line("");
+        $this->line('');
 
         if ($this->option('use-bundled')) {
-            $this->line("  <fg=gray>3.</> The bundled `martis:tool:system-status-demo` React component renders this Tool as-is.");
+            $this->line('  <fg=gray>3.</> The bundled `martis:tool:system-status-demo` React component renders this Tool as-is.');
         } elseif ($this->option('with-component')) {
-            $this->line("  <fg=gray>3.</> Register your component in `resources/js/martis/boot.ts`:");
-            $this->line("");
+            $this->line('  <fg=gray>3.</> Register your component in `resources/js/martis/boot.ts`:');
+            $this->line('');
             $this->line("     <fg=cyan>componentRegistry.register('{$componentKey}', {$shortName}Tool)</>");
         } else {
             $this->line("  <fg=gray>3.</> Bind a React component to the key <fg=yellow>'{$componentKey}'</> in `boot.ts`,");
-            $this->line("     <fg=gray>   </> or rerun with <fg=yellow>--with-component</> to scaffold a TSX stub.");
+            $this->line('     <fg=gray>   </> or rerun with <fg=yellow>--with-component</> to scaffold a TSX stub.');
         }
 
         $this->newLine();

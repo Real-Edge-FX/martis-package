@@ -1,0 +1,1033 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Unsafe usage of new static\(\)\.$#'
+			identifier: new.static
+			count: 1
+			path: src/Cards/Card.php
+
+		-
+			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, array\|bool\|float\|int\|string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Console/CacheClearCommand.php
+
+		-
+			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Console/CacheDisableCommand.php
+
+		-
+			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Console/CacheEnableCommand.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Foundation\\Application\:\:environmentFilePath\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Console/InstallCommand.php
+
+		-
+			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Console/SsoMakeCommand.php
+
+		-
+			message: '#^Cannot cast non\-empty\-array\|float\|int\<min, \-1\>\|int\<1, max\>\|non\-falsy\-string\|true to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Console/SsoMakeCommand.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\{0\: ''laravel/socialite'', 1\?\: ''socialiteproviders…''\|''spatie/laravel…'', 2\?\: ''spatie/laravel…''\}\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Console/SsoMakeCommand.php
+
+		-
+			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Console/ToolMakeCommand.php
+
+		-
+			message: '#^Cannot cast non\-empty\-array\|float\|int\<min, \-1\>\|int\<1, max\>\|non\-falsy\-string\|true to string\.$#'
+			identifier: cast.string
+			count: 4
+			path: src/Console/ToolMakeCommand.php
+
+		-
+			message: '#^Method Martis\\Contracts\\FilterContract\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Contracts/FilterContract.php
+
+		-
+			message: '#^Parameter \#1 \$name of method Martis\\Dashboards\\Dashboard\:\:__construct\(\) expects string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Dashboards/DefaultDashboard.php
+
+		-
+			message: '#^Class Martis\\Facades\\Martis has PHPDoc tag @method for method dashboards\(\) parameter \#1 \$dashboards with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Facades/Martis.php
+
+		-
+			message: '#^Class Martis\\Facades\\Martis has PHPDoc tag @method for method tools\(\) parameter \#1 \$tools with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Facades/Martis.php
+
+		-
+			message: '#^Method Martis\\Fields\\Avatar\:\:resolve\(\) should return array\<''name''\|''path''\|''thumbnailUrl''\|''url''\|int\<0, max\>, array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string\>\|null but returns array\{url\: null, name\: null, path\: null, thumbnailUrl\: null, isInitialsFallback\: true, initials\: string, color\: string, seed\: string\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Fields/Avatar.php
+
+		-
+			message: '#^Method Martis\\Fields\\Avatar\:\:resolve\(\) should return array\<''name''\|''path''\|''thumbnailUrl''\|''url''\|int\<0, max\>, array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string\>\|null but returns array\{url\: string, name\: null, path\: null, thumbnailUrl\: string, isFallback\: true\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Fields/Avatar.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Fields/Avatar.php
+
+		-
+			message: '#^Method Martis\\Fields\\Badge\:\:isPerValueClosure\(\) has parameter \$value with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Fields/Badge.php
+
+		-
+			message: '#^Trying to invoke array\<string, string\>\|Closure but it might not be a callable\.$#'
+			identifier: callable.nonCallable
+			count: 3
+			path: src/Fields/Badge.php
+
+		-
+			message: '#^Parameter \#1 \$class of function class_uses_recursive expects object\|string, class\-string\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Fields/BelongsTo.php
+
+		-
+			message: '#^Method Martis\\Fields\\Field\:\:buildRules\(\) should return list\<Illuminate\\Contracts\\Validation\\Rule\|string\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Fields/Field.php
+
+		-
+			message: '#^Property Martis\\Fields\\Field\:\:\$readonlyResolver \(bool\|\(Closure\(Illuminate\\Http\\Request\|null\)\: bool\)\|null\) does not accept bool\|\(Closure\(Illuminate\\Http\\Request\)\: bool\)\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Fields/Field.php
+
+		-
+			message: '#^Anonymous function should return Illuminate\\Database\\Eloquent\\Builder but returns Illuminate\\Database\\Query\\Builder\.$#'
+			identifier: return.type
+			count: 2
+			path: src/Fields/HasOneOfMany.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\{icon\: string, color\?\: string\|null\} will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Fields/Icon.php
+
+		-
+			message: '#^Offset ''icon'' on array\{icon\: string, color\?\: string\|null\} in isset\(\) always exists and is not nullable\.$#'
+			identifier: isset.offset
+			count: 1
+			path: src/Fields/Icon.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Fields/Icon.php
+
+		-
+			message: '#^Anonymous function should return Illuminate\\Database\\Eloquent\\Builder but returns Illuminate\\Database\\Query\\Builder\.$#'
+			identifier: return.type
+			count: 2
+			path: src/Fields/MorphOneOfMany.php
+
+		-
+			message: '#^Offset ''authorizedToCreate'' on array\{value\: string, label\: string, authorizedToViewAny\: bool, authorizedToCreate\: bool\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Fields/MorphTo.php
+
+		-
+			message: '#^Parameter \#1 \$class of function class_uses_recursive expects object\|string, class\-string\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Fields/MorphTo.php
+
+		-
+			message: '#^Method Martis\\Fields\\MultiSelect\:\:options\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Fields/MultiSelect.php
+
+		-
+			message: '#^Method Martis\\Fields\\Password\:\:buildRules\(\) should return list\<Illuminate\\Contracts\\Validation\\Rule\|string\> but returns list\<\(Closure\(string, mixed, Closure\)\: void\)\|Illuminate\\Contracts\\Validation\\Rule\|string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Fields/Password.php
+
+		-
+			message: '#^Unsafe usage of new static\(\)\.$#'
+			identifier: new.static
+			count: 1
+			path: src/Fields/Repeatable.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Instanceof between Martis\\Contracts\\FieldContract and Martis\\Contracts\\FieldContract will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Method Martis\\Fields\\Repeater\:\:saveRelated\(\) has parameter \$rows with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Offset ''fields'' on array\{label\: string, type\: string, fields\: array\<string, mixed\>, icon\?\: string\|null, color\?\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Offset ''label'' on array\{label\: string, type\: string, fields\: array\<string, mixed\>, icon\?\: string\|null, color\?\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Offset ''type'' on array\{label\: string, type\: string, fields\: array\<string, mixed\>, icon\?\: string\|null, color\?\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<Martis\\Fields\\Repeatable\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between mixed and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Martis\\Fields\\Repeatable\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: src/Fields/Repeater.php
+
+		-
+			message: '#^Method Martis\\Fields\\Select\:\:options\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Fields/Select.php
+
+		-
+			message: '#^Method Martis\\Fields\\Slug\:\:buildRules\(\) should return list\<Illuminate\\Contracts\\Validation\\Rule\|string\> but returns non\-empty\-list\<\(Closure\(string, mixed, Closure\)\: void\)\|Illuminate\\Contracts\\Validation\\Rule\|string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Fields/Slug.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Fields/Slug.php
+
+		-
+			message: '#^Instanceof between Martis\\Fields\\Line and Martis\\Fields\\Line will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Fields/Stack.php
+
+		-
+			message: '#^Method Martis\\Fields\\Stack\:\:make\(\) has parameter \$lines with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Fields/Stack.php
+
+		-
+			message: '#^Method Martis\\Fields\\Stack\:\:make\(\) has parameter \$linesOrLabel with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Fields/Stack.php
+
+		-
+			message: '#^Parameter \#3 \$lines of class Martis\\Fields\\Stack constructor expects list\<Martis\\Fields\\Line\>, array given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Fields/Stack.php
+
+		-
+			message: '#^Method Martis\\Fields\\Timezone\:\:groupedList\(\) should return array\<string, list\<string\>\> but returns array\<0\|string, non\-empty\-list\<string\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Fields/Timezone.php
+
+		-
+			message: '#^Method Martis\\Filters\\DateFilter\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Filters/DateFilter.php
+
+		-
+			message: '#^Method Martis\\Filters\\DateFilter\:\:apply\(\) should return Illuminate\\Database\\Eloquent\\Builder but returns Illuminate\\Database\\Query\\Builder\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Filters/DateFilter.php
+
+		-
+			message: '#^Method Martis\\Filters\\DateRangeFilter\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Filters/DateRangeFilter.php
+
+		-
+			message: '#^Method Martis\\Filters\\Filter\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Filters/Filter.php
+
+		-
+			message: '#^Cannot cast array\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: src/Http/Controllers/ActionController.php
+
+		-
+			message: '#^Parameter \#1 \$fieldErrors of static method Martis\\Http\\Resources\\JsonErrorResponse\:\:validation\(\) expects array\<string, list\<string\>\>, array\{type\: array\{array\|string\|null\}\} given\.$#'
+			identifier: argument.type
+			count: 4
+			path: src/Http/Controllers/CacheController.php
+
+		-
+			message: '#^Parameter \#1 \$message of static method Martis\\Http\\Resources\\JsonErrorResponse\:\:forbidden\(\) expects string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 5
+			path: src/Http/Controllers/CacheController.php
+
+		-
+			message: '#^Access to an undefined property Martis\\Contracts\\ActionContract\:\:\$icon\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/CommandPaletteController.php
+
+		-
+			message: '#^Instanceof between Martis\\Contracts\\ActionContract and Martis\\Contracts\\ActionContract will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Http/Controllers/CommandPaletteController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\CommandPaletteController\:\:recent\(\) should return list\<array\<string, mixed\>\> but returns array\<int, array\{key\: int, label\: string, subtitle\: string, url\: string\|null, created_at\: string\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Http/Controllers/CommandPaletteController.php
+
+		-
+			message: '#^Parameter \#1 \$array of function usort contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Http/Controllers/CommandPaletteController.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function usort contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Http/Controllers/CommandPaletteController.php
+
+		-
+			message: '#^Cannot cast array\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Http/Controllers/HasManyController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\HasManyController\:\:resolveContext\(\) should return array\{parentModel\: Illuminate\\Database\\Eloquent\\Model, parentResourceClass\: class\-string\<Martis\\Resource\>, relatedResourceClass\: class\-string\<Martis\\Resource\>, hasManyField\: Martis\\Fields\\HasMany, relation\: Illuminate\\Database\\Eloquent\\Relations\\HasMany\<Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Model\>\}\|Illuminate\\Http\\JsonResponse but returns array\{parentModel\: mixed, parentResourceClass\: class\-string\<Martis\\Resource\>, relatedResourceClass\: class\-string\<Martis\\Resource\>, hasManyField\: Martis\\Fields\\HasMany, relation\: Illuminate\\Database\\Eloquent\\Relations\\HasMany\|Illuminate\\Database\\Eloquent\\Relations\\HasManyThrough\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Http/Controllers/HasManyController.php
+
+		-
+			message: '#^Match arm comparison between ''avg'' and ''avg'' is always true\.$#'
+			identifier: match.alwaysTrue
+			count: 1
+			path: src/Http/Controllers/HasOneController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\HasOneController\:\:buildThroughBreadcrumb\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Http/Controllers/HasOneController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\HasOneController\:\:resolveContext\(\) should return array\{parentModel\: Illuminate\\Database\\Eloquent\\Model, parentResourceClass\: class\-string\<Martis\\Resource\>, relatedResourceClass\: class\-string\<Martis\\Resource\>, hasOneField\: Martis\\Fields\\HasOne, relation\: Illuminate\\Database\\Eloquent\\Relations\\HasOne\<Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Model\>\}\|Illuminate\\Http\\JsonResponse but returns array\{parentModel\: mixed, parentResourceClass\: class\-string\<Martis\\Resource\>, relatedResourceClass\: class\-string\<Martis\\Resource\>, hasOneField\: Martis\\Fields\\HasOne, relation\: Illuminate\\Database\\Eloquent\\Relations\\HasMany\|Illuminate\\Database\\Eloquent\\Relations\\HasOne\|Illuminate\\Database\\Eloquent\\Relations\\HasOneThrough\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Http/Controllers/HasOneController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Auth\\Guard\:\:getProvider\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Http/Controllers/ImpersonationController.php
+
+		-
+			message: '#^Call to function is_object\(\) with Martis\\Contracts\\ActionContract will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Martis\\Contracts\\ActionContract and ''authorizedToSee'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Martis\\Contracts\\ActionContract and ''jsonSerialize'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Martis\\Contracts\\FilterContract and ''authorizedToSee'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Cannot cast array\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\LensController\:\:buildCacheKey\(\) has parameter \$lensRequest with generic class Martis\\Http\\Requests\\LensRequest but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\LensController\:\:executeLensQuery\(\) has parameter \$lensRequest with generic class Martis\\Http\\Requests\\LensRequest but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\LensController\:\:resolveLensFields\(\) should return list\<Martis\\Fields\\Field\> but returns list\<Martis\\Contracts\\FieldContract\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^PHPDoc tag @var for variable \$result contains generic interface Illuminate\\Contracts\\Pagination\\Paginator but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Parameter \#2 \$query of method Martis\\Lenses\\Lens\:\:query\(\) expects Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>, object given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Parameter \#3 \$links of static method Martis\\Http\\Resources\\JsonPaginatedResponse\:\:make\(\) expects array\{first\: string\|null, last\: string\|null, prev\: string\|null, next\: string\|null\}, array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Unsafe call to private method Martis\\Http\\Controllers\\LensController\:\:classHash\(\) through static\:\:\.$#'
+			identifier: staticClassAccess.privateMethod
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>c" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>u" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Http/Controllers/LensController.php
+
+		-
+			message: '#^Call to an undefined method Martis\\Contracts\\MetricContract\:\:resolve\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/Http/Controllers/MetricController.php
+
+		-
+			message: '#^Call to an undefined method Martis\\ResourceRegistry\:\:resolve\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Http/Controllers/MetricController.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Http/Controllers/MetricController.php
+
+		-
+			message: '#^Cannot cast array\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Http/Controllers/MorphManyController.php
+
+		-
+			message: '#^Match arm comparison between ''avg'' and ''avg'' is always true\.$#'
+			identifier: match.alwaysTrue
+			count: 1
+			path: src/Http/Controllers/MorphOneController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\MorphOneController\:\:resolveContext\(\) should return array\{parentModel\: Illuminate\\Database\\Eloquent\\Model, parentResourceClass\: class\-string\<Martis\\Resource\>, relatedResourceClass\: class\-string\<Martis\\Resource\>, morphOneField\: Martis\\Fields\\MorphOne, relation\: Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Model\>\}\|Illuminate\\Http\\JsonResponse but returns array\{parentModel\: mixed, parentResourceClass\: class\-string\<Martis\\Resource\>, relatedResourceClass\: class\-string\<Martis\\Resource\>, morphOneField\: Martis\\Fields\\MorphOne, relation\: Illuminate\\Database\\Eloquent\\Relations\\MorphMany\|Illuminate\\Database\\Eloquent\\Relations\\MorphOne\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Http/Controllers/MorphOneController.php
+
+		-
+			message: '#^Parameter \#1 \$label of static method Martis\\Menu\\MenuItem\:\:link\(\) expects string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/NavigationController.php
+
+		-
+			message: '#^Parameter \#1 \$label of static method Martis\\Menu\\MenuSection\:\:make\(\) expects string\|null, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/NavigationController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Notifications\\DatabaseNotification\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Notifications\\DatabaseNotification\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Notifications\\DatabaseNotification\:\:\$read_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Notifications\\DatabaseNotification\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Parameter \#1 \$message of static method Martis\\Http\\Resources\\JsonErrorResponse\:\:forbidden\(\) expects string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 4
+			path: src/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Parameter \#1 \$notification of method Martis\\Http\\Controllers\\NotificationController\:\:serialize\(\) expects Illuminate\\Notifications\\DatabaseNotification, Illuminate\\Notifications\\DatabaseNotification\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Parameter \#2 \$default of method Illuminate\\Http\\Request\:\:query\(\) expects array\|string\|null, false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Call to an undefined static method Martis\\Models\\UserPreference\:\:updateOrCreate\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Http/Controllers/PreferencesController.php
+
+		-
+			message: '#^Call to an undefined static method Martis\\Models\\UserPreference\:\:where\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Http/Controllers/PreferencesController.php
+
+		-
+			message: '#^Call to an undefined method object&T of mixed\:\:authorizedToSee\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Call to an undefined method object\:\:fields\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Call to function method_exists\(\) with object&T and ''authorizedToSee'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Cannot call method fields\(\) on class\-string\|object\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Cannot call method getFields\(\) on class\-string\|object\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Cannot cast array\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Method Martis\\Http\\Controllers\\ResourceController\:\:applySorting\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Http/Controllers/ResourceController.php
+
+		-
+			message: '#^Call to function is_int\(\) with array\|null will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 2
+			path: src/Http/Controllers/SlugController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Auth\\Guard\:\:login\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Http/Controllers/SsoController.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Http/Middleware/ApplyUserPreferencesLocale.php
+
+		-
+			message: '#^Offset ''locale'' on array\{theme\: string, accent\: string, brandColor\: string\|null, density\: string, locale\: string, reducedMotion\: bool, source\: string, preset\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Http/Middleware/ApplyUserPreferencesLocale.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Http/Middleware/ApplyUserPreferencesLocale.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Martis\\Contracts\\FilterContract and ''apply'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Http/Requests/LensRequest.php
+
+		-
+			message: '#^Cannot cast array\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Http/Requests/LensRequest.php
+
+		-
+			message: '#^Method Martis\\Http\\Requests\\LensRequest\:\:fromRequest\(\) return type with generic class Martis\\Http\\Requests\\LensRequest does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Http/Requests/LensRequest.php
+
+		-
+			message: '#^Method Martis\\Http\\Requests\\LensRequest\:\:withOrdering\(\) should return Illuminate\\Database\\Eloquent\\Builder\<TModel of Illuminate\\Database\\Eloquent\\Model\> but returns Illuminate\\Database\\Query\\Builder\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Http/Requests/LensRequest.php
+
+		-
+			message: '#^PHPDoc tag @var for variable \$req contains generic class Martis\\Http\\Requests\\LensRequest but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Http/Requests/LensRequest.php
+
+		-
+			message: '#^Class Martis\\Impersonation\\Facades\\Impersonation has PHPDoc tag @method for method snapshot\(\) return type with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Impersonation/Facades/Impersonation.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Auth\\Guard\:\:login\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/Impersonation/ImpersonationManager.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Auth\\Guard\:\:logout\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/Impersonation/ImpersonationManager.php
+
+		-
+			message: '#^Method Martis\\Lenses\\Lens\:\:query\(\) has parameter \$request with generic class Martis\\Http\\Requests\\LensRequest but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Lenses/Lens.php
+
+		-
+			message: '#^Method Martis\\Lenses\\Lens\:\:query\(\) return type with generic interface Illuminate\\Contracts\\Pagination\\Paginator does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Lenses/Lens.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/MartisManager.php
+
+		-
+			message: '#^Instanceof between Martis\\Contracts\\DashboardContract and Martis\\Contracts\\DashboardContract will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/MartisManager.php
+
+		-
+			message: '#^Instanceof between Martis\\Contracts\\ToolContract and Martis\\Contracts\\ToolContract will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 2
+			path: src/MartisManager.php
+
+		-
+			message: '#^Instanceof between Martis\\ResourceRegistry and Martis\\ResourceRegistry will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/MartisManager.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/MartisManager.php
+
+		-
+			message: '#^Parameter \#1 \$sections of static method Martis\\Menu\\Menu\:\:make\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuItem\|Martis\\Menu\\MenuSection\>, array\<int, Martis\\Menu\\MenuSection\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/MartisManager.php
+
+		-
+			message: '#^Part \$action \(array\|string\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: src/MartisManager.php
+
+		-
+			message: '#^Part \$label \(array\|string\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: src/MartisManager.php
+
+		-
+			message: '#^Property Martis\\MartisManager\:\:\$pageTitleResolver \(\(Closure\(Illuminate\\Http\\Request\)\: string\)\|null\) does not accept Closure\(Illuminate\\Http\\Request\)\: \(string\|null\)\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/MartisManager.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<Martis\\Menu\\MenuSection\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Menu/Menu.php
+
+		-
+			message: '#^Parameter \#2 \$items of static method Martis\\Menu\\MenuSection\:\:make\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuItem\>, array\{Martis\\Menu\\MenuItem\|string\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Menu/Menu.php
+
+		-
+			message: '#^Method Martis\\Menu\\MenuItem\:\:resourceClass\(\) should return class\-string\<Martis\\Resource\>\|null but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Menu/MenuItem.php
+
+		-
+			message: '#^Method Martis\\Menu\\MenuSection\:\:__construct\(\) has parameter \$items with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Menu/MenuSection.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<Martis\\Menu\\MenuItem\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Menu/MenuSection.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Menu/MenuSection.php
+
+		-
+			message: '#^Parameter \#1 \$items of method Martis\\Menu\\MenuSection\:\:normalizeItems\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuItem\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Menu/MenuSection.php
+
+		-
+			message: '#^Parameter \#1 \$resourceClass of static method Martis\\Menu\\MenuItem\:\:resource\(\) expects class\-string\<Martis\\Resource\>, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Menu/MenuSection.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and array\|string\|null results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 4
+			path: src/Metrics/Metric.php
+
+		-
+			message: '#^Method Martis\\Metrics\\Metric\:\:applyFilterScope\(\) should return Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\> but returns Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\|Martis\\Metrics\\Builder\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Metrics/Metric.php
+
+		-
+			message: '#^Method Martis\\Metrics\\Metric\:\:ranges\(\) should return array\<int\|string, string\> but returns array\<int\|string, array\|string\|null\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Metrics/Metric.php
+
+		-
+			message: '#^Method Martis\\Metrics\\Metric\:\:withFilterScope\(\) has parameter \$scope with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 2
+			path: src/Metrics/Metric.php
+
+		-
+			message: '#^Parameter \#1 of callable passed to call_user_func\(\) expects Martis\\Metrics\\Builder, Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Metrics/Metric.php
+
+		-
+			message: '#^Property Martis\\Metrics\\Metric\:\:\$filterScope \(\(Closure\(Martis\\Metrics\\Builder\)\: Martis\\Metrics\\Builder\)\|null\) does not accept Closure\(Illuminate\\Database\\Eloquent\\Builder\)\: Illuminate\\Database\\Eloquent\\Builder\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Metrics/Metric.php
+
+		-
+			message: '#^Property Martis\\Metrics\\Metric\:\:\$filterScope has unknown class Martis\\Metrics\\Builder as its type\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Metrics/Metric.php
+
+		-
+			message: '#^Property Martis\\Metrics\\PartitionResult\:\:\$colors \(list\<string\>\|null\) does not accept array\<int\|string, string\>\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Metrics/PartitionResult.php
+
+		-
+			message: '#^Argument of an invalid type Carbon\\CarbonPeriod supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Metrics/TrendMetric.php
+
+		-
+			message: '#^Call to function is_numeric\(\) with float\|int will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Metrics/TrendResult.php
+
+		-
+			message: '#^Call to function is_numeric\(\) with float\|int\<min, \-1\>\|int\<1, max\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Metrics/TrendResult.php
+
+		-
+			message: '#^Parameter \#1 \$column of method Illuminate\\Database\\Query\\Builder\:\:avg\(\) expects Illuminate\\Contracts\\Database\\Query\\Expression\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Metrics/ValueMetric.php
+
+		-
+			message: '#^Parameter \#1 \$column of method Illuminate\\Database\\Query\\Builder\:\:max\(\) expects Illuminate\\Contracts\\Database\\Query\\Expression\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Metrics/ValueMetric.php
+
+		-
+			message: '#^Parameter \#1 \$column of method Illuminate\\Database\\Query\\Builder\:\:min\(\) expects Illuminate\\Contracts\\Database\\Query\\Expression\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Metrics/ValueMetric.php
+
+		-
+			message: '#^Parameter \#1 \$column of method Illuminate\\Database\\Query\\Builder\:\:sum\(\) expects Illuminate\\Contracts\\Database\\Query\\Expression\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Metrics/ValueMetric.php
+
+		-
+			message: '#^Parameter \#1 \$query of method Martis\\Metrics\\Metric\:\:applyFilterScope\(\) expects Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>, Illuminate\\Database\\Query\\Builder given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Metrics/ValueMetric.php
+
+		-
+			message: '#^Parameter \#1 \$range of method Martis\\Metrics\\ValueMetric\:\:calculateDateRange\(\) expects int\|Martis\\Enums\\MetricRange\|string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Metrics/ValueMetric.php
+
+		-
+			message: '#^Property Martis\\Models\\UserPreference\:\:\$casts type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Models/UserPreference.php
+
+		-
+			message: '#^Unsafe usage of new static\(\)\.$#'
+			identifier: new.static
+			count: 1
+			path: src/Notifications/MartisNotification.php
+
+		-
+			message: '#^Call to an undefined static method Martis\\Models\\UserPreference\:\:where\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Preferences/PreferencesResolver.php
+
+		-
+			message: '#^Dead catch \- Illuminate\\Database\\QueryException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Preferences/PreferencesResolver.php
+
+		-
+			message: '#^Method Martis\\Preferences\\PreferencesResolver\:\:normalisePreset\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Preferences/PreferencesResolver.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @param for parameter \$resolvedRoles is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: src/Sso/Contracts/PermissionAdapterContract.php
+
+		-
+			message: '#^Class Martis\\Sso\\Facades\\MartisSso has PHPDoc tag @method for method enabledProviders\(\) return type with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sso/Facades/MartisSso.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @param for parameter \$callback is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: src/Sso/PermissionAdapters/CallableAdapter.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @var for property Martis\\Sso\\PermissionAdapters\\CallableAdapter\:\:\$callback is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: src/Sso/PermissionAdapters/CallableAdapter.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @param for parameter \$callback is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: src/Sso/RoleMapper.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @return is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 4
+			path: src/Sso/RoleMapper.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @var for property Martis\\Sso\\RoleMapper\:\:\$resolver is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: src/Sso/RoleMapper.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @var for variable \$result is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 3
+			path: src/Sso/RoleMapper.php
+
+		-
+			message: '#^Method Martis\\Sso\\SsoManager\:\:enabledProviders\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sso/SsoManager.php
+
+		-
+			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @param for parameter \$callback is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 2
+			path: src/Sso/SsoManager.php

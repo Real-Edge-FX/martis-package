@@ -15,12 +15,12 @@ class ActivityFeedResult extends MetricResult
     /**
      * Add an event to the feed.
      *
-     * @param  string  $actor   Name displayed in bold at the start of the line.
-     * @param  string  $verb    Description after the actor (muted).
-     * @param  string  $time    Relative timestamp string ("2m ago").
+     * @param  string  $actor  Name displayed in bold at the start of the line.
+     * @param  string  $verb  Description after the actor (muted).
+     * @param  string  $time  Relative timestamp string ("2m ago").
      * @param  string|null  $target  Optional target identifier rendered in mono.
-     * @param  string|null  $icon    Phosphor icon name for the avatar square.
-     * @param  string|null  $color   CSS colour / token for the avatar tile.
+     * @param  string|null  $icon  Phosphor icon name for the avatar square.
+     * @param  string|null  $color  CSS colour / token for the avatar tile.
      */
     public function add(
         string $actor,

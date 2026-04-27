@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
@@ -134,9 +136,9 @@ it('does not register admin routes when cache.admin_ui is disabled', function ()
     // admin endpoint at registration time.
     config()->set('martis.cache.admin_ui', false);
 
-    /** @var \Illuminate\Routing\Router $router */
+    /** @var Router $router */
     $router = $this->app['router'];
-    $fresh = new \Illuminate\Routing\RouteCollection;
+    $fresh = new RouteCollection;
     $router->setRoutes($fresh);
     require __DIR__.'/../../routes/martis.php';
 
@@ -149,7 +151,7 @@ it('does not register admin routes when cache.admin_ui is disabled', function ()
 });
 
 it('every admin endpoint is registered when cache.admin_ui is enabled', function () {
-    /** @var \Illuminate\Routing\Router $router */
+    /** @var Router $router */
     $router = $this->app['router'];
 
     $names = collect($router->getRoutes()->getRoutesByName())

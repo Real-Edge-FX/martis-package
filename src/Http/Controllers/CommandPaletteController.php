@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Martis\Contracts\ActionContract;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
@@ -53,7 +54,7 @@ class CommandPaletteController extends MartisController
     {
         $out = [];
         foreach ($this->registry->list() as $class) {
-            /** @var Resource $instance */
+            /** @var resource $instance */
             $instance = new $class;
 
             if (! $class::displayInNavigation()) {
@@ -85,7 +86,7 @@ class CommandPaletteController extends MartisController
     {
         $out = [];
         foreach ($this->registry->list() as $class) {
-            /** @var Resource $instance */
+            /** @var resource $instance */
             $instance = new $class;
 
             if (! $instance->authorizedToViewAny($request)) {
@@ -139,7 +140,7 @@ class CommandPaletteController extends MartisController
         }
 
         try {
-            /** @var \Illuminate\Support\Collection<int, ActionEvent> $rows */
+            /** @var Collection<int, ActionEvent> $rows */
             $rows = ActionEvent::query()
                 ->where('user_id', $user->getAuthIdentifier())
                 ->orderByDesc('id')

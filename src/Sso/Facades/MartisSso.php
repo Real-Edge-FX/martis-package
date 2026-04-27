@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Sso\Facades;
 
 use Illuminate\Support\Facades\Facade;
+use Martis\Sso\SsoManager;
 
 /**
  * Static facade for the SSO subsystem. Use from `MartisServiceProvider`
@@ -29,12 +30,12 @@ use Illuminate\Support\Facades\Facade;
  * @method static void afterLogin(\Closure $callback)
  * @method static void onNoRoleMatchUsing(\Closure $callback)
  *
- * @see \Martis\Sso\SsoManager
+ * @see SsoManager
  */
 class MartisSso extends Facade
 {
     protected static function getFacadeAccessor(): string
     {
-        return \Martis\Sso\SsoManager::class;
+        return SsoManager::class;
     }
 }

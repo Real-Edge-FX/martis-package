@@ -2,6 +2,7 @@
 
 namespace Martis;
 
+use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
@@ -15,31 +16,34 @@ use Martis\Console\CacheDisableCommand;
 use Martis\Console\CacheEnableCommand;
 use Martis\Console\CacheStatusCommand;
 use Martis\Console\CardMakeCommand;
+use Martis\Console\ComponentMakeCommand;
 use Martis\Console\DashboardMakeCommand;
 use Martis\Console\EndpointTableMakeCommand;
-use Martis\Console\FilterMakeCommand;
-use Martis\Console\ComponentMakeCommand;
-use Martis\Console\PartitionMakeCommand;
-use Martis\Console\ProgressMakeCommand;
-use Martis\Console\TrendMakeCommand;
-use Martis\Console\ValueMakeCommand;
 use Martis\Console\FieldMakeCommand;
+use Martis\Console\FilterMakeCommand;
 use Martis\Console\InstallCommand;
 use Martis\Console\LensMakeCommand;
+use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
+use Martis\Console\ProgressMakeCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\ThemeMakeCommand;
 use Martis\Console\ToolMakeCommand;
+use Martis\Console\TrendMakeCommand;
 use Martis\Console\UserCommand;
+use Martis\Console\ValueMakeCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
+use Martis\Facades\Martis;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Impersonation\ImpersonationManager;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
+use Martis\Sso\SsoManager;
 
 class MartisServiceProvider extends ServiceProvider
 {
@@ -65,12 +69,12 @@ class MartisServiceProvider extends ServiceProvider
             return new MartisCache(Cache::store());
         });
 
-        $this->app->singleton(\Martis\Sso\SsoManager::class);
+        $this->app->singleton(SsoManager::class);
 
-        $this->app->singleton(\Martis\Impersonation\ImpersonationManager::class, function ($app) {
-            return new \Martis\Impersonation\ImpersonationManager(
+        $this->app->singleton(ImpersonationManager::class, function ($app) {
+            return new ImpersonationManager(
                 $app,
-                $app->make(\Illuminate\Auth\AuthManager::class),
+                $app->make(AuthManager::class),
             );
         });
     }
@@ -97,7 +101,7 @@ class MartisServiceProvider extends ServiceProvider
         // consumer service providers (which typically run AFTER this
         // package's own register) are picked up before we boot them.
         $this->app->booted(function () {
-            \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+            Martis::getFacadeRoot()?->bootTools();
         });
 
         if ($this->app->runningInConsole()) {

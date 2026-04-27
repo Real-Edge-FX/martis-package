@@ -44,7 +44,7 @@ class MenuItem
     }
 
     /**
-     * @param  class-string<Resource>  $resourceClass
+     * @param  class-string<resource>  $resourceClass
      */
     public static function resource(string $resourceClass): self
     {
@@ -116,7 +116,7 @@ class MenuItem
     }
 
     /**
-     * @return class-string<Resource>|null
+     * @return class-string<resource>|null
      */
     public function resourceClass(): ?string
     {
@@ -230,7 +230,7 @@ class MenuItem
      * kill-switch and the per-resource opt-out. Any exception from user
      * code is swallowed so a broken count never hides the navigation.
      *
-     * @param  class-string<Resource>  $resourceClass
+     * @param  class-string<resource>  $resourceClass
      */
     protected function resolveMenuCount(string $resourceClass, Request $request): ?int
     {

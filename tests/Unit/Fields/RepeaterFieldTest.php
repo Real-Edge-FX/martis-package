@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Martis\Contracts\FieldContract;
 use Martis\Enums\RepeaterStorage;
 use Martis\Fields\Number;
 use Martis\Fields\Repeatable;

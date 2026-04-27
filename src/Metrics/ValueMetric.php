@@ -3,7 +3,6 @@
 namespace Martis\Metrics;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Enums\AggregateFunction;
@@ -32,7 +31,6 @@ abstract class ValueMetric extends Metric
      * Count records for the current and previous periods.
      *
      * @param  class-string<Model>  $model
-     * @param  string|null  $dateColumn
      */
     protected function count(Request $request, string $model, ?string $dateColumn = null): ValueResult
     {

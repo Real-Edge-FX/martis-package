@@ -6,7 +6,6 @@ use Martis\Fields\Date;
 use Martis\Fields\Field;
 use Martis\Fields\Number;
 use Martis\Fields\Text;
-use Martis\Fields\Textarea;
 use Martis\Layout\Section;
 
 // ---------------------------------------------------------------------------

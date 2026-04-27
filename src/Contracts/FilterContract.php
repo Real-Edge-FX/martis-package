@@ -4,7 +4,9 @@ namespace Martis\Contracts;
 
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Martis\Enums\FilterType;
 
 /**
  * Contract for resource filters.
@@ -23,7 +25,7 @@ interface FilterContract
     /**
      * Apply the filter to the given query.
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder<Model>  $query
      */
     public function apply(Request $request, Builder $query, mixed $value): Builder;
 
@@ -40,7 +42,7 @@ interface FilterContract
     /**
      * The filter type identifier.
      */
-    public function filterType(): \Martis\Enums\FilterType;
+    public function filterType(): FilterType;
 
     /**
      * Optional frontend component key for custom rendering.

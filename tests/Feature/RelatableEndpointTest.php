@@ -320,7 +320,7 @@ test('relatable endpoint search flattens layout containers in fields() (regressi
     // and confirm the search filter still narrows the result set.
     $registry = app(ResourceRegistry::class);
 
-    $registry->register(new class extends Resource
+    $registry->register((new class extends Resource
     {
         public static function model(): string
         {
@@ -350,10 +350,10 @@ test('relatable endpoint search flattens layout containers in fields() (regressi
         {
             return $query;
         }
-    }::class);
+    })::class);
 
     // Author resource pointing at the sectioned teams via team_id.
-    $registry->register(new class extends Resource
+    $registry->register((new class extends Resource
     {
         public static function model(): string
         {
@@ -374,7 +374,7 @@ test('relatable endpoint search flattens layout containers in fields() (regressi
                     ->titleAttribute('name'),
             ];
         }
-    }::class);
+    })::class);
 
     IntegrationTeam::create(['name' => 'Pipeline Squad', 'is_active' => true]);
     IntegrationTeam::create(['name' => 'Other Squad', 'is_active' => true]);

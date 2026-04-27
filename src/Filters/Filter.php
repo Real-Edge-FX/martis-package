@@ -4,6 +4,7 @@ namespace Martis\Filters;
 
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FilterContract;
@@ -54,7 +55,7 @@ abstract class Filter implements FilterContract
     /**
      * Apply the filter to the given query.
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder<Model>  $query
      */
     abstract public function apply(Request $request, Builder $query, mixed $value): Builder;
 

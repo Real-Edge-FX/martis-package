@@ -4,6 +4,7 @@ namespace Martis\Metrics;
 
 use Closure;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -12,8 +13,6 @@ use Martis\Contracts\MetricContract;
 use Martis\Enums\CardStyle;
 use Martis\Enums\MetricType;
 use Martis\Enums\MetricWidthPreset;
-
-
 
 /**
  * Base class for all Martis metrics.
@@ -310,8 +309,8 @@ abstract class Metric implements MetricContract
      * Apply the dashboard filter scope to a query builder.
      * Called by aggregate helpers (count, sum, etc.) in subclasses.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>
+     * @param  \Illuminate\Database\Eloquent\Builder<Model>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Model>
      */
     protected function applyFilterScope(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {

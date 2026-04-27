@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany as EloquentMorphToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Resource;
+use Martis\ResourceRegistry;
 
 /**
  * MorphToMany polymorphic relationship field.
@@ -493,8 +495,8 @@ class MorphToMany extends Field
         $uriKey = $this->getRelatedResourceKey();
         if ($uriKey !== null) {
             try {
-                /** @var \Martis\ResourceRegistry $registry */
-                $registry = app(\Martis\ResourceRegistry::class);
+                /** @var ResourceRegistry $registry */
+                $registry = app(ResourceRegistry::class);
                 if ($registry->has($uriKey)) {
                     /** @var class-string<\Martis\Resource> $class */
                     $class = $registry->get($uriKey);

@@ -562,8 +562,8 @@ class MorphToManyController extends MartisController
 
             if (! $field->isAllowDuplicates()) {
                 $alreadyAttached = $relation
-                ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
-                ->exists();
+                    ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
+                    ->exists();
                 if ($alreadyAttached) {
                     continue;
                 }

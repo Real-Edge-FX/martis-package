@@ -6,9 +6,15 @@ use Closure;
 use DateInterval;
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Contracts\ActionContract;
+use Martis\Contracts\CardContract;
+use Martis\Contracts\FieldContract;
+use Martis\Contracts\FilterContract;
 use Martis\Contracts\LensContract;
+use Martis\Contracts\MetricContract;
 use Martis\Http\Requests\LensRequest;
 
 /**
@@ -61,7 +67,7 @@ abstract class Lens implements LensContract
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     /**
@@ -90,15 +96,15 @@ abstract class Lens implements LensContract
     /**
      * Compose the lens dataset.
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
-     * @return Builder<\Illuminate\Database\Eloquent\Model>|Paginator
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>|Paginator
      */
     abstract public function query(LensRequest $request, Builder $query): Builder|Paginator;
 
     /**
      * Fields shown in the lens index. Defaults to no fields — override.
      *
-     * @return list<\Martis\Contracts\FieldContract>
+     * @return list<FieldContract>
      */
     public function fields(Request $request): array
     {
@@ -108,7 +114,7 @@ abstract class Lens implements LensContract
     /**
      * Cards/metrics shown above the lens index.
      *
-     * @return list<\Martis\Contracts\CardContract|\Martis\Contracts\MetricContract|object>
+     * @return list<CardContract|MetricContract|object>
      */
     public function cards(Request $request): array
     {
@@ -118,7 +124,7 @@ abstract class Lens implements LensContract
     /**
      * Filters available inside the lens.
      *
-     * @return list<\Martis\Contracts\FilterContract>
+     * @return list<FilterContract>
      */
     public function filters(Request $request): array
     {
@@ -129,7 +135,7 @@ abstract class Lens implements LensContract
      * Actions available inside the lens. Defaults to the parent resource's
      * actions — the caller merges them in when this returns an empty array.
      *
-     * @return list<\Martis\Contracts\ActionContract>
+     * @return list<ActionContract>
      */
     public function actions(Request $request): array
     {
@@ -293,7 +299,7 @@ abstract class Lens implements LensContract
      * Martis extension — aggregated summary row rendered sticky at the bottom
      * of the lens table. Return an assoc array of `[key => ['label' => ..., 'value' => ...]]`.
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder<Model>  $query
      * @return array<string, array{label: string, value: mixed, format?: string}>
      */
     public function summary(Request $request, Builder $query): array
@@ -310,7 +316,7 @@ abstract class Lens implements LensContract
     public function cacheFor(DateInterval|int $ttl): static
     {
         if ($ttl instanceof DateInterval) {
-            $reference = new \DateTimeImmutable();
+            $reference = new \DateTimeImmutable;
             $seconds = $reference->add($ttl)->getTimestamp() - $reference->getTimestamp();
             $this->cacheTtlSeconds = max(0, $seconds);
         } else {

@@ -5,9 +5,13 @@ declare(strict_types=1);
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Schema;
 use Martis\Sso\Facades\MartisSso;
-use Martis\Sso\PermissionAdapters\SpatieAdapter;
+use Martis\Sso\Providers\AzureProvider;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
 
@@ -58,9 +62,9 @@ beforeEach(function () {
     // Routes are loaded once at app boot and gate registration on
     // `martis.auth.sso.enabled`. Force a reload after toggling the
     // config so the SSO endpoints actually exist for these tests.
-    /** @var \Illuminate\Routing\Router $router */
+    /** @var Router $router */
     $router = $this->app['router'];
-    $fresh = new \Illuminate\Routing\RouteCollection;
+    $fresh = new RouteCollection;
     $router->setRoutes($fresh);
     require __DIR__.'/../../routes/martis.php';
 
@@ -126,10 +130,19 @@ it('callback creates a new user on first SSO login', function () {
     });
 
     // Stub the provider entirely so resolveIdentity returns our identity.
-    $this->app->instance(\Martis\Sso\Providers\AzureProvider::class, new class($identity) extends \Martis\Sso\Providers\AzureProvider {
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
         public function __construct(private SsoIdentity $stub) {}
-        public function resolveIdentity(\Illuminate\Http\Request $request): SsoIdentity { return $this->stub; }
-        public function redirect(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse { return redirect('/'); }
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
     });
 
     $response = $this->get('/martis/sso/azure/callback');
@@ -151,10 +164,19 @@ it('callback updates existing user attributes from the SSO identity', function (
         return $u;
     });
 
-    $this->app->instance(\Martis\Sso\Providers\AzureProvider::class, new class($identity) extends \Martis\Sso\Providers\AzureProvider {
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
         public function __construct(private SsoIdentity $stub) {}
-        public function resolveIdentity(\Illuminate\Http\Request $request): SsoIdentity { return $this->stub; }
-        public function redirect(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse { return redirect('/'); }
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
     });
 
     $this->get('/martis/sso/azure/callback');
@@ -167,10 +189,19 @@ it('callback maps external roles to local roles via column strategy', function (
     $identity = stubIdentity('a@example.com', ['PMI ADMIN', 'PMI EDITOR', 'UNKNOWN']);
 
     MartisSso::resolveUserUsing(fn (SsoIdentity $id) => SsoTestUser::query()->updateOrCreate(['email' => $id->email], ['name' => $id->name, 'password' => bcrypt('x')]));
-    $this->app->instance(\Martis\Sso\Providers\AzureProvider::class, new class($identity) extends \Martis\Sso\Providers\AzureProvider {
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
         public function __construct(private SsoIdentity $stub) {}
-        public function resolveIdentity(\Illuminate\Http\Request $request): SsoIdentity { return $this->stub; }
-        public function redirect(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse { return redirect('/'); }
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
     });
 
     $this->get('/martis/sso/azure/callback');
@@ -184,10 +215,19 @@ it('callback denies login when user has no matching role and on_no_role_match is
     $identity = stubIdentity('nomatch@example.com', ['UNKNOWN_ROLE']);
 
     MartisSso::resolveUserUsing(fn (SsoIdentity $id) => SsoTestUser::query()->updateOrCreate(['email' => $id->email], ['name' => $id->name, 'password' => bcrypt('x')]));
-    $this->app->instance(\Martis\Sso\Providers\AzureProvider::class, new class($identity) extends \Martis\Sso\Providers\AzureProvider {
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
         public function __construct(private SsoIdentity $stub) {}
-        public function resolveIdentity(\Illuminate\Http\Request $request): SsoIdentity { return $this->stub; }
-        public function redirect(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse { return redirect('/'); }
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
     });
 
     $response = $this->get('/martis/sso/azure/callback');
@@ -202,10 +242,19 @@ it('callback allows guest login when on_no_role_match is guest', function () {
     $identity = stubIdentity('guest@example.com', ['UNKNOWN']);
 
     MartisSso::resolveUserUsing(fn (SsoIdentity $id) => SsoTestUser::query()->updateOrCreate(['email' => $id->email], ['name' => $id->name, 'password' => bcrypt('x')]));
-    $this->app->instance(\Martis\Sso\Providers\AzureProvider::class, new class($identity) extends \Martis\Sso\Providers\AzureProvider {
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
         public function __construct(private SsoIdentity $stub) {}
-        public function resolveIdentity(\Illuminate\Http\Request $request): SsoIdentity { return $this->stub; }
-        public function redirect(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse { return redirect('/'); }
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
     });
 
     $response = $this->get('/martis/sso/azure/callback');
@@ -223,14 +272,25 @@ it('redirect to a disabled provider bounces back to the login page', function ()
 
 it('afterLogin hook fires once after a successful flow', function () {
     $fired = 0;
-    MartisSso::afterLogin(function () use (&$fired) { $fired++; });
+    MartisSso::afterLogin(function () use (&$fired) {
+        $fired++;
+    });
 
     $identity = stubIdentity('hook@example.com', ['PMI ADMIN']);
     MartisSso::resolveUserUsing(fn (SsoIdentity $id) => SsoTestUser::query()->updateOrCreate(['email' => $id->email], ['name' => $id->name, 'password' => bcrypt('x')]));
-    $this->app->instance(\Martis\Sso\Providers\AzureProvider::class, new class($identity) extends \Martis\Sso\Providers\AzureProvider {
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
         public function __construct(private SsoIdentity $stub) {}
-        public function resolveIdentity(\Illuminate\Http\Request $request): SsoIdentity { return $this->stub; }
-        public function redirect(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse { return redirect('/'); }
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
     });
 
     $this->get('/martis/sso/azure/callback');
@@ -238,11 +298,11 @@ it('afterLogin hook fires once after a successful flow', function () {
 });
 
 it('routes are NOT registered when sso master switch is off', function () {
-    /** @var \Illuminate\Routing\Router $router */
+    /** @var Router $router */
     $router = $this->app['router'];
     config()->set('martis.auth.sso.enabled', false);
 
-    $fresh = new \Illuminate\Routing\RouteCollection;
+    $fresh = new RouteCollection;
     $router->setRoutes($fresh);
     require __DIR__.'/../../routes/martis.php';
 

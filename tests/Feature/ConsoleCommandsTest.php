@@ -17,7 +17,7 @@ function cleanupMartisInstallArtifacts(): void
     if ($filesystem->exists($providerPath)) {
         try {
             $filesystem->delete($providerPath);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Ignore parallel-worker race.
         }
     }
@@ -32,7 +32,7 @@ function cleanupMartisInstallArtifacts(): void
                 $contents,
             ) ?? '';
             $filesystem->put($bootstrapPath, $stripped);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Ignore parallel-worker race.
         }
     }
@@ -52,7 +52,7 @@ function cleanupMartisInstallArtifacts(): void
                 if ($filesystem->exists($path)) {
                     $filesystem->delete($path);
                 }
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // Another worker beat us to it — ignore.
             }
         });

@@ -4,9 +4,9 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
-use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -437,7 +437,7 @@ class HasOneController extends MartisController
         // Defence in depth: even if someone bypasses the UI, the backend
         // refuses.
         if ($action !== null && $hasOneField instanceof HasOneThroughField) {
-            return JsonErrorResponse::forbidden("hasOneThrough relationships are read-only.")->toResponse();
+            return JsonErrorResponse::forbidden('hasOneThrough relationships are read-only.')->toResponse();
         }
 
         // Check authorization for the action

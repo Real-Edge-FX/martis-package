@@ -150,7 +150,7 @@ it('returns 404 when marking a notification that does not belong to the user', f
         'email' => 'other@martis.test',
         'password' => bcrypt('secret'),
     ]);
-    $other->notify(MartisNotification::make('Stranger', "Not yours."));
+    $other->notify(MartisNotification::make('Stranger', 'Not yours.'));
     $stranger = DatabaseNotification::query()->first();
 
     $this->postJson("/martis/api/notifications/{$stranger->id}/read")->assertNotFound();

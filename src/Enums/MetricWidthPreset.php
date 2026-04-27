@@ -2,10 +2,12 @@
 
 namespace Martis\Enums;
 
+use Martis\Metrics\Metric;
+
 /**
  * Column-span presets for metric cards. Each case maps to a 12-column
  * grid slot. Callers can also pass a raw integer (1-12) to
- * {@see \Martis\Metrics\Metric::width()} for custom widths.
+ * {@see Metric::width()} for custom widths.
  */
 enum MetricWidthPreset: string
 {

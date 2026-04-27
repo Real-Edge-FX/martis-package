@@ -42,8 +42,6 @@ abstract class Repeatable
      * Accepts a Closure (`fn (array $rowValues, int $index) => string`) or a
      * template string using `{attribute}` placeholders (e.g. `'{name}'`).
      * ⭐ Martis differential.
-     *
-     * @var Closure|string|null
      */
     protected Closure|string|null $title = null;
 

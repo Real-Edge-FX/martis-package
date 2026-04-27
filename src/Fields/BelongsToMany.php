@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Resource;
+use Martis\ResourceRegistry;
 
 /**
  * BelongsToMany relationship field.
@@ -478,8 +480,8 @@ class BelongsToMany extends Field
         $uriKey = $this->getRelatedResourceKey();
         if ($uriKey !== null) {
             try {
-                /** @var \Martis\ResourceRegistry $registry */
-                $registry = app(\Martis\ResourceRegistry::class);
+                /** @var ResourceRegistry $registry */
+                $registry = app(ResourceRegistry::class);
                 if ($registry->has($uriKey)) {
                     /** @var class-string<\Martis\Resource> $class */
                     $class = $registry->get($uriKey);
