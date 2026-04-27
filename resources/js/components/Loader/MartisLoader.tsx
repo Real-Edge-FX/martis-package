@@ -86,7 +86,7 @@ export function MartisLoader({
     <div className="flex items-center justify-center gap-2">
       {indicator}
       {displayMessage && (
-        <span className={textSize} style={{ color: "var(--martis-text-muted)" }}>
+        <span className={textSize} style={{ color: "var(--martis-text)" }}>
           {displayMessage}
         </span>
       )}
@@ -94,16 +94,25 @@ export function MartisLoader({
   )
 
   if (overlay) {
+    // The overlay tint and the loader chrome live in two stacked layers
+    // so the spinner + text stay at full opacity even when the tint is
+    // dimmed (dark mode previously rendered the label at 60% over a
+    // 60% dark backdrop, which is illegible).
     return (
       <div className="relative">
         {children}
         <div
-          className="absolute inset-0 flex items-center justify-center rounded-lg transition-opacity"
+          aria-hidden="true"
+          className="absolute inset-0 rounded-lg transition-opacity"
           style={{
             backgroundColor: overlayColor,
             opacity: overlayOpacity,
             zIndex: 10,
           }}
+        />
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ zIndex: 11 }}
         >
           {loaderContent}
         </div>
