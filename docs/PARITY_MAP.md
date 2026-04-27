@@ -1,27 +1,37 @@
 # Parity Map — Martis vs Laravel Nova v5
 
-> Last updated: 2026-04-19
-> Coverage: Track B Foundation (Blocks 1-10) + Extended Fields + full Relation suite (12 types) + Lenses + Metrics + Dashboards + Menus
+> Last updated: 2026-04-27 (post `v0.9.0-beta` tag)
+> Coverage: Track B Foundation (Blocks 1–10) + Extended Fields + full Relation suite (12 types) + Lenses + Metrics + Dashboards + Menus + SSO + Reactive forms + Locale extensibility
 
-## Deltas since 2026-04-07
+## Deltas since `v0.7.0-beta`
 
-- **Lenses** (`src/Lenses/`) — `Lens` base class with `query()`, `fields/cards/filters/actions`, `canSee/canSeeWhen`, plus Martis extensions `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync.
-- **Metrics** (`src/Metrics/`) — `ValueMetric`, `TrendMetric`, `PartitionMetric`, `ProgressMetric` with result DTOs, caching, polling, card icons/styles/height, 12-column responsive grid, per-metric `color()`.
-- **Dashboards** (`src/Dashboards/`) — `Dashboard` base + `DefaultDashboard`, dashboard-level filters, refresh button, registration, fallback.
-- **Menus** (`src/Menu/`) — `Menu`, `MenuSection`, `MenuItem`, `Martis::mainMenu(...)`, per-resource `menuItem()` overrides, `/api/navigation` endpoint.
-- **Relationship toolbar hide flags** — `src/Fields/Concerns/ControlsRelationshipToolbar.php` introduces 9 per-instance toggles (`hideSearch`, `hideCreateButton`, `hidePerPageSelector`, `hideSoftDeleteToggle`, `hideViewAction`, `hideEditAction`, `hideDeleteAction`, `hideRestoreAction`, `hideForceDeleteAction`) available on every relationship field.
-- **Soft-delete filter dropdown in relation panels** — `HasMany` / `MorphMany` toolbars now expose the `?trashed=with|only` dropdown shared with the resource index.
-- **Modal history locks** — `resources/js/lib/historyLock.ts` ships two hooks: `useModalHistoryLock` (hard lock) and `useModalHistoryBackToClose` (soft lock). See [differentials.md](differentials.md#modal-history-locks).
-- **`resolvedPerPage()` clamp** — when `perPage()` is not in `perPageOptions()`, Martis clamps to the first option so the dropdown and the effective value stay in sync (`src/Resource.php`, `src/Lenses/Lens.php`).
-- **`BelongsToMany` / `MorphToMany` shell migration** — both now render through `RelationshipTableShell.tsx`, sharing toolbar and modal plumbing (`AttachModal`, `DetachConfirmModal`, `EditPivotModal`, `PivotActionModal`) with the rest of the relation fields.
+### `v0.8.0-beta`
+- **Sticky views** — per-resource session storage of search / sort / filters / pagination / trashed-toggle / `filtersOpen`. Survives back-navigation, drops on resource change.
+- **Notifications subsystem** — in-app bell + `martis_notifications` table + `MartisNotifies` trait + per-resource `notification()` builder.
+- **Cache control surface** — `MartisCache::extend('name', enabled, ttl)` for host-app layers + `/martis/system/cache` admin page (toggle/version/clear per-type).
+
+### `v0.9.0-beta`
+- **Reactive fields** — `Field::dependsOn(['attr'], Closure)` ships server-side resolution via `POST /api/resources/{r}/sync-field` with debounce + AbortController.
+- **Closure-aware setters across the field API** — `nullable`, `required`, `readonly`, `default`, `placeholder`, `help`, `tooltip`, `withLabel`, `rules`, `Select::options`, `MultiSelect::options`, `BooleanGroup::options` all accept a `Closure` resolved at request time.
+- **Customisation hooks gain `?Request` 4th argument** — `resolveUsing` / `fillUsing` / `displayUsing` callbacks. Plus `displayUsing(array)` accepts a chainable transformation pipeline.
+- **Context-aware validation** — `creationRules()` / `updateRules()` layer on top of `rules()` for create / update branches; `immutable()` flags a field as writable on create, readonly on update.
+- **Save variants** — `Create & add another`, `Create & view list`, `Save & continue editing`, `Save & view list`.
+- **Reset filters toolbar button** — clears only the active filter set; coexists with `Reset view`.
+- **Global Search per-resource config** — `globallySearchable()` accepts `bool|array{enabled?, limit?, min_query?}`. New `searchOrderBy()` hook applied AFTER the search filter.
+- **"View all N matches in {resource}" footer** — palette overflow item that lands on the resource index with the search query pre-applied (URL `?search=` hydration on mount).
+- **Locale extensibility** — per-key deep merge of consumer overrides, configurable host-app namespaces (`martis.locales.app_namespaces`), configurable fallback chain (`martis.locales.fallback_chain`).
+- **SSO subsystem** — pluggable provider contract (`AzureProvider` reference impl), identity-to-user resolver, role mapping (column / config / callable), permission adapters (Spatie / native / callable), idempotent `martis:sso <provider>` generator.
+- **Layout-flatten audit** — closed five latent bugs across `HasManyController`, `MorphManyController`, `LensController`, `ResourceController` sync-field lookup, and `ResourceController` relatable search. Every code path that iterates `Resource::fields()` raw now flattens `Section` / `Panel` / `TabGroup` first.
 
 ## Legend
 
 | Status | Meaning |
 |--------|---------|
-| DONE | Implemented and tested |
-| PARTIAL | Partially implemented |
-| TODO | Not yet implemented |
+| DONE | Implemented and covered by ≥ 1 Feature test |
+| PARTIAL | Partial coverage; gap noted in the row |
+| TODO | Not yet implemented (planned in roadmap) |
+| WON'T | Out of scope / will not ship in Martis (rationale in Notes) |
+| ⭐ | Martis differential — feature does not exist in Nova v5 |
 
 ---
 
@@ -106,12 +116,17 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 |---------|---------|--------|--------|-------|
 | Field Visibility | showOnIndex/hideFromIndex | All 4 contexts supported | DONE | Block 4 |
 | Field Validation | Built-in validation | required/nullable/rules() | DONE | Block 4 |
+| Context-aware Validation | creationRules/updateRules | `creationRules()` / `updateRules()` layered on `rules()` | DONE | v0.9.0 |
+| Immutable on Update | immutable() | `immutable()` (writable on create, readonly on update) | DONE | v0.9.0 |
 | Field Sorting | Sortable columns | sortable() | DONE | Block 4 |
 | Field Search | Searchable fields | searchable() | DONE | Block 4 |
 | Field Component Override | Custom component key | ->component('key') | DONE | Block 9 |
 | Field Unique Validation | Unique validation | ->unique(['table','col'],'msg') | DONE | — |
 | Column Span | Grid layout | colSpan/colSpanMd/colSpanLg | DONE | Extended |
 | Placeholder | Input placeholder | placeholder() | DONE | Extended |
+| Reactive Fields | dependsOn() | `Field::dependsOn(['attr'], Closure)` + `POST /api/resources/{r}/sync-field` | DONE | v0.9.0 |
+| Closure-aware Setters | Limited closures | `nullable`, `required`, `readonly`, `default`, `placeholder`, `help`, `tooltip`, `withLabel`, `rules`, `Select::options`, `MultiSelect::options`, `BooleanGroup::options` accept `Closure` | DONE | v0.9.0 |
+| Customisation Hooks `?Request` arg | resolveUsing/fillUsing/displayUsing | 4th arg = `?Request`; `displayUsing(array)` chainable transformation pipeline | DONE | v0.9.0 |
 | Relationship Toolbar Controls | — | `ControlsRelationshipToolbar` trait (9 hide flags) | DONE | ⭐ Martis extension |
 
 ---
@@ -130,6 +145,10 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | HasMany API | Related records | /has-many/{relationship} endpoint | DONE | HasMany |
 | Validation Errors | Inline/toast | errorDisplay() configurable | DONE | Extended |
 | File Upload | Multipart form | FormData with file detection | DONE | — |
+| Reactive Field Sync | Form state sync | `POST /api/resources/{r}/sync-field` with debounce + AbortController | DONE | v0.9.0 |
+| Save Variants | Create/Save & continue | `Create & add another`, `Create & view list`, `Save & continue editing`, `Save & view list` | DONE | v0.9.0 |
+| Global Search per-resource config | bool | `globallySearchable()` accepts `bool\|array{enabled?, limit?, min_query?}` | DONE | v0.9.0 |
+| Global Search ordering | — | `searchOrderBy()` hook applied AFTER the search filter | DONE | ⭐ v0.9.0 |
 
 ---
 
@@ -152,6 +171,10 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | File/Image Display | — | Upload preview + thumbnail | DONE | — |
 | Global Search | — | GlobalSearch component | DONE | Top bar |
 | Toast Notifications | — | ToastContext + PrimeReact Toast | DONE | Extended |
+| In-app Notifications | Bell + center | `martis_notifications` table + bell + `MartisNotifies` trait + per-resource `notification()` builder | DONE | v0.8.0 |
+| Sticky Views | Per-resource session state | search / sort / filters / pagination / trashed / `filtersOpen` survive back-navigation | DONE | ⭐ v0.8.0 |
+| Reset Filters | — | Toolbar button clears active filter set; coexists with `Reset view` | DONE | v0.9.0 |
+| "View all N matches" overflow | Palette footer | Lands on resource index with `?search=` hydration | DONE | v0.9.0 |
 | Responsive Grid | — | colSpan/colSpanMd/colSpanLg | DONE | Extended |
 | Code Splitting | — | React.lazy() per page | DONE | Performance |
 
@@ -195,9 +218,15 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | Modal history locks | — | DONE | Hard + soft locks (`useModalHistoryLock`, `useModalHistoryBackToClose`) |
 | `resolvedPerPage()` clamp | — | DONE | Shared between `Resource` and `Lens` |
 | Impersonation | Admin impersonation | TODO | Low priority |
-| Notifications | In-app notifications | TODO | Medium priority |
+| Notifications | In-app notifications | DONE | v0.8.0 — `martis_notifications` table + bell + `MartisNotifies` trait + per-resource `notification()` builder |
 | Custom Tools | Sidebar tools/pages | TODO | Medium priority |
 | Repeater | Dynamic field groups | DONE | ⭐ asPolymorphic() + rowTemplates + duplicate row + bulk-paste CSV/JSON + collapse/reorder/min-max + dependsOn |
+| Sticky Views | — | DONE | ⭐ v0.8.0 — per-resource session state for search/sort/filters/pagination/trashed/`filtersOpen` |
+| Cache Control Surface | — | DONE | ⭐ v0.8.0 — `MartisCache::extend(...)` + `/martis/system/cache` admin page (toggle/version/clear per-type) |
+| Reactive Fields | dependsOn() | DONE | v0.9.0 — server-side resolution via `POST /api/resources/{r}/sync-field` with debounce + AbortController |
+| Save Variants | Create/Save & continue | DONE | v0.9.0 — 4 variants across Create + Update branches |
+| Locale Extensibility | Lang publishing | DONE | v0.9.0 — per-key deep merge + `martis.locales.app_namespaces` + `martis.locales.fallback_chain` |
+| SSO | Nova Auth Tools | DONE | v0.9.0 — pluggable provider contract (`AzureProvider` reference impl) + identity-to-user resolver + role mapping (column / config / callable) + permission adapters (Spatie / native / callable) + idempotent `martis:sso <provider>` generator |
 
 ---
 
@@ -209,13 +238,19 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 - **Relation panels** — Inline tables with search, sort, pagination, CRUD, attach/detach, pivot fields
 - **Lenses** — `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync
 - **Metrics + Dashboards + Menus** — feature-complete
-- **Auth** — Login/logout + Sanctum session
+- **Reactive Forms** — `Field::dependsOn(['attr'], Closure)` + `POST /api/resources/{r}/sync-field` with debounce + AbortController
+- **Closure-aware Field API** — 13 setters accept `Closure` resolved at request time
+- **Context-aware Validation** — `creationRules()` / `updateRules()` + `immutable()` flag
+- **Auth** — Login/logout + Sanctum session + SSO (pluggable provider contract, AzureProvider reference, role mapping, permission adapters)
+- **Notifications** — `martis_notifications` table + bell + `MartisNotifies` trait + per-resource `notification()` builder
+- **Sticky Views** — per-resource session state for search / sort / filters / pagination / trashed / `filtersOpen`
+- **Cache Control Surface** — `MartisCache::extend(...)` + `/martis/system/cache` admin page
+- **Locale Extensibility** — per-key deep merge + configurable host-app namespaces + configurable fallback chain
 - **Override System v1** — 4-tier component resolution + drawer overrides + layout overrides
 - **Modal history locks** — hard + soft variants in `resources/js/lib/historyLock.ts`
 - **i18n** — EN + PT-BR + PT-PT with dynamic loading
 - **File/Image Upload** — Disk config, thumbnails, drag-drop, type/size validation
 - **Icons** — 1,512 Phosphor Icons
-- **Test Coverage** — 180+ PHP + 43 TS + 13 E2E = **236+ tests**
 - **CI** — make ci PASS, GitHub Actions self-hosted runner
 
 ---
@@ -358,3 +393,21 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | Vite HMR | Hot module reload for development | Mix/Vite | Vite with HMR |
 | Scramble API Docs | Auto-generated Swagger docs | — | Built-in |
 | Self-Hosted CI/CD | GitHub Actions on local runner | — | Built-in |
+
+### v0.8.0 / v0.9.0 Differentials
+
+| Feature | Description | Nova v5 | Martis |
+|---------|-------------|---------|--------|
+| Sticky Views | Per-resource session storage of search / sort / filters / pagination / trashed-toggle / `filtersOpen`; survives back-navigation; drops on resource change | Not available | ⭐ Built-in |
+| Cache Control Surface | `MartisCache::extend('name', enabled, ttl)` for host-app layers + `/martis/system/cache` admin page (toggle/version/clear per-type) | Not available | ⭐ Built-in |
+| Per-Resource `notification()` builder | Declarative notification template per resource lifecycle event | Manual `Notification::send()` | ⭐ `notification()` builder |
+| Closure-aware Field Setters | 13 setters accept `Closure` resolved at request time (`nullable`, `required`, `readonly`, `default`, `placeholder`, `help`, `tooltip`, `withLabel`, `rules`, `Select::options`, `MultiSelect::options`, `BooleanGroup::options`) | Limited closures | ⭐ Pervasive |
+| Customisation Hooks `?Request` 4th arg | `resolveUsing` / `fillUsing` / `displayUsing` callbacks receive `?Request`; `displayUsing(array)` accepts a chainable transformation pipeline | 3-arg signature, single callable | ⭐ Extended |
+| `immutable()` Field Flag | Field is writable on create, readonly on update (no need to duplicate fields per context) | Not available | ⭐ `Field::immutable()` |
+| Save Variants | `Create & add another`, `Create & view list`, `Save & continue editing`, `Save & view list` | Not available | ⭐ 4 variants |
+| Reset Filters Toolbar Button | Clears only the active filter set; coexists with `Reset view` | Single reset only | ⭐ Two-axis reset |
+| `globallySearchable()` per-resource config | Accepts `bool\|array{enabled?, limit?, min_query?}` per resource | `bool` only | ⭐ Granular |
+| `searchOrderBy()` Hook | Custom ordering applied AFTER the search filter | Not available | ⭐ Built-in |
+| Locale Extensibility | Per-key deep merge of consumer overrides; configurable host-app namespaces (`martis.locales.app_namespaces`); configurable fallback chain (`martis.locales.fallback_chain`) | Lang publishing only | ⭐ Layered |
+| SSO Provider Contract | Pluggable provider contract + identity-to-user resolver + role mapping (column / config / callable) + permission adapters (Spatie / native / callable) + idempotent `martis:sso <provider>` generator + `AzureProvider` reference impl | Auth Tools (paid add-on) | ⭐ Built-in MIT |
+| Layout-flatten Audit | Every code path that iterates `Resource::fields()` raw flattens `Section` / `Panel` / `TabGroup` first (closes 5 latent bugs in `HasMany`, `MorphMany`, `Lens`, `sync-field`, `relatable` controllers) | n/a | ⭐ Hardened |
