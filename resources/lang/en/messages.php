@@ -280,4 +280,17 @@ return [
     'audio_play' => 'Play',
     'audio_pause' => 'Pause',
     'audio_download' => 'Download',
+
+    // Custom Tools (v0.10)
+    'tool_page_title' => 'Tool',
+    'tool_not_found_title' => 'Tool not found',
+    'tool_not_found_body' => 'This tool does not exist or you do not have permission to see it.',
+    'tool_load_failed' => 'Could not load this tool.',
+    'tool_component_missing' => 'No React component is registered for the key "{{key}}". Add componentRegistry.register("{{key}}", YourComponent) in boot.ts.',
+
+    // Impersonation (v0.10)
+    'impersonation_banner' => 'You are impersonating :target (signed in as :original).',
+    'impersonation_stop' => 'Stop impersonating',
+    'impersonation_start_failed' => 'Could not start the impersonation session.',
+    'impersonation_stop_failed' => 'Could not stop the impersonation session.',
 ];
