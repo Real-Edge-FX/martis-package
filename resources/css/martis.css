@@ -1121,20 +1121,43 @@ html[data-reduced-motion="true"] *::after {
    moving even under `prefers-reduced-motion`. The motion is the
    only signal that says "still working" — silencing it makes the
    UI look frozen. WAI-ARIA APG and MDN both call out animated
-   busy indicators as a legitimate exception to reduce-motion. */
+   busy indicators as a legitimate exception to reduce-motion.
+
+   The `.mwc-blob` aurora drift on the WelcomeCard hero is also
+   exempted — the two blobs cycle every 14 / 18 s with sub-3% screen
+   coverage at any moment, so they sit well below the vestibular
+   threshold reduce-motion is meant to clamp. The card's inline
+   parallax tilt (mouse-driven transform) IS still suppressed at the
+   React layer via `usePrefersReducedMotion`. */
 @media (prefers-reduced-motion: reduce) {
   .animate-spin,
   .animate-pulse,
   .animate-spin::before,
-  .animate-pulse::before {
-    animation-duration: 1s !important;
+  .animate-pulse::before,
+  .mwc-blob,
+  .mwc-shimmer {
+    animation-duration: var(--mwc-keep-duration, 1s) !important;
     animation-iteration-count: infinite !important;
+  }
+  .mwc-blob {
+    --mwc-keep-duration: 14s;
+  }
+  .mwc-shimmer {
+    --mwc-keep-duration: 3.5s;
   }
 }
 html[data-reduced-motion="true"] .animate-spin,
-html[data-reduced-motion="true"] .animate-pulse {
-  animation-duration: 1s !important;
+html[data-reduced-motion="true"] .animate-pulse,
+html[data-reduced-motion="true"] .mwc-blob,
+html[data-reduced-motion="true"] .mwc-shimmer {
+  animation-duration: var(--mwc-keep-duration, 1s) !important;
   animation-iteration-count: infinite !important;
+}
+html[data-reduced-motion="true"] .mwc-blob {
+  --mwc-keep-duration: 14s;
+}
+html[data-reduced-motion="true"] .mwc-shimmer {
+  --mwc-keep-duration: 3.5s;
 }
 
 /* ============================================================

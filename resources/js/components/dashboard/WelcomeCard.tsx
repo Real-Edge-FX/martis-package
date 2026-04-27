@@ -88,11 +88,13 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
           0%   { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
-        @media (prefers-reduced-motion: reduce) {
-          .mwc-blob, .mwc-badge::before { animation: none !important; }
-        }
-        html[data-reduced-motion="true"] .mwc-blob,
-        html[data-reduced-motion="true"] .mwc-badge::before { animation: none !important; }
+        /* Reduce-motion handling lives in martis.css alongside the
+           other indicator-style exceptions (see the "Indeterminate
+           progress indicators" block). The aurora blobs and the
+           badge shimmer keep their slow cycle (14 s / 18 s / 3.5 s)
+           because they sit below the vestibular threshold; the
+           pointer-driven parallax tilt is still suppressed at the
+           React layer via the usePrefersReducedMotion hook below. */
       `}</style>
 
       <div
@@ -220,6 +222,7 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
             }}
           >
             <span
+              className="mwc-shimmer"
               aria-hidden="true"
               style={{
                 position: 'absolute',
