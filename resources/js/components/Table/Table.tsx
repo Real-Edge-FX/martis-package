@@ -487,9 +487,15 @@ function DefaultTable({
           // Checkbox clicks bubble up through PrimeReact's `onRowClick`;
           // suppress navigation when the click originated inside the
           // selection column so bulk selection works without opening
-          // the detail view.
+          // the detail view. The same suppress applies to any cell
+          // content that opts in via `data-row-action="suppress"` —
+          // e.g. inline audio players, popovers, or any field that
+          // owns its own click semantics inside the cell.
           const target = e.originalEvent?.target as HTMLElement | undefined
-          if (target?.closest('.martis-select-column')) return
+          if (
+            target?.closest('.martis-select-column') ||
+            target?.closest('[data-row-action="suppress"]')
+          ) return
           onClickRow?.(e.data as ResourceRecord)
         }}
         rowClassName={(row: ResourceRecord) => {
