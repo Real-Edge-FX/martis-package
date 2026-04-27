@@ -383,7 +383,7 @@ public static function bulkActionsMenuLabel(): ?string    { return 'Batch tools'
 
 Whether clicking a row in the index opens the detail page is controlled by `rowClickOpensDetail(Request $request): ?bool` (per-resource override) and resolved to a concrete boolean by `resolveRowClickOpensDetail(Request $request): bool`. When the per-resource method returns `null`, the resolver falls back to `config('martis.index.row_click_opens_detail')`.
 
-See [Default Row Actions — Row click](default_row_actions.md#row-click) for the full decision matrix.
+See [Default Row Actions — Row-click redundancy](default_row_actions.md#row-click-redundancy) for the full decision matrix.
 
 ### confirmUnsavedChanges()
 
@@ -441,9 +441,9 @@ public static function errorDisplay(): ErrorDisplayMode
 }
 ```
 
-## Form save variants (⭐ Martis differential)
+## Form save variants
 
-Both the create and update forms ship with three submit buttons each, mirroring Nova-style power-user shortcuts. The default button preserves the historical behaviour; the two extra buttons stay on or jump out of the form depending on the operator's intent.
+Both the create and update forms ship with three submit buttons each, covering the common power-user shortcuts. The default button preserves the historical behaviour; the two extra buttons stay on or jump out of the form depending on the operator's intent.
 
 | Page | Button | Post-save destination |
 |---|---|---|

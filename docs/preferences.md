@@ -180,6 +180,6 @@ php artisan migrate
 
 ## Related
 
-- [i18n.md](./i18n.md) — adding new locales.
-- [theming.md](./theming.md) — the 94-token design system that preferences drive.
-- [differentials.md](./differentials.md) — full differentials list.
+- [i18n.md](i18n.md) — adding new locales.
+- [theming.md](theming.md) — the 94-token design system that preferences drive.
+- [differentials.md](differentials.md) — full differentials list.

@@ -360,3 +360,17 @@ GET /api/dashboards/{dashboard}/cards/{card}?range=30
 ```
 GET /api/resources/{resource}/cards/{card}?range=30
 ```
+
+---
+
+## MetricResult — base class
+
+Every metric type returns a result object that subclasses `Martis\Metrics\MetricResult`. The base class has a single contract method:
+
+```php
+abstract public function toArray(): array;
+```
+
+Concrete subclasses (`ValueResult`, `TrendResult`, `PartitionResult`, `ProgressResult`, `ActivityFeedResult`, `EndpointTableResult`) implement this to serialise their specific shape into the API payload the React component consumes. Most consumers never touch the base class directly — you build results via the helpers on the metric class (`$this->result($value)`, `$this->trend($values)`, etc.) and let the metric handle serialisation.
+
+Subclass `MetricResult` directly only if you're shipping a brand-new metric kind. Document the result shape in your own metric's docblock so consumers can read the payload without diving into source.

@@ -553,6 +553,46 @@ Custom events can use any string key. Martis prefixes built-in events with `mart
 
 ---
 
+## useUnsavedChangesGuard Hook
+
+Wraps a form with the package-wide unsaved-changes guard. Reads the resource's `confirmUnsavedChanges` flag from the schema, snapshots initial values, and intercepts navigation when the form is dirty.
+
+```tsx
+import { useUnsavedChangesGuard } from '@martis/martis/lib/useUnsavedChangesGuard'
+
+function MyForm({ schema, initialValues }) {
+  const [values, setValues] = useState(initialValues)
+  const initialSnapshot = useMemo(() => JSON.stringify(initialValues), [initialValues])
+
+  const { dialog, markSaved } = useUnsavedChangesGuard({
+    values,
+    initialSnapshot,
+    schema,
+  })
+
+  const onSubmit = async () => {
+    await save(values)
+    markSaved()        // suppress the guard for the post-save redirect
+  }
+
+  return (
+    <>
+      {dialog}          {/* render the confirm dialog inside the tree */}
+      <form onSubmit={onSubmit}>...</form>
+    </>
+  )
+}
+```
+
+| Option | Type | Effect |
+|---|---|---|
+| `values` | `Record<string, unknown>` | Current form values; the hook re-snapshots on every render. |
+| `initialSnapshot` | `string \| null` | JSON snapshot of the loaded values. Pass `null` to disable the guard while the record loads. |
+| `schema` | `ResourceSchema \| undefined` | Resource schema. The hook reads `schema.confirmUnsavedChanges` to decide whether to engage. |
+| `bypass` | `boolean` | When `true`, suppresses the guard for the next navigation (used after a successful submit). |
+
+The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<Link>` or `useNavigate()` triggers the dialog. It also integrates with the modal-history lock primitives in `resources/js/lib/historyLock.ts` so back-button navigation respects the guard.
+
 ## useError Hook
 
 Centralised error state management for forms and page components.
