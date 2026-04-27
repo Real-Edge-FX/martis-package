@@ -40,7 +40,7 @@
             "pestphp/pest-plugin": true
         }
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true,
     "suggest": {
         "laravel/scout": "Required for Scout search integration (auto-detected when model uses Searchable trait)",
