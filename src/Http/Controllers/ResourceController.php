@@ -1159,8 +1159,13 @@ class ResourceController extends MartisController
                 return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
 
-            // Find the relationship field in the resource fields
-            $fields = $instance->fields($request);
+            // Find the relationship field in the resource fields.
+            // Flatten layout containers first so a relationship field
+            // nested inside Section / Panel / TabGroup still resolves
+            // — without it, the lookup silently misses and the user
+            // sees a "Field 'X' not found." 404 even though the field
+            // is declared on the resource.
+            $fields = Field::flattenLayoutFields($instance->fields($request));
             foreach ($fields as $field) {
                 if ($field->attribute() === $fieldAttr) {
                     $relationField = $field;
@@ -1229,11 +1234,15 @@ class ResourceController extends MartisController
 
         if ($search !== '') {
             $relatedInstance = new $relatedResourceClass;
+            // Flatten Section / Panel / TabGroup before filtering so
+            // searchable fields nested inside layouts are visible to
+            // the relatable search. The previous top-level `instanceof`
+            // guard avoided a crash but silently dropped every nested
+            // searchable, which made the BelongsTo / MorphTo dropdown
+            // search return the unfiltered set.
             $searchableFields = array_filter(
-                $relatedInstance->fields($request),
-                // fields() can include layout nodes (Section / Panel / TabGroup);
-                // guard with instanceof so the typed callback never blows up.
-                fn (mixed $field): bool => $field instanceof FieldContract && $field->isSearchable(),
+                Field::flattenLayoutFields($relatedInstance->fields($request)),
+                fn (FieldContract $field): bool => $field->isSearchable(),
             );
 
             if (empty($searchableFields)) {
