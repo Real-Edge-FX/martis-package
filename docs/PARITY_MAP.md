@@ -219,7 +219,7 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | `resolvedPerPage()` clamp | — | DONE | Shared between `Resource` and `Lens` |
 | Impersonation | Admin impersonation | DONE | v0.10 — opt-in master switch + `martis-impersonate` gate + start/stop/status REST surface + banner contract documented (see `docs/impersonation.md`) |
 | Notifications | In-app notifications | DONE | v0.8.0 — topbar bell dropdown over Laravel's standard `notifications` table + `MartisNotification::make(title:, message:, level:)` inline factory |
-| Custom Tools | Sidebar tools/pages | DONE | v0.10 — `Martis\Tools\Tool` base class + `Martis::tools([...])` registration + `MenuItem::tool()` factory + `/martis/api/tools` REST (see `docs/tools.md`) |
+| Custom Tools | Sidebar tools/pages | PARTIAL | v0.10 — `Martis\Tools\Tool` base class + `Martis::tools([...])` registration + `MenuItem::tool()` factory + `/martis/api/tools` REST + `martis:tool` generator (see `docs/tools.md`). **Gap vs Nova v5:** Martis tools are passive (no per-tool `boot()` hook for registering custom routes / event listeners) and there is no per-tool ServiceProvider / Composer-package convention. Consumers register tool-specific routes in `routes/web.php` directly. |
 | Repeater | Dynamic field groups | DONE | ⭐ asPolymorphic() + rowTemplates + duplicate row + bulk-paste CSV/JSON + collapse/reorder/min-max + dependsOn |
 | Sticky Views | — | DONE | ⭐ v0.8.0 — per-resource session state for search/sort/filters/pagination/trashed/`filtersOpen` |
 | Cache Control Surface | — | DONE | ⭐ v0.8.0 — `MartisCache::extend(...)` + `/martis/system/cache` admin page (toggle/version/clear per-type) |

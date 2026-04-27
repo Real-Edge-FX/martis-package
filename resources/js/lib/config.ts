@@ -228,6 +228,24 @@ export interface MartisConfigShape {
   auth?: MartisAuthConfig
   stickyViews?: MartisStickyViewsConfig
   notifications?: MartisNotificationsConfig
+  impersonation?: MartisImpersonationConfig
+}
+
+/**
+ * Impersonation subsystem boot metadata.
+ *
+ * The banner short-circuits its `/api/impersonation/status` poll when
+ * `enabled` is false at boot, so a host app that never enables the
+ * feature pays zero ongoing cost (one boot read of the flag, no
+ * round-trips per page navigation). Mid-session enable still works —
+ * the banner re-mounts on the next page load and starts polling.
+ */
+export interface MartisImpersonationConfig {
+  /**
+   * Mirrors `martis.impersonation.enabled`. When false the banner
+   * skips its mount-time fetch entirely.
+   */
+  enabled?: boolean
 }
 
 /**

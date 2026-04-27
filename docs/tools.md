@@ -171,6 +171,15 @@ Tools render through the standard Martis layout. Inside your React component you
 - The full PrimeReact + theme system.
 - The component-override registry — your tool's component CAN itself be replaced by a downstream consumer using the same 4-tier override mechanism that resources use.
 
+## Known parity gaps vs Nova v5
+
+The v0.10 Tools primitive ships the surface most consumers need but is intentionally simpler than Nova's. Two Nova features Martis does **not** ship today:
+
+- **Per-tool `boot()` hook.** Nova tools can register custom routes, event listeners, view composers, etc. in their own `boot()` method. Martis tools are passive — they declare metadata and bind to a React component, nothing more. Workaround: register tool-specific routes in `routes/web.php` directly (or in your service provider's `boot()`).
+- **Per-tool ServiceProvider / Composer-package convention.** Nova tools are typically distributed as Composer packages with their own service provider, view publishing, asset publishing, and migrations. Martis assumes one bundle, one consumer-side service provider. If you need to ship a tool as a reusable package, you wire it up the same way any Laravel package would (your own provider that calls `Martis::tools([...])` from its `boot()`).
+
+These gaps are deliberate — they keep the Tool primitive small enough that consumers can ship a Tool in 5 minutes without learning a new package convention. Watch [PARITY_MAP.md](PARITY_MAP.md) for status if either gap becomes a real blocker.
+
 ## Anti-patterns
 
 - **Don't use a Tool to render a Resource.** If you need a custom CRUD UI for a model, override the resource page or define a Lens.

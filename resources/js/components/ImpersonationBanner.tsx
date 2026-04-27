@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUUpLeftIcon, UserCircleIcon, UserSwitchIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
+import { config } from '@/lib/config'
 import { useToast } from '@/contexts/ToastContext'
 
 interface ImpersonationSnapshot {
@@ -36,7 +37,14 @@ export function ImpersonationBanner() {
   const [snap, setSnap] = useState<ImpersonationSnapshot | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // Boot-time short-circuit: when the host app has never opted in to
+  // impersonation we skip the entire effect — no fetch, no interval,
+  // no work whatsoever. This is the cheap path 99% of installs sit on.
+  const enabledAtBoot = config.impersonation?.enabled === true
+
   useEffect(() => {
+    if (!enabledAtBoot) return
+
     let cancelled = false
     let interval: number | null = null
 
@@ -81,8 +89,9 @@ export function ImpersonationBanner() {
         window.clearInterval(interval)
       }
     }
-  }, [])
+  }, [enabledAtBoot])
 
+  if (!enabledAtBoot) return null
   if (!snap?.active) return null
 
   const stop = async () => {
