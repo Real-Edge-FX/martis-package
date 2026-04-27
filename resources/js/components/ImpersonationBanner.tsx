@@ -38,24 +38,48 @@ export function ImpersonationBanner() {
 
   useEffect(() => {
     let cancelled = false
+    let interval: number | null = null
 
     const fetchOnce = async () => {
       try {
         const data = await api.get<ImpersonationSnapshot>('/api/impersonation/status')
-        if (!cancelled) setSnap(data)
+        if (cancelled) return
+
+        // Master switch is off — stop polling. The endpoint returns
+        // a steady `enabled: false` payload until the host app flips
+        // the config, and a per-page-navigation refresh covers the
+        // (rare) case where the operator turned it on mid-session.
+        if (!data.enabled) {
+          if (interval !== null) {
+            window.clearInterval(interval)
+            interval = null
+          }
+          setSnap(data)
+          return
+        }
+
+        setSnap(data)
       } catch {
         // The endpoint returns 503 when the master switch is off — we
-        // intentionally swallow it so the banner stays invisible.
-        if (!cancelled) setSnap(null)
+        // intentionally swallow it so the banner stays invisible. Stop
+        // polling since this state cannot change without a page reload.
+        if (cancelled) return
+        if (interval !== null) {
+          window.clearInterval(interval)
+          interval = null
+        }
+        setSnap(null)
       }
     }
 
     fetchOnce()
-    const interval = window.setInterval(fetchOnce, 30_000)
+    interval = window.setInterval(fetchOnce, 30_000)
 
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      if (interval !== null) {
+        window.clearInterval(interval)
+      }
     }
   }, [])
 

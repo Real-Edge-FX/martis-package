@@ -27,6 +27,25 @@ Pick a Tool when the page does not naturally map to a list of records.
 
 ## Quick start
 
+### 0. (Optional) scaffold with `martis:tool`
+
+```bash
+php artisan martis:tool SystemStatus
+```
+
+Generates `app/Martis/Tools/SystemStatus.php`. Useful flags:
+
+| Flag | Effect |
+|---|---|
+| `--with-component` | Also drops a paired TSX stub at `resources/js/tools/{Name}Tool.tsx` and binds the PHP `withComponent(...)` to a matching key. |
+| `--component-key=foo` | Use `foo` as the React component key instead of the auto-generated `tool:{kebab-name}`. |
+| `--use-bundled` | Bind to the package-bundled `martis:tool:system-status-demo` component so the Tool renders out of the box without writing TSX. |
+| `--menu-section="Operations"` | Embed `withMenuSection('Operations')` in the generated stub. |
+| `--icon=wrench` | Phosphor icon for the menu entry (default `wrench`). |
+| `--force` | Overwrite the file if it already exists. |
+
+After the command finishes it prints a "next steps" block with the `Martis::tools([...])` snippet and the `componentRegistry.register(...)` line, so you do not have to alt-tab to this doc.
+
 ### 1. Subclass `Tool`
 
 ```php

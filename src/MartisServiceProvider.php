@@ -30,6 +30,7 @@ use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\ThemeMakeCommand;
+use Martis\Console\ToolMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Discovery\ResourceDiscovery;
@@ -109,6 +110,7 @@ class MartisServiceProvider extends ServiceProvider
                 EndpointTableMakeCommand::class,
                 DashboardMakeCommand::class,
                 LensMakeCommand::class,
+                ToolMakeCommand::class,
                 CacheStatusCommand::class,
                 CacheClearCommand::class,
                 CacheDisableCommand::class,

@@ -1,0 +1,39 @@
+<?php
+
+namespace {{ namespace }};
+
+use Martis\Tools\Tool;
+
+/**
+ * {{ display_name }} — free-form sidebar page.
+ *
+ * Mounts at `/martis/tools/{{ uri_key }}` and renders the React
+ * component registered under the key `{{ component_key }}`.
+ *
+ * Register in your `MartisServiceProvider`:
+ *
+ *     use {{ namespace }}\{{ class }};
+ *     Martis::tools([{{ class }}::class]);
+ *
+ * Surface in the menu (optional):
+ *
+ *     MenuItem::tool({{ class }}::class)
+ *
+ * Authorisation: by default visible to every authenticated user.
+ * Restrict via `canSee()` in the constructor:
+ *
+ *     $this->canSee(fn ($request) => $request->user()?->can('admin.system'));
+ */
+class {{ class }} extends Tool
+{
+    public function __construct()
+    {
+        parent::__construct(
+            name: '{{ display_name }}',
+            uriKey: '{{ uri_key }}',
+        );
+
+        $this->withIcon('{{ icon }}')
+            ->withComponent('{{ component_key }}'){{ menu_section_line }};
+    }
+}
