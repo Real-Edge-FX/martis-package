@@ -1116,6 +1116,27 @@ html[data-reduced-motion="true"] *::after {
   scroll-behavior: auto !important;
 }
 
+/* Indeterminate progress indicators (loader spinners, logo pulse,
+   skeleton placeholders that already opt-in via class) MUST keep
+   moving even under `prefers-reduced-motion`. The motion is the
+   only signal that says "still working" — silencing it makes the
+   UI look frozen. WAI-ARIA APG and MDN both call out animated
+   busy indicators as a legitimate exception to reduce-motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin,
+  .animate-pulse,
+  .animate-spin::before,
+  .animate-pulse::before {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+html[data-reduced-motion="true"] .animate-spin,
+html[data-reduced-motion="true"] .animate-pulse {
+  animation-duration: 1s !important;
+  animation-iteration-count: infinite !important;
+}
+
 /* ============================================================
    SHELL — Sidebar
    Flat utilitarian navigation. Hairline borders, accent pill on the
@@ -1477,7 +1498,11 @@ html[data-reduced-motion="true"] *::after {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(420px, calc(100% - 480px));
+  width: min(420px, calc(100% - 540px));
+  /* Floor — never shrink below an icon-button footprint so the search
+     stays a usable click target. The placeholder + kbd hint hide via
+     the responsive rules further down. */
+  min-width: 36px;
   height: 34px;
   background: var(--martis-search-bg);
   border: 1px solid var(--martis-search-border);
@@ -1489,9 +1514,38 @@ html[data-reduced-motion="true"] *::after {
   color: var(--martis-text-muted);
   font-size: var(--martis-text-sm);
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
   transition: border-color var(--martis-dur-fast) var(--martis-ease-standard),
               color var(--martis-dur-fast) var(--martis-ease-standard),
-              background var(--martis-dur-fast) var(--martis-ease-standard);
+              background var(--martis-dur-fast) var(--martis-ease-standard),
+              width var(--martis-dur-fast) var(--martis-ease-standard);
+}
+
+/* Mid-width topbars (≤1100px) — drop the keyboard hint chip first so
+   the placeholder text keeps its room. */
+@media (max-width: 1100px) {
+  .martis-tb-search .martis-kbd,
+  .martis-tb-search > kbd {
+    display: none;
+  }
+}
+
+/* Narrow topbars (≤900px) — collapse to icon-only. The bar still
+   anchors the command palette via `position: absolute` but no longer
+   overlaps the right-cluster icons (notification bell, preferences,
+   user chip). The full-width input lives inside the palette modal. */
+@media (max-width: 900px) {
+  .martis-tb-search {
+    /* Centre the icon visually instead of letting the now-empty bar
+       look unbalanced. Width shrinks to a 36px touch target. */
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .martis-tb-search-placeholder {
+    display: none;
+  }
 }
 .martis-tb-search:hover {
   border-color: var(--martis-border);

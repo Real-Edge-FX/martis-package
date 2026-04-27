@@ -1532,10 +1532,17 @@ class ResourceController extends MartisController
 
         $sort = $rawSort;
         $instance = new $resourceClass;
+
+        // `fields()` may return a mix of FieldContract and layout
+        // containers (Panel, TabGroup, Section). Flatten before
+        // filtering — otherwise the closure's `FieldContract` type
+        // hint throws TypeError when a layout slips through.
+        $flatFields = Field::flattenLayoutFields($instance->fields($request));
+
         $sortableAttributes = array_map(
             fn (FieldContract $field): string => $field->attribute(),
             array_values(array_filter(
-                $instance->fields($request),
+                $flatFields,
                 fn (FieldContract $field): bool => $field->isSortable(),
             )),
         );
