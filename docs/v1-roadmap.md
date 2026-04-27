@@ -47,26 +47,23 @@ The list is short.
 - [x] Backfilled with v0.8.0-beta, v0.9.0-beta, v0.10.0-rc1 entries.
 - [x] `[Unreleased]` section tracks the v1.0 work in progress.
 
-### 3. Visual regression baseline ✅ (spec landed; awaits first capture)
+### 3. Visual regression baseline ✅
 
 - [x] `tests/e2e/visual-baseline.spec.ts` (in martis-playground) covers the 7 canonical pages: dashboard, resource index, resource create, profile, system cache, custom tool, login.
-- [x] Each test asserts via `toHaveScreenshot()` with a 2% pixel-diff tolerance (accommodates anti-aliasing without letting real regressions slip through).
-- [ ] **First capture pending** — run once with `--update-snapshots` to write the baseline PNGs:
-      ```
-      cd martis-playground && npx playwright test visual-baseline --update-snapshots
-      git add tests/e2e/visual-baseline.spec.ts-snapshots/
-      ```
-      After that, future PRs that touch UI code surface the diff via CI.
-- [ ] Wire the spec into the playground's existing CI step (currently has E2E suite running on the self-hosted runner).
+- [x] Each test asserts via `toHaveScreenshot()` with a 2% pixel-diff tolerance.
+- [x] Baseline PNGs captured and committed in `tests/e2e/visual-baseline.spec.ts-snapshots/` via PR #6 (playground).
+- [x] Re-runs are stable — `npx playwright test visual-baseline` passes 9/9 in ~9s.
+- [ ] **Pending:** wire the spec into the playground's existing CI step (currently has the E2E suite running on the self-hosted runner). Optional — manual runs already give the regression signal.
 
 ---
 
 ## Soft blockers — should land before tag
 
-### 4. README screenshot / GIF showcase
-- [ ] Add 3-4 screenshots or a single GIF to the root `README.md`: dashboard with metrics, sticky-views in action, the impersonation banner, a custom tool. Discoverability on the GitHub repo home suffers without visuals.
+### 4. README screenshot showcase ✅
 
-**Owner:** anyone. Estimated effort: 30 minutes.
+- [x] Six screenshots embedded in the root `README.md` Screenshots section: dashboard, resource index, resource create form, custom tool (System Status), system cache, profile + 2FA.
+- [x] PNGs reused from the visual-baseline captures (single source of truth — when the baselines change, both the regression check and the README visuals update together).
+- [x] Stored in `docs/screenshots/` with content-descriptive filenames.
 
 ### 5. First external consumer
 - [ ] One real app (not the playground) running `martis/martis:0.10.0-rc1` in staging or production for ≥ 1 week without bug reports.
