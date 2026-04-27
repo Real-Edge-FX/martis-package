@@ -7,7 +7,7 @@
 
 ### `v0.8.0-beta`
 - **Sticky views** — per-resource session storage of search / sort / filters / pagination / trashed-toggle / `filtersOpen`. Survives back-navigation, drops on resource change.
-- **Notifications subsystem** — in-app bell + `martis_notifications` table + `MartisNotifies` trait + per-resource `notification()` builder.
+- **Notifications subsystem** — in-app bell + standard `notifications` table + `MartisNotification::make(title:, message:, level:)` inline factory + Laravel's `Notifiable` trait on the recipient.
 - **Cache control surface** — `MartisCache::extend('name', enabled, ttl)` for host-app layers + `/martis/system/cache` admin page (toggle/version/clear per-type).
 
 ### `v0.9.0-beta`
@@ -171,7 +171,7 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | File/Image Display | — | Upload preview + thumbnail | DONE | — |
 | Global Search | — | GlobalSearch component | DONE | Top bar |
 | Toast Notifications | — | ToastContext + PrimeReact Toast | DONE | Extended |
-| In-app Notifications | Bell + center | `martis_notifications` table + bell + `MartisNotifies` trait + per-resource `notification()` builder | DONE | v0.8.0 |
+| In-app Notifications | Bell + center | topbar bell dropdown over Laravel's standard `notifications` table + `MartisNotification::make(title:, message:, level:)` inline factory | DONE | v0.8.0 |
 | Sticky Views | Per-resource session state | search / sort / filters / pagination / trashed / `filtersOpen` survive back-navigation | DONE | ⭐ v0.8.0 |
 | Reset Filters | — | Toolbar button clears active filter set; coexists with `Reset view` | DONE | v0.9.0 |
 | "View all N matches" overflow | Palette footer | Lands on resource index with `?search=` hydration | DONE | v0.9.0 |
@@ -218,7 +218,7 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | Modal history locks | — | DONE | Hard + soft locks (`useModalHistoryLock`, `useModalHistoryBackToClose`) |
 | `resolvedPerPage()` clamp | — | DONE | Shared between `Resource` and `Lens` |
 | Impersonation | Admin impersonation | TODO | Low priority |
-| Notifications | In-app notifications | DONE | v0.8.0 — `martis_notifications` table + bell + `MartisNotifies` trait + per-resource `notification()` builder |
+| Notifications | In-app notifications | DONE | v0.8.0 — topbar bell dropdown over Laravel's standard `notifications` table + `MartisNotification::make(title:, message:, level:)` inline factory |
 | Custom Tools | Sidebar tools/pages | TODO | Medium priority |
 | Repeater | Dynamic field groups | DONE | ⭐ asPolymorphic() + rowTemplates + duplicate row + bulk-paste CSV/JSON + collapse/reorder/min-max + dependsOn |
 | Sticky Views | — | DONE | ⭐ v0.8.0 — per-resource session state for search/sort/filters/pagination/trashed/`filtersOpen` |
@@ -242,7 +242,7 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 - **Closure-aware Field API** — 13 setters accept `Closure` resolved at request time
 - **Context-aware Validation** — `creationRules()` / `updateRules()` + `immutable()` flag
 - **Auth** — Login/logout + Sanctum session + SSO (pluggable provider contract, AzureProvider reference, role mapping, permission adapters)
-- **Notifications** — `martis_notifications` table + bell + `MartisNotifies` trait + per-resource `notification()` builder
+- **Notifications** — topbar bell dropdown over Laravel's standard `notifications` table + `MartisNotification::make(title:, message:, level:)` inline factory
 - **Sticky Views** — per-resource session state for search / sort / filters / pagination / trashed / `filtersOpen`
 - **Cache Control Surface** — `MartisCache::extend(...)` + `/martis/system/cache` admin page
 - **Locale Extensibility** — per-key deep merge + configurable host-app namespaces + configurable fallback chain
