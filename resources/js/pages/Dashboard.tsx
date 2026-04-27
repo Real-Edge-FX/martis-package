@@ -131,7 +131,11 @@ function DashboardView({
               key={d.uriKey}
               type="button"
               onClick={() => { onSelect(d.uriKey); setActiveFilters({}) }}
-              className="px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors"
+              // `martis-dashboard-tab` lives in martis.css and adds the
+              // shared focus-visible ring + hover affordance so these
+              // tabs match the rest of the interactive shell.
+              className="martis-dashboard-tab px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors"
+              data-active={d.uriKey === currentKey ? 'true' : 'false'}
               style={{
                 backgroundColor: d.uriKey === currentKey ? 'var(--martis-accent)' : 'transparent',
                 color: d.uriKey === currentKey ? '#fff' : 'var(--martis-text-muted)',
