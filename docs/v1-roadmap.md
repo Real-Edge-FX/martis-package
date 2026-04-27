@@ -85,20 +85,24 @@ These are quality-of-life improvements that can land in v1.0.x patch releases wi
 
 ---
 
-## Out of scope for v1.0 (post-1.0 backlog)
+## Out of scope for v1.0
 
-Confirmed deliberate non-goals.
+Two scope decisions worth stating explicitly so they don't surface as "missing" later.
 
-| Item | Why deferred |
-|---|---|
-| Custom Tools React lazy-load | Cosmetic; current inline path works. |
-| Saved filter presets per-user | Lens already covers the same surface. |
-| Excel / CSV export wrapper | Domain-specific (disk, library, format). The `Action` + `ActionResponse::redirect` recipe is documented. |
-| Approval workflows | Domain-specific. Action + State enum recipe is documented. |
-| Scheduled tasks UI | Telescope / Horizon are best-in-class; we do not duplicate them. |
-| Backup management UI | `spatie/laravel-backup` is the standard; no wrapper. |
-| Mail logs UI | Telescope. |
-| Visual parity with Laravel Nova | Intentional divergence; tracked in `PARITY_MAP.md`. |
+### Domain-specific wrappers — won't ship
+
+Martis intentionally does **not** ship pre-built wrappers for things where every team makes different choices:
+
+- Excel / CSV export — disk, library, format options vary too much. Recipe documented in [actions.md](actions.md) using `ActionResponse::redirect($downloadUrl)`.
+- Approval workflows — workflow shape (sequential vs parallel, rollback, escalation) is domain-specific. Recipe: `Action` + a state-machine enum on the model.
+- Draft / publish — straight `published_at` column + `Slug::freezeAfterPublish()`. No framework needed.
+- Scheduled-task / queue / N+1 / mail / backup admin UIs — Laravel ships best-in-class tooling for each (Horizon, Telescope, Pulse, `spatie/laravel-backup`). Martis does not duplicate them; the Tool primitive lets a consumer surface any of these inside the Martis shell when they want it integrated.
+
+The `Action`, `Tool`, and `Lens` primitives plus the Laravel-native ecosystem cover these cases without forcing opinions.
+
+### Internal polish — could land in v1.0.x patches
+
+- Custom Tool React component lazy-loading (currently bundled inline). Cosmetic; the inline path works.
 
 ---
 
