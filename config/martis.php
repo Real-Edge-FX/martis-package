@@ -158,6 +158,59 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Locale extensibility
+    |--------------------------------------------------------------------------
+    | Knobs for the translations endpoint that consumers tweak when their
+    | i18n needs go beyond the defaults shipped with Martis.
+    |
+    |   - `app_namespaces`: extra translation files in the host app's
+    |     `lang/<locale>/<ns>.php`. Each name listed here is loaded for
+    |     the requested locale and surfaced under its namespace key in
+    |     the JSON payload, alongside the package's own namespaces.
+    |     Default `[]` means no app-side namespaces are merged.
+    |
+    |   - `fallback_chain`: ordered list of locales searched when a key
+    |     is missing in the requested locale. Applied in order, with
+    |     `array_replace_recursive` so per-key overrides survive.
+    |     Default `['en']` matches the historical behaviour. A multi-step
+    |     example: `['pt_BR', 'en']` for `pt_PT` requests so European
+    |     Portuguese first borrows from Brazilian, then from English.
+    */
+    'locales' => [
+        'app_namespaces' => array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_APP_LOCALE_NAMESPACES', ''))),
+            static fn (string $ns): bool => $ns !== '',
+        ),
+        'fallback_chain' => array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_LOCALE_FALLBACK_CHAIN', 'en'))),
+            static fn (string $locale): bool => $locale !== '',
+        ),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Global Search
+    |--------------------------------------------------------------------------
+    | Defaults applied by `SearchController` when a resource does not declare
+    | its own per-resource override via `globallySearchable()`. A resource can
+    | return an array shape `['enabled' => bool, 'limit' => int, 'min_query' => int]`
+    | to override any of these values; the bool form (legacy) keeps working
+    | and resolves to `enabled=$bool` with the defaults below.
+    |
+    |   - `default_limit`: max results returned per resource group. Bumping
+    |     this is OK for small important tables (clients, team members);
+    |     huge tables should keep this small to bound the response payload.
+    |   - `min_query`: minimum query length before search executes. Defaults
+    |     to 2 because single-character searches turn LIKE-pattern queries
+    |     into full-table scans on most engines.
+    */
+    'search' => [
+        'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
+        'min_query' => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Throttling
     |--------------------------------------------------------------------------
     | Rate limits for Martis routes. Two distinct buckets:
@@ -415,14 +468,61 @@ return [
     |
     */
     'auth' => [
+        /*
+        |----------------------------------------------------------------------
+        | SSO Subsystem (Task 14 ⭐ differential)
+        |----------------------------------------------------------------------
+        |
+        | Per-provider SSO with three orthogonal configuration axes:
+        |
+        |   role_source        — where external roles come from
+        |                        (`groups`, `app_role_assignments`, `callable`)
+        |   role_strategy      — how to map external → local roles
+        |                        (`column`, `config`, `callable`)
+        |   permission_adapter — how to write the local roles back onto
+        |                        the user (`auto`, `spatie`, `native`,
+        |                        `callable`)
+        |
+        | Use `php artisan martis:sso azure` to scaffold a provider
+        | block, or hand-craft any combination here. See `docs/sso.md`
+        | for the full reference and the four canonical recipes.
+        */
         'sso' => [
-            'enabled' => env('MARTIS_AUTH_SSO_ENABLED', false),
-            'url' => env('MARTIS_AUTH_SSO_URL'),
+            'enabled' => env('MARTIS_SSO_ENABLED', false),
+
+            'providers' => [
+                // Microsoft Azure AD example block — flip MARTIS_SSO_AZURE_ENABLED
+                // and fill the AZURE_* env vars to activate.
+                // 'azure' => [
+                //     'enabled' => env('MARTIS_SSO_AZURE_ENABLED', false),
+                //     'driver' => 'azure',
+                //     'label' => 'Continue with Microsoft',
+                //     'icon' => 'microsoft-outlook-logo',
+                //     'scopes' => [
+                //         'openid', 'profile', 'email',
+                //         'GroupMember.Read.All',
+                //         'User.ReadBasic.All',
+                //     ],
+                //
+                //     'role_source' => 'app_role_assignments',
+                //     'resource_id' => env('AZURE_RESOURCE_ID'),
+                //
+                //     'role_strategy' => 'column',
+                //     'role_column' => 'azure_group_name',
+                //
+                //     'auto_create_user' => true,
+                //     'identity_match_attribute' => 'email',
+                //     'sync_user_attributes' => ['name', 'email'],
+                //
+                //     'sync_roles' => true,
+                //     'permission_adapter' => 'auto',
+                //
+                //     'on_no_role_match' => 'deny',
+                //     'redirect_to' => null,
+                // ],
+            ],
         ],
-        'google' => [
-            'enabled' => env('MARTIS_AUTH_GOOGLE_ENABLED', false),
-            'url' => env('MARTIS_AUTH_GOOGLE_URL'),
-        ],
+
         'passwordReset' => [
             'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
             'url' => env('MARTIS_AUTH_PASSWORD_RESET_URL'),

@@ -81,7 +81,7 @@ class Image extends File
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->attribute);
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
             return;
         }
@@ -183,7 +183,7 @@ class Image extends File
         $attr = $attribute ?? $this->attribute;
 
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr);
+            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr, $this->safeRequest());
         }
 
         if ($this->multiple) {
@@ -298,9 +298,9 @@ class Image extends File
      *
      * @return list<string|Rule>
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
-        $rules = parent::buildRules();
+        $rules = parent::buildRules($context);
 
         // Replace 'file' with 'image' (more specific) — only for single mode
         $key = array_search('file', $rules, true);

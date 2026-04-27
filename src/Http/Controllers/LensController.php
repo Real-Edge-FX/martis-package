@@ -44,7 +44,7 @@ class LensController extends MartisController
             return $error;
         }
 
-        /** @var class-string<Resource> $resourceClass */
+        /** @var class-string<resource> $resourceClass */
         $resourceInstance = new $resourceClass;
 
         if (! $resourceInstance->authorizedToViewAny($request)) {
@@ -118,7 +118,7 @@ class LensController extends MartisController
             [$items, $meta, $links] = $result;
 
             $data = array_values(array_map(function (Model $model) use ($resourceClass, $fields): array {
-                /** @var Resource $res */
+                /** @var resource $res */
                 $res = new $resourceClass($model);
 
                 return $this->serializeModelForIndex($res, $fields, $model);
@@ -374,7 +374,13 @@ class LensController extends MartisController
      */
     private function resolveLensFields(Lens $lensInstance, Request $request): array
     {
-        $fields = $lensInstance->fields($request);
+        // Flatten Section / Panel / TabGroup so a lens that wraps its
+        // columns inside a layout container (the same shape resources
+        // commonly use) still surfaces every field on the index. The
+        // historical `instanceof Field` filter at the top level
+        // silently dropped nested columns when the lens reused a
+        // resource's `fieldsForIndex()` shape verbatim.
+        $fields = Field::flattenLayoutFields($lensInstance->fields($request));
 
         /** @var list<Field> $filtered */
         $filtered = array_values(array_filter(

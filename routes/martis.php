@@ -3,19 +3,19 @@
 use Illuminate\Support\Facades\Route;
 use Martis\Http\Controllers\ActionController;
 use Martis\Http\Controllers\AttachmentController;
-use Martis\Http\Controllers\CacheController;
-use Martis\Http\Controllers\MetricController;
 use Martis\Http\Controllers\AuthController;
 use Martis\Http\Controllers\BelongsToManyController;
+use Martis\Http\Controllers\CacheController;
+use Martis\Http\Controllers\CommandPaletteController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
 use Martis\Http\Controllers\LensController;
 use Martis\Http\Controllers\LoginController;
+use Martis\Http\Controllers\MetricController;
 use Martis\Http\Controllers\MorphManyController;
 use Martis\Http\Controllers\MorphOneController;
 use Martis\Http\Controllers\MorphToManyController;
-use Martis\Http\Controllers\CommandPaletteController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\NotificationController;
 use Martis\Http\Controllers\PreferencesController;
@@ -23,6 +23,7 @@ use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\SlugController;
+use Martis\Http\Controllers\SsoController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
 
@@ -36,6 +37,19 @@ Route::middleware(config('martis.middleware', ['web']))
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+        // SSO entry points — public (no auth middleware). The provider
+        // sub-segment is whatever the user registered (azure, google,
+        // github, custom-okta, …). Routes only resolve when SSO is
+        // enabled in config and the requested provider is registered.
+        if (config('martis.auth.sso.enabled', false)) {
+            Route::get('/sso/{provider}/redirect', [SsoController::class, 'redirect'])
+                ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+                ->name('sso.redirect');
+            Route::get('/sso/{provider}/callback', [SsoController::class, 'callback'])
+                ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+                ->name('sso.callback');
+        }
 
         // Favicon — public, served from configured path, published assets,
         // or the package's own resources/ directory as final fallback (so
@@ -298,6 +312,14 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Inline create store
                                 Route::post('/resources/{resource}/inline-create', [ResourceController::class, 'inlineCreateStore'])
                                     ->name('resources.inline-create-store');
+
+                                // Sync a single dependsOn() field against
+                                // the live form payload. The frontend hits
+                                // this whenever a watched sibling field
+                                // changes. Returns the fresh field
+                                // descriptor with reactive state applied.
+                                Route::post('/resources/{resource}/sync-field', [ResourceController::class, 'syncField'])
+                                    ->name('resources.sync-field');
 
                                 Route::get('/resources/{resource}/{id}', [ResourceController::class, 'show'])
                                     ->name('resources.show');

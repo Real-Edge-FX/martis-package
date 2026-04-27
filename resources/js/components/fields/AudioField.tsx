@@ -187,7 +187,18 @@ function AudioPlayer({
   }, [duration])
 
   return (
-    <div className="martis-audio-player">
+    // The whole player is `data-row-action="suppress"` so any click
+    // inside it does NOT bubble to the DataTable's row-click handler.
+    // Without it, hitting the play / pause / scrub region in an index
+    // table cell would navigate to the row's detail page instead of
+    // controlling playback. The marker is read by `Table.tsx` and is
+    // additive — other interactive cell content can opt in the same
+    // way (e.g. inline file downloads, popovers).
+    <div
+      className="martis-audio-player"
+      data-row-action="suppress"
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         className="martis-audio-play-btn"

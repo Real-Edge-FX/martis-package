@@ -40,4 +40,5 @@ return [
     'palette_records' => 'Records',
     'palette_toggle' => 'toggle',
     'palette_results' => '{{count}} results',
+    'palette_view_all' => 'View all {{count}} in {{resource}}',
 ];

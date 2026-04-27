@@ -17,6 +17,7 @@ use Martis\Contracts\FilterContract;
 use Martis\Contracts\LensContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
+use Martis\Contracts\UnsavedChangesConfigContract;
 use Martis\Enums\DefaultRowAction;
 use Martis\Enums\ErrorDisplayMode;
 use Martis\Enums\SortDirection;
@@ -295,7 +296,7 @@ abstract class Resource implements ResourceContract
      * and no sidebar is shown. Returning a non-empty array switches
      * the layout to the canonical 1fr 320px grid.
      *
-     * @return list<\Martis\Contracts\FieldContract>
+     * @return list<FieldContract>
      */
     public function detailSidebar(Request $request): array
     {
@@ -1027,11 +1028,11 @@ abstract class Resource implements ResourceContract
      *   - `false` (default) → fully disabled; the form closes/navigates
      *     silently. Opt in per-resource.
      *   - `true` → enabled with the package defaults (generic copy).
-     *   - {@see \Martis\Contracts\UnsavedChangesConfigContract}
-     *     (e.g. {@see \Martis\UnsavedChangesConfig}) → enabled AND
+     *   - {@see UnsavedChangesConfigContract}
+     *     (e.g. {@see UnsavedChangesConfig}) → enabled AND
      *     overrides title / body / icon / colours / button labels.
      */
-    public static function confirmUnsavedChanges(): bool|\Martis\Contracts\UnsavedChangesConfigContract
+    public static function confirmUnsavedChanges(): bool|UnsavedChangesConfigContract
     {
         return false;
     }
@@ -1513,10 +1514,38 @@ abstract class Resource implements ResourceContract
     /**
      * Determine whether this resource is included in global search (Cmd+K).
      *
-     * Return false to exclude this resource from the Cmd+K global search modal.
-     * Defaults to true so all resources participate unless explicitly opted out.
+     * Two return shapes are supported:
+     *
+     * - **bool** (legacy): `true` to opt-in (uses `martis.search.default_limit`
+     *   and `martis.search.min_query` for limits), `false` to exclude.
+     * - **array** (override): `['enabled' => bool, 'limit' => int, 'min_query' => int]`.
+     *   Any omitted key falls back to the global default. `enabled` defaults
+     *   to true when an array is returned (so a resource can declare custom
+     *   limits without having to repeat `'enabled' => true`).
+     *
+     * Examples:
+     *
+     *     // Opt-out entirely.
+     *     public static function globallySearchable(): bool|array
+     *     {
+     *         return false;
+     *     }
+     *
+     *     // Bump the per-resource cap to 10 results.
+     *     public static function globallySearchable(): bool|array
+     *     {
+     *         return ['limit' => 10];
+     *     }
+     *
+     *     // A resource where 1-character searches are useful (e.g. tags).
+     *     public static function globallySearchable(): bool|array
+     *     {
+     *         return ['min_query' => 1];
+     *     }
+     *
+     * @return bool|array{enabled?: bool, limit?: int, min_query?: int}
      */
-    public static function globallySearchable(): bool
+    public static function globallySearchable(): bool|array
     {
         return true;
     }
@@ -1536,5 +1565,31 @@ abstract class Resource implements ResourceContract
     public function searchSubtitle(Model $model): ?string
     {
         return null;
+    }
+
+    /**
+     * Customise result ordering for global search.
+     *
+     * Called by `SearchController` AFTER the search filter has been
+     * applied, so any `orderBy()` here runs on the filtered set. Defaults
+     * to a no-op so the resource's `indexQuery()` ordering is preserved.
+     *
+     * Example — boost prefix matches over substring matches:
+     *
+     *     public function searchOrderBy(Builder $query, string $term): Builder
+     *     {
+     *         $like = addcslashes($term, '%_').'%';
+     *
+     *         return $query->orderByRaw('CASE WHEN name LIKE ? THEN 0 ELSE 1 END', [$like]);
+     *     }
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public function searchOrderBy(Builder $query, string $term): Builder
+    {
+        return $query;
     }
 }

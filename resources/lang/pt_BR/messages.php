@@ -14,6 +14,11 @@ return [
     'error_restore' => 'Erro ao restaurar registro.',
     'error_forbidden' => 'Você não tem permissão para executar esta ação.',
     'error_throttled' => 'Muitas tentativas. Tente novamente em instantes.',
+    // Títulos de severidade dos toasts
+    'toast_success' => 'Sucesso',
+    'toast_error' => 'Erro',
+    'toast_warning' => 'Aviso',
+    'toast_info' => 'Informação',
     // Editor de texto rico (Trix)
     'trix_attach' => 'Anexar arquivos',
     'trix_bold' => 'Negrito',
@@ -240,6 +245,12 @@ return [
     'cache_reset_tip' => '<strong>Voltar à config</strong><br>Remover o override em runtime desta camada.<br><br>O estado efetivo passa a seguir o que estiver na config.',
     'cache_clear_tip' => '<strong>Limpar</strong><br>Invalidar todas as entradas desta camada agora.<br><br>Incrementa a version key — atômico e O(1) em qualquer driver.',
     'cache_clear_all_tip' => '<strong>Limpar tudo</strong><br>Incrementa a versão de todas as camadas de uma vez.<br><br>Todas as entradas ficam órfãs e a próxima requisição recalcula.',
+
+    // SSO subsystem (Task 14)
+    'sso_provider_disabled' => 'Este método de login não está disponível no momento.',
+    'sso_callback_failed' => 'Falha no login. Tente novamente ou entre em contato com o administrador.',
+    'sso_user_not_provisioned' => 'Sua conta ainda não está provisionada neste workspace. Contate o administrador.',
+    'sso_no_role_match' => 'Sua conta não tem as roles necessárias para acessar este workspace.',
     'reset_to_defaults' => 'Restaurar padrões',
     'theme' => 'Tema',
     'theme_dark' => 'Escuro',

@@ -163,15 +163,16 @@ Text::make('first_name', 'First Name') // explicit label
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `nullable` | `nullable(): static` | `$this` | Mark as nullable (adds `nullable` validation rule). |
-| `readonly` | `readonly(): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. |
-| `required` | `required(): static` | `$this` | Require a non-null value (adds `required` validation rule). |
-| `placeholder` | `placeholder(string $text): static` | `$this` | Set placeholder text for the input. |
-| `help` | `help(string $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). |
-| `tooltip` | `tooltip(?string $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br>`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
+| `nullable` | `nullable(bool\|Closure $value = true): static` | `$this` | Mark as nullable (adds `nullable` validation rule). Accepts a closure for request-time resolution. |
+| `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. |
+| `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. |
+| `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
+| `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). Accepts a closure for request-time resolution. |
+| `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br>`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
+| `withLabel` | `withLabel(string\|Closure $value): static` | `$this` | Override the constructor label after construction. Accepts a closure for request-time resolution. |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
 | `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). |
-| `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. |
+| `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. Accepts a closure for request-time resolution. |
 
 ### Visibility
 
@@ -235,9 +236,174 @@ Text::make('first_name', 'First Name') // explicit label
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `rules` | `rules(array $rules): static` | `$this` | Add validation rules (merged with existing). |
-| `buildRules` | `buildRules(): array` | `array` | Build the final validation rule array (merges required/nullable/unique + extra rules). |
+| `rules` | `rules(array\|Closure $rules): static` | `$this` | Add validation rules that apply on every context (merged with existing). Accepts a closure for request-time resolution; closure replaces any prior static rule list (and vice versa). See [Closure-aware setters](#closure-aware-setters). |
+| `creationRules` | `creationRules(array $rules): static` | `$this` | Rules that apply ONLY on POST `/resources/{r}` (create context). Layered on top of `rules()`. |
+| `updateRules` | `updateRules(array $rules): static` | `$this` | Rules that apply ONLY on PUT `/resources/{r}/{id}` (update context). Layered on top of `rules()`. |
+| `buildRules` | `buildRules(?string $context = null): array` | `array` | Build the final rule array. Pass `'create'` or `'update'` to layer the matching context rules. |
 | `validationMessages` | `validationMessages(): array` | `array` | Custom validation messages (e.g. for unique). |
+
+**Context-aware example** — password is required on create but optional on update (the canonical Nova-parity pattern):
+
+```php
+Password::make('password')
+    ->rules(['min:8'])              // applies on every context
+    ->creationRules(['required'])   // create only
+    ->updateRules(['nullable']);    // update only
+```
+
+The controller hits `buildRules('create')` for POST and `buildRules('update')` for PUT. The schema endpoint also exposes both rule sets under `creationRules` / `updateRules` keys so the React frontend can pre-validate per context.
+
+When `creationRules` contains `required`, the base `sometimes` rule is automatically stripped — `sometimes` short-circuits validation when a key is missing and would defeat the `required` directive otherwise.
+
+### Immutable fields
+
+`immutable()` flags a field as **writable on create, readonly on update**. The controller silently skips the fill on update (the request is accepted, the column is not mutated). The schema also exposes the flag so the frontend can render the input as disabled on the edit page.
+
+```php
+Text::make('slug')->immutable()->required();
+```
+
+Common cases: slugs, account numbers, document references.
+
+### Reactive fields — `dependsOn(['field'], Closure)`
+
+⭐ **Martis differential** — declare that a field reacts to one or more sibling fields. The frontend watches the listed attributes and, every time the user edits any of them, posts the live form payload to `POST /api/resources/{r}/sync-field`. The backend re-runs the closure with the fresh data and returns the updated field descriptor (visibility, readonly, required, options, placeholder, help, default, meta, …) — the live form replaces its local descriptor with the response.
+
+The closure receives:
+- `array<string, mixed> $formData` — the live form values, keyed by field attribute (the watched siblings are guaranteed; any other touched attribute is forwarded too).
+- `Illuminate\Http\Request $request` — the active request (auth user, locale, headers).
+- `static $field` — the field instance, mutable. Call any of the regular fluent methods on it.
+
+Examples:
+
+```php
+// Make `price` required only when `is_paid` is true:
+Number::make('price')
+    ->dependsOn(['is_paid'], function (array $form, Request $r, Number $field) {
+        $field->required((bool) ($form['is_paid'] ?? false));
+    });
+
+// Reload Select options whenever `category_id` changes:
+Select::make('subcategory_id')
+    ->dependsOn(['category_id'], function (array $form, Request $r, Select $field) {
+        $field->options(
+            \App\Models\Subcategory::query()
+                ->where('category_id', $form['category_id'] ?? null)
+                ->pluck('name', 'id')
+                ->all(),
+        );
+    });
+
+// Branch on the current user — works in both create and update contexts:
+Text::make('access_code')
+    ->dependsOn(['plan'], function (array $form, Request $r, Text $field) {
+        if (($form['plan'] ?? null) === 'enterprise' && $r->user()?->isAdmin()) {
+            $field->readonly(false);
+        } else {
+            $field->readonly(true);
+        }
+    });
+```
+
+| Method | Signature | Description |
+|---|---|---|
+| `dependsOn` | `dependsOn(array $fields, ?Closure $callback = null): static` | Declare reactivity. The closure is optional; passing `null` lets layouts forward the watch list without running a callback (the Repeater uses this form for parent-attribute exposure). |
+| `dependentFields` | `dependentFields(): list<string>` | Read the watched attributes. |
+| `isDependent` | `isDependent(): bool` | True only when both `$fields` and a `Closure` are configured. The sync endpoint refuses non-reactive fields. |
+| `syncDependent` | `syncDependent(array $formData, Request $request): static` | Run the closure against the given payload. Mutates `$this`. Useful in tests. |
+
+**Wire format.** The schema endpoint serializes `dependsOn: { fields: ['attr1', 'attr2'] }` (an object) for reactive fields and `null` for non-reactive ones. The frontend `useDependsOnSync` hook subscribes to the listed attributes, debounces 200ms, and POSTs the payload when any watched value changes — older requests are aborted via `AbortController` so the latest value always wins.
+
+**Endpoint.** `POST /api/resources/{r}/sync-field` body: `{ field: string, formData: object, context?: 'create' | 'update' }`. Response: a single field descriptor in the same shape as `schema.fields[]`. Authorization gates the same as create/update.
+
+### Closure-aware setters
+
+Most field setters accept either a static value or a closure that resolves at request time. Reach for the closure form whenever the result depends on the authenticated user, the locale, the active tenant, or anything else that lives on the `Request`.
+
+The closure receives the active `Request` (or `null` when called outside an HTTP context, e.g. a queue worker) and must return the resolved value. Static values still work — the closure form is purely additive.
+
+| Setter | Signature | Lazy reader |
+|--------|-----------|-------------|
+| `readonly` | `readonly(bool\|Closure $value = true): static` | `isReadonly(): bool` |
+| `required` | `required(bool\|Closure $value = true): static` | `isRequired(): bool` |
+| `nullable` | `nullable(bool\|Closure $value = true): static` | `isNullable(): bool` |
+| `default` | `default(mixed $value): static` | `getDefaultValue(): mixed` |
+| `placeholder` | `placeholder(string\|Closure $text): static` | `getPlaceholder(): ?string` |
+| `help` | `help(string\|Closure $text): static` | `getHelp(): ?string` |
+| `tooltip` | `tooltip(string\|Closure\|null $text): static` | `getTooltip(): ?string` |
+| `withLabel` | `withLabel(string\|Closure $value): static` | `label(): string` |
+| `rules` | `rules(array\|Closure $rules): static` | `buildRules(): array` |
+| `Select::options` | `options(array\|Closure $options): static` | `getOptions(): list` |
+| `MultiSelect::options` | `options(array\|Closure $options): static` | `getOptions(): list` |
+| `BooleanGroup::options` | `options(array\|Closure $options): static` | `getOptions(): array` |
+
+Examples:
+
+```php
+// Per-user defaults
+Text::make('owner_id')
+    ->default(fn ($request) => $request?->user()?->id);
+
+// Conditional readonly based on policy
+Text::make('email')
+    ->readonly(fn ($request) => $request?->user()?->cannot('change-email'));
+
+// Required only for non-admins
+Text::make('reason')
+    ->required(fn ($request) => $request?->user()?->cannot('skip-reason'));
+
+// Locale-aware label and placeholder
+Text::make('greeting')
+    ->withLabel(fn () => __('fields.greeting.label'))
+    ->placeholder(fn () => __('fields.greeting.placeholder'));
+
+// Help text that reads live state from the user
+Text::make('quota')
+    ->help(fn ($request) => "Quota left: {$request?->user()?->quota()}");
+
+// Options pulled from the database — Select / MultiSelect / BooleanGroup
+Select::make('owner_id')
+    ->options(fn () => User::query()->pluck('name', 'id')->all());
+
+MultiSelect::make('skills')
+    ->options(fn () => [
+        'Backend'  => ['PHP' => 'php', 'Go' => 'go'],
+        'Frontend' => ['React' => 'react'],
+    ]);
+
+BooleanGroup::make('permissions')
+    ->options(fn ($request) => $request?->user()?->availablePermissions()->all() ?? []);
+
+// Validation rules that vary per role
+Text::make('cap')
+    ->rules(fn ($request) => $request?->user()?->isAdmin()
+        ? ['nullable']
+        : ['required', 'integer', 'max:100']);
+```
+
+#### `withLabel()` vs the constructor label
+
+`Field::make('attribute', 'Label')` accepts the label as a positional argument. `withLabel()` is the post-construction setter that also accepts a closure. The contract method `label()` is the **getter** — `withLabel()` is named explicitly to avoid overloading it.
+
+#### `rules(callable)` semantics
+
+Static and closure rule definitions do **not** compose. The last call wins:
+
+```php
+Text::make('field')
+    ->rules(['min:1'])      // pinned
+    ->rules(fn () => ['email']); // closure replaces ['min:1']
+
+Text::make('field')
+    ->rules(fn () => ['email']) // closure
+    ->rules(['min:1']);         // static replaces the closure
+```
+
+If you need both static and dynamic rules, return them together from a single closure:
+
+```php
+->rules(fn ($request) => array_merge(['min:1'], $request?->user()?->isAdmin() ? [] : ['max:100']))
+```
 
 ### Unique Validation
 
@@ -253,11 +419,78 @@ Email::make('email')
 
 ### Customization Hooks
 
+The three core hooks let you replace the default read / write / format behaviour of a field with arbitrary logic. Unlike the lazy setters in [Closure-aware setters](#closure-aware-setters), these hooks do not have a static counterpart — they ARE the customization.
+
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `resolveUsing` | `resolveUsing(callable $callback): static` | `$this` | Override value resolution. Callback: `fn(mixed $value, Model $model, string $attribute): mixed` |
-| `fillUsing` | `fillUsing(callable $callback): static` | `$this` | Override model filling. Callback: `fn(Model $model, mixed $value, string $attribute): void` |
-| `displayUsing` | `displayUsing(callable $callback): static` | `$this` | Override display formatting (applied after resolveUsing, does NOT affect form values). Callback: `fn(mixed $value, Model $model, string $attribute): mixed` |
+| `resolveUsing` | `resolveUsing(callable $callback): static` | `$this` | Override value resolution. Callback: `fn(mixed $value, Model $model, string $attribute, ?Request $request): mixed` |
+| `fillUsing` | `fillUsing(callable $callback): static` | `$this` | Override model filling. Callback: `fn(Model $model, mixed $value, string $attribute, ?Request $request): void` |
+| `displayUsing` | `displayUsing(callable\|list<callable> $callback): static` | `$this` | Override display formatting (applied after resolveUsing, does NOT affect form values). Single callable: `fn(mixed $value, Model $model, string $attribute, ?Request $request): mixed`. Pass an array of callables to compose a pipeline. |
+
+#### ⭐ Martis differential 1 — `?Request` is forwarded to every hook
+
+The active `Request` (or `null` when there is no HTTP context, e.g. a queue worker) is forwarded as the **fourth argument** of every hook. Closures with three parameters keep working unchanged because PHP silently drops trailing arguments that the callback did not declare.
+
+```php
+// Per-tenant resolve without calling request() manually:
+Text::make('balance')->resolveUsing(
+    fn ($value, $model, $attribute, ?Request $request) =>
+        $request?->user()?->isAdmin()
+            ? number_format((float) $value, 2)
+            : '*****',
+);
+
+// Per-locale fill that auto-converts decimals:
+Number::make('price')->fillUsing(
+    fn (Model $model, $value, string $attribute, ?Request $request) =>
+        $model->setAttribute(
+            $attribute,
+            (float) str_replace(
+                $request?->getPreferredLanguage(['pt_BR', 'en']) === 'pt_BR' ? ',' : '.',
+                '.',
+                (string) $value,
+            ),
+        ),
+);
+```
+
+#### ⭐ Martis differential 2 — `displayUsing()` accepts a chainable pipeline
+
+`displayUsing()` accepts either a single callable (legacy) or a `list<callable>`. When an array is passed, each callback receives the output of the previous one — equivalent in spirit to `array_reduce`.
+
+```php
+// Pipeline: cast → format → prefix
+Text::make('amount')->displayUsing([
+    fn ($v) => (float) $v,
+    fn ($v) => number_format($v, 2),
+    fn ($v) => "R$ {$v}",
+]);
+
+// Pipeline + per-stage Request access:
+Text::make('balance')->displayUsing([
+    fn ($v) => (float) $v,
+    fn ($v, $m, $attr, ?Request $r) => $r?->user()?->isAdmin()
+        ? number_format($v, 2)
+        : '*****',
+    fn ($v) => "<strong>{$v}</strong>",
+]);
+```
+
+If any entry in the array is not callable, `displayUsing()` throws `InvalidArgumentException` immediately at definition time — you get the failure when the resource boots, not deep inside a request.
+
+A subsequent single-callable call replaces the entire pipeline. A subsequent array call replaces the prior single callable. The hook is monotonic: only the most recent definition is active.
+
+#### Backward compatibility
+
+| Old code | Still works? |
+|---|---|
+| `displayUsing(fn ($v) => ...)` | ✅ |
+| `displayUsing(fn ($v, $m) => ...)` | ✅ |
+| `displayUsing(fn ($v, $m, $attr) => ...)` | ✅ |
+| `resolveUsing(fn ($v, $m, $attr) => ...)` | ✅ |
+| `fillUsing(fn ($m, $v, $attr) => ...)` | ✅ |
+
+The 4th `?Request $request` argument is purely additive. Existing 3-arg callbacks keep their semantics unchanged.
 
 ### Component Override
 
@@ -530,7 +763,7 @@ BooleanGroup::make('permissions')
 
 | Method | Description |
 |---|---|
-| `options(array)` | Flag key → label map |
+| `options(array\|Closure)` | Flag key → label map. Accepts a closure that resolves at render time. See [Closure-aware setters](#closure-aware-setters). |
 | `labels(array)` | Override option labels with translations |
 | `grouped(array)` ⭐ | Organise options into collapsible sections (`['Title' => ['key1','key2']]`) |
 | `hideFalseValues(bool)` / `hideTrueValues(bool)` | Display filter for the read-only view |
@@ -539,6 +772,8 @@ BooleanGroup::make('permissions')
 | `maxChecked(int)` ⭐ | Maximum number of flags that can be on — disables extra checkboxes live |
 | `requireAny()` ⭐ | Sugar for `minChecked(1)` |
 | `requireAll()` ⭐ | Sugar for `minChecked(count(options))` |
+
+> ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
 
 **⭐ Martis differentials:** grouped sections, min/max live counter, `requireAny/All` presets.
 
@@ -679,10 +914,18 @@ Select::make('status')
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `options` | `options(array $options): static` | `$this` | Set options. Accepts associative `['Label' => 'value']` or sequential `['value1', 'value2']`. |
-| `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value}]`. |
+| `options` | `options(array\|Closure $options): static` | `$this` | Set options. Accepts associative `['Label' => 'value']`, sequential `['value1', 'value2']`, or a closure that resolves at render time (perfect for DB-backed lists). See [Closure-aware setters](#closure-aware-setters). |
+| `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value}]` (resolves the closure if one was set). |
 
 **Extra attributes:** `options`
+
+```php
+// Static options
+Select::make('status')->options(['Draft' => 'draft', 'Published' => 'published']);
+
+// Database-backed options resolved at render time
+Select::make('owner_id')->options(fn () => User::query()->pluck('name', 'id')->all());
+```
 
 ---
 
@@ -706,9 +949,9 @@ MultiSelect::make('technologies')
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `options` | `options(array $options): static` | `$this` | Set options. Supports sequential, associative, and **grouped** formats. |
+| `options` | `options(array\|Closure $options): static` | `$this` | Set options. Supports sequential, associative, and **grouped** formats, or a closure that resolves at render time. See [Closure-aware setters](#closure-aware-setters). |
 | `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Show labels instead of raw values on index/detail. |
-| `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]`. |
+| `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Check if displaying labels. |
 
 **Storage format:** JSON array, e.g. `["php","react"]`

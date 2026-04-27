@@ -10,6 +10,7 @@ use Martis\Fields\BelongsTo;
 use Martis\Fields\Tag;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -307,6 +308,84 @@ test('relatable endpoint supports search', function () {
     $data = $response->json('data');
     expect($data)->toHaveCount(1);
     expect($data[0]['name'])->toBe('Another Active');
+});
+
+test('relatable endpoint search flattens layout containers in fields() (regression)', function () {
+    // Repro for the same family of bugs as the Tasks index search:
+    // when the related resource wraps its searchable fields inside a
+    // Section / Panel / TabGroup, the relatable endpoint silently
+    // returned the unfiltered set because the top-level `instanceof
+    // FieldContract` filter dropped every nested searchable. Register
+    // a dedicated team resource whose `name` lives inside a Section
+    // and confirm the search filter still narrows the result set.
+    $registry = app(ResourceRegistry::class);
+
+    $registry->register(new class extends Resource
+    {
+        public static function model(): string
+        {
+            return IntegrationTeam::class;
+        }
+
+        public static function uriKey(): string
+        {
+            return 'integration-teams-sectioned';
+        }
+
+        public static function titleAttribute(): string
+        {
+            return 'name';
+        }
+
+        public function fields(Request $request): array
+        {
+            return [
+                Section::make('Linkage', [
+                    Text::make('name')->searchable()->sortable(),
+                ]),
+            ];
+        }
+
+        public static function relatableQuery(Request $request, Builder $query): Builder
+        {
+            return $query;
+        }
+    }::class);
+
+    // Author resource pointing at the sectioned teams via team_id.
+    $registry->register(new class extends Resource
+    {
+        public static function model(): string
+        {
+            return IntegrationAuthor::class;
+        }
+
+        public static function uriKey(): string
+        {
+            return 'integration-authors-sectioned';
+        }
+
+        public function fields(Request $request): array
+        {
+            return [
+                Text::make('name'),
+                BelongsTo::make('team_id', 'Team')
+                    ->relatedResource('integration-teams-sectioned')
+                    ->titleAttribute('name'),
+            ];
+        }
+    }::class);
+
+    IntegrationTeam::create(['name' => 'Pipeline Squad', 'is_active' => true]);
+    IntegrationTeam::create(['name' => 'Other Squad', 'is_active' => true]);
+
+    $response = $this->getJson('/martis/api/resources/integration-authors-sectioned/_/relatable/team_id?search=Pipeline');
+
+    $response->assertOk();
+    $data = $response->json('data');
+    $names = collect($data)->pluck('name')->all();
+    expect($names)->toContain('Pipeline Squad');
+    expect($names)->not->toContain('Other Squad');
 });
 
 // ---------------------------------------------------------------------------

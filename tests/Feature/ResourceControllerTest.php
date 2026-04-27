@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
@@ -7,12 +8,13 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Martis\Cards\Card;
 use Martis\Dashboards\Dashboard;
-use Illuminate\Database\Eloquent\Builder;
 use Martis\Enums\FilterType;
-use Martis\Filters\Filter as ResourceFilter;
 use Martis\Fields\Text;
+use Martis\Filters\Filter as ResourceFilter;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Http\Requests\LensRequest;
+use Martis\Layout\Panel;
+use Martis\Layout\Section;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -162,7 +164,7 @@ class SchemaFoundationResource extends Resource
     public function lenses(Request $request): array
     {
         return [
-            (new RecentlyUpdatedLens())->withMeta([
+            (new RecentlyUpdatedLens)->withMeta([
                 'description' => 'Foundation-only lens descriptor for schema testing.',
             ]),
         ];
@@ -288,6 +290,105 @@ it('index ignores sort on non-sortable field', function () {
     $response->assertStatus(200);
     // body is not sortable — default insertion order preserved
     expect($response->json('data.0.title'))->toBe('A');
+});
+
+it('index search flattens layout containers in fields() (regression)', function () {
+    // Same shape as the sorting regression below — when `fields()` wraps
+    // a `searchable()` field inside Panel/Section/TabGroup, the search
+    // filter must still see it. Otherwise the LIKE clause is never
+    // attached to the query and `?search=…` silently returns every row
+    // (the bug originally reported on the Tasks index, which has a
+    // `Section::make('Linkage', [Text::make('title')->searchable()])`
+    // fields tree).
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+
+    $registry->register(new class extends Resource
+    {
+        public static function model(): string
+        {
+            return PostModel::class;
+        }
+
+        public static function uriKey(): string
+        {
+            return 'sectioned-posts';
+        }
+
+        public static function titleAttribute(): string
+        {
+            return 'title';
+        }
+
+        public function fields(Request $request): array
+        {
+            return [
+                Section::make('Linkage', [
+                    Text::make('title')->sortable()->searchable()->required(),
+                    Text::make('body')->nullable()->searchable(),
+                ]),
+            ];
+        }
+    }::class);
+
+    PostModel::create(['title' => 'Pipeline build', 'body' => null]);
+    PostModel::create(['title' => 'Other task', 'body' => 'mentions pipeline somewhere']);
+    PostModel::create(['title' => 'Unrelated', 'body' => null]);
+
+    $response = $this->getJson('/martis/api/resources/sectioned-posts?search=pipeline');
+
+    $response->assertStatus(200);
+    expect($response->json('meta.total'))->toBe(2);
+    $titles = collect($response->json('data'))->pluck('title')->all();
+    expect($titles)->toContain('Pipeline build');
+    expect($titles)->toContain('Other task');
+    expect($titles)->not->toContain('Unrelated');
+});
+
+it('index sorting flattens layout containers in fields() (regression)', function () {
+    // Resource that wraps its fields in a Panel — applySorting() must
+    // flatten the layout tree before filtering by FieldContract,
+    // otherwise the Panel itself fails the closure type hint and
+    // throws a TypeError. This guards against the bug surfaced when
+    // a fields() definition contains any Panel / TabGroup / Section.
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+
+    $registry->register(new class extends Resource
+    {
+        public static function model(): string
+        {
+            return PostModel::class;
+        }
+
+        public static function uriKey(): string
+        {
+            return 'paneled-posts';
+        }
+
+        public static function titleAttribute(): string
+        {
+            return 'title';
+        }
+
+        public function fields(Request $request): array
+        {
+            return [
+                Panel::make('Details', [
+                    Text::make('title')->sortable()->searchable()->required(),
+                    Text::make('body')->nullable(),
+                ]),
+            ];
+        }
+    }::class);
+
+    PostModel::create(['title' => 'Z post', 'body' => null]);
+    PostModel::create(['title' => 'A post', 'body' => null]);
+
+    $response = $this->getJson('/martis/api/resources/paneled-posts?sort=title&direction=asc');
+
+    $response->assertStatus(200);
+    expect($response->json('data.0.title'))->toBe('A post');
 });
 
 it('index respects per_page param', function () {

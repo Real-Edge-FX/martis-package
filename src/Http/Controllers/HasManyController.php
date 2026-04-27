@@ -485,10 +485,17 @@ class HasManyController extends MartisController
 
         $sort = $rawSort;
         $instance = new $resourceClass;
+
+        // Flatten Section / Panel / TabGroup before iterating —
+        // otherwise the closure's `FieldContract` type hint trips on
+        // layout nodes and sorting on HasMany sub-tables 500s.
+        // Mirrors the parent `ResourceController::applySorting` fix.
+        $flatFields = Field::flattenLayoutFields($instance->fields($request));
+
         $sortableAttributes = array_map(
             fn (FieldContract $field): string => $field->attribute(),
             array_values(array_filter(
-                $instance->fields($request),
+                $flatFields,
                 fn (FieldContract $field): bool => $field->isSortable(),
             )),
         );

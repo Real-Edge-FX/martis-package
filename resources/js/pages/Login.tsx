@@ -1,12 +1,14 @@
 import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
-import { Link, Navigate, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useAuth, TwoFactorRequiredError } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
 import { ApiError } from "@/lib/api"
 import { config } from "@/lib/config"
 import { useTranslation } from "react-i18next"
-import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon, GoogleLogoIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { AuthFrame } from "@/components/auth/AuthFrame"
+import { ResourceIcon } from "@/components/ResourceIcon"
+import { BASE_PATH } from "@/lib/config"
 
 /** Tiny helper so the same rule applies to every optional auth flow:
  *  a flow is "active" when the consumer has flipped its `enabled` flag.
@@ -29,28 +31,48 @@ export function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  const sso = config.auth?.sso
-  const google = config.auth?.google
   const passwordReset = config.auth?.passwordReset
   const registration = config.auth?.registration
-  const showSso = isFlowEnabled(sso)
-  const showGoogle = isFlowEnabled(google)
-  const showDivider = showSso || showGoogle
+  const ssoEnabled = config.auth?.sso?.enabled === true
+  const ssoProviders = ssoEnabled
+    ? Object.entries(config.auth?.sso?.providers ?? {}).filter(([, p]) => p?.enabled === true)
+    : []
+  const showDivider = ssoProviders.length > 0
   const showForgot = isFlowEnabled(passwordReset)
   const showRegister = isFlowEnabled(registration)
 
   // Detect session-expired redirect from api.ts global 401 handler.
+  // The toast + history rewrite are deferred to the next macrotask so
+  // they do NOT fire synchronously during the first paint. Doing both
+  // inside the initial commit can race with the Toast portal mount and
+  // confuse browser automation (CDP-based extensions report a
+  // "frame detached" the moment `replaceState` lands in the same tick
+  // as a portal mount), and the user-visible behaviour is identical.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('expired') === '1') {
+    if (params.get('expired') !== '1') return
+
+    const handle = window.setTimeout(() => {
       addToast('warning', t('session_expired'))
       const url = new URL(window.location.href)
       url.searchParams.delete('expired')
       window.history.replaceState({}, '', url.toString())
-    }
+    }, 0)
+
+    return () => window.clearTimeout(handle)
   }, [])
 
-  if (!isLoading && user) return <Navigate to="/" replace />
+  // Redirect already-authenticated users out of the login page via an
+  // effect rather than a render-time `<Navigate>` so the navigation
+  // happens outside of React's render cycle. This avoids racing with
+  // the auth context's `isLoading` flip on the very first commit, which
+  // could otherwise leave the login DOM half-built when a logged-in
+  // user lands here directly.
+  useEffect(() => {
+    if (!isLoading && user) navigate('/', { replace: true })
+  }, [isLoading, user, navigate])
+
+  if (!isLoading && user) return null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -106,28 +128,22 @@ export function LoginPage() {
           : t('login_sub', { defaultValue: 'Welcome back. Use your email and password to continue.' })}
       </p>
 
-      {showSso && (
+      {ssoProviders.map(([providerName, provider], idx) => (
         <button
+          key={providerName}
           type="button"
-          onClick={() => handleFlowClick(sso)}
+          onClick={() => {
+            window.location.href = `${BASE_PATH}/sso/${providerName}/redirect`
+          }}
           className="martis-btn-secondary"
-          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: 18 }}
+          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: idx === 0 ? 18 : 8 }}
         >
-          <BuildingsIcon size={14} />
-          {t('continue_with_sso', { defaultValue: 'Continue with SSO' })}
+          {provider.icon
+            ? <ResourceIcon iconName={provider.icon} size={14} />
+            : <BuildingsIcon size={14} />}
+          {provider.label ?? t('continue_with', { provider: providerName, defaultValue: `Continue with ${providerName}` })}
         </button>
-      )}
-      {showGoogle && (
-        <button
-          type="button"
-          onClick={() => handleFlowClick(google)}
-          className="martis-btn-secondary"
-          style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: showSso ? 8 : 18 }}
-        >
-          <GoogleLogoIcon size={14} />
-          {t('continue_with_google', { defaultValue: 'Continue with Google' })}
-        </button>
-      )}
+      ))}
 
       {showDivider && (
         <div className="martis-auth-divider">

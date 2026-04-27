@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Enums\ModalSize;
 use Martis\Enums\PhosphorIcon;
+use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Resource;
 
 /**
  * BelongsTo relationship field.
@@ -124,12 +125,6 @@ class BelongsTo extends Field
     protected ?string $createButtonColorValue = null;
 
     /**
-     * Configurable placeholder text shown when no value is selected.
-     * When null, falls back to the translated "select_field" key.
-     */
-    protected ?string $placeholder = null;
-
-    /**
      * Custom color for the resource icon in the inline create modal header.
      * Accepts any CSS color string (hex, rgb, var(...)).
      */
@@ -166,8 +161,8 @@ class BelongsTo extends Field
      * @param  string  $relationship  Relationship method name (e.g. "author") or FK column ("user_id").
      * @param  string|null  $label  Human-readable label. Derived from the relationship name if null.
      * @param  class-string|null  $resource  Related resource class (e.g. UserResource::class).
-     *   When provided, automatically applies ->relatedResource(uriKey)
-     *   so callers don't need a separate call.
+     *                                       When provided, automatically applies ->relatedResource(uriKey)
+     *                                       so callers don't need a separate call.
      */
     public static function make(string $relationship, ?string $label = null, ?string $resource = null): static
     {
@@ -271,7 +266,7 @@ class BelongsTo extends Field
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($this->foreignKey), $model, $this->foreignKey);
+            return ($this->resolveCallback)($model->getAttribute($this->foreignKey), $model, $this->foreignKey, $this->safeRequest());
         }
 
         $foreignKeyValue = $model->getAttribute($this->foreignKey);
@@ -335,7 +330,7 @@ class BelongsTo extends Field
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->foreignKey);
+            ($this->fillCallback)($model, $value, $this->foreignKey, $this->safeRequest());
 
             return;
         }
@@ -530,14 +525,29 @@ class BelongsTo extends Field
     }
 
     /**
-     * Set a custom placeholder text shown on the trigger button when no value is selected.
-     * Defaults to the translated "Select {field}..." string.
+     * Set a custom placeholder text shown on the trigger button when no
+     * value is selected. Defaults to the translated "Select {field}..."
+     * string.
      *
-     * Usage: BelongsTo::make("author")->placeholder("Choose an author...")
+     * Accepts either a static string or a closure that resolves at
+     * render time. The closure receives the active `Request` and must
+     * return a string.
+     *
+     * Usage:
+     *
+     *     BelongsTo::make('author')->placeholder('Choose an author...')
+     *     BelongsTo::make('author')->placeholder(fn () => __('fields.author.placeholder'))
+     *
+     * @param  string|\Closure(Request|null): string  $text
      */
-    public function placeholder(string $text): static
+    public function placeholder(string|\Closure $text): static
     {
-        $this->placeholder = $text;
+        if ($text instanceof \Closure) {
+            $this->placeholderResolver = $text;
+        } else {
+            $this->placeholderResolver = null;
+            $this->placeholder = $text;
+        }
 
         return $this;
     }

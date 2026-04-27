@@ -2,6 +2,8 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Http\Request;
+
 /**
  * Dropdown select field.
  *
@@ -14,6 +16,13 @@ class Select extends Field
     protected array $options = [];
 
     /**
+     * Lazy resolver — set when `options()` was called with a Closure
+     * instead of an array. The closure runs at schema-render time so
+     * options can pull from the DB / config / current user.
+     */
+    protected ?\Closure $optionsResolver = null;
+
+    /**
      * Type.
      */
     public function type(): string
@@ -24,27 +33,51 @@ class Select extends Field
     /**
      * Set the available options for the select.
      *
-     * Accepts two formats:
-     *   - Associative: ['Active' => 1, 'Inactive' => 0]  (label => value)
-     *   - Sequential:  ['draft', 'published', 'archived'] (value used as label too)
+     * Accepts three formats:
+     *   - Associative array: ['Active' => 1, 'Inactive' => 0]  (label => value)
+     *   - Sequential array:  ['draft', 'published', 'archived'] (value used as label too)
+     *   - Closure:           fn (Request|null $r) => User::pluck('name', 'id')->all()
      *
-     * @param  array<string, scalar>|list<scalar>  $options
+     * The closure form is evaluated lazily via `getOptions()` — perfect
+     * for options that come from the database, depend on the active
+     * user, or change per locale.
+     *
+     * @param  array<string, scalar>|list<scalar>|\Closure(Request|null): array  $options
      */
-    public function options(array $options): static
+    public function options(array|\Closure $options): static
     {
-        $this->options = [];
+        if ($options instanceof \Closure) {
+            $this->optionsResolver = $options;
+            $this->options = [];
 
-        foreach ($options as $key => $value) {
+            return $this;
+        }
+
+        $this->optionsResolver = null;
+        $this->options = $this->normalizeOptions($options);
+
+        return $this;
+    }
+
+    /**
+     * Normalize a raw options array into the internal label/value
+     * shape. Extracted so the Closure path can reuse it.
+     *
+     * @param  array<int|string, scalar>  $raw
+     * @return list<array{label: string, value: scalar}>
+     */
+    protected function normalizeOptions(array $raw): array
+    {
+        $out = [];
+        foreach ($raw as $key => $value) {
             if (is_int($key)) {
-                // Sequential: value is both label and stored value
-                $this->options[] = ['label' => (string) $value, 'value' => $value];
+                $out[] = ['label' => (string) $value, 'value' => $value];
             } else {
-                // Associative: key is label, value is stored value
-                $this->options[] = ['label' => $key, 'value' => $value];
+                $out[] = ['label' => $key, 'value' => $value];
             }
         }
 
-        return $this;
+        return $out;
     }
 
     /**
@@ -80,6 +113,13 @@ class Select extends Field
      */
     public function getOptions(): array
     {
+        if ($this->optionsResolver !== null) {
+            $request = $this->safeRequest();
+            $resolved = ($this->optionsResolver)($request);
+
+            return is_array($resolved) ? $this->normalizeOptions($resolved) : [];
+        }
+
         return $this->options;
     }
 
@@ -88,6 +128,6 @@ class Select extends Field
      */
     protected function extraAttributes(): array
     {
-        return ['options' => $this->options];
+        return ['options' => $this->getOptions()];
     }
 }

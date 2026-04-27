@@ -282,7 +282,7 @@ class File extends Field
         }
 
         if ($this->fillCallback !== null) {
-            ($this->fillCallback)($model, $value, $this->attribute);
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
             return;
         }
@@ -377,7 +377,7 @@ class File extends Field
         $attr = $attribute ?? $this->attribute;
 
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr);
+            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr, $this->safeRequest());
         }
 
         if ($this->multiple) {
@@ -520,7 +520,7 @@ class File extends Field
     /**
      * @return list<string|Rule>
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
         if ($this->multiple) {
             $rules = [];
@@ -538,7 +538,7 @@ class File extends Field
             return array_merge($rules, $this->extraRules);
         }
 
-        $rules = parent::buildRules();
+        $rules = parent::buildRules($context);
         $rules[] = 'file';
 
         if (! empty($this->acceptedTypes)) {

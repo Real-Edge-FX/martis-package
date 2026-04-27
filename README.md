@@ -127,6 +127,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Built-in Components](docs/components.md) | UI components, hooks (useEventBus, useError), tooltip standard |
 | [Theming Guide](docs/theming.md) | Complete reference for all 94 CSS variables (colors, typography, radius, shadows, charts) |
 | [Authentication](docs/authentication.md) | Login, 2FA, user profile, avatar, user menu |
+| [SSO](docs/sso.md) | Azure / Google / GitHub / custom providers, role mapping, Spatie integration, generator command |
 | [Authorization](docs/authorization.md) | Policy contract, enforcement endpoints, UI flags |
 | [Configuration](docs/configuration.md) | Complete `config/martis.php` reference + host `MartisServiceProvider` for code-side registrations |
 | [Loader](docs/loader.md) | Page loader configuration and customization |

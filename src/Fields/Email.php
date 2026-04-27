@@ -21,9 +21,9 @@ class Email extends Text
     /**
      * Build rules.
      */
-    public function buildRules(): array
+    public function buildRules(?string $context = null): array
     {
-        return array_merge(parent::buildRules(), ['email']);
+        return array_merge(parent::buildRules($context), ['email']);
     }
 
     /** {@inheritDoc} */

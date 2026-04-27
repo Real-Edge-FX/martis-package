@@ -62,6 +62,7 @@ export function ResourceLensPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { t } = useTranslation('resources')
   const { t: tMsg } = useTranslation('messages')
+  const { t: tAct } = useTranslation('actions')
 
   // ── Schema (needed for label + filter definitions) ────────────────
   const schemaQuery = useQuery({
@@ -301,6 +302,28 @@ export function ResourceLensPage() {
       <div className="martis-index-surface">
         {(() => {
           const hasFilters = filterDefs.length > 0
+          const hasActiveFilters = Object.keys(filters).length > 0
+
+          // Mirror ResourceIndex: a dedicated "Reset filters" toolbar
+          // affordance that wipes only the active filter set, leaving
+          // sort, search, pagination size and trashed-toggle untouched.
+          // Lenses persist filter state in the URL, so we just remove
+          // the `filters` searchParam and reset to page 1.
+          const resetFiltersButton = hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={() => mutateParams((p) => {
+                p.delete('filters')
+                p.set('page', '1')
+              })}
+              className="martis-btn-ghost martis-btn-sm inline-flex items-center gap-1.5"
+              data-pr-tooltip={tMsg('reset_filters_tooltip', { defaultValue: 'Clear only the active filters; keep sort, search, and pagination.' })}
+              data-pr-position="top"
+            >
+              <XIcon size={13} weight="bold" />
+              {tAct('reset_filters', { defaultValue: 'Reset filters' })}
+            </button>
+          ) : null
 
           const filterRow = hasFilters ? (
             <FilterPanel
@@ -314,6 +337,7 @@ export function ResourceLensPage() {
                   p.set('page', '1')
                 })
               }}
+              rightSlot={resetFiltersButton}
             />
           ) : null
 

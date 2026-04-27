@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 
 /**
  * BooleanGroup — map of named boolean flags stored as JSON.
@@ -27,6 +28,14 @@ class BooleanGroup extends Field
 {
     /** @var array<string, string> option key → raw label */
     protected array $options = [];
+
+    /**
+     * Lazy resolver — set when `options()` was called with a Closure
+     * instead of an array. The closure runs at schema-render time so
+     * the available flags can be computed from the DB / config /
+     * current user.
+     */
+    protected ?\Closure $optionsResolver = null;
 
     /** @var array<string, string> option key → translated label (overrides raw) */
     protected array $labels = [];
@@ -54,10 +63,23 @@ class BooleanGroup extends Field
     /**
      * Register the available flags.
      *
-     * @param  array<string, string>  $options  key → label
+     * Accepts either a static `[key => label]` array or a Closure that
+     * receives the active `Request` and returns one. The closure form
+     * is evaluated lazily via `getOptions()` so the flags can pull
+     * from the DB, config or the authenticated user's permissions.
+     *
+     * @param  array<string, string>|\Closure(Request|null): array<string, string>  $options
      */
-    public function options(array $options): static
+    public function options(array|\Closure $options): static
     {
+        if ($options instanceof \Closure) {
+            $this->optionsResolver = $options;
+            $this->options = [];
+
+            return $this;
+        }
+
+        $this->optionsResolver = null;
         $this->options = $options;
 
         return $this;
@@ -163,7 +185,7 @@ class BooleanGroup extends Field
     protected function extraAttributes(): array
     {
         return array_filter([
-            'options' => $this->options,
+            'options' => $this->getOptions(),
             'labels' => $this->labels !== [] ? $this->labels : null,
             'groups' => $this->groups !== [] ? $this->groups : null,
             'hideFalseValues' => $this->hideFalseValues ?: null,
@@ -174,9 +196,16 @@ class BooleanGroup extends Field
         ], fn (mixed $v): bool => $v !== null);
     }
 
-    /** @return array<string, bool> */
+    /** @return array<string, string> */
     public function getOptions(): array
     {
+        if ($this->optionsResolver !== null) {
+            $request = $this->safeRequest();
+            $resolved = ($this->optionsResolver)($request);
+
+            return is_array($resolved) ? $resolved : [];
+        }
+
         return $this->options;
     }
 
@@ -200,7 +229,7 @@ class BooleanGroup extends Field
     private function emptyPayload(): array
     {
         $out = [];
-        foreach ($this->options as $key => $_) {
+        foreach ($this->getOptions() as $key => $_) {
             $out[$key] = false;
         }
 
@@ -214,7 +243,7 @@ class BooleanGroup extends Field
     private function normalise(array $raw): array
     {
         $out = [];
-        foreach ($this->options as $key => $_) {
+        foreach ($this->getOptions() as $key => $_) {
             $out[$key] = (bool) ($raw[$key] ?? false);
         }
 
