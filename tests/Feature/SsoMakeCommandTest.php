@@ -35,7 +35,7 @@ afterEach(function () {
     foreach (glob(database_path('migrations/*_add_*_group_name_to_roles_table.php')) ?: [] as $migration) {
         try {
             $this->filesystem->delete($migration);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // ignore parallel-worker race
         }
     }
@@ -93,7 +93,7 @@ it('martis:sso azure is idempotent — running twice does not duplicate the conf
         '--no-listener' => true,
         '--no-migrate' => true,
     ])->expectsOutputToContain('already declared')
-      ->assertSuccessful();
+        ->assertSuccessful();
 
     // Config should contain exactly one azure block.
     $config = (string) file_get_contents(config_path('martis.php'));
@@ -139,7 +139,7 @@ it('martis:sso skips composer when all required packages are already declared', 
         '--no-listener' => true,
         '--no-migrate' => true,
     ])->doesntExpectOutputToContain('Installing composer')
-      ->assertSuccessful();
+        ->assertSuccessful();
 });
 
 it('martis:sso registers the SocialiteProviders listener idempotently', function () {
@@ -172,7 +172,7 @@ it('martis:sso registers the SocialiteProviders listener idempotently', function
         '--no-composer' => true,
         '--no-migrate' => true,
     ])->expectsOutputToContain('already registered')
-      ->assertSuccessful();
+        ->assertSuccessful();
 
     $contents = (string) (new Filesystem)->get($providerPath);
     expect(substr_count($contents, 'MicrosoftExtendSocialite'))->toBe(1);

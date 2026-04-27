@@ -384,3 +384,120 @@ GET /martis/api/navigation
   }
 ]
 ```
+
+---
+
+## Dashboards Endpoints
+
+```
+GET /martis/api/dashboards                 List visible dashboards (uri keys + names)
+GET /martis/api/dashboards/{uriKey}        Single dashboard descriptor + cards
+POST /martis/api/dashboards/{uriKey}/refresh   Trigger a recompute (when enabled per dashboard)
+```
+
+The single dashboard endpoint returns the layout type (`cards` or `default`), the list of metric cards, dashboard-level filters, and any `withMeta()` data set on the PHP class.
+
+## Tools Endpoints
+
+Surface for the v0.10 Custom Tools primitive.
+
+```
+GET /martis/api/tools                      List every authorised tool
+GET /martis/api/tools/{uriKey}             Single tool metadata, or 404 (also when canSee denies)
+```
+
+The 404-when-denied behaviour is intentional — an unauthorised user cannot probe which tools the app ships. See [Custom Tools](../tools.md).
+
+## Preferences Endpoints
+
+Per-user theme / accent / density / locale persistence.
+
+```
+GET /martis/api/preferences                Current user's preferences payload + meta
+PUT /martis/api/preferences                Persist a partial update
+DELETE /martis/api/preferences             Reset to defaults
+```
+
+The PUT body is partial — pass only the keys you want to change. Returns the full snapshot so the React shell can re-bootstrap.
+
+See [User Preferences](../preferences.md) for the payload shape.
+
+## Notifications Endpoints
+
+Drive the topbar bell dropdown over Laravel's standard `notifications` table.
+
+```
+GET /martis/api/notifications              Paginated list (capped at 50 server-side)
+GET /martis/api/notifications/unread-count Just the unread count (used for badge polling)
+POST /martis/api/notifications/read-all    Mark every notification as read
+DELETE /martis/api/notifications           Clear every notification
+POST /martis/api/notifications/{id}/read   Mark a single notification as read
+DELETE /martis/api/notifications/{id}      Delete a single notification
+```
+
+All endpoints scope to the authenticated user. Cross-user access returns 404. See [Notifications](../notifications.md).
+
+## Cache Admin Endpoints
+
+Per-subsystem cache toggle + clear. Gated by the `manage-martis-cache` ability — define it in your `AuthServiceProvider`.
+
+```
+GET /martis/api/cache                      Snapshot: per-type effective state, TTLs, versions
+POST /martis/api/cache/clear               Clear one type (?type=metrics) or all
+POST /martis/api/cache/disable             Toggle a runtime override OFF
+POST /martis/api/cache/enable              Toggle a runtime override ON
+POST /martis/api/cache/reset-override      Drop the runtime override; falls back to config
+```
+
+See [Cache Control Surface](../cache.md).
+
+## Profile Endpoints
+
+User profile + avatar + 2FA management (when `martis.profile.enabled`).
+
+```
+GET /martis/api/profile                    Current user payload (name, email, avatar, 2fa state)
+PUT /martis/api/profile                    Update name / email
+POST /martis/api/profile/avatar            Upload avatar (multipart)
+DELETE /martis/api/profile/avatar          Remove avatar
+POST /martis/api/profile/2fa/enable        Begin 2FA enrolment (returns QR + secret)
+POST /martis/api/profile/2fa/confirm       Confirm enrolment with TOTP code
+POST /martis/api/profile/2fa/disable       Disable 2FA
+POST /martis/api/profile/2fa/recovery-codes/regenerate   Rotate recovery codes
+```
+
+See [Authentication](../authentication.md#user-profile).
+
+## Impersonation Endpoints
+
+Two-layer guard (master switch + `martis-impersonate` Gate). Default master switch is OFF — endpoints return 503 until enabled.
+
+```
+GET /martis/api/impersonation/status                   Snapshot — { active, enabled, original, target, started_at }
+POST /martis/api/impersonation/start/{userId}          Start (200 / 503 / 403 / 404 / 422)
+POST /martis/api/impersonation/stop                    Stop, restore operator (idempotent)
+```
+
+Error matrix:
+
+| HTTP | Cause |
+|---|---|
+| 503 | Master switch off. |
+| 403 | `martis-impersonate` Gate returned false. |
+| 404 | Target user id does not exist. |
+| 422 | Self-impersonation OR impersonation already active (chaining is rejected on purpose). |
+| 200 | Started — body is the active snapshot. |
+
+See [Impersonation](../impersonation.md).
+
+## Sync Field Endpoint
+
+Drives reactive `dependsOn()` fields.
+
+```
+POST /martis/api/resources/{resource}/sync-field
+Body: { field: "<attribute>", payload: { ...current form values... } }
+Returns: the resolved field descriptor with reactive state applied
+```
+
+Server-side resolution. Frontend debounces (200ms) + uses `AbortController` so the latest value always wins. Rejects unknown attributes (404), non-reactive attributes (422), and empty attribute names (422). See [Fields § Reactive fields](../fields.md#reactive-fields--dependsonfield-closure).

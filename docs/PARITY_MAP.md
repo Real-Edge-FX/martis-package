@@ -253,7 +253,7 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 - **Icons** — 1,512 Phosphor Icons
 - **Custom Tools** — `Martis\Tools\Tool` base class + `Martis::tools([...])` registration + `MenuItem::tool()` factory + REST list/show
 - **Impersonation** — opt-in `ImpersonationManager` with master switch + `martis-impersonate` gate + start/stop/status REST surface
-- **Tests** — 1601 Pest + 84 Vitest = **1685 passing**, 6 skipped, 0 failed (incl. the Task-18 ParitySurface tripwire + Tools + Impersonation suites)
+- **Tests** — 1613 Pest + 84 Vitest = **1697 passing**, 6 skipped, 0 failed (incl. the Task-18 ParitySurface tripwire + Tools + Impersonation suites)
 - **CI** — make ci PASS, GitHub Actions self-hosted runner
 
 ---
@@ -414,3 +414,183 @@ indicates whether Laravel Nova v5 ships an equivalent field out of the box.
 | Locale Extensibility | Per-key deep merge of consumer overrides; configurable host-app namespaces (`martis.locales.app_namespaces`); configurable fallback chain (`martis.locales.fallback_chain`) | Lang publishing only | ⭐ Layered |
 | SSO Provider Contract | Pluggable provider contract + identity-to-user resolver + role mapping (column / config / callable) + permission adapters (Spatie / native / callable) + idempotent `martis:sso <provider>` generator + `AzureProvider` reference impl | Auth Tools (paid add-on) | ⭐ Built-in MIT |
 | Layout-flatten Audit | Every code path that iterates `Resource::fields()` raw flattens `Section` / `Panel` / `TabGroup` first (closes 5 latent bugs in `HasMany`, `MorphMany`, `Lens`, `sync-field`, `relatable` controllers) | n/a | ⭐ Hardened |
+
+---
+
+## Migrating from Nova v5
+
+Audience: developers with an existing Nova v5 application evaluating Martis as a replacement, partial replacement, or coexistence option.
+
+### TL;DR
+
+Martis is a different package. Nova resources do not load as-is. The two share a similar mental model — Resource classes, fields, filters, lenses, metrics, dashboards, actions — and the developer ergonomics map closely, but every namespace is different and the frontend is React (not Vue + Inertia). Plan for a port, not an upgrade.
+
+**What's easy:**
+- Resource skeletons (model binding, fields, filters, lenses, metrics, actions, search)
+- Authorization (Policy resolution and per-method gates)
+- Action contracts (`fields(Request)`, `handle(ActionFields, Collection)`)
+- Filter / Lens / Metric / Dashboard hooks
+- Soft-delete support, replication, preview, peek, inline relation create
+
+**What requires real work:**
+- Custom Vue components → React rewrite
+- Custom fields → port + new TSX renderer
+- Anything that relied on Nova-specific add-on packages (no marketplace; case-by-case)
+
+**What's intentionally different:**
+- Visual / interaction model (Martis design system, not Nova's)
+- Frontend stack (React 18 + TanStack Query + PrimeReact, not Vue + Inertia)
+- Override system (4-tier, drawer-aware) — Martis goes well beyond Nova-style customisation
+- Several field APIs (closure-aware setters, `?Request` 4th argument, `displayUsing(array)` pipeline)
+
+### Namespace map
+
+The single biggest mechanical change is the root namespace. Replace `Laravel\Nova` with `Martis` everywhere, then check the resolver maps below.
+
+| Nova v5 | Martis |
+|---|---|
+| `Laravel\Nova\Resource` | `Martis\Resource` |
+| `Laravel\Nova\Fields\Field` | `Martis\Fields\Field` |
+| `Laravel\Nova\Fields\Text` | `Martis\Fields\Text` |
+| `Laravel\Nova\Fields\BelongsTo` | `Martis\Fields\BelongsTo` |
+| `Laravel\Nova\Filters\Filter` | `Martis\Filters\Filter` |
+| `Laravel\Nova\Lenses\Lens` | `Martis\Lenses\Lens` |
+| `Laravel\Nova\Metrics\Value` | `Martis\Metrics\ValueMetric` |
+| `Laravel\Nova\Metrics\Trend` | `Martis\Metrics\TrendMetric` |
+| `Laravel\Nova\Metrics\Partition` | `Martis\Metrics\PartitionMetric` |
+| `Laravel\Nova\Metrics\Progress` | `Martis\Metrics\ProgressMetric` |
+| `Laravel\Nova\Dashboards\Dashboard` | `Martis\Dashboards\Dashboard` |
+| `Laravel\Nova\Menu\MenuSection` | `Martis\Menu\MenuSection` |
+| `Laravel\Nova\Menu\MenuItem` | `Martis\Menu\MenuItem` |
+| `Laravel\Nova\Actions\Action` | `Martis\Actions\Action` |
+| `Laravel\Nova\Actions\DestructiveAction` | `Martis\Actions\DestructiveAction` |
+| `Laravel\Nova\Actions\ActionResponse` | `Martis\Actions\ActionResponse` |
+| `Laravel\Nova\Http\Requests\NovaRequest` | `Illuminate\Http\Request` |
+| `Laravel\Nova\Nova` (facade) | `Martis\Facades\Martis` |
+
+Notable rename: Nova has `Value`, `Trend`, `Partition`, `Progress`. Martis suffixes them with `Metric` so the class name reads as the kind of card you are building.
+
+`NovaRequest` becomes the standard `Illuminate\Http\Request`.
+
+### Resource conversion
+
+The largest mechanical change: Martis Resources expose data via methods, not properties.
+
+| Nova v5 | Martis | Notes |
+|---|---|---|
+| `public static $model = User::class;` | `public static function model(): string { return User::class; }` | Method, not property. |
+| `public static $title = 'name';` | `public static function titleAttribute(): string { return 'name'; }` | Method. |
+| `public static $search = ['name', 'email'];` | Per-field `->searchable()` | Searchability lives on each field. |
+| `public static $globallySearchable = true;` | `public static function globallySearchable(): bool\|array { ... }` | Accepts `bool \| array{enabled?, limit?, min_query?}` — Martis differential. |
+| `public function fields(NovaRequest $request)` | `public function fields(Request $request): array` | Standard `Illuminate\Http\Request`. |
+| `public function filters(NovaRequest)` | `public function filters(Request): array` | Returns `Filter[]`. |
+| `public function lenses(NovaRequest)` | `public function lenses(Request): array` | Returns `Lens[]`. |
+| `public function actions(NovaRequest)` | `public function actions(Request): array` | Returns `Action[]`. |
+| `public function cards(NovaRequest)` | `public function cards(Request): array` | Returns metric cards. |
+| `public static $perPageOptions = [10, 25, 50];` | `public static function perPageOptions(): array` | Method. |
+| `public static $group = 'Content';` | `public static function group(): ?string` | Method. |
+| `public function authorizedToView($request)` | `public function authorizedToView($request)` | Same. |
+
+### Field API map
+
+| Nova v5 | Martis | Notes |
+|---|---|---|
+| `->required()` | `->required(bool\|Closure)` | Closure resolved at request time. |
+| `->nullable()` | `->nullable(bool\|Closure)` | Closure resolved at request time. |
+| `->readonly()` | `->readonly(bool\|Closure)` | Closure resolved at request time. |
+| `->default($v)` | `->default($v)` (`Closure` accepted) | Closure receives the request. |
+| `->placeholder($v)` | `->placeholder(string\|Closure)` | Closure resolved at request time. |
+| `->help($v)` | `->help(string\|Closure)` | Closure resolved at request time. |
+| `->rules($r)` | `->rules(array\|Closure)` | Closure resolved at request time. |
+| `->creationRules($r)` | `->creationRules(array)` | Same. |
+| `->updateRules($r)` | `->updateRules(array)` | Same. |
+| `->immutable()` | `->immutable(bool)` | Same intent. |
+| `->dependsOn(['attr'], fn)` | `->dependsOn(['attr'], ?Closure)` | Server-side resolution via `POST /api/resources/{r}/sync-field`. |
+| `->displayUsing(fn)` | `->displayUsing(callable\|array)` | Array form ⭐ — chainable transformation pipeline. |
+| `->resolveUsing(fn)` | `->resolveUsing(callable)` | Closure receives `?Request` as 4th argument. |
+| `->fillUsing(fn)` | `->fillUsing(callable)` | Closure receives `?Request` as 4th argument. |
+| `->canSee(fn)` | `->canSee(fn)` + `->canSeeWhen(...)` | Both forms supported. |
+| `->sortable()` / `->searchable()` | Same | Same. |
+
+### Migration cookbook
+
+#### 1. Bootstrap
+
+```bash
+composer require martis/martis
+php artisan martis:install --with-profile
+npm run build
+```
+
+#### 2. Port a Resource
+
+Start with `php artisan martis:resource Post`. Then:
+
+1. Replace `Laravel\Nova\Resource` with `Martis\Resource`.
+2. Convert static properties (`$model`, `$title`, ...) to methods.
+3. Replace `NovaRequest` typehints with `Illuminate\Http\Request`.
+4. Replace each `Laravel\Nova\Fields\*` import with the matching `Martis\Fields\*`.
+5. For each filter, lens, metric — port the class, then update the `filters()` / `lenses()` / `cards()` methods on the resource.
+6. Run `php artisan martis:install --force` to re-publish the asset bundle.
+
+#### 3. Port an Action
+
+```bash
+php artisan martis:action SendInvoice
+```
+
+Copy the `handle()` body. Confirm the `ActionResponse` shape — `message`, `danger`, `redirect`, `visit` all map 1:1.
+
+#### 4. Port a custom field
+
+This is where most of the hand-port work lives:
+
+1. `php artisan martis:field MyField` — generates the PHP class + a TSX stub.
+2. Port the PHP class (signature + serialisation) — most of it carries over.
+3. Re-implement the renderer in React. PrimeReact components cover most input shapes.
+4. Register the component key in `boot.ts`.
+
+#### 5. Port a Policy
+
+No port needed in most cases — Laravel Policies are Laravel Policies. Make sure your namespace convention matches `App\Policies\{Model}Policy` so Martis auto-discovery picks it up.
+
+### Verification checklist
+
+- [ ] Every Resource appears in the navigation
+- [ ] Every CRUD context renders for each Resource (Index / Detail / Create / Edit)
+- [ ] Filters apply, reset, and survive a page reload via sticky views
+- [ ] Lenses render with the right summary / filters / actions
+- [ ] Metrics + Dashboards render and refresh
+- [ ] Bulk actions, inline actions, destructive actions work and respect policy
+- [ ] Authorization gates hide the right buttons (compare against `_authorization` metadata in the API response)
+- [ ] Soft-delete trashed dropdown works on relation panels
+- [ ] Locale switching works across every page
+- [ ] Cache control surface — toggle each cache type, watch the page recompute
+- [ ] If SSO is configured, the round-trip works and `MartisSso::afterLogin()` fires once
+
+---
+
+## Ecosystem map (Nova v5 add-ons → Martis)
+
+Most of what teams typically install on top of a fresh Nova app is either built-in to Martis or trivially replaceable with documented primitives. This list focuses on items where Martis core *replaces* a paid or third-party Nova add-on.
+
+| Capability | Nova v5 | Martis |
+|---|---|---|
+| Two-factor authentication | Bundled in recent versions | ✅ Built-in |
+| SSO with OAuth/OIDC | Auth Tools (paid add-on) | ✅ Built-in MIT (pluggable provider contract) |
+| Impersonation | Third-party add-on | ✅ Built-in (opt-in `martis-impersonate` gate) |
+| Custom Tools (sidebar pages) | Built-in | ✅ Built-in (`Martis\Tools\Tool` + `boot()` lifecycle + `ToolServiceProvider`) |
+| In-app notification bell | Manual | ✅ Built-in over Laravel's `notifications` table |
+| Per-user theme / density / locale preferences | Manual | ✅ Built-in (D1/D2/D3) |
+| Per-resource sticky views (filters / sort / pagination) | Not available | ⭐ Built-in |
+| Cache control surface (per-subsystem) | Not available | ⭐ Built-in (`MartisCache::extend(...)` + admin page) |
+| Reactive / dependent fields | `dependsOn()` | ✅ Built-in (server-side resolution) |
+| Phosphor icon picker field | Not available | ⭐ Built-in (`Icon`, 1,512 icons) |
+| Slug field with collision check | Not available | ⭐ Built-in (`Slug::freezeAfterPublish()`) |
+| Audio waveform field | Not available | ⭐ Built-in (`Audio`) |
+| Timezone picker with live clock | Not available | ⭐ Built-in (`Timezone`) |
+| Activity feed / audit log card | Manual | ✅ Built-in (`ActivityFeedMetric`) |
+| Endpoint table card | Manual | ✅ Built-in (`EndpointTableMetric`) |
+| Locale extensibility (per-key deep merge) | Lang publishing only | ⭐ Built-in (configurable fallback chain + app namespaces) |
+
+For domain-specific functionality (Excel export, approval workflows, draft/publish, scheduled tasks UI, backup management, mail logs) Martis intentionally does not ship a wrapper — the `Action`, `Tool`, and `Lens` primitives plus the Laravel-native ecosystem (Telescope, Horizon, Pulse, Spatie packages) cover the cases without forcing opinions on disk choices, format details, or workflow shapes.

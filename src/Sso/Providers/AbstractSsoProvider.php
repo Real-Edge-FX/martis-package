@@ -6,6 +6,8 @@ namespace Martis\Sso\Providers;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Laravel\Socialite\Contracts\Provider;
+use Laravel\Socialite\Facades\Socialite;
 use Martis\Sso\Contracts\SsoProviderContract;
 use RuntimeException;
 
@@ -30,8 +32,8 @@ abstract class AbstractSsoProvider implements SsoProviderContract
         $driver = (string) $this->config('driver', $this->name());
         $scopes = (array) $this->config('scopes', []);
 
-        /** @var \Laravel\Socialite\Contracts\Provider $client */
-        $client = \Laravel\Socialite\Facades\Socialite::driver($driver);
+        /** @var Provider $client */
+        $client = Socialite::driver($driver);
 
         if (method_exists($client, 'scopes') && $scopes !== []) {
             /** @phpstan-ignore-next-line — runtime method on the OAuth2 base */
@@ -51,7 +53,7 @@ abstract class AbstractSsoProvider implements SsoProviderContract
      */
     protected function ensureSocialiteAvailable(): void
     {
-        if (! class_exists(\Laravel\Socialite\Facades\Socialite::class)) {
+        if (! class_exists(Socialite::class)) {
             throw new RuntimeException(
                 "SSO requires laravel/socialite. Install it with:\n\n".
                 "    composer require laravel/socialite\n\n".

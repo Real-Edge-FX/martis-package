@@ -9,11 +9,11 @@ use Martis\Cache\MartisCache;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\MetricContract;
-use Martis\Metrics\Metric;
 use Martis\Filters\Filter;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\MartisManager;
+use Martis\Metrics\Metric;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -117,7 +117,7 @@ class MetricController
             return JsonErrorResponse::notFound('Resource not found.')->toResponse();
         }
 
-        /** @var Resource $instance */
+        /** @var resource $instance */
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToViewAny($request)) {

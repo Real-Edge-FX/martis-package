@@ -104,8 +104,8 @@ class LensTestItemResource extends Resource
     public function lenses(Request $request): array
     {
         return [
-            new LensTestTopRevenueLens(),
-            (new LensTestForbiddenLens())->canSee(fn () => false),
+            new LensTestTopRevenueLens,
+            (new LensTestForbiddenLens)->canSee(fn () => false),
         ];
     }
 }
@@ -175,7 +175,8 @@ it('applies filters passed via the filters query param', function () {
 });
 
 it('skips filters tagged as excludeFromLens during inheritance', function () {
-    $resourceClass = new class(null) extends LensTestItemResource {
+    $resourceClass = new class(null) extends LensTestItemResource
+    {
         public static function uriKey(): string
         {
             return 'exclude-from-lens-resource';
@@ -192,9 +193,10 @@ it('skips filters tagged as excludeFromLens during inheritance', function () {
         public function lenses(Request $request): array
         {
             return [
-                new class extends \Martis\Lenses\Lens {
+                new class extends Lens
+                {
                     public function query(
-                        \Martis\Http\Requests\LensRequest $request,
+                        LensRequest $request,
                         Builder $query,
                     ): Builder {
                         return $request->withFilters($query);
@@ -202,7 +204,7 @@ it('skips filters tagged as excludeFromLens during inheritance', function () {
 
                     public function fields(Request $request): array
                     {
-                        return [\Martis\Fields\Text::make('title')];
+                        return [Text::make('title')];
                     }
                 },
             ];
@@ -233,7 +235,8 @@ it('skips filters tagged as excludeFromLens during inheritance', function () {
 it('inherits filters from the parent resource when the lens declares none', function () {
     // LensTestTopRevenueLens declares its own filter. Build a lens that
     // does NOT, and a resource that declares ClientPlanFilter-style filter.
-    $resourceClass = new class(null) extends LensTestItemResource {
+    $resourceClass = new class(null) extends LensTestItemResource
+    {
         public static function uriKey(): string
         {
             return 'inherit-filters-resource';
@@ -247,9 +250,10 @@ it('inherits filters from the parent resource when the lens declares none', func
         public function lenses(Request $request): array
         {
             return [
-                new class extends \Martis\Lenses\Lens {
+                new class extends Lens
+                {
                     public function query(
-                        \Martis\Http\Requests\LensRequest $request,
+                        LensRequest $request,
                         Builder $query,
                     ): Builder {
                         return $request->withFilters($query);
@@ -289,7 +293,7 @@ it('returns 403 when the lens canSee closure denies the request', function () {
 });
 
 it('exposes polling metadata in the lens schema descriptor', function () {
-    $lens = new LensTestTopRevenueLens();
+    $lens = new LensTestTopRevenueLens;
     $payload = $lens->toArray();
 
     expect($payload)->toHaveKeys([
@@ -320,7 +324,8 @@ it('embeds the summary row in the pagination meta', function () {
 it('aggregates the summary over the lens-filtered query, not the base query', function () {
     // Build a lens that restricts status='active' in its query(). The
     // summary should ignore the archived rows entirely.
-    $resourceClass = new class(null) extends LensTestItemResource {
+    $resourceClass = new class(null) extends LensTestItemResource
+    {
         public static function uriKey(): string
         {
             return 'summary-filtered-items';
@@ -329,9 +334,10 @@ it('aggregates the summary over the lens-filtered query, not the base query', fu
         public function lenses(Request $request): array
         {
             return [
-                new class extends \Martis\Lenses\Lens {
+                new class extends Lens
+                {
                     public function query(
-                        \Martis\Http\Requests\LensRequest $request,
+                        LensRequest $request,
                         Builder $query,
                     ): Builder {
                         return $query->where('status', 'active');
@@ -339,7 +345,7 @@ it('aggregates the summary over the lens-filtered query, not the base query', fu
 
                     public function fields(Request $request): array
                     {
-                        return [\Martis\Fields\Text::make('title')];
+                        return [Text::make('title')];
                     }
 
                     public function summary(Request $request, Builder $query): array
@@ -408,7 +414,8 @@ it('exposes perPageOptions in the pagination meta, inheriting from the resource 
 
 it('auto-invalidates the cache when the underlying table changes', function () {
     // Swap the lens for one that declares cacheFor(60).
-    $cachingResource = new class(null) extends LensTestItemResource {
+    $cachingResource = new class(null) extends LensTestItemResource
+    {
         public static function uriKey(): string
         {
             return 'cached-lens-items';
@@ -417,7 +424,7 @@ it('auto-invalidates the cache when the underlying table changes', function () {
         public function lenses(Request $request): array
         {
             return [
-                (new LensTestTopRevenueLens())->cacheFor(60),
+                (new LensTestTopRevenueLens)->cacheFor(60),
             ];
         }
     };
@@ -441,7 +448,8 @@ it('auto-invalidates the cache when the underlying table changes', function () {
 });
 
 it('serves a cached response when no rows have been mutated between requests', function () {
-    $cachingResource = new class(null) extends LensTestItemResource {
+    $cachingResource = new class(null) extends LensTestItemResource
+    {
         public static function uriKey(): string
         {
             return 'cached-stable-items';
@@ -450,7 +458,7 @@ it('serves a cached response when no rows have been mutated between requests', f
         public function lenses(Request $request): array
         {
             return [
-                (new LensTestTopRevenueLens())->cacheFor(60),
+                (new LensTestTopRevenueLens)->cacheFor(60),
             ];
         }
     };

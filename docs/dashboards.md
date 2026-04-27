@@ -2,6 +2,8 @@
 
 Dashboards are containers for metric cards. Martis supports multiple dashboards, each with its own set of cards, filters, and authorization.
 
+> See [Metrics](metrics.md) for the metric types (`ValueMetric`, `TrendMetric`, `PartitionMetric`, `ProgressMetric`, `ActivityFeedMetric`, `EndpointTableMetric`) you mount on a dashboard.
+
 ## Creating a Dashboard
 
 ```php

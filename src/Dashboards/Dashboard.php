@@ -8,7 +8,6 @@ use Illuminate\Support\Str;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\MetricContract;
-use Martis\Filters\Filter;
 
 /**
  * Base class for Martis dashboards.

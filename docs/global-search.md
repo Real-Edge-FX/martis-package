@@ -192,7 +192,7 @@ Both values are clamped to a minimum of 1 at request time, so a misconfigured en
 
 Both paths integrate identically with the Cmd+K palette — `searchOrderBy()` runs in either case.
 
-See [resources.md](./resources.md#scout) for full Scout integration notes.
+See [resources.md](resources.md#laravel-scout-integration) for full Scout integration notes.
 
 ---
 

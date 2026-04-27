@@ -2,14 +2,14 @@
 
 use Illuminate\Http\Request;
 use Martis\Enums\MetricType;
+use Martis\Metrics\PartitionMetric;
 use Martis\Metrics\PartitionResult;
+use Martis\Metrics\ProgressMetric;
 use Martis\Metrics\ProgressResult;
+use Martis\Metrics\TrendMetric;
 use Martis\Metrics\TrendResult;
 use Martis\Metrics\ValueMetric;
 use Martis\Metrics\ValueResult;
-use Martis\Metrics\TrendMetric;
-use Martis\Metrics\PartitionMetric;
-use Martis\Metrics\ProgressMetric;
 
 // ---------------------------------------------------------------------------
 // Test concrete metrics

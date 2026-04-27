@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 use Martis\Sso\SsoIdentity;
+use Martis\Tests\TestCase;
 
-uses(\Martis\Tests\TestCase::class);
+uses(TestCase::class);
 
 it('SsoIdentity is an immutable value object with the expected fields', function () {
     $id = new SsoIdentity(

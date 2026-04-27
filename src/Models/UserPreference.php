@@ -2,19 +2,19 @@
 
 namespace Martis\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as AuthUser;
 use Martis\Enums\AccentColor;
 use Martis\Enums\ThemeMode;
 use Martis\Enums\UiDensity;
+use Martis\Preferences\PreferencesResolver;
 
 /**
  * Per-user UI preferences (Task 07.1 ⭐ D2).
  *
  * The model is intentionally small — all business logic lives in
- * {@see \Martis\Preferences\PreferencesResolver}. This class only
+ * {@see PreferencesResolver}. This class only
  * shapes the persistence layer and exposes typed enum casts.
  *
  * @property int $id

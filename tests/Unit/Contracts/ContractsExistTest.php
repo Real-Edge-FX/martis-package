@@ -1,10 +1,10 @@
 <?php
 
+use Martis\Contracts\CardContract;
+use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\LensContract;
-use Martis\Contracts\CardContract;
-use Martis\Contracts\DashboardContract;
 use Martis\Contracts\PaginationContract;
 use Martis\Contracts\ResourceContract;
 

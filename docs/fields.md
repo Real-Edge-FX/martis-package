@@ -242,7 +242,7 @@ Text::make('first_name', 'First Name') // explicit label
 | `buildRules` | `buildRules(?string $context = null): array` | `array` | Build the final rule array. Pass `'create'` or `'update'` to layer the matching context rules. |
 | `validationMessages` | `validationMessages(): array` | `array` | Custom validation messages (e.g. for unique). |
 
-**Context-aware example** — password is required on create but optional on update (the canonical Nova-parity pattern):
+**Context-aware example** — password is required on create but optional on update (the canonical pattern):
 
 ```php
 Password::make('password')

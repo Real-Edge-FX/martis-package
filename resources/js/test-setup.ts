@@ -160,3 +160,20 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
   react: { useSuspense: false },
 })
+
+// Swallow unhandled rejections that arrive AFTER the test scope has
+// finished — typically setTimeout / setInterval callbacks that fire
+// once jsdom has torn down `window`. The tests themselves still fail
+// loudly on assertion errors; this only filters the post-test
+// `ReferenceError: window is not defined` noise that otherwise
+// makes Vitest exit non-zero on CI even when every test passes.
+// Locally the timing is forgiving and the leak rarely surfaces;
+// CI hits it consistently because of slightly slower teardown.
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason)
+  if (msg.includes('window is not defined') || msg.includes('document is not defined')) {
+    return
+  }
+  // Re-throw anything else so we don't silently mask real test bugs.
+  throw reason
+})

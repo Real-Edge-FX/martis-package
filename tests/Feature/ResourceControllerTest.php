@@ -303,7 +303,7 @@ it('index search flattens layout containers in fields() (regression)', function 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
 
-    $registry->register(new class extends Resource
+    $registry->register((new class extends Resource
     {
         public static function model(): string
         {
@@ -329,7 +329,7 @@ it('index search flattens layout containers in fields() (regression)', function 
                 ]),
             ];
         }
-    }::class);
+    })::class);
 
     PostModel::create(['title' => 'Pipeline build', 'body' => null]);
     PostModel::create(['title' => 'Other task', 'body' => 'mentions pipeline somewhere']);
@@ -354,7 +354,7 @@ it('index sorting flattens layout containers in fields() (regression)', function
     $registry = app(ResourceRegistry::class);
     $registry->flush();
 
-    $registry->register(new class extends Resource
+    $registry->register((new class extends Resource
     {
         public static function model(): string
         {
@@ -380,7 +380,7 @@ it('index sorting flattens layout containers in fields() (regression)', function
                 ]),
             ];
         }
-    }::class);
+    })::class);
 
     PostModel::create(['title' => 'Z post', 'body' => null]);
     PostModel::create(['title' => 'A post', 'body' => null]);

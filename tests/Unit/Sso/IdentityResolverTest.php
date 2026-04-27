@@ -6,8 +6,9 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Schema;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\SsoIdentity;
+use Martis\Tests\TestCase;
 
-uses(\Martis\Tests\TestCase::class);
+uses(TestCase::class);
 
 class IdentityResolverTestUser extends User
 {

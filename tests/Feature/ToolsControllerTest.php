@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Request;
+use Illuminate\Support\ServiceProvider;
 use Martis\Facades\Martis;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Menu\MenuItem;
@@ -45,8 +46,8 @@ it('GET /martis/api/tools is empty when no tools are registered', function () {
 
 it('GET /martis/api/tools lists every visible registered tool', function () {
     Martis::tools([
-        new SystemStatusTool(),
-        new HiddenTool(),
+        new SystemStatusTool,
+        new HiddenTool,
     ]);
 
     $response = $this->getJson('/martis/api/tools');
@@ -66,7 +67,7 @@ it('GET /martis/api/tools lists every visible registered tool', function () {
 });
 
 it('GET /martis/api/tools/{uriKey} returns the tool metadata', function () {
-    Martis::tools([new SystemStatusTool()]);
+    Martis::tools([new SystemStatusTool]);
 
     $response = $this->getJson('/martis/api/tools/system-status');
 
@@ -77,7 +78,7 @@ it('GET /martis/api/tools/{uriKey} returns the tool metadata', function () {
 });
 
 it('GET /martis/api/tools/{uriKey} returns 404 for unknown tools', function () {
-    Martis::tools([new SystemStatusTool()]);
+    Martis::tools([new SystemStatusTool]);
 
     $response = $this->getJson('/martis/api/tools/nope');
 
@@ -85,7 +86,7 @@ it('GET /martis/api/tools/{uriKey} returns 404 for unknown tools', function () {
 });
 
 it('GET /martis/api/tools/{uriKey} returns 404 for tools whose canSee() denies the user', function () {
-    Martis::tools([new HiddenTool()]);
+    Martis::tools([new HiddenTool]);
 
     // Indistinguishable from "not found" by design — an unauthorised
     // user must not be able to probe which tools exist.
@@ -104,7 +105,7 @@ it('class-string registrations are instantiated lazily', function () {
 });
 
 it('MenuItem::tool() resolves to a tool entry with the right URL and component', function () {
-    $tool = new SystemStatusTool();
+    $tool = new SystemStatusTool;
 
     $item = MenuItem::tool($tool);
     $resolved = $item->resolve(request());
@@ -120,7 +121,7 @@ it('MenuItem::tool() resolves to a tool entry with the right URL and component',
 });
 
 it('MenuItem::tool() drops the entry when canSee() denies the request', function () {
-    $item = MenuItem::tool(new HiddenTool());
+    $item = MenuItem::tool(new HiddenTool);
 
     expect($item->resolve(request()))->toBeNull();
 });
@@ -137,9 +138,8 @@ it('MenuItem::tool() accepts a class-string and instantiates it lazily', functio
 // Per-tool boot() lifecycle hook (Nova parity)
 // ---------------------------------------------------------------------------
 
-class BootHookTool extends \Martis\Tools\Tool
+class BootHookTool extends Tool
 {
-    /** @var int */
     public static int $bootCount = 0;
 
     public function __construct()
@@ -153,7 +153,7 @@ class BootHookTool extends \Martis\Tools\Tool
     }
 }
 
-class ThrowingBootTool extends \Martis\Tools\Tool
+class ThrowingBootTool extends Tool
 {
     public function __construct()
     {
@@ -162,44 +162,44 @@ class ThrowingBootTool extends \Martis\Tools\Tool
 
     public function boot(): void
     {
-        throw new \RuntimeException('boom');
+        throw new RuntimeException('boom');
     }
 }
 
 it('MartisManager::bootTools() runs boot() on every registered tool exactly once', function () {
     BootHookTool::$bootCount = 0;
-    \Martis\Facades\Martis::tools([BootHookTool::class]);
+    Martis::tools([BootHookTool::class]);
 
-    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
-    \Martis\Facades\Martis::getFacadeRoot()?->bootTools(); // idempotent
+    Martis::getFacadeRoot()?->bootTools();
+    Martis::getFacadeRoot()?->bootTools(); // idempotent
 
     expect(BootHookTool::$bootCount)->toBe(1);
 });
 
 it('MartisManager::bootTools() materialises class-string registrations into instances', function () {
-    \Martis\Facades\Martis::tools([BootHookTool::class]);
-    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+    Martis::tools([BootHookTool::class]);
+    Martis::getFacadeRoot()?->bootTools();
 
-    $resolved = \Martis\Facades\Martis::resolveTools(request());
+    $resolved = Martis::resolveTools(request());
 
     expect($resolved[0])->toBeInstanceOf(BootHookTool::class);
 });
 
 it('MartisManager::bootTools() swallows exceptions so a broken tool does not kill admin boot', function () {
-    \Martis\Facades\Martis::tools([
-        new ThrowingBootTool(),
-        new BootHookTool(),
+    Martis::tools([
+        new ThrowingBootTool,
+        new BootHookTool,
     ]);
     BootHookTool::$bootCount = 0;
 
     // Must not throw — the broken tool gets logged + skipped, the
     // healthy tool's boot still runs.
-    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+    Martis::getFacadeRoot()?->bootTools();
 
     expect(BootHookTool::$bootCount)->toBe(1);
 });
 
-class PublishingTool extends \Martis\Tools\Tool
+class PublishingTool extends Tool
 {
     public function __construct()
     {
@@ -216,16 +216,16 @@ class PublishingTool extends \Martis\Tools\Tool
 
 it('Tool::publishes() registers paths under the standard ServiceProvider buckets', function () {
     $reset = function () {
-        \Illuminate\Support\ServiceProvider::$publishes[PublishingTool::class] = [];
-        unset(\Illuminate\Support\ServiceProvider::$publishGroups['publishing-tool-config']);
+        ServiceProvider::$publishes[PublishingTool::class] = [];
+        unset(ServiceProvider::$publishGroups['publishing-tool-config']);
     };
     $reset();
 
-    \Martis\Facades\Martis::tools([new PublishingTool()]);
-    \Martis\Facades\Martis::getFacadeRoot()?->bootTools();
+    Martis::tools([new PublishingTool]);
+    Martis::getFacadeRoot()?->bootTools();
 
-    $perProvider = \Illuminate\Support\ServiceProvider::$publishes[PublishingTool::class] ?? [];
-    $perTag = \Illuminate\Support\ServiceProvider::$publishGroups['publishing-tool-config'] ?? [];
+    $perProvider = ServiceProvider::$publishes[PublishingTool::class] ?? [];
+    $perTag = ServiceProvider::$publishGroups['publishing-tool-config'] ?? [];
 
     expect($perProvider)->not->toBeEmpty();
     expect(array_values($perTag)[0] ?? null)->toBe(config_path('martis-publishing-tool-test.php'));

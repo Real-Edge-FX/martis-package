@@ -23,6 +23,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\ServiceProvider;
 use Martis\Cache\MartisCache;
 use Martis\Contracts\ToolContract;
 use Martis\Facades\Martis;
@@ -30,12 +31,14 @@ use Martis\Fields\Field;
 use Martis\Fields\Text;
 use Martis\Impersonation\Facades\Impersonation;
 use Martis\Impersonation\ImpersonationManager;
+use Martis\MartisManager;
 use Martis\Menu\MenuItem;
 use Martis\Notifications\MartisNotification;
 use Martis\Resource;
 use Martis\Sso\Facades\MartisSso;
 use Martis\Sso\SsoManager;
 use Martis\Tools\Tool;
+use Martis\Tools\ToolServiceProvider;
 
 class ParitySurfaceFakeModel extends Model
 {
@@ -311,13 +314,13 @@ it('Tool implements ToolContract and exposes the documented hooks', function () 
 });
 
 it('ToolServiceProvider is the documented base for Composer-package tool distribution', function () {
-    expect(class_exists(\Martis\Tools\ToolServiceProvider::class))
+    expect(class_exists(ToolServiceProvider::class))
         ->toBeTrue('Martis\\Tools\\ToolServiceProvider must exist for Composer-package tools.');
 
-    expect(is_subclass_of(\Martis\Tools\ToolServiceProvider::class, \Illuminate\Support\ServiceProvider::class))
+    expect(is_subclass_of(ToolServiceProvider::class, ServiceProvider::class))
         ->toBeTrue('ToolServiceProvider must extend Illuminate\\Support\\ServiceProvider.');
 
-    $reflection = new ReflectionClass(\Martis\Tools\ToolServiceProvider::class);
+    $reflection = new ReflectionClass(ToolServiceProvider::class);
     expect($reflection->isAbstract())
         ->toBeTrue('ToolServiceProvider must be abstract — consumers subclass it.');
 
@@ -328,7 +331,7 @@ it('ToolServiceProvider is the documented base for Composer-package tool distrib
 });
 
 it('MartisManager exposes bootTools() so Tool::boot() runs once per request lifecycle', function () {
-    $reflection = new ReflectionMethod(\Martis\MartisManager::class, 'bootTools');
+    $reflection = new ReflectionMethod(MartisManager::class, 'bootTools');
     expect($reflection->isPublic())->toBeTrue();
     expect($reflection->getNumberOfParameters())->toBe(0);
 });

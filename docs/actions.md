@@ -1242,3 +1242,34 @@ RemoveTag::make()
 | Inline buttons | Per-row icon buttons in the DataTable (no checkbox required) |
 
 All components respect the Martis theme system and work in both light and dark themes.
+
+---
+
+## RedirectAfter enum (Override redirects)
+
+Used with `Override::redirectAfter()` (override system) to control where the user navigates after a create/update action within an override:
+
+```php
+use Martis\RedirectAfter;
+
+Override::for(PostResource::class)
+    ->onCreate('app:create-post-wizard')
+    ->redirectAfter(RedirectAfter::Detail);   // jump to detail page
+```
+
+Cases:
+
+| Case | Effect |
+|---|---|
+| `RedirectAfter::Detail` | Navigate to `/resources/{resource}/{id}` (default). |
+| `RedirectAfter::Edit` | Navigate to `/resources/{resource}/{id}/edit`. |
+| `RedirectAfter::Index` | Back to the resource index. |
+| `RedirectAfter::Stay` | Keep the user on the current page (drawer scenarios). |
+
+For custom URLs with dynamic placeholders, pass a string directly:
+
+```php
+->redirectAfter('/resources/{resource}/{id}/preview')
+```
+
+Placeholders: `{id}` (record id), `{resource}` (resource uriKey).

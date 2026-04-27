@@ -5,6 +5,266 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.0] — 2026-04-27
+
+First stable release. The post-v0.10.0-rc1 cycle closed the documentation
+audit, the v1.0 readiness checklist, and a handful of polish items found
+during release-candidate baking.
+
+### Added
+
+- **Visual regression baseline** — `tests/e2e/visual-baseline.spec.ts`
+  in the playground covers 7 canonical pages (dashboard, resource
+  index, resource create, profile, system cache, custom tool, login)
+  with `toHaveScreenshot()` assertions and committed PNG baselines.
+- **README screenshot showcase** — six inline screenshots in the root
+  README, sourced from the visual-baseline captures.
+- **GitHub Actions CI** — new `.github/workflows/ci.yml` runs:
+  - `pest` matrix: PHP 8.2/8.3 × Laravel 11.*/12.* (4 cells)
+  - `phpstan` at level 8
+  - `pint` style check
+  - `vitest` JS test suite
+- **PHPStan baseline** — `phpstan-baseline.neon` locks 220 pre-v1.0
+  errors so CI fails on new errors without blocking the cut. Track the
+  count down to zero post-1.0.
+- **`docs/v1-roadmap.md`** — live readiness checklist used to drive
+  this release.
+
+### Changed
+
+- **Documentation overhaul** — Nova v5 references consolidated into
+  `docs/PARITY_MAP.md` as the single canonical reference. Migration
+  guide and ecosystem map folded in as appended sections; every other
+  doc is now self-contained and reads as a Martis explainer.
+  - Deleted `docs/migration-from-nova.md`, `docs/nova-ecosystem-catalog.md`,
+    `docs/release-v0.3.0-alpha.md`, `docs/PROJECT_CONTEXT.md`.
+  - Filled 4 missing config-key sections (`preferences`, `sticky_views`,
+    `loader`, `impersonation`) in `docs/configuration.md`.
+  - Filled 7 missing endpoint families (Dashboards, Tools, Preferences,
+    Notifications, Cache Admin, Profile, Impersonation, Sync Field) in
+    `docs/api/overview.md`.
+  - Documented `RelationshipQueryResolver`, `RedirectAfter`,
+    `MetricResult`, and `useUnsavedChangesGuard`.
+- **`composer.json`** — `minimum-stability` bumped from `dev` to
+  `stable` for the first stable release.
+- **`composer.json`** — license corrected from `proprietary` to `MIT`
+  (matches the LICENSE file content all along).
+
+### Fixed
+
+- **Route name collision** — RC-only routes registered under
+  `Route::name('api.')->group(...)` and named `api.X` produced
+  double-prefixed names (`martis.api.api.tools.index` etc). Affected
+  7 routes from the v0.10.0-rc1 surface; dropped the inner `api.` so
+  the canonical names are now `martis.api.tools.index`,
+  `martis.api.impersonation.{status,start,stop}`,
+  `martis.api.navigation`, `martis.api.command-palette`.
+- **PHP 8.2/8.3 syntax compatibility** — `(new class { ... })::class`
+  now wrapped in parens (8 occurrences across 4 test files). The
+  unparenthesised form requires PHP 8.4+ and was breaking CI on the
+  8.2/8.3 matrix cells.
+- **Style baseline** — auto-fixed 80 files of pre-existing Pint drift
+  (single_quote, ordered_imports, fully_qualified_strict_types, etc).
+  Pure formatting; no semantic changes.
+- **Playwright auth setup** — login form selector moved from
+  `#email`/`#password` to `#login-email`/`#login-password` at some
+  point; the test setups never picked up the rename and were silently
+  timing out. Fixed in playground PR #6.
+
+## [0.10.0-rc1] — 2026-04-27
+
+First release candidate for v1.0.0. Closes the entire post-1.0 backlog
+identified in the v0.9.0-beta parity audit.
+
+### Added — Custom Tools
+
+- `Martis\Tools\Tool` base class + `Martis\Contracts\ToolContract` interface.
+- Per-tool `boot()` lifecycle hook — runs once during host application
+  boot (after Martis loads its own routes / views / config). Use it to
+  register tool-owned routes, event listeners, gates, schedules, view
+  namespaces. Idempotent; exception-swallowing so a broken tool cannot
+  bring down the admin shell.
+- `Martis\Tools\ToolServiceProvider` — abstract base for distributing a
+  Tool as a standalone Composer package (auto-discovery via
+  `extra.laravel.providers`).
+- `Tool::publishes()` + `Tool::publishesAssets()` — per-tool config /
+  migrations / lang / asset publishing through the standard
+  `vendor:publish --tag=...` flow.
+- `Martis::tools([...])` registration on the manager;
+  `Martis::resolveTools(Request)` and `Martis::findTool(Request, $key)`
+  for authorisation-filtered lookups.
+- `MenuItem::tool($class|$instance)` factory + new `MenuItemType::Tool`
+  enum case.
+- REST surface: `GET /martis/api/tools` + `GET /martis/api/tools/{uriKey}`
+  (404-when-denied so unauthorised users cannot probe which tools exist).
+- `martis:tool` artisan generator with flags `--with-component`,
+  `--component-key`, `--use-bundled`, `--menu-section`, `--icon`,
+  `--force`. Prints "next steps" CLI block on success.
+- Bundled `SystemStatusDemo` React component (`martis:tool:system-status-demo`)
+  for zero-TSX consumer paths.
+- React shell — `resources/js/pages/ToolPage.tsx` mounted at
+  `/tools/:uriKey` resolves the registered React component via
+  `componentRegistry`.
+
+### Added — Impersonation
+
+- Two-layer guard: `martis.impersonation.enabled` master switch
+  (default `false`) + `martis-impersonate` Laravel Gate (no default —
+  consumers define it explicitly in their `AuthServiceProvider`).
+- `Martis\Impersonation\ImpersonationManager` with `start`, `stop`,
+  `isActive`, `originalUser`, `currentTarget`, `enabled`, `guard`,
+  `snapshot` methods.
+- `Impersonation` facade.
+- 3 endpoints: `GET /martis/api/impersonation/status`,
+  `POST /start/{userId}`, `POST /stop`. Full 503 / 403 / 404 / 422 / 200
+  error matrix; self-impersonation and chaining rejected by design.
+- Built-in `ImpersonationBanner` React component, mounted in the layout
+  shell. Boot-config short-circuit so disabled installs pay zero
+  ongoing cost.
+
+### Added — Documentation deliverables
+
+- `docs/migration-from-nova.md` (later folded into `PARITY_MAP.md`):
+  end-to-end Nova v5 → Martis migration guide (namespace map,
+  method-by-method conversion, field API map, cookbook, verification
+  checklist).
+- `docs/nova-ecosystem-catalog.md` (later folded into `PARITY_MAP.md`):
+  Nova v5 add-on mapping.
+- `docs/tools.md` rewritten as end-to-end walkthrough (architecture
+  diagram, 5-min path, anatomy, lifecycle, distribution patterns,
+  cookbook with 3 recipes, anti-patterns).
+- `docs/tool-boot-patterns.md` companion: decision rubric for
+  `Tool::boot()` vs `AppServiceProvider::boot()`.
+- `docs/impersonation.md` — banner integration recipe + audit-log
+  subclass example.
+
+### Changed
+
+- `MartisManager::bootTools()` runs every registered tool's `boot()`
+  exactly once per request lifecycle.
+- PARITY_MAP — Custom Tools row promoted from PARTIAL to DONE; new
+  Impersonation row.
+- Test count — 1613 Pest + 84 Vitest = 1697 passing, 6 skipped, 0 failed.
+
+### Fixed
+
+- `ImpersonationBanner` skips its mount-time fetch entirely when the
+  master switch is off at boot. Previously polled `/api/impersonation/status`
+  on every authenticated page mount, adding ~1s under cold cache.
+- `MartisManager::tools()` re-arms the boot lifecycle so tools registered
+  after the first request (in tests, deferred providers) still fire.
+- Test health metadata across the docs corrected — the historical
+  "282 failing" was retired in v0.7.0-beta but never propagated to
+  workspace metadata.
+
+### Tests
+
+- `tests/Feature/ToolsControllerTest.php` (13 tests) — registration,
+  authorisation, boot lifecycle, exception swallowing, publishing,
+  menu integration.
+- `tests/Feature/ImpersonationControllerTest.php` (10 tests) — both
+  guards, start error matrix, stop idempotency, snapshot shape.
+- `tests/Feature/ParitySurfaceTest.php` — Reflection-based tripwire
+  that locks the public surface of every v0.8 / v0.9 / v0.10 contract.
+  18 tests, expanded to cover the new Tools + Impersonation surface.
+
+## [0.9.0-beta] — 2026-04-26
+
+Forms / Index UX, Locale Extensibility, Global Search, Visual UX, SSO.
+
+### Added — Reactive forms (Task 09)
+
+- `Field::dependsOn(['attr'], Closure)` reactive fields with server-side
+  resolution via `POST /api/resources/{r}/sync-field`. Frontend
+  debounces 200ms and uses `AbortController` so the latest value
+  always wins.
+- 13 closure-aware setters across the field API (`nullable`,
+  `required`, `readonly`, `default`, `placeholder`, `help`, `tooltip`,
+  `withLabel`, `rules`, `Select::options`, `MultiSelect::options`,
+  `BooleanGroup::options`).
+- Customisation hooks gain a `?Request` 4th argument
+  (`resolveUsing` / `fillUsing` / `displayUsing`).
+- `displayUsing(array)` accepts a chainable transformation pipeline.
+- Context-aware validation: `creationRules()` / `updateRules()` layered
+  on top of `rules()`; new `immutable()` flag (writable on create,
+  readonly on update).
+- 4 save variants: `Create & add another`, `Create & view list`,
+  `Save & continue editing`, `Save & view list`.
+- Reset-filters toolbar button (separate from Reset view).
+
+### Added — Global Search (Task 11)
+
+- Per-resource config: `globallySearchable()` accepts
+  `bool|array{enabled?, limit?, min_query?}`.
+- `searchOrderBy()` hook applied AFTER the search filter.
+- "View all N matches in {resource}" palette overflow item.
+
+### Added — Locale extensibility (Task 13)
+
+- Per-key deep merge of consumer overrides.
+- Configurable host-app namespaces via `martis.locales.app_namespaces`.
+- Configurable fallback chain via `martis.locales.fallback_chain`.
+
+### Added — SSO (Task 14)
+
+- Pluggable provider contract (`SsoProviderContract`) with `AzureProvider`
+  reference implementation.
+- Identity-to-user resolver, role mapping (column / config / callable),
+  permission adapters (Spatie / native / callable).
+- Idempotent `martis:sso <provider>` generator.
+
+### Fixed — Layout-flatten audit
+
+- Closed five latent bugs across `HasManyController`,
+  `MorphManyController`, `LensController`,
+  `ResourceController::syncField`, and
+  `ResourceController::relatableSearch`. Every code path that iterates
+  `Resource::fields()` raw now flattens `Section` / `Panel` / `TabGroup`
+  first.
+
+### Fixed — Visual UX (Task 16)
+
+- Loader dark-mode bug.
+- Spinner under `prefers-reduced-motion`.
+- Topbar search overlap.
+- `applySorting` layout TypeError.
+- Audio play-button on row click.
+
+## [0.8.0-beta] — 2026-04-26
+
+Sticky Views, Notifications, Cache control.
+
+### Added — Sticky views
+
+- Per-resource session storage of search / sort / filters / pagination
+  / trashed-toggle / `filtersOpen`. Survives back-navigation; drops on
+  resource change.
+- `useStickyView()` hook in `resources/js/lib/`.
+- Config: `martis.sticky_views.{enabled, scope, persist.*}`.
+
+### Added — In-app notifications
+
+- Topbar bell dropdown over Laravel's standard `notifications` table.
+- `MartisNotification::make(title:, message:, level:)` inline factory
+  (no `MartisNotifies` trait — consumer uses Laravel's standard
+  `Notifiable`).
+- REST: `/api/notifications`, `/unread-count`, `/read-all`,
+  `/{id}/read`, single + bulk delete.
+- Config: `martis.notifications.{enabled, poll_interval, max_in_dropdown}`.
+
+### Added — Cache control surface
+
+- `MartisCache::extend('name', enabled, ttl)` for host-app cache
+  layers on top of the four built-ins (`metrics`, `navigation`,
+  `dashboards`, `schema`).
+- `/martis/system/cache` admin page (toggle / version / clear per type).
+- Three control planes: config, env vars, runtime overrides
+  (cache-stored, survives restarts).
+- Per-request bypass via `X-Martis-No-Cache: 1` header or
+  `?nocache=1` query.
+
 ## [0.7.0-beta] — 2026-04-25
 
 ### Added — Design-system phases 1–5

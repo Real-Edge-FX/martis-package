@@ -2,7 +2,7 @@
 
 > Free-form sidebar pages — non-resource, non-dashboard, non-lens. Use Tools when you need an admin page that isn't backed by a model: import wizards, system status, ad-hoc reports, third-party embeds, generated docs, etc.
 >
-> **Status:** v0.10 ships with full Nova v5 parity — `boot()` per-tool lifecycle, `ToolServiceProvider` for Composer-package distribution, asset/file publishing helpers, and a `martis:tool` artisan generator.
+> **Status:** shipped in v0.10. Includes a `boot()` per-tool lifecycle hook, a `ToolServiceProvider` for Composer-package distribution, asset/file publishing helpers, and a `martis:tool` artisan generator.
 
 ## When to use a Tool
 
@@ -282,7 +282,7 @@ Martis::tools([SystemStatus::class]);
 
 This is what the `martis:tool` generator scaffolds.
 
-### Pattern B — Composer-package tool (Nova-style)
+### Pattern B — Composer-package tool
 
 The tool ships as a standalone Composer package with its own service provider, view publishing, asset publishing, and migrations. Consumers `composer require your-vendor/your-tool` and the tool registers itself — they never touch their own service provider.
 

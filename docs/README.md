@@ -84,6 +84,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 5 | **[Fields Reference](fields.md)** | All 50 field types — configuration options, visibility flags, validation rules, relationship fields (all 12 relation types), enums, PrimeReact prop passthrough |
 | 6 | **[Relationships](relationships.md)** | Relationship fields — 12 types (`BelongsTo`, `HasOne`, `HasOneOfMany`, `HasOneThrough`, `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany`), pivot fields, attach/detach, toolbar hide flags, soft-delete filter dropdown |
 | 6.1 | **[Repeater](repeater.md)** | Repeatable row widget — JSON / HasMany / ⭐ Polymorphic storage, multi-type, row templates, duplicate, bulk paste, collapse, drag-and-drop reorder, min/max, dependsOn |
+| 6.2 | **[Grid Layout](grid-layout.md)** | Multi-column form layouts via `Section::columns()` and `Field::span()` — responsive by default, zero config |
 | 6.5 | **[Filters](filters.md)** | Filters framework — SelectFilter, BooleanFilter, DateFilter, DateRangeFilter, custom filters, default values, dynamic filters, API reference |
 | 6.6 | **[Lenses](lenses.md)** | Custom filtered views — `Lens` base class, `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync |
 | 6.7 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
@@ -120,11 +121,10 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
-| 15 | **[Martis Differentials](differentials.md)** | All features unique to Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
-| 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature status map — what is done, in progress, and planned |
-| 17 | **[Migrating from Nova 5](migration-from-nova.md)** | What ports cleanly, what's renamed, what's intentionally different — for teams coming from Laravel Nova v5 |
-| 17.5 | **[Nova v5 Ecosystem Catalog](nova-ecosystem-catalog.md)** | Common Nova add-ons mapped to Martis status (built-in / build-it-yourself / won't-ship) |
-| 18 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
+| 15 | **[Martis Differentials](differentials.md)** | All distinctive features of Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
+| 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature parity scorecard, migration guide, and ecosystem mapping (single canonical reference) |
+| 17 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
+| 18 | **[v1.0 Roadmap](v1-roadmap.md)** | Live checklist of remaining items before the v1.0.0 tag is cut |
 
 ---
 
@@ -141,6 +141,7 @@ docs/
 ├── fields.md ....................... Fields reference (50 types)
 ├── relationships.md ................ Relationship fields guide
 ├── repeater.md ..................... Repeater widget
+├── grid-layout.md .................. Multi-column form layouts
 ├── filters.md ...................... Filters framework
 ├── lenses.md ....................... Lenses (custom filtered views)
 ├── metrics.md ...................... Metrics (Value / Trend / Partition / Progress)
@@ -165,10 +166,9 @@ docs/
 ├── i18n.md ......................... Adding locales & translations
 ├── cache.md ........................ Cache control surface (v0.8)
 ├── differentials.md ................ Martis differentials (unique features)
-├── PARITY_MAP.md ................... Parity status tracker
-├── migration-from-nova.md .......... Migration guide for Nova v5 teams
-├── nova-ecosystem-catalog.md ....... Nova add-on ↔ Martis status map
+├── PARITY_MAP.md ................... Parity scorecard + migration guide + ecosystem map
 ├── release-process.md .............. How a release tag is cut
+├── v1-roadmap.md ................... v1.0 readiness checklist
 ├── api/
 │   └── overview.md ................. REST API reference
 ├── architecture/
@@ -234,4 +234,4 @@ The playground application ships with pre-configured resources for development a
 
 ## Releases
 
-The canonical record for the current alpha line is [release-v0.3.0-alpha.md](release-v0.3.0-alpha.md). More detailed release notes and the full delta history live on the repository tags and in the internal `knowledge/RELEASE_HISTORY.md` tracker. Individual release record files in `docs/` are produced only by the release owner — feature work and docs audits do not create them.
+Full release history lives on the [GitHub Releases](https://github.com/Real-Edge-FX/martis-package/releases) page. The release process itself is documented in [release-process.md](release-process.md).

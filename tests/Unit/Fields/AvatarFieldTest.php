@@ -51,7 +51,7 @@ it('Avatar fallback(url) resolves to the static URL when the stored file is miss
 it('Avatar fallback(Closure) receives the model for per-row fallbacks', function () {
     $model = new AvatarTestModel(['name' => 'Jane Doe']);
     $field = Avatar::make('avatar_path')->fallback(
-        fn ($m) => "https://cdn.example.com/".urlencode($m->name).".png"
+        fn ($m) => 'https://cdn.example.com/'.urlencode($m->name).'.png'
     );
 
     $resolved = $field->resolve($model);

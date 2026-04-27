@@ -2,8 +2,10 @@
 
 namespace Martis\Enums;
 
+use Martis\Metrics\TrendMetric;
+
 /**
- * Time-bucket unit for {@see \Martis\Metrics\TrendMetric} aggregation.
+ * Time-bucket unit for {@see TrendMetric} aggregation.
  */
 enum TrendPeriod: string
 {

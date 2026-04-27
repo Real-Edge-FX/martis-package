@@ -2,8 +2,10 @@
 
 namespace Martis\Enums;
 
+use Martis\Fields\Repeater;
+
 /**
- * Persistence mode for {@see \Martis\Fields\Repeater}.
+ * Persistence mode for {@see Repeater}.
  *
  * - Json: serialised array on a JSON cast attribute of the parent model.
  * - HasMany: rows live in a child table and are upserted via `uniqueField`.

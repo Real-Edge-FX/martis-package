@@ -5,8 +5,9 @@ declare(strict_types=1);
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Martis\Cache\MartisCache;
+use Martis\Tests\TestCase;
 
-uses(\Martis\Tests\TestCase::class);
+uses(TestCase::class);
 
 beforeEach(function () {
     config()->set('cache.default', 'array');
@@ -25,6 +26,7 @@ it('caches the callback result and returns it on subsequent calls', function () 
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return ['value' => 42];
     };
 
@@ -40,6 +42,7 @@ it('skips the cache when the master switch is off', function () {
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return ['v' => $hits];
     };
 
@@ -53,6 +56,7 @@ it('respects per-type config disabled flag', function () {
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return $hits;
     };
 
@@ -64,6 +68,7 @@ it('clearing a type bumps the version key and invalidates the entry', function (
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return $hits;
     };
 
@@ -84,6 +89,7 @@ it('clearing without a type wipes every layer at once', function () {
     $hits = 0;
     $this->cache->remember('metrics', 'k1', function () use (&$hits) {
         $hits++;
+
         return 'recomputed';
     });
 
@@ -96,6 +102,7 @@ it('runtime disable overrides config-enabled', function () {
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return $hits;
     };
 
@@ -110,6 +117,7 @@ it('runtime enable overrides config-disabled', function () {
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return $hits;
     };
 
@@ -133,6 +141,7 @@ it('honours the X-Martis-No-Cache header on the active request', function () {
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return $hits;
     };
 
@@ -147,6 +156,7 @@ it('honours the ?nocache=1 query parameter', function () {
     $hits = 0;
     $cb = function () use (&$hits) {
         $hits++;
+
         return $hits;
     };
 
@@ -219,6 +229,7 @@ it('a custom layer caches and clears like built-in layers', function () {
         $hits = 0;
         $cb = function () use (&$hits) {
             $hits++;
+
             return $hits;
         };
 

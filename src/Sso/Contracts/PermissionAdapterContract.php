@@ -24,8 +24,8 @@ interface PermissionAdapterContract
      * `$resolvedRoles` and attach any new one. Idempotent.
      *
      * @param  Collection<int, mixed>  $resolvedRoles  Eloquent collection
-     *   of role models (Spatie or app-defined). The exact class is
-     *   adapter-specific.
+     *                                                 of role models (Spatie or app-defined). The exact class is
+     *                                                 adapter-specific.
      */
     public function syncRoles(User $user, Collection $resolvedRoles): void;
 }

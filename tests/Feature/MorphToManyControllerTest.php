@@ -243,7 +243,7 @@ it('attaches a tag with pivot data', function () {
     );
 
     expect($response->status())->toBeIn([200, 201]);
-    $pivotRow = \DB::table('mtm_test_taggables')
+    $pivotRow = DB::table('mtm_test_taggables')
         ->where('taggable_type', MTMPostModel::class)
         ->where('taggable_id', $post->id)
         ->where('tag_id', $tag->id)
@@ -297,7 +297,7 @@ it('updates pivot data for a polymorphic attachment', function () {
 
     expect($response->status())->toBeIn([200, 204]);
 
-    $pivotRow = \DB::table('mtm_test_taggables')
+    $pivotRow = DB::table('mtm_test_taggables')
         ->where('taggable_type', MTMPostModel::class)
         ->where('taggable_id', $post->id)
         ->where('tag_id', $tag->id)

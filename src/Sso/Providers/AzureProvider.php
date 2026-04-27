@@ -6,6 +6,9 @@ namespace Martis\Sso\Providers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Laravel\Socialite\Contracts\Provider;
+use Laravel\Socialite\Contracts\User;
+use Laravel\Socialite\Facades\Socialite;
 use Martis\Sso\SsoIdentity;
 use RuntimeException;
 
@@ -42,15 +45,15 @@ class AzureProvider extends AbstractSsoProvider
 
         $driver = (string) $this->config('driver', 'azure');
 
-        /** @var \Laravel\Socialite\Contracts\Provider $client */
-        $client = \Laravel\Socialite\Facades\Socialite::driver($driver);
+        /** @var Provider $client */
+        $client = Socialite::driver($driver);
 
         if (method_exists($client, 'stateless') && (bool) $this->config('stateless', false)) {
             /** @phpstan-ignore-next-line — runtime method on Socialite drivers */
             $client = $client->stateless();
         }
 
-        /** @var \Laravel\Socialite\Contracts\User $user */
+        /** @var User $user */
         $user = $client->user();
 
         $email = (string) ($user->getEmail() ?? $user->user['mail'] ?? $user->user['userPrincipalName'] ?? '');
@@ -107,7 +110,7 @@ class AzureProvider extends AbstractSsoProvider
         $resourceId = (string) $this->config('resource_id', '');
         if ($resourceId === '') {
             throw new RuntimeException(
-                "Azure SSO `role_source = app_role_assignments` requires `resource_id` ".
+                'Azure SSO `role_source = app_role_assignments` requires `resource_id` '.
                 'in `config/martis.php → auth.sso.providers.azure`. Set the AZURE_RESOURCE_ID env.'
             );
         }

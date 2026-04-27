@@ -6,6 +6,7 @@ use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -310,7 +311,7 @@ class TwoFactorService
         }
 
         try {
-            $cached = \Illuminate\Support\Facades\Schema::connection($user->getConnectionName())
+            $cached = Schema::connection($user->getConnectionName())
                 ->hasColumn($user->getTable(), 'two_factor_last_used_at');
         } catch (Throwable) {
             $cached = false;
