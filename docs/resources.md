@@ -100,6 +100,37 @@ class AuditEventResource extends Resource
 
 When the global `config('martis.sticky_views.enabled')` is `false`, the per-resource flag is ignored and the feature is off everywhere.
 
+### Auto-refresh polling — `$polling`, `$pollingInterval`, `$showPollingToggle`
+
+Auto-refreshes the resource index payload at a fixed cadence. Useful for resources whose rows reflect external state (queue jobs, deployments, scraper feeds, real-time order books) where a stale view actively misleads the operator.
+
+```php
+class DeploymentResource extends Resource
+{
+    public static bool $polling = true;
+    public static int $pollingInterval = 10;        // seconds
+    public static bool $showPollingToggle = true;   // pause/resume control
+}
+```
+
+Defaults: `$polling = false`, `$pollingInterval = 15`, `$showPollingToggle = true`.
+
+The interval is silently clamped to a 5-second floor (`Resource::resolvedPollingInterval()`) — anything lower would risk hammering the backend on a long-running tab. When `$showPollingToggle` is `false` the user has no way to pause polling; when `true` the toolbar exposes a control that flips the live state for the current session.
+
+The values surface in the index payload as:
+
+```jsonc
+{
+  "schema": {
+    "polling": true,
+    "pollingInterval": 10,
+    "showPollingToggle": true
+  }
+}
+```
+
+Lenses use the same shape (see [lenses.md](lenses.md)) — they inherit nothing from the resource, so each Lens declares its own polling cadence if it wants one.
+
 ## Configuration Methods
 
 ### titleAttribute()
