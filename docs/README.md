@@ -109,6 +109,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching, per-key deep merge, `app_namespaces`, `fallback_chain` |
 | 11.4 | **[Cache Control Surface](cache.md)** | `MartisCache::extend()`, runtime per-type toggle, `/martis/system/cache` admin page (v0.8) |
 | 11.5 | **[Customising Generators](customizing-generators.md)** | `martis:stubs` publisher + `Martis\Stubs\StubResolver` — every generator template (resource, action, lens, metrics, fields, tools, ...) is editable in `stubs/martis/` (v1.1) |
+| 11.6 | **[Keyboard Shortcuts](keyboard-shortcuts.md)** | `addShortcut()` / `disableShortcut()` / `listShortcuts()` registry + `Shift+?` help overlay; mod-key normalisation, two-key sequences, input-focus suppression (v1.1) |
 
 ### Architecture & Design
 
