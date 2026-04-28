@@ -62,6 +62,31 @@ const SEQUENCE_TIMEOUT = 1500
 const isMac = typeof navigator !== 'undefined'
   && /Mac|iPhone|iPod|iPad/i.test(navigator.platform || navigator.userAgent || '')
 
+/**
+ * Read the master switch live (every registration consults the
+ * current value, so toggling it at runtime works for late-mounting
+ * Tools). Defaults to `true` when no boot config is present.
+ *
+ * Reads `window.MartisConfig.keyboardShortcuts.enabled` directly —
+ * cannot import `@/lib/config` because it would create a circular
+ * dependency at module load.
+ */
+function isSubsystemEnabled(): boolean {
+  if (typeof window === 'undefined') return true
+  const cfg = (window as unknown as { MartisConfig?: { keyboardShortcuts?: { enabled?: boolean } } }).MartisConfig
+  return cfg?.keyboardShortcuts?.enabled !== false
+}
+
+/**
+ * Read the help-overlay toggle live. Independent of the master
+ * switch above. Defaults to `true`.
+ */
+export function isHelpOverlayEnabled(): boolean {
+  if (typeof window === 'undefined') return true
+  const cfg = (window as unknown as { MartisConfig?: { keyboardShortcuts?: { helpOverlay?: boolean } } }).MartisConfig
+  return cfg?.keyboardShortcuts?.helpOverlay !== false
+}
+
 function parseCombo(combo: string): ParsedCombo {
   // Sequence: two whitespace-separated tokens.
   const sequenceMatch = combo.trim().split(/\s+/)
@@ -141,6 +166,15 @@ class KeyboardShortcutsRegistry {
     if (normalized === '') {
       throw new Error('keyboardShortcuts.add: combo string cannot be empty')
     }
+
+    // Master switch — when the host app sets
+    // `martis.keyboard_shortcuts.enabled = false`, every registration
+    // is a no-op. We still return a disposer so callers do not have
+    // to special-case the disabled path.
+    if (!isSubsystemEnabled()) {
+      return () => { /* no-op, registration was skipped */ }
+    }
+
     const entry: Shortcut = {
       combo: normalized,
       handler,

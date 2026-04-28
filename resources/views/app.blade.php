@@ -46,6 +46,7 @@
             version: {!! json_encode(app(\Martis\MartisManager::class)->version()) !!},
             docsUrl: {!! json_encode(config('martis.brand.docs_url')) !!},
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},
+            keyboardShortcuts: {!! json_encode(config('martis.keyboard_shortcuts', ['enabled' => true, 'helpOverlay' => true])) !!},
             userMenu: {!! json_encode(config('martis.user_menu', ['showThemeToggle' => true, 'showProfile' => true, 'showNotifications' => true])) !!},
             search: {!! json_encode(config('martis.search', ['enabled' => true])) !!},
             dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showWelcomeCard' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},

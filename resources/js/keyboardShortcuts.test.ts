@@ -4,6 +4,7 @@ import {
   addShortcut,
   disableShortcut,
   listShortcuts,
+  isHelpOverlayEnabled,
 } from '@/lib/keyboardShortcuts'
 
 // -----------------------------------------------------------------------------
@@ -129,5 +130,69 @@ describe('keyboardShortcuts', () => {
 
   it('rejects empty combo strings at registration time', () => {
     expect(() => addShortcut('', () => {})).toThrow(/empty/)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Subsystem master switch — `martis.keyboard_shortcuts.enabled = false`
+  // makes every addShortcut() call a no-op while still returning a disposer
+  // so callers do not need to special-case the disabled path.
+  // ---------------------------------------------------------------------------
+
+  describe('master switch', () => {
+    afterEach(() => {
+      // Restore enabled state for downstream tests.
+      ;(window as unknown as { MartisConfig?: Record<string, unknown> }).MartisConfig = {}
+    })
+
+    it('addShortcut is a no-op when keyboardShortcuts.enabled is false', () => {
+      ;(window as unknown as { MartisConfig?: Record<string, unknown> }).MartisConfig = {
+        keyboardShortcuts: { enabled: false },
+      }
+      const handler = vi.fn()
+      const dispose = addShortcut('escape', handler)
+
+      dispatch('Escape')
+      expect(handler).not.toHaveBeenCalled()
+      expect(listShortcuts()).toHaveLength(0)
+      // Disposer is still callable (no-op) so consumers do not have to
+      // branch on the enabled state.
+      expect(() => dispose()).not.toThrow()
+    })
+
+    it('addShortcut works normally when enabled is true (default)', () => {
+      ;(window as unknown as { MartisConfig?: Record<string, unknown> }).MartisConfig = {
+        keyboardShortcuts: { enabled: true },
+      }
+      const handler = vi.fn()
+      addShortcut('escape', handler)
+
+      dispatch('Escape')
+      expect(handler).toHaveBeenCalledTimes(1)
+    })
+
+    it('isHelpOverlayEnabled defaults to true when no config is present', () => {
+      ;(window as unknown as { MartisConfig?: Record<string, unknown> }).MartisConfig = {}
+      expect(isHelpOverlayEnabled()).toBe(true)
+    })
+
+    it('isHelpOverlayEnabled reads keyboardShortcuts.helpOverlay = false', () => {
+      ;(window as unknown as { MartisConfig?: Record<string, unknown> }).MartisConfig = {
+        keyboardShortcuts: { helpOverlay: false },
+      }
+      expect(isHelpOverlayEnabled()).toBe(false)
+    })
+
+    it('helpOverlay is independent of the master switch (enabled=true, helpOverlay=false)', () => {
+      ;(window as unknown as { MartisConfig?: Record<string, unknown> }).MartisConfig = {
+        keyboardShortcuts: { enabled: true, helpOverlay: false },
+      }
+      // Custom shortcut still registers; only the help overlay reader
+      // returns false so the bundled Shift+? skips its own registration.
+      const handler = vi.fn()
+      addShortcut('escape', handler)
+      dispatch('Escape')
+      expect(handler).toHaveBeenCalledTimes(1)
+      expect(isHelpOverlayEnabled()).toBe(false)
+    })
   })
 })

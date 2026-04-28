@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`config('martis.keyboard_shortcuts')` toggles** — two new flags govern the v1.1 keyboard shortcuts subsystem: `enabled` (master switch; when `false`, every `addShortcut()` call is a no-op including the bundled `mod+k`/`/`/`shift+?` combos) and `helpOverlay` (independent toggle that skips the bundled `Shift+?` overlay registration only). Defaults to `true`/`true`. Env vars: `MARTIS_KEYBOARD_SHORTCUTS_ENABLED`, `MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY`. See [docs/keyboard-shortcuts.md](docs/keyboard-shortcuts.md#disabling-the-subsystem).
+
+### Changed
+
+- **`KeyboardShortcutsHelp` overlay redesigned** to match the design-system "Command Palette / Shortcuts" pattern. Replaces the PrimeReact `<Dialog>` with a hand-rolled overlay using the canonical Martis tokens (`var(--martis-overlay)` backdrop, `var(--martis-surface)` card with `var(--martis-radius-lg)` + `var(--martis-shadow-lg)`, hairline `var(--martis-border)` rule between rows, mono `<kbd>` chips on `var(--martis-hover)`). Adds Esc-to-close, click-outside dismiss, and a footer hint row mirroring the Command Palette.
+
+### Added
+
 - **`Resource::$polling`, `$pollingInterval`, `$showPollingToggle`** — auto-refresh the index payload at a fixed cadence. Defaults to off; interval clamped to a 5-second floor via `Resource::resolvedPollingInterval()`. Surfaced in the schema payload as `polling`, `pollingInterval`, `showPollingToggle`. See [docs/resources.md](docs/resources.md).
 - **`Metric::help(?string)`** — attach a tooltip rendered next to the metric title. Serialized as `help` in the metric payload; `null` (default) hides the icon entirely. See [docs/metrics.md](docs/metrics.md).
 - **`martis:stubs` artisan command** — publishes every generator stub from the package into `stubs/martis/` in the consuming app. Once published, edits to those files take effect on the next generator run with no cache to clear. New `Martis\Stubs\StubResolver` resolves each lookup against the project copy first, falling back to the bundled stub when no override exists. All 17 generator commands (resource, action, lens, field, dashboard, every metric type, filter, card, tool, component, theme, policy) now route through the resolver.
