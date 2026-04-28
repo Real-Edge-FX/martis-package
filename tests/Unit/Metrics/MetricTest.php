@@ -264,3 +264,33 @@ it('Metric toArray includes all schema keys', function () {
         ->and($arr['name'])->toBe('Total Users')
         ->and($arr['uriKey'])->toBe('total-users');
 });
+
+// ---------------------------------------------------------------------------
+// help() — tooltip text on metric cards (v1.1)
+// ---------------------------------------------------------------------------
+
+it('Metric help() defaults to null (no tooltip rendered)', function () {
+    $metric = TestTotalUsersMetric::make('Test');
+    expect($metric->helpText())->toBeNull();
+    expect($metric->toArray()['help'])->toBeNull();
+});
+
+it('Metric help(string) attaches tooltip text and serializes it', function () {
+    $metric = TestTotalUsersMetric::make('Test')
+        ->help('Counts all users created in the selected range, including soft-deleted ones.');
+    expect($metric->helpText())->toBe('Counts all users created in the selected range, including soft-deleted ones.');
+    expect($metric->toArray()['help'])->toBe('Counts all users created in the selected range, including soft-deleted ones.');
+});
+
+it('Metric help(null) clears a previously set tooltip', function () {
+    $metric = TestTotalUsersMetric::make('Test')->help('temp');
+    expect($metric->helpText())->toBe('temp');
+    $metric->help(null);
+    expect($metric->helpText())->toBeNull();
+    expect($metric->toArray()['help'])->toBeNull();
+});
+
+it('Metric help() returns the same instance for chaining', function () {
+    $metric = TestTotalUsersMetric::make('Test');
+    expect($metric->help('A'))->toBe($metric);
+});

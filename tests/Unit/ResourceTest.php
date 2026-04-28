@@ -857,3 +857,57 @@ it('resolveRelatableSearchResults floors at 1', function () {
     expect(CappedResource::resolveRelatableSearchResults(0))->toBe(1);
     expect(CappedResource::resolveRelatableSearchResults(-5))->toBe(1);
 });
+
+// ---------------------------------------------------------------------------
+// Index polling — $polling, $pollingInterval, $showPollingToggle (v1.1)
+// ---------------------------------------------------------------------------
+
+class PollingResource extends \Martis\Resource
+{
+    public static bool $polling = true;
+    public static int $pollingInterval = 30;
+    public static bool $showPollingToggle = false;
+
+    public static function model(): string
+    {
+        return Project::class;
+    }
+
+    public function fields(\Illuminate\Http\Request $request): array
+    {
+        return [];
+    }
+}
+
+class FastPollingResource extends \Martis\Resource
+{
+    public static bool $polling = true;
+    public static int $pollingInterval = 1; // intentionally too low
+
+    public static function model(): string
+    {
+        return Project::class;
+    }
+
+    public function fields(\Illuminate\Http\Request $request): array
+    {
+        return [];
+    }
+}
+
+it('Resource exposes polling defaults (off, 15s, toggle visible)', function () {
+    expect(\Martis\Resource::pollingEnabled())->toBeFalse();
+    expect(\Martis\Resource::resolvedPollingInterval())->toBe(15);
+    expect(\Martis\Resource::pollingToggleVisible())->toBeTrue();
+});
+
+it('Resource polling honours per-resource overrides', function () {
+    expect(PollingResource::pollingEnabled())->toBeTrue();
+    expect(PollingResource::resolvedPollingInterval())->toBe(30);
+    expect(PollingResource::pollingToggleVisible())->toBeFalse();
+});
+
+it('Resource resolvedPollingInterval clamps below 5s up to 5s', function () {
+    // Avoids accidental DDoS via a careless `1` value.
+    expect(FastPollingResource::resolvedPollingInterval())->toBe(5);
+});
