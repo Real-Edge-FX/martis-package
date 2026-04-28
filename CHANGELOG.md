@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-04-28
+
+Two bug fixes surfaced while bringing up the staging deploy at `martis.realedgefx.com`. No new features, no API changes — straight patch.
+
 ### Fixed
 
-- **Resource pages now distinguish 5xx server errors from 404 / 403 / network failures.** The five resource pages (`ResourceIndex`, `ResourceDetail`, `ResourceCreate`, `ResourceUpdate`, `ResourceLens`) used to render the same `<NotFoundPage />` for every query failure, including HTTP 500. An operator hitting a real backend bug saw the same "Resource not found" screen as someone mistyping a URL. A new `<ResourceErrorPage>` triages the error: 404 → existing copy, 403 → "Access denied", 5xx → "Server error" with the status code visible, network failure → "Cannot reach the server". The error response body is intentionally NOT rendered to avoid leaking trace info in production. See [docs/troubleshooting](resources/js/pages/ResourceError.tsx) (component-level docblock).
+- **Resource pages now distinguish 5xx server errors from 404 / 403 / network failures** ([#91](https://github.com/Real-Edge-FX/martis-package/pull/91)). The five resource pages (`ResourceIndex`, `ResourceDetail`, `ResourceCreate`, `ResourceUpdate`, `ResourceLens`) used to render the same `<NotFoundPage />` for every query failure, including HTTP 500. Operators hitting a real backend bug saw the same "Resource not found" screen as someone mistyping a URL, with no signal that the backend had crashed. New `<ResourceErrorPage>` triages the error: 404 → existing copy, 403 → "Access denied", 5xx → "Server error" with the status code visible, network failure → "Cannot reach the server". The error response body is intentionally NOT rendered to avoid leaking trace info in production.
+- **`BooleanGroup::minChecked()` / `maxChecked()` are now enforced on the backend** ([#92](https://github.com/Real-Edge-FX/martis-package/pull/92)). Both modifiers were only serialised to the frontend (the schema exposes them as a "0/11 min 1" counter), but no backend rule counted the checked flags. A tampered payload — or simply the form submitted with the count below the minimum — saved an empty map. `BooleanGroup` now overrides `buildRules()` to append a closure rule that calls `$fail()` with translated messages (`martis::messages.boolean_group_min_checked` / `max_checked`) when the count violates either bound. `requireAny()` and `requireAll()` are now real constraints rather than UI-only hints.
+
+### Stats
+
+- 1653 Pest tests passing (1 skipped, 0 failed) — +6 BooleanGroup specs, +7 ResourceErrorPage specs
+- PHPStan level 8: 0 errors
+- 2 PRs merged onto `main` (#91, #92)
 
 ## [1.1.0] — 2026-04-28
 
