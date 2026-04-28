@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:endpoint-table')]
@@ -17,7 +18,7 @@ class EndpointTableMakeCommand extends GeneratorCommand
     /** {@inheritDoc} */
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/metric.endpoint-table.stub';
+        return StubResolver::path('metric.endpoint-table.stub');
     }
 
     /** {@inheritDoc} */

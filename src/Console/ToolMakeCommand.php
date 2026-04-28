@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
@@ -49,7 +50,7 @@ class ToolMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/tool.stub';
+        return StubResolver::path('tool.stub');
     }
 
     protected function getDefaultNamespace($rootNamespace): string
@@ -138,7 +139,7 @@ class ToolMakeCommand extends GeneratorCommand
             return;
         }
 
-        $stub = file_get_contents(__DIR__.'/../../stubs/tool-component.tsx.stub') ?: '';
+        $stub = file_get_contents(StubResolver::path('tool-component.tsx.stub')) ?: '';
         $rendered = strtr($stub, [
             '{{ component_name }}' => $componentName,
             '{{component_name}}' => $componentName,

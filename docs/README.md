@@ -108,6 +108,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
 | 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching, per-key deep merge, `app_namespaces`, `fallback_chain` |
 | 11.4 | **[Cache Control Surface](cache.md)** | `MartisCache::extend()`, runtime per-type toggle, `/martis/system/cache` admin page (v0.8) |
+| 11.5 | **[Customising Generators](customizing-generators.md)** | `martis:stubs` publisher + `Martis\Stubs\StubResolver` — every generator template (resource, action, lens, metrics, fields, tools, ...) is editable in `stubs/martis/` (v1.1) |
 
 ### Architecture & Design
 
@@ -196,7 +197,9 @@ docs/
 | `martis:component` | Generate a React component with auto-registration |
 | `martis:theme` | Scaffold a custom theme (dark + light mode) |
 | `martis:user` | Create a new admin user |
+| `martis:policy` | Create a resource policy class |
 | `martis:vendor-publish` | Publish package files (config, assets, views, lang) |
+| `martis:stubs` | Publish generator stubs into `stubs/martis/` for customisation |
 
 ---
 

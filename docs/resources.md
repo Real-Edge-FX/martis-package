@@ -793,7 +793,7 @@ Policies support a before() method that runs before any specific ability check. 
 
 ### Generating Policies
 
-Use php artisan martis:make-policy PolicyName --model=ModelName to generate a complete policy stub.
+Use php artisan martis:policy PolicyName --model=ModelName to generate a complete policy stub. The historical `martis:make-policy` name is kept as a hidden alias for backwards compatibility.
 
 ### Disabling Specific Action Buttons
 

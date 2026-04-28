@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:lens')]
@@ -17,7 +18,7 @@ class LensMakeCommand extends GeneratorCommand
     /** Get the stub file for the generator. */
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/lens.stub';
+        return StubResolver::path('lens.stub');
     }
 
     /** Get the default namespace for the class. */
