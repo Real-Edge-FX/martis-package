@@ -75,6 +75,9 @@ abstract class Metric implements MetricContract
     /** Auto-refresh interval in seconds. Martis extension. */
     protected ?int $refreshInterval = null;
 
+    /** Optional tooltip displayed next to the metric title. */
+    protected ?string $helpText = null;
+
     public function __construct(
         protected string $name,
         protected ?string $uriKey = null,
@@ -405,6 +408,31 @@ abstract class Metric implements MetricContract
     }
 
     /**
+     * Attach a tooltip rendered next to the metric title.
+     *
+     * Pass a short explanatory string (e.g. how the value is computed,
+     * the unit it represents, or a caveat). The frontend renders it as
+     * a question-mark icon with a hover tooltip; pass `null` to clear.
+     *
+     * Returning `null` (or never calling this method) hides the tooltip
+     * entirely — there is no question mark when no help text is set.
+     */
+    public function help(?string $text): static
+    {
+        $this->helpText = $text;
+
+        return $this;
+    }
+
+    /**
+     * Read the configured help text. `null` means no tooltip.
+     */
+    public function helpText(): ?string
+    {
+        return $this->helpText;
+    }
+
+    /**
      * Set the chart color for this metric. Martis extension.
      *
      * Accepts any CSS color value (hex, rgb, rgba, var(--name), or named color).
@@ -469,6 +497,7 @@ abstract class Metric implements MetricContract
             'style' => $this->cardStyle->value,
             'icon' => $this->icon,
             'color' => $this->color,
+            'help' => $this->helpText,
             'meta' => $this->meta(),
         ];
     }
