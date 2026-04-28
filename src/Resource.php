@@ -1508,6 +1508,57 @@ abstract class Resource implements ResourceContract
         return max(1, min($requestPerPage, $cap, 100));
     }
 
+    // -------------------------------------------------------------------------
+    // Auto-refresh (polling) — index page
+    // -------------------------------------------------------------------------
+
+    /**
+     * Auto-refresh the resource index view at a fixed cadence.
+     *
+     * When `true` the frontend re-fetches the index payload every
+     * `$pollingInterval` seconds. Useful for resources whose rows reflect
+     * external state (queue jobs, deployments, scraper feeds) where a
+     * stale view is misleading.
+     *
+     * Override per-resource:
+     *
+     *     public static bool $polling = true;
+     */
+    public static bool $polling = false;
+
+    /**
+     * Auto-refresh interval in seconds. Only consulted when `$polling`
+     * is `true`. Anything below 5 is silently clamped up to 5 to avoid
+     * accidentally hammering the backend.
+     */
+    public static int $pollingInterval = 15;
+
+    /**
+     * Show a UI control next to the table that lets the user pause /
+     * resume polling for the current session. When `false` polling is
+     * always on (or always off, depending on `$polling`) with no
+     * user override.
+     */
+    public static bool $showPollingToggle = true;
+
+    /** Whether polling is enabled for this resource's index view. */
+    public static function pollingEnabled(): bool
+    {
+        return static::$polling;
+    }
+
+    /** Auto-refresh cadence in seconds (clamped at 5s minimum). */
+    public static function resolvedPollingInterval(): int
+    {
+        return max(5, static::$pollingInterval);
+    }
+
+    /** Whether the index UI exposes a pause/resume polling control. */
+    public static function pollingToggleVisible(): bool
+    {
+        return static::$showPollingToggle;
+    }
+
     /**
      * Determine whether this resource uses Laravel Scout for searching.
      *
