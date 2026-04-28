@@ -126,6 +126,8 @@ return [
     'error_incident_id' => 'ID do incidente',
     'error_network_title' => 'Não foi possível contatar o servidor',
     'error_network_desc' => 'A página não terminou de carregar porque a requisição não chegou ao servidor. Verifique sua conexão e tente novamente.',
+    'boolean_group_min_checked' => ':attribute requer pelo menos :min opção(ões) marcada(s); apenas :count marcada(s).',
+    'boolean_group_max_checked' => ':attribute permite no máximo :max opção(ões) marcada(s); :count marcada(s).',
     'copy' => 'Copiar',
     'error_boundary_title' => 'Erro inesperado',
     'error_boundary_message' => 'Ocorreu um erro ao renderizar esta seção.',
