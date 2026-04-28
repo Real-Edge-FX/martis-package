@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
+import { ResourceErrorPage } from '@/pages/ResourceError'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
 import { FilterPanel } from '@/components/FilterPanel'
@@ -406,7 +407,11 @@ export function ResourceIndexPage() {
     )
   }
 
-  if (schemaQuery.isError || !schema) {
+  if (schemaQuery.isError) {
+    return <ResourceErrorPage error={schemaQuery.error} />
+  }
+
+  if (!schema) {
     return <NotFoundPage />
   }
 

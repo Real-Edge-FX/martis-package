@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Resource pages now distinguish 5xx server errors from 404 / 403 / network failures.** The five resource pages (`ResourceIndex`, `ResourceDetail`, `ResourceCreate`, `ResourceUpdate`, `ResourceLens`) used to render the same `<NotFoundPage />` for every query failure, including HTTP 500. An operator hitting a real backend bug saw the same "Resource not found" screen as someone mistyping a URL. A new `<ResourceErrorPage>` triages the error: 404 → existing copy, 403 → "Access denied", 5xx → "Server error" with the status code visible, network failure → "Cannot reach the server". The error response body is intentionally NOT rendered to avoid leaking trace info in production. See [docs/troubleshooting](resources/js/pages/ResourceError.tsx) (component-level docblock).
+
 ## [1.1.0] — 2026-04-28
 
 First minor release after v1.0.0. Three feature tiers (validated by source-grep audit), two pieces of UX polish, one repository-wide docblock refactor, and one config-wiring fix.

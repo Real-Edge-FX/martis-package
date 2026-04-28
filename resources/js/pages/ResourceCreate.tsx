@@ -10,6 +10,7 @@ import { TabsInput } from '@/components/fields/TabsRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
+import { ResourceErrorPage } from '@/pages/ResourceError'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -334,6 +335,14 @@ export function ResourceCreatePage() {
   }
 
   if (schemaQuery.isLoading || (isReplicate && replicateQuery.isLoading)) return <FormSkeleton />
+
+  if (schemaQuery.isError) {
+    return <ResourceErrorPage error={schemaQuery.error} />
+  }
+
+  if (isReplicate && replicateQuery.isError) {
+    return <ResourceErrorPage error={replicateQuery.error} />
+  }
 
   if (!schema) {
     return (
