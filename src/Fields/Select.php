@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * Dropdown select field.
@@ -94,7 +95,7 @@ class Select extends Field
         foreach ($enumClass::cases() as $case) {
             $value = $case instanceof \BackedEnum ? $case->value : $case->name;
             $out[] = [
-                'label' => \Illuminate\Support\Str::headline($case->name),
+                'label' => Str::headline($case->name),
                 'value' => $value,
             ];
         }

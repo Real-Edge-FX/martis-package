@@ -824,7 +824,7 @@ it('authorization defers to registered policy', function () {
 // $relatableSearchResults — per-resource cap (v1.1)
 // ---------------------------------------------------------------------------
 
-class CappedResource extends \Martis\Resource
+class CappedResource extends Martis\Resource
 {
     public static ?int $relatableSearchResults = 25;
 
@@ -833,7 +833,7 @@ class CappedResource extends \Martis\Resource
         return Project::class;
     }
 
-    public function fields(\Illuminate\Http\Request $request): array
+    public function fields(Request $request): array
     {
         return [];
     }
@@ -846,9 +846,9 @@ it('resolveRelatableSearchResults clamps to per-resource $relatableSearchResults
 });
 
 it('resolveRelatableSearchResults defaults to request per-page (clamped to 100) when no cap', function () {
-    expect(\Martis\Resource::resolveRelatableSearchResults(20))->toBe(20);
-    expect(\Martis\Resource::resolveRelatableSearchResults(150))->toBe(100);
-    expect(\Martis\Resource::resolveRelatableSearchResults(5))->toBe(5);
+    expect(Martis\Resource::resolveRelatableSearchResults(20))->toBe(20);
+    expect(Martis\Resource::resolveRelatableSearchResults(150))->toBe(100);
+    expect(Martis\Resource::resolveRelatableSearchResults(5))->toBe(5);
 });
 
 it('resolveRelatableSearchResults floors at 1', function () {

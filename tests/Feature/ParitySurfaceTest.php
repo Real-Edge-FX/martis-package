@@ -28,6 +28,8 @@ use Martis\Cache\MartisCache;
 use Martis\Contracts\ToolContract;
 use Martis\Facades\Martis;
 use Martis\Fields\Field;
+use Martis\Fields\Image;
+use Martis\Fields\Select;
 use Martis\Fields\Text;
 use Martis\Impersonation\Facades\Impersonation;
 use Martis\Impersonation\ImpersonationManager;
@@ -420,7 +422,7 @@ it('martis.impersonation config exposes enabled + guard + session_key with safe 
 // ---------------------------------------------------------------------------
 
 it('Select::options() accepts a UnitEnum class-string in addition to array|Closure', function () {
-    $reflection = new ReflectionMethod(\Martis\Fields\Select::class, 'options');
+    $reflection = new ReflectionMethod(Select::class, 'options');
     $param = $reflection->getParameters()[0];
 
     expect($param->getName())->toBe('options');
@@ -447,7 +449,7 @@ it('Resource::$relatableSearchResults + resolveRelatableSearchResults() are part
 });
 
 it('Image::thumbnail() accepts int|Closure and Image::preview() takes Closure', function () {
-    $thumbnail = new ReflectionMethod(\Martis\Fields\Image::class, 'thumbnail');
+    $thumbnail = new ReflectionMethod(Image::class, 'thumbnail');
     $widthOrClosure = $thumbnail->getParameters()[0];
 
     expect($widthOrClosure->getName())->toBe('widthOrClosure');
@@ -457,7 +459,7 @@ it('Image::thumbnail() accepts int|Closure and Image::preview() takes Closure', 
     sort($names);
     expect($names)->toBe(['Closure', 'int']);
 
-    $preview = new ReflectionMethod(\Martis\Fields\Image::class, 'preview');
+    $preview = new ReflectionMethod(Image::class, 'preview');
     expect($preview->isPublic())->toBeTrue();
     $previewParam = $preview->getParameters()[0];
     expect($previewParam->getName())->toBe('resolver');
