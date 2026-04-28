@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/Sidebar"
 import { Topbar } from "@/components/Topbar"
 import { Footer } from "@/components/Footer"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
+import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp"
 import { TopnavLayout } from "@/components/layouts/TopnavLayout"
 import { MinimalLayout } from "@/components/layouts/MinimalLayout"
 import { TableSkeleton } from "@/components/LoadingSkeleton"
@@ -120,6 +121,11 @@ function SidebarLayout() {
         </div>
         <Footer />
       </main>
+
+      {/* Mounted once at the shell root: listens for `Shift+?` from
+          anywhere and surfaces every shortcut registered via
+          `addShortcut()`. Lightweight — no work until the modal opens. */}
+      <KeyboardShortcutsHelp />
 
       {isMobile && (
         <div
