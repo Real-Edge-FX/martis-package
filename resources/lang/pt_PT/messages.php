@@ -126,6 +126,8 @@ return [
     'error_incident_id' => 'ID do incidente',
     'error_network_title' => 'Não foi possível contactar o servidor',
     'error_network_desc' => 'A página não conseguiu terminar de carregar porque o pedido não chegou ao servidor. Verifique a ligação e tente novamente.',
+    'boolean_group_min_checked' => ':attribute requer pelo menos :min opção(ões) selecionada(s); apenas :count selecionada(s).',
+    'boolean_group_max_checked' => ':attribute permite no máximo :max opção(ões) selecionada(s); :count selecionada(s).',
     'copy' => 'Copiar',
     'error_boundary_title' => 'Erro inesperado',
     'error_boundary_message' => 'Ocorreu um erro ao renderizar esta secção.',

@@ -225,6 +225,75 @@ class BooleanGroup extends Field
         return $this->maxChecked;
     }
 
+    /**
+     * Translate a validation rule message with the package's `martis::`
+     * namespace, falling back to a static English string when the
+     * Laravel translator is not booted (unit tests, raw CLI).
+     *
+     * @param  array<string, mixed>  $replace
+     */
+    protected static function translateRuleMessage(string $key, string $fallback, array $replace = []): string
+    {
+        try {
+            if (function_exists('app') && app()->bound('translator')) {
+                $translated = __("martis::messages.{$key}", $replace);
+                if (is_string($translated) && $translated !== "martis::messages.{$key}") {
+                    return $translated;
+                }
+            }
+        } catch (\Throwable) {
+            // Translator missing — drop to fallback.
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Adds a closure rule that enforces `minChecked` / `maxChecked` on
+     * the backend. Without this, the frontend was the only place
+     * counting selected flags, and a tampered payload would silently
+     * skip the constraint. The closure stays in sync with `getOptions()`
+     * so closure-based option lists also validate correctly.
+     */
+    public function buildRules(?string $context = null): array
+    {
+        $rules = parent::buildRules($context);
+
+        if ($this->minChecked === null && $this->maxChecked === null) {
+            return $rules;
+        }
+
+        $min = $this->minChecked;
+        $max = $this->maxChecked;
+        $label = $this->label;
+
+        $rules[] = function (string $attribute, mixed $value, \Closure $fail) use ($min, $max, $label): void {
+            if (! is_array($value)) {
+                $value = [];
+            }
+            $checked = count(array_filter($value, static fn ($v) => $v === true || $v === 1 || $v === '1' || $v === 'true'));
+
+            if ($min !== null && $checked < $min) {
+                $fail(self::translateRuleMessage(
+                    'boolean_group_min_checked',
+                    "{$label} requires at least {$min} checked option(s); only {$checked} are checked.",
+                    ['attribute' => $label, 'min' => $min, 'count' => $checked],
+                ));
+            }
+            if ($max !== null && $checked > $max) {
+                $fail(self::translateRuleMessage(
+                    'boolean_group_max_checked',
+                    "{$label} allows at most {$max} checked option(s); {$checked} are checked.",
+                    ['attribute' => $label, 'max' => $max, 'count' => $checked],
+                ));
+            }
+        };
+
+        return $rules;
+    }
+
     /** @return array<string, bool> */
     private function emptyPayload(): array
     {

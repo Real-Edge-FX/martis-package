@@ -104,3 +104,101 @@ it('BooleanGroup requireAll() compiles to minChecked(count(options))', function 
 
     expect($field->getMinChecked())->toBe(3);
 });
+
+// -----------------------------------------------------------------------------
+// buildRules() — backend enforcement of minChecked / maxChecked
+//
+// Pre-fix the constraint was only serialised to the frontend. A
+// tampered payload sent directly to the API would happily save
+// "permissions: {}" because no validator counted the checked flags.
+// -----------------------------------------------------------------------------
+
+function runBooleanGroupRules(BooleanGroup $field, mixed $value): array
+{
+    $messages = [];
+    foreach ($field->buildRules() as $rule) {
+        if (! ($rule instanceof Closure)) {
+            continue;
+        }
+        $rule('permissions', $value, function (string $msg) use (&$messages): void {
+            $messages[] = $msg;
+        });
+    }
+
+    return $messages;
+}
+
+it('buildRules emits a closure that fails when fewer than minChecked are set', function () {
+    $field = BooleanGroup::make('permissions')
+        ->options(['a' => 'A', 'b' => 'B', 'c' => 'C'])
+        ->minChecked(2);
+
+    $errs = runBooleanGroupRules($field, ['a' => true, 'b' => false, 'c' => false]);
+
+    expect($errs)->toHaveCount(1);
+    expect($errs[0])->toContain('at least 2');
+});
+
+it('buildRules accepts the payload when checked count meets minChecked', function () {
+    $field = BooleanGroup::make('permissions')
+        ->options(['a' => 'A', 'b' => 'B', 'c' => 'C'])
+        ->minChecked(2);
+
+    $errs = runBooleanGroupRules($field, ['a' => true, 'b' => true, 'c' => false]);
+
+    expect($errs)->toBeEmpty();
+});
+
+it('buildRules emits a closure that fails when checked count exceeds maxChecked', function () {
+    $field = BooleanGroup::make('permissions')
+        ->options(['a' => 'A', 'b' => 'B', 'c' => 'C'])
+        ->maxChecked(1);
+
+    $errs = runBooleanGroupRules($field, ['a' => true, 'b' => true, 'c' => false]);
+
+    expect($errs)->toHaveCount(1);
+    expect($errs[0])->toContain('at most 1');
+});
+
+it('buildRules requireAny() rejects the empty payload (regression for the playground bug)', function () {
+    // The exact shape from the playground TeamMemberResource:
+    // BooleanGroup::make('permissions')->options([...11 options...])->requireAny()
+    // saved without any selection because no backend rule existed.
+    $field = BooleanGroup::make('permissions')
+        ->options([
+            'clients.view' => 'a', 'clients.create' => 'b', 'clients.edit' => 'c',
+            'clients.delete' => 'd', 'projects.view' => 'e', 'projects.create' => 'f',
+            'projects.edit' => 'g', 'projects.archive' => 'h', 'billing.view' => 'i',
+            'billing.edit' => 'j', 'admin.manage_team' => 'k',
+        ])
+        ->requireAny();
+
+    // Empty submission (every flag false).
+    $errs = runBooleanGroupRules($field, array_fill_keys(array_keys([
+        'clients.view', 'clients.create', 'clients.edit', 'clients.delete',
+        'projects.view', 'projects.create', 'projects.edit', 'projects.archive',
+        'billing.view', 'billing.edit', 'admin.manage_team',
+    ]), false));
+
+    expect($errs)->toHaveCount(1);
+    expect($errs[0])->toContain('at least 1');
+});
+
+it('buildRules treats non-array payloads as empty (string, null, missing)', function () {
+    $field = BooleanGroup::make('permissions')
+        ->options(['a' => 'A'])
+        ->minChecked(1);
+
+    foreach ([null, '', 'not an array', 42] as $bogus) {
+        expect(runBooleanGroupRules($field, $bogus))->toHaveCount(1);
+    }
+});
+
+it('buildRules adds NO closure when neither minChecked nor maxChecked is set', function () {
+    $field = BooleanGroup::make('permissions')
+        ->options(['a' => 'A']);
+
+    $closures = array_filter($field->buildRules(), fn ($r) => $r instanceof Closure);
+
+    expect($closures)->toBeEmpty();
+});
