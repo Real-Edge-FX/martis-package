@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`martis:make-policy` renamed to `martis:policy`** — aligns with the rest of the Martis generator naming (`martis:resource`, `martis:action`, ...). The historical `martis:make-policy` name is preserved as a hidden alias on the same command, so existing scripts and tutorials continue to work.
 
+### Fixed
+
+- **`theme.allowToggle = false` now actually hides the theme picker.** The config flag existed since v0.x but was never read by the frontend (dead config). Now the Preferences overlay drops the entire Theme section and the pre-login auth pages suppress the theme cycle button when this flag is `false`. See [docs/configuration.md](docs/configuration.md#theme).
+- **TypeScript build passes again on a clean checkout.** A pre-existing `tsc` error on `resources/js/test-setup.ts` (`Cannot find name 'process'`) added in the v1.0 hotfix prevented `npm run build` from completing. The handler is preserved with a local `declare` shim that documents why `@types/node` is intentionally not pulled in for a frontend bundle.
+
 ## [1.0.0] — 2026-04-27
 
 First stable release. The post-v0.10.0-rc1 cycle closed the documentation
