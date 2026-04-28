@@ -5,7 +5,7 @@
 
 ## Where we are
 
-**Feature-complete.** v0.10.0-rc1 closed the entire post-1.0 backlog from the parity audit (see [PARITY_MAP.md](PARITY_MAP.md)): Custom Tools, Impersonation, Reactive forms, Save variants, Sticky views, Cache surface, SSO, Notifications, Locale extensibility, all 12 relation fields, 50 field types, full action / lens / metric / dashboard / menu systems.
+**Feature-complete.** v0.10.0-rc1 closed the entire post-1.0 backlog: Custom Tools, Impersonation, Reactive forms, Save variants, Sticky views, Cache surface, SSO, Notifications, Locale extensibility, all 12 relation fields, 50 field types, full action / lens / metric / dashboard / menu systems.
 
 | Metric | Status |
 |---|---|
@@ -13,7 +13,7 @@
 | Vitest tests | 84 passing, 5 skipped, 0 failed |
 | PHPStan level 8 | 0 errors (220 baselined; tracked toward zero post-1.0) |
 | Parity score | 167/169 (98.8%) |
-| Documentation | 34 docs files; broken links / orphan docs = 0; comparative references contained to the parity document |
+| Documentation | 33 docs files; broken links / orphan docs = 0 |
 | ParitySurface tripwire | Locks v0.8 / v0.9 / v0.10 public API |
 | CHANGELOG.md | Keep-a-Changelog format; current to v0.10.0-rc1 + `[Unreleased]` |
 | GitHub Actions CI | PHP 8.2/8.3 × Laravel 11/12 + PHPStan + Pint + Vitest |
@@ -96,7 +96,7 @@ These are quality-of-life improvements that can land in v1.0.x patch releases wi
 - Custom tool React component lazy-loading (currently bundled inline).
 - Re-ingest `RELEASE_HISTORY.md` into the second-brain vault.
 - Anúncio público (X, Reddit r/laravel, r/PHP) when v1.0.0 ships.
-- E2E parity tests that simulate the most common admin workflows (resource CRUD, action with confirmation, lens navigation) — useful for migration confidence (see [PARITY_MAP.md](PARITY_MAP.md) for the full list).
+- End-to-end tests that simulate the most common admin workflows (resource CRUD, action with confirmation, lens navigation) — useful for migration confidence.
 
 ---
 
@@ -129,14 +129,14 @@ When the items above are checked off:
 2. Final test run: `vendor/bin/pest && npm run test`. Both green.
 3. Merge.
 4. Tag: `git tag -a v1.0.0 -m "v1.0.0 — first stable release" && git push origin v1.0.0`.
-5. GitHub release: NOT pre-release. Title `v1.0.0 — first stable release`. Body summarises the v0.7-beta → v1.0.0 arc (Track B foundation, Experience Confidence track, parity work, post-1.0 backlog closure — see [PARITY_MAP.md](PARITY_MAP.md) for the full feature scorecard).
+5. GitHub release: NOT pre-release. Title `v1.0.0 — first stable release`. Body summarises the v0.7-beta → v1.0.0 arc (Track B foundation, Experience Confidence track, post-1.0 backlog closure).
 6. Update root README badge to point to v1.0.0.
 
 After tag:
 
 - Bump `composer.json` minimum-stability to `stable`.
 - Open `[1.0.x]` section in `CHANGELOG.md` with the date.
-- Re-ingest `PARITY_MAP.md` into the vault.
+- Re-ingest the release notes into the vault.
 
 ---
 

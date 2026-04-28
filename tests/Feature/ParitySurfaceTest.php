@@ -414,3 +414,52 @@ it('martis.impersonation config exposes enabled + guard + session_key with safe 
         'Impersonation master switch must default to false; flipping it on requires explicit opt-in.',
     );
 });
+
+// ---------------------------------------------------------------------------
+// v1.1 surface — Enum support, $relatableSearchResults, Image closures
+// ---------------------------------------------------------------------------
+
+it('Select::options() accepts a UnitEnum class-string in addition to array|Closure', function () {
+    $reflection = new ReflectionMethod(\Martis\Fields\Select::class, 'options');
+    $param = $reflection->getParameters()[0];
+
+    expect($param->getName())->toBe('options');
+    $type = $param->getType();
+    expect($type)->toBeInstanceOf(ReflectionUnionType::class);
+
+    $names = array_map(static fn ($t) => $t->getName(), $type->getTypes());
+    sort($names);
+    expect($names)->toBe(['Closure', 'array', 'string'], 'Select::options() must accept array|string|Closure (string for Enum class-strings).');
+});
+
+it('Resource::$relatableSearchResults + resolveRelatableSearchResults() are part of the public surface', function () {
+    expect(property_exists(\Martis\Resource::class, 'relatableSearchResults'))->toBeTrue();
+
+    $resolver = new ReflectionMethod(\Martis\Resource::class, 'resolveRelatableSearchResults');
+    expect($resolver->isStatic())->toBeTrue();
+    expect($resolver->isPublic())->toBeTrue();
+
+    $params = $resolver->getParameters();
+    expect($params)->toHaveCount(1);
+    expect($params[0]->getName())->toBe('requestPerPage');
+    expect((string) $params[0]->getType())->toBe('int');
+    expect((string) $resolver->getReturnType())->toBe('int');
+});
+
+it('Image::thumbnail() accepts int|Closure and Image::preview() takes Closure', function () {
+    $thumbnail = new ReflectionMethod(\Martis\Fields\Image::class, 'thumbnail');
+    $widthOrClosure = $thumbnail->getParameters()[0];
+
+    expect($widthOrClosure->getName())->toBe('widthOrClosure');
+    $type = $widthOrClosure->getType();
+    expect($type)->toBeInstanceOf(ReflectionUnionType::class);
+    $names = array_map(static fn ($t) => $t->getName(), $type->getTypes());
+    sort($names);
+    expect($names)->toBe(['Closure', 'int']);
+
+    $preview = new ReflectionMethod(\Martis\Fields\Image::class, 'preview');
+    expect($preview->isPublic())->toBeTrue();
+    $previewParam = $preview->getParameters()[0];
+    expect($previewParam->getName())->toBe('resolver');
+    expect((string) $previewParam->getType())->toBe('Closure');
+});

@@ -315,6 +315,6 @@ the resource's columns into the lens view.
 ./vendor/bin/pest --filter="LensControllerTest|LensDifferentialsTest"
 ```
 
-The package ships 17 tests covering every parity bullet and every
+The package ships 17 tests covering every Lens method and every
 differential. Add your own specs that subclass `Martis\Lenses\Lens`
 — the only hard requirement is a concrete `query()` method.

@@ -19,8 +19,6 @@
 
 Martis is a full-featured, React-first admin panel engine for Laravel. It is built on **PrimeReact**, **Tailwind CSS**, **React Router**, and **TanStack Query**, giving you a modern SPA experience with the power and simplicity of Laravel on the backend.
 
-See the **[Parity Map](docs/PARITY_MAP.md)** for the feature-by-feature scorecard and the migration guide.
-
 ## Installation
 
 ```bash
@@ -173,7 +171,6 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Authorization](docs/authorization.md) | Policy contract, enforcement endpoints, UI flags |
 | [Configuration](docs/configuration.md) | Complete `config/martis.php` reference + host `MartisServiceProvider` for code-side registrations |
 | [Loader](docs/loader.md) | Page loader configuration and customization |
-| [Parity Map](docs/PARITY_MAP.md) | Feature-by-feature scorecard, migration guide, and ecosystem map (single canonical reference) |
 
 ### Architecture & API
 
@@ -188,7 +185,6 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | Document | Description |
 |----------|-------------|
 | [Martis Differentials](docs/differentials.md) | All Martis-only features grouped by subsystem |
-| [Parity Map](docs/PARITY_MAP.md) | Feature-by-feature parity scorecard |
 | [Release Process](docs/release-process.md) | Tag creation playbook |
 | [Documentation Index](docs/README.md) | Full docs hub with quick links |
 

@@ -1473,6 +1473,42 @@ abstract class Resource implements ResourceContract
     public static ?int $scoutSearchResults = null;
 
     /**
+     * Hard cap on the number of results returned by relatable lookups
+     * (BelongsTo / MorphTo / BelongsToMany attach modal pickers).
+     *
+     * The request-level `?per_page=` parameter is still honoured but
+     * never exceeds this cap. Default `null` means "no per-resource
+     * cap" — the request `per_page` (or its 100-row hard ceiling) wins.
+     *
+     * Set to a small number (10–50) on resources with millions of rows
+     * so the picker stays performant even when a power user pokes at
+     * `?per_page=999`.
+     *
+     * Override per-resource:
+     *
+     *     public static int $relatableSearchResults = 25;
+     */
+    public static ?int $relatableSearchResults = null;
+
+    /**
+     * Resolve the effective per-page cap for relatable picker lookups.
+     *
+     * Returns the smaller of the request-supplied `per_page`, the
+     * per-resource `$relatableSearchResults` (when set), and the
+     * absolute hard ceiling (100) defined in `ResourceController`.
+     */
+    public static function resolveRelatableSearchResults(int $requestPerPage): int
+    {
+        $cap = static::$relatableSearchResults;
+
+        if ($cap === null) {
+            return min($requestPerPage, 100);
+        }
+
+        return max(1, min($requestPerPage, $cap, 100));
+    }
+
+    /**
      * Determine whether this resource uses Laravel Scout for searching.
      *
      * By default, returns true when the associated model uses the

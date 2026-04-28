@@ -122,9 +122,8 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 15 | **[Martis Differentials](differentials.md)** | All distinctive features of Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
-| 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature parity scorecard, migration guide, and ecosystem mapping (single canonical reference) |
-| 17 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
-| 18 | **[v1.0 Roadmap](v1-roadmap.md)** | Live checklist of remaining items before the v1.0.0 tag is cut |
+| 16 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
+| 17 | **[v1.0 Roadmap](v1-roadmap.md)** | Live checklist of remaining items before the v1.0.0 tag is cut |
 
 ---
 
@@ -166,7 +165,6 @@ docs/
 ├── i18n.md ......................... Adding locales & translations
 ├── cache.md ........................ Cache control surface (v0.8)
 ├── differentials.md ................ Martis differentials (unique features)
-├── PARITY_MAP.md ................... Parity scorecard + migration guide + ecosystem map
 ├── release-process.md .............. How a release tag is cut
 ├── v1-roadmap.md ................... v1.0 readiness checklist
 ├── api/
