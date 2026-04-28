@@ -18,23 +18,19 @@ class Id extends Field
         $this->sortable = true;
     }
 
-    /**
-     * Make.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute = 'id', ?string $label = null): static
     {
         return new static($attribute, $label);
     }
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'id';
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function defaultColumnWidth(): array
     {
         return ['width' => '80px'];

@@ -26,7 +26,7 @@ class Email extends Text
         return array_merge(parent::buildRules($context), ['email']);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function defaultColumnWidth(): array
     {
         return ['maxWidth' => '280px', 'truncate' => true];

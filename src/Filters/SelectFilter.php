@@ -39,9 +39,7 @@ abstract class SelectFilter extends Filter
         return $this;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function meta(): array
     {
         return array_merge(parent::meta(), [

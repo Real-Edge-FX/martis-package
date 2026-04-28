@@ -65,12 +65,7 @@ class Icon extends Field
     /** Custom resolver returning `string` (icon) or `['icon' => ..., 'color' => ...]`. */
     protected ?Closure $iconResolver = null;
 
-    /**
-     * Create an Icon field.
-     *
-     * When `$fixedIcon` is provided the field defaults to display-only
-     * (Mode A); `->stored()` flips it to persistent (Mode B).
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $fixedIcon = null, ?string $label = null): static
     {
         /** @var static $field */
@@ -272,11 +267,7 @@ class Icon extends Field
         ];
     }
 
-    /**
-     * Raw value for form contexts (create/update) — the column string itself.
-     * Display contexts (index/detail) call `resolveForDisplay()`, which
-     * returns the richer `{icon, color}` pair.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         // Computed (Mode C) has no column — return the icon name only so the
@@ -295,12 +286,7 @@ class Icon extends Field
         return $model->getAttribute($this->attribute);
     }
 
-    /**
-     * Display value for index/detail — the `{icon, color}` pair resolved via
-     * map / colorFrom / callback.
-     *
-     * @return array{icon: ?string, color: ?string}
-     */
+    /** {@inheritdoc} */
     public function resolveForDisplay(Model $model, ?string $attribute = null): mixed
     {
         return $this->resolveForModel($model);

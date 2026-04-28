@@ -31,17 +31,13 @@ class Markdown extends Field
 
     protected ?string $withFilesDisk = null;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'markdown';
     }
 
-    /**
-     * Make.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();

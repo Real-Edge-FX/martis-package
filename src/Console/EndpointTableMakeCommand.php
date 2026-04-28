@@ -15,13 +15,13 @@ class EndpointTableMakeCommand extends GeneratorCommand
 
     protected $type = 'Martis endpoint table metric';
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function getStub(): string
     {
         return StubResolver::path('metric.endpoint-table.stub');
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\\Martis\\Metrics';

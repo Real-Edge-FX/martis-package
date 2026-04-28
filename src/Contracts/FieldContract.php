@@ -2,6 +2,7 @@
 
 namespace Martis\Contracts;
 
+use Closure;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -88,33 +89,33 @@ interface FieldContract
      * Mark this field as nullable. Accepts a static `bool` or a closure
      * that resolves at request time.
      *
-     * @param  bool|\Closure(Request|null): bool  $value
+     * @param  bool|Closure(Request|null): bool  $value
      */
-    public function nullable(bool|\Closure $value = true): static;
+    public function nullable(bool|Closure $value = true): static;
 
     /**
      * Prevent this field from being modified through the UI. Accepts a
      * static `bool` or a closure that resolves at request time.
      *
-     * @param  bool|\Closure(Request|null): bool  $value
+     * @param  bool|Closure(Request|null): bool  $value
      */
-    public function readonly(bool|\Closure $value = true): static;
+    public function readonly(bool|Closure $value = true): static;
 
     /**
      * Require a non-null value on create/update. Accepts a static
      * `bool` or a closure that resolves at request time.
      *
-     * @param  bool|\Closure(Request|null): bool  $value
+     * @param  bool|Closure(Request|null): bool  $value
      */
-    public function required(bool|\Closure $value = true): static;
+    public function required(bool|Closure $value = true): static;
 
     /**
      * Set a placeholder text for the input. Accepts a static string or
      * a closure that resolves at render time.
      *
-     * @param  string|\Closure(Request|null): string  $text
+     * @param  string|Closure(Request|null): string  $text
      */
-    public function placeholder(string|\Closure $text): static;
+    public function placeholder(string|Closure $text): static;
 
     /**
      * Mark this field as sortable on the index view.
@@ -363,9 +364,9 @@ interface FieldContract
      * Accepts either a static list of Laravel rules (strings or Rule
      * objects) or a closure that resolves at request time.
      *
-     * @param  list<string|Rule>|\Closure(Request|null): list<string|Rule>  $rules
+     * @param  list<string|Rule>|Closure(Request|null): list<string|Rule>  $rules
      */
-    public function rules(array|\Closure $rules): static;
+    public function rules(array|Closure $rules): static;
 
     // -------------------------------------------------------------------------
     // Reactive fields — dependsOn()
@@ -377,9 +378,9 @@ interface FieldContract
      * whenever any of the listed fields changes.
      *
      * @param  list<string>  $fields  Sibling attributes to watch.
-     * @param  \Closure(array<string, mixed>, Request, static): void|null  $callback
+     * @param  Closure(array<string, mixed>, Request, static): void|null  $callback
      */
-    public function dependsOn(array $fields, ?\Closure $callback = null): static;
+    public function dependsOn(array $fields, ?Closure $callback = null): static;
 
     /**
      * Return the list of attributes this field reacts to.
@@ -405,7 +406,13 @@ interface FieldContract
      * flags + context-specific rules from `creationRules()` /
      * `updateRules()` when `$context` is `'create'` / `'update'`).
      *
-     * @return list<string|Rule>
+     * Closure rules are accepted alongside string and Rule entries —
+     * Laravel invokes closures with `(string $attribute, mixed $value,
+     * Closure $fail)` and a closure that calls `$fail(...)` produces
+     * a validation error. Field subclasses use closures for
+     * context-aware checks that do not warrant a dedicated Rule class.
+     *
+     * @return list<string|Rule|Closure>
      */
     public function buildRules(?string $context = null): array;
 

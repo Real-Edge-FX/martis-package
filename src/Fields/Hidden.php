@@ -20,9 +20,7 @@ class Hidden extends Field
         $this->showOnDetail = false;
     }
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'hidden';

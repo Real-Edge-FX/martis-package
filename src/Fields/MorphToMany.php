@@ -117,13 +117,7 @@ class MorphToMany extends Field
         $this->hideFromIndex();
     }
 
-    /**
-     * Create a MorphToMany field.
-     *
-     * @param  string  $name  Display label (e.g. "Tags")
-     * @param  string|null  $relationship  Explicit Eloquent relationship method name
-     * @param  string|null  $relatedResourceClass  Optional: explicit related resource class
-     */
+    /** {@inheritdoc} */
     public static function make(string $name, ?string $relationship = null, ?string $relatedResourceClass = null): static
     {
         $label = $name;
@@ -138,7 +132,7 @@ class MorphToMany extends Field
         return $instance;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'morph_to_many';
@@ -190,9 +184,7 @@ class MorphToMany extends Field
         return $this;
     }
 
-    /**
-     * Enable search in the attach modal.
-     */
+    /** {@inheritdoc} */
     public function searchable(bool $value = true): static
     {
         $this->relationSearchable = $value;
@@ -408,10 +400,7 @@ class MorphToMany extends Field
         }
     }
 
-    /**
-     * Resolve returns null on detail (data fetched via endpoints).
-     * On index, returns the count of related records.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->showOnIndex) {
@@ -421,9 +410,7 @@ class MorphToMany extends Field
         return null;
     }
 
-    /**
-     * Fill is a no-op — MorphToMany records are managed via attach/detach endpoints.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         // No-op: MorphToMany records are managed independently via endpoints

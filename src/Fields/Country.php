@@ -23,9 +23,7 @@ class Country extends Field
 
     protected ?string $filterPlaceholder = null;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'country';

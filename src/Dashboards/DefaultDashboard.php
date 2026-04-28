@@ -34,9 +34,7 @@ class DefaultDashboard extends Dashboard
         return false;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return array_merge(parent::toArray(), [

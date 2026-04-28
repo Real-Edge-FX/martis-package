@@ -105,7 +105,7 @@ class Panel implements LayoutContract
     // LayoutContract
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function filterForContext(FieldContext $context): ?static
     {
         $all = Field::filterForContext($this->fields, $context);
@@ -124,13 +124,13 @@ class Panel implements LayoutContract
         return $clone;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function flattenFields(): array
     {
         return $this->fields;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return [

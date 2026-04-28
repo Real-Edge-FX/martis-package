@@ -57,13 +57,7 @@ class MorphOne extends Field
         $this->onlyOnDetail();
     }
 
-    /**
-     * Create a MorphOne field.
-     *
-     * @param  string  $name  Display label (e.g. "Image") — also used to infer the relationship method
-     * @param  string|null  $relationship  Explicit Eloquent relationship method name (e.g. "image")
-     * @param  string|null  $relatedResourceClass  Optional: explicit related resource class
-     */
+    /** {@inheritdoc} */
     public static function make(string $name, ?string $relationship = null, ?string $relatedResourceClass = null): static
     {
         $label = $name;
@@ -91,7 +85,7 @@ class MorphOne extends Field
         return $instance;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'morph_one';
@@ -165,17 +159,13 @@ class MorphOne extends Field
         }
     }
 
-    /**
-     * Resolve returns null — data fetched via the morph-one API endpoint.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         return null;
     }
 
-    /**
-     * Fill is a no-op — the related record is managed via its own endpoints.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         // No-op: MorphOne record is managed independently

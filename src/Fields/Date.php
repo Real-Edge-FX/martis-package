@@ -20,9 +20,7 @@ class Date extends Field
 
     protected string $storeFormat = 'Y-m-d';
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'date';
@@ -50,9 +48,7 @@ class Date extends Field
         return $this;
     }
 
-    /**
-     * Resolve the date field, normalizing Carbon / DateTime to an ISO string.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $value = parent::resolve($model, $attribute);
@@ -81,7 +77,7 @@ class Date extends Field
         ];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function defaultColumnWidth(): array
     {
         return ['width' => '140px'];

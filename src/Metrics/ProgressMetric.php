@@ -21,9 +21,7 @@ abstract class ProgressMetric extends Metric
         return MetricType::Progress;
     }
 
-    /**
-     * Progress metrics typically don't use time ranges.
-     */
+    /** {@inheritdoc} */
     public function ranges(): array
     {
         return [];

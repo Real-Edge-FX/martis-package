@@ -33,18 +33,13 @@ class Status extends Field
     /** @var list<string> Values that trigger failed state */
     protected array $failedWhen = [];
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'status';
     }
 
-    /**
-     * Override make() to default to display-only (hidden from forms).
-     * Status is a state indicator, not a form input.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromForms();
@@ -103,7 +98,7 @@ class Status extends Field
         ];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function defaultColumnWidth(): array
     {
         return ['width' => '120px'];

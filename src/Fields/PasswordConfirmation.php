@@ -50,10 +50,7 @@ class PasswordConfirmation extends Field
         return $this->confirms ?? 'password';
     }
 
-    /**
-     * Companion fields never hydrate the model — validation alone guarantees
-     * the value matches the paired password via Laravel's `confirmed` rule.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         // intentionally empty

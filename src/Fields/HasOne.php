@@ -60,13 +60,7 @@ class HasOne extends Field
         $this->hideFromForms();
     }
 
-    /**
-     * Create a HasOne field.
-     *
-     * @param  string  $name  Display label (e.g. "Profile") — also used to infer the relationship method
-     * @param  string|null  $relationship  Explicit Eloquent relationship method name (e.g. "profile")
-     * @param  string|null  $relatedResourceClass  Optional: explicit related resource class
-     */
+    /** {@inheritdoc} */
     public static function make(string $name, ?string $relationship = null, ?string $relatedResourceClass = null): static
     {
         $label = $name;
@@ -98,7 +92,7 @@ class HasOne extends Field
         return $instance;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'has_one';
@@ -173,17 +167,13 @@ class HasOne extends Field
         }
     }
 
-    /**
-     * Resolve returns null — data fetched via the has-one API endpoint.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         return null;
     }
 
-    /**
-     * Fill is a no-op — the related record is managed via its own endpoints.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         // No-op: HasOne record is managed independently

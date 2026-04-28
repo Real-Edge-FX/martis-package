@@ -157,13 +157,7 @@ class BelongsTo extends Field
      * @param  string  $relationship  Eloquent relationship method name (e.g. "author")
      * @param  string|null  $label  Human-readable label
      */
-    /**
-     * @param  string  $relationship  Relationship method name (e.g. "author") or FK column ("user_id").
-     * @param  string|null  $label  Human-readable label. Derived from the relationship name if null.
-     * @param  class-string|null  $resource  Related resource class (e.g. UserResource::class).
-     *                                       When provided, automatically applies ->relatedResource(uriKey)
-     *                                       so callers don't need a separate call.
-     */
+    /** {@inheritdoc} */
     public static function make(string $relationship, ?string $label = null, ?string $resource = null): static
     {
         // If caller passes the FK column (e.g. "user_id"), derive relationship name
@@ -186,18 +180,13 @@ class BelongsTo extends Field
         return $field;
     }
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'belongs_to';
     }
 
-    /**
-     * Return the foreign key as the serialization attribute.
-     * This ensures the JSON key matches the actual DB column when foreignKey() is used.
-     */
+    /** {@inheritdoc} */
     public function attribute(): string
     {
         return $this->foreignKey;
@@ -258,11 +247,7 @@ class BelongsTo extends Field
         return $this;
     }
 
-    /**
-     * Resolve the field value: returns the foreign key value AND the display title.
-     *
-     * @return array<string, mixed>|null
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
@@ -320,9 +305,7 @@ class BelongsTo extends Field
         return $data;
     }
 
-    /**
-     * Fill the foreign key column on the model.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

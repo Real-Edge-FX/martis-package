@@ -33,18 +33,13 @@ class Sparkline extends Field
     /** @var string Color for the sparkline */
     protected string $chartColor = '#6366f1';
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'sparkline';
     }
 
-    /**
-     * Override make() to default to display-only (hidden from forms).
-     * Sparkline is not an input — it is a read-only visualization.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromForms();
@@ -146,12 +141,7 @@ class Sparkline extends Field
         return $this->chartColor;
     }
 
-    /**
-     * Resolve the chart data.
-     * If data is a callable, invoke it with the model.
-     * If data is a static array, return it.
-     * Falls back to model attribute value (expects JSON array or comma-separated).
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
@@ -185,10 +175,7 @@ class Sparkline extends Field
         return [];
     }
 
-    /**
-     * Fill the model with sparkline data.
-     * Accepts JSON array of numbers.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if (is_string($value)) {

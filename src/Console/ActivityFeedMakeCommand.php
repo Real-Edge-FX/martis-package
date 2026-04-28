@@ -15,13 +15,13 @@ class ActivityFeedMakeCommand extends GeneratorCommand
 
     protected $type = 'Martis activity feed metric';
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function getStub(): string
     {
         return StubResolver::path('metric.activity-feed.stub');
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\\Martis\\Metrics';
