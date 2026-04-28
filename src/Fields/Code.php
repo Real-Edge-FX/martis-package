@@ -24,17 +24,13 @@ class Code extends Field
 
     protected CodeLanguage $language = CodeLanguage::Javascript;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'code';
     }
 
-    /**
-     * Make.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
@@ -76,9 +72,7 @@ class Code extends Field
         return $this->language;
     }
 
-    /**
-     * Resolve.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $value = parent::resolve($model, $attribute);
@@ -98,9 +92,7 @@ class Code extends Field
         return $value;
     }
 
-    /**
-     * Fill.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

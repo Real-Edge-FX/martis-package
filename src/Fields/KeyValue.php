@@ -29,18 +29,13 @@ class KeyValue extends Field
 
     protected bool $addingRowsDisabled = false;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'key_value';
     }
 
-    /**
-     * Override make() to default to hidden on index.
-     * KeyValue is not meaningful as a table column.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();
@@ -136,11 +131,7 @@ class KeyValue extends Field
         return $this->addingRowsDisabled;
     }
 
-    /**
-     * Resolve: decode JSON/array to rows format [{key, value}] for the frontend.
-     *
-     * @return list<array{key: string, value: string}>
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
@@ -157,9 +148,7 @@ class KeyValue extends Field
         return $this->decodeToRows($raw);
     }
 
-    /**
-     * Fill: accept rows or JSON, normalize and store as JSON string.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

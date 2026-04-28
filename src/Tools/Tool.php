@@ -162,25 +162,7 @@ class Tool implements ToolContract
     // Lifecycle (Nova-style boot hook for Composer-package tools)
     // -------------------------------------------------------------------------
 
-    /**
-     * Per-tool lifecycle hook.
-     *
-     * Runs once during the host application's boot, AFTER Martis has
-     * loaded its own routes / views / config. Override to:
-     *
-     *   - register tool-owned routes (`Route::middleware(...)->...`)
-     *   - register event listeners
-     *   - bind Blade view namespaces (`view()->addNamespace(...)`)
-     *   - publish assets (`$this->publishesAssets(...)`)
-     *   - define gates / policies
-     *   - schedule recurring tasks
-     *
-     * Default implementation is a no-op so leaf tools only override
-     * this when they actually need the hook.
-     *
-     * The `MartisManager` calls `boot()` on every registered tool
-     * exactly once, during the package's own boot phase.
-     */
+    /** {@inheritdoc} */
     public function boot(): void
     {
         // No-op by default.
@@ -278,9 +260,7 @@ class Tool implements ToolContract
     // Serialization
     // -------------------------------------------------------------------------
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return [

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Docblock standard alignment** — every method that implements an interface contract (or extends a base class declaring one) now carries only `/** {@inheritdoc} */`. The full contract documentation lives on the interface itself; implementations no longer duplicate `@param` / `@return` / `@throws` blocks. 209 redundant docblocks collapsed across 47 source files; 171 docblocks preserved where they carried unique value (PHPStan generics, `@deprecated` notes, multi-paragraph context). All `{@inheritDoc}` casing normalised to lowercase. Net: 1104 lines removed, 512 added — the package is leaner without losing a single piece of contract information.
+- **`FieldContract::buildRules()` widened** to `list<string|Rule|Closure>` — closure-based validation rules were already in use (`Url::buildRules` ships closures) but the contract type listed only `string|Rule`. Aligning the contract eliminates a real-world type drift PHPStan caught during the docblock sweep.
+- **`CardContract`, `DashboardContract`, `LensContract` completed** — methods that previously shipped without docblocks (5 + 5 + 5) now carry full contract documentation so the new `{@inheritdoc}` references on implementations resolve to something useful.
+
 ### Added
 
 - **`config('martis.keyboard_shortcuts')` toggles** — two new flags govern the v1.1 keyboard shortcuts subsystem: `enabled` (master switch; when `false`, every `addShortcut()` call is a no-op including the bundled `mod+k`/`/`/`shift+?` combos) and `helpOverlay` (independent toggle that skips the bundled `Shift+?` overlay registration only). Defaults to `true`/`true`. Env vars: `MARTIS_KEYBOARD_SHORTCUTS_ENABLED`, `MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY`. See [docs/keyboard-shortcuts.md](docs/keyboard-shortcuts.md#disabling-the-subsystem).

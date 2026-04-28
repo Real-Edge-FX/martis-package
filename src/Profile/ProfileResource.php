@@ -15,7 +15,7 @@ use Martis\Contracts\ProfileResourceContract;
  */
 class ProfileResource implements ProfileResourceContract
 {
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function toArray(Authenticatable $user): array
     {
         /** @var Model&Authenticatable $user */
@@ -47,7 +47,7 @@ class ProfileResource implements ProfileResourceContract
         return $data;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function updateRules(Authenticatable $user): array
     {
         return [
@@ -56,7 +56,7 @@ class ProfileResource implements ProfileResourceContract
         ];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function applyUpdate(Authenticatable $user, array $data): void
     {
         /** @var Model&Authenticatable $user */

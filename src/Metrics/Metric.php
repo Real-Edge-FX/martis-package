@@ -98,19 +98,19 @@ abstract class Metric implements MetricContract
      */
     abstract public function metricType(): MetricType;
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function name(): string
     {
         return $this->name;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -187,11 +187,7 @@ abstract class Metric implements MetricContract
     // Ranges
     // -------------------------------------------------------------------------
 
-    /**
-     * Get the available date ranges for this metric.
-     *
-     * @return array<int|string, string>
-     */
+    /** {@inheritdoc} */
     public function ranges(): array
     {
         try {
@@ -328,7 +324,7 @@ abstract class Metric implements MetricContract
     // Authorization
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -336,7 +332,7 @@ abstract class Metric implements MetricContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {
@@ -476,9 +472,7 @@ abstract class Metric implements MetricContract
     // Serialization
     // -------------------------------------------------------------------------
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return [

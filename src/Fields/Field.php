@@ -216,7 +216,7 @@ abstract class Field implements FieldContract
     // Factory
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return new static($attribute, $label ?? Str::title(str_replace('_', ' ', $attribute)));
@@ -226,13 +226,13 @@ abstract class Field implements FieldContract
     // FieldContract — identity
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function attribute(): string
     {
         return $this->attribute;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function label(): string
     {
         if ($this->labelResolver !== null) {
@@ -276,7 +276,7 @@ abstract class Field implements FieldContract
     // FieldContract — value resolution and filling
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute;
@@ -290,7 +290,7 @@ abstract class Field implements FieldContract
         return $model->getAttribute($attr);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {
@@ -312,7 +312,7 @@ abstract class Field implements FieldContract
     // FieldContract — serialization
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return array_merge([
@@ -394,17 +394,7 @@ abstract class Field implements FieldContract
         return $this->nullable;
     }
 
-    /**
-     * Mark the field as readonly. Accepts a static `bool` (default
-     * `true`) or a closure that decides at request time. When a
-     * closure is passed, it receives the active `Request` and must
-     * return a boolean.
-     *
-     *     Text::make('email')->readonly()
-     *     Text::make('slug')->readonly(fn ($request) => $request->user()?->cannot('rename'))
-     *
-     * @param  bool|\Closure(Request): bool  $value
-     */
+    /** {@inheritdoc} */
     public function readonly(bool|\Closure $value = true): static
     {
         $this->readonlyResolver = $value;
@@ -526,30 +516,19 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Return the list of attributes this field reacts to.
-     *
-     * @return list<string>
-     */
+    /** {@inheritdoc} */
     public function dependentFields(): array
     {
         return $this->dependentFields;
     }
 
-    /**
-     * Whether `dependsOn()` was configured for this field.
-     */
+    /** {@inheritdoc} */
     public function isDependent(): bool
     {
         return $this->dependentCallback !== null && $this->dependentFields !== [];
     }
 
-    /**
-     * Run the reactivity callback against the supplied form payload.
-     * Mutates `$this` in place. Returns `$this` for chaining.
-     *
-     * @param  array<string, mixed>  $formData
-     */
+    /** {@inheritdoc} */
     public function syncDependent(array $formData, Request $request): static
     {
         if ($this->dependentCallback !== null) {
@@ -770,7 +749,7 @@ abstract class Field implements FieldContract
         return $this->defaultValue;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showOnIndex(): static
     {
         $this->showOnIndex = true;
@@ -778,7 +757,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function hideFromIndex(): static
     {
         $this->showOnIndex = false;
@@ -786,7 +765,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showOnDetail(): static
     {
         $this->showOnDetail = true;
@@ -794,7 +773,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function hideFromDetail(): static
     {
         $this->showOnDetail = false;
@@ -802,7 +781,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showOnForms(): static
     {
         $this->showOnForms = true;
@@ -810,7 +789,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function hideFromForms(): static
     {
         $this->showOnForms = false;
@@ -822,7 +801,7 @@ abstract class Field implements FieldContract
     // Granular visibility flags
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function hideWhenCreating(): static
     {
         $this->showOnCreate = false;
@@ -830,7 +809,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function hideWhenUpdating(): static
     {
         $this->showOnUpdate = false;
@@ -838,7 +817,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showOnCreating(): static
     {
         $this->showOnCreate = true;
@@ -846,7 +825,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showOnUpdating(): static
     {
         $this->showOnUpdate = true;
@@ -854,7 +833,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function onlyOnIndex(): static
     {
         $this->showOnIndex = true;
@@ -867,7 +846,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function onlyOnDetail(): static
     {
         $this->showOnIndex = false;
@@ -880,7 +859,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function onlyOnForms(): static
     {
         $this->showOnIndex = false;
@@ -893,7 +872,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function exceptOnForms(): static
     {
         $this->showOnForms = false;
@@ -922,7 +901,7 @@ abstract class Field implements FieldContract
      * (e.g. onlyOnIndex() + hideFromIndex()), the explicit hide takes
      * precedence because restrictive behavior is safer.
      *
-     * {@inheritDoc}
+     * {@inheritdoc}
      */
     public function isVisibleForContext(FieldContext $context): bool
     {
@@ -1064,19 +1043,19 @@ abstract class Field implements FieldContract
         return $fields;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isShownOnIndex(): bool
     {
         return $this->showOnIndex;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isShownOnDetail(): bool
     {
         return $this->showOnDetail;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isShownOnForms(): bool
     {
         return $this->showOnForms;
@@ -1086,14 +1065,7 @@ abstract class Field implements FieldContract
     // Authorization — field-level visibility
     // -------------------------------------------------------------------------
 
-    /**
-     * Set a callback that determines whether this field is visible.
-     *
-     * The callback receives the current Request and should return a boolean.
-     * When the callback returns false, the field is excluded from the response.
-     *
-     * @param  callable(Request): bool  $callback
-     */
+    /** {@inheritdoc} */
     public function canSee(callable $callback): static
     {
         $this->canSeeCallback = $callback(...);
@@ -1101,14 +1073,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Shorthand for canSee() that checks a policy ability.
-     *
-     * Equivalent to: canSee(fn($request) => $request->user()?->can($ability, $arguments))
-     *
-     * @param  string  $ability  The policy ability to check
-     * @param  mixed  ...$arguments  Arguments passed to the Gate check
-     */
+    /** {@inheritdoc} */
     public function canSeeWhen(string $ability, mixed ...$arguments): static
     {
         $this->canSeeCallback = function (Request $request) use ($ability, $arguments): bool {
@@ -1123,11 +1088,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Determine whether this field is authorized to be seen by the current user.
-     *
-     * Returns true if no canSee callback is set (default: visible to all).
-     */
+    /** {@inheritdoc} */
     public function isAuthorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {
@@ -1141,7 +1102,7 @@ abstract class Field implements FieldContract
     // Sortable / Searchable
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function sortable(bool $value = true): static
     {
         $this->sortable = $value;
@@ -1149,7 +1110,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function searchable(bool $value = true): static
     {
         $this->searchable = $value;
@@ -1157,13 +1118,13 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isSortable(): bool
     {
         return $this->sortable;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isSearchable(): bool
     {
         return $this->searchable;
@@ -1277,17 +1238,7 @@ abstract class Field implements FieldContract
         $this->uniqueIgnoreId = $id;
     }
 
-    /**
-     * Build the full validation rule list for the field.
-     *
-     * Pass `'create'` or `'update'` as the context to layer the
-     * matching `creationRules()` / `updateRules()` on top. Without
-     * a context (default), only the base + extraRules are returned —
-     * matches the schema endpoint's pre-Task-09 behaviour, so frontend
-     * consumers that introspect the schema keep working unchanged.
-     *
-     * @return list<string|Rule>
-     */
+    /** {@inheritdoc} */
     public function buildRules(?string $context = null): array
     {
         $rules = [];
@@ -1328,7 +1279,8 @@ abstract class Field implements FieldContract
             default => [],
         };
 
-        $merged = array_merge($rules, $extraRules, $contextRules);
+        /** @var list<string|Rule|\Closure> $merged */
+        $merged = array_values(array_merge($rules, $extraRules, $contextRules));
 
         // `sometimes` short-circuits validation when the key is
         // missing — including `required`. When the context-specific
@@ -1345,19 +1297,7 @@ abstract class Field implements FieldContract
     // Customization hooks (override in subclasses or at runtime)
     // -------------------------------------------------------------------------
 
-    /**
-     * Customize how the field value is resolved from the model.
-     *
-     * The callback receives `(mixed $value, Model $model, string $attribute, ?Request $request)`.
-     * The `$request` parameter is optional — closures declared with three
-     * parameters keep working unchanged.
-     *
-     * ⭐ Martis differential: the active `Request` is forwarded to the
-     * callback so per-user / per-locale / per-tenant resolution does not
-     * need to call the `request()` helper manually.
-     *
-     * @param  callable(mixed $value, Model $model, string $attribute, ?Request $request=): mixed  $callback
-     */
+    /** {@inheritdoc} */
     public function resolveUsing(callable $callback): static
     {
         $this->resolveCallback = $callback;
@@ -1365,19 +1305,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Customize how incoming values are written to the model.
-     *
-     * The callback receives `(Model $model, mixed $value, string $attribute, ?Request $request)`.
-     * The `$request` parameter is optional — closures declared with three
-     * parameters keep working unchanged.
-     *
-     * ⭐ Martis differential: the active `Request` is forwarded to the
-     * callback so per-user / per-locale / per-tenant write logic does not
-     * need to call the `request()` helper manually.
-     *
-     * @param  callable(Model $model, mixed $value, string $attribute, ?Request $request=): void  $callback
-     */
+    /** {@inheritdoc} */
     public function fillUsing(callable $callback): static
     {
         $this->fillCallback = $callback;
@@ -1439,13 +1367,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Resolve the field value for display contexts (index / detail).
-     *
-     * Applies resolveUsing() first, then displayUsing() on top.
-     * Use this in serialization instead of resolve() when building
-     * index or detail responses.
-     */
+    /** {@inheritdoc} */
     public function resolveForDisplay(Model $model, ?string $attribute = null): mixed
     {
         $value = $this->resolve($model, $attribute);
@@ -1463,7 +1385,7 @@ abstract class Field implements FieldContract
     // Component override
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function component(string $key): static
     {
         $this->componentKey = $key;
@@ -1471,7 +1393,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function getComponentKey(): ?string
     {
         return $this->componentKey;
@@ -1481,9 +1403,7 @@ abstract class Field implements FieldContract
     // Per-context field overrides
     // -------------------------------------------------------------------------
 
-    /**
-     * Override the component used to render this field in the create context.
-     */
+    /** {@inheritdoc} */
     public function overrideCreate(OverrideContract $override): static
     {
         $this->overrideForCreate = $override;
@@ -1491,9 +1411,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Override the component used to render this field in the update context.
-     */
+    /** {@inheritdoc} */
     public function overrideUpdate(OverrideContract $override): static
     {
         $this->overrideForUpdate = $override;
@@ -1501,9 +1419,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Override the component used to render this field in the index context.
-     */
+    /** {@inheritdoc} */
     public function overrideIndex(OverrideContract $override): static
     {
         $this->overrideForIndex = $override;
@@ -1511,9 +1427,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Override the component used to render this field in the detail context.
-     */
+    /** {@inheritdoc} */
     public function overrideDetail(OverrideContract $override): static
     {
         $this->overrideForDetail = $override;
@@ -1521,9 +1435,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /**
-     * Return the override for the given context, or null.
-     */
+    /** {@inheritdoc} */
     public function getOverrideForContext(FieldContext $context): ?OverrideContract
     {
         return match ($context) {
@@ -1551,7 +1463,7 @@ abstract class Field implements FieldContract
     /** Column span from the lg breakpoint (>= 1024px). Null = inherit colSpanMd or colSpan. */
     protected ?int $colSpanLg = null;
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function colSpan(int $cols): static
     {
         $this->colSpan = max(1, min(12, $cols));
@@ -1559,7 +1471,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function colSpanMd(int $cols): static
     {
         $this->colSpanMd = max(1, min(12, $cols));
@@ -1567,7 +1479,7 @@ abstract class Field implements FieldContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function colSpanLg(int $cols): static
     {
         $this->colSpanLg = max(1, min(12, $cols));
@@ -1717,7 +1629,7 @@ abstract class Field implements FieldContract
     /** @var array<string, mixed> */
     protected array $meta = [];
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function withMeta(array $meta): static
     {
         $this->meta = array_merge($this->meta, $meta);

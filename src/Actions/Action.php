@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Martis\Contracts\ActionContract;
-use Martis\Contracts\FieldContract;
 use Martis\Enums\ActionExecutionMode;
 use Martis\Enums\ModalSize;
 
@@ -111,7 +110,7 @@ class Action implements ActionContract
     // Factory
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function make(mixed ...$arguments): static
     {
         return new static(...$arguments);
@@ -121,13 +120,13 @@ class Action implements ActionContract
     // Core contract
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function name(): string
     {
         return $this->name ?? Str::headline(class_basename(static::class));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function uriKey(): string
     {
         // For closure-based actions (Action::using()), derive uriKey from the name
@@ -140,21 +139,13 @@ class Action implements ActionContract
         return Str::kebab(class_basename(static::class));
     }
 
-    /**
-     * Execute the action on the given models.
-     *
-     * @param  Collection<int, Model>  $models
-     */
+    /** {@inheritdoc} */
     public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
     {
         return ActionResponse::message('Action executed successfully.');
     }
 
-    /**
-     * Define the fields for this action's confirmation modal.
-     *
-     * @return list<FieldContract>
-     */
+    /** {@inheritdoc} */
     public function fields(Request $request): array
     {
         return [];
@@ -164,7 +155,7 @@ class Action implements ActionContract
     // Authorization
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -172,7 +163,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function canRun(Closure $callback): static
     {
         $this->canRunCallback = $callback;
@@ -180,7 +171,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback !== null) {
@@ -190,7 +181,7 @@ class Action implements ActionContract
         return true;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function authorizedToRun(Request $request, Model $model): bool
     {
         if ($this->canRunCallback !== null) {
@@ -204,7 +195,7 @@ class Action implements ActionContract
     // Visibility
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showOnIndex(): static
     {
         $this->showOnIndex = true;
@@ -212,7 +203,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showOnDetail(): static
     {
         $this->showOnDetail = true;
@@ -220,7 +211,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function showInline(): static
     {
         $this->showInline = true;
@@ -228,7 +219,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function onlyOnIndex(): static
     {
         $this->showOnIndex = true;
@@ -238,7 +229,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function onlyOnDetail(): static
     {
         $this->showOnIndex = false;
@@ -248,7 +239,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function onlyInline(): static
     {
         $this->showOnIndex = false;
@@ -258,7 +249,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function exceptOnIndex(): static
     {
         $this->showOnIndex = false;
@@ -266,7 +257,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function exceptOnDetail(): static
     {
         $this->showOnDetail = false;
@@ -274,7 +265,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function exceptInline(): static
     {
         $this->showInline = false;
@@ -282,19 +273,19 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isShownOnIndex(): bool
     {
         return $this->showOnIndex;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isShownOnDetail(): bool
     {
         return $this->showOnDetail;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isShownInline(): bool
     {
         return $this->showInline;
@@ -304,7 +295,7 @@ class Action implements ActionContract
     // Execution mode
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function standalone(): static
     {
         $this->executionMode = ActionExecutionMode::Standalone;
@@ -312,7 +303,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function sole(): static
     {
         $this->executionMode = ActionExecutionMode::Sole;
@@ -320,25 +311,25 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function executionMode(): ActionExecutionMode
     {
         return $this->executionMode;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isStandalone(): bool
     {
         return $this->executionMode === ActionExecutionMode::Standalone;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isSole(): bool
     {
         return $this->executionMode === ActionExecutionMode::Sole;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isDestructive(): bool
     {
         return false;
@@ -348,7 +339,7 @@ class Action implements ActionContract
     // Confirmation modal
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function confirmText(string $text): static
     {
         $this->confirmText = $text;
@@ -356,7 +347,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function confirmButtonText(string $text): static
     {
         $this->confirmButtonText = $text;
@@ -364,7 +355,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function cancelButtonText(string $text): static
     {
         $this->cancelButtonText = $text;
@@ -372,7 +363,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function withoutConfirmation(): static
     {
         $this->withConfirmation = false;
@@ -380,7 +371,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function size(ModalSize $size): static
     {
         $this->modalSize = $size;
@@ -388,7 +379,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function fullscreen(): static
     {
         $this->modalSize = ModalSize::Fullscreen;
@@ -408,7 +399,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Get the then callback. */
+    /** {@inheritdoc} */
     public function getThenCallback(): ?Closure
     {
         return $this->thenCallback;
@@ -418,7 +409,7 @@ class Action implements ActionContract
     // Action log control
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function withoutActionEvents(): static
     {
         $this->withoutActionEvents = true;
@@ -426,7 +417,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function shouldLogEvents(): bool
     {
         return ! $this->withoutActionEvents;
@@ -436,7 +427,7 @@ class Action implements ActionContract
     // Queued action support
     // -------------------------------------------------------------------------
 
-    /** Whether this action should be queued. */
+    /** {@inheritdoc} */
     public function isQueued(): bool
     {
         return $this instanceof ShouldQueue;
@@ -446,7 +437,7 @@ class Action implements ActionContract
     // Closure handler accessors
     // -------------------------------------------------------------------------
 
-    /** Get the closure handler for closure-based actions. */
+    /** {@inheritdoc} */
     public function getClosureHandler(): ?Closure
     {
         return $this->closureHandler;
@@ -456,7 +447,7 @@ class Action implements ActionContract
     // Martis extensions: Dry-run / Preview
     // -------------------------------------------------------------------------
 
-    /** Enable dry-run preview for this action. */
+    /** {@inheritdoc} */
     public function withDryRun(): static
     {
         $this->supportsDryRun = true;
@@ -464,18 +455,13 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Whether dry-run preview is enabled. */
+    /** {@inheritdoc} */
     public function hasDryRun(): bool
     {
         return $this->supportsDryRun;
     }
 
-    /**
-     * Execute a dry-run preview (no side effects).
-     *
-     * @param  Collection<int, Model>  $models
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function dryRun(ActionFields $fields, Collection $models): array
     {
         return ['preview' => 'No preview available.'];
@@ -485,11 +471,7 @@ class Action implements ActionContract
     // Martis extensions: Custom component
     // -------------------------------------------------------------------------
 
-    /**
-     * Use a custom component inside the action modal.
-     *
-     * @param  array<string, mixed>  $props
-     */
+    /** {@inheritdoc} */
     public function component(string $componentKey, array $props = []): static
     {
         $this->customComponent = $componentKey;
@@ -524,13 +506,13 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Get the icon name. */
+    /** {@inheritdoc} */
     public function getIcon(): ?string
     {
         return $this->icon;
     }
 
-    /** Hide the icon entirely — the menu item shows label only. */
+    /** {@inheritdoc} */
     public function withoutIcon(): static
     {
         $this->showIcon = false;
@@ -538,7 +520,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Whether an icon should be rendered for this action. */
+    /** {@inheritdoc} */
     public function isShowingIcon(): bool
     {
         return $this->showIcon;
@@ -552,16 +534,13 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Get the icon color. */
+    /** {@inheritdoc} */
     public function getIconColor(): ?string
     {
         return $this->iconColor;
     }
 
-    /**
-     * Set the menu group for this action.
-     * Use dot-notation for submenus: "Export.CSV", "Notifications.Email".
-     */
+    /** {@inheritdoc} */
     public function group(string $group): static
     {
         $this->group = $group;
@@ -569,7 +548,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Get the group name. */
+    /** {@inheritdoc} */
     public function getGroup(): ?string
     {
         return $this->group;
@@ -588,7 +567,7 @@ class Action implements ActionContract
     /** Custom label for the pivot section. */
     protected ?string $pivotLabel = null;
 
-    /** Mark this action as a pivot action. */
+    /** {@inheritdoc} */
     public function pivotAction(): static
     {
         $this->isPivotAction = true;
@@ -596,13 +575,13 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Whether this action is a pivot action. */
+    /** {@inheritdoc} */
     public function isPivotAction(): bool
     {
         return $this->isPivotAction;
     }
 
-    /** Set a custom label for the pivot section. */
+    /** {@inheritdoc} */
     public function referToPivotAs(string $label): static
     {
         $this->pivotLabel = $label;
@@ -610,7 +589,7 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** Get the pivot section label. */
+    /** {@inheritdoc} */
     public function getPivotLabel(): ?string
     {
         return $this->pivotLabel;
@@ -618,7 +597,7 @@ class Action implements ActionContract
 
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function jsonSerialize(): array
     {
         return [

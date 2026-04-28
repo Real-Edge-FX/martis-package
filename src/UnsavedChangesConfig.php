@@ -116,7 +116,7 @@ class UnsavedChangesConfig implements UnsavedChangesConfigContract
     }
 
     /**
-     * {@inheritDoc}
+     * {@inheritdoc}
      *
      * Only non-null values are serialised so the frontend knows which keys
      * to merge over its own defaults.

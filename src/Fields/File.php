@@ -3,7 +3,6 @@
 namespace Martis\Fields;
 
 use Illuminate\Contracts\Filesystem\Cloud;
-use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -67,9 +66,7 @@ class File extends Field
      */
     protected bool $showFileInfo = true;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'file';
@@ -264,17 +261,7 @@ class File extends Field
     // Value lifecycle
     // -------------------------------------------------------------------------
 
-    /**
-     * Store the uploaded file and update the model attribute.
-     *
-     * Single mode accepts:
-     *   - UploadedFile  => store on disk, delete old file first
-     *   - null / ''     => delete stored file, set attribute to null
-     *   - string        => keep as-is (existing path passthrough)
-     *
-     * Multiple mode accepts:
-     *   - array{files: list<UploadedFile>, existing: list<string>}
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {
@@ -364,14 +351,7 @@ class File extends Field
         $model->setAttribute($this->attribute, json_encode($allPaths));
     }
 
-    /**
-     * Resolve the field value for display.
-     *
-     * Single mode returns null or {path, url, name}.
-     * Multiple mode returns array of {path, url, name} objects.
-     *
-     * @return array{path: string, url: string, name: string}|list<array{path: string, url: string, name: string}>|null
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute;
@@ -517,9 +497,7 @@ class File extends Field
     // Validation
     // -------------------------------------------------------------------------
 
-    /**
-     * @return list<string|Rule>
-     */
+    /** {@inheritdoc} */
     public function buildRules(?string $context = null): array
     {
         if ($this->multiple) {

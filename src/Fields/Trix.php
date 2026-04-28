@@ -33,17 +33,13 @@ class Trix extends Field
 
     protected ClickBehavior $linkClickBehavior = ClickBehavior::SamePage;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'trix';
     }
 
-    /**
-     * Make.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromIndex();

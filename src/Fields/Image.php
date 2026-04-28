@@ -368,11 +368,7 @@ class Image extends File
     // Validation
     // -------------------------------------------------------------------------
 
-    /**
-     * Replace the generic 'file' rule with 'image' (JPEG, PNG, GIF, WebP, BMP).
-     *
-     * @return list<string|Rule>
-     */
+    /** {@inheritdoc} */
     public function buildRules(?string $context = null): array
     {
         $rules = parent::buildRules($context);

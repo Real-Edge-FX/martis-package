@@ -107,13 +107,7 @@ class HasMany extends Field
         $this->hideFromForms();
     }
 
-    /**
-     * Create a HasMany field.
-     *
-     * @param  string  $name  Display label (e.g. "Posts") — also used to infer the relationship method
-     * @param  string|null  $relationship  Explicit Eloquent relationship method name (e.g. "posts")
-     * @param  string|null  $relatedResourceClass  Optional: explicit related resource class
-     */
+    /** {@inheritdoc} */
     public static function make(string $name, ?string $relationship = null, ?string $relatedResourceClass = null): static
     {
         $label = $name;
@@ -128,7 +122,7 @@ class HasMany extends Field
         return $instance;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'has_many';
@@ -353,10 +347,7 @@ class HasMany extends Field
         }
     }
 
-    /**
-     * Resolve returns null on detail (data fetched via endpoints).
-     * On index, returns the count of related records.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->showOnIndex) {
@@ -366,9 +357,7 @@ class HasMany extends Field
         return null;
     }
 
-    /**
-     * Fill is a no-op — related records are managed via their own endpoints.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         // No-op: HasMany records are managed independently

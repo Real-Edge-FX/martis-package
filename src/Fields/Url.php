@@ -22,9 +22,7 @@ class Url extends Field
     /** Custom display text for the link (static string). */
     protected ?string $displayText = null;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'url';
@@ -61,9 +59,7 @@ class Url extends Field
         ], fn ($v) => $v !== null);
     }
 
-    /**
-     * @return list<string|Rule|\Closure>
-     */
+    /** {@inheritdoc} */
     public function buildRules(?string $context = null): array
     {
         // Replace Laravel's strict `url` rule with a closure that first
@@ -116,7 +112,7 @@ class Url extends Field
         parent::fill($model, $value);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function defaultColumnWidth(): array
     {
         return ['maxWidth' => '280px', 'truncate' => true];

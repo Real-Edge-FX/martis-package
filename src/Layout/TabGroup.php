@@ -46,7 +46,7 @@ class TabGroup implements LayoutContract
     // LayoutContract
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function filterForContext(FieldContext $context): ?static
     {
         $filtered = [];
@@ -68,7 +68,7 @@ class TabGroup implements LayoutContract
         return $clone;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function flattenFields(): array
     {
         $fields = [];
@@ -82,7 +82,7 @@ class TabGroup implements LayoutContract
         return $fields;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return [

@@ -15,9 +15,7 @@ namespace Martis\Fields;
  */
 class Color extends Field
 {
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'color';

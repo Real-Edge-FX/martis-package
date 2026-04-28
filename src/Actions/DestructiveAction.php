@@ -10,7 +10,7 @@ namespace Martis\Actions;
  */
 class DestructiveAction extends Action
 {
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function isDestructive(): bool
     {
         return true;

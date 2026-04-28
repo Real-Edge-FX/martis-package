@@ -77,7 +77,7 @@ class ValidationException extends MartisException
     }
 
     /**
-     * {@inheritDoc}
+     * {@inheritdoc}
      */
     public function toArray(): array
     {

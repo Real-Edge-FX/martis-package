@@ -22,9 +22,7 @@ abstract class PartitionMetric extends Metric
         return MetricType::Partition;
     }
 
-    /**
-     * Partition metrics typically don't use time ranges.
-     */
+    /** {@inheritdoc} */
     public function ranges(): array
     {
         return [];

@@ -23,9 +23,7 @@ class Select extends Field
      */
     protected ?\Closure $optionsResolver = null;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'select';

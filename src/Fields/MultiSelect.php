@@ -48,9 +48,7 @@ class MultiSelect extends Field
      */
     protected array $colorMap = [];
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'multi_select';
@@ -174,11 +172,7 @@ class MultiSelect extends Field
         return $this->displayLabels;
     }
 
-    /**
-     * Resolve: decode JSON/array to list of scalar values.
-     *
-     * @return list<scalar>
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
@@ -195,9 +189,7 @@ class MultiSelect extends Field
         return $this->decodeToArray($raw);
     }
 
-    /**
-     * Fill: accept array or JSON string, store as JSON array.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {
