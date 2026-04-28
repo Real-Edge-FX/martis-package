@@ -163,20 +163,24 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
             </button>
           </div>
 
-          {/* Theme */}
-          <Section label={t('theme', 'Theme')}>
-            <Segmented<ThemeMode>
-              fullWidth
-              ariaLabel={t('theme', 'Theme')}
-              value={prefs.theme}
-              onChange={onThemePick}
-              options={THEME_OPTIONS.map(({ key, labelKey, fallback, icon: Icon }) => ({
-                key,
-                label: t(labelKey, fallback),
-                icon: <Icon size={14} />,
-              }))}
-            />
-          </Section>
+          {/* Theme — hidden when `theme.allowToggle` is false in
+              config/martis.php so the host app can lock everyone to a
+              single theme without removing the rest of the preferences. */}
+          {config.theme?.allowToggle !== false && (
+            <Section label={t('theme', 'Theme')}>
+              <Segmented<ThemeMode>
+                fullWidth
+                ariaLabel={t('theme', 'Theme')}
+                value={prefs.theme}
+                onChange={onThemePick}
+                options={THEME_OPTIONS.map(({ key, labelKey, fallback, icon: Icon }) => ({
+                  key,
+                  label: t(labelKey, fallback),
+                  icon: <Icon size={14} />,
+                }))}
+              />
+            </Section>
+          )}
 
           {/* Accent */}
           <Section label={t('accent', 'Accent')}>

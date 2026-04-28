@@ -169,7 +169,16 @@ i18n.use(initReactI18next).init({
 // makes Vitest exit non-zero on CI even when every test passes.
 // Locally the timing is forgiving and the leak rarely surfaces;
 // CI hits it consistently because of slightly slower teardown.
-process.on('unhandledRejection', (reason) => {
+// `process` is a Node global available at test-runtime (Vitest runs in
+// Node, even when the env is jsdom). The build-time `tsc` step has no
+// `@types/node` because this is a frontend bundle; declaring the
+// minimal shape locally keeps the contract honest without pulling in a
+// full Node types dep just to silence one block.
+declare const process: {
+  on(event: 'unhandledRejection', handler: (reason: unknown) => void): void
+}
+
+process.on('unhandledRejection', (reason: unknown) => {
   const msg = reason instanceof Error ? reason.message : String(reason)
   if (msg.includes('window is not defined') || msg.includes('document is not defined')) {
     return

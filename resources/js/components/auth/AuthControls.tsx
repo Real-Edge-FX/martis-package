@@ -41,8 +41,11 @@ export function AuthControls() {
 
   // Per-surface visibility toggles from `martis.auth.controls`. Both
   // default to true so existing installs keep the current behaviour.
+  // The global `theme.allowToggle = false` always wins — it is a
+  // hard lock for the whole shell, including the pre-login pages.
   const controls = config.auth?.controls ?? {}
-  const showTheme = controls.theme !== false
+  const themeAllowedGlobally = config.theme?.allowToggle !== false
+  const showTheme = themeAllowedGlobally && controls.theme !== false
   const showLocale = controls.locale !== false
 
   // Whole strip hides when both knobs are off — avoids rendering an
