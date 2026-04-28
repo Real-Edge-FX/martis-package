@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:progress')]
@@ -16,7 +17,7 @@ class ProgressMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/metric.progress.stub';
+        return StubResolver::path('metric.progress.stub');
     }
 
     protected function getDefaultNamespace($rootNamespace): string

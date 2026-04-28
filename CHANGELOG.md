@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`martis:stubs` artisan command** — publishes every generator stub from the package into `stubs/martis/` in the consuming app. Once published, edits to those files take effect on the next generator run with no cache to clear. New `Martis\Stubs\StubResolver` resolves each lookup against the project copy first, falling back to the bundled stub when no override exists. All 17 generator commands (resource, action, lens, field, dashboard, every metric type, filter, card, tool, component, theme, policy) now route through the resolver.
+
+### Changed
+
+- **`martis:make-policy` renamed to `martis:policy`** — aligns with the rest of the Martis generator naming (`martis:resource`, `martis:action`, ...). The historical `martis:make-policy` name is preserved as a hidden alias on the same command, so existing scripts and tutorials continue to work.
+
 ## [1.0.0] — 2026-04-27
 
 First stable release. The post-v0.10.0-rc1 cycle closed the documentation

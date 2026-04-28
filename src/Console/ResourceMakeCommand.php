@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:resource')]
@@ -18,7 +19,7 @@ class ResourceMakeCommand extends GeneratorCommand
     /** Get the stub file for the generator. */
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/resource.stub';
+        return StubResolver::path('resource.stub');
     }
 
     /** Get the default namespace for the class. */

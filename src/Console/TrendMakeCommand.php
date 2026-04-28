@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:trend')]
@@ -16,7 +17,7 @@ class TrendMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/metric.trend.stub';
+        return StubResolver::path('metric.trend.stub');
     }
 
     protected function getDefaultNamespace($rootNamespace): string

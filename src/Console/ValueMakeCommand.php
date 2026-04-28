@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:value')]
@@ -16,7 +17,7 @@ class ValueMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/metric.value.stub';
+        return StubResolver::path('metric.value.stub');
     }
 
     protected function getDefaultNamespace($rootNamespace): string

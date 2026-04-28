@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:dashboard')]
@@ -16,7 +17,7 @@ class DashboardMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/dashboard.stub';
+        return StubResolver::path('dashboard.stub');
     }
 
     protected function getDefaultNamespace($rootNamespace): string

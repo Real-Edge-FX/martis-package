@@ -5,6 +5,7 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 
 /**
  * Generate a Martis resource policy class.
@@ -14,12 +15,21 @@ use Illuminate\Support\Str;
  */
 class PolicyMakeCommand extends Command
 {
-    protected $signature = 'martis:make-policy
+    protected $signature = 'martis:policy
         {name : The name of the policy class (e.g. UserPolicy)}
         {--model= : The Eloquent model class (short name or FQCN)}
         {--resource= : The Martis resource class (short name)}';
 
     protected $description = 'Create a new Martis resource policy class';
+
+    /**
+     * Aliases — `martis:make-policy` was the original name (v0.x). It is
+     * kept as a hidden alias so existing tooling does not break. New
+     * documentation always points at the canonical `martis:policy`.
+     *
+     * @var list<string>
+     */
+    protected $aliases = ['martis:make-policy'];
 
     /**
      * Handle.
@@ -60,7 +70,7 @@ class PolicyMakeCommand extends Command
             }
         }
 
-        $stub = $files->get(__DIR__.'/../../stubs/policy.stub');
+        $stub = $files->get(StubResolver::path('policy.stub'));
 
         $stub = str_replace([
             '{{ namespace }}',
