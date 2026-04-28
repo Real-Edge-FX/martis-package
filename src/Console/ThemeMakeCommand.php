@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
+use Martis\Stubs\StubResolver;
 use RuntimeException;
 
 class ThemeMakeCommand extends Command
@@ -80,7 +81,7 @@ class ThemeMakeCommand extends Command
 
     protected function stubPath(): string
     {
-        return __DIR__.'/../../stubs/theme.css.stub';
+        return StubResolver::path('theme.css.stub');
     }
 
     protected function renderStub(string $name): string

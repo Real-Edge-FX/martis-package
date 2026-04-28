@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:filter')]
@@ -18,14 +19,14 @@ class FilterMakeCommand extends GeneratorCommand
     protected function getStub(): string
     {
         if ($this->option('boolean')) {
-            return __DIR__.'/../../stubs/filter.boolean.stub';
+            return StubResolver::path('filter.boolean.stub');
         }
 
         if ($this->option('date')) {
-            return __DIR__.'/../../stubs/filter.date.stub';
+            return StubResolver::path('filter.date.stub');
         }
 
-        return __DIR__.'/../../stubs/filter.select.stub';
+        return StubResolver::path('filter.select.stub');
     }
 
     /** Get the default namespace for the class. */

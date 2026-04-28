@@ -19,7 +19,8 @@ import type { MenuItem } from "primereact/menuitem"
 import type { NavigationGroup } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
-import { useRef, useState, useEffect, useCallback, useMemo } from "react"
+import { useRef, useState, useEffect, useMemo } from "react"
+import { addShortcut } from "@/lib/keyboardShortcuts"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
   SquaresFourIcon,
@@ -57,28 +58,27 @@ export function TopnavLayout() {
   const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
   const searchEnabled = config.search?.enabled !== false
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!searchEnabled) return
-      if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault()
-        setSearchOpen(true)
-        return
-      }
-      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
-        const tag = (e.target as HTMLElement)?.tagName
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
-        e.preventDefault()
-        setSearchOpen(true)
-      }
-    },
-    [searchEnabled],
-  )
-
+  // mod+K opens the palette regardless of focus; "/" only fires when
+  // the user is not currently typing in a form element. Both flow
+  // through the central registry so the help overlay (`?`) lists them
+  // and consumer Tools see them via `listShortcuts()`.
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+    if (!searchEnabled) return
+
+    const dispose = [
+      addShortcut("mod+k", () => setSearchOpen(true), {
+        description: "Open command palette",
+        group: "Navigation",
+        allowInInput: true,
+      }),
+      addShortcut("/", () => setSearchOpen(true), {
+        description: "Open command palette",
+        group: "Navigation",
+      }),
+    ]
+
+    return () => { dispose.forEach((fn) => fn()) }
+  }, [searchEnabled])
 
   // Active group — the one whose items include the current path.
   const activeGroup = useMemo(() => {

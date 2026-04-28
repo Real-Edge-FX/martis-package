@@ -25,81 +25,61 @@ use Martis\Resource;
  */
 class ActionEventResource extends Resource
 {
-    /**
-     * Globally searchable.
-     */
+    /** {@inheritdoc} */
     public static function globallySearchable(): bool
     {
         return false;
     }
 
-    /**
-     * Model.
-     */
+    /** {@inheritdoc} */
     public static function model(): string
     {
         return ActionEvent::class;
     }
 
-    /**
-     * Label.
-     */
+    /** {@inheritdoc} */
     public static function label(): string
     {
         return 'Action Events';
     }
 
-    /**
-     * Singular label.
-     */
+    /** {@inheritdoc} */
     public static function singularLabel(): string
     {
         return 'Action Event';
     }
 
-    /**
-     * Title attribute.
-     */
+    /** {@inheritdoc} */
     public static function titleAttribute(): string
     {
         return 'name';
     }
 
-    /**
-     * Default sort.
-     */
+    /** {@inheritdoc} */
     public static function defaultSort(): ?string
     {
         return 'created_at';
     }
 
-    /**
-     * Default sort direction.
-     */
+    /** {@inheritdoc} */
     public static function defaultSortDirection(): SortDirection
     {
         return SortDirection::Desc;
     }
 
-    /**
-     * Subtitle.
-     */
+    /** {@inheritdoc} */
     public static function subtitle(): ?string
     {
         return 'Audit log of all actions executed in the admin panel';
     }
 
-    /**
-     * Icon.
-     */
+    /** {@inheritdoc} */
     public function icon(): string
     {
         return 'clipboard-text';
     }
 
-    /**
-     * Group.
-     */
+    /** {@inheritdoc} */
     public function group(): ?string
     {
         return null;
@@ -109,25 +89,19 @@ class ActionEventResource extends Resource
     // Read-only: disable create, update, delete
     // -------------------------------------------------------------------------
 
-    /**
-     * Authorized to create.
-     */
+    /** {@inheritdoc} */
     public function authorizedToCreate(Request $request): bool
     {
         return false;
     }
 
-    /**
-     * Authorized to update.
-     */
+    /** {@inheritdoc} */
     public function authorizedToUpdate(Request $request): bool
     {
         return false;
     }
 
-    /**
-     * Authorized to delete.
-     */
+    /** {@inheritdoc} */
     public function authorizedToDelete(Request $request): bool
     {
         return false;
@@ -137,9 +111,7 @@ class ActionEventResource extends Resource
     // Fields
     // -------------------------------------------------------------------------
 
-    /**
-     * Fields.
-     */
+    /** {@inheritdoc} */
     public function fields(Request $request): array
     {
         return [
@@ -184,9 +156,7 @@ class ActionEventResource extends Resource
         ];
     }
 
-    /**
-     * Fields for index.
-     */
+    /** {@inheritdoc} */
     public function fieldsForIndex(Request $request): array
     {
         return [

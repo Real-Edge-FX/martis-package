@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:component', aliases: ['martis:override'])]
@@ -216,10 +217,10 @@ class ComponentMakeCommand extends Command
      */
     protected function getStub(string $type): string
     {
-        $stubPath = __DIR__.'/../../stubs/component-'.$type.'.tsx.stub';
+        $stubPath = StubResolver::path('component-'.$type.'.tsx.stub');
 
         if (! file_exists($stubPath)) {
-            $stubPath = __DIR__.'/../../stubs/component-generic.tsx.stub';
+            $stubPath = StubResolver::path('component-generic.tsx.stub');
         }
 
         return (string) file_get_contents($stubPath);

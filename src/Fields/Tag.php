@@ -59,11 +59,7 @@ class Tag extends Field
         $this->relationship = $relationship ?: $attribute;
     }
 
-    /**
-     * Create a Tag field.
-     *
-     * @param  string  $relationship  Eloquent relationship method name (e.g. "tags")
-     */
+    /** {@inheritdoc} */
     public static function make(string $relationship, ?string $label = null): static
     {
         $label = $label ?? Str::title(str_replace('_', ' ', $relationship));
@@ -71,9 +67,7 @@ class Tag extends Field
         return new static($relationship, $label, $relationship);
     }
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'tag';
@@ -227,13 +221,7 @@ class Tag extends Field
         return $this->preload;
     }
 
-    /**
-     * Resolve: load related models via the BelongsToMany relationship.
-     *
-     * Returns list of {id, title} pairs for the frontend.
-     *
-     * @return list<array{id: mixed, title: string|null}>
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
@@ -256,12 +244,7 @@ class Tag extends Field
         ])->values()->all();
     }
 
-    /**
-     * Fill: register a deferred pivot sync after the model is saved.
-     *
-     * Uses DeferredRelationSync (same pattern as BelongsTo::multiple()).
-     * The actual sync() is called after model save so the model has an ID.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

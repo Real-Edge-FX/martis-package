@@ -5,6 +5,7 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 
 class FieldMakeCommand extends Command
 {
@@ -58,7 +59,7 @@ class FieldMakeCommand extends Command
             return;
         }
 
-        $stub = $this->files->get(__DIR__.'/../../stubs/field.stub');
+        $stub = $this->files->get(StubResolver::path('field.stub'));
 
         $content = str_replace(
             ['{{ namespace }}', '{{ class }}', '{{ type }}'],
@@ -82,7 +83,7 @@ class FieldMakeCommand extends Command
             return;
         }
 
-        $stub = $this->files->get(__DIR__.'/../../stubs/field.tsx.stub');
+        $stub = $this->files->get(StubResolver::path('field.tsx.stub'));
 
         $content = str_replace(
             ['{{ class }}', '{{ type }}'],

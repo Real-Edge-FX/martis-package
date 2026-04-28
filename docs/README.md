@@ -108,6 +108,8 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
 | 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching, per-key deep merge, `app_namespaces`, `fallback_chain` |
 | 11.4 | **[Cache Control Surface](cache.md)** | `MartisCache::extend()`, runtime per-type toggle, `/martis/system/cache` admin page (v0.8) |
+| 11.5 | **[Customising Generators](customizing-generators.md)** | `martis:stubs` publisher + `Martis\Stubs\StubResolver` — every generator template (resource, action, lens, metrics, fields, tools, ...) is editable in `stubs/martis/` (v1.1) |
+| 11.6 | **[Keyboard Shortcuts](keyboard-shortcuts.md)** | `addShortcut()` / `disableShortcut()` / `listShortcuts()` registry + `Shift+?` help overlay; mod-key normalisation, two-key sequences, input-focus suppression (v1.1) |
 
 ### Architecture & Design
 
@@ -122,9 +124,8 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 15 | **[Martis Differentials](differentials.md)** | All distinctive features of Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
-| 16 | **[Parity Map](PARITY_MAP.md)** | Feature-by-feature parity scorecard, migration guide, and ecosystem mapping (single canonical reference) |
-| 17 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
-| 18 | **[v1.0 Roadmap](v1-roadmap.md)** | Live checklist of remaining items before the v1.0.0 tag is cut |
+| 16 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
+| 17 | **[v1.0 Roadmap](v1-roadmap.md)** | Live checklist of remaining items before the v1.0.0 tag is cut |
 
 ---
 
@@ -166,7 +167,6 @@ docs/
 ├── i18n.md ......................... Adding locales & translations
 ├── cache.md ........................ Cache control surface (v0.8)
 ├── differentials.md ................ Martis differentials (unique features)
-├── PARITY_MAP.md ................... Parity scorecard + migration guide + ecosystem map
 ├── release-process.md .............. How a release tag is cut
 ├── v1-roadmap.md ................... v1.0 readiness checklist
 ├── api/
@@ -198,7 +198,9 @@ docs/
 | `martis:component` | Generate a React component with auto-registration |
 | `martis:theme` | Scaffold a custom theme (dark + light mode) |
 | `martis:user` | Create a new admin user |
+| `martis:policy` | Create a resource policy class |
 | `martis:vendor-publish` | Publish package files (config, assets, views, lang) |
+| `martis:stubs` | Publish generator stubs into `stubs/martis/` for customisation |
 
 ---
 

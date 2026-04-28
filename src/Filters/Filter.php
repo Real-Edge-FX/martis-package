@@ -64,19 +64,19 @@ abstract class Filter implements FilterContract
      */
     abstract public function filterType(): FilterType;
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function name(): string
     {
         return $this->name;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -107,29 +107,13 @@ abstract class Filter implements FilterContract
         return $this;
     }
 
-    /**
-     * Get the filter options.
-     *
-     * Override in SelectFilter and BooleanFilter to provide choices.
-     * Supports flat and grouped formats:
-     *
-     * Flat:   ['Active' => 'active', 'Inactive' => 'inactive']
-     * Grouped: ['Status' => ['Active' => 'active', 'Inactive' => 'inactive']]
-     *
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function options(Request $request): array
     {
         return [];
     }
 
-    /**
-     * Get the default filter value.
-     *
-     * Override to provide a pre-selected value when the page first loads.
-     * The frontend will apply defaults on initial load and include them
-     * in the index query automatically.
-     */
+    /** {@inheritdoc} */
     public function default(): mixed
     {
         return null;
@@ -139,12 +123,7 @@ abstract class Filter implements FilterContract
     // Authorization — Martis extension
     // -------------------------------------------------------------------------
 
-    /**
-     * Set a callback that determines if the filter should be visible.
-     *
-     * Martis extension: per-filter authorization, for consistency with
-     * Fields and Actions.
-     */
+    /** {@inheritdoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -152,9 +131,7 @@ abstract class Filter implements FilterContract
         return $this;
     }
 
-    /**
-     * Determine if the filter should be visible for the given request.
-     */
+    /** {@inheritdoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {
@@ -204,7 +181,7 @@ abstract class Filter implements FilterContract
     }
 
     /**
-     * {@inheritDoc}
+     * {@inheritdoc}
      *
      * @return array<string, mixed>
      */
@@ -256,7 +233,7 @@ abstract class Filter implements FilterContract
     }
 
     /**
-     * {@inheritDoc}
+     * {@inheritdoc}
      *
      * @return array<string, mixed>
      */

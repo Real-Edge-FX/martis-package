@@ -459,7 +459,7 @@ class MorphManyController extends MartisController
             $fieldRules = $field->buildRules();
 
             if ($isUpdate) {
-                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule $r): bool => is_string($r) && $r !== 'required'));
+                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule|\Closure $r): bool => is_string($r) && $r !== 'required'));
                 if (empty($fieldRules)) {
                     $fieldRules = ['sometimes'];
                 } elseif (! in_array('sometimes', $fieldRules, true)) {

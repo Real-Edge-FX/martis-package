@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-04-28
+
+First minor release after v1.0.0. Three feature tiers (validated by source-grep audit), two pieces of UX polish, one repository-wide docblock refactor, and one config-wiring fix.
+
+### Added
+
+#### Field & Resource extensions
+
+- **`Select::options(EnumClass::class)`** — `Martis\Fields\Select::options()` now accepts a class-string of a `UnitEnum` (backed or pure). The dropdown is derived from `EnumClass::cases()`: `value` from the case backing string (or case name for pure enums), `label` from `Str::headline($case->name)`. See [docs/fields.md](docs/fields.md).
+- **`Resource::$relatableSearchResults`** — nullable int (default `null`) capping how many records a related field's picker (BelongsTo / MorphTo / BelongsToMany attach modal) returns. Request `?per_page=` is still honoured but never exceeds the cap. Default `null` keeps the request `per_page` clamped to 100. See [docs/resources.md](docs/resources.md).
+- **`Image::thumbnail(Closure)` + `Image::preview(Closure)`** — both methods now accept a closure (in addition to the existing dimension shape for `thumbnail()`). Closure signature: `($value, Model $model)` returns the absolute URL. Use it for CDNs, image proxies (Imgproxy / Cloudinary), or private disks needing per-request signed URLs. `null` returns gracefully fall back to `$disk->url()`.
+- **`Resource::$polling`, `$pollingInterval`, `$showPollingToggle`** — auto-refresh the index payload at a fixed cadence. Defaults to off; interval clamped to a 5-second floor via `Resource::resolvedPollingInterval()`. Surfaced in the schema payload as `polling`, `pollingInterval`, `showPollingToggle`.
+- **`Metric::help(?string)`** — attach a tooltip rendered next to the metric title. Serialized as `help` in the metric payload; `null` (default) hides the icon entirely. See [docs/metrics.md](docs/metrics.md).
+
+#### Generators
+
+- **`martis:stubs` artisan command** — publishes every generator stub from the package into `stubs/martis/` in the consuming app. Edits to those files take effect on the next generator run with no cache to clear. New `Martis\Stubs\StubResolver` resolves each lookup against the project copy first, falling back to the bundled stub when no override exists. All 17 generator commands (resource, action, lens, field, dashboard, every metric type, filter, card, tool, component, theme, policy) now route through the resolver. See [docs/customizing-generators.md](docs/customizing-generators.md).
+
+#### Frontend
+
+- **Keyboard shortcuts registry** — new `resources/js/lib/keyboardShortcuts.ts` exposes `addShortcut()`, `disableShortcut()`, `listShortcuts()` (also reachable via `window.Martis.shortcuts`). Supports modifiers (`cmd`, `ctrl`, `mod`, `shift`, `alt`), two-key sequences (`g r`-style), input-focus suppression with `allowInInput` opt-in, and a built-in help overlay opened with `Shift+?`. The bundled `mod+k` and `/` palette shortcuts now route through the registry, so the help overlay always reflects the live set. Custom Tools and consumer plugins can register their own combos. See [docs/keyboard-shortcuts.md](docs/keyboard-shortcuts.md).
+
+#### Config toggles
+
+- **`config('martis.keyboard_shortcuts')`** — two new flags: `enabled` (master switch; when `false`, every `addShortcut()` call is a no-op including the bundled combos) and `helpOverlay` (independent toggle that skips the bundled `Shift+?` overlay registration only). Defaults to `true`/`true`. Env vars: `MARTIS_KEYBOARD_SHORTCUTS_ENABLED`, `MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY`.
+
+### Changed
+
+- **`martis:make-policy` renamed to `martis:policy`** — aligns with the rest of the generator naming (`martis:resource`, `martis:action`, …). The historical `martis:make-policy` name is preserved as a hidden alias on the same command, so existing scripts and tutorials continue to work.
+- **`KeyboardShortcutsHelp` overlay redesigned** to match the design-system "Command Palette / Shortcuts" pattern. Replaces the PrimeReact `<Dialog>` with a hand-rolled overlay using the canonical Martis tokens (`var(--martis-overlay)` backdrop, `var(--martis-surface)` card with `var(--martis-radius-lg)` + `var(--martis-shadow-lg)`, hairline `var(--martis-border)` between rows, mono `<kbd>` chips on `var(--martis-hover)`). Adds Esc-to-close, click-outside dismiss, and a footer hint row mirroring the Command Palette.
+- **Docblock standard alignment** — every method implementing an interface contract (or extending a base class declaring one) now carries only `/** {@inheritdoc} */`. The full contract documentation lives on the interface itself; implementations no longer duplicate `@param` / `@return` / `@throws` blocks. 209 redundant docblocks collapsed across 47 source files; 171 docblocks preserved where they carried unique value (PHPStan generics, `@deprecated` notes, multi-paragraph context). All casing normalised to lowercase. Net: 1104 lines removed, 518 added.
+- **`FieldContract::buildRules()` widened** to `list<string|Rule|Closure>` — closure-based validation rules were already in use (`Url::buildRules` ships closures) but the contract type listed only `string|Rule`. Aligning the contract eliminates a real-world type drift PHPStan caught during the docblock sweep.
+- **`CardContract`, `DashboardContract`, `LensContract` completed** — 5 + 5 + 5 methods that previously shipped without docblocks now carry full contract documentation so the new `{@inheritdoc}` references on implementations resolve to something useful.
+
+### Fixed
+
+- **`theme.allowToggle = false` now actually hides the theme picker.** The config flag has shipped since v0.x but was never read by the frontend (dead config). The Preferences overlay now drops the entire Theme section and the pre-login auth pages suppress the theme cycle button when the flag is `false`. See [docs/configuration.md](docs/configuration.md#theme).
+- **TypeScript build passes again on a clean checkout.** A pre-existing `tsc` error on `resources/js/test-setup.ts` (`Cannot find name 'process'`) added in the v1.0 hotfix prevented `npm run build` from completing. The handler is preserved with a local `declare` shim that documents why `@types/node` is intentionally not pulled in for a frontend bundle.
+
+### Stats
+
+- 1647 Pest tests passing (1 skipped, 0 failed)
+- 103 Vitest tests passing (5 skipped, 0 failed)
+- PHPStan level 8: 0 errors
+- 7 PRs merged (#81, #82, #83, #84, #85, #86, #87, #88) onto `release/v1.1.0`
+
 ## [1.0.0] — 2026-04-27
 
 First stable release. The post-v0.10.0-rc1 cycle closed the documentation
@@ -34,12 +80,10 @@ during release-candidate baking.
 
 ### Changed
 
-- **Documentation overhaul** — Nova v5 references consolidated into
-  `docs/PARITY_MAP.md` as the single canonical reference. Migration
-  guide and ecosystem map folded in as appended sections; every other
-  doc is now self-contained and reads as a Martis explainer.
-  - Deleted `docs/migration-from-nova.md`, `docs/nova-ecosystem-catalog.md`,
-    `docs/release-v0.3.0-alpha.md`, `docs/PROJECT_CONTEXT.md`.
+- **Documentation overhaul** — every doc reads as a self-contained
+  Martis explainer. No comparative framing.
+  - Removed historical / outdated docs (`release-v0.3.0-alpha.md`,
+    `PROJECT_CONTEXT.md`).
   - Filled 4 missing config-key sections (`preferences`, `sticky_views`,
     `loader`, `impersonation`) in `docs/configuration.md`.
   - Filled 7 missing endpoint families (Dashboards, Tools, Preferences,
@@ -76,7 +120,7 @@ during release-candidate baking.
 ## [0.10.0-rc1] — 2026-04-27
 
 First release candidate for v1.0.0. Closes the entire post-1.0 backlog
-identified in the v0.9.0-beta parity audit.
+identified in the v0.9.0-beta planning round.
 
 ### Added — Custom Tools
 
@@ -126,12 +170,6 @@ identified in the v0.9.0-beta parity audit.
 
 ### Added — Documentation deliverables
 
-- `docs/migration-from-nova.md` (later folded into `PARITY_MAP.md`):
-  end-to-end Nova v5 → Martis migration guide (namespace map,
-  method-by-method conversion, field API map, cookbook, verification
-  checklist).
-- `docs/nova-ecosystem-catalog.md` (later folded into `PARITY_MAP.md`):
-  Nova v5 add-on mapping.
 - `docs/tools.md` rewritten as end-to-end walkthrough (architecture
   diagram, 5-min path, anatomy, lifecycle, distribution patterns,
   cookbook with 3 recipes, anti-patterns).
@@ -144,8 +182,6 @@ identified in the v0.9.0-beta parity audit.
 
 - `MartisManager::bootTools()` runs every registered tool's `boot()`
   exactly once per request lifecycle.
-- PARITY_MAP — Custom Tools row promoted from PARTIAL to DONE; new
-  Impersonation row.
 - Test count — 1613 Pest + 84 Vitest = 1697 passing, 6 skipped, 0 failed.
 
 ### Fixed
@@ -497,7 +533,6 @@ flag on Actions.
 #### Documentation
 - New [docs/repeater.md](docs/repeater.md) covering all storage modes,
   the Repeatable API and every ⭐ Martis differential with examples.
-- PARITY_MAP.md — Repeater marked DONE.
 - differentials.md — dedicated Repeater section (D1–D5).
 - fields.md — Repeater entry in the field-type reference.
 - README.md — Repeater link in the documentation index.

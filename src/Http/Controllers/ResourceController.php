@@ -972,6 +972,9 @@ class ResourceController extends MartisController
             'usesScout' => $resourceClass::usesScout(),
             'perPageOptions' => $resourceClass::perPageOptions(),
             'perPage' => $resourceClass::resolvedPerPage(),
+            'polling' => $resourceClass::pollingEnabled(),
+            'pollingInterval' => $resourceClass::resolvedPollingInterval(),
+            'showPollingToggle' => $resourceClass::pollingToggleVisible(),
             'searchPlaceholder' => $resourceClass::searchPlaceholder(),
             'fields' => $fieldData,
             'fieldsForIndex' => $fieldsForIndex,
@@ -1259,9 +1262,12 @@ class ResourceController extends MartisController
             }
         }
 
-        $perPage = min(
+        // Honour per-resource $relatableSearchResults cap when set.
+        // Falls back to the request `?per_page=` (default 20) clamped
+        // to the absolute 100-row ceiling for resources that don't
+        // declare a tighter cap.
+        $perPage = $relatedResourceClass::resolveRelatableSearchResults(
             (int) ($request->query('per_page', '20')),
-            100,
         );
 
         $paginator = $query->paginate($perPage);

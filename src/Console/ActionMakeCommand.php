@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:action')]
@@ -18,10 +19,10 @@ class ActionMakeCommand extends GeneratorCommand
     protected function getStub(): string
     {
         if ($this->option('destructive')) {
-            return __DIR__.'/../../stubs/action.destructive.stub';
+            return StubResolver::path('action.destructive.stub');
         }
 
-        return __DIR__.'/../../stubs/action.stub';
+        return StubResolver::path('action.stub');
     }
 
     /** Get the default namespace for the class. */

@@ -12,9 +12,7 @@ class Textarea extends Field
 {
     protected int $rows = 5;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'textarea';

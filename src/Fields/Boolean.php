@@ -25,9 +25,7 @@ class Boolean extends Field
 
     protected string $falseColor = 'neutral';
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'boolean';
@@ -84,9 +82,7 @@ class Boolean extends Field
         return $this;
     }
 
-    /**
-     * Resolve the attribute as a strict boolean.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $raw = parent::resolve($model, $attribute);
@@ -94,9 +90,7 @@ class Boolean extends Field
         return (bool) $raw;
     }
 
-    /**
-     * Cast the incoming value to bool before setting on model.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         parent::fill($model, (bool) $value);
@@ -115,7 +109,7 @@ class Boolean extends Field
         ];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function defaultColumnWidth(): array
     {
         return ['width' => '120px'];

@@ -225,13 +225,7 @@ class Repeater extends Field
         return $this;
     }
 
-    /**
-     * ⭐ Expose parent model attributes to every field inside a row so
-     * field resolvers can react to them (via the frontend `useFieldContext`
-     * hook).
-     *
-     * @param  list<string>  $attributes
-     */
+    /** {@inheritdoc} */
     public function dependsOn(array $attributes, ?\Closure $callback = null): static
     {
         // Forward to the parent: same array storage + optional callback.

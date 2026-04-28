@@ -6,8 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\DashboardContract;
-use Martis\Contracts\FilterContract;
-use Martis\Contracts\MetricContract;
 
 /**
  * Base class for Martis dashboards.
@@ -39,19 +37,19 @@ class Dashboard implements DashboardContract
         return new static($name, $uriKey);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function name(): string
     {
         return $this->name;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function uriKey(): string
     {
         return $this->uriKey ?? Str::kebab($this->name);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -68,11 +66,7 @@ class Dashboard implements DashboardContract
     // Cards — metrics and custom cards displayed on this dashboard
     // -------------------------------------------------------------------------
 
-    /**
-     * Get the cards (metrics) for this dashboard.
-     *
-     * @return list<MetricContract|array<string, mixed>>
-     */
+    /** {@inheritdoc} */
     public function cards(Request $request): array
     {
         return [];
@@ -82,14 +76,7 @@ class Dashboard implements DashboardContract
     // Filters — Martis extension (dashboard-level filters)
     // -------------------------------------------------------------------------
 
-    /**
-     * Get the filters for this dashboard.
-     *
-     * Martis extension: dashboard-level filters affect all cards on this
-     * dashboard.
-     *
-     * @return list<FilterContract|array<string, mixed>>
-     */
+    /** {@inheritdoc} */
     public function filters(Request $request): array
     {
         return [];
@@ -99,9 +86,7 @@ class Dashboard implements DashboardContract
     // Display options
     // -------------------------------------------------------------------------
 
-    /**
-     * Whether to show a manual refresh button.
-     */
+    /** {@inheritdoc} */
     public function showRefreshButton(): bool
     {
         return false;
@@ -123,7 +108,7 @@ class Dashboard implements DashboardContract
     // Authorization
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -131,7 +116,7 @@ class Dashboard implements DashboardContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {
@@ -155,9 +140,7 @@ class Dashboard implements DashboardContract
         return $this;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function meta(): array
     {
         return $this->meta;
@@ -167,11 +150,7 @@ class Dashboard implements DashboardContract
     // Serialization
     // -------------------------------------------------------------------------
 
-    /**
-     * Serialize the dashboard definition for the API.
-     *
-     * @return array<string, mixed>
-     */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return [

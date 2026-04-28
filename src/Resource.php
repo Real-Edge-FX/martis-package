@@ -10,11 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use Martis\Contracts\ActionContract;
-use Martis\Contracts\CardContract;
-use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FieldContract;
-use Martis\Contracts\FilterContract;
-use Martis\Contracts\LensContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
 use Martis\Contracts\UnsavedChangesConfigContract;
@@ -93,7 +89,7 @@ abstract class Resource implements ResourceContract
     // Defaults — may be overridden by concrete resources
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function newModel(): Model
     {
         $class = static::model();
@@ -104,31 +100,31 @@ abstract class Resource implements ResourceContract
         return $instance;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function uriKey(): string
     {
         return Str::plural(Str::kebab(class_basename(static::model())));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function label(): string
     {
         return Str::plural(Str::headline(class_basename(static::model())));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function singularLabel(): string
     {
         return Str::headline(class_basename(static::model()));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function subtitle(): ?string
     {
         return null;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function titleAttribute(): string
     {
         return 'id';
@@ -141,19 +137,19 @@ abstract class Resource implements ResourceContract
      * When titleAttribute is 'id' (default), returns "{SingularLabel} #{id}"
      * so the frontend displays a meaningful label instead of just a number.
      */
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function indexSearchable(): bool
     {
         return true;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function perPageOptions(): array
     {
         return [10, 25, 50, 100];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function perPage(): int
     {
         return (int) config('martis.pagination.default_per_page', 25);
@@ -177,25 +173,19 @@ abstract class Resource implements ResourceContract
         return $options[0];
     }
 
-    /**
-     * Return the default sort column for the index listing.
-     *
-     * Override in concrete resources to sort by a specific column on load.
-     */
+    /** {@inheritdoc} */
     public static function defaultSort(): ?string
     {
         return null;
     }
 
-    /**
-     * Return the default sort direction for the index listing.
-     */
+    /** {@inheritdoc} */
     public static function defaultSortDirection(): SortDirection
     {
         return SortDirection::Asc;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function searchPlaceholder(): ?string
     {
         return null;
@@ -236,9 +226,7 @@ abstract class Resource implements ResourceContract
         return $query;
     }
 
-    /**
-     * Title.
-     */
+    /** {@inheritdoc} */
     public function title(): string
     {
         if ($this->model === null) {
@@ -272,13 +260,13 @@ abstract class Resource implements ResourceContract
     //   preview       -> fieldsForPreview()      -> fields()
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function fieldsForIndex(Request $request): array
     {
         return $this->fields($request);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function fieldsForDetail(Request $request): array
     {
         return $this->fields($request);
@@ -303,13 +291,13 @@ abstract class Resource implements ResourceContract
         return [];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function fieldsForCreate(Request $request): array
     {
         return $this->fields($request);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function fieldsForUpdate(Request $request): array
     {
         return $this->fields($request);
@@ -321,14 +309,14 @@ abstract class Resource implements ResourceContract
      *
      * Falls back to fieldsForCreate(), which itself falls back to fields().
      *
-     * {@inheritDoc}
+     * {@inheritdoc}
      */
     public function fieldsForInlineCreate(Request $request): array
     {
         return $this->fieldsForCreate($request);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function fieldsForPreview(Request $request): array
     {
         return $this->fields($request);
@@ -338,44 +326,25 @@ abstract class Resource implements ResourceContract
     // Schema foundation — task 1
     // -------------------------------------------------------------------------
 
-    /**
-     * Return the filter descriptors exposed by this resource.
-     *
-     * Task 1 foundation only: the full filters engine lands later, but the
-     * schema contract exists now so resources can declare intent safely.
-     *
-     * @return list<FilterContract|array<string, mixed>>
-     */
+    /** {@inheritdoc} */
     public function filters(Request $request): array
     {
         return [];
     }
 
-    /**
-     * Return the lens descriptors exposed by this resource.
-     *
-     * @return list<LensContract|array<string, mixed>>
-     */
+    /** {@inheritdoc} */
     public function lenses(Request $request): array
     {
         return [];
     }
 
-    /**
-     * Return the card descriptors exposed by this resource.
-     *
-     * @return list<CardContract|array<string, mixed>>
-     */
+    /** {@inheritdoc} */
     public function cards(Request $request): array
     {
         return [];
     }
 
-    /**
-     * Return the dashboard descriptors exposed by this resource.
-     *
-     * @return list<DashboardContract|array<string, mixed>>
-     */
+    /** {@inheritdoc} */
     public static function dashboards(): array
     {
         return [];
@@ -425,7 +394,7 @@ abstract class Resource implements ResourceContract
     // Soft delete awareness
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public static function softDeletes(): bool
     {
         return in_array(
@@ -454,11 +423,7 @@ abstract class Resource implements ResourceContract
     // Authorization — Policy resolution
     // -------------------------------------------------------------------------
 
-    /**
-     * Determine whether authorization checks are enabled for this resource.
-     *
-     * Return false to skip all policy checks and allow all operations.
-     */
+    /** {@inheritdoc} */
     public static function authorizable(): bool
     {
         return true;
@@ -523,11 +488,7 @@ abstract class Resource implements ResourceContract
         return null;
     }
 
-    /**
-     * Flush the resolved policy cache.
-     *
-     * Useful in tests to reset state between test cases.
-     */
+    /** {@inheritdoc} */
     public static function flushPolicyCache(): void
     {
         self::$resolvedPolicies = [];
@@ -537,74 +498,49 @@ abstract class Resource implements ResourceContract
     // Authorization — Resource abilities
     // -------------------------------------------------------------------------
 
-    /**
-     * Determine whether the current user may view any resource of this type.
-     */
+    /** {@inheritdoc} */
     public function authorizedToViewAny(Request $request): bool
     {
         return $this->checkPolicy('viewAny', null);
     }
 
-    /**
-     * Determine whether the current user may view this specific resource.
-     */
+    /** {@inheritdoc} */
     public function authorizedToView(Request $request): bool
     {
         return $this->checkPolicy('view', $this->model);
     }
 
-    /**
-     * Determine whether the current user may create resources of this type.
-     */
+    /** {@inheritdoc} */
     public function authorizedToCreate(Request $request): bool
     {
         return $this->checkPolicy('create', null);
     }
 
-    /**
-     * Determine whether the current user may update this resource.
-     */
+    /** {@inheritdoc} */
     public function authorizedToUpdate(Request $request): bool
     {
         return $this->checkPolicy('update', $this->model);
     }
 
-    /**
-     * Determine whether the current user may delete this resource.
-     */
+    /** {@inheritdoc} */
     public function authorizedToDelete(Request $request): bool
     {
         return $this->checkPolicy('delete', $this->model);
     }
 
-    /**
-     * Determine whether the current user may restore this soft-deleted resource.
-     *
-     * Checks the 'restore' policy method.
-     * Default when missing: forbidden.
-     */
+    /** {@inheritdoc} */
     public function authorizedToRestore(Request $request): bool
     {
         return $this->checkPolicy('restore', $this->model);
     }
 
-    /**
-     * Determine whether the current user may force-delete this resource.
-     *
-     * Checks the 'forceDelete' policy method.
-     * Default when missing: forbidden.
-     */
+    /** {@inheritdoc} */
     public function authorizedToForceDelete(Request $request): bool
     {
         return $this->checkPolicy('forceDelete', $this->model);
     }
 
-    /**
-     * Determine whether the current user may replicate this resource.
-     *
-     * Checks the 'replicate' policy method.
-     * Fallback when missing: must pass BOTH create AND update.
-     */
+    /** {@inheritdoc} */
     public function authorizedToReplicate(Request $request): bool
     {
         $policy = static::resolvePolicy();
@@ -617,12 +553,7 @@ abstract class Resource implements ResourceContract
         return $this->authorizedToCreate($request) && $this->authorizedToUpdate($request);
     }
 
-    /**
-     * Determine whether the current user may run a normal action on this resource.
-     *
-     * Checks the 'runAction' policy method.
-     * Fallback when missing: delegates to authorizedToUpdate().
-     */
+    /** {@inheritdoc} */
     public function authorizedToRunAction(Request $request): bool
     {
         $policy = static::resolvePolicy();
@@ -635,12 +566,7 @@ abstract class Resource implements ResourceContract
         return $this->authorizedToUpdate($request);
     }
 
-    /**
-     * Determine whether the current user may run a destructive action on this resource.
-     *
-     * Checks the 'runDestructiveAction' policy method.
-     * Fallback when missing: delegates to authorizedToDelete().
-     */
+    /** {@inheritdoc} */
     public function authorizedToRunDestructiveAction(Request $request): bool
     {
         $policy = static::resolvePolicy();
@@ -663,12 +589,7 @@ abstract class Resource implements ResourceContract
     // One does NOT replace the other.
     // -------------------------------------------------------------------------
 
-    /**
-     * Determine whether the user may attach ANY record of the given model type.
-     *
-     * Policy method: `attachAny{Model}`.
-     * If no policy is registered, returns true (permissive default).
-     */
+    /** {@inheritdoc} */
     public function authorizedToAttachAny(Request $request, string $relatedModelClass): bool
     {
         $ability = 'attachAny'.class_basename($relatedModelClass);
@@ -676,11 +597,7 @@ abstract class Resource implements ResourceContract
         return $this->checkRelationalPolicy($ability, $relatedModelClass);
     }
 
-    /**
-     * Determine whether the user may attach a specific related model.
-     *
-     * Policy method: `attach{Model}`.
-     */
+    /** {@inheritdoc} */
     public function authorizedToAttach(Request $request, Model $relatedModel): bool
     {
         $ability = 'attach'.class_basename($relatedModel);
@@ -688,11 +605,7 @@ abstract class Resource implements ResourceContract
         return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
     }
 
-    /**
-     * Determine whether the user may detach a specific related model.
-     *
-     * Policy method: `detach{Model}`.
-     */
+    /** {@inheritdoc} */
     public function authorizedToDetach(Request $request, Model $relatedModel): bool
     {
         $ability = 'detach'.class_basename($relatedModel);
@@ -719,12 +632,7 @@ abstract class Resource implements ResourceContract
         return $this->authorizedToUpdate($request);
     }
 
-    /**
-     * Determine whether the user may add a new record of the given model type
-     * (inline creation from a relationship field).
-     *
-     * Policy method: `add{Model}`.
-     */
+    /** {@inheritdoc} */
     public function authorizedToAdd(Request $request, string $relatedModelClass): bool
     {
         $ability = 'add'.class_basename($relatedModelClass);
@@ -890,14 +798,7 @@ abstract class Resource implements ResourceContract
         return false;
     }
 
-    /**
-     * Return authorization metadata for this resource instance.
-     *
-     * Consumed by the frontend to show/hide action buttons and links.
-     * Always derived from the backend policy — never trust frontend-only checks.
-     *
-     * @return array<string, bool>
-     */
+    /** {@inheritdoc} */
     public function authorizationMetadata(Request $request): array
     {
         $meta = [
@@ -917,11 +818,7 @@ abstract class Resource implements ResourceContract
         return $meta;
     }
 
-    /**
-     * Return collection-level authorization metadata for schema responses.
-     *
-     * @return array<string, bool>
-     */
+    /** {@inheritdoc} */
     public function collectionAuthorizationMetadata(Request $request): array
     {
         return [
@@ -934,7 +831,7 @@ abstract class Resource implements ResourceContract
     // Accessors
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function getModel(): ?Model
     {
         return $this->model;
@@ -944,13 +841,13 @@ abstract class Resource implements ResourceContract
      * Return the navigation group for this resource (null = top-level).
      * Override to group resources in the sidebar.
      */
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function icon(): string
     {
         return 'database';
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function iconColor(): ?string
     {
         return null;
@@ -960,28 +857,19 @@ abstract class Resource implements ResourceContract
     // DataTable display configuration — configurable per resource
     // -------------------------------------------------------------------------
 
-    /**
-     * Whether the DataTable should display striped rows.
-     * Override in concrete resources to disable.
-     */
+    /** {@inheritdoc} */
     public static function tableStriped(): bool
     {
         return true;
     }
 
-    /**
-     * Whether to show vertical grid lines between columns.
-     * Override to return true if you want cell borders.
-     */
+    /** {@inheritdoc} */
     public static function tableShowGridlines(): bool
     {
         return false;
     }
 
-    /**
-     * DataTable size: 'normal', 'small', or 'large'.
-     * Controls cell padding and font sizes.
-     */
+    /** {@inheritdoc} */
     public static function tableSize(): TableSize
     {
         return TableSize::Normal;
@@ -1001,19 +889,13 @@ abstract class Resource implements ResourceContract
         return TableLayout::Auto;
     }
 
-    /**
-     * Whether table rows should highlight on hover.
-     * Default true — set false for static tables.
-     */
+    /** {@inheritdoc} */
     public static function tableRowHover(): bool
     {
         return true;
     }
 
-    /**
-     * Customize the label for the actions menu in the resource index.
-     * Override this to change "Actions" to a custom label.
-     */
+    /** {@inheritdoc} */
     public static function actionsMenuLabel(): ?string
     {
         return null;
@@ -1059,68 +941,37 @@ abstract class Resource implements ResourceContract
         return 'Actions';
     }
 
-    /**
-     * The custom label for the bulk actions dropdown.
-     *
-     * Override this to change "Bulk Actions" to a custom label.
-     */
+    /** {@inheritdoc} */
     public static function bulkActionsMenuLabel(): ?string
     {
         return null;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function group(): ?string
     {
         return null;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function menuItem(Request $request): MenuItem
     {
         return MenuItem::resource(static::class);
     }
 
-    /**
-     * Determine whether this resource should appear in the navigation menu.
-     *
-     * Override in concrete resources to hide them from the sidebar:
-     *   public static function displayInNavigation(): bool
-     *   {
-     *       return false;
-     *   }
-     */
+    /** {@inheritdoc} */
     public static function displayInNavigation(): bool
     {
         return true;
     }
 
-    /**
-     * Whether the sidebar and top-nav menus should surface a count badge
-     * for this resource (e.g. "Users 1,284"). Default: true.
-     *
-     * Override to opt out on a single resource:
-     *   public static function showMenuCount(): bool
-     *   {
-     *       return false;
-     *   }
-     *
-     * The global `config('martis.navigation.counts.enabled')` switch still
-     * takes precedence — it disables counts everywhere regardless of this
-     * value.
-     */
+    /** {@inheritdoc} */
     public static function showMenuCount(): bool
     {
         return true;
     }
 
-    /**
-     * Compute the count rendered next to this resource in the navigation.
-     *
-     * Default implementation runs `COUNT(*)` through the same `indexQuery`
-     * hook used by the listing view so tenancy and policy scopes apply.
-     * Return null to skip the badge even when `showMenuCount()` is true.
-     */
+    /** {@inheritdoc} */
     public static function menuCount(Request $request): ?int
     {
         $query = static::newModel()->newQuery();
@@ -1135,15 +986,7 @@ abstract class Resource implements ResourceContract
     // Notification messages — customizable per resource
     // -------------------------------------------------------------------------
 
-    /**
-     * Message shown after a record is created.
-     *
-     * Override in concrete resources to customize:
-     *   public static function createdMessage(): string
-     *   {
-     *       return 'New user registered!';
-     *   }
-     */
+    /** {@inheritdoc} */
     public static function createdMessage(): string
     {
         $msg = __('martis::messages.record_created');
@@ -1151,9 +994,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'Record created successfully.';
     }
 
-    /**
-     * Message shown after a record is updated.
-     */
+    /** {@inheritdoc} */
     public static function updatedMessage(): string
     {
         $msg = __('martis::messages.record_updated');
@@ -1161,9 +1002,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'Record updated successfully.';
     }
 
-    /**
-     * Message shown after a record is deleted.
-     */
+    /** {@inheritdoc} */
     public static function deletedMessage(): string
     {
         $msg = __('martis::messages.record_deleted');
@@ -1171,9 +1010,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'Record deleted successfully.';
     }
 
-    /**
-     * Message shown after a soft-deleted record is restored.
-     */
+    /** {@inheritdoc} */
     public static function restoredMessage(): string
     {
         $msg = __('martis::messages.record_restored');
@@ -1181,9 +1018,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'Record restored successfully.';
     }
 
-    /**
-     * Message shown after a record is force-deleted.
-     */
+    /** {@inheritdoc} */
     public static function forceDeletedMessage(): string
     {
         $msg = __('martis::messages.record_force_deleted');
@@ -1191,9 +1026,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'Record permanently deleted.';
     }
 
-    /**
-     * Message shown after a record is replicated.
-     */
+    /** {@inheritdoc} */
     public static function replicatedMessage(): string
     {
         $msg = __('martis::messages.record_replicated');
@@ -1201,9 +1034,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'Record duplicated successfully.';
     }
 
-    /**
-     * Confirmation message shown before deleting a record.
-     */
+    /** {@inheritdoc} */
     public static function deleteConfirmMessage(): string
     {
         $msg = __('martis::messages.delete_confirm');
@@ -1211,9 +1042,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'This action is permanent and cannot be undone. Are you sure?';
     }
 
-    /**
-     * Confirmation message shown before archiving (soft-deleting) a record.
-     */
+    /** {@inheritdoc} */
     public static function archiveConfirmMessage(): string
     {
         $msg = __('martis::messages.archive_confirm');
@@ -1221,9 +1050,7 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'This record will be archived. You can restore it later.';
     }
 
-    /**
-     * Confirmation message shown before force-deleting a record.
-     */
+    /** {@inheritdoc} */
     public static function forceDeleteConfirmMessage(): string
     {
         $msg = __('martis::messages.force_delete_confirm');
@@ -1236,35 +1063,31 @@ abstract class Resource implements ResourceContract
     // React components. Return null (default) to use built-in pages.
     // -------------------------------------------------------------------------
 
-    /** Override the create page with a custom React component. */
+    /** {@inheritdoc} */
     public function overrideCreate(): ?OverrideContract
     {
         return null;
     }
 
-    /** Override the update page with a custom React component. */
+    /** {@inheritdoc} */
     public function overrideUpdate(): ?OverrideContract
     {
         return null;
     }
 
-    /** Override the detail page with a custom React component. */
+    /** {@inheritdoc} */
     public function overrideDetail(): ?OverrideContract
     {
         return null;
     }
 
-    /** Override the index page with a custom React component. */
+    /** {@inheritdoc} */
     public function overrideIndex(): ?OverrideContract
     {
         return null;
     }
 
-    /**
-     * Collect all page overrides for the schema API.
-     *
-     * @return array{create: array{component: string, params: array<string, mixed>}|null, update: array{component: string, params: array<string, mixed>}|null, detail: array{component: string, params: array<string, mixed>}|null, index: array{component: string, params: array<string, mixed>}|null}
-     */
+    /** {@inheritdoc} */
     public function overrides(): array
     {
         return [
@@ -1275,7 +1098,7 @@ abstract class Resource implements ResourceContract
         ];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return [
@@ -1294,21 +1117,13 @@ abstract class Resource implements ResourceContract
     // Server-side hooks
     // -------------------------------------------------------------------------
 
-    /**
-     * Error display strategy for this resource.
-     *
-     * Return "inline" to show validation errors next to each field,
-     * or "toast" to show them as toast notifications.
-     */
+    /** {@inheritdoc} */
     public static function errorDisplay(): ErrorDisplayMode
     {
         return ErrorDisplayMode::Inline;
     }
 
-    /**
-     * Message shown in the toast when validation fails.
-     * Override to customize per resource.
-     */
+    /** {@inheritdoc} */
     public static function validationMessage(): string
     {
         $msg = __('martis::messages.validation_failed');
@@ -1316,25 +1131,25 @@ abstract class Resource implements ResourceContract
         return is_string($msg) ? $msg : 'The given data was invalid.';
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function beforeSave(Model $model, Request $request, bool $creating): void
     {
         BeforeSave::dispatch(static::class, $model, $request, $creating);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function afterSave(Model $model, Request $request, bool $creating): void
     {
         AfterSave::dispatch(static::class, $model, $request, $creating);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function beforeDelete(Model $model, Request $request): void
     {
         BeforeDelete::dispatch(static::class, $model, $request);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function afterDelete(Model $model, Request $request): void
     {
         AfterDelete::dispatch(static::class, $model, $request);
@@ -1473,12 +1288,93 @@ abstract class Resource implements ResourceContract
     public static ?int $scoutSearchResults = null;
 
     /**
-     * Determine whether this resource uses Laravel Scout for searching.
+     * Hard cap on the number of results returned by relatable lookups
+     * (BelongsTo / MorphTo / BelongsToMany attach modal pickers).
      *
-     * By default, returns true when the associated model uses the
-     * Laravel\Scout\Searchable trait. Override to return false to
-     * force database search even when the model is Searchable.
+     * The request-level `?per_page=` parameter is still honoured but
+     * never exceeds this cap. Default `null` means "no per-resource
+     * cap" — the request `per_page` (or its 100-row hard ceiling) wins.
+     *
+     * Set to a small number (10–50) on resources with millions of rows
+     * so the picker stays performant even when a power user pokes at
+     * `?per_page=999`.
+     *
+     * Override per-resource:
+     *
+     *     public static int $relatableSearchResults = 25;
      */
+    public static ?int $relatableSearchResults = null;
+
+    /**
+     * Resolve the effective per-page cap for relatable picker lookups.
+     *
+     * Returns the smaller of the request-supplied `per_page`, the
+     * per-resource `$relatableSearchResults` (when set), and the
+     * absolute hard ceiling (100) defined in `ResourceController`.
+     */
+    public static function resolveRelatableSearchResults(int $requestPerPage): int
+    {
+        $cap = static::$relatableSearchResults;
+
+        if ($cap === null) {
+            return min($requestPerPage, 100);
+        }
+
+        return max(1, min($requestPerPage, $cap, 100));
+    }
+
+    // -------------------------------------------------------------------------
+    // Auto-refresh (polling) — index page
+    // -------------------------------------------------------------------------
+
+    /**
+     * Auto-refresh the resource index view at a fixed cadence.
+     *
+     * When `true` the frontend re-fetches the index payload every
+     * `$pollingInterval` seconds. Useful for resources whose rows reflect
+     * external state (queue jobs, deployments, scraper feeds) where a
+     * stale view is misleading.
+     *
+     * Override per-resource:
+     *
+     *     public static bool $polling = true;
+     */
+    public static bool $polling = false;
+
+    /**
+     * Auto-refresh interval in seconds. Only consulted when `$polling`
+     * is `true`. Anything below 5 is silently clamped up to 5 to avoid
+     * accidentally hammering the backend.
+     */
+    public static int $pollingInterval = 15;
+
+    /**
+     * Show a UI control next to the table that lets the user pause /
+     * resume polling for the current session. When `false` polling is
+     * always on (or always off, depending on `$polling`) with no
+     * user override.
+     */
+    public static bool $showPollingToggle = true;
+
+    /** Whether polling is enabled for this resource's index view. */
+    public static function pollingEnabled(): bool
+    {
+        return static::$polling;
+    }
+
+    /** Auto-refresh cadence in seconds (clamped at 5s minimum). */
+    public static function resolvedPollingInterval(): int
+    {
+        return max(5, static::$pollingInterval);
+    }
+
+    /** Whether the index UI exposes a pause/resume polling control. */
+    public static function pollingToggleVisible(): bool
+    {
+        return static::$showPollingToggle;
+    }
+
+    /** {@inheritdoc} */
     public static function usesScout(): bool
     {
         if (! trait_exists(Searchable::class)) {
@@ -1492,16 +1388,7 @@ abstract class Resource implements ResourceContract
         );
     }
 
-    /**
-     * Customise the Scout builder before executing the search.
-     *
-     * Override this method to add constraints, filters or callbacks
-     * to the Scout builder. Only called when the resource is
-     * effectively using Scout (usesScout() returns true).
-     *
-     * @param  mixed  $query  Scout builder instance
-     * @return mixed Scout builder instance
-     */
+    /** {@inheritdoc} */
     public static function scoutQuery(Request $request, mixed $query): mixed
     {
         return $query;
@@ -1550,18 +1437,7 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
-    /**
-     * Return a per-record subtitle for global search results.
-     *
-     * Override to return a meaningful secondary string shown below the record
-     * title in the Cmd+K search modal.
-     *
-     * Example:
-     *   public function searchSubtitle(Model $model): ?string
-     *   {
-     *       return $model->email;
-     *   }
-     */
+    /** {@inheritdoc} */
     public function searchSubtitle(Model $model): ?string
     {
         return null;

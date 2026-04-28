@@ -1,10 +1,11 @@
-import { useRef, useState, useEffect, useCallback } from "react"
+import { useRef, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { isMacPlatform } from "@/lib/platform"
+import { addShortcut } from "@/lib/keyboardShortcuts"
 import { NotificationBell } from "@/components/NotificationBell"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Menu } from "primereact/menu"
@@ -40,35 +41,30 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
   const searchMode = isMobile ? mobileMode : desktopMode
 
   // Keyboard shortcuts:
-  // - "/" opens the palette when focus is not in an input.
-  // - ⌘K (macOS) / Ctrl+K (Windows + Linux) is the canonical shortcut
-  //   from the design-system spec and works regardless of focus — users
-  //   expect it to toggle the palette even while typing in a field.
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (searchMode === "disabled") return
-      const tag = (e.target as HTMLElement)?.tagName
-      const inEditable = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.altKey && !e.shiftKey) {
-        e.preventDefault()
-        setSearchOpen((open) => !open)
-        return
-      }
-
-      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
-        if (inEditable) return
-        e.preventDefault()
-        setSearchOpen(true)
-      }
-    },
-    [searchMode],
-  )
-
+  // - mod+K (Cmd on macOS, Ctrl on Windows/Linux) — the canonical
+  //   command-palette toggle from the design-system spec. Fires even
+  //   while typing in an input so it always feels available.
+  // - "/" — opens the palette when focus is not in an input
+  //   (Gmail/GitHub-style).
+  // Both flow through `addShortcut()` so the help overlay (`?`) lists
+  // them automatically and consumer Tools see them in `listShortcuts()`.
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+    if (searchMode === "disabled") return
+
+    const dispose = [
+      addShortcut("mod+k", () => setSearchOpen((open) => !open), {
+        description: "Open command palette",
+        group: "Navigation",
+        allowInInput: true,
+      }),
+      addShortcut("/", () => setSearchOpen(true), {
+        description: "Open command palette",
+        group: "Navigation",
+      }),
+    ]
+
+    return () => { dispose.forEach((fn) => fn()) }
+  }, [searchMode])
 
   const userMenuItems: MenuItem[] = [
     {

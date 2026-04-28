@@ -28,6 +28,7 @@ use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ProgressMakeCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\SsoMakeCommand;
+use Martis\Console\StubsCommand;
 use Martis\Console\ThemeMakeCommand;
 use Martis\Console\ToolMakeCommand;
 use Martis\Console\TrendMakeCommand;
@@ -131,6 +132,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
                 SsoMakeCommand::class,
+                StubsCommand::class,
             ]);
 
             $this->publishes([

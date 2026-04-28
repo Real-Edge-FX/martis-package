@@ -16,9 +16,7 @@ class Number extends Field
 
     protected int|float|null $step = null;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'number';

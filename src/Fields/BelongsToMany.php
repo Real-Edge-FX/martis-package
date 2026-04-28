@@ -113,13 +113,7 @@ class BelongsToMany extends Field
 
     }
 
-    /**
-     * Create a BelongsToMany field.
-     *
-     * @param  string  $name  Display label (e.g. "Tags")
-     * @param  string|null  $relationship  Explicit Eloquent relationship method name
-     * @param  string|null  $relatedResourceClass  Optional: explicit related resource class
-     */
+    /** {@inheritdoc} */
     public static function make(string $name, ?string $relationship = null, ?string $relatedResourceClass = null): static
     {
         $label = $name;
@@ -134,7 +128,7 @@ class BelongsToMany extends Field
         return $instance;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'belongs_to_many';
@@ -187,9 +181,7 @@ class BelongsToMany extends Field
         return $this;
     }
 
-    /**
-     * Enable search in the attach modal.
-     */
+    /** {@inheritdoc} */
     public function searchable(bool $value = true): static
     {
         $this->relationSearchable = $value;
@@ -387,10 +379,7 @@ class BelongsToMany extends Field
         return $this->dontReorderAttachables;
     }
 
-    /**
-     * Resolve returns null on detail (data fetched via endpoints).
-     * On index, returns the count of related records.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->showOnIndex) {
@@ -403,9 +392,7 @@ class BelongsToMany extends Field
         return null;
     }
 
-    /**
-     * Fill is a no-op — attach/detach via dedicated controller endpoints.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         // No-op: BelongsToMany is managed via dedicated attach/detach endpoints.

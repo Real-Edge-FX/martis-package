@@ -146,7 +146,7 @@ abstract class Lens implements LensContract
     // Identity and authorization
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function name(): string
     {
         $base = class_basename(static::class);
@@ -157,7 +157,7 @@ abstract class Lens implements LensContract
         return (string) Str::of($base)->snake(' ')->title();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function uriKey(): string
     {
         if ($this->uriKey !== null) {
@@ -172,7 +172,7 @@ abstract class Lens implements LensContract
         return Str::kebab($base);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function component(): ?string
     {
         return $this->component;
@@ -185,7 +185,7 @@ abstract class Lens implements LensContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function canSee(Closure $callback): static
     {
         $this->canSeeCallback = $callback;
@@ -211,7 +211,7 @@ abstract class Lens implements LensContract
         return $this;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback === null) {
@@ -368,7 +368,7 @@ abstract class Lens implements LensContract
     }
 
     /**
-     * {@inheritDoc}
+     * {@inheritdoc}
      *
      * @return array<string, mixed>
      */
@@ -378,7 +378,7 @@ abstract class Lens implements LensContract
     }
 
     /**
-     * {@inheritDoc}
+     * {@inheritdoc}
      *
      * Serialize the lens descriptor for the schema payload.
      *

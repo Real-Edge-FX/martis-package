@@ -94,12 +94,7 @@ class MorphTo extends Field
         $this->morphIdColumn = "{$this->relationship}_id";
     }
 
-    /**
-     * Create a MorphTo field.
-     *
-     * @param  string  $relationship  Eloquent relationship method name
-     * @param  string|null  $label  Human-readable label
-     */
+    /** {@inheritdoc} */
     public static function make(string $relationship, ?string $label = null): static
     {
         $label = $label ?? Str::title(str_replace('_', ' ', $relationship));
@@ -107,9 +102,7 @@ class MorphTo extends Field
         return new static($relationship, $label, $relationship);
     }
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'morph_to';
@@ -236,12 +229,7 @@ class MorphTo extends Field
         return $this->showCreateRelationButton;
     }
 
-    /**
-     * Resolve the morph type and morph id columns.
-     *
-     * Returns: ['type' => 'App\Models\Post', 'id' => 42, 'title' => 'Post Title', 'resourceType' => 'posts']
-     * or null if the relationship is empty.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
@@ -292,9 +280,7 @@ class MorphTo extends Field
         ];
     }
 
-    /**
-     * Fill the morph type and morph id columns on the model.
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->readonly) {

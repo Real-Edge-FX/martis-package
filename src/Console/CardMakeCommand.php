@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
@@ -25,7 +26,7 @@ class CardMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/card.stub';
+        return StubResolver::path('card.stub');
     }
 
     protected function getDefaultNamespace($rootNamespace): string
@@ -111,7 +112,7 @@ class CardMakeCommand extends GeneratorCommand
             return;
         }
 
-        $stub = (string) file_get_contents(__DIR__.'/../../stubs/component-card.tsx.stub');
+        $stub = (string) file_get_contents(StubResolver::path('component-card.tsx.stub'));
 
         $content = str_replace(
             ['{{ class }}', '{{ kebab }}'],

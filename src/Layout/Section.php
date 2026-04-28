@@ -129,7 +129,7 @@ class Section implements LayoutContract
     // LayoutContract
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function filterForContext(FieldContext $context): ?static
     {
         $filtered = Field::filterForContext($this->fields, $context);
@@ -145,13 +145,13 @@ class Section implements LayoutContract
         return $clone;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function flattenFields(): array
     {
         return $this->fields;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     public function toArray(): array
     {
         return [

@@ -77,18 +77,13 @@ class Badge extends Field
      */
     protected ?Closure $resolveBadgeCallback = null;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'badge';
     }
 
-    /**
-     * Override make() to default to display-only (hidden from forms).
-     * Badge is not an input — it is a read-only visual indicator.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromForms();
@@ -354,7 +349,7 @@ class Badge extends Field
         return (new ReflectionFunction($value))->getNumberOfParameters() >= 1;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function defaultColumnWidth(): array
     {
         return ['width' => '120px'];

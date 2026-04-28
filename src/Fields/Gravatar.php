@@ -30,17 +30,13 @@ class Gravatar extends Field
 
     protected GravatarSourceType $sourceType = GravatarSourceType::Email;
 
-    /**
-     * Type.
-     */
+    /** {@inheritdoc} */
     public function type(): string
     {
         return 'gravatar';
     }
 
-    /**
-     * Override make() to default to display-only and use 'email' as default attribute.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute = 'email', ?string $label = null): static
     {
         $label = $label ?? ($attribute === 'email' ? 'Avatar' : ucfirst(str_replace('_', ' ', $attribute)));
@@ -130,11 +126,7 @@ class Gravatar extends Field
         return "https://www.gravatar.com/avatar/{$hash}?s={$size}&d=mp";
     }
 
-    /**
-     * Resolve: returns the avatar URL for display contexts.
-     * For 'email' source, generates Gravatar URL.
-     * For 'url' source, returns the raw value directly.
-     */
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->resolveCallback !== null) {
@@ -163,9 +155,7 @@ class Gravatar extends Field
         return $model->getAttribute($attribute ?? $this->attribute);
     }
 
-    /**
-     * When shown on forms, fill saves the raw value (email or URL).
-     */
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($value !== null) {

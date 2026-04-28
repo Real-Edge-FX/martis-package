@@ -246,6 +246,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Keyboard shortcuts
+    |--------------------------------------------------------------------------
+    | Global toggles for the keyboard-shortcuts subsystem.
+    |
+    | 'enabled'      — master switch. When false, `addShortcut()` becomes
+    |                  a no-op everywhere (bundled `mod+k`, `/`, and
+    |                  `shift+?` included). Use it on installs that ship
+    |                  a custom keyboard layer or explicitly forbid
+    |                  global hotkeys.
+    | 'helpOverlay'  — when false, the `shift+?` help overlay is not
+    |                  registered. Use it when the host app wants to
+    |                  keep `addShortcut()` itself but hide the
+    |                  bundled help dialog (e.g. surfaced in their
+    |                  own custom UI instead).
+    */
+    'keyboard_shortcuts' => [
+        'enabled' => env('MARTIS_KEYBOARD_SHORTCUTS_ENABLED', true),
+        'helpOverlay' => env('MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | User Preferences (Task 07.1 ⭐ D2)
     |--------------------------------------------------------------------------
     | Runtime UI preferences (theme, accent, density, locale, reduced-motion)

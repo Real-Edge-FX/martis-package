@@ -46,10 +46,7 @@ class Line extends Field
         return 'line';
     }
 
-    /**
-     * Line never appears as a direct form input — it lives inside a Stack
-     * and is always display-only.
-     */
+    /** {@inheritdoc} */
     public static function make(string $attribute, ?string $label = null): static
     {
         return parent::make($attribute, $label)->hideFromForms();

@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'martis:activity-feed')]
@@ -14,13 +15,13 @@ class ActivityFeedMakeCommand extends GeneratorCommand
 
     protected $type = 'Martis activity feed metric';
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/metric.activity-feed.stub';
+        return StubResolver::path('metric.activity-feed.stub');
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritdoc} */
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\\Martis\\Metrics';
