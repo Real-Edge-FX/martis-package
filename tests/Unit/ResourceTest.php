@@ -824,7 +824,7 @@ it('authorization defers to registered policy', function () {
 // $relatableSearchResults — per-resource cap (v1.1)
 // ---------------------------------------------------------------------------
 
-class CappedResource extends \Martis\Resource
+class CappedResource extends Martis\Resource
 {
     public static ?int $relatableSearchResults = 25;
 
@@ -833,7 +833,7 @@ class CappedResource extends \Martis\Resource
         return Project::class;
     }
 
-    public function fields(\Illuminate\Http\Request $request): array
+    public function fields(Request $request): array
     {
         return [];
     }
@@ -846,9 +846,9 @@ it('resolveRelatableSearchResults clamps to per-resource $relatableSearchResults
 });
 
 it('resolveRelatableSearchResults defaults to request per-page (clamped to 100) when no cap', function () {
-    expect(\Martis\Resource::resolveRelatableSearchResults(20))->toBe(20);
-    expect(\Martis\Resource::resolveRelatableSearchResults(150))->toBe(100);
-    expect(\Martis\Resource::resolveRelatableSearchResults(5))->toBe(5);
+    expect(Martis\Resource::resolveRelatableSearchResults(20))->toBe(20);
+    expect(Martis\Resource::resolveRelatableSearchResults(150))->toBe(100);
+    expect(Martis\Resource::resolveRelatableSearchResults(5))->toBe(5);
 });
 
 it('resolveRelatableSearchResults floors at 1', function () {
@@ -862,10 +862,12 @@ it('resolveRelatableSearchResults floors at 1', function () {
 // Index polling — $polling, $pollingInterval, $showPollingToggle (v1.1)
 // ---------------------------------------------------------------------------
 
-class PollingResource extends \Martis\Resource
+class PollingResource extends Martis\Resource
 {
     public static bool $polling = true;
+
     public static int $pollingInterval = 30;
+
     public static bool $showPollingToggle = false;
 
     public static function model(): string
@@ -873,15 +875,16 @@ class PollingResource extends \Martis\Resource
         return Project::class;
     }
 
-    public function fields(\Illuminate\Http\Request $request): array
+    public function fields(Request $request): array
     {
         return [];
     }
 }
 
-class FastPollingResource extends \Martis\Resource
+class FastPollingResource extends Martis\Resource
 {
     public static bool $polling = true;
+
     public static int $pollingInterval = 1; // intentionally too low
 
     public static function model(): string
@@ -889,16 +892,16 @@ class FastPollingResource extends \Martis\Resource
         return Project::class;
     }
 
-    public function fields(\Illuminate\Http\Request $request): array
+    public function fields(Request $request): array
     {
         return [];
     }
 }
 
 it('Resource exposes polling defaults (off, 15s, toggle visible)', function () {
-    expect(\Martis\Resource::pollingEnabled())->toBeFalse();
-    expect(\Martis\Resource::resolvedPollingInterval())->toBe(15);
-    expect(\Martis\Resource::pollingToggleVisible())->toBeTrue();
+    expect(Martis\Resource::pollingEnabled())->toBeFalse();
+    expect(Martis\Resource::resolvedPollingInterval())->toBe(15);
+    expect(Martis\Resource::pollingToggleVisible())->toBeTrue();
 });
 
 it('Resource polling honours per-resource overrides', function () {
