@@ -854,7 +854,7 @@ UiAvatar::make('avatar_initials')
 | Method | Description |
 |---|---|
 | `from(string)` | Attribute used as the seed (default: field's own attribute) |
-| `shape(AvatarShape)` / `circle()` / `rounded()` / `squared()` | Visual parity with `Avatar` |
+| `shape(AvatarShape)` / `circle()` / `rounded()` / `squared()` | Match the visual style of `Avatar` |
 | `colorFrom(string)` ⭐ | Pull background colour from a model attribute (brand colour) |
 | `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
 

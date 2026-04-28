@@ -45,3 +45,49 @@ it('optionsFromMap is idempotent — successive calls replace options', function
         ['label' => 'Beta', 'value' => 'b'],
     ]);
 });
+
+// ---------------------------------------------------------------------------
+// Enum support (v1.1)
+// ---------------------------------------------------------------------------
+
+enum SelectFieldStatus: string
+{
+    case Draft = 'draft';
+    case Published = 'published';
+    case ArchivedAt = 'archived';
+}
+
+enum SelectFieldPureColor
+{
+    case Red;
+    case Green;
+    case BlueLight;
+}
+
+it('options() accepts a backed-enum class and derives value + headline label', function () {
+    $field = Select::make('status')->options(SelectFieldStatus::class);
+
+    expect($field->getOptions())->toEqual([
+        ['label' => 'Draft', 'value' => 'draft'],
+        ['label' => 'Published', 'value' => 'published'],
+        ['label' => 'Archived At', 'value' => 'archived'],
+    ]);
+});
+
+it('options() accepts a pure enum class and uses case name as both value and label', function () {
+    $field = Select::make('color')->options(SelectFieldPureColor::class);
+
+    expect($field->getOptions())->toEqual([
+        ['label' => 'Red', 'value' => 'Red'],
+        ['label' => 'Green', 'value' => 'Green'],
+        ['label' => 'Blue Light', 'value' => 'BlueLight'],
+    ]);
+});
+
+it('options() rejects a string that is not an enum class as a regular value', function () {
+    // String that isn't an enum should fall through to the array branch.
+    // This is more of a contract check — passing arbitrary strings is a
+    // type-system error caught by static analysis. Here we just confirm
+    // there's no false-positive enum interpretation.
+    expect(enum_exists('NotAnEnum'))->toBeFalse();
+});

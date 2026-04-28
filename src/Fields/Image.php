@@ -39,6 +39,30 @@ class Image extends File
 
     protected ?int $thumbnailHeight = null;
 
+    /**
+     * Closure-driven thumbnail URL.
+     *
+     * Set via `thumbnail(Closure)` — receives `($value, Model $model)`
+     * and returns the absolute thumbnail URL. When set, this wins over
+     * the disk-based `getThumbnailPath()` resolution. Use it when the
+     * thumbnail lives on a CDN, an Imgproxy / Cloudinary endpoint, or
+     * any URL the disk doesn't know about.
+     *
+     * @var \Closure(mixed, Model): ?string|null
+     */
+    protected ?\Closure $thumbnailResolver = null;
+
+    /**
+     * Closure-driven full-size preview URL (modal / lightbox).
+     *
+     * Set via `preview(Closure)` — receives `($value, Model $model)`
+     * and returns the absolute preview URL. Falls back to the disk's
+     * `url()` for the original path when not set.
+     *
+     * @var \Closure(mixed, Model): ?string|null
+     */
+    protected ?\Closure $previewResolver = null;
+
     /** @var list<string> Default accepted image extensions (SVG excluded: cannot pass the 'image' validation rule and may contain XSS payloads). */
     protected array $acceptedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
 
@@ -55,14 +79,54 @@ class Image extends File
     // -------------------------------------------------------------------------
 
     /**
-     * Enable thumbnail generation with optional dimensions.
+     * Configure the thumbnail.
      *
-     * Default: 300x300 (aspect-ratio preserved, fits within bounds).
+     * Two call shapes:
+     *
+     *   1. **Dimensions (default behaviour)** — `thumbnail(300, 300)`
+     *      enables disk-based thumbnail generation at the given size.
+     *      Aspect-ratio preserved, fits within bounds.
+     *
+     *   2. **Closure (URL resolver)** — `thumbnail(fn ($value, $model) => ...)`
+     *      delegates the URL to a custom resolver. Useful when the
+     *      thumbnail lives on a CDN / image proxy that the disk does
+     *      not know about (Imgproxy, Cloudinary, S3 + signed URL, etc.).
+     *      Disk-based generation is skipped when a closure is supplied.
+     *
+     * @param  int|\Closure(mixed, Model): ?string  $widthOrClosure
      */
-    public function thumbnail(int $width = 300, int $height = 300): static
+    public function thumbnail(int|\Closure $widthOrClosure = 300, int $height = 300): static
     {
-        $this->thumbnailWidth = $width;
+        if ($widthOrClosure instanceof \Closure) {
+            $this->thumbnailResolver = $widthOrClosure;
+            // Skip disk-based thumbnail generation when a closure is set.
+            $this->thumbnailWidth = null;
+            $this->thumbnailHeight = null;
+
+            return $this;
+        }
+
+        $this->thumbnailResolver = null;
+        $this->thumbnailWidth = $widthOrClosure;
         $this->thumbnailHeight = $height;
+
+        return $this;
+    }
+
+    /**
+     * Configure a full-size preview URL (modal / lightbox view).
+     *
+     * The closure receives `($value, Model $model)` and returns the
+     * preview URL. Without a custom resolver the field falls back to
+     * the disk's `url()` for the original path — appropriate when the
+     * stored path is web-accessible, but not when the file lives on a
+     * private disk that needs signed URL generation per-request.
+     *
+     * @param  \Closure(mixed, Model): ?string  $resolver
+     */
+    public function preview(\Closure $resolver): static
+    {
+        $this->previewResolver = $resolver;
 
         return $this;
     }
@@ -198,11 +262,22 @@ class Image extends File
 
         /** @var Cloud $disk */
         $disk = Storage::disk($this->disk);
-        $url = $disk->url($path);
-        $thumbPath = $this->getThumbnailPath($path);
-        $thumbnailUrl = ($thumbPath !== null && $disk->exists($thumbPath))
-            ? $disk->url($thumbPath)
-            : $url;
+
+        // Closure-driven preview URL wins over disk->url() so consumers
+        // can route to a CDN or signed URL endpoint without subclassing.
+        $url = $this->previewResolver !== null
+            ? ((($this->previewResolver)($path, $model)) ?? $disk->url($path))
+            : $disk->url($path);
+
+        // Closure-driven thumbnail wins over disk-based generation.
+        if ($this->thumbnailResolver !== null) {
+            $thumbnailUrl = (($this->thumbnailResolver)($path, $model)) ?? $url;
+        } else {
+            $thumbPath = $this->getThumbnailPath($path);
+            $thumbnailUrl = ($thumbPath !== null && $disk->exists($thumbPath))
+                ? $disk->url($thumbPath)
+                : $url;
+        }
 
         return [
             'path' => $path,

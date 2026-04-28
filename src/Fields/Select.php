@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * Dropdown select field.
@@ -42,10 +43,20 @@ class Select extends Field
      * for options that come from the database, depend on the active
      * user, or change per locale.
      *
-     * @param  array<string, scalar>|list<scalar>|\Closure(Request|null): array  $options
+     * @param  array<string, scalar>|list<scalar>|class-string<\UnitEnum>|\Closure(Request|null): array  $options
      */
-    public function options(array|\Closure $options): static
+    public function options(array|string|\Closure $options): static
     {
+        // PHP 8.1+ Enum class — derive options from cases().
+        // Backed enum: value => name (e.g. `'active' => 'Active'`).
+        // Pure enum: name => name (case acts as both label + value).
+        if (is_string($options) && enum_exists($options)) {
+            $this->optionsResolver = null;
+            $this->options = $this->normalizeEnumOptions($options);
+
+            return $this;
+        }
+
         if ($options instanceof \Closure) {
             $this->optionsResolver = $options;
             $this->options = [];
@@ -54,9 +65,42 @@ class Select extends Field
         }
 
         $this->optionsResolver = null;
+        /** @var array<int|string, scalar> $options */
         $this->options = $this->normalizeOptions($options);
 
         return $this;
+    }
+
+    /**
+     * Build the internal label/value shape from a PHP 8.1+ Enum class.
+     *
+     * Conventions:
+     *  - **Backed enum (`enum Status: string`)** — `value` = case `value`,
+     *    `label` = case `name` humanised via `Str::headline()` so a case
+     *    `InProgress` reads as "In Progress" in the dropdown.
+     *  - **Pure enum (`enum Status`)** — `value` = case `name`, `label`
+     *    = humanised case `name`. Without backing values there is nothing
+     *    else to persist.
+     *
+     * Override the labels by re-mapping post-call if the headline
+     * transform is wrong for the consumer's domain (e.g. acronyms).
+     *
+     * @param  class-string<\UnitEnum>  $enumClass
+     * @return list<array{label: string, value: scalar}>
+     */
+    protected function normalizeEnumOptions(string $enumClass): array
+    {
+        $out = [];
+
+        foreach ($enumClass::cases() as $case) {
+            $value = $case instanceof \BackedEnum ? $case->value : $case->name;
+            $out[] = [
+                'label' => Str::headline($case->name),
+                'value' => $value,
+            ];
+        }
+
+        return $out;
     }
 
     /**

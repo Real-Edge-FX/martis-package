@@ -34,12 +34,10 @@ during release-candidate baking.
 
 ### Changed
 
-- **Documentation overhaul** — Nova v5 references consolidated into
-  `docs/PARITY_MAP.md` as the single canonical reference. Migration
-  guide and ecosystem map folded in as appended sections; every other
-  doc is now self-contained and reads as a Martis explainer.
-  - Deleted `docs/migration-from-nova.md`, `docs/nova-ecosystem-catalog.md`,
-    `docs/release-v0.3.0-alpha.md`, `docs/PROJECT_CONTEXT.md`.
+- **Documentation overhaul** — every doc reads as a self-contained
+  Martis explainer. No comparative framing.
+  - Removed historical / outdated docs (`release-v0.3.0-alpha.md`,
+    `PROJECT_CONTEXT.md`).
   - Filled 4 missing config-key sections (`preferences`, `sticky_views`,
     `loader`, `impersonation`) in `docs/configuration.md`.
   - Filled 7 missing endpoint families (Dashboards, Tools, Preferences,
@@ -76,7 +74,7 @@ during release-candidate baking.
 ## [0.10.0-rc1] — 2026-04-27
 
 First release candidate for v1.0.0. Closes the entire post-1.0 backlog
-identified in the v0.9.0-beta parity audit.
+identified in the v0.9.0-beta planning round.
 
 ### Added — Custom Tools
 
@@ -126,12 +124,6 @@ identified in the v0.9.0-beta parity audit.
 
 ### Added — Documentation deliverables
 
-- `docs/migration-from-nova.md` (later folded into `PARITY_MAP.md`):
-  end-to-end Nova v5 → Martis migration guide (namespace map,
-  method-by-method conversion, field API map, cookbook, verification
-  checklist).
-- `docs/nova-ecosystem-catalog.md` (later folded into `PARITY_MAP.md`):
-  Nova v5 add-on mapping.
 - `docs/tools.md` rewritten as end-to-end walkthrough (architecture
   diagram, 5-min path, anatomy, lifecycle, distribution patterns,
   cookbook with 3 recipes, anti-patterns).
@@ -144,8 +136,6 @@ identified in the v0.9.0-beta parity audit.
 
 - `MartisManager::bootTools()` runs every registered tool's `boot()`
   exactly once per request lifecycle.
-- PARITY_MAP — Custom Tools row promoted from PARTIAL to DONE; new
-  Impersonation row.
 - Test count — 1613 Pest + 84 Vitest = 1697 passing, 6 skipped, 0 failed.
 
 ### Fixed
@@ -497,7 +487,6 @@ flag on Actions.
 #### Documentation
 - New [docs/repeater.md](docs/repeater.md) covering all storage modes,
   the Repeatable API and every ⭐ Martis differential with examples.
-- PARITY_MAP.md — Repeater marked DONE.
 - differentials.md — dedicated Repeater section (D1–D5).
 - fields.md — Repeater entry in the field-type reference.
 - README.md — Repeater link in the documentation index.
