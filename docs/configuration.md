@@ -257,6 +257,22 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 
 Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](components.md#theming).
 
+## Keyboard Shortcuts
+
+```php
+'keyboard_shortcuts' => [
+    'enabled' => env('MARTIS_KEYBOARD_SHORTCUTS_ENABLED', true),
+    'helpOverlay' => env('MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY', true),
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | `bool` | `true` | Master switch for the entire keyboard-shortcuts registry. When `false`, every `addShortcut()` call returns a no-op disposer; no event listener is bound and the bundled `mod+k`, `/`, and `shift+?` combos do nothing. Use it when the host app ships a custom keyboard layer. |
+| `helpOverlay` | `bool` | `true` | When `false`, the bundled `Shift+?` help overlay is not registered. `addShortcut()` itself stays live for every other combo, so this is the right knob if the host app wants to expose its own help UI instead of the dialog. |
+
+Both flags are read live, so mid-session toggles via `window.MartisConfig` take effect on the next registration. See [Keyboard Shortcuts](keyboard-shortcuts.md) for the full API.
+
 ## User Menu
 
 ```php

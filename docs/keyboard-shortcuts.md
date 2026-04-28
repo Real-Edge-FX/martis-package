@@ -93,6 +93,28 @@ These ship with every Martis install:
 
 `<KeyboardShortcutsHelp>` is mounted once at the layout root (`resources/js/components/Layout.tsx`). It listens for `Shift+?` from anywhere in the shell and surfaces every registered combo grouped by `group`. The overlay reads the registry on open, so shortcuts registered mid-session (by a Tool that mounted late, for instance) appear without a refresh.
 
+The visual surface follows the design-system "Command Palette / Shortcuts" pattern: `var(--martis-surface)` card on a `var(--martis-overlay)` backdrop, a hairline `var(--martis-border)` rule between rows, and `<kbd>` chips in `var(--martis-font-mono)` on `var(--martis-hover)`. `Esc` and a click on the backdrop both close it.
+
+## Disabling the subsystem
+
+Two independent toggles in `config/martis.php`, both default to `true`:
+
+```php
+'keyboard_shortcuts' => [
+    'enabled' => true,       // master switch — addShortcut() becomes a no-op when false
+    'helpOverlay' => true,   // skip the bundled Shift+? overlay registration only
+],
+```
+
+| Toggle | Effect when `false` |
+|---|---|
+| `enabled` | Every `addShortcut()` call returns a no-op disposer — no event listener is bound, none of the bundled combos (`mod+k`, `/`, `shift+?`) fire, and `listShortcuts()` returns an empty array. Use it when the host app ships a custom keyboard layer or wants to forbid global hotkeys. |
+| `helpOverlay` | `addShortcut()` still works for every other combo; only the bundled `Shift+?` registration is skipped. Use it when the host app wants to surface its own help UI instead of the dialog above. |
+
+The flags are read live (every registration consults the current value), so toggling them at runtime works for late-mounting Tools. The defaults match historic behaviour, so existing installs see no change.
+
+Env vars: `MARTIS_KEYBOARD_SHORTCUTS_ENABLED` and `MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY` — both bool.
+
 ## Behaviour around form focus
 
 By default a shortcut is suppressed when the user is typing in an `<input>`, `<textarea>`, `<select>`, or `contentEditable` element — typing "k" in a search box should not toggle a palette.

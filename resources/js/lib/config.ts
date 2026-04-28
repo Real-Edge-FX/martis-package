@@ -3,6 +3,23 @@ export interface MartisThemeConfig {
   allowToggle?: boolean
 }
 
+/**
+ * Keyboard-shortcuts subsystem boot toggles.
+ *
+ * - `enabled` — master switch. When false, `addShortcut()` becomes a
+ *   no-op everywhere (the bundled `mod+k`, `/`, and `shift+?` combos
+ *   included). Use it on installs that ship a custom keyboard layer
+ *   or want to forbid global hotkeys outright.
+ * - `helpOverlay` — when false, the `shift+?` help overlay is NOT
+ *   registered. `addShortcut()` itself stays live for everything else,
+ *   so this is the right knob if the host app wants to expose its own
+ *   help UI instead of the bundled dialog.
+ */
+export interface MartisKeyboardShortcutsConfig {
+  enabled?: boolean
+  helpOverlay?: boolean
+}
+
 export interface MartisUserMenuConfig {
   showThemeToggle?: boolean
   showProfile?: boolean
@@ -229,6 +246,7 @@ export interface MartisConfigShape {
   stickyViews?: MartisStickyViewsConfig
   notifications?: MartisNotificationsConfig
   impersonation?: MartisImpersonationConfig
+  keyboardShortcuts?: MartisKeyboardShortcutsConfig
 }
 
 /**
