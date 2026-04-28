@@ -124,6 +124,8 @@ return [
     'error_check_status' => 'Ver status',
     'error_try_again' => 'Tentar novamente',
     'error_incident_id' => 'ID do incidente',
+    'error_network_title' => 'Não foi possível contatar o servidor',
+    'error_network_desc' => 'A página não terminou de carregar porque a requisição não chegou ao servidor. Verifique sua conexão e tente novamente.',
     'copy' => 'Copiar',
     'error_boundary_title' => 'Erro inesperado',
     'error_boundary_message' => 'Ocorreu um erro ao renderizar esta seção.',

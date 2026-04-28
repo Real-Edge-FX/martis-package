@@ -22,6 +22,7 @@ import { ActionModal, ActionDropdown, ActionDrawer } from '@/components/Actions'
 import type { ActionMeta } from '@/components/Actions'
 import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { NotFoundPage } from '@/pages/NotFound'
+import { ResourceErrorPage } from '@/pages/ResourceError'
 import { MartisLoader } from '@/components/Loader'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -225,7 +226,8 @@ export function ResourceLensPage() {
   // ── Early exits ───────────────────────────────────────────────────
   if (!resource || !lensKey) return <NotFoundPage />
   if (schemaQuery.isLoading) return <MartisLoader />
-  if (schemaQuery.isError || !schema) return <NotFoundPage />
+  if (schemaQuery.isError) return <ResourceErrorPage error={schemaQuery.error} />
+  if (!schema) return <NotFoundPage />
   if (!lens) return <NotFoundPage />
 
   const rows = dataQuery.data?.data ?? []

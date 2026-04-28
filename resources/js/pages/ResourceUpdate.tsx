@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { NotFoundPage } from '@/pages/NotFound'
+import { ResourceErrorPage } from '@/pages/ResourceError'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
@@ -268,6 +269,14 @@ export function ResourceUpdatePage() {
   }
 
   if (schemaQuery.isLoading || recordQuery.isLoading) return <FormSkeleton />
+
+  if (schemaQuery.isError) {
+    return <ResourceErrorPage error={schemaQuery.error} />
+  }
+
+  if (recordQuery.isError) {
+    return <ResourceErrorPage error={recordQuery.error} />
+  }
 
   if (!schema) {
     return <NotFoundPage />

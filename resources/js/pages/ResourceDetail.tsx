@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next"
 import { ArrowLeftIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, CopyIcon, TrashSimpleIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
+import { ResourceErrorPage } from "@/pages/ResourceError"
 import { ResourceIndexPage } from "@/pages/ResourceIndex"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
@@ -111,6 +112,14 @@ export function ResourceDetailPage() {
         <MartisLoader loading size="lg" />
       </div>
     )
+  }
+
+  if (schemaQuery.isError) {
+    return <ResourceErrorPage error={schemaQuery.error} />
+  }
+
+  if (recordQuery.isError) {
+    return <ResourceErrorPage error={recordQuery.error} />
   }
 
   if (!schema) {

@@ -124,6 +124,8 @@ return [
     'error_check_status' => 'Check status',
     'error_try_again' => 'Try again',
     'error_incident_id' => 'Incident id',
+    'error_network_title' => 'Cannot reach the server',
+    'error_network_desc' => 'The page could not finish loading because the request never reached the server. Check your connection and try again.',
     'copy' => 'Copy',
     'error_boundary_title' => 'Unexpected error',
     'error_boundary_message' => 'An error occurred while rendering this section.',
