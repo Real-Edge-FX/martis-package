@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-04-29
+
+Doc-driven release. A full audit of `martis-docs` against the package source uncovered every place the documentation taught contracts that did not exist. We fixed the docs, shipped the small features the docs implied, and added the OpenAPI surface that was advertised but never wired. Six issues, six PRs, all gated behind a single release branch.
+
+### Added
+
+- **OpenAPI / Swagger UI surface** ([#95](https://github.com/Real-Edge-FX/martis-package/issues/95) / [#105](https://github.com/Real-Edge-FX/martis-package/pull/105)). New routes `GET /{martis-path}/api-docs` (Stoplight Elements UI) and `GET /{martis-path}/api-docs.json` (raw OpenAPI 3.1) powered by Scramble. Off by default — flip `MARTIS_API_DOCS_ENABLED=true` to opt in. Default middleware `['web', 'auth']` so only authenticated users reach the schema. `dedoc/scramble` graduated from `require-dev` to `require`.
+- **`martis:list-overrides` artisan command** ([#99](https://github.com/Real-Edge-FX/martis-package/issues/99) / [#104](https://github.com/Real-Edge-FX/martis-package/pull/104)). Lists every component key the PHP layer expects the frontend `componentRegistry` to resolve (Resources, Tools, Actions with `Action::component()`). Filters via `--kind=resource|tool|action` and `--filter=<substring>`. Useful for "my override does not pick up" debugging — pair with `componentRegistry.keys()` in the browser devtools to compare expected vs registered.
+- **`MARTIS_LOADER_DISABLED` env wrapper** ([#98](https://github.com/Real-Edge-FX/martis-package/issues/98) / [#101](https://github.com/Real-Edge-FX/martis-package/pull/101)). The only `config/martis.php` toggle without an `env()` wrapper now has one. Default `false` (loader stays enabled), so behaviour is unchanged for existing installs. Set `MARTIS_LOADER_DISABLED=true` in `.env` to opt out per environment without editing the published config.
+
+### Changed
+
+- **`docs/authentication.md` rewritten** ([#97](https://github.com/Real-Edge-FX/martis-package/issues/97) / [#100](https://github.com/Real-Edge-FX/martis-package/pull/100)). Removed the fictional `auth.google` block and the `auth.sso.url` model, plus the matching `MARTIS_AUTH_SSO_*` and `MARTIS_AUTH_GOOGLE_*` env vars — none existed in code. Replaced with the real schema: `auth.sso` is `enabled` + `providers`, with each provider nested under `auth.sso.providers.{name}`. Pointed readers at `sso.md` for the per-provider specifics. The `passwordReset`, `registration`, and `controls` blocks (which are real) remain documented.
+- **`docs/configuration.md` env keys corrected** ([#97](https://github.com/Real-Edge-FX/martis-package/issues/97) / [#100](https://github.com/Real-Edge-FX/martis-package/pull/100)). Removed the per-action `MARTIS_DEFAULT_ROW_ACTION_VIEW/EDIT/DELETE` envs (only the master switch `MARTIS_DEFAULT_ROW_ACTIONS` exists; per-action visibility lives in `Resource::defaultRowActions(Request)`). Fixed `MARTIS_PREFERENCES_ALLOW_BRAND_COLOR` typo to the real `MARTIS_ALLOW_BRAND_COLOR`.
+- **`docs/cache.md` per-user scoping clarified** ([#96](https://github.com/Real-Edge-FX/martis-package/issues/96) / [#102](https://github.com/Real-Edge-FX/martis-package/pull/102)). The previous wording said scoping was "automatic" and that `MartisCache` "includes the user identifier in the cache key." The service does neither; scoping is a controller convention. The doc now says so explicitly and points at the `OrdersController` example as the template for custom layers.
+
+### Removed (security cleanup)
+
+- **Operational docs relocated to `internal/`** ([#94](https://github.com/Real-Edge-FX/martis-package/issues/94) / [#103](https://github.com/Real-Edge-FX/martis-package/pull/103)). `docs/architecture/{decisions,stack}.md`, `docs/setup/{quickstart,troubleshooting}.md`, and `docs/release-process.md` now live under the new `internal/` folder at the repo root and are excluded from the public docs site mirror. They contained the playground hostname, default admin credentials, an internal IP, and the path to the deploy key — fine for the team, never appropriate for consumers. `internal/README.md` documents the rule and links the leak-sweep deny-list in martis-docs.
+- **`docs/README.md` Quick Links sanitised** ([#94](https://github.com/Real-Edge-FX/martis-package/issues/94) / [#103](https://github.com/Real-Edge-FX/martis-package/pull/103)). Removed the table that exposed `martis.realedgefx.com` URLs and `admin@martis.local / password` credentials.
+- **`docs/api/overview.md` placeholders sanitised** ([#94](https://github.com/Real-Edge-FX/martis-package/issues/94) / [#103](https://github.com/Real-Edge-FX/martis-package/pull/103)). Replaced server-private examples with neutral placeholders (`admin@example.com`, `<your-password>`).
+
+### Notes for the docs site
+
+`martis-docs.realedgefx.com` syncs from this repo's `docs/`. After v1.2.0 ships:
+
+- The synced pages (auth, cache, configuration, overrides, api/overview) re-render with the corrected content automatically on the next `pnpm sync-docs`.
+- The hand-authored `martis-docs/src/content/reference/api.mdx` should be deleted in a separate PR there so the sync map regenerates the page from the (now accurate) `docs/api/overview.md`.
+- The hand-authored `martis-docs/src/content/getting-started/troubleshooting.mdx` already shipped a fix to use `martis:list-overrides` (martis-docs PR #9).
+
+### Stats
+
+- 6 issues closed (#94, #95, #96, #97, #98, #99)
+- 6 PRs merged onto `release/v1.2.0` (#100, #101, #102, #103, #104, #105)
+- New tests: 3 `LoaderConfigTest` + 5 `ListOverridesCommandTest` + 3 `ApiDocsRouteTest` = 11 specs
+- `dedoc/scramble` promoted from `require-dev` to `require`
+
 ## [1.1.1] — 2026-04-28
 
 Two bug fixes surfaced while bringing up the staging deploy at `martis.realedgefx.com`. No new features, no API changes — straight patch.
