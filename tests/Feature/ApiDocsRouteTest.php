@@ -51,3 +51,11 @@ it('only enables api docs when env flag is true', function () {
     config()->set('martis.api_docs.enabled', true);
     expect(config('martis.api_docs.enabled'))->toBeTrue();
 });
+
+it('Scramble default routes are suppressed when our package is registered', function () {
+    // The MartisServiceProvider calls
+    // `Scramble::ignoreDefaultRoutes()` unconditionally in `register()`.
+    // The flag is a static on the Scramble class; if our provider has
+    // booted, the flag must be true even with the docs toggle off.
+    expect(\Dedoc\Scramble\Scramble::$defaultRoutesIgnored)->toBeTrue();
+});

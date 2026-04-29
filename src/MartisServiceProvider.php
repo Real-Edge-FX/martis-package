@@ -57,6 +57,18 @@ class MartisServiceProvider extends ServiceProvider
             'martis'
         );
 
+        // Suppress Scramble's default routes (`/docs/api`, `/docs/api.json`)
+        // unconditionally. Martis ships its own OpenAPI surface under
+        // `/{martis-path}/api-docs` (gated by `MARTIS_API_DOCS_ENABLED`,
+        // off by default) and we never want Scramble's default routes to
+        // appear behind a consumer's back. This must run in `register()`,
+        // not `boot()`: Scramble's own service provider checks the flag
+        // during its own `boot()`, which runs before ours, so calling
+        // `ignoreDefaultRoutes()` from our `boot()` is too late.
+        if (class_exists(\Dedoc\Scramble\Scramble::class)) {
+            \Dedoc\Scramble\Scramble::ignoreDefaultRoutes();
+        }
+
         $this->app->singleton(ResourceRegistry::class, function (): ResourceRegistry {
             return new ResourceRegistry;
         });
@@ -230,12 +242,13 @@ class MartisServiceProvider extends ServiceProvider
      * (raw OpenAPI). Off by default — flip
      * `MARTIS_API_DOCS_ENABLED=true` in `.env` to expose it.
      *
-     * Implementation note. Scramble auto-registers `/docs/api` if its
-     * default routes are not suppressed; we call `Scramble::ignoreDefaultRoutes()`
-     * so the only surface is the Martis-prefixed one. We then narrow
-     * the route resolver to Martis API routes only — Scramble defaults
-     * to documenting every `/api/*` route in the host app, which leaks
-     * unrelated endpoints.
+     * Implementation note. Scramble auto-registers `/docs/api` and
+     * `/docs/api.json` if its default routes are not suppressed.
+     * `Scramble::ignoreDefaultRoutes()` is called unconditionally in
+     * `register()` (Scramble checks the flag during its own `boot()`,
+     * which runs before ours, so calling it here would be too late).
+     * Here we only narrow the route resolver and register the Martis-
+     * prefixed surface when the consumer's toggle is on.
      */
     protected function registerApiDocs(): void
     {
@@ -250,8 +263,6 @@ class MartisServiceProvider extends ServiceProvider
         $martisPath = trim((string) config('martis.path', 'martis'), '/');
         $apiDocsPath = trim((string) config('martis.api_docs.path', 'api-docs'), '/');
         $middleware = (array) config('martis.api_docs.middleware', ['web', 'auth']);
-
-        \Dedoc\Scramble\Scramble::ignoreDefaultRoutes();
 
         \Dedoc\Scramble\Scramble::routes(function ($route) use ($martisPath) {
             $uri = ltrim((string) $route->uri(), '/');
