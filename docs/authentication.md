@@ -73,7 +73,7 @@ The auth CSS lives in `resources/css/martis.css` and uses the namespaced `.marti
 | `.martis-auth-card` | Surface card (400 px default) that holds the form. |
 | `.martis-auth-brand` | Logo row at the top of the card. No text label — the logo asset already carries the wordmark. |
 | `.martis-auth-title` / `.martis-auth-sub` | Primary title and muted subtitle. |
-| `.martis-auth-divider` | "or" rule between SSO/Google and email/password. |
+| `.martis-auth-divider` | "or" rule between SSO buttons and email/password. |
 | `.martis-auth-foot` | Centered footer matching the Shell footer (`© {brand} · Powered by Martis`). |
 | `.martis-auth-controls` | Top-right theme / language toggle strip. |
 | `.martis-auth-back` | Circular back button (used on the 2FA challenge). |
@@ -88,19 +88,21 @@ The auth CSS lives in `resources/css/martis.css` and uses the namespaced `.marti
 
 ## Alternative sign-in flows
 
-Martis ships the Login shell for all common sign-in patterns (SSO, Google, password reset, self-service registration) but does **not** bundle the backend integrations. Each flow is gated behind a config flag so enterprise installations can hide anything they don't offer.
+Martis ships the Login shell for SSO, password reset, and self-service registration. Each flow is gated behind a config flag so enterprise installations can hide anything they don't offer.
 
 ### `config/martis.php` → `auth`
 
 ```php
 'auth' => [
     'sso' => [
-        'enabled' => env('MARTIS_AUTH_SSO_ENABLED', false),
-        'url'     => env('MARTIS_AUTH_SSO_URL'),
-    ],
-    'google' => [
-        'enabled' => env('MARTIS_AUTH_GOOGLE_ENABLED', false),
-        'url'     => env('MARTIS_AUTH_GOOGLE_URL'),
+        'enabled'   => env('MARTIS_SSO_ENABLED', false),
+        'providers' => [
+            // Per-provider blocks (azure, google, github, …) live here.
+            // Each provider has its own MARTIS_SSO_<NAME>_ENABLED flag
+            // plus the standard Socialite credentials. See sso.md for
+            // the full schema, the four canonical recipes, and the
+            // `martis:sso <provider>` scaffolding command.
+        ],
     ],
     'passwordReset' => [
         'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
@@ -117,73 +119,26 @@ Martis ships the Login shell for all common sign-in patterns (SSO, Google, passw
 ],
 ```
 
-Each flow follows the same shape:
+| Block | Shape | Purpose |
+|---|---|---|
+| `sso` | `enabled` (master switch) + `providers` (per-provider nested map) | Renders one button per enabled provider. Each button redirects to `/{martis-path}/sso/{provider}/redirect`, which Martis owns end-to-end (no consumer-supplied URL). See [`sso.md`](sso.md). |
+| `passwordReset` | `enabled` + `url` | Renders the "Forgot?" link next to the password field. Click sends the user to the configured `url` — the host app provides the reset flow (Laravel's `Password::sendResetLink` + a Martis-themed view is typical). |
+| `registration` | `enabled` + `url` | Renders the "Create an account" link under the Sign in button. When `url` is empty Martis posts to its own `/{martis-path}/api/auth/register` (see [Registration](#registration) below); when `url` is set the link redirects off-platform. |
+| `controls` | `theme` + `locale` | Toggles the visibility of the top-right widgets on auth surfaces. |
 
-- `enabled` — renders the button / link on the Login page.
-- `url` — where it points when the user clicks. When `enabled` is `true` but `url` is empty, the UI surfaces an **info toast** ("This sign-in method is not configured on this workspace") so a programmer enabling the shell without wiring the backend gets a visible reminder.
+All flags default to `false` so a fresh `composer require martis/martis` ships a clean email+password login with no placeholder CTAs.
 
-All four flags default to `false` so a fresh `composer require martis/martis` ships a clean email+password login with no placeholder CTAs.
+### SSO providers — pointer to `sso.md`
 
-### How SSO and Google actually work
+Martis owns the SSO flow end-to-end. The Login page reads `auth.sso.providers` and renders one button per enabled provider; the button redirects to the Martis-managed route `/{martis-path}/sso/{provider}/redirect`, which performs the OAuth/OIDC dance, resolves roles, and creates the session.
 
-Both buttons are **browser redirects**. Clicking "Continue with SSO" or "Continue with Google" performs `window.location.href = <url>` — the consumer app owns the flow from there. Typical shape of the backend the host app is expected to provide:
-
-1. **Redirect endpoint** — e.g. `GET /auth/google/redirect` returns a 302 to the provider's authorisation URL (`https://accounts.google.com/o/oauth2/v2/auth?...`).
-2. **Callback endpoint** — e.g. `GET /auth/google/callback?code=...` exchanges the code for an access token, fetches the user profile from the provider, resolves or creates the local user, links the provider to the account if the email matches, establishes the Laravel session (or Sanctum cookie), and redirects to `/{martis-path}`.
-
-#### Google recipe (OAuth 2.0 via Socialite)
+There is **no `auth.google`, `auth.azure`, or `auth.sso.url` config key**. Providers live nested under `auth.sso.providers.{name}`. The currently shipping providers are `azure`, `google`, and `github` — all scaffoldable via:
 
 ```bash
-composer require laravel/socialite
+php artisan martis:sso azure   # or google, or github
 ```
 
-```php
-// routes/web.php
-Route::get('/auth/google/redirect', fn () => Socialite::driver('google')->redirect());
-Route::get('/auth/google/callback', function () {
-    $google = Socialite::driver('google')->user();
-
-    $user = User::updateOrCreate(
-        ['email' => $google->getEmail()],
-        ['name' => $google->getName(), 'password' => Hash::make(Str::random(32))],
-    );
-
-    // Optional: track which providers the user has linked so the account
-    // can log in via password and Google interchangeably.
-    $user->providers()->updateOrCreate(
-        ['provider' => 'google', 'provider_id' => $google->getId()],
-    );
-
-    auth()->login($user, remember: true);
-
-    return redirect()->intended(config('martis.path', 'martis'));
-});
-```
-
-```dotenv
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=https://your-app.test/auth/google/callback
-MARTIS_AUTH_GOOGLE_ENABLED=true
-MARTIS_AUTH_GOOGLE_URL=/auth/google/redirect
-```
-
-#### Enterprise SSO recipe (SAML 2.0 or OIDC)
-
-Install a driver — `socialiteproviders/saml2`, `socialiteproviders/okta`, `socialiteproviders/microsoft-azure`, etc. — then register a pair of endpoints identical to Google's and point `MARTIS_AUTH_SSO_URL` at the redirect route. The rest of the flow (UI button, redirect, toast fallback) is handled by Martis.
-
-### Account linking and merge
-
-A user who first signed up with email + password and later clicks "Continue with Google" is a linking scenario, not a duplicate. The recommended backend approach:
-
-1. In the Google callback, look up `(provider=google, provider_id)` on the `user_providers` table.
-2. If found, log in the linked user.
-3. If not found, look up by `email`:
-   - **Match + email verified by Google** → link automatically (Google has already proven ownership).
-   - **Match but not verified** → redirect to Login with a toast asking the user to sign in with their password first, then link from Profile.
-   - **No match** → create a new user and link the Google provider.
-
-Martis does not ship a `user_providers` table or the merge controller. The columns and logic above are a convention the host app is free to adapt.
+For the full provider schema (role mapping, permission adapters, identity matching) see [`sso.md`](sso.md).
 
 ### Forgot password
 

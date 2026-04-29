@@ -353,9 +353,6 @@ Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-c
 'index' => [
     'default_row_actions' => [
         'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
-        'view'    => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
-        'edit'    => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
-        'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
     ],
     'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
     'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
@@ -364,14 +361,18 @@ Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-c
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `default_row_actions.enabled` | `bool` | `true` | Master switch for the default row actions column (view/edit/delete). |
-| `default_row_actions.view` | `bool` | `true` | Show the view icon. |
-| `default_row_actions.edit` | `bool` | `true` | Show the edit icon. |
-| `default_row_actions.delete` | `bool` | `true` | Show the delete icon. |
+| `default_row_actions.enabled` | `bool` | `true` | Master switch for the default row actions column (view/edit/delete and restore/force-delete on soft-delete models). When `false`, Martis never renders the column. |
 | `row_click_opens_detail` | `bool` | `true` | When default row actions expose a "view" icon, clicking the row body becomes redundant. Set to `false` to disable row-click and keep the row informational. Override per resource with `rowClickOpensDetail(Request $request): ?bool`. |
 | `default_trashed_filter` | `string` | `'active'` | Initial state of the trashed-filter dropdown on soft-delete resources (main index **and** relationship panels). One of `'active'` (hide deleted), `'with'` (include deleted alongside live), `'only'` (only deleted). Visibility of the dropdown itself is gated by [`Resource::canViewTrashed()`](resources.md#restricting-trashed-visibility-by-role). |
 
-Override per-resource with the `defaultRowActions(Request $request): bool|array` and `rowClickOpensDetail(Request $request): ?bool` methods. See [Default Row Actions](default_row_actions.md) for the full guide.
+There are no per-action env toggles. Per-action visibility is controlled by `Resource::defaultRowActions(Request $request): bool|array`, which can return:
+
+- `true` (default) — show all four (view, edit, delete, plus restore/force-delete on soft-delete models)
+- `false` — opt the resource out entirely
+- a subset array — e.g. `['view', 'edit']` to hide the destructive actions
+- a closure-aware decision per request
+
+See [Default Row Actions](default_row_actions.md) for the full guide.
 
 ## Pagination
 
@@ -546,7 +547,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 ```php
 'preferences' => [
     'enabled' => env('MARTIS_PREFERENCES_ENABLED', true),
-    'allowBrandColor' => env('MARTIS_PREFERENCES_ALLOW_BRAND_COLOR', false),
+    'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
     'locale_labels' => [
         // 'pt_BR' => 'Português (Brasil)',
     ],
