@@ -35,6 +35,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | OpenAPI / Swagger UI surface
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, Martis registers two routes powered by Scramble:
+    |
+    |   GET /{martis-path}/api-docs        → Swagger / Stoplight Elements UI
+    |   GET /{martis-path}/api-docs.json   → raw OpenAPI 3.1 document
+    |
+    | Both routes go through the configured `middleware`. The default
+    | (`['web', 'auth']`) means only authenticated users reach them, which
+    | matches the rest of the Martis admin surface.
+    |
+    | Default `enabled = false` so a fresh `composer require martis/martis`
+    | does not expose the schema publicly. Flip the env in local/staging to
+    | introspect the API; leave it off in production unless you have a
+    | reason to expose it (and even then, prefer tightening `middleware`).
+    */
+    'api_docs' => [
+        'enabled' => env('MARTIS_API_DOCS_ENABLED', false),
+
+        // Path appended to the Martis prefix. Defaults to `api-docs`, which
+        // makes the surface live at `/{martis-path}/api-docs`.
+        'path' => env('MARTIS_API_DOCS_PATH', 'api-docs'),
+
+        // Middleware applied to both the UI and JSON routes.
+        'middleware' => ['web', 'auth'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Brand
     |--------------------------------------------------------------------------
     */

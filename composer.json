@@ -6,14 +6,14 @@
     "require": {
         "php": "^8.2",
         "laravel/framework": "^11.0|^12.0",
-        "endroid/qr-code": "^5.0"
+        "endroid/qr-code": "^5.0",
+        "dedoc/scramble": "^0.12"
     },
     "require-dev": {
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0",
         "phpstan/phpstan": "^2.0",
         "laravel/pint": "^1.0",
-        "dedoc/scramble": "^0.12",
         "orchestra/testbench": "^10.11",
         "laravel/scout": "^11.1",
         "laravel/socialite": "^5.26"
