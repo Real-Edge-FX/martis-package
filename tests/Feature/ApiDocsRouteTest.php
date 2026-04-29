@@ -15,6 +15,7 @@ declare(strict_types=1);
  * not register) the routes.
  */
 
+use Dedoc\Scramble\Scramble;
 use Illuminate\Support\Facades\Route;
 
 it('routes are NOT registered when MARTIS_API_DOCS_ENABLED is false', function () {
@@ -57,5 +58,5 @@ it('Scramble default routes are suppressed when our package is registered', func
     // `Scramble::ignoreDefaultRoutes()` unconditionally in `register()`.
     // The flag is a static on the Scramble class; if our provider has
     // booted, the flag must be true even with the docs toggle off.
-    expect(\Dedoc\Scramble\Scramble::$defaultRoutesIgnored)->toBeTrue();
+    expect(Scramble::$defaultRoutesIgnored)->toBeTrue();
 });

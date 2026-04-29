@@ -2,12 +2,17 @@
 
 namespace Martis;
 
+use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Martis\Auth\DefaultRegistersUsers;
+use Martis\Auth\DefaultResetsUserPasswords;
+use Martis\Auth\DefaultSendsEmailVerification;
+use Martis\Auth\DefaultSendsPasswordResetLinks;
 use Martis\Cache\MartisCache;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
@@ -36,6 +41,10 @@ use Martis\Console\TrendMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\ValueMakeCommand;
 use Martis\Console\VendorPublishCommand;
+use Martis\Contracts\RegistersUsers;
+use Martis\Contracts\ResetsUserPasswords;
+use Martis\Contracts\SendsEmailVerification;
+use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Facades\Martis;
@@ -66,8 +75,8 @@ class MartisServiceProvider extends ServiceProvider
         // not `boot()`: Scramble's own service provider checks the flag
         // during its own `boot()`, which runs before ours, so calling
         // `ignoreDefaultRoutes()` from our `boot()` is too late.
-        if (class_exists(\Dedoc\Scramble\Scramble::class)) {
-            \Dedoc\Scramble\Scramble::ignoreDefaultRoutes();
+        if (class_exists(Scramble::class)) {
+            Scramble::ignoreDefaultRoutes();
         }
 
         $this->app->singleton(ResourceRegistry::class, function (): ResourceRegistry {
@@ -98,20 +107,20 @@ class MartisServiceProvider extends ServiceProvider
         // own service provider. See docs/authentication.md →
         // "Customising auth surfaces".
         $this->app->bind(
-            \Martis\Contracts\RegistersUsers::class,
-            \Martis\Auth\DefaultRegistersUsers::class,
+            RegistersUsers::class,
+            DefaultRegistersUsers::class,
         );
         $this->app->bind(
-            \Martis\Contracts\SendsPasswordResetLinks::class,
-            \Martis\Auth\DefaultSendsPasswordResetLinks::class,
+            SendsPasswordResetLinks::class,
+            DefaultSendsPasswordResetLinks::class,
         );
         $this->app->bind(
-            \Martis\Contracts\ResetsUserPasswords::class,
-            \Martis\Auth\DefaultResetsUserPasswords::class,
+            ResetsUserPasswords::class,
+            DefaultResetsUserPasswords::class,
         );
         $this->app->bind(
-            \Martis\Contracts\SendsEmailVerification::class,
-            \Martis\Auth\DefaultSendsEmailVerification::class,
+            SendsEmailVerification::class,
+            DefaultSendsEmailVerification::class,
         );
     }
 
@@ -278,7 +287,7 @@ class MartisServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! class_exists(\Dedoc\Scramble\Scramble::class)) {
+        if (! class_exists(Scramble::class)) {
             return;
         }
 
@@ -286,16 +295,16 @@ class MartisServiceProvider extends ServiceProvider
         $apiDocsPath = trim((string) config('martis.api_docs.path', 'api-docs'), '/');
         $middleware = (array) config('martis.api_docs.middleware', ['web', 'auth']);
 
-        \Dedoc\Scramble\Scramble::routes(function ($route) use ($martisPath) {
+        Scramble::routes(function ($route) use ($martisPath) {
             $uri = ltrim((string) $route->uri(), '/');
 
             return str_starts_with($uri, $martisPath.'/api');
         });
 
-        \Dedoc\Scramble\Scramble::registerUiRoute("{$martisPath}/{$apiDocsPath}")
+        Scramble::registerUiRoute("{$martisPath}/{$apiDocsPath}")
             ->middleware($middleware);
 
-        \Dedoc\Scramble\Scramble::registerJsonSpecificationRoute("{$martisPath}/{$apiDocsPath}.json")
+        Scramble::registerJsonSpecificationRoute("{$martisPath}/{$apiDocsPath}.json")
             ->middleware($middleware);
     }
 

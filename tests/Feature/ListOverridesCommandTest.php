@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Martis\Contracts\ToolContract;
 use Martis\MartisManager;
 use Martis\ResourceRegistry;
 use Martis\Tools\Tool;
