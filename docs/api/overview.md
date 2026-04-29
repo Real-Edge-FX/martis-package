@@ -6,7 +6,7 @@ Martis provides a REST API for all CRUD operations, resource metadata, and confi
 
 | Item | Value |
 |------|-------|
-| Swagger UI | `http://martis.realedgefx.com/docs/api` |
+| Swagger UI | Planned — see [martis-package#95](https://github.com/Real-Edge-FX/martis-package/issues/95) for the toggle (`MARTIS_API_DOCS_ENABLED`) and the route surface |
 | Base URL | `/martis/api` |
 | Format | JSON |
 | Auth | Sanctum Bearer token (configurable guard via `MARTIS_GUARD`) |
@@ -20,8 +20,8 @@ POST /martis/login
 Content-Type: application/json
 
 {
-  "email": "admin@martis.local",
-  "password": "password"
+  "email": "admin@example.com",
+  "password": "<your-password>"
 }
 ```
 
@@ -107,7 +107,7 @@ GET /martis/api/{resource}
     {
       "id": 1,
       "name": "Admin User",
-      "email": "admin@martis.local",
+      "email": "admin@example.com",
       "_title": "Admin User",
       "_resource": {
         "uriKey": "users",
@@ -141,7 +141,7 @@ Content-Type: application/json
 {
   "name": "New User",
   "email": "new@example.com",
-  "password": "secret123"
+  "password": "<placeholder>"
 }
 ```
 
