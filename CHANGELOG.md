@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-04-29
+
+Auth surfaces complete. Martis now ships a themed page **and** a default backend handler for every guest auth flow (Login, Register, Forgot password, Reset password). All four are togglable, all four can point off-platform, and each backend handler is replaceable through a single service-container binding.
+
+### Added
+
+- **Themed Forgot password page** ([#112](https://github.com/Real-Edge-FX/martis-package/issues/112) / new). `resources/js/pages/ForgotPassword.tsx` plus `GET /{martis-path}/forgot-password`. Same `AuthFrame` shell as Login.
+- **Themed Reset password page**. `resources/js/pages/ResetPassword.tsx` plus `GET /{martis-path}/reset-password/{token}`. Reads the token from the URL and the email from `?email=`.
+- **Default backend handlers** for Register, Send-reset-link, and Reset-password. Each lives behind a single-method contract under `Martis\Contracts\` (`RegistersUsers`, `SendsPasswordResetLinks`, `ResetsUserPasswords`) and resolves the Martis-shipped default (`Martis\Auth\Default*`) unless the consumer rebinds in their own service provider.
+- **API endpoints**: `POST /{martis-path}/api/auth/register`, `POST /{martis-path}/api/auth/password/email`, `POST /{martis-path}/api/auth/password/reset`. Throttled like login. Each 404s when the matching surface is disabled.
+- **Public `/register` route**. The route was documented in 1.3.x but lived inside the `auth` middleware group, so anonymous visitors 302'd to `/login`. It is now a public route handled by the new `GuestPagesController`, which returns the SPA shell, redirects to `/login` (when disabled), or redirects off-platform (when `auth.registration.url` is set). The same controller serves `/forgot-password` and `/reset-password/{token}`.
+- **Config additions**:
+    - `auth.passwordReset.broker` (default `users`) — pick the Laravel password broker.
+    - `auth.registration.default_role` — auto-assign a Spatie role (or any model that responds to `assignRole()`) to every new user.
+- **Tests**: 12 new Pest cases under `tests/Feature/AuthSurfacesTest.php` covering on-platform / off-platform / disabled state for every surface, plus a service-container override example.
+- **Doc rewrite** of `docs/authentication.md` (sections "Alternative sign-in flows", "Forgot password", "Registration", "Customising auth surfaces"). Three override layers documented end-to-end: config-only off-platform redirect, React page override via `martis:component`, and service-container binding swap with a working `App\Auth\MyRegistrar` example.
+
+### Fixed
+
+- **`/{martis-path}/register` reachable as a public route**. Was a documentation drift in 1.3.x — the doc claimed the route shipped, but it was auth-gated and 302'd to `/login`. Reported as part of the EdgeFlow integration.
+
 ## [1.3.0] — 2026-04-29
 
 Laravel 13 support. Constraint widened to `^11.0|^12.0|^13.0`; the suite stays green on every Laravel major in the matrix.

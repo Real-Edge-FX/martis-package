@@ -2,6 +2,8 @@ import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/Login'
 import { RegisterPage } from '@/pages/Register'
+import { ForgotPasswordPage } from '@/pages/ForgotPassword'
+import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
 import { ForbiddenPage } from '@/pages/Forbidden'
@@ -17,6 +19,14 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <RegisterPage />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPasswordPage />,
+  },
+  {
+    path: '/reset-password/:token',
+    element: <ResetPasswordPage />,
   },
   {
     path: '/2fa/challenge',

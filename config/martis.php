@@ -577,11 +577,26 @@ return [
 
         'passwordReset' => [
             'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
+            // When empty Martis serves its own /forgot-password and
+            // /reset-password/{token} pages and the "Forgot?" link points
+            // internally. When set, the link points off-platform and the
+            // internal routes are NOT registered (zero risk of two
+            // competing pages live at once).
             'url' => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
+            // Laravel password broker name (config/auth.php → passwords.*).
+            // Most apps stay with the default 'users' broker.
+            'broker' => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
         ],
         'registration' => [
             'enabled' => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
+            // Same on/off semantics as passwordReset.url.
             'url' => env('MARTIS_AUTH_REGISTRATION_URL'),
+            // Optional role to assign to every new user. Useful for SaaS
+            // where every signup lands on `free`, or invite-only flows
+            // where new users start as `viewer`. Leave null to skip role
+            // assignment entirely. Requires `assignRole()` on the user
+            // model (Spatie Permission or equivalent).
+            'default_role' => env('MARTIS_AUTH_REGISTRATION_DEFAULT_ROLE'),
         ],
         // Compact guest-mode controls rendered in the top-right of every
         // auth surface (Login, Register, 2FA challenge, error pages).
