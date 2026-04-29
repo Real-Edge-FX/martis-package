@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-04-29
+
+CI hygiene + PHP 8.2 dropped from the supported floor. **Breaking for 1.5.0 consumers still running PHP 8.2** (rare, since 1.5.0's lock was already 8.3-only via the platform pin); transparent for everyone on 8.3 or 8.4.
+
+### Changed
+
+- **`composer.json` `php` constraint: `^8.2` → `^8.3`** ([#118](https://github.com/Real-Edge-FX/martis-package/pull/118)). Pest 4 → PHPUnit 12 → requires PHP 8.3 (`gc_status()` returns null on PHP 8.2 for fields PHPUnit 12 expects as floats; the test runner crashes at boot). 1.5.0 already shipped a lock that didn't actually install on 8.2; this release makes the constraint match reality. Laravel 11 still supports 8.3/8.4, so consumers on Laravel 11 stay compatible by upgrading their PHP.
+- **CI matrix widened**: was `PHP 8.2/8.3 × Laravel 11/12`; now `PHP 8.3/8.4 × Laravel 11/12/13`. Catches more issues at the same cost.
+- **`config.platform.php` pinned to `8.3.99`** ([#117](https://github.com/Real-Edge-FX/martis-package/pull/117)). Lock resolves Symfony 7.4 (PHP 8.3+) cleanly on every CI runner. The Pint job, which runs `composer install` against the lock on PHP 8.3, no longer fails because Symfony 8.0.x was being pulled in.
+
+### Fixed
+
+- **Pint job pass on every PR + branch** ([#117](https://github.com/Real-Edge-FX/martis-package/pull/117)). Combined with #118, the full CI now matches the dev-environment expectations.
+
 ## [1.5.0] — 2026-04-29
 
 Auth-page Layer 2 lands properly + email verification arrives as a first-class Martis feature.
