@@ -50,6 +50,7 @@
             userMenu: {!! json_encode(config('martis.user_menu', ['showThemeToggle' => true, 'showProfile' => true, 'showNotifications' => true])) !!},
             search: {!! json_encode(config('martis.search', ['enabled' => true])) !!},
             dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showWelcomeCard' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
+            welcome: {!! json_encode(config('martis.welcome', ['heading' => null, 'description' => null])) !!},
             toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
             drawer: {!! json_encode([

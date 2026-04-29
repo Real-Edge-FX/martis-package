@@ -70,7 +70,11 @@ return [
     */
     'brand' => [
         'name' => env('MARTIS_BRAND_NAME', 'Martis'),
-        'logo' => null,
+        // Path or URL to the brand logo image. Resolved by the SPA exactly
+        // as written — `/img/logo.png` for assets in the consumer's
+        // `public/` directory, or a full `https://...` URL for an external
+        // CDN. Null hides the image (the brand name still renders).
+        'logo' => env('MARTIS_BRAND_LOGO'),
         'favicon' => env('MARTIS_FAVICON', null),
 
         /*
@@ -112,7 +116,38 @@ return [
     */
     'footer' => [
         'enabled' => true,
-        'text' => null,
+        // Custom footer text. When null, the bundled translation
+        // ("© {brand.name} · Powered by Martis") renders. The env value
+        // is a single string that overrides every locale; consumers
+        // who need per-locale footer copy should publish the lang
+        // files (`vendor:publish --tag=martis-lang`) and edit the
+        // translations directly instead.
+        'text' => env('MARTIS_FOOTER_TEXT'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Welcome surface
+    |--------------------------------------------------------------------------
+    | The dashboard's hero "Welcome" card heading and description.
+    |
+    | Resolution order (first non-null wins):
+    |   1. Prop passed at render-time (rare; the consumer is overriding
+    |      the React component itself).
+    |   2. `welcome.heading` / `welcome.description` config (this block).
+    |      Env-driven so the brand can be tweaked from `.env` without
+    |      touching code.
+    |   3. The bundled `martis::resources.welcome_card_heading` /
+    |      `welcome_card_description` translations — published per locale
+    |      via `vendor:publish --tag=martis-lang` for fully localised copy.
+    |
+    | When the brand string is the same across locales (most SaaS),
+    | env is enough. When the copy must vary by language, prefer the
+    | lang-publish path so each locale ships its own translation.
+    */
+    'welcome' => [
+        'heading' => env('MARTIS_WELCOME_HEADING'),
+        'description' => env('MARTIS_WELCOME_DESCRIPTION'),
     ],
 
     /*
