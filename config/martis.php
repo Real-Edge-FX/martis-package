@@ -598,6 +598,30 @@ return [
             // model (Spatie Permission or equivalent).
             'default_role' => env('MARTIS_AUTH_REGISTRATION_DEFAULT_ROLE'),
         ],
+
+        'email_verification' => [
+            // Master switch. When true:
+            //   - Martis registers the `martis.verified` middleware alias.
+            //   - Routes inside the Martis auth group get gated.
+            //     Unverified users are redirected to `notice_url` instead
+            //     of seeing the dashboard.
+            //   - GET /{martis-path}/email/verify renders the themed
+            //     notice page (overridable via
+            //     `martis:component --type=email-verify-notice-page`).
+            //   - GET /{martis-path}/email/verify/{id}/{hash} marks
+            //     `email_verified_at` and redirects to the dashboard.
+            //   - POST /{martis-path}/api/auth/email/verification-notification
+            //     re-sends the link via the SendsEmailVerification contract.
+            // Default false — backwards compatible: existing apps stay
+            // exactly as they are, no surprises.
+            'enabled' => env('MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED', false),
+
+            // When the verified middleware blocks an unverified user,
+            // where should they go? Default `null` means "use the
+            // Martis-shipped /email/verify notice page". Set to an
+            // absolute path or full URL to redirect off-platform.
+            'notice_url' => env('MARTIS_AUTH_EMAIL_VERIFICATION_NOTICE_URL'),
+        ],
         // Compact guest-mode controls rendered in the top-right of every
         // auth surface (Login, Register, 2FA challenge, error pages).
         // Each toggle hides its widget without removing the underlying

@@ -12,7 +12,7 @@ class ComponentMakeCommand extends Command
 {
     protected $signature = 'martis:component
         {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout.}
-        {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | generic}
+        {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | generic}
         {--force : Overwrite the file if it already exists}';
 
     protected $aliases = ['martis:override'];
@@ -27,6 +27,21 @@ class ComponentMakeCommand extends Command
         'footer' => ['key' => 'layout:footer',  'stub' => 'component-footer.tsx.stub'],
     ];
 
+    /**
+     * Auth-page overrides. Each --type writes a single TSX file and registers
+     * it under a fixed `auth:{flow}` key that the SPA router consults via
+     * `resolveAuthPage()`. Same single-export pattern as SHELL_PIECES.
+     *
+     * @var array<string, array{key: string, stub: string}>
+     */
+    private const AUTH_PAGES = [
+        'login-page' => ['key' => 'auth:login', 'stub' => 'component-login-page.tsx.stub'],
+        'register-page' => ['key' => 'auth:register', 'stub' => 'component-register-page.tsx.stub'],
+        'forgot-password-page' => ['key' => 'auth:forgot-password', 'stub' => 'component-forgot-password-page.tsx.stub'],
+        'reset-password-page' => ['key' => 'auth:reset-password', 'stub' => 'component-reset-password-page.tsx.stub'],
+        'email-verify-notice-page' => ['key' => 'auth:email-verify-notice', 'stub' => 'component-email-verify-notice-page.tsx.stub'],
+    ];
+
     public function handle(): int
     {
         /** @var string|null $name */
@@ -34,7 +49,11 @@ class ComponentMakeCommand extends Command
         /** @var string $type */
         $type = $this->option('type');
 
-        $allowedTypes = ['field', 'shell', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic'];
+        $allowedTypes = [
+            'field', 'shell', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic',
+            'login-page', 'register-page', 'forgot-password-page', 'reset-password-page',
+            'email-verify-notice-page',
+        ];
         if (! in_array($type, $allowedTypes, true)) {
             $this->error("Invalid type '{$type}'. Allowed: ".implode(', ', $allowedTypes));
 
@@ -108,6 +127,10 @@ class ComponentMakeCommand extends Command
                 $this->line('This component plugs into the shell — no further wiring needed.');
                 $this->line('Optional: pin it explicitly from PHP by setting');
                 $this->line("  <comment>'layout' => ['components' => ['{$type}' => '{$registryKey}']]</comment>");
+            } elseif (isset(self::AUTH_PAGES[$type])) {
+                $this->line('This component plugs into the auth router — no further wiring needed.');
+                $this->line("Visiting the corresponding URL renders your override instead of the bundled page.");
+                $this->line('Reference impl in: <comment>vendor/martis/martis/resources/js/pages/</comment>');
             } else {
                 $this->line('Usage in PHP (field type):');
                 $this->line("  Text::make('field_name')->component('{$kebabName}')");
@@ -203,6 +226,10 @@ class ComponentMakeCommand extends Command
 
     protected function resolveRegistryKey(string $type, string $kebabName): string
     {
+        if (isset(self::AUTH_PAGES[$type])) {
+            return self::AUTH_PAGES[$type]['key'];
+        }
+
         return match ($type) {
             'footer' => 'layout:footer',
             'shell' => 'layout:shell',

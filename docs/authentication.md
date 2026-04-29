@@ -187,15 +187,39 @@ MARTIS_AUTH_REGISTRATION_URL=https://app.example.com/signup
 
 ### Layer 2 — replace the React page (component override)
 
-Use the Martis component override system to swap any of the four pages. Generate the override with the artisan generator, then customise.
+Use the Martis component override system to swap any of the auth pages. The artisan generator scaffolds a TSX file, registers it under a fixed key in the consumer's boot.ts, and the SPA router (`router.tsx`) resolves the override before the bundled default — exactly the same mechanism that already works for `--type=shell` / `--type=topbar` / etc.
 
 ```bash
-php artisan martis:component register-page
-# Generates resources/js/martis/components/RegisterPage.tsx and
-# auto-registers it under the override key in resources/js/martis/boot.ts.
+php artisan martis:component MyLogin --type=login-page
 ```
 
-The override sees the same router context as the original (`config.auth.registration`, `useAuth()`, `useToast()`, the `AuthFrame` shell) but you control the JSX. Same pattern for `login-page`, `forgot-password-page`, `reset-password-page`.
+Generates `resources/martis-extensions/martis/components/MyLogin.tsx` (a working starting point that calls `useAuth().login()` and renders inside `AuthFrame`), and adds these two lines to `resources/martis-extensions/martis/boot.ts`:
+
+```typescript
+import { MyLogin } from './components/MyLogin'
+componentRegistry.register('auth:login', MyLogin as never)
+```
+
+Same notation extends to every auth surface:
+
+| `--type=` value | Registry key | Replaces |
+|---|---|---|
+| `login-page` | `auth:login` | `pages/Login.tsx` |
+| `register-page` | `auth:register` | `pages/Register.tsx` |
+| `forgot-password-page` | `auth:forgot-password` | `pages/ForgotPassword.tsx` |
+| `reset-password-page` | `auth:reset-password` | `pages/ResetPassword.tsx` |
+| `email-verify-notice-page` | `auth:email-verify-notice` | `pages/EmailVerifyNotice.tsx` |
+
+After generating the override, rebuild assets so the bundle picks up the new component:
+
+```bash
+cd vendor/martis/martis
+MARTIS_USER_DIR=$(pwd)/../../../resources/martis-extensions npm run build
+```
+
+The build copies the rebuilt `public/` back to your app via `php artisan vendor:publish --tag=martis-assets --force` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
+
+Reference impls live under `vendor/martis/martis/resources/js/pages/` — the stub starts as a working copy of the bundled default so you can edit incrementally rather than rewrite from scratch.
 
 ### Layer 3 — replace the backend handler (service container binding)
 
@@ -311,6 +335,106 @@ Route::post('/martis/api/auth/register', function (Request $request) {
     return response()->json(['user' => $user], 201);
 });
 ```
+
+## Email verification
+
+Martis ships a complete email-verification surface. Off by default — flipping a single config flag wires the middleware, themed pages, and POST endpoint at once.
+
+### When does Martis send a verification email?
+
+Whenever you call `event(new \Illuminate\Auth\Events\Registered($user))`, Laravel core checks whether `$user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail`. If yes, Laravel core dispatches the stock `\Illuminate\Auth\Notifications\VerifyEmail` notification through whichever mailer the host app has configured.
+
+The Martis-shipped `DefaultRegistersUsers` fires `Registered` on every successful signup. So:
+
+- **User model implements `MustVerifyEmail`** → email goes out automatically on signup.
+- **User model does not implement `MustVerifyEmail`** → no email is ever sent.
+
+Martis intentionally does not force the contract on the consumer's User model. Some apps do not want email verification at all; others have their own delivery flow (magic links, SSO-only, etc.).
+
+### Enable the full Martis verification flow
+
+Three steps:
+
+1. **User model** must implement `MustVerifyEmail`:
+   ```php
+   use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+   class User extends Authenticatable implements MustVerifyEmail { /* … */ }
+   ```
+
+2. **Set the master flag**:
+   ```env
+   MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true
+   # optional — redirect off-platform when blocked instead of /email/verify
+   MARTIS_AUTH_EMAIL_VERIFICATION_NOTICE_URL=
+   ```
+
+3. **Mailer must be configured** (Postmark, Resend, Mailgun, SES, SMTP — anything Laravel supports). The verification notification goes through the default mail channel.
+
+Once `enabled=true`, the package:
+
+- Registers the `martis.verified` middleware alias and applies it to every protected Martis route. Unverified users hitting `/martis`, `/martis/profile`, `/martis/resources/...` etc. are redirected to `/{martis-path}/email/verify` (or the URL set in `notice_url`).
+- Renders the themed notice page at `/{martis-path}/email/verify`. Override via `martis:component MyVerifyNotice --type=email-verify-notice-page`.
+- Handles the signed verify link at `/{martis-path}/email/verify/{id}/{hash}` — marks `email_verified_at`, fires `Verified`, redirects to the dashboard.
+- Exposes `POST /{martis-path}/api/auth/email/verification-notification` so the notice page can offer a "resend" button.
+
+### What if the user loses the verification email?
+
+The shipped notice page (`/{martis-path}/email/verify`) has a "Resend verification link" button. Clicking it calls `POST /{martis-path}/api/auth/email/verification-notification`, which resolves the bound `SendsEmailVerification` implementation and re-dispatches the email.
+
+The endpoint is throttled to 6 attempts per minute per user (`throttle:6,1`) so a stuck loop or a malicious actor cannot flood the inbox. Any consumer-side override can keep its own throttle on top.
+
+If the user cannot reach the page (e.g. signed out completely), they can re-trigger the email by signing in again — the middleware redirects them to the notice page automatically as long as their account is unverified.
+
+### Customising the verification email
+
+Bind your own implementation of `Martis\Contracts\SendsEmailVerification`:
+
+```php
+// app/Providers/MartisServiceProvider.php
+use Martis\Contracts\SendsEmailVerification;
+use App\Auth\BrandedVerificationMailer;
+
+public function register(): void
+{
+    $this->app->bind(SendsEmailVerification::class, BrandedVerificationMailer::class);
+}
+```
+
+```php
+// app/Auth/BrandedVerificationMailer.php
+namespace App\Auth;
+
+use Illuminate\Contracts\Auth\Authenticatable;
+use Martis\Contracts\SendsEmailVerification;
+
+class BrandedVerificationMailer implements SendsEmailVerification
+{
+    public function send(Authenticatable $user): void
+    {
+        $user->notify(new \App\Notifications\BrandedVerifyEmail);
+    }
+}
+```
+
+The shipped `EmailVerificationController::send()` resolves this contract from the container, so the consumer's class transparently takes over the resend flow.
+
+### Customising the notice page (Layer 2)
+
+```bash
+php artisan martis:component MyVerifyNotice --type=email-verify-notice-page
+```
+
+Same mechanism as Login/Register/Forgot/Reset — see the table in "Customising auth surfaces" → Layer 2.
+
+### Surface lifecycle
+
+| Flag state | Middleware behaviour | Notice page | Verify link | Resend endpoint |
+|---|---|---|---|---|
+| `enabled=false` (default) | Pass-through, no gating | 404 | 404 | 404 |
+| `enabled=true`, user verified | Pass-through | 302 → dashboard | Marks verified, 302 → dashboard | 200 (re-sends; harmless) |
+| `enabled=true`, user unverified | 302 → notice (or `notice_url`) | 200 (themed page) | Marks verified, 302 → dashboard | 200 |
+| `enabled=true`, JSON request | 409 with `{message}` | 409 | normal | normal |
 
 ## Error pages
 

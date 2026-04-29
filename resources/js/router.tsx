@@ -1,32 +1,63 @@
+import { ComponentType, createElement } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/Login'
 import { RegisterPage } from '@/pages/Register'
 import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { ResetPasswordPage } from '@/pages/ResetPassword'
+import { EmailVerifyNoticePage } from '@/pages/EmailVerifyNotice'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
 import { ForbiddenPage } from '@/pages/Forbidden'
 import { ServerErrorPage } from '@/pages/ServerError'
 import { TwoFactorChallengePage } from '@/pages/TwoFactorChallenge'
 import { BASE_PATH } from '@/lib/config'
+import { componentRegistry } from '@/lib/componentRegistry'
+
+/**
+ * Resolve an auth page component by registry key, falling back to the
+ * bundled default when no consumer override is registered.
+ *
+ * Mirrors `Layout.tsx:resolveShellComponent`. Registered overrides come
+ * from `php artisan martis:component MyLogin --type=login-page` (and
+ * the matching --type values for register, forgot-password,
+ * reset-password, and email-verify-notice).
+ */
+function resolveAuthPage<P>(key: string, fallback: ComponentType<P>): ComponentType<P> {
+  if (componentRegistry.has(key)) {
+    const override = componentRegistry.resolve(key)
+    if (override) return override as unknown as ComponentType<P>
+  }
+
+  return fallback
+}
+
+const Login = resolveAuthPage('auth:login', LoginPage)
+const Register = resolveAuthPage('auth:register', RegisterPage)
+const ForgotPassword = resolveAuthPage('auth:forgot-password', ForgotPasswordPage)
+const ResetPassword = resolveAuthPage('auth:reset-password', ResetPasswordPage)
+const EmailVerifyNotice = resolveAuthPage('auth:email-verify-notice', EmailVerifyNoticePage)
 
 export const router = createBrowserRouter([
   {
     path: '/login',
-    element: <LoginPage />,
+    element: createElement(Login),
   },
   {
     path: '/register',
-    element: <RegisterPage />,
+    element: createElement(Register),
   },
   {
     path: '/forgot-password',
-    element: <ForgotPasswordPage />,
+    element: createElement(ForgotPassword),
   },
   {
     path: '/reset-password/:token',
-    element: <ResetPasswordPage />,
+    element: createElement(ResetPassword),
+  },
+  {
+    path: '/email/verify',
+    element: createElement(EmailVerifyNotice),
   },
   {
     path: '/2fa/challenge',

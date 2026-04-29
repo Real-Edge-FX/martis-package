@@ -1,0 +1,153 @@
+import { useState, useEffect, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
+import { useAuth, TwoFactorRequiredError } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
+import { ApiError } from '@/lib/api'
+import { config } from '@/lib/config'
+import { AuthFrame } from '@/components/auth/AuthFrame'
+
+/**
+ * {{ class }} — custom Login page override.
+ *
+ * Registered under `auth:login`. The Martis SPA router consults the
+ * componentRegistry for this key BEFORE rendering the bundled
+ * `pages/Login.tsx`, so anything you return here replaces the default.
+ *
+ * Reference implementation:
+ *   vendor/martis/martis/resources/js/pages/Login.tsx
+ *
+ * The page typically POSTs `email + password` to
+ * `POST /{martis-path}/api/auth/login`. Use `useAuth().login()` to
+ * keep the session + 2FA flow consistent with the rest of Martis.
+ */
+export function {{ class }}() {
+  const { user, isLoading, login } = useAuth()
+  const navigate = useNavigate()
+  const { addToast } = useToast()
+  const { t } = useTranslation('auth')
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const passwordReset = config.auth?.passwordReset
+  const registration = config.auth?.registration
+
+  useEffect(() => {
+    if (!isLoading && user) navigate('/', { replace: true })
+  }, [isLoading, user, navigate])
+
+  if (!isLoading && user) return null
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setErrors({})
+    setSubmitting(true)
+    try {
+      await login(email, password)
+    } catch (err) {
+      if (err instanceof TwoFactorRequiredError) {
+        navigate('/2fa/challenge', { replace: true })
+        return
+      }
+      if (err instanceof ApiError) {
+        addToast('error', err.message || t('error'))
+        if (err.status === 422 && err.errors) {
+          setErrors(err.errorsByField())
+        }
+      } else {
+        addToast('error', err instanceof Error ? err.message : t('error'))
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <AuthFrame>
+      <h2 className="martis-auth-title">
+        {t('login_title', { defaultValue: 'Sign in to your workspace' })}
+      </h2>
+      <p className="martis-auth-sub">
+        {/* TODO: customise copy */}
+        {t('login_sub', { defaultValue: 'Welcome back. Use your email and password to continue.' })}
+      </p>
+
+      <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 20 }}>
+        <div style={{ marginBottom: 12 }}>
+          <label htmlFor="login-email" className="martis-label">{t('email')}</label>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="martis-input"
+            disabled={submitting}
+            required
+            autoFocus
+          />
+          {errors.email && <div className="martis-field-error">{errors.email}</div>}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label htmlFor="login-password" className="martis-label">{t('password')}</label>
+            {passwordReset?.enabled && (
+              <Link to={passwordReset.url || '/forgot-password'} className="martis-auth-forgot">
+                {t('forgot_password', { defaultValue: 'Forgot?' })}
+              </Link>
+            )}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <input
+              id="login-password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="martis-input"
+              disabled={submitting}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="martis-input-toggle"
+              tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />}
+            </button>
+          </div>
+          {errors.password && <div className="martis-field-error">{errors.password}</div>}
+        </div>
+
+        <button
+          type="submit"
+          className="martis-btn-primary"
+          style={{ width: '100%', height: 40, marginTop: 16 }}
+          disabled={submitting}
+        >
+          {submitting ? t('signing_in') : t('sign_in')}
+          {!submitting && <ArrowRightIcon size={14} />}
+        </button>
+
+        {registration?.enabled && (
+          <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--martis-text-muted)' }}>
+            {t('register_prompt', { defaultValue: "Don't have an account?" })}{' '}
+            <Link to={registration.url || '/register'} style={{ color: 'var(--martis-accent)' }}>
+              {t('register_link', { defaultValue: 'Create an account' })}
+            </Link>
+          </div>
+        )}
+      </form>
+    </AuthFrame>
+  )
+}
