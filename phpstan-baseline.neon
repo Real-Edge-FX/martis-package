@@ -121,18 +121,6 @@ parameters:
 			path: src/Fields/BelongsTo.php
 
 		-
-			message: '#^Method Martis\\Fields\\Field\:\:buildRules\(\) should return list\<Illuminate\\Contracts\\Validation\\Rule\|string\> but returns array\<mixed\>\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Fields/Field.php
-
-		-
-			message: '#^Property Martis\\Fields\\Field\:\:\$readonlyResolver \(bool\|\(Closure\(Illuminate\\Http\\Request\|null\)\: bool\)\|null\) does not accept bool\|\(Closure\(Illuminate\\Http\\Request\)\: bool\)\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: src/Fields/Field.php
-
-		-
 			message: '#^Anonymous function should return Illuminate\\Database\\Eloquent\\Builder but returns Illuminate\\Database\\Query\\Builder\.$#'
 			identifier: return.type
 			count: 2
@@ -179,12 +167,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: src/Fields/MultiSelect.php
-
-		-
-			message: '#^Method Martis\\Fields\\Password\:\:buildRules\(\) should return list\<Illuminate\\Contracts\\Validation\\Rule\|string\> but returns list\<\(Closure\(string, mixed, Closure\)\: void\)\|Illuminate\\Contracts\\Validation\\Rule\|string\>\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Fields/Password.php
 
 		-
 			message: '#^Unsafe usage of new static\(\)\.$#'
@@ -259,12 +241,6 @@ parameters:
 			path: src/Fields/Select.php
 
 		-
-			message: '#^Method Martis\\Fields\\Slug\:\:buildRules\(\) should return list\<Illuminate\\Contracts\\Validation\\Rule\|string\> but returns non\-empty\-list\<\(Closure\(string, mixed, Closure\)\: void\)\|Illuminate\\Contracts\\Validation\\Rule\|string\>\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Fields/Slug.php
-
-		-
 			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 1
@@ -329,12 +305,6 @@ parameters:
 			identifier: cast.string
 			count: 2
 			path: src/Http/Controllers/ActionController.php
-
-		-
-			message: '#^Parameter \#1 \$fieldErrors of static method Martis\\Http\\Resources\\JsonErrorResponse\:\:validation\(\) expects array\<string, list\<string\>\>, array\{type\: array\{array\|string\|null\}\} given\.$#'
-			identifier: argument.type
-			count: 4
-			path: src/Http/Controllers/CacheController.php
 
 		-
 			message: '#^Parameter \#1 \$message of static method Martis\\Http\\Resources\\JsonErrorResponse\:\:forbidden\(\) expects string, array\|string\|null given\.$#'
@@ -971,6 +941,12 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: src/Preferences/PreferencesResolver.php
+
+		-
+			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Query\\Builder\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/SearchResolver.php
 
 		-
 			message: '#^Type mixed in generic type Illuminate\\Database\\Eloquent\\Collection\<int, mixed\> in PHPDoc tag @param for parameter \$resolvedRoles is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'

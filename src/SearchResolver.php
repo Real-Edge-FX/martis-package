@@ -111,8 +111,12 @@ class SearchResolver
             ? $connection->getDriverName()
             : '';
         if ($driverName === 'mysql') {
-            $ids = $scoutIds->implode(',');
-            $query->orderByRaw("FIELD({$keyName}, {$ids})");
+            // Bind the id list rather than concatenating into the SQL string
+            // both to satisfy PHPStan's `literal-string` requirement on
+            // orderByRaw() and to avoid a manual quoting hazard.
+            $ids = $scoutIds->all();
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $query->orderByRaw("FIELD({$keyName}, {$placeholders})", $ids);
         }
 
         return $query;

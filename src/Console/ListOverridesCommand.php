@@ -46,8 +46,13 @@ class ListOverridesCommand extends Command
     {
         $rows = [];
 
-        $kindFilter = $this->option('kind');
-        $textFilter = $this->option('filter');
+        // Symfony Console types these as `string|string[]|bool|null`; the
+        // narrowing below tells PHPStan we treat them as nullable strings.
+        $kindOption = $this->option('kind');
+        $kindFilter = is_string($kindOption) ? $kindOption : null;
+
+        $textOption = $this->option('filter');
+        $textFilter = is_string($textOption) ? $textOption : null;
 
         if ($kindFilter !== null && ! in_array($kindFilter, ['resource', 'tool', 'action'], true)) {
             $this->error("Unknown --kind '{$kindFilter}'. Valid values: resource, tool, action.");
@@ -96,10 +101,13 @@ class ListOverridesCommand extends Command
                 /** @var iterable<object> $actions */
                 $actions = $instance->actions($request);
                 foreach ($actions as $action) {
-                    if (! method_exists($action, 'jsonSerialize') && ! method_exists($action, 'toArray')) {
+                    if (method_exists($action, 'toArray')) {
+                        $payload = $action->toArray($request);
+                    } elseif ($action instanceof \JsonSerializable) {
+                        $payload = $action->jsonSerialize();
+                    } else {
                         continue;
                     }
-                    $payload = method_exists($action, 'toArray') ? $action->toArray($request) : $action->jsonSerialize();
                     $componentKey = is_array($payload) ? ($payload['customComponent'] ?? null) : null;
                     if ($componentKey === null || $componentKey === '') {
                         continue;

@@ -50,7 +50,14 @@ final class JsonErrorResponse
      *
      * $fieldErrors format: `['email' => ['The email is required.', ...], ...]`
      *
-     * @param  array<string, list<string>>  $fieldErrors
+     * Accepts any `array<string, iterable<mixed>>` so that callers can pass the
+     * natural output of `Validator::errors()->messages()` AND values produced
+     * by Laravel's translator helper (which the stubs declare as
+     * `string|array<int|string, mixed>|null`).
+     *
+     * Inner values are coerced to strings; nested arrays are flattened.
+     *
+     * @param  array<string, iterable<mixed>>  $fieldErrors
      */
     public static function validation(array $fieldErrors, string $message = 'The given data was invalid.'): self
     {
@@ -58,10 +65,14 @@ final class JsonErrorResponse
 
         foreach ($fieldErrors as $field => $messages) {
             foreach ($messages as $message_text) {
+                $text = is_string($message_text)
+                    ? $message_text
+                    : (string) json_encode($message_text);
+
                 $errors[] = [
                     'field' => $field,
-                    'message' => $message_text,
-                    'code' => self::inferCode($message_text),
+                    'message' => $text,
+                    'code' => self::inferCode($text),
                 ];
             }
         }

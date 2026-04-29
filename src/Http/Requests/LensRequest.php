@@ -4,6 +4,7 @@ namespace Martis\Http\Requests;
 
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Contracts\FilterContract;
 use Martis\Enums\SortDirection;
@@ -49,7 +50,11 @@ class LensRequest extends Request
             }
 
             if (method_exists($filter, 'apply')) {
-                $filter->apply($this, $query, $value);
+                // Filters operate on Builder<Model>; the generic narrows back
+                // when the caller's $query is the concrete TModel.
+                /** @var Builder<Model> $generic */
+                $generic = $query;
+                $filter->apply($this, $generic, $value);
             }
         }
 
