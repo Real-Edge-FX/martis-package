@@ -41,7 +41,28 @@ jobs:
 
       - name: Pin Laravel ${{ matrix.laravel }}
         run: |
-          composer require --no-update --dev "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:^$( [[ "${{ matrix.laravel }}" == 11.* ]] && echo 9 || echo 10 )"
+          # orchestra/testbench tracks Laravel's major:
+          #   L11 → testbench ^9
+          #   L12 → testbench ^10
+          #   L13 → testbench ^11
+          case "${{ matrix.laravel }}" in
+            11.*) TB="^9"  ;;
+            12.*) TB="^10" ;;
+            13.*) TB="^11" ;;
+            *)    echo "Unknown Laravel matrix value: ${{ matrix.laravel }}" >&2; exit 1 ;;
+          esac
+          # L13 needs pest-plugin-laravel ^4 (^3 caps at L12).
+          if [[ "${{ matrix.laravel }}" == 13.* ]]; then
+            composer require --no-update --dev \
+              "laravel/framework:${{ matrix.laravel }}" \
+              "orchestra/testbench:${TB}" \
+              "pestphp/pest:^4.0" \
+              "pestphp/pest-plugin-laravel:^4.0"
+          else
+            composer require --no-update --dev \
+              "laravel/framework:${{ matrix.laravel }}" \
+              "orchestra/testbench:${TB}"
+          fi
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress --no-interaction
