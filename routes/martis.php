@@ -8,6 +8,7 @@ use Martis\Http\Controllers\BelongsToManyController;
 use Martis\Http\Controllers\CacheController;
 use Martis\Http\Controllers\CommandPaletteController;
 use Martis\Http\Controllers\DashboardController;
+use Martis\Http\Controllers\EmailVerificationController;
 use Martis\Http\Controllers\GuestPagesController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
@@ -112,6 +113,23 @@ Route::middleware(config('martis.middleware', ['web']))
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('api.auth.password.reset');
 
+        // Email verification surfaces — always-registered. The
+        // controller checks `auth.email_verification.enabled` and
+        // 404s when off. Notice + send sit outside the auth group
+        // because the user must be logged in but NOT yet verified to
+        // hit them — the auth middleware below would gate them by
+        // verified status if applied. The signed verify route uses
+        // the framework's `signed` middleware for safety.
+        Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
+            ->middleware('martis.auth')
+            ->name('email.verify.notice');
+        Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+            ->middleware(['martis.auth', 'signed', 'throttle:6,1'])
+            ->name('email.verify');
+        Route::post('/api/auth/email/verification-notification', [EmailVerificationController::class, 'send'])
+            ->middleware(['martis.auth', 'throttle:6,1'])
+            ->name('api.auth.email.verification.send');
+
         // Translations — public, loaded before login
         Route::get('/api/translations/{locale}', [TranslationsController::class, 'show'])
             ->name('api.translations.show');
@@ -140,7 +158,12 @@ Route::middleware(config('martis.middleware', ['web']))
                 // `martis.locale` applies the user's saved language preference
                 // before controllers run so `__()` and validation messages are
                 // returned in their chosen locale.
-                Route::middleware(['martis.2fa', 'martis.locale'])
+                // `martis.verified` only enforces `email_verified_at` when
+                // `martis.auth.email_verification.enabled=true` (otherwise
+                // it's a pass-through), so this is safe to apply globally
+                // — backwards-compatible for consumers that haven't opted
+                // in.
+                Route::middleware(['martis.2fa', 'martis.locale', 'martis.verified'])
                     ->group(function () use ($throttle) {
                         // API routes
                         Route::prefix('api')

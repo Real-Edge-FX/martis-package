@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-04-29
+
+Auth-page Layer 2 lands properly + email verification arrives as a first-class Martis feature.
+
+### Added
+
+- **Auth-page overrides via `martis:component --type=`**. Five new types — `login-page`, `register-page`, `forgot-password-page`, `reset-password-page`, `email-verify-notice-page` — each ships a stub at `stubs/component-{type}.tsx.stub` and registers the generated component under a fixed registry key (`auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice`). The SPA router resolves these keys via `componentRegistry.resolve()` before rendering the bundled defaults — same mechanism as the existing `--type=shell` / `--type=topbar` / etc. Closes the Layer 2 promise from the v1.4.0 doc.
+- **Email verification feature**. Three pieces, all opt-in:
+    - **Config knob** `auth.email_verification.enabled` (default `false`) — flipping it registers the middleware, themed pages, and POST endpoint together.
+    - **Middleware `martis.verified`** — pass-through when disabled, redirects unverified users to `/{martis-path}/email/verify` (or a custom `notice_url`) when enabled. Auto-applied to every protected Martis route.
+    - **Themed pages**: `/{martis-path}/email/verify` (notice) and `/{martis-path}/email/verify/{id}/{hash}` (Laravel signed link handler). The notice page is overridable via Layer 2 (`--type=email-verify-notice-page`).
+    - **Custom email content**: bind `Martis\Contracts\SendsEmailVerification` to take full control of the resend flow (queueable notifications, branded templates, magic-link tokens).
+- **Default `EmailVerifyNoticePage`** React component (`resources/js/pages/EmailVerifyNotice.tsx`) — same `AuthFrame` shell as Login/Register, with "Resend verification link" + "Sign in with a different account" actions.
+
+### Documentation
+
+- `docs/authentication.md` — Layer 2 section rewritten with the real mechanism (no more "planned for v1.5.0" placeholder). New "Email verification" top-level section: when does Martis send the email, three-step opt-in, customisation via Layer 2 + Layer 3, surface lifecycle table.
+
+### Tests
+
+- 12 new Pest cases under `tests/Feature/AuthPageOverrideTest.php` — every `--type` value scaffolds the right TSX file, registers under the right key, rejects unknown types, AUTH_PAGES const stays in sync.
+- 9 new Pest cases under `tests/Feature/EmailVerificationFeatureTest.php` — middleware pass-through when disabled, redirect when enabled, off-platform `notice_url`, JSON 409 path, send endpoint, custom contract binding.
+
+### Validation
+
+- Pest: 1698 passing, 1 skipped, 0 failed (was 1677 pre-release).
+- Vitest: 110 passing, 5 skipped, 0 failed.
+- PHPStan L8: 0 errors.
+
 ## [1.4.0] — 2026-04-29
 
 Auth surfaces complete. Martis now ships a themed page **and** a default backend handler for every guest auth flow (Login, Register, Forgot password, Reset password). All four are togglable, all four can point off-platform, and each backend handler is replaceable through a single service-container binding.

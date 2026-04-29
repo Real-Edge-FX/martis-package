@@ -1,0 +1,182 @@
+import { useState, type FormEvent } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
+import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
+import { api, ApiError } from '@/lib/api'
+import { config } from '@/lib/config'
+import { AuthFrame } from '@/components/auth/AuthFrame'
+
+/**
+ * {{ class }} — custom Register page override.
+ *
+ * Registered under `auth:register`. POSTs to
+ * `POST /{martis-path}/api/auth/register` (handled by the
+ * `Martis\Contracts\RegistersUsers` binding — default
+ * `Martis\Auth\DefaultRegistersUsers`).
+ *
+ * Reference implementation:
+ *   vendor/martis/martis/resources/js/pages/Register.tsx
+ */
+export function {{ class }}() {
+  const { user, isLoading } = useAuth()
+  const navigate = useNavigate()
+  const { addToast } = useToast()
+  const { t } = useTranslation('auth')
+
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const enabled = config.auth?.registration?.enabled === true
+
+  if (!enabled) return <Navigate to="/login" replace />
+  if (!isLoading && user) return <Navigate to="/" replace />
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setErrors({})
+    if (password !== passwordConfirmation) {
+      setErrors({ password_confirmation: t('register_password_mismatch', { defaultValue: 'Passwords do not match.' }) })
+      return
+    }
+    setSubmitting(true)
+    try {
+      await api.post('/api/auth/register', {
+        name,
+        email,
+        password,
+        password_confirmation: passwordConfirmation,
+      })
+      addToast('success', t('register_success', { defaultValue: 'Account created. Please sign in.' }))
+      navigate('/login', { replace: true })
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 422 && err.errors) {
+          setErrors(err.errorsByField())
+        } else if (err.status === 404 || err.status === 501) {
+          addToast('error', t('register_endpoint_missing', {
+            defaultValue: 'Registration endpoint is not available.',
+          }))
+        } else {
+          addToast('error', err.message || t('error'))
+        }
+      } else {
+        addToast('error', err instanceof Error ? err.message : t('error'))
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <AuthFrame>
+      <h2 className="martis-auth-title">
+        {/* TODO: customise the headline */}
+        {t('register_title', { defaultValue: 'Create your account' })}
+      </h2>
+      <p className="martis-auth-sub">
+        {t('register_sub', { defaultValue: 'Get started with your workspace. We just need a few details.' })}
+      </p>
+
+      <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 20 }}>
+        <div style={{ marginBottom: 12 }}>
+          <label htmlFor="register-name" className="martis-label">{t('name', { defaultValue: 'Name' })}</label>
+          <input
+            id="register-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="martis-input"
+            disabled={submitting}
+            required
+            autoFocus
+          />
+          {errors.name && <div className="martis-field-error">{errors.name}</div>}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label htmlFor="register-email" className="martis-label">{t('email')}</label>
+          <input
+            id="register-email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="martis-input"
+            disabled={submitting}
+            required
+          />
+          {errors.email && <div className="martis-field-error">{errors.email}</div>}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label htmlFor="register-password" className="martis-label">{t('password')}</label>
+          <div style={{ position: 'relative' }}>
+            <input
+              id="register-password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="martis-input"
+              disabled={submitting}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="martis-input-toggle"
+              tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />}
+            </button>
+          </div>
+          {errors.password && <div className="martis-field-error">{errors.password}</div>}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label htmlFor="register-password-confirm" className="martis-label">
+            {t('register_confirm_password', { defaultValue: 'Confirm password' })}
+          </label>
+          <input
+            id="register-password-confirm"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={passwordConfirmation}
+            onChange={(e) => setPasswordConfirmation(e.target.value)}
+            className="martis-input"
+            disabled={submitting}
+            required
+          />
+          {errors.password_confirmation && (
+            <div className="martis-field-error">{errors.password_confirmation}</div>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          className="martis-btn-primary"
+          style={{ width: '100%', height: 40, marginTop: 16 }}
+          disabled={submitting}
+        >
+          {submitting ? t('register_submitting', { defaultValue: 'Creating…' }) : t('register_submit', { defaultValue: 'Create account' })}
+          {!submitting && <ArrowRightIcon size={14} />}
+        </button>
+
+        <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--martis-text-muted)' }}>
+          {t('register_have_account', { defaultValue: 'Already have an account?' })}{' '}
+          <Link to="/login" style={{ color: 'var(--martis-accent)' }}>
+            {t('sign_in')}
+          </Link>
+        </div>
+      </form>
+    </AuthFrame>
+  )
+}

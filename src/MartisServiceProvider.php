@@ -40,6 +40,7 @@ use Martis\Discovery\ResourceDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Facades\Martis;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
+use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Impersonation\ImpersonationManager;
@@ -107,6 +108,10 @@ class MartisServiceProvider extends ServiceProvider
         $this->app->bind(
             \Martis\Contracts\ResetsUserPasswords::class,
             \Martis\Auth\DefaultResetsUserPasswords::class,
+        );
+        $this->app->bind(
+            \Martis\Contracts\SendsEmailVerification::class,
+            \Martis\Auth\DefaultSendsEmailVerification::class,
         );
     }
 
@@ -312,6 +317,7 @@ class MartisServiceProvider extends ServiceProvider
         $router->aliasMiddleware('martis.auth', MartisAuthenticate::class);
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
+        $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);
     }
 
     /**
