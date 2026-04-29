@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-04-29
+
+Hotfix for an unintentional route exposure introduced by v1.2.0.
+
+### Fixed
+
+- **Scramble default routes are suppressed unconditionally** ([#108](https://github.com/Real-Edge-FX/martis-package/pull/108)). When v1.2.0 graduated `dedoc/scramble` from `require-dev` to `require`, Scramble's own service provider began auto-registering `GET /docs/api` and `GET /docs/api.json` in every consumer app, regardless of the `MARTIS_API_DOCS_ENABLED` toggle. Surfaced via `php artisan route:list` against the playground after the v1.2.0 upgrade. The `Scramble::ignoreDefaultRoutes()` call moved from `MartisServiceProvider::boot()` (too late — Scramble's own boot() runs first) to `register()`, and is now unconditional. Consumers that want Scramble's default behaviour can opt back in via `Scramble::configure()->expose(true)` from their own service provider.
+
 ## [1.2.0] — 2026-04-29
 
 Doc-driven release. A full audit of `martis-docs` against the package source uncovered every place the documentation taught contracts that did not exist. We fixed the docs, shipped the small features the docs implied, and added the OpenAPI surface that was advertised but never wired. Six issues, six PRs, all gated behind a single release branch.
