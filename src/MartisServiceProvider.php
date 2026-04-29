@@ -23,6 +23,7 @@ use Martis\Console\FieldMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\InstallCommand;
 use Martis\Console\LensMakeCommand;
+use Martis\Console\ListOverridesCommand;
 use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ProgressMakeCommand;
@@ -87,6 +88,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerExceptionHandling();
         $this->registerCacheGate();
         $this->discoverResources();
+        $this->registerApiDocs();
 
         $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'martis');
@@ -131,6 +133,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheClearCommand::class,
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
+                ListOverridesCommand::class,
                 SsoMakeCommand::class,
                 StubsCommand::class,
             ]);
@@ -218,6 +221,49 @@ class MartisServiceProvider extends ServiceProvider
                 $this->app->make(ExceptionHandler::class)
             );
         }
+    }
+
+    /**
+     * Register the OpenAPI / Swagger UI surface, gated by
+     * `martis.api_docs.enabled`. The surface lives at
+     * `/{martis-path}/api-docs` (UI) and `/{martis-path}/api-docs.json`
+     * (raw OpenAPI). Off by default — flip
+     * `MARTIS_API_DOCS_ENABLED=true` in `.env` to expose it.
+     *
+     * Implementation note. Scramble auto-registers `/docs/api` if its
+     * default routes are not suppressed; we call `Scramble::ignoreDefaultRoutes()`
+     * so the only surface is the Martis-prefixed one. We then narrow
+     * the route resolver to Martis API routes only — Scramble defaults
+     * to documenting every `/api/*` route in the host app, which leaks
+     * unrelated endpoints.
+     */
+    protected function registerApiDocs(): void
+    {
+        if (! (bool) config('martis.api_docs.enabled', false)) {
+            return;
+        }
+
+        if (! class_exists(\Dedoc\Scramble\Scramble::class)) {
+            return;
+        }
+
+        $martisPath = trim((string) config('martis.path', 'martis'), '/');
+        $apiDocsPath = trim((string) config('martis.api_docs.path', 'api-docs'), '/');
+        $middleware = (array) config('martis.api_docs.middleware', ['web', 'auth']);
+
+        \Dedoc\Scramble\Scramble::ignoreDefaultRoutes();
+
+        \Dedoc\Scramble\Scramble::routes(function ($route) use ($martisPath) {
+            $uri = ltrim((string) $route->uri(), '/');
+
+            return str_starts_with($uri, $martisPath.'/api');
+        });
+
+        \Dedoc\Scramble\Scramble::registerUiRoute("{$martisPath}/{$apiDocsPath}")
+            ->middleware($middleware);
+
+        \Dedoc\Scramble\Scramble::registerJsonSpecificationRoute("{$martisPath}/{$apiDocsPath}.json")
+            ->middleware($middleware);
     }
 
     /**

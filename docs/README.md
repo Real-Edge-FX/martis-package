@@ -72,8 +72,6 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 1 | **[Installation Guide](installation-guide.md)** | Add Martis to an existing Laravel app — Composer install, asset publishing, config, database setup, creating your first resource |
-| 2 | **[Quick Start](setup/quickstart.md)** | Development workflow — running the dev server, hot reload, building assets, deploying to production |
-| 3 | **[Troubleshooting](setup/troubleshooting.md)** | Common errors and solutions — asset 404s, migration issues, permission problems, build failures |
 
 ### Core Concepts
 
@@ -111,21 +109,13 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 11.5 | **[Customising Generators](customizing-generators.md)** | `martis:stubs` publisher + `Martis\Stubs\StubResolver` — every generator template (resource, action, lens, metrics, fields, tools, ...) is editable in `stubs/martis/` (v1.1) |
 | 11.6 | **[Keyboard Shortcuts](keyboard-shortcuts.md)** | `addShortcut()` / `disableShortcut()` / `listShortcuts()` registry + `Shift+?` help overlay; mod-key normalisation, two-key sequences, input-focus suppression (v1.1) |
 
-### Architecture & Design
+### Reference
 
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
-| 12 | **[Technology Stack](architecture/stack.md)** | Full stack breakdown — PHP 8.2+, Laravel 11/12, React 18, PrimeReact, Tailwind CSS, Vite, Pest, Vitest, PHPStan |
-| 13 | **[Architectural Decisions](architecture/decisions.md)** | 15 ADRs — why PrimeReact over Headless UI, contract-first design, backend-driven field resolution, and other key decisions |
-| 14 | **[REST API Overview](api/overview.md)** | All backend endpoints — resource CRUD, schema, search, file upload, relationship endpoints, authentication, request/response formats, error handling |
-
-### Project Status
-
-| # | Document | What You Will Learn |
-|---|----------|---------------------|
-| 15 | **[Martis Differentials](differentials.md)** | All distinctive features of Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
-| 16 | **[Release Process](release-process.md)** | How a release tag is cut — release branch flow, audit checklist, PR conventions |
-| 17 | **[v1.0 Roadmap](v1-roadmap.md)** | Live checklist of remaining items before the v1.0.0 tag is cut |
+| 12 | **[REST API Overview](api/overview.md)** | All backend endpoints — resource CRUD, schema, search, file upload, relationship endpoints, authentication, request/response formats, error handling |
+| 13 | **[Martis Differentials](differentials.md)** | All distinctive features of Martis — override system, action extensions, filter extensions, authentication, frontend utilities |
+| 14 | **[v1.0 Roadmap](v1-roadmap.md)** | Live checklist of remaining items before the v1.0.0 tag is cut |
 
 ---
 
@@ -167,26 +157,12 @@ docs/
 ├── i18n.md ......................... Adding locales & translations
 ├── cache.md ........................ Cache control surface (v0.8)
 ├── differentials.md ................ Martis differentials (unique features)
-├── release-process.md .............. How a release tag is cut
 ├── v1-roadmap.md ................... v1.0 readiness checklist
-├── api/
-│   └── overview.md ................. REST API reference
-├── architecture/
-│   ├── stack.md .................... Technology stack
-│   └── decisions.md ................ Architectural Decision Records
-└── setup/
-    ├── quickstart.md ............... Development workflow
-    └── troubleshooting.md .......... Common issues & fixes
+└── api/
+    └── overview.md ................. REST API reference
 ```
 
-### Quick Links
-
-| Link | Description |
-|------|-------------|
-| Admin Panel | `http://martis.realedgefx.com/martis` |
-| API Docs (Swagger) | `http://martis.realedgefx.com/docs/api` |
-| Telescope (Debug) | `http://martis.realedgefx.com/telescope` |
-| Dev Credentials | `admin@martis.local` / `password` |
+Operational docs (release process, dev environment quickstart, architecture ADRs) live under `internal/` at the repo root and are not published to the public docs site. See `internal/README.md` for the rationale.
 
 ### Artisan Commands
 
@@ -236,4 +212,4 @@ The playground application ships with pre-configured resources for development a
 
 ## Releases
 
-Full release history lives on the [GitHub Releases](https://github.com/Real-Edge-FX/martis-package/releases) page. The release process itself is documented in [release-process.md](release-process.md).
+Full release history lives on the [GitHub Releases](https://github.com/Real-Edge-FX/martis-package/releases) page.

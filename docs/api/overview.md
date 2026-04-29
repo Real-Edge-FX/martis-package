@@ -1,15 +1,41 @@
 # Martis API — Overview
 
-Martis provides a REST API for all CRUD operations, resource metadata, and configuration. The API is automatically documented via Scramble (OpenAPI/Swagger).
+Martis provides a REST API for all CRUD operations, resource metadata, and configuration. The schema is generated at runtime by [Scramble](https://scramble.dedoc.co/) and served alongside the panel as both interactive UI and raw OpenAPI 3.1.
 
 ## Access
 
 | Item | Value |
 |------|-------|
-| Swagger UI | `http://martis.realedgefx.com/docs/api` |
-| Base URL | `/martis/api` |
+| Swagger UI | `/{martis-path}/api-docs` (off by default — see toggle below) |
+| Raw OpenAPI 3.1 | `/{martis-path}/api-docs.json` |
+| Base URL | `/{martis-path}/api` |
 | Format | JSON |
 | Auth | Sanctum Bearer token (configurable guard via `MARTIS_GUARD`) |
+
+## Enabling the Swagger UI surface
+
+The OpenAPI surface ships off by default so `composer require martis/martis` does not expose the schema publicly. Flip the env in your `.env`:
+
+```env
+MARTIS_API_DOCS_ENABLED=true
+```
+
+That registers two routes:
+
+- `GET /{martis-path}/api-docs` — Stoplight Elements UI (the Swagger surface).
+- `GET /{martis-path}/api-docs.json` — raw OpenAPI 3.1 document.
+
+Both routes go through the `martis.api_docs.middleware` chain, default `['web', 'auth']`. Only authenticated users reach them, mirroring the rest of the Martis admin surface. To tighten further (e.g. admin-only), override the middleware in your published `config/martis.php`:
+
+```php
+'api_docs' => [
+    'enabled' => env('MARTIS_API_DOCS_ENABLED', false),
+    'path'    => env('MARTIS_API_DOCS_PATH', 'api-docs'),
+    'middleware' => ['web', 'auth', 'can:manage-martis-cache'], // example
+],
+```
+
+Recommended: leave **off in production** unless you have a reason to expose the schema. Even when on, keep the middleware tight — the document includes every Martis API path and shape.
 
 ## Authentication
 
@@ -20,8 +46,8 @@ POST /martis/login
 Content-Type: application/json
 
 {
-  "email": "admin@martis.local",
-  "password": "password"
+  "email": "admin@example.com",
+  "password": "<your-password>"
 }
 ```
 
@@ -107,7 +133,7 @@ GET /martis/api/{resource}
     {
       "id": 1,
       "name": "Admin User",
-      "email": "admin@martis.local",
+      "email": "admin@example.com",
       "_title": "Admin User",
       "_resource": {
         "uriKey": "users",
@@ -141,7 +167,7 @@ Content-Type: application/json
 {
   "name": "New User",
   "email": "new@example.com",
-  "password": "secret123"
+  "password": "<placeholder>"
 }
 ```
 
