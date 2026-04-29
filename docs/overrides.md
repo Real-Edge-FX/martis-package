@@ -517,6 +517,41 @@ componentRegistry.keys()
 componentRegistry.resolve(type, field, resource, explicitKey, fallback)
 ```
 
+## Debugging — `martis:list-overrides`
+
+When an override does not pick up, the most common cause is a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and the frontend `boot.ts` (which registers the actual React component under that key). The `martis:list-overrides` artisan command prints every component key the PHP layer expects:
+
+```bash
+php artisan martis:list-overrides
+php artisan martis:list-overrides --kind=tool       # only Tools
+php artisan martis:list-overrides --kind=action     # only Actions with Action::component()
+php artisan martis:list-overrides --kind=resource   # only Resources (uri keys)
+php artisan martis:list-overrides --filter=order    # substring filter on the key
+```
+
+Sample output:
+
+```
++----------+--------------------------+------------------------------------------+
+| Kind     | Component key            | Source                                   |
++----------+--------------------------+------------------------------------------+
+| resource | clients                  | App\Martis\ClientResource                |
+| resource | invoices                 | App\Martis\InvoiceResource               |
+| tool     | system-status            | App\Martis\Tools\SystemStatus            |
+| action   | order-bulk-publish       | App\Martis\OrderResource → PublishOrders |
++----------+--------------------------+------------------------------------------+
+4 component key(s) declared. Verify each one is registered in your frontend
+boot file (e.g. resources/js/boot.ts) via componentRegistry.register('<key>', Component).
+```
+
+The command lists what is **expected**, not what is **registered** — the actual override registry lives in the browser and cannot be introspected from PHP. Check the matching list in your frontend by running this in the browser devtools console after the SPA boots:
+
+```js
+window.componentRegistry.keys()
+```
+
+Any key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is a missing registration in your `boot.ts` — the most common reason an override fails to resolve.
+
 ## Page Title Hook
 
 Custom pages (layouts, custom resource views, dashboards built outside the default router) should set the browser tab title so navigation inside the SPA stays consistent with the server-side title on hard reload.
