@@ -845,7 +845,12 @@ return [
         'spinnerColor' => null,
         'overlayOpacity' => null,
         'overlayColor' => null,
-        'disabled' => false,
+        // `MARTIS_LOADER_DISABLED=true` opts out the global loader.
+        // Default false keeps the loader enabled, matching every prior
+        // release. The env wrapper is for parity with the rest of the
+        // config — staging/production can flip it without editing the
+        // published config file.
+        'disabled' => env('MARTIS_LOADER_DISABLED', false),
         'disableOn' => [
             'table' => false,
             'search' => false,
