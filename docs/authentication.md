@@ -187,15 +187,12 @@ MARTIS_AUTH_REGISTRATION_URL=https://app.example.com/signup
 
 ### Layer 2 — replace the React page (component override)
 
-Use the Martis component override system to swap any of the four pages. Generate the override with the artisan generator, then customise.
+> Status: **planned for v1.5.0**, not in 1.4.x. The component override system (`martis:component`) supports `field`, `shell`, `sidebar`, `topbar`, `footer`, `complete-layout`, and `generic` today; auth-page stubs (`login-page`, `register-page`, `forgot-password-page`, `reset-password-page`) are not yet wired into the SPA router. Track the work in the open issue list.
 
-```bash
-php artisan martis:component register-page
-# Generates resources/js/martis/components/RegisterPage.tsx and
-# auto-registers it under the override key in resources/js/martis/boot.ts.
-```
+For now, if you need to change auth-page UI without going off-platform (Layer 1) or replacing the backend (Layer 3), the supported path is:
 
-The override sees the same router context as the original (`config.auth.registration`, `useAuth()`, `useToast()`, the `AuthFrame` shell) but you control the JSX. Same pattern for `login-page`, `forgot-password-page`, `reset-password-page`.
+- **Fork the SPA build**: clone `vendor/martis/martis/resources/js/pages/{Login,Register,ForgotPassword,ResetPassword}.tsx` into your own app frontend, edit, rebuild against your own Vite config.
+- **Slot a custom view** at `auth.{flow}.url` and host the page yourself (Layer 1 with internal URL — no off-platform redirect, just a different route in your Laravel app).
 
 ### Layer 3 — replace the backend handler (service container binding)
 
