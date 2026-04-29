@@ -310,6 +310,8 @@ class RolesScaffoldCommand extends Command
         $targetDir = app_path('Policies');
         $files->ensureDirectoryExists($targetDir);
 
+        $userImport = ltrim($userClass, '\\');
+
         foreach ($targets as $config) {
             $targetFile = $targetDir.'/'.$config['class'].'.php';
             if (file_exists($targetFile) && ! $this->option('force')) {
@@ -318,12 +320,20 @@ class RolesScaffoldCommand extends Command
                 continue;
             }
 
+            // Build the imports block. When the User model and the
+            // policy's target model are the same class (UserPolicy
+            // case), emit a single `use` line — emitting two would be
+            // a "Cannot use X as Y because the name is already in use"
+            // fatal at autoload time.
+            $imports = $config['modelImport'] === $userImport
+                ? sprintf('use %s;', $userImport)
+                : sprintf("use %s;\nuse %s;", $userImport, $config['modelImport']);
+
             $rendered = strtr($stub, [
                 '{{ namespace }}' => 'App\\Policies',
                 '{{ class }}' => $config['class'],
-                '{{ modelImport }}' => $config['modelImport'],
+                '{{ imports }}' => $imports,
                 '{{ modelClass }}' => $config['modelClass'],
-                '{{ userModelImport }}' => ltrim($userClass, '\\'),
                 '{{ userModelClass }}' => class_basename($userClass),
                 '{{ resourceName }}' => $config['resourceName'],
             ]);
