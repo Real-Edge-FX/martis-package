@@ -35,18 +35,22 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 ```php
 'brand' => [
     'name' => env('MARTIS_BRAND_NAME', 'Martis'),
-    'logo' => null,
+    'logo' => env('MARTIS_BRAND_LOGO'),
     'favicon' => env('MARTIS_FAVICON', null),
     'page_title' => env('MARTIS_PAGE_TITLE'), // null | string | callable
+    'version' => env('MARTIS_BRAND_VERSION'),
+    'docs_url' => env('MARTIS_BRAND_DOCS_URL'),
 ],
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `name` | `string` | `'Martis'` | Displayed in the sidebar header and used as the `{brand}` interpolation for the bundled page title translation. |
-| `logo` | `?string` | `null` | Path to a custom logo image (relative to public/). |
+| `logo` | `?string` | `null` | Path or URL to a custom logo image. Relative paths resolve against `public/` (`/img/logo.svg`); full URLs are passed through unchanged (`https://cdn.example.com/logo.svg`). |
 | `favicon` | `?string` | `null` | Path to a custom favicon (relative to `public/`). When `null`, Martis serves its own default favicon from the package — no `vendor:publish` step required. |
 | `page_title` | `string \| callable \| null` | `null` | Browser tab title shown in `<title>`. `null` uses the bundled translation (e.g. "Acme — Admin Control"). A plain string overrides it. A callable (invokable class or array callable) receives the current `Request` and returns the title. |
+| `version` | `?string` | `null` | Optional version string printed in the sidebar footer (e.g. `v1.5.2`, `2026.04.29`). |
+| `docs_url` | `?string` | `null` | Optional docs link rendered on the right-hand side of the sidebar footer. |
 
 ### Customising the page title
 
@@ -139,14 +143,52 @@ Resolution precedence (highest first):
 ```php
 'footer' => [
     'enabled' => true,
-    'text' => null,
+    'text' => env('MARTIS_FOOTER_TEXT'),
 ],
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to hide the footer entirely. |
-| `text` | `?string` | `null` | Custom footer text. When `null`, displays "Powered by Martis". |
+| `text` | `?string` | `null` | Custom footer text. When `null`, the bundled translation renders ("© {brand.name} · Powered by Martis"). |
+
+> **i18n trade-off.** `MARTIS_FOOTER_TEXT` is a single string that overrides every locale. For per-locale footer copy, leave the env var unset and publish the lang files with `php artisan vendor:publish --tag=martis-lang`, then edit each locale file directly.
+
+## Welcome card
+
+```php
+'welcome' => [
+    'heading' => env('MARTIS_WELCOME_HEADING'),
+    'description' => env('MARTIS_WELCOME_DESCRIPTION'),
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `heading` | `?string` | `null` | Custom heading for the dashboard's hero welcome card. When `null`, uses the bundled `welcome_card_heading` translation. |
+| `description` | `?string` | `null` | Custom description shown below the heading. When `null`, uses the bundled `welcome_card_description` translation. |
+
+Resolution order (first non-null wins):
+
+1. Prop passed at render-time (rare — only if the host overrides the React component itself).
+2. `welcome.heading` / `welcome.description` from this config block (env-driven).
+3. `martis::resources.welcome_card_heading` / `welcome_card_description` translations.
+
+> **i18n trade-off.** `MARTIS_WELCOME_HEADING` and `MARTIS_WELCOME_DESCRIPTION` are single strings that override every locale. For per-locale copy, leave both env vars unset and publish the lang files with `php artisan vendor:publish --tag=martis-lang`, then edit `resources/lang/{en,pt_PT,pt_BR}/resources.php` directly. The two paths are mutually exclusive — env wins when set.
+
+### Example: branding the dashboard from `.env`
+
+```env
+MARTIS_BRAND_NAME="EdgeFlow"
+MARTIS_BRAND_LOGO="/img/edgeflow-logo.svg"
+MARTIS_FAVICON="brand/favicon.ico"
+MARTIS_PAGE_TITLE="EdgeFlow"
+MARTIS_FOOTER_TEXT="© 2026 EdgeFlow. All rights reserved."
+MARTIS_WELCOME_HEADING="Welcome to EdgeFlow"
+MARTIS_WELCOME_DESCRIPTION="NQ/ES/YM regime intelligence for futures traders."
+```
+
+No code changes, no `vendor:publish`. The SPA picks all of this up at boot via `window.MartisConfig`.
 
 ## Layout
 
@@ -631,8 +673,14 @@ The package ships **no default Gate**. Define `martis-impersonate` in your `Auth
 | `MARTIS_PATH` | `path` | `martis` |
 | `MARTIS_GUARD` | `guard` | `null` |
 | `MARTIS_BRAND_NAME` | `brand.name` | `Martis` |
+| `MARTIS_BRAND_LOGO` | `brand.logo` | `null` |
+| `MARTIS_BRAND_VERSION` | `brand.version` | `null` |
+| `MARTIS_BRAND_DOCS_URL` | `brand.docs_url` | `null` |
 | `MARTIS_FAVICON` | `brand.favicon` | `null` |
 | `MARTIS_PAGE_TITLE` | `brand.page_title` | `null` (uses translation) |
+| `MARTIS_FOOTER_TEXT` | `footer.text` | `null` (uses translation) |
+| `MARTIS_WELCOME_HEADING` | `welcome.heading` | `null` (uses translation) |
+| `MARTIS_WELCOME_DESCRIPTION` | `welcome.description` | `null` (uses translation) |
 | `MARTIS_LAYOUT` | `layout.preset` | `sidebar` |
 | `MARTIS_NAV_COUNTS` | `navigation.counts.enabled` | `true` |
 | `MARTIS_NAV_POLL_MS` | `navigation.poll_interval` | `60000` |

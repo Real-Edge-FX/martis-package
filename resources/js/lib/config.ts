@@ -61,6 +61,23 @@ export interface MartisFooterConfig {
   text?: string | null
 }
 
+/**
+ * Welcome card content overrides.
+ *
+ * When set, these values win over the `welcome_card_heading` /
+ * `welcome_card_description` translations on the default dashboard.
+ * Useful for branded SaaS deployments that want a single source of
+ * truth via env vars (`MARTIS_WELCOME_HEADING`,
+ * `MARTIS_WELCOME_DESCRIPTION`) instead of publishing the lang files.
+ *
+ * For per-locale customization, leave both `null` and override the
+ * `martis::resources` translations via `vendor:publish --tag=martis-lang`.
+ */
+export interface MartisWelcomeConfig {
+  heading?: string | null
+  description?: string | null
+}
+
 export interface MartisDrawerConfig {
   /** Default width for every DrawerOverride (override per-resource via `->width()`). */
   width?: string
@@ -236,6 +253,7 @@ export interface MartisConfigShape {
   dashboard?: MartisDashboardConfig
   toast?: MartisToastConfig
   footer?: MartisFooterConfig
+  welcome?: MartisWelcomeConfig
   drawer?: MartisDrawerConfig
   layout?: MartisLayoutConfig
   navigation?: MartisNavigationConfig

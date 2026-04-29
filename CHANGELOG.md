@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] — 2026-04-29
+
+Brand surfaces gain proper env-driven knobs. No code changes required to ship a fully branded SaaS dashboard — set the env vars and the SPA picks them up at boot.
+
+### Added
+
+- **`MARTIS_BRAND_LOGO` env wrapper** (`brand.logo`). Was a config-only key on 1.5.1; now wired to the env so the host app can swap the sidebar logo without publishing the config file. Accepts a relative path under `public/` (`/img/logo.svg`) or a full URL (`https://cdn.example.com/logo.svg`).
+- **`MARTIS_FOOTER_TEXT` env wrapper** (`footer.text`). Single-string override for the footer line; when unset, the bundled translation renders ("© {brand.name} · Powered by Martis").
+- **`MARTIS_WELCOME_HEADING` + `MARTIS_WELCOME_DESCRIPTION` env wrappers** (new `welcome` config block). Override the dashboard's hero card without touching translations. The values flow into the SPA via `window.MartisConfig.welcome` and `WelcomeCard` consults them after props but before the `martis::resources.welcome_card_*` translations.
+- **`welcome` shape exported on `MartisConfigShape`** so TypeScript hosts that read `window.MartisConfig` directly stay typed.
+
+### Documentation
+
+- `docs/configuration.md` — Brand block now lists `logo`, `version`, `docs_url` with their env wrappers; new "Welcome card" section with the resolution order and the i18n trade-off (env = single string for every locale; lang-publish path = per-locale copy); end-of-doc env table updated with the four new vars.
+
+### Tests
+
+- 6 new Pest cases under `tests/Feature/BrandEnvWrappersTest.php` — pin the env contract for `brand.logo`, `footer.text`, and the new `welcome.{heading,description}`.
+
+### Validation
+
+- Pest: 1704 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped, 0 failed.
+
+### Notes for consumers
+
+- `brand.logo` already existed on 1.5.1 with `'logo' => null`; the on-disk default flips to `env('MARTIS_BRAND_LOGO')` so an env value now wins without re-publishing config. If you set `brand.logo` directly in your published `config/martis.php`, that value still wins (your file is the source of truth for that path).
+- The four new env vars are intentionally locale-agnostic. If you need per-locale copy, leave them unset and use `vendor:publish --tag=martis-lang`.
+
 ## [1.5.1] — 2026-04-29
 
 CI hygiene + PHP 8.2 dropped from the supported floor. **Breaking for 1.5.0 consumers still running PHP 8.2** (rare, since 1.5.0's lock was already 8.3-only via the platform pin); transparent for everyone on 8.3 or 8.4.

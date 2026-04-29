@@ -29,10 +29,19 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
   const rootRef = useRef<HTMLDivElement>(null)
   const reducedMotion = usePrefersReducedMotion()
 
-  const resolvedHeading = heading ?? t('welcome_card_heading', { defaultValue: 'Welcome to Martis' })
-  const resolvedDescription = description ?? t('welcome_card_description', {
-    defaultValue: 'A modern admin engine for Laravel. Fully themed, component-driven, extension-ready.',
-  })
+  // Resolution order: prop override > server-injected env var > i18n translation.
+  // The env var path lets a host app brand the dashboard via a single
+  // string (`MARTIS_WELCOME_HEADING` / `MARTIS_WELCOME_DESCRIPTION`)
+  // without publishing the lang files. For per-locale copy, leave the
+  // env vars unset and override `martis::resources.welcome_card_*`.
+  const resolvedHeading = heading
+    ?? config.welcome?.heading
+    ?? t('welcome_card_heading', { defaultValue: 'Welcome to Martis' })
+  const resolvedDescription = description
+    ?? config.welcome?.description
+    ?? t('welcome_card_description', {
+      defaultValue: 'A modern admin engine for Laravel. Fully themed, component-driven, extension-ready.',
+    })
   const resolvedVersion = version !== undefined ? version : config.version ?? null
 
   useEffect(() => {
