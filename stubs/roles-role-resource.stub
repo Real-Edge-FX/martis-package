@@ -1,0 +1,92 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Martis\Fields\BelongsToMany;
+use Martis\Fields\DateTime;
+use Martis\Fields\Id;
+use Martis\Fields\Text;
+use Martis\Resource;
+use Spatie\Permission\Models\Role;
+
+/**
+ * Role administration surface, scaffolded by `php artisan martis:roles`.
+ *
+ * Backed by the Spatie Permission `roles` table. Admins create custom
+ * roles and toggle which permissions each one grants. SSO-managed roles
+ * (those with a non-null `provider_group_name`) are protected from
+ * inline edits because the next IdP sync would clobber them — the
+ * picker hides them, but they still appear in the Users resource as
+ * read-only badges.
+ *
+ * Customise freely — this file is yours, not the package's.
+ */
+class {{ class }} extends Resource
+{
+    public static function model(): string
+    {
+        return Role::class;
+    }
+
+    public static function label(): string
+    {
+        return 'Roles';
+    }
+
+    public static function singularLabel(): string
+    {
+        return 'Role';
+    }
+
+    public static function titleAttribute(): string
+    {
+        return 'name';
+    }
+
+    public function icon(): string
+    {
+        return 'shield-check';
+    }
+
+    public function belongsToSystemSection(): bool
+    {
+        return true;
+    }
+
+    public function fields(Request $request): array
+    {
+        $hasProviderColumn = Schema::hasColumn('roles', 'provider_group_name');
+
+        return [
+            Id::make()->sortable(),
+
+            Text::make('Name', 'name')
+                ->sortable()
+                ->rules(['required', 'string', 'max:125']),
+
+            Text::make('Guard', 'guard_name')
+                ->default('web')
+                ->rules(['required', 'string', 'max:125'])
+                ->help('Laravel auth guard. Default is "web". Match this to the guard your User model uses.'),
+
+            // SSO-managed indicator (read-only display).
+            ...($hasProviderColumn ? [
+                Text::make('SSO group', 'provider_group_name')
+                    ->onlyOnDetail()
+                    ->onlyOnIndex()
+                    ->help('When set, this role is owned by an external IdP and synced via SSO group claims. Edits here will be overwritten on the next sign-in.'),
+            ] : []),
+
+            BelongsToMany::make('Permissions', 'permissions', PermissionResource::class),
+
+            DateTime::make('Created at', 'created_at')
+                ->onlyOnIndex()
+                ->onlyOnDetail()
+                ->sortable(),
+        ];
+    }
+}

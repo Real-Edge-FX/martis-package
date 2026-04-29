@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Role;
+
+/**
+ * Seeds the `admin` role used by the policies scaffolded under
+ * `app/Policies/` by `php artisan martis:roles`.
+ *
+ * Run with `php artisan db:seed --class=MartisRolesSeeder`.
+ *
+ * Idempotent: calling it twice does not duplicate the row. Add more
+ * roles below as your authorization model evolves.
+ */
+class MartisRolesSeeder extends Seeder
+{
+    public function run(): void
+    {
+        Role::firstOrCreate(
+            ['name' => 'admin', 'guard_name' => 'web'],
+        );
+    }
+}

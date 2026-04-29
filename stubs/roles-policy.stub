@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ userModelImport }};
+use {{ modelImport }};
+
+/**
+ * Admin-only policy for the {{ resourceName }} surface, scaffolded by
+ * `php artisan martis:roles`.
+ *
+ * Hardens the System sidebar group against non-admin access. Edit
+ * freely — the package never reads these methods directly. The Martis
+ * resource layer calls into Laravel's Gate, which reads the policy
+ * registered via `App\Providers\AuthServiceProvider`.
+ *
+ * Default rule: only users with the `admin` Spatie role pass any
+ * check. Tighten further (per-tenant scoping, super-admin override,
+ * IdP-claim gating) in the methods below.
+ */
+class {{ class }}
+{
+    /**
+     * Index page + sidebar visibility for the {{ resourceName }} resource.
+     */
+    public function viewAny({{ userModelClass }} $user): bool
+    {
+        return $user->hasRole('admin');
+    }
+
+    /**
+     * Detail page for a single {{ modelClass }}.
+     */
+    public function view({{ userModelClass }} $user, {{ modelClass }} $model): bool
+    {
+        return $user->hasRole('admin');
+    }
+
+    public function create({{ userModelClass }} $user): bool
+    {
+        return $user->hasRole('admin');
+    }
+
+    public function update({{ userModelClass }} $user, {{ modelClass }} $model): bool
+    {
+        return $user->hasRole('admin');
+    }
+
+    public function delete({{ userModelClass }} $user, {{ modelClass }} $model): bool
+    {
+        return $user->hasRole('admin');
+    }
+}

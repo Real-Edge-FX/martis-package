@@ -33,6 +33,7 @@ use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ProgressMakeCommand;
 use Martis\Console\ResourceMakeCommand;
+use Martis\Console\RolesScaffoldCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\StubsCommand;
 use Martis\Console\ThemeMakeCommand;
@@ -178,6 +179,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,
                 SsoMakeCommand::class,
+                RolesScaffoldCommand::class,
                 StubsCommand::class,
             ]);
 
