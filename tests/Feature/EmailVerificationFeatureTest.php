@@ -1,12 +1,13 @@
 <?php
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use Martis\Contracts\SendsEmailVerification;
+use Tests\Stubs\VerifiableUser;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,7 +42,7 @@ function ensureVerifyTable(): void
 beforeEach(function () {
     ensureVerifyTable();
     config([
-        'auth.providers.users.model' => \Tests\Stubs\VerifiableUser::class,
+        'auth.providers.users.model' => VerifiableUser::class,
     ]);
 });
 
@@ -52,7 +53,7 @@ beforeEach(function () {
 it('the verified middleware is a pass-through when email_verification.enabled=false', function () {
     config(['martis.auth.email_verification.enabled' => false]);
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Unverified',
         'email' => 'unverified@example.com',
         'password' => Hash::make('secret'),
@@ -69,7 +70,7 @@ it('the verified middleware is a pass-through when email_verification.enabled=fa
 it('the verified middleware redirects unverified users when enabled', function () {
     config(['martis.auth.email_verification.enabled' => true]);
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Unverified',
         'email' => 'unverified2@example.com',
         'password' => Hash::make('secret'),
@@ -84,7 +85,7 @@ it('the verified middleware redirects unverified users when enabled', function (
 it('the verified middleware lets verified users through when enabled', function () {
     config(['martis.auth.email_verification.enabled' => true]);
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Verified',
         'email' => 'verified@example.com',
         'password' => Hash::make('secret'),
@@ -102,7 +103,7 @@ it('the verified middleware honours notice_url override', function () {
         'martis.auth.email_verification.notice_url' => 'https://accounts.example.com/verify',
     ]);
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Off platform',
         'email' => 'offp@example.com',
         'password' => Hash::make('secret'),
@@ -121,7 +122,7 @@ it('the verified middleware honours notice_url override', function () {
 it('GET /email/verify renders the SPA when enabled and user is unverified', function () {
     config(['martis.auth.email_verification.enabled' => true]);
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Notice',
         'email' => 'notice@example.com',
         'password' => Hash::make('secret'),
@@ -135,7 +136,7 @@ it('GET /email/verify renders the SPA when enabled and user is unverified', func
 it('GET /email/verify 404s when feature is disabled', function () {
     config(['martis.auth.email_verification.enabled' => false]);
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Disabled',
         'email' => 'disabled@example.com',
         'password' => Hash::make('secret'),
@@ -150,7 +151,7 @@ it('POST /api/auth/email/verification-notification dispatches the notification',
     config(['martis.auth.email_verification.enabled' => true]);
     Notification::fake();
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Resend',
         'email' => 'resend@example.com',
         'password' => Hash::make('secret'),
@@ -167,7 +168,7 @@ it('POST /api/auth/email/verification-notification dispatches the notification',
 it('POST /api/auth/email/verification-notification 404s when feature is disabled', function () {
     config(['martis.auth.email_verification.enabled' => false]);
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Off',
         'email' => 'off@example.com',
         'password' => Hash::make('secret'),
@@ -188,19 +189,19 @@ it('consumer can override the SendsEmailVerification contract', function () {
     config(['martis.auth.email_verification.enabled' => true]);
 
     $captured = [];
-    app()->bind(\Martis\Contracts\SendsEmailVerification::class, function () use (&$captured) {
-        return new class($captured) implements \Martis\Contracts\SendsEmailVerification
+    app()->bind(SendsEmailVerification::class, function () use (&$captured) {
+        return new class($captured) implements SendsEmailVerification
         {
             public function __construct(private array &$captured) {}
 
-            public function send(\Illuminate\Contracts\Auth\Authenticatable $user): void
+            public function send(Authenticatable $user): void
             {
                 $this->captured[] = $user->email;
             }
         };
     });
 
-    $user = \Tests\Stubs\VerifiableUser::create([
+    $user = VerifiableUser::create([
         'name' => 'Custom',
         'email' => 'custom@example.com',
         'password' => Hash::make('secret'),

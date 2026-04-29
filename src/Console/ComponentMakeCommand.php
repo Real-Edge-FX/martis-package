@@ -129,7 +129,7 @@ class ComponentMakeCommand extends Command
                 $this->line("  <comment>'layout' => ['components' => ['{$type}' => '{$registryKey}']]</comment>");
             } elseif (isset(self::AUTH_PAGES[$type])) {
                 $this->line('This component plugs into the auth router — no further wiring needed.');
-                $this->line("Visiting the corresponding URL renders your override instead of the bundled page.");
+                $this->line('Visiting the corresponding URL renders your override instead of the bundled page.');
                 $this->line('Reference impl in: <comment>vendor/martis/martis/resources/js/pages/</comment>');
             } else {
                 $this->line('Usage in PHP (field type):');

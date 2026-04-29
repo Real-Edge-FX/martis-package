@@ -2,6 +2,7 @@
 
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use Martis\Console\ComponentMakeCommand;
 
 // ---------------------------------------------------------------------------
 // Each --type for an auth page must:
@@ -86,7 +87,7 @@ it('rejects unknown --type values', function () {
 it('the auth-page key constants stay in sync with the type list', function () {
     // Use reflection so a typo in either AUTH_PAGES or $allowedTypes
     // surfaces during CI rather than at runtime in a consumer app.
-    $reflection = new ReflectionClass(\Martis\Console\ComponentMakeCommand::class);
+    $reflection = new ReflectionClass(ComponentMakeCommand::class);
     $authPages = $reflection->getReflectionConstant('AUTH_PAGES')->getValue();
 
     expect(array_keys($authPages))->toBe([

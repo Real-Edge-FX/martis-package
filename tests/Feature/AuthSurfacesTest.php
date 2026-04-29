@@ -1,7 +1,10 @@
 <?php
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Martis\Contracts\RegistersUsers;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -168,10 +171,10 @@ it('POST /martis/api/auth/password/reset 404s when reset is disabled', function 
 it('consumer can override the RegistersUsers binding', function () {
     config(['martis.auth.registration.enabled' => true]);
 
-    app()->bind(\Martis\Contracts\RegistersUsers::class, function () {
-        return new class implements \Martis\Contracts\RegistersUsers
+    app()->bind(RegistersUsers::class, function () {
+        return new class implements RegistersUsers
         {
-            public function register(\Illuminate\Http\Request $request): \Illuminate\Contracts\Auth\Authenticatable
+            public function register(Request $request): Authenticatable
             {
                 $u = new User;
                 $u->id = 99999;
