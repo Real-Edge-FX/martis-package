@@ -150,7 +150,23 @@ it('writes the three policies into app/Policies/', function () {
     foreach (['UserPolicy', 'RolePolicy', 'PermissionPolicy'] as $name) {
         $path = app_path('Policies/'.$name.'.php');
         expect(file_exists($path))->toBeTrue("missing {$name}");
-        expect(file_get_contents($path))->toContain('hasRole(\'admin\')');
+
+        $contents = (string) file_get_contents($path);
+        expect($contents)->toContain('hasRole(\'admin\')');
+
+        // Regression: the policy file must lint clean. UserPolicy used
+        // to emit two `use App\Models\User;` lines (one for $user, one
+        // for $model) which is a fatal "Cannot use X as Y because the
+        // name is already in use" at autoload time. Catch that here by
+        // requiring the rendered template to have at most one `use`
+        // line per fully-qualified class.
+        $useLines = [];
+        foreach (explode("\n", $contents) as $line) {
+            if (preg_match('/^use ([\w\\\\]+);/', $line, $matches)) {
+                $useLines[] = $matches[1];
+            }
+        }
+        expect($useLines)->toEqual(array_unique($useLines), "{$name} contains duplicate `use` imports: ".implode(', ', $useLines));
     }
 });
 

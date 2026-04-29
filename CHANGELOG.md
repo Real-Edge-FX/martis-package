@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] — 2026-04-29
+
+Patch the `martis:roles` policy stub when the User model and the policy's target model are the same class (`UserPolicy`).
+
+### Fixed
+
+- **`UserPolicy` no longer renders two `use App\Models\User;` lines.** The 1.6.0 stub emitted both `use {{ userModelImport }};` and `use {{ modelImport }};` unconditionally, which collapsed to two identical `use` lines for `UserPolicy` and produced a fatal `Cannot use App\Models\User as User because the name is already in use` at autoload time. The command now collapses duplicates to a single import.
+- New regression test under `tests/Feature/RolesScaffoldCommandTest.php` walks every generated policy and asserts no duplicate `use` lines.
+
+### Validation
+
+- Pest: 1715 passing, 1 skipped, 0 failed.
+
 ## [1.6.0] — 2026-04-29
 
 `martis:roles` — one-shot admin UI for users, roles, and permissions; ActionEventResource joins the new System sidebar group; `Resource::belongsToSystemSection()` opens the same shelf to host-app resources.
