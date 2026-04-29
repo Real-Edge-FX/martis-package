@@ -88,7 +88,16 @@ The auth CSS lives in `resources/css/martis.css` and uses the namespaced `.marti
 
 ## Alternative sign-in flows
 
-Martis ships the Login shell for SSO, password reset, and self-service registration. Each flow is gated behind a config flag so enterprise installations can hide anything they don't offer.
+Martis ships themed pages and default backend handlers for **all four** guest auth surfaces. Every surface is independently togglable, every page can point off-platform, and every backend handler can be swapped for a consumer's own implementation.
+
+The four surfaces:
+
+| Surface | Frontend page | Backend endpoint | Default handler |
+|---|---|---|---|
+| Login | `pages/Login.tsx` | `POST /{martis-path}/api/auth/login` | `LoginController` (always on) |
+| Register | `pages/Register.tsx` | `POST /{martis-path}/api/auth/register` | `Martis\Auth\DefaultRegistersUsers` |
+| Forgot password | `pages/ForgotPassword.tsx` | `POST /{martis-path}/api/auth/password/email` | `Martis\Auth\DefaultSendsPasswordResetLinks` |
+| Reset password | `pages/ResetPassword.tsx` | `POST /{martis-path}/api/auth/password/reset` | `Martis\Auth\DefaultResetsUserPasswords` |
 
 ### `config/martis.php` → `auth`
 
@@ -98,19 +107,23 @@ Martis ships the Login shell for SSO, password reset, and self-service registrat
         'enabled'   => env('MARTIS_SSO_ENABLED', false),
         'providers' => [
             // Per-provider blocks (azure, google, github, …) live here.
-            // Each provider has its own MARTIS_SSO_<NAME>_ENABLED flag
-            // plus the standard Socialite credentials. See sso.md for
-            // the full schema, the four canonical recipes, and the
-            // `martis:sso <provider>` scaffolding command.
+            // See sso.md for the full schema and `martis:sso` scaffolder.
         ],
     ],
     'passwordReset' => [
         'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
+        // Empty → Martis serves /forgot-password and /reset-password/{token}.
+        // Set    → "Forgot?" link redirects off-platform.
         'url'     => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
+        // Laravel password broker name (config/auth.php → passwords.*).
+        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
     ],
     'registration' => [
-        'enabled' => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
-        'url'     => env('MARTIS_AUTH_REGISTRATION_URL'),
+        'enabled'      => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
+        // Empty → Martis serves /register; Set → off-platform link.
+        'url'          => env('MARTIS_AUTH_REGISTRATION_URL'),
+        // Optional role to assign to every new user (Spatie/HasRoles).
+        'default_role' => env('MARTIS_AUTH_REGISTRATION_DEFAULT_ROLE'),
     ],
     'controls' => [
         'theme'  => env('MARTIS_AUTH_CONTROL_THEME', true),
@@ -119,46 +132,144 @@ Martis ships the Login shell for SSO, password reset, and self-service registrat
 ],
 ```
 
+All flags default to `false`. A fresh `composer require martis/martis` install ships only the Login surface enabled — no placeholder CTAs, no orphan endpoints.
+
 | Block | Shape | Purpose |
 |---|---|---|
-| `sso` | `enabled` (master switch) + `providers` (per-provider nested map) | Renders one button per enabled provider. Each button redirects to `/{martis-path}/sso/{provider}/redirect`, which Martis owns end-to-end (no consumer-supplied URL). See [`sso.md`](sso.md). |
-| `passwordReset` | `enabled` + `url` | Renders the "Forgot?" link next to the password field. Click sends the user to the configured `url` — the host app provides the reset flow (Laravel's `Password::sendResetLink` + a Martis-themed view is typical). |
-| `registration` | `enabled` + `url` | Renders the "Create an account" link under the Sign in button. When `url` is empty Martis posts to its own `/{martis-path}/api/auth/register` (see [Registration](#registration) below); when `url` is set the link redirects off-platform. |
-| `controls` | `theme` + `locale` | Toggles the visibility of the top-right widgets on auth surfaces. |
+| `sso` | `enabled` + `providers` map | Renders one button per enabled provider. Martis owns the OAuth dance end-to-end. See [`sso.md`](sso.md). |
+| `passwordReset` | `enabled` + `url` + `broker` | Renders the "Forgot?" link, hosts `/forgot-password` and `/reset-password/{token}` pages, and POST endpoints. `url` redirects off-platform. `broker` selects the Laravel password broker. |
+| `registration` | `enabled` + `url` + `default_role` | Renders the "Create an account" link, hosts `/register` page and POST endpoint. `default_role` is auto-assigned via `assignRole()` when set. |
+| `controls` | `theme` + `locale` | Top-right widget visibility on every auth surface. |
 
-All flags default to `false` so a fresh `composer require martis/martis` ships a clean email+password login with no placeholder CTAs.
+### Surface lifecycle (each flow)
 
-### SSO providers — pointer to `sso.md`
-
-Martis owns the SSO flow end-to-end. The Login page reads `auth.sso.providers` and renders one button per enabled provider; the button redirects to the Martis-managed route `/{martis-path}/sso/{provider}/redirect`, which performs the OAuth/OIDC dance, resolves roles, and creates the session.
-
-There is **no `auth.google`, `auth.azure`, or `auth.sso.url` config key**. Providers live nested under `auth.sso.providers.{name}`. The currently shipping providers are `azure`, `google`, and `github` — all scaffoldable via:
-
-```bash
-php artisan martis:sso azure   # or google, or github
-```
-
-For the full provider schema (role mapping, permission adapters, identity matching) see [`sso.md`](sso.md).
+1. **Disabled** (`enabled=false`): page route 302s to `/login`; link stays hidden; POST endpoints return 404.
+2. **On-platform** (`enabled=true`, `url=''`): Martis renders its own themed page; POST endpoints route through the Martis-shipped default handler.
+3. **Off-platform** (`enabled=true`, `url='https://…'`): the link in the Login page points off-platform; the internal page redirects there too; POST endpoints stay at 404 (because the consumer hosts their own elsewhere).
 
 ### Forgot password
 
-The "Forgot?" link sits next to the password field and only renders when `auth.passwordReset.enabled=true`. The link is a redirect to `auth.passwordReset.url`, which the host app is expected to provide — Laravel's built-in password reset (`Password::sendResetLink`) plus a Martis-themed view is the usual implementation.
+When `auth.passwordReset.enabled=true` and `url` is empty:
 
-When a user's account is SSO-only (no password hash stored), the backend reset handler should respond with a helpful message like "This account signs in with SSO" rather than a generic "email sent" — while keeping the public response generic to avoid account enumeration.
+1. Login page renders the "Forgot?" link next to the password field.
+2. Click → router pushes `/forgot-password`. The page asks for the email and POSTs to `/api/auth/password/email`.
+3. Server calls `Password::broker(<broker>)->sendResetLink()`, which dispatches a notification through whichever mailer the host app has configured (Resend, Mailgun, SES, SMTP).
+4. Email arrives with a link to `/reset-password/{token}?email=...`. The page asks for the new password and POSTs to `/api/auth/password/reset`.
+5. Server calls `Password::broker(<broker>)->reset()`, fires `Illuminate\Auth\Events\PasswordReset`, and returns 200.
+6. Client toasts success and redirects to `/login`.
+
+When the user account is SSO-only (no password hash), Laravel's broker rejects with `Password::INVALID_USER` — Martis surfaces the localized message under the email field. To avoid account enumeration in production, override the binding (see "Customising auth surfaces" below) and force a generic "if an account exists, an email is on its way" response.
 
 ## Registration
 
-Martis ships a fully themed registration page at `{martis-path}/register` gated by `auth.registration.enabled`. When the flag is `false`, the route early-redirects to `/login` and the "Create an account" link under the Sign in button stays hidden. No duplicate routes, no placeholder UI.
+When `auth.registration.enabled=true` and `url` is empty:
 
-The page posts to `/{martis-path}/api/auth/register`. Martis does **not** ship a register controller — consumers are expected to expose their own endpoint. Fields sent in the JSON body: `name`, `email`, `password`, `password_confirmation`. Expected responses:
+1. Login page renders the "Create an account" link under the Sign in button.
+2. Click → router pushes `/register`. The page asks for `name`, `email`, `password`, `password_confirmation` and POSTs to `/api/auth/register`.
+3. Server resolves the bound `RegistersUsers` implementation (default: `DefaultRegistersUsers`), validates, creates the user, optionally assigns `auth.registration.default_role`, fires `Illuminate\Auth\Events\Registered`, and returns 201.
+4. Client toasts success and redirects to `/login`.
 
-| Status | Body | UI behaviour |
-|--------|------|--------------|
-| `201` / `200` | anything | Toast "Account created. Please sign in." and redirect to `/login`. |
-| `422` | `{ errors: { field: [msg] } }` | Inline per-field errors via `ApiError::errorsByField()`. |
-| `404` / `501` | anything | Toast "Registration endpoint is not available. Ask a workspace admin to finish setting it up." |
+The `default_role` knob covers the most common SaaS flow ("every signup lands on the `free` plan"). Anything more elaborate (audit logging, locale defaults, payment provider customer creation, Stripe checkout redirect, invite-token validation) goes through the override hook.
 
-If the consumer prefers to redirect the user off-platform to an external signup page (common for invite-only workspaces), set `auth.registration.url` to the external URL — the "Create an account" link on Login becomes a normal `<a>` to that URL instead of the internal SPA route.
+## Customising auth surfaces
+
+Martis exposes three independent override layers. Pick the one that matches the depth of the change you need.
+
+### Layer 1 — point the link off-platform (config only)
+
+Set `auth.{flow}.url` to the external URL. The "Sign up" / "Forgot?" link redirects there; the internal page redirects there too; POST endpoints become inert. Useful when the consumer hosts a marketing-grade signup on a different stack (Webflow, Next.js landing, etc.).
+
+```bash
+# .env
+MARTIS_AUTH_REGISTRATION_ENABLED=true
+MARTIS_AUTH_REGISTRATION_URL=https://app.example.com/signup
+```
+
+### Layer 2 — replace the React page (component override)
+
+Use the Martis component override system to swap any of the four pages. Generate the override with the artisan generator, then customise.
+
+```bash
+php artisan martis:component register-page
+# Generates resources/js/martis/components/RegisterPage.tsx and
+# auto-registers it under the override key in resources/js/martis/boot.ts.
+```
+
+The override sees the same router context as the original (`config.auth.registration`, `useAuth()`, `useToast()`, the `AuthFrame` shell) but you control the JSX. Same pattern for `login-page`, `forgot-password-page`, `reset-password-page`.
+
+### Layer 3 — replace the backend handler (service container binding)
+
+Bind your own implementation of the relevant contract in your service provider. The Martis-shipped controllers resolve the contract from the container, so the consumer's class transparently takes over.
+
+```php
+// app/Providers/MartisServiceProvider.php
+public function register(): void
+{
+    $this->app->bind(
+        \Martis\Contracts\RegistersUsers::class,
+        \App\Auth\MyRegistrar::class,
+    );
+
+    $this->app->bind(
+        \Martis\Contracts\SendsPasswordResetLinks::class,
+        \App\Auth\MyResetLinkSender::class,
+    );
+
+    $this->app->bind(
+        \Martis\Contracts\ResetsUserPasswords::class,
+        \App\Auth\MyPasswordResetter::class,
+    );
+}
+```
+
+Each contract has a single method and ships a battle-tested default. Override only what you need.
+
+```php
+// app/Auth/MyRegistrar.php
+namespace App\Auth;
+
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Martis\Contracts\RegistersUsers;
+use App\Models\User;
+
+class MyRegistrar implements RegistersUsers
+{
+    public function register(Request $request): Authenticatable
+    {
+        $data = $request->validate([
+            'name'     => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'email', 'unique:users,email'],
+            'password' => ['required', 'confirmed', 'min:12'],   // stricter than default
+            'invite'   => ['required', 'exists:invitations,token'],
+        ]);
+
+        $user = User::create([
+            'name'     => $data['name'],
+            'email'    => $data['email'],
+            'password' => Hash::make($data['password']),
+            'plan'     => 'starter',                              // skip the default 'free'
+        ]);
+
+        $user->assignRole('starter');
+        $user->markInvitationConsumed($data['invite']);
+
+        event(new Registered($user));
+
+        return $user;
+    }
+}
+```
+
+The Martis-shipped React form already understands the response shape (`201` on success, `422` with `errors.field` on validation failure), so the React side keeps working as long as the override returns an `Authenticatable` and throws `ValidationException` on invalid input.
+
+### Layer-by-layer compatibility
+
+The three layers compose. Override the React page AND the backend AND keep the Martis-themed link visibility (Layer 1 staying empty). Or override only the React page and let the default backend keep working. Or do nothing and ship with the defaults.
+
+The lemma we hold onto: **flexibility and personalization**. Every visible string, every business rule, and every page is replaceable; the boring infrastructure (route registration, throttle, CSRF, broker plumbing) stays out of the consumer's way.
 
 ### Guest controls visibility (`auth.controls`)
 

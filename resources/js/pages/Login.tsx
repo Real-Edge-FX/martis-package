@@ -110,10 +110,17 @@ export function LoginPage() {
     e.currentTarget.form?.requestSubmit()
   }
 
-  function handleFlowClick(flow: { enabled?: boolean; url?: string | null } | undefined) {
+  function handleFlowClick(
+    flow: { enabled?: boolean; url?: string | null } | undefined,
+    internalPath?: string,
+  ) {
     const url = flow?.url?.trim() ?? ''
     if (url) {
       window.location.href = url
+      return
+    }
+    if (internalPath) {
+      navigate(internalPath)
       return
     }
     addToast('info', t('sso_not_configured', { defaultValue: 'This sign-in method is not configured on this workspace.' }))
@@ -193,7 +200,7 @@ export function LoginPage() {
             {showForgot && (
               <button
                 type="button"
-                onClick={() => handleFlowClick(passwordReset)}
+                onClick={() => handleFlowClick(passwordReset, '/forgot-password')}
                 className="martis-auth-forgot"
               >
                 {t('forgot_password', { defaultValue: 'Forgot?' })}

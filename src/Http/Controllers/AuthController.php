@@ -9,6 +9,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Password;
+use Martis\Contracts\RegistersUsers;
+use Martis\Contracts\ResetsUserPasswords;
+use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 
@@ -152,6 +156,114 @@ class AuthController extends MartisController
         }
 
         return redirect()->route('martis.login');
+    }
+
+    /**
+     * Self-service registration.
+     *
+     * Resolves the bound `Martis\Contracts\RegistersUsers` implementation
+     * and calls `register()`. The default impl is
+     * `Martis\Auth\DefaultRegistersUsers`; consumers replace it via the
+     * service container.
+     *
+     * Disabled by default. Toggle with
+     * `MARTIS_AUTH_REGISTRATION_ENABLED=true`. Returns 404 when off so
+     * the route does not silently accept payloads.
+     *
+     * @body-param string name required Example: Jane Doe
+     * @body-param string email required Example: jane@example.com
+     * @body-param string password required Example: secret-pass-1234
+     * @body-param string password_confirmation required
+     *
+     * @response 201 array{ok: true, user: array<string, mixed>}
+     * @response 404
+     * @response 422 array{message: string, errors: array<string, string[]>}
+     */
+    public function register(Request $request, RegistersUsers $registrar): JsonResponse
+    {
+        if (! config('martis.auth.registration.enabled', false)) {
+            return response()->json(['message' => 'Registration is disabled.'], 404);
+        }
+
+        $user = $registrar->register($request);
+
+        if (! $user instanceof Model) {
+            // Custom RegistersUsers implementations are free to return a
+            // non-Eloquent Authenticatable; we only sanitise model arrays.
+            return response()->json(['ok' => true], 201);
+        }
+
+        /** @var Model&Authenticatable $user */
+        return response()->json([
+            'ok' => true,
+            'user' => $this->safeUserArray($user),
+        ], 201);
+    }
+
+    /**
+     * Send the password reset link to the address in the request body.
+     *
+     * Resolves the bound `Martis\Contracts\SendsPasswordResetLinks`
+     * implementation. Maps Laravel's broker status constants to HTTP:
+     *   - `RESET_LINK_SENT` → 200
+     *   - `INVALID_USER` → 422 (revealed in dev, neutral in prod)
+     *
+     * @body-param string email required
+     */
+    public function sendPasswordResetLink(Request $request, SendsPasswordResetLinks $sender): JsonResponse
+    {
+        if (! config('martis.auth.passwordReset.enabled', false)) {
+            return response()->json(['message' => 'Password reset is disabled.'], 404);
+        }
+
+        $status = $sender->sendResetLink($request);
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json([
+                'ok' => true,
+                'status' => __($status),
+            ]);
+        }
+
+        return response()->json([
+            'message' => __($status),
+            'errors' => ['email' => [__($status)]],
+        ], 422);
+    }
+
+    /**
+     * Apply the new password using the token that landed in the user's
+     * email.
+     *
+     * Resolves the bound `Martis\Contracts\ResetsUserPasswords`. Maps
+     * status constants to HTTP:
+     *   - `PASSWORD_RESET` → 200
+     *   - `INVALID_TOKEN`, `INVALID_USER`, `RESET_THROTTLED` → 422
+     *
+     * @body-param string token required
+     * @body-param string email required
+     * @body-param string password required
+     * @body-param string password_confirmation required
+     */
+    public function resetPassword(Request $request, ResetsUserPasswords $resetter): JsonResponse
+    {
+        if (! config('martis.auth.passwordReset.enabled', false)) {
+            return response()->json(['message' => 'Password reset is disabled.'], 404);
+        }
+
+        $status = $resetter->reset($request);
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json([
+                'ok' => true,
+                'status' => __($status),
+            ]);
+        }
+
+        return response()->json([
+            'message' => __($status),
+            'errors' => ['email' => [__($status)]],
+        ], 422);
     }
 
     /**

@@ -8,6 +8,7 @@ use Martis\Http\Controllers\BelongsToManyController;
 use Martis\Http\Controllers\CacheController;
 use Martis\Http\Controllers\CommandPaletteController;
 use Martis\Http\Controllers\DashboardController;
+use Martis\Http\Controllers\GuestPagesController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
 use Martis\Http\Controllers\ImpersonationController;
@@ -39,6 +40,18 @@ Route::middleware(config('martis.middleware', ['web']))
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+        // Guest auth surfaces — always registered; the controller checks
+        // the matching `martis.auth.{flow}.enabled` flag and the URL
+        // override at request time and either renders the SPA shell
+        // (default mode), 302s to /login (disabled), or 302s to the
+        // off-platform URL (when `auth.{flow}.url` is set).
+        Route::get('/register', [GuestPagesController::class, 'showRegister'])
+            ->name('register');
+        Route::get('/forgot-password', [GuestPagesController::class, 'showForgotPassword'])
+            ->name('password.request');
+        Route::get('/reset-password/{token}', [GuestPagesController::class, 'showResetPassword'])
+            ->name('password.reset');
 
         // SSO entry points — public (no auth middleware). The provider
         // sub-segment is whatever the user registered (azure, google,
@@ -83,6 +96,21 @@ Route::middleware(config('martis.middleware', ['web']))
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('api.auth.login');
         Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+
+        // Registration + password-reset POST endpoints. Always
+        // registered; the controllers check the matching enabled flag
+        // and 404 when the surface is disabled (so the route inventory
+        // stays predictable across environments and config:cache
+        // doesn't have to differ between dev/staging/prod).
+        Route::post('/api/auth/register', [AuthController::class, 'register'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('api.auth.register');
+        Route::post('/api/auth/password/email', [AuthController::class, 'sendPasswordResetLink'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('api.auth.password.email');
+        Route::post('/api/auth/password/reset', [AuthController::class, 'resetPassword'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('api.auth.password.reset');
 
         // Translations — public, loaded before login
         Route::get('/api/translations/{locale}', [TranslationsController::class, 'show'])

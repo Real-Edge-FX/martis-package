@@ -91,6 +91,23 @@ class MartisServiceProvider extends ServiceProvider
                 $app->make(AuthManager::class),
             );
         });
+
+        // Auth-flow defaults. Each contract resolves to a Martis-shipped
+        // implementation; consumer apps override by re-binding in their
+        // own service provider. See docs/authentication.md →
+        // "Customising auth surfaces".
+        $this->app->bind(
+            \Martis\Contracts\RegistersUsers::class,
+            \Martis\Auth\DefaultRegistersUsers::class,
+        );
+        $this->app->bind(
+            \Martis\Contracts\SendsPasswordResetLinks::class,
+            \Martis\Auth\DefaultSendsPasswordResetLinks::class,
+        );
+        $this->app->bind(
+            \Martis\Contracts\ResetsUserPasswords::class,
+            \Martis\Auth\DefaultResetsUserPasswords::class,
+        );
     }
 
     /** Boot package services: routes, views, translations, assets, and console commands. */
