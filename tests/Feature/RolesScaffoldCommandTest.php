@@ -117,6 +117,26 @@ it('with --no-install + Spatie present, scaffolds the three resources', function
         $contents = file_get_contents($path);
         expect($contents)->toContain('belongsToSystemSection')
             ->toContain('return true');
+
+        // Regression: the Field::make($attribute, ?$label) signature
+        // takes the attribute first. v1.6.0/1.6.1 stubs inverted the
+        // arguments and the rendered tables showed empty NAME /
+        // GUARD_NAME columns because the resource read `$model->Name`
+        // (capitalised label) instead of `$model->name`. The lower-
+        // case attribute names below are the canonical Spatie /
+        // Eloquent column names.
+        if (in_array($name, ['RoleResource', 'PermissionResource'], true)) {
+            expect($contents)->toContain("Text::make('name'")
+                ->toContain("Text::make('guard_name'")
+                ->toContain("DateTime::make('created_at'");
+        }
+
+        if ($name === 'UserResource') {
+            expect($contents)->toContain("Text::make('name'")
+                ->toContain("Email::make('email'")
+                ->toContain("DateTime::make('created_at'")
+                ->not->toContain("Boolean::make('Email verified',");
+        }
     }
 });
 

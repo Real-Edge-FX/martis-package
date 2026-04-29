@@ -69,30 +69,33 @@ class {{ class }} extends Resource
         return [
             Id::make()->sortable(),
 
-            Text::make('Name', 'name')
+            Text::make('name', 'Name')
                 ->sortable()
                 ->rules(['required', 'string', 'max:255']),
 
-            Email::make('Email', 'email')
+            Email::make('email', 'Email')
                 ->sortable()
                 ->rules(['required', 'email', 'max:255']),
 
-            BelongsToMany::make('Roles', 'roles', RoleResource::class)
-                ->help($hasSsoColumn
-                    ? 'Roles tied to an SSO provider are hidden from this picker — they are managed by group sync and would be overwritten on the next sign-in.'
-                    : null,
-                )
+            tap(BelongsToMany::make('Roles', 'roles', RoleResource::class)
                 ->relatableQueryUsing(function ($request, $query) use ($hasSsoColumn) {
                     return $hasSsoColumn
                         ? $query->whereNull('provider_group_name')
                         : $query;
                 }),
+                function ($field) use ($hasSsoColumn) {
+                    if ($hasSsoColumn) {
+                        $field->help('Roles tied to an SSO provider are hidden from this picker — they are managed by group sync and would be overwritten on the next sign-in.');
+                    }
+                },
+            ),
 
-            Boolean::make('Email verified', fn ($user) => $user->email_verified_at !== null)
+            Boolean::make('email_verified_at', 'Email verified')
+                ->displayUsing(fn ($value) => $value !== null)
                 ->onlyOnIndex()
                 ->onlyOnDetail(),
 
-            DateTime::make('Created at', 'created_at')
+            DateTime::make('created_at', 'Created at')
                 ->onlyOnIndex()
                 ->onlyOnDetail()
                 ->sortable(),

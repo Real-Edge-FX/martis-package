@@ -60,18 +60,18 @@ class {{ class }} extends Resource
         return [
             Id::make()->sortable(),
 
-            Text::make('Name', 'name')
+            Text::make('name', 'Name')
                 ->sortable()
                 ->rules(['required', 'string', 'max:125']),
 
-            Text::make('Guard', 'guard_name')
+            Text::make('guard_name', 'Guard')
                 ->default('web')
                 ->rules(['required', 'string', 'max:125']),
 
             BelongsToMany::make('Roles', 'roles', RoleResource::class)
                 ->onlyOnDetail(),
 
-            DateTime::make('Created at', 'created_at')
+            DateTime::make('created_at', 'Created at')
                 ->onlyOnIndex()
                 ->onlyOnDetail()
                 ->sortable(),
