@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] — 2026-04-29
+
+Patch the v1.6.0/1.6.1 `martis:roles` stubs after live deployment surfaced two production-facing bugs.
+
+### Fixed
+
+- **Empty NAME / GUARD_NAME / Email columns on the scaffolded index pages.** `Field::make($attribute, ?$label)` takes the attribute first; the previous stubs called `Text::make('Name', 'name')` which made `Name` the attribute and `name` the label — the resource then read `$model->Name` (null for every row). Re-ordered every `Text::make` / `Email::make` / `DateTime::make` / `Boolean::make` call in `roles-{user,role,permission}-resource.stub` to attribute-first.
+- **`Field::help(null)` fatal on the User schema endpoint.** The conditional `->help($hasSsoColumn ? '...' : null)` violates the `Closure|string` typehint. The User stub now uses `tap(...)` so `->help(...)` is only chained when the SSO migration column exists.
+- **Computed Boolean field signature.** Replaced `Boolean::make('Email verified', fn ($user) => ...)` (closure as second arg, which the base `Field::make` does not accept) with `Boolean::make('email_verified_at', 'Email verified')->displayUsing(fn ($value) => $value !== null)` — the canonical computed-display pattern documented in `docs/fields.md`.
+
+### Tests
+
+- New regression assertions in `tests/Feature/RolesScaffoldCommandTest.php` walk every generated resource and pin the attribute-first `Field::make` signature for every text / email / datetime / boolean field.
+
+### Recovery for v1.6.0/1.6.1 consumers
+
+```bash
+composer require martis/martis:^1.6.2 -W
+php artisan martis:roles --force
+```
+
+If you customised the generated resources before this patch, the safer path is to re-order the `Field::make` arguments in your existing `app/Martis/Resources/{User,Role,Permission}Resource.php` files manually instead of using `--force` (which would overwrite your edits).
+
 ## [1.6.1] — 2026-04-29
 
 Patch the `martis:roles` policy stub when the User model and the policy's target model are the same class (`UserPolicy`).
