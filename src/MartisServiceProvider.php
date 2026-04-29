@@ -23,6 +23,7 @@ use Martis\Console\FieldMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\InstallCommand;
 use Martis\Console\LensMakeCommand;
+use Martis\Console\ListOverridesCommand;
 use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ProgressMakeCommand;
@@ -131,6 +132,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheClearCommand::class,
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
+                ListOverridesCommand::class,
                 SsoMakeCommand::class,
                 StubsCommand::class,
             ]);
