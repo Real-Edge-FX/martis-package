@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-04-29
+
+Laravel 13 support. Constraint widened to `^11.0|^12.0|^13.0`; the suite stays green on every Laravel major in the matrix.
+
+### Added
+
+- **Laravel 13 support** ([#109](https://github.com/Real-Edge-FX/martis-package/issues/109)). `laravel/framework` now accepts `^13.0` alongside the prior `^11|^12`. Transitive constraints widened: `dedoc/scramble: ^0.12|^0.13`, `pestphp/pest: ^3.0|^4.0`, `pestphp/pest-plugin-laravel: ^3.0|^4.0`, `orchestra/testbench: ^10.11|^11.0`, `laravel/scout: ^11.1|^12.0`. Pest 1665/1666 green and Vitest 110/115 green against L13.7.0 + Pest 4.6.3 + PHPUnit 12.5.23 + Scramble 0.13.22 + Testbench 11.1.0.
+
+### Fixed
+
+- **`JsonErrorResponse::validation()` accepts the natural validator output again**. Laravel 13's stricter type stubs declare the translator helper as `string|array<int|string, mixed>|null`, which made every controller call site fail PHPStan. The signature now accepts `array<string, iterable<mixed>>` and stringifies non-string entries internally; behaviour for clean `array<string, list<string>>` callers is unchanged. Removes 10 PHPStan baseline entries.
+- **`ListOverridesCommand` types narrowed**. Symfony Console option helpers return `string|string[]|bool|null`; the command now narrows to nullable strings explicitly. The action serialisation path uses `instanceof JsonSerializable` instead of `method_exists()` to give PHPStan a real type.
+- **`SearchResolver::orderByRaw()` uses parameter binding**. The MySQL Scout-relevance fallback now binds the id list rather than concatenating it into the SQL string. Same behaviour, no manual quoting hazard, and PHPStan's `literal-string` requirement on `orderByRaw()` is satisfied.
+
+### Changed
+
+- **PHPStan baseline regenerated**. 220 → 213 entries (7 errors fixed structurally; the remaining 213 are unchanged from 1.2.x except for line shifts).
+
 ## [1.2.1] — 2026-04-29
 
 Hotfix for an unintentional route exposure introduced by v1.2.0.
