@@ -345,6 +345,5 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 ## Next Steps
 
 - [Resources](resources.md) — Learn how to define and configure resources
-- [Fields Reference](fields.md) — Explore all 32 field types
+- [Fields Reference](fields.md) — Explore all 50 field types
 - [Override System](overrides.md) — Customize the UI without forking
-- [Quick Start](setup/quickstart.md) — Development workflow
