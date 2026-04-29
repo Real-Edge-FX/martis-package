@@ -55,7 +55,7 @@ Calling `Gate::define()` from the host app replaces Martis's default closure, so
 
 TTL `null` means "no expiration" — the entry stays cached until explicitly cleared (the version key trick: see [Invalidation](#invalidation) below).
 
-**Per-user scoping** is automatic for `navigation`, `dashboards` and `schema` because the response shape depends on policy results. Two users with different permissions never share a cached payload — Martis includes the user identifier in the cache key.
+**Per-user scoping** is the convention used by Martis's own cached endpoints (`navigation`, `dashboards`, `schema`). Each controller derives the auth identifier and prepends it to the cache key — see `NavigationController`, `MetricController`, `ResourceController`. `MartisCache::remember()` itself takes the key verbatim, so **custom layers must include the user identifier in their own keys** if they want the same isolation. The `OrdersController` example below shows the standard shape: `"show:{$id}:{$userKey}"`.
 
 ## Reading the admin page columns
 
@@ -268,7 +268,7 @@ Custom layers registered via `extend()` are valid `type` values for every endpoi
 | Schema changes don't show up | `schema` cache hit | Clear it: `php artisan martis:cache:clear schema` |
 | Slow first navigation render after deploy | `navigation` recomputed cold | Warm with a request, or pre-fetch on deploy |
 | Stale metric values after data write | `metrics` TTL not elapsed | Clear metrics or call `MartisCache::clear('metrics')` from your write path |
-| User A sees user B's nav | Should never happen — file an issue | Per-user scoping is automatic; this is a regression |
+| User A sees user B's nav | Cache key did not include the auth identifier | Confirm the controller (or your custom layer) prepends `$userKey` to the cache key, like `NavigationController` does |
 | Admin says master is OFF in production | `MARTIS_CACHE_ENABLED=false` somewhere | Check env, then `php artisan config:clear` |
 | Custom layer toggles don't appear in admin | `extend()` not called at boot | Add the call inside `MartisServiceProvider::registerCacheLayers()` (the stub published by `martis:install`) |
 
