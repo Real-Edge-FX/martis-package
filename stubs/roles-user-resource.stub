@@ -1,0 +1,101 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ userModelImport }};
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Martis\Fields\BelongsToMany;
+use Martis\Fields\Boolean;
+use Martis\Fields\DateTime;
+use Martis\Fields\Email;
+use Martis\Fields\Id;
+use Martis\Fields\Text;
+use Martis\Resource;
+
+/**
+ * User administration surface, scaffolded by `php artisan martis:roles`.
+ *
+ * Lives in the System sidebar group alongside Roles, Permissions, the
+ * audit log, and the cache admin. Admin-only via the matching policy
+ * registered in `App\Providers\AuthServiceProvider`.
+ *
+ * Customise freely — this file is yours, not the package's.
+ */
+class {{ class }} extends Resource
+{
+    public static function model(): string
+    {
+        return {{ userModelClass }}::class;
+    }
+
+    public static function label(): string
+    {
+        return 'Users';
+    }
+
+    public static function singularLabel(): string
+    {
+        return 'User';
+    }
+
+    public static function titleAttribute(): string
+    {
+        return 'name';
+    }
+
+    public function icon(): string
+    {
+        return 'users';
+    }
+
+    public function belongsToSystemSection(): bool
+    {
+        return true;
+    }
+
+    public function fields(Request $request): array
+    {
+        // When the SSO migration ran (`martis:sso ... --with-migration`),
+        // each role gains a `provider_group_name` column populated for
+        // roles owned by an external IdP. Those rows are filtered out of
+        // the assignment picker so admins cannot toggle them — the next
+        // SSO sign-in would overwrite the change anyway. The tooltip on
+        // the field explains the behaviour to the operator.
+        $hasSsoColumn = Schema::hasColumn('roles', 'provider_group_name');
+
+        return [
+            Id::make()->sortable(),
+
+            Text::make('Name', 'name')
+                ->sortable()
+                ->rules(['required', 'string', 'max:255']),
+
+            Email::make('Email', 'email')
+                ->sortable()
+                ->rules(['required', 'email', 'max:255']),
+
+            BelongsToMany::make('Roles', 'roles', RoleResource::class)
+                ->help($hasSsoColumn
+                    ? 'Roles tied to an SSO provider are hidden from this picker — they are managed by group sync and would be overwritten on the next sign-in.'
+                    : null,
+                )
+                ->relatableQueryUsing(function ($request, $query) use ($hasSsoColumn) {
+                    return $hasSsoColumn
+                        ? $query->whereNull('provider_group_name')
+                        : $query;
+                }),
+
+            Boolean::make('Email verified', fn ($user) => $user->email_verified_at !== null)
+                ->onlyOnIndex()
+                ->onlyOnDetail(),
+
+            DateTime::make('Created at', 'created_at')
+                ->onlyOnIndex()
+                ->onlyOnDetail()
+                ->sortable(),
+        ];
+    }
+}

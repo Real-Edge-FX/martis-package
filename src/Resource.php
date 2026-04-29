@@ -954,6 +954,12 @@ abstract class Resource implements ResourceContract
     }
 
     /** {@inheritdoc} */
+    public function belongsToSystemSection(): bool
+    {
+        return false;
+    }
+
+    /** {@inheritdoc} */
     public function menuItem(Request $request): MenuItem
     {
         return MenuItem::resource(static::class);

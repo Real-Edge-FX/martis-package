@@ -1,0 +1,80 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Fields\BelongsToMany;
+use Martis\Fields\DateTime;
+use Martis\Fields\Id;
+use Martis\Fields\Text;
+use Martis\Resource;
+use Spatie\Permission\Models\Permission;
+
+/**
+ * Permission administration surface, scaffolded by `php artisan martis:roles`.
+ *
+ * Read-mostly by design — permissions are typically declared in code
+ * (seeder / migration) so the deployed app reflects what production
+ * code actually checks. Toggle the static methods below to allow
+ * runtime creation if your app needs dynamic permissions (feature
+ * flags per tenant, etc).
+ *
+ * Customise freely — this file is yours, not the package's.
+ */
+class {{ class }} extends Resource
+{
+    public static function model(): string
+    {
+        return Permission::class;
+    }
+
+    public static function label(): string
+    {
+        return 'Permissions';
+    }
+
+    public static function singularLabel(): string
+    {
+        return 'Permission';
+    }
+
+    public static function titleAttribute(): string
+    {
+        return 'name';
+    }
+
+    public function icon(): string
+    {
+        return 'key';
+    }
+
+    public function belongsToSystemSection(): bool
+    {
+        return true;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Id::make()->sortable(),
+
+            Text::make('Name', 'name')
+                ->sortable()
+                ->rules(['required', 'string', 'max:125']),
+
+            Text::make('Guard', 'guard_name')
+                ->default('web')
+                ->rules(['required', 'string', 'max:125']),
+
+            BelongsToMany::make('Roles', 'roles', RoleResource::class)
+                ->onlyOnDetail(),
+
+            DateTime::make('Created at', 'created_at')
+                ->onlyOnIndex()
+                ->onlyOnDetail()
+                ->sortable(),
+        ];
+    }
+}

@@ -100,6 +100,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 9.3.1 | **[Tool boot() patterns](tool-boot-patterns.md)** | When to put setup in `Tool::boot()` vs `AppServiceProvider::boot()` — decision rubric + 4 in-app patterns (routes, gates, schedules, listeners) |
 | 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
 | 10.5 | **[SSO Subsystem](sso.md)** | Pluggable provider contract, identity-to-user resolver, role mapping, permission adapters, `martis:sso` generator (v0.9) |
+| 10.55 | **[Roles & Permissions Admin](roles.md)** | `martis:roles` generator — Spatie-backed admin UI for users, roles, permissions in the System sidebar group (v1.6) |
 | 10.6 | **[Impersonation](impersonation.md)** | Login as another user — opt-in master switch + `martis-impersonate` gate + REST + banner contract (v0.10) |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
 | 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |

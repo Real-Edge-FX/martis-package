@@ -85,6 +85,17 @@ class ActionEventResource extends Resource
         return null;
     }
 
+    /** {@inheritdoc} */
+    public function belongsToSystemSection(): bool
+    {
+        // Audit log lives in the System section alongside Cache admin
+        // and (when scaffolded via `martis:roles`) the Roles, Permissions,
+        // and Users resources. Admin-only via App\Policies\ActionEventPolicy
+        // when the host registers one (see docs/policies.md); the
+        // package itself stays unopinionated and exposes the resource.
+        return true;
+    }
+
     // -------------------------------------------------------------------------
     // Read-only: disable create, update, delete
     // -------------------------------------------------------------------------

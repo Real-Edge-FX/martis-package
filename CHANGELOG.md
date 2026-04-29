@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-04-29
+
+`martis:roles` — one-shot admin UI for users, roles, and permissions; ActionEventResource joins the new System sidebar group; `Resource::belongsToSystemSection()` opens the same shelf to host-app resources.
+
+### Added
+
+- **`php artisan martis:roles`** — scaffolds a Spatie-backed admin surface end-to-end:
+    - Runs `composer require spatie/laravel-permission` if missing (skip with `--no-install`).
+    - Publishes Spatie's config + migrations and runs them (`--no-publish-spatie` / `--no-migrate` to opt out).
+    - Patches the host's `User` model with the `HasRoles` trait via cirurgical regex injection.
+    - Generates `UserResource`, `RoleResource`, `PermissionResource` under `app/Martis/Resources/` (override the namespace via `--namespace=`).
+    - Generates `UserPolicy`, `RolePolicy`, `PermissionPolicy` under `app/Policies/` — admin-only by default.
+    - Registers the policies in `App\Providers\AuthServiceProvider::boot()` via a `/* martis:roles policies */` marker (idempotent re-run).
+    - Emits `database/seeders/MartisRolesSeeder.php` that creates the `admin` role.
+    - Idempotent: re-running without `--force` skips files already on disk.
+- **`Resource::belongsToSystemSection(): bool`** (default `false`) — when `true`, the resource skips the regular grouping loop and renders inside a single **System** sidebar section alongside the Cache admin link.
+- **System sidebar group is now multi-source.** `NavigationController` merges:
+    1. Resources marked with `belongsToSystemSection() === true` (new).
+    2. The Cache admin link (gated by `martis.cache.admin_ui` + the `manage-martis-cache` Gate, unchanged).
+
+  The section appears whenever there is at least one item visible to the current user. No items, no section.
+- **SSO-managed role lock in the generated `UserResource`.** The `Roles` BelongsToMany picker filters out any role with a non-null `provider_group_name` (set by `martis:sso ... --with-migration`). Those roles are owned by the IdP; the next sign-in would overwrite a manual change. The field's help text explains the behaviour to the operator.
+
+### Changed
+
+- **`ActionEventResource`** — `belongsToSystemSection()` now returns `true`, so the audit log lives inside the System sidebar section instead of as an unlabelled top-level entry.
+
+### Tests
+
+- 4 new Pest cases under `tests/Feature/SystemNavigationSectionTest.php` — pin the contract that system-grouped resources are lifted out of the regular grouping loop, that the Cache admin link still appears alongside them, and that the section disappears when nothing is visible to the user.
+- 7 new Pest cases under `tests/Feature/RolesScaffoldCommandTest.php` — registration, three-resource scaffold, User-model patch, three-policy generation, AuthServiceProvider registration, seeder emission, idempotency under re-run.
+
+### Documentation
+
+- New `docs/roles.md` — full guide: command flags, resource surfaces, customisation, SSO interaction, removal procedure.
+- `docs/README.md` — index entry for the new guide.
+
+### Validation
+
+- Pest: **1715 passing**, 1 skipped, 0 failed (was 1704 in v1.5.2).
+- Vitest: 110 passing, 5 skipped.
+- PHPStan L8: 0 errors.
+- Pint: clean.
+
+### Migration notes for v1.5.x consumers
+
+- The audit log now lives inside the **System** sidebar group. Hosts that hide it via custom navigation (`Martis::mainMenu(...)` callback) should re-check the section the resource lands in.
+- `belongsToSystemSection()` is a new method on `Martis\Contracts\ResourceContract`. The base class `Martis\Resource` provides a `false` default — every existing resource keeps its current behaviour. Custom contract implementors must add the method.
+
 ## [1.5.2] — 2026-04-29
 
 Brand surfaces gain proper env-driven knobs. No code changes required to ship a fully branded SaaS dashboard — set the env vars and the SPA picks them up at boot.

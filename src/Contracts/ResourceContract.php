@@ -66,6 +66,14 @@ interface ResourceContract
     /** Return the navigation group this resource belongs to, or null for default. */
     public function group(): ?string;
 
+    /**
+     * When true, the navigation builder lifts this resource out of the
+     * normal "Resources" section and into the System section alongside
+     * the Cache admin link. Use for admin-only infrastructure surfaces
+     * (audit log, roles, permissions, users). Default: false.
+     */
+    public function belongsToSystemSection(): bool;
+
     /** Build the default menu item for this resource. */
     public function menuItem(Request $request): MenuItem;
 
