@@ -626,8 +626,10 @@ html[data-density="dense"] .mwc-root {
 .martis-auth-brand img {
   width: auto;
   height: 32px;
+  max-height: 32px;
   max-width: 140px;
   object-fit: contain;
+  display: block;
 }
 /* Logo-only mode on the auth card: free the height a touch so a
    horizontal lockup reads at a comfortable size without dominating
@@ -635,8 +637,9 @@ html[data-density="dense"] .mwc-root {
    already includes the brand name, so no separate text span renders
    (handled by AuthFrame.tsx). */
 .martis-auth-brand[data-mode="logo"] img {
-  height: 40px;
-  max-width: 220px;
+  height: 48px;
+  max-height: 48px;
+  max-width: 240px;
 }
 .martis-auth-title {
   font-size: 20px;
@@ -1217,6 +1220,7 @@ html[data-reduced-motion="true"] .mwc-shimmer {
 .martis-sb-logo {
   height: 56px;
   min-height: 56px;
+  max-height: 56px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1226,6 +1230,7 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   font-size: var(--martis-text-base);
   letter-spacing: -0.01em;
   color: var(--martis-text);
+  overflow: hidden;
 }
 .martis-sb-logo-mark {
   width: 28px;
@@ -1249,11 +1254,16 @@ html[data-reduced-motion="true"] .mwc-shimmer {
 .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark {
   width: auto;
   height: 40px;
+  max-height: 40px;
   max-width: calc(var(--sidebar-width, 240px) - 32px);
+  overflow: hidden;
 }
 .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img {
   width: auto;
   height: 100%;
+  max-height: 40px;
+  object-fit: contain;
+  display: block;
 }
 .martis-sb-logo-text {
   white-space: nowrap;
@@ -1795,11 +1805,16 @@ html[data-reduced-motion="true"] .mwc-shimmer {
 .martis-topnav-brand[data-mode="logo"] .martis-sb-logo-mark {
   width: auto;
   height: 36px;
+  max-height: 36px;
   max-width: 220px;
+  overflow: hidden;
 }
 .martis-topnav-brand[data-mode="logo"] .martis-sb-logo-mark img {
   width: auto;
   height: 100%;
+  max-height: 36px;
+  object-fit: contain;
+  display: block;
 }
 .martis-topnav-brand .martis-sb-logo-mark {
   width: 28px;
