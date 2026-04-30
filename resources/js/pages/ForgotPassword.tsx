@@ -8,6 +8,7 @@ import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
 import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
+import { FieldError } from '@/components/auth/FieldError'
 
 /**
  * Forgot password — request a reset link.
@@ -125,7 +126,7 @@ export function ForgotPasswordPage() {
             required
             autoFocus
           />
-          {errors.email && <div className="martis-field-error">{errors.email}</div>}
+          <FieldError message={errors.email} />
         </div>
 
         <button

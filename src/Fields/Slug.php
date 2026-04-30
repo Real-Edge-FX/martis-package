@@ -32,6 +32,29 @@ class Slug extends Field
 
     protected ?Closure $lockCondition = null;
 
+    /**
+     * Badge variant that drives the read-only display style.
+     *
+     * Values map to design-system tokens:
+     *   - `default` (alias `muted`) — `--martis-surface-alt` background +
+     *     `--martis-text` foreground (the original look since v1.5.0).
+     *   - `accent` — `--martis-accent-bg-light` + `--martis-accent`.
+     *     Useful when the slug is visually the row's identity (e.g.
+     *     PermissionResource, RoleResource). v1.8.2.
+     *   - `success` / `warning` / `danger` — semantic tints for cases
+     *     where the slug carries status meaning (rare).
+     *   - `custom` — paired with `$badgeCustomColor` (any CSS colour
+     *     accepted: hex, rgb, hsl, named). The frontend mixes the
+     *     colour with the surface to derive the background tint.
+     */
+    protected string $badgeVariant = 'default';
+
+    /**
+     * Optional custom CSS colour used when `badgeVariant === 'custom'`.
+     * Accepts anything `color-mix(in srgb, X 14%, transparent)` accepts.
+     */
+    protected ?string $badgeCustomColor = null;
+
     public function type(): string
     {
         return 'slug';
@@ -72,6 +95,56 @@ class Slug extends Field
     public function lockAfter(Closure $condition): static
     {
         $this->lockCondition = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Set the badge variant used by the read-only display.
+     *
+     * Use `->badgeColor('#hex')` instead when you want a custom
+     * colour — that helper sets `custom` here for you.
+     *
+     * @param  'default'|'muted'|'accent'|'success'|'warning'|'danger'|'custom'  $variant
+     */
+    public function badgeVariant(string $variant): static
+    {
+        $allowed = ['default', 'muted', 'accent', 'success', 'warning', 'danger', 'custom'];
+        $normalised = in_array($variant, $allowed, true) ? $variant : 'default';
+        // Treat `muted` as an alias for `default` so callers can use
+        // either name without surprises.
+        $this->badgeVariant = $normalised === 'muted' ? 'default' : $normalised;
+
+        return $this;
+    }
+
+    /**
+     * Sugar for `->badgeVariant('accent')`. Reads cleanly when the
+     * slug IS the row identity (Permission name, Role name, etc).
+     */
+    public function badgeAccent(): static
+    {
+        return $this->badgeVariant('accent');
+    }
+
+    /**
+     * Set a custom CSS colour for the badge. Accepts any value the
+     * browser understands as a colour (hex `#3a8a9e`, `rgb(…)`,
+     * `hsl(…)`, named, even `oklch(…)`). The frontend tints the
+     * background as a 14% mix of this colour with the surface so it
+     * stays subtle in both themes; the foreground uses the colour
+     * verbatim.
+     *
+     * Implies `->badgeVariant('custom')`. v1.8.2.
+     *
+     * Example:
+     *
+     *     Slug::make('name')->badgeColor('#3a8a9e')
+     */
+    public function badgeColor(string $color): static
+    {
+        $this->badgeVariant = 'custom';
+        $this->badgeCustomColor = trim($color) === '' ? null : trim($color);
 
         return $this;
     }
@@ -199,6 +272,10 @@ class Slug extends Field
             'separator' => $this->separator,
             'reserved' => $this->reserved === [] ? null : $this->reserved,
             'hasLock' => $this->lockCondition !== null ? true : null,
+            // null when default so the schema payload stays minimal —
+            // the frontend treats missing as "default". v1.8.2.
+            'badgeVariant' => $this->badgeVariant === 'default' ? null : $this->badgeVariant,
+            'badgeColor' => $this->badgeVariant === 'custom' ? $this->badgeCustomColor : null,
         ], fn ($v) => $v !== null);
     }
 }

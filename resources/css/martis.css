@@ -4939,6 +4939,27 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-field-error {
   color: var(--martis-danger) !important;
 }
+
+/* v1.8.2 — Inline error for the auth surfaces. Icon + text aligned in
+   a single row at 13 px so the error feels part of the form (not a
+   raw browser validation string). Used by FieldError.tsx. */
+.martis-auth-field-error {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--martis-radius-sm);
+  background: var(--martis-danger-bg);
+  color: var(--martis-danger);
+  font-size: var(--martis-text-xs);
+  line-height: 1.45;
+  font-weight: var(--martis-weight-medium);
+}
+.martis-auth-field-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
 .p-inputtext.p-invalid:not(:disabled),
 .p-inputtextarea.p-invalid:not(:disabled) {
   border-color: var(--martis-danger) !important;

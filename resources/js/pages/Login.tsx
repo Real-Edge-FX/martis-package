@@ -8,6 +8,7 @@ import { useAuthCopy } from "@/lib/authCopy"
 import { useTranslation } from "react-i18next"
 import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { AuthFrame } from "@/components/auth/AuthFrame"
+import { FieldError } from "@/components/auth/FieldError"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { BASE_PATH } from "@/lib/config"
 
@@ -191,9 +192,7 @@ export function LoginPage() {
               color: 'var(--martis-text)',
             }}
           />
-          {errors.email && (
-            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>{errors.email}</p>
-          )}
+          <FieldError message={errors.email} />
         </div>
 
         <div style={{ marginBottom: 16 }}>
@@ -251,9 +250,7 @@ export function LoginPage() {
               {showPassword ? <EyeSlashIcon size={16} /> : <EyeIcon size={16} />}
             </button>
           </div>
-          {errors.password && (
-            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>{errors.password}</p>
-          )}
+          <FieldError message={errors.password} />
         </div>
 
         <label className="martis-auth-toggle" style={{ marginBottom: 16 }}>

@@ -2,6 +2,7 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Validation\Rule;
 use Martis\Auth\GuardCatalog;
 
 /**
@@ -77,6 +78,19 @@ class GuardSelect extends Select
         // Default = Laravel's configured default guard. Form rendering
         // picks this up when no value is present on the model.
         $field->default(GuardCatalog::default());
+
+        // Server-side validation: reject any value not declared in
+        // `config/auth.guards`. Without this guard a row could be
+        // saved with a name like `sanctum` while the auth config has
+        // no matching block — and Spatie Permission would later
+        // crash on `Role::users()` (morphedByMany cannot resolve the
+        // User model for an unconfigured guard). v1.8.2.
+        $field->rules([
+            'required',
+            'string',
+            'max:125',
+            Rule::in(GuardCatalog::available()),
+        ]);
 
         return $field;
     }
