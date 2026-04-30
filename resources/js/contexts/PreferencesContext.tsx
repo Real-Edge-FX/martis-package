@@ -94,19 +94,63 @@ function applyToDom(prefs: Preferences): void {
   }
 }
 
+/**
+ * Resolve the initial preference state on every page load.
+ *
+ * Priority (v1.7.3):
+ *   1. SSR payload with `source` ∈ {user, preset} — describes what THIS
+ *      authenticated user / preset actually persisted server-side.
+ *      Wins over localStorage (which may hold stale values from a
+ *      different account that previously logged in on this browser).
+ *   2. localStorage cache — guest choices made on the login / register
+ *      surfaces, OR the most recent state for an authed user when
+ *      offline.
+ *   3. SSR payload with `source = default` — config defaults from the
+ *      server (no row found, no preset applied).
+ *   4. Hard-coded fallback derived from `config.theme.default`.
+ *
+ * The earlier implementation collapsed (1) and (3) into a single
+ * `injected wins always` branch, which made guest preferences
+ * silently revert to the config default after every refresh — the
+ * SSR payload came back as `source=default` and overwrote the
+ * localStorage value the guest just picked.
+ */
 function readInitialPrefs(): Preferences {
-  // (1) SSR-injected payload (no flash)
-  const injected = (window as unknown as { MartisConfig?: { preferences?: { initial?: Partial<Preferences> } } })
-    .MartisConfig?.preferences?.initial
+  const injected = (window as unknown as {
+    MartisConfig?: { preferences?: { initial?: Partial<Preferences> & { source?: string } } }
+  }).MartisConfig?.preferences?.initial
+
+  const isPersisted =
+    injected !== undefined &&
+    injected !== null &&
+    typeof injected === 'object' &&
+    (injected.source === 'user' || injected.source === 'preset')
+
+  // (1) Authenticated / preset payload — server is the source of truth.
+  if (isPersisted) {
+    return { ...DEFAULTS, ...injected } as Preferences
+  }
+
+  // (2) localStorage cache — guest choices on login/register, or the
+  // last-applied state for any user. Wins over the server "default"
+  // payload because that payload is just config defaults, not
+  // anything the user actually saved.
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const cached = JSON.parse(raw)
+      if (cached && typeof cached === 'object') {
+        return { ...DEFAULTS, ...cached } as Preferences
+      }
+    }
+  } catch {}
+
+  // (3) Server-supplied defaults (source = 'default').
   if (injected && typeof injected === 'object') {
     return { ...DEFAULTS, ...injected } as Preferences
   }
-  // (2) localStorage cache
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) } as Preferences
-  } catch {}
-  // (3) config default (deep fallback)
+
+  // (4) Hard-coded fallback derived from `config.theme.default`.
   return { ...DEFAULTS, theme: (config.theme?.default as ThemeMode) ?? 'dark' }
 }
 

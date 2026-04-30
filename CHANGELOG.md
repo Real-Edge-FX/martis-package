@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.3] — 2026-04-30
+
+Hotfix for guest preference persistence. Authenticated user persistence already worked; this is the missing twin.
+
+### Fixed
+
+- **Guest preferences (theme / accent / locale picked on the login or register page) reverted to the config defaults on every refresh.** `PreferencesContext::readInitialPrefs()` returned the SSR-injected payload unconditionally — for guests that payload is just `source: 'default'` from `config('martis.preferences.defaults')`, NOT what the guest actually picked. localStorage was never consulted. A guest who picked light + pt_PT on the login page reverted to dark + en after refresh.
+- The resolver now inspects `injected.source`. When it is `'user'` or `'preset'`, the SSR payload wins (real persisted state for an authenticated account, beating any stale localStorage from a previous account on the same browser). When it is `'default'`, the resolver checks localStorage first and only falls back to the SSR defaults / hard-coded fallback if nothing is cached locally. This mirrors the pre-paint resolver in `app.blade.php` (added in v1.6.4) — the same priority is now applied at the React layer.
+
+### Validation
+
+- Pest: 1736 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+
 ## [1.7.2] — 2026-04-30
 
 Two more hotfixes for v1.7.0 / v1.7.1 custom accents.
