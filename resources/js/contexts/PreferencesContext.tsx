@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
 import { useAuth } from '@/contexts/AuthContext'
@@ -40,10 +40,12 @@ export interface PreferencesMeta {
   densities: string[]
 }
 
+type PreferencePatch = Partial<Preferences> | ((prev: Preferences) => Partial<Preferences>)
+
 interface PreferencesContextValue {
   prefs: Preferences
   meta: PreferencesMeta | null
-  update: (patch: Partial<Preferences>) => Promise<void>
+  update: (patch: PreferencePatch) => Promise<void>
   reset: () => Promise<void>
   enabled: boolean
 }
@@ -164,6 +166,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [meta, setMeta] = useState<PreferencesMeta | null>(null)
   const { user } = useAuth()
 
+  // Mirror `prefs` into a ref so `update()` can read the latest committed
+  // state synchronously when computing the next merged snapshot. Relying on
+  // the value React passes into `setPrefs(updater)` was unsafe under React 18
+  // automatic batching — when the updater ran asynchronously, the local
+  // `nextState` variable inside `update()` stayed `null` and the
+  // localStorage write was silently skipped (v1.7.6 guest-page regression).
+  const prefsRef = useRef<Preferences>(prefs)
+  useEffect(() => { prefsRef.current = prefs }, [prefs])
+
   const enabled = config.preferences?.enabled !== false
 
   // Apply preferences to the DOM on every change (reactive). The
@@ -186,6 +197,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // also re-runs after account switching.
   useEffect(() => {
     if (!enabled) return
+    // Skip the refetch for guests (v1.7.6). The /api/preferences
+    // routes live inside the `martis.auth` middleware group — a
+    // guest GET returns 401, the catch below swallows the failure,
+    // but the browser console still logs the network error on every
+    // login-page mount. The fetch is only meaningful AFTER the user
+    // authenticates: that is when the SSR payload may diverge from
+    // what the user had on the guest page (different language,
+    // saved accent, etc) and the post-login refetch is needed to
+    // reconcile. Guests have nothing extra on the server to load —
+    // the SSR payload + localStorage are already authoritative.
+    if (!user) return
     let active = true
     api.get<ShowResponse>('/api/preferences')
       .then((resp) => {
@@ -203,7 +225,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        /* offline, unauthenticated, or preferences disabled — keep local state */
+        /* offline or preferences disabled — keep local state */
       })
     return () => { active = false }
   }, [enabled, user?.id])
@@ -217,18 +239,30 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return () => mql.removeEventListener?.('change', handler)
   }, [prefs])
 
-  const update = useCallback(async (patch: Partial<Preferences>) => {
-    // Optimistic: apply locally immediately, then reconcile with server.
-    // We send the full merged state — not just the patch — so that creating
-    // a new user_preferences row on the server never loses fields the user
-    // already applied client-side (otherwise schema defaults would clobber
-    // e.g. a `theme=light` the user set before ever saving a locale change).
-    let nextState: Preferences | null = null
-    setPrefs((prev) => {
-      nextState = { ...prev, ...patch }
-      return nextState
-    })
-    if (!enabled || nextState === null) return
+  const update = useCallback(async (patch: PreferencePatch) => {
+    // Compute the merged snapshot from `prefsRef` (mirror of the latest
+    // committed state) BEFORE calling setPrefs. Doing it inside the
+    // setPrefs updater would leave `nextState` null whenever React 18
+    // batched the updater asynchronously, which silently skipped the
+    // localStorage write on the guest auth surfaces (login / register /
+    // 2FA challenge). The ref-based snapshot is deterministic.
+    //
+    // `patch` accepts a function form so callers can derive the next
+    // value from the LATEST committed state (read from the ref). The
+    // theme cycle button needs this — three rapid clicks before React
+    // re-renders all see the same `prefs.theme` from the captured
+    // closure, so a static patch always advances by ONE step. The
+    // function form re-evaluates the next theme against the live ref.
+    const concretePatch = typeof patch === 'function' ? patch(prefsRef.current) : patch
+    const nextState: Preferences = { ...prefsRef.current, ...concretePatch }
+    // Write back to the ref synchronously BEFORE setPrefs so a second
+    // rapid click (or chained update) reads the freshly merged state
+    // instead of the stale value the post-render `useEffect` would only
+    // sync after the next paint. Without this the toggle felt
+    // "intermittent" — fast clicks kept colliding on the same `prev`.
+    prefsRef.current = nextState
+    setPrefs(nextState)
+    if (!enabled) return
     // Persist the user's EXPLICIT choice (v1.7.5). This is the only
     // place that writes to localStorage — the SSR-injected defaults
     // never end up persisted, so a later `MARTIS_DEFAULT_*` env
@@ -236,14 +270,25 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState))
     } catch {}
+    // Skip the server PUT for guests. The /api/preferences route lives
+    // behind the `martis.auth` middleware group — every theme/locale
+    // tweak on the login/register/2FA surfaces would otherwise log a
+    // 401 in the user's console (symmetric to the GET refetch guard
+    // shipped in v1.7.6). LocalStorage already captured the choice
+    // above, so the post-login readInitialPrefs() picks it up.
+    if (!user) return
+    // Optimistic write — send the FULL merged state so creating a new
+    // user_preferences row never loses fields the user already applied
+    // client-side (otherwise schema defaults would clobber e.g. a
+    // `theme=light` the user set before ever saving a locale change).
     try {
       const resp = await api.put<ShowResponse>('/api/preferences', nextState)
       if (resp?.data) setPrefs((prev) => ({ ...prev, ...resp.data }))
       if (resp?.meta) setMeta(resp.meta)
     } catch {
-      // Server write failed (guest? 2FA? offline?) — keep the optimistic local state.
+      // Server write failed (2FA mid-flow? offline?) — keep the optimistic local state.
     }
-  }, [enabled])
+  }, [enabled, user])
 
   const reset = useCallback(async () => {
     if (!enabled) return

@@ -643,12 +643,23 @@ html[data-density="dense"] .mwc-root {
   max-width: 240px;
 }
 
-/* v1.7.0 — theme-aware brand variants. When the consumer ships
-   separate light/dark assets, both `<img>` tags render in the DOM
-   and we hide one based on `<html data-theme>`. The toggle is
-   instant (CSS-driven, no React re-render, no fetch). */
-html[data-theme="light"] .martis-brand-img--dark { display: none; }
-html[data-theme="dark"]  .martis-brand-img--light { display: none; }
+/* v1.7.0 / v1.7.6 — theme-aware brand variants. When the consumer
+   ships separate light/dark assets, both `<img>` tags render in
+   the DOM and we hide one based on `<html data-theme>`. The toggle
+   is instant (CSS-driven, no React re-render, no fetch).
+
+   The `!important` flag is intentional. The logo-mode CSS for the
+   sidebar / topnav / auth card sets `display: block` on the inner
+   `<img>` with selectors that have higher specificity than the
+   theme-switch rule below (e.g. `.martis-sb-logo[data-mode=logo]
+   .martis-sb-logo-mark img` is 0,3,1 — beats this rule's 0,2,1
+   without `!important`). The result was both variants visible at
+   once, producing a stacked silhouette under the active logo on
+   every page mount. We override unconditionally because there is
+   no scenario in which the theme-mismatched variant should ever
+   render. */
+html[data-theme="light"] .martis-brand-img--dark { display: none !important; }
+html[data-theme="dark"]  .martis-brand-img--light { display: none !important; }
 .martis-auth-title {
   font-size: 20px;
   font-weight: var(--martis-weight-semibold);
