@@ -30,8 +30,21 @@ import {
   UserCircleIcon,
 } from "@phosphor-icons/react"
 
-function getLogoSrc(): string {
-  return (config.logo ?? logoSrcDefault) as string
+/**
+ * Topnav brand resolution. Mirrors `Sidebar.getBrandMark()`:
+ *   1. `config.logo` set → render the lockup alone (no wordmark next
+ *      to it, since the asset is assumed to include the wordmark).
+ *   2. `config.icon` set → render the icon + brand text side-by-side.
+ *   3. Neither → bundled cube + brand text (the default).
+ */
+function getBrandMark(): { src: string; mode: "logo" | "icon" } {
+  if (config.logo) {
+    return { src: config.logo, mode: "logo" }
+  }
+  if (config.icon) {
+    return { src: config.icon, mode: "icon" }
+  }
+  return { src: logoSrcDefault as string, mode: "icon" }
 }
 
 export function TopnavLayout() {
@@ -54,7 +67,8 @@ export function TopnavLayout() {
   useNavigationRefreshOnNavigate()
 
   const brand = config.brand ?? "Martis"
-  const logoSrc = getLogoSrc()
+  const brandMark = getBrandMark()
+  const logoSrc = brandMark.src
   const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
   const searchEnabled = config.search?.enabled !== false
 
@@ -157,7 +171,9 @@ export function TopnavLayout() {
           <div className="martis-sb-logo-mark">
             <img src={logoSrc} alt={brand} />
           </div>
-          <span className="martis-topnav-brand-text">{brand}</span>
+          {brandMark.mode === "icon" && (
+            <span className="martis-topnav-brand-text">{brand}</span>
+          )}
         </div>
 
         <nav className="martis-topnav-links">

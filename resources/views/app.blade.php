@@ -43,6 +43,7 @@
             preferences: {!! json_encode($prefsConfig) !!},
             brand: "{{ config('martis.brand.name', 'Martis') }}",
             logo: {!! json_encode(config('martis.brand.logo')) !!},
+            icon: {!! json_encode(config('martis.brand.icon')) !!},
             version: {!! json_encode(app(\Martis\MartisManager::class)->version()) !!},
             docsUrl: {!! json_encode(config('martis.brand.docs_url')) !!},
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},

@@ -22,8 +22,25 @@ function getBrand(): string {
   return config.brand ?? "Martis"
 }
 
-function getLogoSrc(): string {
-  return (config.logo ?? logoSrcDefault) as string
+/**
+ * Sidebar brand resolution. Three modes:
+ *
+ *   1. `config.logo` set → render the full lockup ALONE (the wordmark
+ *      is assumed to live inside the asset, so we hide the brand text
+ *      next to it).
+ *   2. `config.icon` set → render the square icon + brand text
+ *      side-by-side. Same shape as the bundled experience but with
+ *      a consumer-supplied icon.
+ *   3. Neither → bundled Martis cube + brand text (the default).
+ */
+function getBrandMark(): { src: string; mode: "logo" | "icon" } {
+  if (config.logo) {
+    return { src: config.logo, mode: "logo" }
+  }
+  if (config.icon) {
+    return { src: config.icon, mode: "icon" }
+  }
+  return { src: logoSrcDefault as string, mode: "icon" }
 }
 
 interface SidebarProps {
@@ -59,7 +76,8 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
   }
 
   const brand = getBrand()
-  const logoSrc = getLogoSrc()
+  const brandMark = getBrandMark()
+  const logoSrc = brandMark.src
 
   const mobileAttr = isMobile ? (mobileOpen ? "open" : "true") : undefined
 
@@ -75,7 +93,9 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
         <div className="martis-sb-logo-mark">
           <img src={logoSrc} alt={brand} />
         </div>
-        <span className="martis-sb-logo-text">{brand}</span>
+        {brandMark.mode === "icon" && (
+          <span className="martis-sb-logo-text">{brand}</span>
+        )}
       </div>
 
       <div className="martis-sb-scroll">

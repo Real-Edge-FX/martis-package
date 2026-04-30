@@ -70,11 +70,21 @@ return [
     */
     'brand' => [
         'name' => env('MARTIS_BRAND_NAME', 'Martis'),
-        // Path or URL to the brand logo image. Resolved by the SPA exactly
-        // as written — `/img/logo.png` for assets in the consumer's
-        // `public/` directory, or a full `https://...` URL for an external
-        // CDN. Null hides the image (the brand name still renders).
+        // Path or URL to the full horizontal brand lockup (icon + wordmark
+        // in one asset). When set, the SPA renders the lockup alone — the
+        // separate `brand.name` text next to the icon is hidden in the
+        // sidebar / topbar / auth frame to avoid a duplicated wordmark.
+        // Resolved by the SPA exactly as written — `/img/logo.png` for
+        // assets in the consumer's `public/` directory, or a full
+        // `https://...` URL for an external CDN.
         'logo' => env('MARTIS_BRAND_LOGO'),
+        // Path or URL to the small square brand icon. Used in compact
+        // surfaces (collapsed sidebar, login frame, mobile shell) where
+        // a horizontal lockup would clip. When null, falls back to the
+        // bundled Martis cube. Independent from `logo` so the consumer
+        // can ship a square icon AND a horizontal lockup at the same
+        // time — Martis prefers `logo` when both are set.
+        'icon' => env('MARTIS_BRAND_ICON'),
         'favicon' => env('MARTIS_FAVICON', null),
 
         /*

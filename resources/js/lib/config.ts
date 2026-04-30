@@ -242,7 +242,21 @@ export interface MartisConfigShape {
   basePath?: string
   locale?: string
   brand?: string
+  /**
+   * Full horizontal brand lockup (icon + wordmark in one asset). When
+   * set, the SPA renders the lockup alone — the separate `brand` text
+   * next to the icon is hidden in the sidebar / topbar / auth frame to
+   * avoid a duplicated wordmark.
+   */
   logo?: string | null
+  /**
+   * Small square brand icon. Used in compact surfaces (collapsed
+   * sidebar, login frame, mobile shell) where a horizontal lockup
+   * would clip. When null, falls back to the bundled Martis cube.
+   * Independent from `logo` so the consumer can ship both — Martis
+   * prefers `logo` when both are set.
+   */
+  icon?: string | null
   /** Martis package version surfaced in the sidebar footer. */
   version?: string
   /** Optional link to the project's docs shown in the sidebar footer. */
