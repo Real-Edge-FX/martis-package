@@ -54,22 +54,86 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 | `version` | `?string` | `null` | Optional version string printed in the sidebar footer (e.g. `v1.5.2`, `2026.04.29`). |
 | `docs_url` | `?string` | `null` | Optional docs link rendered on the right-hand side of the sidebar footer. |
 
-### Logo vs icon — when to use which
+### Choosing your brand mode
+
+Martis renders the brand row (sidebar header / topnav left / auth card top) in one of four modes. **Where to set each**: every knob is an `.env` key in your application's `.env` file. **No published config edits required** — once `config/martis.php` reads `env('MARTIS_BRAND_LOGO')` / `env('MARTIS_BRAND_ICON')` (default since v1.5.2 / v1.6.3), flipping modes is one line in `.env` plus `php artisan config:cache`.
+
+#### Mode 1 — Logo only (recommended when your brand has a horizontal lockup)
+
+```env
+MARTIS_BRAND_LOGO=/img/edgeflow-lockup.svg
+# leave MARTIS_BRAND_ICON unset
+```
+
+Renders the lockup image alone. The `brand.name` text is **hidden** next to it (the wordmark inside your asset replaces it). Best for brands like EdgeFlow where the SVG already contains the mark + wordmark in one piece.
 
 ```
-+------------------------+    +------------------------+
-| [LOCKUP]               |    | [icon] EdgeFlow        |
-+------------------------+    +------------------------+
-   brand.logo set                brand.icon set
-   (text hidden)                 (text rendered by Martis)
++------------------------+
+| [EdgeFlow lockup]      |
++------------------------+
 ```
 
-- **Logo-only mode** — set `brand.logo` when you have a finished horizontal lockup (mark + wordmark in one asset). The lockup renders alone; the brand-name text Martis would normally print next to the mark is **hidden** so the wordmark is not duplicated. This is the "I want my logo and nothing else" mode.
-- **Icon + text mode** — set `brand.icon` when you only have a square mark and want Martis to compose the row as `[your icon] {brand.name}`. Use this when the wordmark is not part of your asset, or when the brand text needs to switch per-locale (`brand.name` can be a translation lookup).
-- **Default** — leave both null and the bundled Martis cube + text combo renders.
-- **Both set** — allowed. `logo` wins on every surface (sidebar, topnav, auth frame). `icon` sits queued — flip from `logo` mode to `icon` mode by clearing `MARTIS_BRAND_LOGO` in `.env`, no code change.
+The image is sized to ~40px tall in the sidebar / topnav and ~40px tall in the auth card, scaling width to preserve the asset's aspect ratio (capped at the column width so a wide lockup never overflows).
 
-The same resolution applies to the unauthenticated **AuthFrame** (Login / Register / Forgot password / 2FA challenge / error screens), the **sidebar** (default `sidebar` preset), and the **topnav** (`topnav` preset).
+#### Mode 2 — Icon + brand name (recommended when you only have a square mark)
+
+```env
+MARTIS_BRAND_ICON=/img/edgeflow-icon.png
+MARTIS_BRAND_NAME="EdgeFlow"
+# leave MARTIS_BRAND_LOGO unset
+```
+
+Renders `[icon] {brand.name}`. Same shape as the bundled experience but with your icon. Best when the wordmark isn't part of your asset, or when the brand text needs to vary per locale (`MARTIS_BRAND_NAME` can be left empty so a translation file drives it).
+
+```
++------------------------+
+| [icon] EdgeFlow        |
++------------------------+
+```
+
+The icon is constrained to a 28×28 square in the sidebar / topnav, 32×32 in the auth card. Provide a square asset.
+
+#### Mode 3 — Bundled Martis cube + your brand name (the default)
+
+```env
+# both MARTIS_BRAND_LOGO and MARTIS_BRAND_ICON unset
+MARTIS_BRAND_NAME="Acme"
+```
+
+Renders `[Martis cube] Acme`. The bundled cube is preserved; only `brand.name` is replaced. Ship-ready out of the box, useful while you do not yet have brand assets.
+
+#### Mode 4 — Both set
+
+```env
+MARTIS_BRAND_LOGO=/img/edgeflow-lockup.svg
+MARTIS_BRAND_ICON=/img/edgeflow-icon.png
+```
+
+`logo` wins on every surface; `icon` sits queued. Flip from logo-only to icon mode by **clearing** `MARTIS_BRAND_LOGO` in `.env` — no code change, no rebuild.
+
+### Where each mode appears
+
+| Surface | Reads from |
+|---|---|
+| Sidebar header (`sidebar` preset) | `brand.logo` → `brand.icon` → bundled cube |
+| Topnav header (`topnav` preset) | `brand.logo` → `brand.icon` → bundled cube |
+| Auth card (Login, Register, Forgot password, Reset password, 2FA challenge, error screens) | `brand.logo` → `brand.icon` → bundled lockup (with wordmark) |
+| Browser tab favicon | `brand.favicon` (independent — see "Customising the favicon" below) |
+| Browser tab title | `brand.page_title` + `brand.name` (independent — see "Customising the page title" below) |
+
+Three rows, three env vars, one consistent rendering rule. Pick the mode that matches the asset you have.
+
+### Switching modes after deployment
+
+After editing `.env`:
+
+```bash
+php artisan optimize:clear
+php artisan config:cache
+php artisan martis:cache:clear
+```
+
+The config cache holds the env values; the Martis cache holds the navigation payload (which embeds the brand). Both must be cleared for the mode swap to land. The frontend bundle does NOT need rebuilding — `window.MartisConfig` is rendered on every request.
 
 ### Customising the page title
 

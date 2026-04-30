@@ -89,7 +89,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
       style={!isMobile && !collapsed ? { width: "var(--sidebar-width, 240px)" } : undefined}
       aria-label={t("section_resources", "Resources")}
     >
-      <div className="martis-sb-logo">
+      <div className="martis-sb-logo" data-mode={brandMark.mode}>
         <div className="martis-sb-logo-mark">
           <img src={logoSrc} alt={brand} />
         </div>

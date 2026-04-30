@@ -167,7 +167,7 @@ export function TopnavLayout() {
   return (
     <div className="martis-bg flex h-screen flex-col overflow-hidden">
       <header className="martis-topnav-bar">
-        <div className="martis-topnav-brand">
+        <div className="martis-topnav-brand" data-mode={brandMark.mode}>
           <div className="martis-sb-logo-mark">
             <img src={logoSrc} alt={brand} />
           </div>

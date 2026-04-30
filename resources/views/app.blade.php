@@ -116,20 +116,44 @@
             ]) !!}
         };
         // Apply preferences BEFORE first paint to prevent any flash.
-        // Priority: server-injected payload > localStorage cache > defaults.
+        //
+        // Priority depends on whether the request has a real persisted
+        // payload (`source` is `user` or `preset`). When yes, the
+        // server-injected values win — they describe what THIS user
+        // actually saved server-side and they should beat any older
+        // localStorage row from a different account on the same browser.
+        //
+        // For guests (`source` === 'default'), the server payload is
+        // just the config defaults — always dark / en / comfortable.
+        // localStorage wins so that a guest who picked light + pt_PT
+        // before signing in keeps that choice across refreshes.
         (function() {
             var root = document.documentElement;
-            var prefs = (window.MartisConfig.preferences && window.MartisConfig.preferences.initial) || {};
+            var initial = (window.MartisConfig.preferences && window.MartisConfig.preferences.initial) || {};
+            var hasPersisted = initial.source === 'user' || initial.source === 'preset';
             var cached = {};
             try {
                 var raw = localStorage.getItem('martis-preferences');
                 if (raw) cached = JSON.parse(raw) || {};
             } catch (e) {}
 
-            var theme = prefs.theme || cached.theme || window.MartisConfig.theme.default || 'dark';
-            var accent = prefs.accent || cached.accent || 'martis';
-            var density = prefs.density || cached.density || 'comfortable';
-            var reducedMotion = prefs.reducedMotion || cached.reducedMotion || false;
+            // Effective preference resolver: persisted payload first
+            // (when it exists), otherwise the browser cache, otherwise
+            // the server-supplied defaults.
+            var pick = function (key) {
+                if (hasPersisted && initial[key] !== undefined && initial[key] !== null) {
+                    return initial[key];
+                }
+                if (cached[key] !== undefined && cached[key] !== null) {
+                    return cached[key];
+                }
+                return initial[key];
+            };
+
+            var theme = pick('theme') || window.MartisConfig.theme.default || 'dark';
+            var accent = pick('accent') || 'martis';
+            var density = pick('density') || 'comfortable';
+            var reducedMotion = pick('reducedMotion') || false;
 
             // `theme = system` honours the OS preference at paint time.
             if (theme === 'system') {

@@ -629,6 +629,15 @@ html[data-density="dense"] .mwc-root {
   max-width: 140px;
   object-fit: contain;
 }
+/* Logo-only mode on the auth card: free the height a touch so a
+   horizontal lockup reads at a comfortable size without dominating
+   the form field below. The wordmark inside the lockup typically
+   already includes the brand name, so no separate text span renders
+   (handled by AuthFrame.tsx). */
+.martis-auth-brand[data-mode="logo"] img {
+  height: 40px;
+  max-width: 220px;
+}
 .martis-auth-title {
   font-size: 20px;
   font-weight: var(--martis-weight-semibold);
@@ -1231,6 +1240,21 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   object-fit: contain;
   display: block;
 }
+/* Logo-only mode: the consumer's asset is a horizontal lockup, not a
+   square icon. The 28×28 mark box would squash it. Free the height
+   to fit the row (40px clear of the 56px bar) and let the image
+   grow to whatever width its aspect ratio dictates, capped so a wide
+   asset never overflows the sidebar. The text span next to it is
+   already hidden by Sidebar.tsx in this mode. */
+.martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark {
+  width: auto;
+  height: 40px;
+  max-width: calc(var(--sidebar-width, 240px) - 32px);
+}
+.martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img {
+  width: auto;
+  height: 100%;
+}
 .martis-sb-logo-text {
   white-space: nowrap;
   overflow: hidden;
@@ -1765,6 +1789,17 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   padding-right: 12px;
   border-right: 1px solid var(--martis-border);
   flex-shrink: 0;
+}
+/* Logo-only mode on the topnav: same widening rule as the sidebar so
+   a horizontal lockup is not crammed into the 28×28 mark slot. */
+.martis-topnav-brand[data-mode="logo"] .martis-sb-logo-mark {
+  width: auto;
+  height: 36px;
+  max-width: 220px;
+}
+.martis-topnav-brand[data-mode="logo"] .martis-sb-logo-mark img {
+  width: auto;
+  height: 100%;
 }
 .martis-topnav-brand .martis-sb-logo-mark {
   width: 28px;
