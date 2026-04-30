@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] — 2026-04-30
+
+Two more hotfixes for v1.7.0 / v1.7.1 custom accents.
+
+### Fixed
+
+- **Server-side validator now accepts custom accent names.** The `PUT /martis/api/preferences` endpoint validated `accent` against `AccentColor::cases()` only — picking a custom swatch silently failed validation (422), so the choice never persisted. On refresh the user reverted to the previous (or default) accent. The validator now unions `AccentColor` enum values with the keys parsed from `MARTIS_CUSTOM_ACCENTS`.
+- **Custom-accent CSS now wins the cascade.** The bundled `app.css` declares `html:not(.dark) { --martis-accent: ... }` and `html.dark { --martis-accent: ... }` as theme defaults. Those selectors share specificity (1 type + 1 attr/class = 11) with our `html[data-accent="<name>"]` rule, so cascade order decides the tie. The inline `<style>` block was emitted BEFORE the bundle `<link>` — the bundle defaults silently overrode the custom accent. The custom-accent style block now ships AFTER the bundle CSS link in `app.blade.php`, so a clicked custom swatch actually re-tints buttons / sidebar highlight / focus rings. The brand-height `:root` block stays in its early position because no bundled rule competes for those variables.
+
+### Validation
+
+- Pest: 1736 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+- PHPStan L8: 0 errors. Pint clean.
+
 ## [1.7.1] — 2026-04-30
 
 Hotfix for v1.7.0 custom accents.
