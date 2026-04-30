@@ -54,31 +54,13 @@
     <style>
         /* v1.7.0 — brand asset sizing knobs. The CSS rules in martis.css
            read these variables, so the consumer tunes the asset height
-           by editing .env without touching the bundled CSS. */
+           by editing .env without touching the bundled CSS. Safe to
+           load BEFORE the bundle: no rule in martis.css declares
+           these variables, so cascade order is irrelevant. */
         :root {
             --martis-brand-logo-height-menu: {{ $menuLogoHeight }}px;
             --martis-brand-logo-height-auth: {{ $authLogoHeight }}px;
         }
-        @foreach($customAccents as $accentName => $accentHex)
-        /* v1.7.0 — custom accent ‘{{ $accentName }}’ ({{ $accentHex }}).
-           Mirrors the variable set defined for bundled accents in
-           resources/css/martis.css so every consuming rule (buttons,
-           focus rings, link colors, sidebar highlight) picks up the
-           override. Hover / active darken the base hex via color-mix;
-           the soft fills use rgba() with a fixed alpha that matches
-           the bundled `bg-light` / `bg` translucency. We emit one
-           rule that applies to both light and dark themes — a
-           single brand colour per accent, mirroring how Filament /
-           Nova handle consumer-defined accents. */
-        html[data-accent="{{ $accentName }}"] {
-            --martis-accent:          {{ $accentHex }};
-            --martis-accent-hover:    color-mix(in srgb, {{ $accentHex }} 88%, black);
-            --martis-accent-active:   color-mix(in srgb, {{ $accentHex }} 78%, black);
-            --martis-accent-bg-light: color-mix(in srgb, {{ $accentHex }} 14%, transparent);
-            --martis-accent-bg:       color-mix(in srgb, {{ $accentHex }} 24%, transparent);
-            --martis-focus-ring:      color-mix(in srgb, {{ $accentHex }} 45%, transparent);
-        }
-        @endforeach
     </style>
     <script>
         window.MartisConfig = {
@@ -254,6 +236,32 @@
     {{-- Theme overrides must load AFTER app.css to win CSS specificity --}}
     @if(!empty($themeName))
         <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
+    @endif
+    {{-- v1.7.2 — Custom-accent rules MUST load AFTER app.css. The bundle
+         declares `html:not(.dark) { --martis-accent: ... }` and
+         `html.dark { --martis-accent: ... }` as theme defaults. Those
+         selectors share specificity (1 type + 1 attr/class = 11) with
+         our `html[data-accent="<name>"]` rule, so cascade order is the
+         only tie-breaker. Loading our block last guarantees a clicked
+         custom accent actually re-tints the UI instead of being
+         silently overridden by the bundle defaults. --}}
+    @if(!empty($customAccents))
+        <style>
+            @foreach($customAccents as $accentName => $accentHex)
+            /* v1.7.0 — custom accent ‘{{ $accentName }}’ ({{ $accentHex }}).
+               Mirrors the variable set defined for bundled accents
+               (--martis-accent / -hover / -active / -bg-light / -bg /
+               --martis-focus-ring). One rule applies to both themes. */
+            html[data-accent="{{ $accentName }}"] {
+                --martis-accent:          {{ $accentHex }};
+                --martis-accent-hover:    color-mix(in srgb, {{ $accentHex }} 88%, black);
+                --martis-accent-active:   color-mix(in srgb, {{ $accentHex }} 78%, black);
+                --martis-accent-bg-light: color-mix(in srgb, {{ $accentHex }} 14%, transparent);
+                --martis-accent-bg:       color-mix(in srgb, {{ $accentHex }} 24%, transparent);
+                --martis-focus-ring:      color-mix(in srgb, {{ $accentHex }} 45%, transparent);
+            }
+            @endforeach
+        </style>
     @endif
 </head>
 <body>

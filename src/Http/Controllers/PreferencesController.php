@@ -11,6 +11,7 @@ use Martis\Enums\UiDensity;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse as MartisJsonResponse;
 use Martis\Models\UserPreference;
+use Martis\Preferences\CustomAccentsParser;
 use Martis\Preferences\PreferencesResolver;
 
 /**
@@ -57,9 +58,20 @@ class PreferencesController extends MartisController
             )->toResponse();
         }
 
+        // Accept the bundled enum values plus any custom accent names
+        // declared via MARTIS_CUSTOM_ACCENTS (v1.7.0+). The
+        // CustomAccentsParser already validated the names server-side
+        // (lowercase, length, no enum collision), so the union is safe.
+        $allowedAccents = array_merge(
+            array_column(AccentColor::cases(), 'value'),
+            array_keys(CustomAccentsParser::parse(
+                (string) (config('martis.preferences.custom_accents') ?? ''),
+            )),
+        );
+
         $validator = Validator::make($request->all(), [
             'theme' => ['sometimes', 'string', 'in:'.implode(',', array_column(ThemeMode::cases(), 'value'))],
-            'accent' => ['sometimes', 'string', 'in:'.implode(',', array_column(AccentColor::cases(), 'value'))],
+            'accent' => ['sometimes', 'string', 'in:'.implode(',', $allowedAccents)],
             'brandColor' => ['sometimes', 'nullable', 'string', 'regex:/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/'],
             'density' => ['sometimes', 'string', 'in:'.implode(',', array_column(UiDensity::cases(), 'value'))],
             'locale' => ['sometimes', 'string', 'in:'.implode(',', $this->resolver->availableLocales())],
