@@ -140,6 +140,13 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
           id={field.attribute}
           name={field.attribute}
           type={show ? 'text' : 'password'}
+          // v1.8.1 — Chrome's a11y audit warns when a password input
+          // is missing an `autocomplete` attribute. `new-password` is
+          // correct for any "set password" flow (profile change,
+          // register, reset). Sign-in flows use a custom `<input>`
+          // with `current-password` instead of this component, so
+          // `new-password` here is unambiguous.
+          autoComplete="new-password"
           value={stringValue}
           readOnly={field.readonly}
           required={field.required}

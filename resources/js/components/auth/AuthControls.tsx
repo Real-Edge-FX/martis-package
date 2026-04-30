@@ -93,6 +93,11 @@ export function AuthControls() {
           className="martis-auth-control"
           aria-label={themeTip}
           data-pr-tooltip={themeTip}
+          // The auth strip lives flush against the top edge of the
+          // viewport — a top-positioned tooltip would clip off-screen.
+          // Force `bottom` so the bubble drops into the empty area
+          // beneath the controls. v1.8.1.
+          data-pr-position="bottom"
         >
           {themeIcon}
         </button>
@@ -101,6 +106,7 @@ export function AuthControls() {
         <label
           className="martis-auth-control martis-auth-control-select"
           data-pr-tooltip={localeTip}
+          data-pr-position="bottom"
         >
           <TranslateIcon size={16} aria-hidden="true" />
           <select

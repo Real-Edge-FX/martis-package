@@ -28,10 +28,23 @@ export function MartisTooltip() {
     if (!tooltipText) return
 
     currentTarget.current = target
-    const pos = (target.getAttribute('data-pr-position') as 'top' | 'bottom' | 'left' | 'right') || 'top'
+    let pos = (target.getAttribute('data-pr-position') as 'top' | 'bottom' | 'left' | 'right') || 'top'
     const htmlOptIn = target.getAttribute('data-pr-tooltip-html') === 'true'
 
     const rect = target.getBoundingClientRect()
+
+    // Smart fallback (v1.8.1): if the requested position would push the
+    // bubble off-screen, flip to the opposite side. ~32 px is the
+    // tooltip's typical height plus the 8 px gap; the viewport edge
+    // check uses that as a heuristic clearance. Solves the auth-strip
+    // case (top: rect.top is ~14 → 14 - 8 = 6, bubble extends to ~-26
+    // and clips). Same logic mirrors for `bottom`/`left`/`right`.
+    const TOOLTIP_CLEARANCE = 36
+    if (pos === 'top' && rect.top < TOOLTIP_CLEARANCE) pos = 'bottom'
+    else if (pos === 'bottom' && window.innerHeight - rect.bottom < TOOLTIP_CLEARANCE) pos = 'top'
+    else if (pos === 'left' && rect.left < TOOLTIP_CLEARANCE) pos = 'right'
+    else if (pos === 'right' && window.innerWidth - rect.right < TOOLTIP_CLEARANCE) pos = 'left'
+
     let x: number, y: number
 
     switch (pos) {

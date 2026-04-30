@@ -38,6 +38,10 @@ export function PasswordConfirmationFieldInput({ field, value, onChange, error, 
           id={field.attribute}
           name={field.attribute}
           type={show ? 'text' : 'password'}
+          // v1.8.1 — `new-password` is correct for the confirmation
+          // input on any "set password" flow, matching the paired
+          // PasswordField above. Silences the Chrome a11y audit.
+          autoComplete="new-password"
           value={stringValue}
           readOnly={field.readonly}
           required={field.required}
