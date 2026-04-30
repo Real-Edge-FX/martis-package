@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.3] — 2026-04-30
+
+Brand surfaces gain a proper `icon` knob and the AuthFrame (Login / Register / Forgot / 2FA / error screens) finally honours the consumer's brand assets.
+
+### Added
+
+- **`brand.icon` config** + `MARTIS_BRAND_ICON` env var. Small square brand mark that replaces the bundled cube next to `brand.name` in the sidebar / topnav. Independent from `brand.logo`, so a consumer can ship a square icon AND a horizontal lockup at the same time. Surfaced to the SPA at boot via `window.MartisConfig.icon` (also added to `MartisConfigShape` in `resources/js/lib/config.ts`).
+
+### Changed
+
+- **AuthFrame now reads `config.logo` / `config.icon`** instead of always rendering the bundled Martis logo. Resolution order on Login / Register / Forgot password / Reset password / 2FA challenge / error pages:
+    1. `config.logo` set → render the lockup alone (no separate brand text).
+    2. `config.icon` set → render the icon + `config.brand` text side-by-side.
+    3. Neither set → bundled Martis lockup (the previous behaviour).
+- **Sidebar + TopnavLayout** apply the same fallback chain. When `brand.logo` is set, the brand-name text next to the mark is now **hidden** so a horizontal lockup with built-in wordmark does not show the wordmark twice.
+
+### Tests
+
+- 3 new Pest cases under `tests/Feature/BrandIconConfigTest.php` — env wrapper, default `null`, independence from `brand.logo`.
+
+### Documentation
+
+- `docs/configuration.md` — Brand block extended with the new `icon` row, plus a "Logo vs icon" subsection that walks through the four brand modes (logo-only, icon + text, default, both).
+
+### Migration notes for v1.5.x / v1.6.x consumers
+
+- **`config/martis.php` republish (one-time).** Hosts that published `config/martis.php` before v1.5.2 still have `'logo' => null` / `'text' => null` hard-coded — no env wrappers, no `brand.icon` row, no `welcome` block. The new keys default to `null` so nothing breaks, but the env vars `MARTIS_BRAND_LOGO`, `MARTIS_FOOTER_TEXT`, `MARTIS_WELCOME_*`, `MARTIS_BRAND_ICON` are silently ignored until the published config is updated. Two paths:
+    1. **Re-publish + re-apply your edits**: `php artisan vendor:publish --tag=martis-config --force`, then port any host-specific changes back in.
+    2. **Edit in place**: open `config/martis.php` and replace the static values for `brand.logo`, `brand.icon`, `footer.text` with `env('MARTIS_BRAND_LOGO')`, `env('MARTIS_BRAND_ICON')`, `env('MARTIS_FOOTER_TEXT')`. Add the `welcome` block. The package tracks the env wrappers from this release on, so future `vendor:publish --force` lands the canonical version.
+- The AuthFrame visual changes only when the consumer has `brand.logo` or `brand.icon` set. Hosts that never set either keep the bundled Martis logo on Login.
+
 ## [1.6.2] — 2026-04-29
 
 Patch the v1.6.0/1.6.1 `martis:roles` stubs after live deployment surfaced two production-facing bugs.

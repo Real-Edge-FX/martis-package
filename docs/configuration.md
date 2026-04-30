@@ -36,6 +36,7 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 'brand' => [
     'name' => env('MARTIS_BRAND_NAME', 'Martis'),
     'logo' => env('MARTIS_BRAND_LOGO'),
+    'icon' => env('MARTIS_BRAND_ICON'),
     'favicon' => env('MARTIS_FAVICON', null),
     'page_title' => env('MARTIS_PAGE_TITLE'), // null | string | callable
     'version' => env('MARTIS_BRAND_VERSION'),
@@ -46,11 +47,29 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `name` | `string` | `'Martis'` | Displayed in the sidebar header and used as the `{brand}` interpolation for the bundled page title translation. |
-| `logo` | `?string` | `null` | Path or URL to a custom logo image. Relative paths resolve against `public/` (`/img/logo.svg`); full URLs are passed through unchanged (`https://cdn.example.com/logo.svg`). |
+| `logo` | `?string` | `null` | **Full horizontal lockup** (icon + wordmark in one asset). When set, the SPA renders the lockup alone — the separate `brand.name` text next to it is hidden in the sidebar / topbar / auth frame to avoid a duplicated wordmark. Relative paths resolve against `public/` (`/img/logo.svg`); full URLs pass through unchanged. |
+| `icon` | `?string` | `null` | **Small square brand icon** (replaces just the bundled cube next to `brand.name`). Use this when you want to keep the brand text rendered by Martis but swap the mark. Independent from `logo` — Martis prefers `logo` when both are set. |
 | `favicon` | `?string` | `null` | Path to a custom favicon (relative to `public/`). When `null`, Martis serves its own default favicon from the package — no `vendor:publish` step required. |
 | `page_title` | `string \| callable \| null` | `null` | Browser tab title shown in `<title>`. `null` uses the bundled translation (e.g. "Acme — Admin Control"). A plain string overrides it. A callable (invokable class or array callable) receives the current `Request` and returns the title. |
 | `version` | `?string` | `null` | Optional version string printed in the sidebar footer (e.g. `v1.5.2`, `2026.04.29`). |
 | `docs_url` | `?string` | `null` | Optional docs link rendered on the right-hand side of the sidebar footer. |
+
+### Logo vs icon — when to use which
+
+```
++------------------------+    +------------------------+
+| [LOCKUP]               |    | [icon] EdgeFlow        |
++------------------------+    +------------------------+
+   brand.logo set                brand.icon set
+   (text hidden)                 (text rendered by Martis)
+```
+
+- **Logo-only mode** — set `brand.logo` when you have a finished horizontal lockup (mark + wordmark in one asset). The lockup renders alone; the brand-name text Martis would normally print next to the mark is **hidden** so the wordmark is not duplicated. This is the "I want my logo and nothing else" mode.
+- **Icon + text mode** — set `brand.icon` when you only have a square mark and want Martis to compose the row as `[your icon] {brand.name}`. Use this when the wordmark is not part of your asset, or when the brand text needs to switch per-locale (`brand.name` can be a translation lookup).
+- **Default** — leave both null and the bundled Martis cube + text combo renders.
+- **Both set** — allowed. `logo` wins on every surface (sidebar, topnav, auth frame). `icon` sits queued — flip from `logo` mode to `icon` mode by clearing `MARTIS_BRAND_LOGO` in `.env`, no code change.
+
+The same resolution applies to the unauthenticated **AuthFrame** (Login / Register / Forgot password / 2FA challenge / error screens), the **sidebar** (default `sidebar` preset), and the **topnav** (`topnav` preset).
 
 ### Customising the page title
 
