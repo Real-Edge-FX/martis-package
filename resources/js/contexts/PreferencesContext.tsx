@@ -166,12 +166,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const enabled = config.preferences?.enabled !== false
 
-  // Apply preferences to the DOM on every change (reactive).
+  // Apply preferences to the DOM on every change (reactive). The
+  // localStorage write that used to live here was moved into
+  // `update()` (v1.7.5) so it captures EXPLICIT user choices only —
+  // not the SSR-injected defaults that this effect runs against on
+  // every mount. Persisting on mount silently locked every visitor
+  // into whatever defaults shipped on their first visit, which made
+  // a later `MARTIS_DEFAULT_THEME` / `MARTIS_DEFAULT_ACCENT` change
+  // invisible to anyone who had loaded the page even once before.
   useEffect(() => {
     applyToDom(prefs)
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs))
-    } catch {}
   }, [prefs])
 
   // Refetch preferences whenever the auth state resolves to a user. This
@@ -225,6 +229,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       return nextState
     })
     if (!enabled || nextState === null) return
+    // Persist the user's EXPLICIT choice (v1.7.5). This is the only
+    // place that writes to localStorage — the SSR-injected defaults
+    // never end up persisted, so a later `MARTIS_DEFAULT_*` env
+    // change reaches every guest who has not yet picked anything.
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState))
+    } catch {}
     try {
       const resp = await api.put<ShowResponse>('/api/preferences', nextState)
       if (resp?.data) setPrefs((prev) => ({ ...prev, ...resp.data }))
@@ -236,6 +247,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(async () => {
     if (!enabled) return
+    // Reset clears the local override so the SSR / config defaults
+    // win again on next mount. Symmetric with the v1.7.5 update()
+    // change that only writes to localStorage on explicit picks.
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {}
     try {
       const resp = await api.delete<ShowResponse>('/api/preferences')
       if (resp?.data) setPrefs({ ...DEFAULTS, ...resp.data })
