@@ -29,13 +29,47 @@
                 $prefsPayload = null;
             }
         }
+        // v1.7.0 — custom accent colours. The parser validates each
+        // entry; invalid ones fall through silently with a Log::warning.
+        $customAccents = \Martis\Preferences\CustomAccentsParser::parse(
+            (string) (config('martis.preferences.custom_accents') ?? ''),
+        );
         $prefsConfig = [
             'enabled' => $prefsEnabled,
             'allowBrandColor' => (bool) config('martis.preferences.allowBrandColor', false),
             'localeLabels' => (array) config('martis.preferences.locale_labels', []),
             'initial' => $prefsPayload,
+            'customAccents' => array_map(
+                static fn (string $name, string $color): array => ['name' => $name, 'color' => $color],
+                array_keys($customAccents),
+                array_values($customAccents),
+            ),
         ];
+
+        // v1.7.0 — clamp the per-surface logo heights to safe ranges so
+        // a typo in .env cannot break the layout.
+        $menuLogoHeight = max(20, min(56, (int) (config('martis.brand.logo_height.menu') ?? 40)));
+        $authLogoHeight = max(24, min(80, (int) (config('martis.brand.logo_height.auth') ?? 48)));
     @endphp
+    <style>
+        /* v1.7.0 — brand asset sizing knobs. The CSS rules in martis.css
+           read these variables, so the consumer tunes the asset height
+           by editing .env without touching the bundled CSS. */
+        :root {
+            --martis-brand-logo-height-menu: {{ $menuLogoHeight }}px;
+            --martis-brand-logo-height-auth: {{ $authLogoHeight }}px;
+        }
+        @foreach($customAccents as $accentName => $accentHex)
+        /* v1.7.0 — custom accent ‘{{ $accentName }}’ ({{ $accentHex }}). */
+        html[data-accent="{{ $accentName }}"] {
+            --martis-accent: {{ $accentHex }};
+            --martis-accent-hover: color-mix(in srgb, {{ $accentHex }} 88%, black);
+            --martis-accent-soft: color-mix(in srgb, {{ $accentHex }} 18%, transparent);
+            --martis-accent-strong: color-mix(in srgb, {{ $accentHex }} 92%, black);
+            --martis-accent-text: #ffffff;
+        }
+        @endforeach
+    </style>
     <script>
         window.MartisConfig = {
             basePath: "/{{ $basePath }}",
@@ -43,7 +77,13 @@
             preferences: {!! json_encode($prefsConfig) !!},
             brand: "{{ config('martis.brand.name', 'Martis') }}",
             logo: {!! json_encode(config('martis.brand.logo')) !!},
+            logoDark: {!! json_encode(config('martis.brand.logo_dark')) !!},
             icon: {!! json_encode(config('martis.brand.icon')) !!},
+            iconDark: {!! json_encode(config('martis.brand.icon_dark')) !!},
+            logoHeight: {!! json_encode([
+                'menu' => (int) (config('martis.brand.logo_height.menu') ?? 40),
+                'auth' => (int) (config('martis.brand.logo_height.auth') ?? 48),
+            ]) !!},
             version: {!! json_encode(app(\Martis\MartisManager::class)->version()) !!},
             docsUrl: {!! json_encode(config('martis.brand.docs_url')) !!},
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},

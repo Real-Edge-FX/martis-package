@@ -36,11 +36,17 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 'brand' => [
     'name' => env('MARTIS_BRAND_NAME', 'Martis'),
     'logo' => env('MARTIS_BRAND_LOGO'),
+    'logo_dark' => env('MARTIS_BRAND_LOGO_DARK'),       // v1.7.0
     'icon' => env('MARTIS_BRAND_ICON'),
+    'icon_dark' => env('MARTIS_BRAND_ICON_DARK'),       // v1.7.0
     'favicon' => env('MARTIS_FAVICON', null),
-    'page_title' => env('MARTIS_PAGE_TITLE'), // null | string | callable
+    'page_title' => env('MARTIS_PAGE_TITLE'),           // null | string | callable
     'version' => env('MARTIS_BRAND_VERSION'),
     'docs_url' => env('MARTIS_BRAND_DOCS_URL'),
+    'logo_height' => [                                  // v1.7.0
+        'menu' => env('MARTIS_BRAND_LOGO_HEIGHT_MENU'),
+        'auth' => env('MARTIS_BRAND_LOGO_HEIGHT_AUTH'),
+    ],
 ],
 ```
 
@@ -134,6 +140,41 @@ php artisan martis:cache:clear
 ```
 
 The config cache holds the env values; the Martis cache holds the navigation payload (which embeds the brand). Both must be cleared for the mode swap to land. The frontend bundle does NOT need rebuilding — `window.MartisConfig` is rendered on every request.
+
+### Theme-aware variants (v1.7.0)
+
+Each brand asset can ship a separate **dark-theme** variant. The SPA renders both `<img>` tags in the DOM and CSS hides one based on `<html data-theme>` — the toggle is instant (no React re-render, no fetch).
+
+```env
+MARTIS_BRAND_LOGO=/img/logo-light.svg
+MARTIS_BRAND_LOGO_DARK=/img/logo-dark.svg
+MARTIS_BRAND_ICON=/img/icon-light.png
+MARTIS_BRAND_ICON_DARK=/img/icon-dark.png
+```
+
+Resolution rule per asset:
+
+- Both set → render variant matching the active theme.
+- Only one set → use it for both themes (backwards-compat with v1.6.x consumers that only have `MARTIS_BRAND_LOGO`).
+
+The auth card honours the same rule. When the user toggles theme via the in-app PreferencesMenu, the variant flip is instant. Browser-OS dark mode (`prefers-color-scheme`) is not consulted because Martis's own toggle takes precedence over the OS.
+
+### Asset sizing (v1.7.0)
+
+The SPA renders brand assets at fixed heights. Override per surface:
+
+```env
+MARTIS_BRAND_LOGO_HEIGHT_MENU=40   # sidebar / topnav. Default 40. Range 20–56.
+MARTIS_BRAND_LOGO_HEIGHT_AUTH=48   # auth card.        Default 48. Range 24–80.
+```
+
+The package clamps both values to the listed ranges — an absurd value cannot break the layout. The icon-mode size (28×28 in the menu, 32×32 in the auth card) is fixed and not configurable.
+
+> **Asset requirement.** Crop your image to remove transparent padding before deployment. The browser scales the *whole canvas* to the target height; padding makes the visible artwork appear proportionally smaller. See [issue #127](https://github.com/Real-Edge-FX/martis-package/issues/127).
+
+### Sidebar collapse behaviour (v1.7.0)
+
+When the sidebar collapses (240 px → 64 px rail) **and** `brand.icon` is set, the icon wins regardless of `brand.logo`. A horizontal lockup at 64 px rail width gets distorted; the square icon fits cleanly. When only `brand.logo` is set, the logo shrinks (the v1.6.x fallback). The sidebar text (`brand.name`) is always hidden in collapsed mode.
 
 ### Customising the page title
 
@@ -627,6 +668,64 @@ Why a dedicated provider instead of `AppServiceProvider`?
 
 To republish the stub manually (e.g. after package upgrade adds a new section): `php artisan vendor:publish --tag=martis-provider --force`.
 
+## Preferences (v1.7.0 defaults)
+
+The preferences subsystem has been env-driven since v0.10. v1.7.0 surfaces three more knobs so a host can pick the look-and-feel that every brand-new user sees on first sign-in.
+
+```env
+MARTIS_DEFAULT_THEME=dark           # dark | light | system
+MARTIS_DEFAULT_ACCENT=martis        # martis | blue | teal | violet | amber | <custom name>
+MARTIS_DEFAULT_DENSITY=comfortable  # comfortable | dense
+MARTIS_DEFAULT_LOCALE=en            # any locale shipped under resources/lang
+```
+
+Invalid values fall through to the safe defaults — a typo in `.env` never crashes the request.
+
+### Custom accent colours
+
+The accent swatches in the PreferencesMenu can be extended with arbitrary brand colours via a single env var:
+
+```env
+MARTIS_CUSTOM_ACCENTS="edgeflow:#1a73e8,sunset:#ff6b35,emerald:#10b981"
+```
+
+Format: comma-separated `name:hex` pairs. Whitespace around the separators is tolerated.
+
+**Validation rules** (invalid entries are dropped silently with a `Log::warning`):
+
+| Field | Pattern / rule |
+|---|---|
+| `name` | `[a-z][a-z0-9_-]{0,31}` — lowercase, alphanumeric + dash / underscore. Must NOT collide with a bundled enum value (`martis`, `blue`, `teal`, `violet`, `amber`, `custom`). |
+| `hex` | `#RRGGBB` (6-digit hex with leading `#`). |
+| Duplicates | Last-wins (env-override semantics). |
+| Limit | Up to 24 custom accents. Beyond that the parser truncates. |
+
+Each registered accent:
+
+- Adds an extra swatch at the end of the PreferencesMenu accent picker.
+- Becomes a valid value for `MARTIS_DEFAULT_ACCENT` (so a new user lands on it without having to click).
+- Becomes a valid value for the user's persisted `accent` preference column.
+
+### How the colour is rendered
+
+Martis injects an inline `<style>` block at boot for every custom accent:
+
+```css
+html[data-accent="edgeflow"] {
+  --martis-accent: #1a73e8;
+  --martis-accent-hover:  color-mix(in srgb, #1a73e8 88%, black);
+  --martis-accent-soft:   color-mix(in srgb, #1a73e8 18%, transparent);
+  --martis-accent-strong: color-mix(in srgb, #1a73e8 92%, black);
+  --martis-accent-text:   #ffffff;
+}
+```
+
+Hover / soft / strong variants are derived from the base hex via `color-mix(in srgb, …)`, so the consumer only ships one colour per accent. Browser support: Chrome 111+, Safari 16.2+, Firefox 113+.
+
+### Removing a custom accent
+
+Drop the entry from `MARTIS_CUSTOM_ACCENTS` and `php artisan config:cache`. Users who had picked the removed name keep the value in their `user_preferences.accent` row, but the resolver falls back to `martis` on the next request — no migration needed.
+
 ## Cache
 
 ```php
@@ -757,6 +856,11 @@ The package ships **no default Gate**. Define `martis-impersonate` in your `Auth
 | `MARTIS_GUARD` | `guard` | `null` |
 | `MARTIS_BRAND_NAME` | `brand.name` | `Martis` |
 | `MARTIS_BRAND_LOGO` | `brand.logo` | `null` |
+| `MARTIS_BRAND_LOGO_DARK` | `brand.logo_dark` | `null` (v1.7.0) |
+| `MARTIS_BRAND_ICON` | `brand.icon` | `null` |
+| `MARTIS_BRAND_ICON_DARK` | `brand.icon_dark` | `null` (v1.7.0) |
+| `MARTIS_BRAND_LOGO_HEIGHT_MENU` | `brand.logo_height.menu` | `40` (v1.7.0) |
+| `MARTIS_BRAND_LOGO_HEIGHT_AUTH` | `brand.logo_height.auth` | `48` (v1.7.0) |
 | `MARTIS_BRAND_VERSION` | `brand.version` | `null` |
 | `MARTIS_BRAND_DOCS_URL` | `brand.docs_url` | `null` |
 | `MARTIS_FAVICON` | `brand.favicon` | `null` |
@@ -764,6 +868,10 @@ The package ships **no default Gate**. Define `martis-impersonate` in your `Auth
 | `MARTIS_FOOTER_TEXT` | `footer.text` | `null` (uses translation) |
 | `MARTIS_WELCOME_HEADING` | `welcome.heading` | `null` (uses translation) |
 | `MARTIS_WELCOME_DESCRIPTION` | `welcome.description` | `null` (uses translation) |
+| `MARTIS_DEFAULT_THEME` | `preferences.defaults.theme` | `dark` (v1.7.0) |
+| `MARTIS_DEFAULT_ACCENT` | `preferences.defaults.accent` | `martis` (v1.7.0) |
+| `MARTIS_DEFAULT_DENSITY` | `preferences.defaults.density` | `comfortable` (v1.7.0) |
+| `MARTIS_CUSTOM_ACCENTS` | `preferences.custom_accents` | `null` (v1.7.0) |
 | `MARTIS_LAYOUT` | `layout.preset` | `sidebar` |
 | `MARTIS_NAV_COUNTS` | `navigation.counts.enabled` | `true` |
 | `MARTIS_NAV_POLL_MS` | `navigation.poll_interval` | `60000` |

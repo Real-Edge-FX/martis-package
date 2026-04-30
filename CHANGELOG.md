@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-04-30
+
+Brand surfaces gain theme-aware variants, per-surface sizing knobs, smarter sidebar collapse behaviour, and the preferences subsystem opens up to env-driven defaults plus arbitrary consumer-defined accent colours.
+
+### Added
+
+- **`brand.logo_dark` + `brand.icon_dark`** (env `MARTIS_BRAND_LOGO_DARK`, `MARTIS_BRAND_ICON_DARK`). When the consumer ships separate light/dark assets, the SPA renders both `<img>` tags in the DOM and CSS hides one based on `<html data-theme>` — instant toggle, no React re-render, no fetch. Setting only one variant reuses it for both themes (zero migration for v1.6.x consumers).
+- **Per-surface logo height** (env `MARTIS_BRAND_LOGO_HEIGHT_MENU`, `MARTIS_BRAND_LOGO_HEIGHT_AUTH`). Drives two CSS variables on `:root`. Server clamps menu to 20–56 px, auth to 24–80 px so a typo cannot break the layout.
+- **Sidebar collapse prefers the icon.** When the sidebar is collapsed AND the consumer shipped `brand.icon` (or `brand.icon_dark`), the icon wins regardless of `brand.logo`. A horizontal lockup at 64 px rail width gets distorted; the square icon fits cleanly.
+- **Default theme / accent / density via env** (`MARTIS_DEFAULT_THEME`, `MARTIS_DEFAULT_ACCENT`, `MARTIS_DEFAULT_DENSITY`). Invalid values fall through to safe defaults via `PreferencesResolver`.
+- **Custom accent colours** via `MARTIS_CUSTOM_ACCENTS="name:#hex,name:#hex,..."`. Each parsed entry adds an extra swatch to PreferencesMenu, becomes a valid value for `MARTIS_DEFAULT_ACCENT`, and persists in `user_preferences.accent`. Hover / soft / strong CSS variants auto-derive via `color-mix(in srgb, ...)` so the consumer only ships one colour per accent. Validation: lowercase `[a-z][a-z0-9_-]{0,31}`, `#RRGGBB`, no collision with bundled enum values, last-wins, capped at 24 entries.
+
+### Changed
+
+- `MartisConfigShape` (TypeScript) gains `logoDark`, `iconDark`, `logoHeight`. `MartisPreferencesConfig` gains `customAccents`.
+- `Sidebar.tsx`, `TopnavLayout.tsx`, `AuthFrame.tsx` consolidate brand-mark resolution into a single chain that handles light/dark variants. Existing single-variant consumers keep their behaviour.
+- `app.blade.php` injects two inline `<style>` blocks at boot: brand-height CSS variables + custom-accent CSS rules.
+
+### Tests
+
+- 18 new Pest cases (`CustomAccentsParserTest`, `BrandV170ConfigTest`, `PreferencesResolverCustomAccentTest`).
+- Pest: 1736 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+- PHPStan L8: 0 errors. Pint clean.
+
+### Documentation
+
+- `docs/configuration.md` — Brand block extended; new sub-sections "Theme-aware variants", "Asset sizing", "Sidebar collapse behaviour". New top-level "Preferences (v1.7.0 defaults)" + "Custom accent colours" sections. End-of-doc env table updated with all 8 new keys.
+
+### Migration notes for v1.6.x consumers
+
+- All new keys are additive. No `.env` change required to keep v1.6.x behaviour.
+- Hosts with published `config/martis.php` should re-sync the brand block to expose the new keys (`vendor:publish --tag=martis-config --force` or copy-paste).
+- Custom accents added at runtime do NOT require a frontend rebuild — `php artisan config:cache && php artisan martis:cache:clear` is enough.
+
+## [1.6.5] — 2026-04-30
+
+Defensive CSS for logo-only mode after the v1.6.4 production smoke surfaced overflow on tall horizontal lockups.
+
+### Fixed
+
+- `.martis-sb-logo` gains `max-height: 56px` + `overflow: hidden` so the row can never grow past the bar height.
+- Logo-mode rules add `max-height` on both the mark wrapper and the img, plus `object-fit: contain` + `display: block`.
+- Auth-card logo grows from 40px to 48px and the cap from 220px to 240px.
+
 ## [1.6.4] — 2026-04-30
 
 Two production-surfaced bugs + a doc rewrite.

@@ -31,20 +31,29 @@ import {
 } from "@phosphor-icons/react"
 
 /**
- * Topnav brand resolution. Mirrors `Sidebar.getBrandMark()`:
- *   1. `config.logo` set → render the lockup alone (no wordmark next
- *      to it, since the asset is assumed to include the wordmark).
- *   2. `config.icon` set → render the icon + brand text side-by-side.
- *   3. Neither → bundled cube + brand text (the default).
+ * Topnav brand resolution (v1.7.0). Mirrors `Sidebar.getBrandMark()`
+ * but without the collapse override (topnav is single-row, no
+ * collapsed state). Theme variants follow the same rule: when only
+ * one of light/dark is set, it is reused for the missing slot.
  */
-function getBrandMark(): { src: string; mode: "logo" | "icon" } {
-  if (config.logo) {
-    return { src: config.logo, mode: "logo" }
+function getBrandMark(): {
+  light: string
+  dark: string
+  mode: "logo" | "icon"
+} {
+  const logoLight = config.logo ?? config.logoDark ?? null
+  const logoDark = config.logoDark ?? config.logo ?? null
+  const iconLight = config.icon ?? config.iconDark ?? null
+  const iconDark = config.iconDark ?? config.icon ?? null
+
+  if (logoLight) {
+    return { light: logoLight, dark: logoDark ?? logoLight, mode: "logo" }
   }
-  if (config.icon) {
-    return { src: config.icon, mode: "icon" }
+  if (iconLight) {
+    return { light: iconLight, dark: iconDark ?? iconLight, mode: "icon" }
   }
-  return { src: logoSrcDefault as string, mode: "icon" }
+  const bundled = logoSrcDefault as string
+  return { light: bundled, dark: bundled, mode: "icon" }
 }
 
 export function TopnavLayout() {
@@ -68,7 +77,7 @@ export function TopnavLayout() {
 
   const brand = config.brand ?? "Martis"
   const brandMark = getBrandMark()
-  const logoSrc = brandMark.src
+  const sameVariant = brandMark.light === brandMark.dark
   const showProfile = config.profile?.enabled !== false && config.userMenu?.showProfile !== false
   const searchEnabled = config.search?.enabled !== false
 
@@ -169,7 +178,23 @@ export function TopnavLayout() {
       <header className="martis-topnav-bar">
         <div className="martis-topnav-brand" data-mode={brandMark.mode}>
           <div className="martis-sb-logo-mark">
-            <img src={logoSrc} alt={brand} />
+            {sameVariant ? (
+              <img src={brandMark.light} alt={brand} />
+            ) : (
+              <>
+                <img
+                  src={brandMark.light}
+                  alt={brand}
+                  className="martis-brand-img--light"
+                />
+                <img
+                  src={brandMark.dark}
+                  alt={brand}
+                  className="martis-brand-img--dark"
+                  aria-hidden="true"
+                />
+              </>
+            )}
           </div>
           {brandMark.mode === "icon" && (
             <span className="martis-topnav-brand-text">{brand}</span>

@@ -36,34 +36,81 @@ export function AuthFrame({ children, width }: AuthFrameProps) {
     : (config.footer?.text ?? t('footer_default', { brand, defaultValue: '© {{brand}} · Powered by Martis' }))
   const cardStyle = width !== undefined ? { maxWidth: typeof width === 'number' ? `${width}px` : width } : undefined
 
-  const customLogo = config.logo ?? null
-  const customIcon = config.icon ?? null
+  // v1.7.0 — theme-aware variants. When only one of light/dark is set
+  // we reuse it for the missing slot. The DOM ships both images and
+  // CSS hides one based on `<html data-theme>` for an instant toggle.
+  const logoLight = config.logo ?? config.logoDark ?? null
+  const logoDark = config.logoDark ?? config.logo ?? null
+  const iconLight = config.icon ?? config.iconDark ?? null
+  const iconDark = config.iconDark ?? config.icon ?? null
+
+  let mode: 'logo' | 'icon' | 'bundled' = 'bundled'
+  let lightSrc: string = bundledLogo
+  let darkSrc: string = bundledLogo
+  if (logoLight) {
+    mode = 'logo'
+    lightSrc = logoLight
+    darkSrc = logoDark ?? logoLight
+  } else if (iconLight) {
+    mode = 'icon'
+    lightSrc = iconLight
+    darkSrc = iconDark ?? iconLight
+  }
+  const sameVariant = lightSrc === darkSrc
 
   return (
     <div className="martis-auth-frame">
       <div className="martis-auth-bg" aria-hidden="true" />
       <AuthControls />
       <div className="martis-auth-card" style={cardStyle}>
-        <div
-          className="martis-auth-brand"
-          data-mode={customLogo ? 'logo' : customIcon ? 'icon' : 'bundled'}
-        >
-          {customLogo ? (
-            <img src={customLogo} alt={brand} />
-          ) : customIcon ? (
+        <div className="martis-auth-brand" data-mode={mode}>
+          {mode === 'icon' ? (
             <>
-              <img
-                src={customIcon}
-                alt=""
-                aria-hidden="true"
-                style={{ height: '2rem', width: 'auto' }}
-              />
+              {sameVariant ? (
+                <img
+                  src={lightSrc}
+                  alt=""
+                  aria-hidden="true"
+                  style={{ height: '2rem', width: 'auto' }}
+                />
+              ) : (
+                <>
+                  <img
+                    src={lightSrc}
+                    alt=""
+                    aria-hidden="true"
+                    className="martis-brand-img--light"
+                    style={{ height: '2rem', width: 'auto' }}
+                  />
+                  <img
+                    src={darkSrc}
+                    alt=""
+                    aria-hidden="true"
+                    className="martis-brand-img--dark"
+                    style={{ height: '2rem', width: 'auto' }}
+                  />
+                </>
+              )}
               <span style={{ fontSize: '1.5rem', fontWeight: 600, marginLeft: '0.5rem' }}>
                 {brand}
               </span>
             </>
+          ) : sameVariant ? (
+            <img src={lightSrc} alt={brand} />
           ) : (
-            <img src={bundledLogo} alt={brand} />
+            <>
+              <img
+                src={lightSrc}
+                alt={brand}
+                className="martis-brand-img--light"
+              />
+              <img
+                src={darkSrc}
+                alt={brand}
+                className="martis-brand-img--dark"
+                aria-hidden="true"
+              />
+            </>
           )}
         </div>
         {children}
