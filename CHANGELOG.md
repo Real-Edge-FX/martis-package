@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.6] — 2026-04-30
+
+### Fixed
+
+- **Guest login page no longer fires a 401 on `/api/preferences`.** `PreferencesContext` runs an auto-refetch of `/api/preferences` on every mount (keyed on `user?.id`) so post-login state reconciles with the server. The endpoint lives inside the `martis.auth` middleware group, so a guest mount produced a `401 Unauthorized` in the browser console (caught silently — no functional impact, but a confusing error log that surfaced in support requests). The effect now skips the fetch entirely when `user` is `null`. The SSR payload + localStorage are already authoritative for guests; the server has nothing extra to add.
+
+### Validation
+
+- Pest: 1739 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+
 ## [1.7.5] — 2026-04-30
 
 Hotfix: dev-changed defaults now reach every guest who has not explicitly picked their own.

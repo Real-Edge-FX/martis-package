@@ -186,6 +186,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // also re-runs after account switching.
   useEffect(() => {
     if (!enabled) return
+    // Skip the refetch for guests (v1.7.6). The /api/preferences
+    // routes live inside the `martis.auth` middleware group — a
+    // guest GET returns 401, the catch below swallows the failure,
+    // but the browser console still logs the network error on every
+    // login-page mount. The fetch is only meaningful AFTER the user
+    // authenticates: that is when the SSR payload may diverge from
+    // what the user had on the guest page (different language,
+    // saved accent, etc) and the post-login refetch is needed to
+    // reconcile. Guests have nothing extra on the server to load —
+    // the SSR payload + localStorage are already authoritative.
+    if (!user) return
     let active = true
     api.get<ShowResponse>('/api/preferences')
       .then((resp) => {
@@ -203,7 +214,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        /* offline, unauthenticated, or preferences disabled — keep local state */
+        /* offline or preferences disabled — keep local state */
       })
     return () => { active = false }
   }, [enabled, user?.id])
