@@ -20,7 +20,7 @@ use Martis\Preferences\PreferencesResolver;
  * @property int $id
  * @property int $user_id
  * @property ThemeMode $theme
- * @property AccentColor $accent
+ * @property string $accent
  * @property ?string $brand_color
  * @property UiDensity $density
  * @property string $locale
@@ -34,7 +34,14 @@ class UserPreference extends Model
 
     protected $casts = [
         'theme' => ThemeMode::class,
-        'accent' => AccentColor::class,
+        // `accent` is a plain string column, not an enum cast (v1.7.4).
+        // Casting to AccentColor::class silently dropped any custom
+        // accent name registered via MARTIS_CUSTOM_ACCENTS — the cast
+        // ran AccentColor::tryFrom() on read, returned null for
+        // custom values, and toPayload() crashed on `null->value`. The
+        // PreferencesResolver::normaliseAccent() helper validates the
+        // string against the union of bundled enum + custom names on
+        // every read, so the model layer doesn't need to.
         'density' => UiDensity::class,
         'reduced_motion' => 'boolean',
     ];
@@ -56,7 +63,12 @@ class UserPreference extends Model
     {
         return [
             'theme' => $this->theme->value,
-            'accent' => $this->accent->value,
+            // String column (no enum cast) so custom accent names from
+            // MARTIS_CUSTOM_ACCENTS round-trip without being silently
+            // nulled. PreferencesResolver::normaliseAccent() guarantees
+            // the value is a known accent (bundled or custom) before it
+            // reaches the SPA payload.
+            'accent' => $this->accent,
             'brandColor' => $this->brand_color,
             'density' => $this->density->value,
             'locale' => $this->locale,
