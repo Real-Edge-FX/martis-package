@@ -333,7 +333,13 @@ abstract class Field implements FieldContract
             'creationRules' => $this->creationRules !== [] ? $this->creationRules : null,
             'updateRules' => $this->updateRules !== [] ? $this->updateRules : null,
             'immutable' => $this->immutable,
-            'dependsOn' => $this->isDependent() ? ['fields' => $this->dependentFields] : null,
+            // Surface the watched field list whenever the developer
+            // declared one — even if no callback was attached. The
+            // sync-field path still keys on isDependent() (callback +
+            // fields), but pickers like BelongsToMany use the schema
+            // entry alone to forward `?form[*]` query params for
+            // `relatableQueryUsing`. v1.8.3.
+            'dependsOn' => $this->dependentFields !== [] ? ['fields' => $this->dependentFields] : null,
             'component' => $this->componentKey,
             'placeholder' => $this->getPlaceholder(),
             'helpText' => $this->getHelp(),

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.3] — 2026-04-30
+
+Hotfix: the `BelongsToMany::dependsOn([...])` form-draft mechanism shipped in v1.8.2 only worked when a callback was also passed. Without a callback, `Field::isDependent()` returned `false` and the schema dropped the `dependsOn` block, so the picker never forwarded `?form[*]`.
+
+### Fixed
+
+- `Field`'s schema now surfaces `dependsOn.fields` whenever the developer declared a watched-field list, regardless of whether a sync-field callback was attached. The legacy `isDependent()` check (callback + fields) still gates the sync-field handler — only the schema is more permissive. v1.8.3.
+
+### Validation
+
+- Pest 1742 / 1 skipped / 0 failed.
+- Vitest 119 / 5 skipped.
+- PHPStan L8 0 errors. Pint clean.
+
 ## [1.8.2] — 2026-04-30
 
 UX patches reported during edge-flow validation, plus two reusable DX upgrades that other Resources can now leverage.

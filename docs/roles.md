@@ -131,6 +131,88 @@ Open the file under `app/Martis/Resources/UserResource.php` (or wherever you sca
 
 The generator never re-touches a file once it exists. Re-run with `--force` only when you want a fresh scaffold and have backed up your custom changes.
 
+## Using permissions in your code
+
+Permissions are pure DB rows. The Spatie helpers read them on demand — there is no separate registration step. Once a row exists in the `permissions` table and is attached to one of the user's roles (via `role_has_permissions` + `model_has_roles`), the standard Laravel authorisation primitives work:
+
+```php
+// Inside any controller / action
+if ($request->user()->can('posts.publish')) { ... }
+
+// Throwing variant — 403 if the check fails
+$this->authorize('posts.publish');
+
+// Direct on the user
+$user->givePermissionTo('posts.publish');     // attach
+$user->revokePermissionTo('posts.publish');   // detach
+$user->hasPermissionTo('posts.publish');      // check
+
+// Roles
+$user->assignRole('editor');
+$user->hasRole('editor');
+```
+
+### Gating a Martis Resource by a permission
+
+The cleanest path is a Policy — the resource layer calls `Gate::allows(...)` and Laravel resolves the policy method automatically:
+
+```php
+// app/Policies/PostPolicy.php
+public function viewAny(User $user): bool
+{
+    return $user->can('posts.view');
+}
+
+public function create(User $user): bool
+{
+    return $user->can('posts.create');
+}
+
+public function update(User $user, Post $post): bool
+{
+    // Owner exception — authors can always edit their drafts.
+    if ($post->author_id === $user->id && $post->status === 'draft') {
+        return true;
+    }
+    return $user->can('posts.update');
+}
+
+public function delete(User $user, Post $post): bool
+{
+    return $user->can('posts.delete');
+}
+```
+
+Register the policy once in `App\Providers\AuthServiceProvider`:
+
+```php
+protected $policies = [
+    \App\Models\Post::class => \App\Policies\PostPolicy::class,
+];
+```
+
+That single registration covers the index page (sidebar visibility, list endpoint), the detail page, the create form, the edit form, and the delete button — Martis calls every gate before rendering each.
+
+### Gating a route
+
+```php
+Route::get('/admin/reports', ReportController::class)
+    ->middleware(['martis.auth', 'can:reports.view']);
+```
+
+### Gating an Artisan command
+
+```php
+if (! Auth::user()->can('exports.run')) {
+    $this->error('Permission denied.');
+    return Command::FAILURE;
+}
+```
+
+### Where the permission strings come from
+
+Whatever you typed (or scaffolded) in the Permission admin page. The string is just a label your code agrees on; no enum, no registry. A common pattern: `<resource>.<action>` (`posts.publish`, `users.delete`) or the Spatie dot-notation seeded by `Slug::make('name')->separator('.')`. Pick a convention and stick to it — typos here become silent permission failures, so a Slug-backed input on the admin form is worth the few minutes it saves.
+
 ## Customising the policies
 
 The generated policies all return `$user->hasRole('admin')` from every method. Tighten or relax as needed:
