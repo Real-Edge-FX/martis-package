@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
+import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 
 /**
@@ -29,6 +30,7 @@ export function RegisterPage() {
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { t } = useTranslation('auth')
+  const tCopy = useAuthCopy()
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -88,9 +90,11 @@ export function RegisterPage() {
 
   return (
     <AuthFrame>
-      <h2 className="martis-auth-title">{t('register_title', { defaultValue: 'Create your account' })}</h2>
+      <h2 className="martis-auth-title">
+        {tCopy('register', 'title', 'register_title', 'Create your account')}
+      </h2>
       <p className="martis-auth-sub">
-        {t('register_sub', { defaultValue: 'Get started with your workspace. We just need a few details.' })}
+        {tCopy('register', 'subtitle', 'register_sub', 'Get started with your workspace. We just need a few details.')}
       </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 20 }}>
@@ -134,7 +138,7 @@ export function RegisterPage() {
             id="register-email"
             type="email"
             name="email"
-            autoComplete="email"
+            autoComplete="username email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={handleFieldKeyDown}

@@ -37,4 +37,41 @@ return [
     'register_success' => 'Conta criada. Faça login.',
     'register_endpoint_missing' => 'O endpoint de registro não está disponível. Peça ao administrador para configurá-lo.',
     'register_have_account' => 'Já tem uma conta?',
+
+    // Recuperação de senha (v1.8.0)
+    'forgot_password_title' => 'Recuperar sua senha',
+    'forgot_password_sub' => 'Informe seu e-mail e enviaremos um link para definir uma nova senha.',
+    'forgot_password_email_label' => 'E-mail',
+    'forgot_password_email_placeholder' => 'admin@exemplo.com',
+    'forgot_password_submit' => 'Enviar link',
+    'forgot_password_submitting' => 'Enviando…',
+    'forgot_password_sent_button' => 'Link enviado',
+    'forgot_password_sent' => 'Se existir uma conta com esse e-mail, um link de recuperação está a caminho.',
+    'forgot_password_back_to_login' => 'Voltar ao login',
+    'forgot_password_disabled' => 'A recuperação de senha não está habilitada neste workspace.',
+    'forgot_password_mailer_unavailable' => 'O serviço de e-mail está temporariamente indisponível. Tente novamente em alguns minutos ou contate o administrador.',
+
+    // Definir nova senha (v1.8.0)
+    'reset_password_title' => 'Definir uma nova senha',
+    'reset_password_sub' => 'Escolha uma nova senha para sua conta.',
+    'reset_password_new' => 'Nova senha',
+    'reset_password_new_placeholder' => 'Digite a nova senha',
+    'reset_password_confirm' => 'Confirmar senha',
+    'reset_password_confirm_placeholder' => 'Repita a nova senha',
+    'reset_password_show' => 'Mostrar senha',
+    'reset_password_hide' => 'Ocultar senha',
+    'reset_password_submit' => 'Atualizar senha',
+    'reset_password_submitting' => 'Atualizando…',
+    'reset_password_success' => 'Senha atualizada. Faça login com as novas credenciais.',
+    'reset_password_mismatch' => 'As senhas não conferem.',
+    'reset_password_invalid_token' => 'Este link de recuperação é inválido ou expirou. Solicite um novo.',
+    'reset_password_disabled' => 'A recuperação de senha não está habilitada neste workspace.',
+
+    // Rótulos de tema (usados pelo tooltip do AuthControls)
+    'theme_dark' => 'Escuro',
+    'theme_light' => 'Claro',
+    'theme_system' => 'Sistema',
+    'theme' => 'Tema',
+    'language' => 'Idioma',
+    'preferences' => 'Preferências',
 ];

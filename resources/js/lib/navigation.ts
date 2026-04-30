@@ -24,13 +24,49 @@ export function getItemCount(item: NavigationItem): number | null {
 }
 
 /**
- * Compact count formatter used by the nav badges. Uses `Intl.NumberFormat`
- * to keep locale-appropriate thousand separators (1,284 in en, 1.284 in
- * pt). Falls back to a plain string on runtime issues.
+ * Threshold above which the badge switches from full digits to compact
+ * notation (10K, 123K, 1.2M, …). Configurable via the SSR-injected
+ * `MartisConfig.navigation.countCompactThreshold`. Default 10000 keeps
+ * everyday counts readable (so you still see 1,234 / 9,872 in full)
+ * while preventing badges from blowing up the sidebar at 50,000+.
+ *
+ * Set to `null` (or 0) to disable compaction and always show full digits.
+ */
+const DEFAULT_COMPACT_THRESHOLD = 10_000
+
+function getCompactThreshold(): number | null {
+  const cfg = (window as unknown as {
+    MartisConfig?: { navigation?: { countCompactThreshold?: number | null } }
+  }).MartisConfig?.navigation?.countCompactThreshold
+  if (cfg === null) return null
+  if (typeof cfg === 'number' && cfg >= 0) return cfg
+  return DEFAULT_COMPACT_THRESHOLD
+}
+
+/**
+ * Compact count formatter used by the nav badges.
+ *
+ * Below the threshold (default 10K): full digits with locale-aware
+ * thousand separators (1,284 en / 1.284 pt).
+ *
+ * At or above the threshold: `Intl.NumberFormat` compact notation —
+ * 10000 → "10K", 123456 → "123K", 1_234_567 → "1.2M". Sub-million
+ * values get no decimals (cleaner badge); 1M+ gets one decimal so
+ * 1.2M / 5.4M / 25M stay distinguishable.
+ *
+ * Falls back to a plain string on runtime issues (very old browsers
+ * without `Intl` compact support).
  */
 export function formatItemCount(value: number): string {
   try {
-    return new Intl.NumberFormat().format(value)
+    const threshold = getCompactThreshold()
+    if (threshold === null || value < threshold) {
+      return new Intl.NumberFormat().format(value)
+    }
+    return new Intl.NumberFormat(undefined, {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value)
   } catch {
     return String(value)
   }

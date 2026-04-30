@@ -94,6 +94,12 @@
             layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
             navigation: {!! json_encode([
                 'pollInterval' => (int) config('martis.navigation.poll_interval', 60000),
+                // null disables compaction (always full digits); a positive
+                // integer is the threshold above which the badge switches
+                // to compact notation (10K, 1.2M). Default 10000.
+                'countCompactThreshold' => config('martis.navigation.counts.compact_threshold') === null
+                    ? null
+                    : (int) config('martis.navigation.counts.compact_threshold', 10000),
             ]) !!},
             loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
             notifications: {!! json_encode(config('martis.notifications', [
@@ -113,13 +119,26 @@
                     'scroll' => false,
                 ],
             ])) !!},
-            auth: {!! json_encode(config('martis.auth', [
-                'sso' => ['enabled' => false, 'url' => null],
-                'google' => ['enabled' => false, 'url' => null],
-                'passwordReset' => ['enabled' => false, 'url' => null],
-                'registration' => ['enabled' => false, 'url' => null],
-                'controls' => ['theme' => true, 'locale' => true],
-            ])) !!},
+            auth: {!! json_encode(array_merge(
+                config('martis.auth', [
+                    'sso' => ['enabled' => false, 'url' => null],
+                    'google' => ['enabled' => false, 'url' => null],
+                    'passwordReset' => ['enabled' => false, 'url' => null],
+                    'registration' => ['enabled' => false, 'url' => null],
+                    'controls' => ['theme' => true, 'locale' => true],
+                ]),
+                [
+                    // v1.8.0 — explicit copy overrides for the auth pages.
+                    // Always merged on top so a missing key doesn't crash
+                    // the React helper.
+                    'copy' => config('martis.auth.copy', [
+                        'login' => ['title' => null, 'subtitle' => null, 'subtitle_with_sso' => null],
+                        'register' => ['title' => null, 'subtitle' => null],
+                        'forgot_password' => ['title' => null, 'subtitle' => null],
+                        'reset_password' => ['title' => null, 'subtitle' => null],
+                    ]),
+                ]
+            )) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
                 'sections' => array_values(array_intersect(

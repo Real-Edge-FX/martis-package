@@ -15,6 +15,7 @@ use Martis\Http\Controllers\HasOneController;
 use Martis\Http\Controllers\ImpersonationController;
 use Martis\Http\Controllers\LensController;
 use Martis\Http\Controllers\LoginController;
+use Martis\Http\Controllers\MetaController;
 use Martis\Http\Controllers\MetricController;
 use Martis\Http\Controllers\MorphManyController;
 use Martis\Http\Controllers\MorphOneController;
@@ -171,6 +172,10 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->middleware($throttle)
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('navigation');
+
+                                // Meta endpoints — reference data for admin
+                                // dropdowns. v1.8.0.
+                                Route::get('/_meta/guards', [MetaController::class, 'guards'])->name('meta.guards');
 
                                 // Tools — free-form sidebar pages registered
                                 // via `Martis::tools([...])`. List + per-key

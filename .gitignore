@@ -17,6 +17,7 @@ vendor/
 .phpunit.result.cache
 coverage/
 coverage-*/
+test-results/
 
 # Vite / logs
 public/hot

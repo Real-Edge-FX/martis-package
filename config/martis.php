@@ -233,6 +233,19 @@ return [
     'navigation' => [
         'counts' => [
             'enabled' => env('MARTIS_NAV_COUNTS', true),
+
+            /*
+             | Threshold above which count badges switch from full digits
+             | (1,284) to compact notation (10K, 1.2M). Default 10000.
+             |
+             | Set to null (env unset) to use the default. Set to 0 to
+             | always show compact. Set to a very high number (e.g.
+             | 1_000_000) to effectively disable compaction.
+             |
+             | The browser receives this via window.MartisConfig.navigation
+             | and the formatItemCount() helper applies it client-side.
+             */
+            'compact_threshold' => env('MARTIS_NAV_COUNT_COMPACT_THRESHOLD', 10000),
         ],
 
         /*
@@ -714,6 +727,44 @@ return [
         'controls' => [
             'theme' => env('MARTIS_AUTH_CONTROL_THEME', true),
             'locale' => env('MARTIS_AUTH_CONTROL_LOCALE', true),
+        ],
+
+        // Per-page copy overrides for the unauthenticated auth surfaces
+        // (Login, Register, ForgotPassword, ResetPassword). Each entry
+        // accepts a string OR null:
+        //   - null       → fall back to the Martis i18n key (auth.php).
+        //                  This is the default — translations win.
+        //   - string     → override applied verbatim. Useful when the
+        //                  product brand wants a custom title without
+        //                  publishing the language files.
+        //
+        // Multiple subtitles for login because the wording shifts when
+        // SSO is enabled ("Continue with SSO or use your email" vs the
+        // plain "Use your email…"). Set the SSO variant only if you
+        // want different copy when SSO is on.
+        //
+        // The bridge in `app.blade.php` exposes this block as
+        // `window.MartisConfig.auth.copy`; the React helper
+        // `useAuthCopy()` returns the override or falls back to t().
+        // v1.8.0.
+        'copy' => [
+            'login' => [
+                'title' => env('MARTIS_AUTH_LOGIN_TITLE'),
+                'subtitle' => env('MARTIS_AUTH_LOGIN_SUBTITLE'),
+                'subtitle_with_sso' => env('MARTIS_AUTH_LOGIN_SUBTITLE_SSO'),
+            ],
+            'register' => [
+                'title' => env('MARTIS_AUTH_REGISTER_TITLE'),
+                'subtitle' => env('MARTIS_AUTH_REGISTER_SUBTITLE'),
+            ],
+            'forgot_password' => [
+                'title' => env('MARTIS_AUTH_FORGOT_TITLE'),
+                'subtitle' => env('MARTIS_AUTH_FORGOT_SUBTITLE'),
+            ],
+            'reset_password' => [
+                'title' => env('MARTIS_AUTH_RESET_TITLE'),
+                'subtitle' => env('MARTIS_AUTH_RESET_SUBTITLE'),
+            ],
         ],
     ],
 

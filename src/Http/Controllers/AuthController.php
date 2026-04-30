@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\ValidationException;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsPasswordResetLinks;
@@ -213,10 +214,28 @@ class AuthController extends MartisController
     public function sendPasswordResetLink(Request $request, SendsPasswordResetLinks $sender): JsonResponse
     {
         if (! config('martis.auth.passwordReset.enabled', false)) {
-            return response()->json(['message' => 'Password reset is disabled.'], 404);
+            return response()->json([
+                'message' => __('auth.forgot_password_disabled'),
+            ], 404);
         }
 
-        $status = $sender->sendResetLink($request);
+        // v1.8.0 — wrap the broker call so a misconfigured / down mailer
+        // (SMTP timeout, missing API key, queue worker not running) shows
+        // a Martis toast instead of a raw 500 to the guest. The original
+        // exception still goes through `report()` for monitoring.
+        try {
+            $status = $sender->sendResetLink($request);
+        } catch (ValidationException $e) {
+            // Let the framework's 422 response shape through unchanged
+            // so the form displays per-field errors correctly.
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => __('auth.forgot_password_mailer_unavailable'),
+            ], 503);
+        }
 
         if ($status === Password::RESET_LINK_SENT) {
             return response()->json([

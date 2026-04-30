@@ -111,7 +111,25 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
 
   if (res.status === 204) return undefined as unknown as T
 
-  const json: unknown = await res.json()
+  // v1.8.0 — defensively parse JSON. A misconfigured route (e.g. password
+  // reset routes when the feature is disabled) can return HTML or empty
+  // bodies; throwing the raw SyntaxError leaks framework internals into
+  // the UI ("Unexpected token < in JSON at position 0"). Fall back to a
+  // structured ApiError so callers see a clean toast.
+  let json: unknown = null
+  try {
+    const text = await res.text()
+    json = text ? JSON.parse(text) : null
+  } catch {
+    if (!res.ok) {
+      const fallback = res.status === 404 || res.status === 405
+        ? 'Request failed' // i18n key "Request failed" already supported below
+        : 'Request failed'
+      throw new ApiError(res.status, translateIfKey(fallback), [])
+    }
+    // Otherwise we got a 2xx with non-JSON; return null cast to T.
+    return null as unknown as T
+  }
 
   if (!res.ok) {
     // Intercept 401 globally: session expired — redirect to login. Skip a
@@ -123,7 +141,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     if (res.status === 401 && !publicProbes.includes(path)) {
       redirectOnSessionExpiry()
     }
-    const err = json as { message?: string; errors?: unknown }
+    const err = (json ?? {}) as { message?: string; errors?: unknown }
     // 403: surface a distinct "not authorized" message so the UI can show a
     // policy-specific toast instead of the generic action failure. The server
     // message is preserved if provided.
@@ -230,13 +248,23 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
 
   if (res.status === 204) return undefined as unknown as T
 
-  const json: unknown = await res.json()
+  // Same defensive JSON parse as the main request path. v1.8.0.
+  let json: unknown = null
+  try {
+    const text = await res.text()
+    json = text ? JSON.parse(text) : null
+  } catch {
+    if (!res.ok) {
+      throw new ApiError(res.status, translateIfKey('Request failed'), [])
+    }
+    return null as unknown as T
+  }
 
   if (!res.ok) {
     if (res.status === 401) {
       redirectOnSessionExpiry()
     }
-    const err = json as { message?: string; errors?: unknown }
+    const err = (json ?? {}) as { message?: string; errors?: unknown }
     throw new ApiError(
       res.status,
       translateIfKey(err.message ?? 'Request failed'),
