@@ -4,7 +4,37 @@ import { API_BASE_URL, config } from "./config"
 import { queryClient } from "./query"
 
 export function getLocale(): string {
-  const locale = config.locale ?? "en"
+  // Resolution order (v1.7.4):
+  //   1. localStorage `martis-preferences.locale` — guest choice on
+  //      login / register page, OR last applied locale of any user.
+  //      Wins over SSR for the same reason readInitialPrefs() does:
+  //      the SSR `locale` is just the server default for guests.
+  //   2. SSR-injected `window.MartisConfig.locale` — for an
+  //      authenticated user this is the resolver's view (DB row);
+  //      for a guest it is the config default.
+  //   3. Hard-coded `"en"`.
+  //
+  // We do NOT honour the persisted-source distinction here (unlike
+  // readInitialPrefs) because i18n.init runs once and there is no
+  // `source` field in `window.MartisConfig.locale`. The
+  // PreferencesContext refetch for authenticated users (line 197 of
+  // PreferencesContext.tsx) catches the post-login mismatch by
+  // calling loadLocale() with the server's saved locale.
+  let locale: string | undefined
+  try {
+    const raw = window.localStorage.getItem("martis-preferences")
+    if (raw) {
+      const cached = JSON.parse(raw)
+      if (cached && typeof cached.locale === "string") {
+        locale = cached.locale
+      }
+    }
+  } catch {
+    /* localStorage blocked / corrupt — fall through. */
+  }
+  if (!locale) {
+    locale = config.locale ?? "en"
+  }
 
   if (locale === "en_US" || locale === "en_GB") {
     return "en"

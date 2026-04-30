@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.4] — 2026-04-30
+
+Two persistence bugs that survived v1.7.0–1.7.3.
+
+### Fixed
+
+- **Custom accent names were silently dropped on persistence (auth users).** `Martis\Models\UserPreference` cast `accent` as `AccentColor::class`. When the user picked a custom name (e.g. `edgeflow` from `MARTIS_CUSTOM_ACCENTS`), the cast's `tryFrom()` returned null on read; `toPayload()` then crashed on `null->value`. Bundled accents persisted because they matched the enum; custom ones never round-tripped. The cast is removed — `accent` is a plain string column. `PreferencesResolver::normaliseAccent()` already validates the value (bundled enum + custom names) on every read, so the model layer doesn't need to.
+- **i18n initialised with the SSR locale instead of the user's localStorage choice.** `getLocale()` returned `window.MartisConfig.locale` (server's view), so a guest who picked `pt_PT` on the login page saw the language picker show pt_PT after refresh but the texts were still English. The resolver now consults localStorage first (same priority as the React `readInitialPrefs()` and the blade pre-paint script), falling through to SSR + hard fallback only when no cached value exists.
+
+### Tests
+
+- 3 new Pest cases under `tests/Feature/UserPreferenceCustomAccentTest.php` — bundled accent round-trip, custom accent round-trip, `toPayload()` survives an unknown name written by an older version.
+
+### Validation
+
+- Pest: 1739 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+- PHPStan L8: 0 errors. Pint clean.
+
+### Migration notes
+
+- No DB migration required. The `accent` column was already `string` — only the model cast changed. Rows previously written by v1.7.0–1.7.3 with bundled enum values continue to work.
+- Hosts with their own UserPreference cast override (rare) should remove `'accent' => AccentColor::class` from `$casts` to avoid the same silent-drop behaviour.
+
 ## [1.7.3] — 2026-04-30
 
 Hotfix for guest preference persistence. Authenticated user persistence already worked; this is the missing twin.
