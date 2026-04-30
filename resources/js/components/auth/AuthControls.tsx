@@ -55,8 +55,6 @@ export function AuthControls() {
   const availableLocales = meta?.locales ?? ['en', 'pt_PT', 'pt_BR']
   const localeLabels = { ...BUILTIN_LOCALE_LABELS, ...(config.preferences?.localeLabels ?? {}) }
 
-  const nextThemeIndex = (THEME_ORDER.indexOf(prefs.theme) + 1) % THEME_ORDER.length
-  const nextTheme = THEME_ORDER[nextThemeIndex]!
   const themeIcon =
     prefs.theme === 'dark' ? <MoonIcon size={16} /> :
     prefs.theme === 'light' ? <SunIcon size={16} /> :
@@ -66,7 +64,18 @@ export function AuthControls() {
     prefs.theme === 'light' ? t('theme_light', { defaultValue: 'Light' }) :
     t('theme_system', { defaultValue: 'System' })
 
-  const onThemeCycle = () => { void update({ theme: nextTheme }) }
+  // Use the function form of `update` so rapid clicks always advance
+  // from the LATEST committed theme, not from whatever `prefs.theme`
+  // was when this render captured its closure. Without this, three
+  // back-to-back clicks before a re-render all compute the same
+  // `nextTheme` and the cycle "skips" steps — the toggle then feels
+  // intermittent.
+  const onThemeCycle = () => {
+    void update((prev) => {
+      const idx = (THEME_ORDER.indexOf(prev.theme) + 1) % THEME_ORDER.length
+      return { theme: THEME_ORDER[idx]! }
+    })
+  }
   const onLocalePick = async (locale: string) => {
     await update({ locale })
     await loadLocale(locale)

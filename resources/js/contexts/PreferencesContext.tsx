@@ -40,10 +40,12 @@ export interface PreferencesMeta {
   densities: string[]
 }
 
+type PreferencePatch = Partial<Preferences> | ((prev: Preferences) => Partial<Preferences>)
+
 interface PreferencesContextValue {
   prefs: Preferences
   meta: PreferencesMeta | null
-  update: (patch: Partial<Preferences>) => Promise<void>
+  update: (patch: PreferencePatch) => Promise<void>
   reset: () => Promise<void>
   enabled: boolean
 }
@@ -237,14 +239,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return () => mql.removeEventListener?.('change', handler)
   }, [prefs])
 
-  const update = useCallback(async (patch: Partial<Preferences>) => {
+  const update = useCallback(async (patch: PreferencePatch) => {
     // Compute the merged snapshot from `prefsRef` (mirror of the latest
     // committed state) BEFORE calling setPrefs. Doing it inside the
     // setPrefs updater would leave `nextState` null whenever React 18
     // batched the updater asynchronously, which silently skipped the
     // localStorage write on the guest auth surfaces (login / register /
     // 2FA challenge). The ref-based snapshot is deterministic.
-    const nextState: Preferences = { ...prefsRef.current, ...patch }
+    //
+    // `patch` accepts a function form so callers can derive the next
+    // value from the LATEST committed state (read from the ref). The
+    // theme cycle button needs this — three rapid clicks before React
+    // re-renders all see the same `prefs.theme` from the captured
+    // closure, so a static patch always advances by ONE step. The
+    // function form re-evaluates the next theme against the live ref.
+    const concretePatch = typeof patch === 'function' ? patch(prefsRef.current) : patch
+    const nextState: Preferences = { ...prefsRef.current, ...concretePatch }
     // Write back to the ref synchronously BEFORE setPrefs so a second
     // rapid click (or chained update) reads the freshly merged state
     // instead of the stale value the post-render `useEffect` would only
