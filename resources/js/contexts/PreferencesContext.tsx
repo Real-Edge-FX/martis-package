@@ -245,6 +245,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     // localStorage write on the guest auth surfaces (login / register /
     // 2FA challenge). The ref-based snapshot is deterministic.
     const nextState: Preferences = { ...prefsRef.current, ...patch }
+    // Write back to the ref synchronously BEFORE setPrefs so a second
+    // rapid click (or chained update) reads the freshly merged state
+    // instead of the stale value the post-render `useEffect` would only
+    // sync after the next paint. Without this the toggle felt
+    // "intermittent" — fast clicks kept colliding on the same `prev`.
+    prefsRef.current = nextState
     setPrefs(nextState)
     if (!enabled) return
     // Persist the user's EXPLICIT choice (v1.7.5). This is the only
