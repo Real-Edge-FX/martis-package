@@ -254,6 +254,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState))
     } catch {}
+    // Skip the server PUT for guests. The /api/preferences route lives
+    // behind the `martis.auth` middleware group — every theme/locale
+    // tweak on the login/register/2FA surfaces would otherwise log a
+    // 401 in the user's console (symmetric to the GET refetch guard
+    // shipped in v1.7.6). LocalStorage already captured the choice
+    // above, so the post-login readInitialPrefs() picks it up.
+    if (!user) return
     // Optimistic write — send the FULL merged state so creating a new
     // user_preferences row never loses fields the user already applied
     // client-side (otherwise schema defaults would clobber e.g. a
@@ -263,9 +270,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       if (resp?.data) setPrefs((prev) => ({ ...prev, ...resp.data }))
       if (resp?.meta) setMeta(resp.meta)
     } catch {
-      // Server write failed (guest? 2FA? offline?) — keep the optimistic local state.
+      // Server write failed (2FA mid-flow? offline?) — keep the optimistic local state.
     }
-  }, [enabled])
+  }, [enabled, user])
 
   const reset = useCallback(async () => {
     if (!enabled) return

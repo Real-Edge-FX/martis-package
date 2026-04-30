@@ -72,6 +72,9 @@ export function AuthControls() {
     await loadLocale(locale)
   }
 
+  const themeTip = `${t('theme', { defaultValue: 'Theme' })}: ${themeLabel}`
+  const localeTip = t('language', { defaultValue: 'Language' })
+
   return (
     <div className="martis-auth-controls" aria-label={t('preferences', { defaultValue: 'Preferences' })}>
       {showTheme && (
@@ -79,19 +82,22 @@ export function AuthControls() {
           type="button"
           onClick={onThemeCycle}
           className="martis-auth-control"
-          aria-label={`${t('theme', { defaultValue: 'Theme' })}: ${themeLabel}`}
-          title={`${t('theme', { defaultValue: 'Theme' })}: ${themeLabel}`}
+          aria-label={themeTip}
+          data-pr-tooltip={themeTip}
         >
           {themeIcon}
         </button>
       )}
       {showLocale && (
-        <label className="martis-auth-control martis-auth-control-select">
+        <label
+          className="martis-auth-control martis-auth-control-select"
+          data-pr-tooltip={localeTip}
+        >
           <TranslateIcon size={16} aria-hidden="true" />
           <select
             value={prefs.locale}
             onChange={(e) => void onLocalePick(e.target.value)}
-            aria-label={t('language', { defaultValue: 'Language' })}
+            aria-label={localeTip}
           >
             {availableLocales.map((l) => (
               <option key={l} value={l}>{localeLabels[l] ?? l}</option>
