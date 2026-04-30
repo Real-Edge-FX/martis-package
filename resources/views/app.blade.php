@@ -60,13 +60,23 @@
             --martis-brand-logo-height-auth: {{ $authLogoHeight }}px;
         }
         @foreach($customAccents as $accentName => $accentHex)
-        /* v1.7.0 — custom accent ‘{{ $accentName }}’ ({{ $accentHex }}). */
+        /* v1.7.0 — custom accent ‘{{ $accentName }}’ ({{ $accentHex }}).
+           Mirrors the variable set defined for bundled accents in
+           resources/css/martis.css so every consuming rule (buttons,
+           focus rings, link colors, sidebar highlight) picks up the
+           override. Hover / active darken the base hex via color-mix;
+           the soft fills use rgba() with a fixed alpha that matches
+           the bundled `bg-light` / `bg` translucency. We emit one
+           rule that applies to both light and dark themes — a
+           single brand colour per accent, mirroring how Filament /
+           Nova handle consumer-defined accents. */
         html[data-accent="{{ $accentName }}"] {
-            --martis-accent: {{ $accentHex }};
-            --martis-accent-hover: color-mix(in srgb, {{ $accentHex }} 88%, black);
-            --martis-accent-soft: color-mix(in srgb, {{ $accentHex }} 18%, transparent);
-            --martis-accent-strong: color-mix(in srgb, {{ $accentHex }} 92%, black);
-            --martis-accent-text: #ffffff;
+            --martis-accent:          {{ $accentHex }};
+            --martis-accent-hover:    color-mix(in srgb, {{ $accentHex }} 88%, black);
+            --martis-accent-active:   color-mix(in srgb, {{ $accentHex }} 78%, black);
+            --martis-accent-bg-light: color-mix(in srgb, {{ $accentHex }} 14%, transparent);
+            --martis-accent-bg:       color-mix(in srgb, {{ $accentHex }} 24%, transparent);
+            --martis-focus-ring:      color-mix(in srgb, {{ $accentHex }} 45%, transparent);
         }
         @endforeach
     </style>

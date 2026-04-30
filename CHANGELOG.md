@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] — 2026-04-30
+
+Hotfix for v1.7.0 custom accents.
+
+### Fixed
+
+- **Custom accents now propagate to the UI.** v1.7.0 emitted only 5 CSS variables (`--martis-accent`, `-hover`, `-soft`, `-strong`, `-text`) for each custom accent. The bundled accent rules in `resources/css/martis.css` use a different (and larger) variable set: `--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring`. Buttons, sidebar highlight, focus rings, and accent backgrounds were therefore reading values from a fallback chain — clicking a custom swatch updated the persisted preference but the UI stayed on the previous accent.
+- The inline `<style>` block injected by `app.blade.php` now mirrors the exact variable set the rest of the stylesheet consumes. Hover / active darken via `color-mix(in srgb, hex 88/78%, black)`; the soft fills + focus ring use `color-mix(in srgb, hex 14/24/45%, transparent)` to match the translucency of the bundled rules.
+
+### Validation
+
+- Pest: 1736 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+
 ## [1.7.0] — 2026-04-30
 
 Brand surfaces gain theme-aware variants, per-surface sizing knobs, smarter sidebar collapse behaviour, and the preferences subsystem opens up to env-driven defaults plus arbitrary consumer-defined accent colours.
