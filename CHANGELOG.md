@@ -7,13 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.3] — 2026-04-30
+## [1.8.3] — 2026-05-01
 
-Hotfix: the `BelongsToMany::dependsOn([...])` form-draft mechanism shipped in v1.8.2 only worked when a callback was also passed. Without a callback, `Field::isDependent()` returned `false` and the schema dropped the `dependsOn` block, so the picker never forwarded `?form[*]`.
+Multiple polish items reported during edge-flow validation. The headliners are the password-reset email finally going out without consumer config, automatic required-field detection, and the BelongsToMany dependsOn mechanism actually firing in CREATE mode.
+
+### Added
+
+- **Automatic password-reset URL builder.** `MartisServiceProvider::boot()` now wires `Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(...)` to point at the Martis-prefixed `martis.password.reset` route whenever `martis.auth.passwordReset.enabled === true`. Defensive: the static probe respects callbacks already configured by the consumer (host apps that want a custom URL builder remain in control). Closes the `Symfony\Component\Routing\Exception\RouteNotFoundException: Route [password.reset] not defined` crash that prevented the Spatie / Laravel password broker from rendering reset emails.
+- **Auto-detect `required` flag from `->rules([...])`.** When a field declares `'required'` (or any `required_*` variant, or a `Rule::*` instance whose string form contains `required`) in its base `rules()`, the visual asterisk now appears in the form without the consumer having to repeat `->required()`. `creationRules` / `updateRules` are intentionally NOT consulted to keep the visual contract context-free.
+- **`GuardSelect` is required by default.** Spatie always requires `guard_name`; the field now sets `->required()` itself and ships `Rule::in(GuardCatalog::available())` so a guard outside `config/auth.guards` can never reach the DB (this was the root cause of the "Class name must be a valid object or a string" Spatie crash on Role delete).
 
 ### Fixed
 
-- `Field`'s schema now surfaces `dependsOn.fields` whenever the developer declared a watched-field list, regardless of whether a sync-field callback was attached. The legacy `isDependent()` check (callback + fields) still gates the sync-field handler — only the schema is more permissive. v1.8.3.
+- **`BelongsToMany::dependsOn([...])` without a callback was being dropped from the schema.** `Field::isDependent()` requires both a watched-field list AND a callback — but the picker only needs the list to forward `?form[*]` to `/attachable`. The schema now surfaces `dependsOn.fields` whenever the watched list is non-empty (sync-field handler still gates on `isDependent()` for backwards compat). This was the actual reason the v1.8.2 dependsOn mechanism didn't fire on CREATE.
+- **Auth surface error styling now matches the resource forms.** The pill-with-icon `<FieldError>` introduced in v1.8.2 was visually heavier than the `.martis-input-error` used in every resource form. It now renders as a single row of icon + tiny danger-coloured text — same visual rhythm as the rest of the product.
+
+### Internal
+
+- New `Field::rulesHaveRequired()` helper. Public `isRequired()` chains to it after the explicit flag and the closure resolver are checked.
+- `MartisServiceProvider::registerPasswordResetUrl()` runs after routes are loaded so the `martis.password.reset` name is resolvable.
 
 ### Validation
 

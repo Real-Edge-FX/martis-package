@@ -352,6 +352,25 @@ Behaviour: each value is `null` by default, which means "use the bundled transla
 
 The bridge in `app.blade.php` exposes the block as `window.MartisConfig.auth.copy`; the React helper `useAuthCopy()` reads it and falls through to `t()` when no override is present. Multi-locale overrides are not supported via this mechanism — use the published language files when you need different copy per language.
 
+### Password-reset URL routing (v1.8.3)
+
+Laravel's bundled `ResetPassword` notification renders the email link via `route('password.reset', ...)`. Martis nests every route under a `martis.` name prefix, so the global `password.reset` is undefined and the broker would crash with `RouteNotFoundException`. Starting with v1.8.3, `MartisServiceProvider::boot()` registers `ResetPassword::createUrlUsing(...)` automatically when `martis.auth.passwordReset.enabled === true`, pointing the link at the Martis-shipped `martis.password.reset` route (`/{martis-path}/reset-password/{token}?email=…`).
+
+The registration is **defensive** — it skips when a callback is already configured by the host app. Consumers who want a custom URL (off-platform reset page, magic-link, deep-link to a mobile app) register their own callback in `AppServiceProvider::boot()`:
+
+```php
+use Illuminate\Auth\Notifications\ResetPassword;
+
+public function boot(): void
+{
+    ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+        return "https://app.example.com/reset?token={$token}&email={$notifiable->getEmailForPasswordReset()}";
+    });
+}
+```
+
+Order of registration doesn't matter: the consumer callback wins because Martis's probe sees the property already set and bails out.
+
 ### Graceful errors (v1.8.0)
 
 - **Mailer down on forgot-password.** When the host app's mailer fails (SMTP timeout, invalid credentials, queue worker offline), the `POST /api/auth/password/email` endpoint now catches the throwable and returns a structured `503` with `{message: __('auth.forgot_password_mailer_unavailable')}`. The original exception is still passed to `report()` for monitoring. The frontend toast surfaces the translated message instead of the raw 500 stack trace.

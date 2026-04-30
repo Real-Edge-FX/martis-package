@@ -577,7 +577,46 @@ abstract class Field implements FieldContract
             return (bool) ($this->requiredResolver)($request);
         }
 
-        return $this->required;
+        if ($this->required) {
+            return true;
+        }
+
+        // v1.8.3 — Auto-detect when `->rules([...])` declares the
+        // `required` validator (or any of its conditional siblings).
+        // The visual asterisk now follows the validation contract
+        // automatically, so consumers no longer have to repeat
+        // `->required()` next to `->rules(['required', ...])`.
+        return $this->rulesHaveRequired();
+    }
+
+    /**
+     * Cheap scan over the configured base + creation + update rules to
+     * detect any of Laravel's "required" validators. Treats both string
+     * shorthand (`required`, `required_if`, `required_with`, etc) and
+     * the `Rule` instances that ship in `Illuminate\Validation\Rules`.
+     */
+    protected function rulesHaveRequired(): bool
+    {
+        // Only the base `extraRules` bag is consulted. `creationRules`
+        // and `updateRules` are scoped to one context — letting the
+        // visual `required` flag flip on the index/detail pages just
+        // because the field is required during create would mislead
+        // the operator. Consumers who want both the explicit asterisk
+        // AND a context-scoped validation rule call `->required()`
+        // separately. v1.8.3.
+        foreach ($this->extraRules as $rule) {
+            if (is_string($rule) && (str_starts_with($rule, 'required') || $rule === 'required')) {
+                return true;
+            }
+            if (is_object($rule) && method_exists($rule, '__toString')) {
+                $repr = (string) $rule;
+                if (str_contains($repr, 'required')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
