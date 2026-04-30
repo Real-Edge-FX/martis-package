@@ -37,4 +37,41 @@ return [
     'register_success' => 'Account created. Please sign in.',
     'register_endpoint_missing' => 'Registration endpoint is not available. Ask a workspace admin to finish setting it up.',
     'register_have_account' => 'Already have an account?',
+
+    // Forgot password (v1.8.0)
+    'forgot_password_title' => 'Reset your password',
+    'forgot_password_sub' => "Enter your email and we'll send you a link to set a new password.",
+    'forgot_password_email_label' => 'Email',
+    'forgot_password_email_placeholder' => 'admin@example.com',
+    'forgot_password_submit' => 'Send reset link',
+    'forgot_password_submitting' => 'Sending…',
+    'forgot_password_sent_button' => 'Link sent',
+    'forgot_password_sent' => 'If an account exists for that email, a reset link is on its way.',
+    'forgot_password_back_to_login' => 'Back to sign in',
+    'forgot_password_disabled' => 'Password reset is not enabled on this workspace.',
+    'forgot_password_mailer_unavailable' => 'The email service is temporarily unavailable. Please try again in a few minutes or contact your administrator.',
+
+    // Reset password (v1.8.0)
+    'reset_password_title' => 'Set a new password',
+    'reset_password_sub' => 'Choose a new password for your account.',
+    'reset_password_new' => 'New password',
+    'reset_password_new_placeholder' => 'Enter a new password',
+    'reset_password_confirm' => 'Confirm password',
+    'reset_password_confirm_placeholder' => 'Re-enter the new password',
+    'reset_password_show' => 'Show password',
+    'reset_password_hide' => 'Hide password',
+    'reset_password_submit' => 'Update password',
+    'reset_password_submitting' => 'Updating…',
+    'reset_password_success' => 'Password updated. Sign in with your new credentials.',
+    'reset_password_mismatch' => 'Passwords do not match.',
+    'reset_password_invalid_token' => 'This reset link is invalid or has expired. Request a new one.',
+    'reset_password_disabled' => 'Password reset is not enabled on this workspace.',
+
+    // Theme labels (used by AuthControls tooltip)
+    'theme_dark' => 'Dark',
+    'theme_light' => 'Light',
+    'theme_system' => 'System',
+    'theme' => 'Theme',
+    'language' => 'Language',
+    'preferences' => 'Preferences',
 ];

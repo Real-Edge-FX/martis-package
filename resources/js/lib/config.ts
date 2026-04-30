@@ -234,6 +234,30 @@ export interface MartisSsoConfig {
   providers?: Record<string, MartisSsoProviderConfig>
 }
 
+/** Per-page copy overrides for the unauthenticated auth surfaces.
+ *  Each value: `null` falls back to the bundled translation; a string
+ *  is rendered verbatim. v1.8.0. */
+export interface MartisAuthCopyConfig {
+  login?: {
+    title?: string | null
+    subtitle?: string | null
+    /** Used instead of `subtitle` when SSO is enabled. */
+    subtitle_with_sso?: string | null
+  }
+  register?: {
+    title?: string | null
+    subtitle?: string | null
+  }
+  forgot_password?: {
+    title?: string | null
+    subtitle?: string | null
+  }
+  reset_password?: {
+    title?: string | null
+    subtitle?: string | null
+  }
+}
+
 export interface MartisAuthConfig {
   /** SSO subsystem. Replaces the legacy `sso` / `google` flat blocks. */
   sso?: MartisSsoConfig
@@ -245,6 +269,8 @@ export interface MartisAuthConfig {
   /** Visibility of the theme cycle button and the language picker on
    *  every pre-login surface. Both default to `true`. */
   controls?: MartisAuthControlsConfig
+  /** Optional per-page copy overrides. v1.8.0. */
+  copy?: MartisAuthCopyConfig
 }
 
 export interface MartisConfigShape {

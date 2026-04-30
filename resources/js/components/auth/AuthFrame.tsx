@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { config } from '@/lib/config'
 import { AuthControls } from '@/components/auth/AuthControls'
+import { MartisTooltip } from '@/components/MartisTooltip'
 import bundledLogo from '@images/logo.png'
 
 interface AuthFrameProps {
@@ -61,6 +62,14 @@ export function AuthFrame({ children, width }: AuthFrameProps) {
   return (
     <div className="martis-auth-frame">
       <div className="martis-auth-bg" aria-hidden="true" />
+      {/* The shell-wide tooltip provider is mounted in app.tsx for
+          authenticated routes only. The auth surfaces (Login, Register,
+          ForgotPassword, ResetPassword, 2FA challenge, error pages)
+          render outside that tree, so we mount a second instance here
+          so `data-pr-tooltip` attributes on AuthControls (and any other
+          children) actually display the Martis-styled tooltip instead
+          of the native browser bubble. v1.8.0. */}
+      <MartisTooltip />
       <AuthControls />
       <div className="martis-auth-card" style={cardStyle}>
         <div className="martis-auth-brand" data-mode={mode}>

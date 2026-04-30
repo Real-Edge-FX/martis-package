@@ -319,6 +319,45 @@ A guest's choice on the strip persists in `localStorage` (`martis-preferences` k
 
 Both controls render with the global PrimeReact tooltip (`data-pr-tooltip`), so styling matches the rest of the shell.
 
+### Per-page copy overrides (v1.8.0)
+
+The titles and subtitles on the four guest pages (Login, Register, ForgotPassword, ResetPassword) used to be sourced exclusively from the bundled translations. Consumers wanting "Welcome to Acme" instead of "Sign in to your workspace" had to publish the language files. v1.8.0 introduces a config-level override that wins over translations:
+
+```php
+'auth' => [
+    // ... sso / passwordReset / registration / controls
+    'copy' => [
+        'login' => [
+            'title' => env('MARTIS_AUTH_LOGIN_TITLE'),                 // null → translation
+            'subtitle' => env('MARTIS_AUTH_LOGIN_SUBTITLE'),
+            'subtitle_with_sso' => env('MARTIS_AUTH_LOGIN_SUBTITLE_SSO'),
+        ],
+        'register' => [
+            'title' => env('MARTIS_AUTH_REGISTER_TITLE'),
+            'subtitle' => env('MARTIS_AUTH_REGISTER_SUBTITLE'),
+        ],
+        'forgot_password' => [
+            'title' => env('MARTIS_AUTH_FORGOT_TITLE'),
+            'subtitle' => env('MARTIS_AUTH_FORGOT_SUBTITLE'),
+        ],
+        'reset_password' => [
+            'title' => env('MARTIS_AUTH_RESET_TITLE'),
+            'subtitle' => env('MARTIS_AUTH_RESET_SUBTITLE'),
+        ],
+    ],
+],
+```
+
+Behaviour: each value is `null` by default, which means "use the bundled translation key" (`auth.login_title`, `auth.login_sub`, etc.). Set a non-empty string and that value renders verbatim — translations are skipped entirely for that key. The override is applied per-page, so you can replace just the title and keep the bundled subtitle, or vice-versa.
+
+The bridge in `app.blade.php` exposes the block as `window.MartisConfig.auth.copy`; the React helper `useAuthCopy()` reads it and falls through to `t()` when no override is present. Multi-locale overrides are not supported via this mechanism — use the published language files when you need different copy per language.
+
+### Graceful errors (v1.8.0)
+
+- **Mailer down on forgot-password.** When the host app's mailer fails (SMTP timeout, invalid credentials, queue worker offline), the `POST /api/auth/password/email` endpoint now catches the throwable and returns a structured `503` with `{message: __('auth.forgot_password_mailer_unavailable')}`. The original exception is still passed to `report()` for monitoring. The frontend toast surfaces the translated message instead of the raw 500 stack trace.
+- **Feature off.** When `passwordReset.enabled` or `registration.enabled` is `false`, the forgot-password / register pages bounce the visitor back to `/login` with an info toast in the active locale instead of throwing on mount.
+- **Defensive JSON parse on the client.** The shared `api.ts` helper tolerates non-JSON error responses (HTML 404s from misconfigured routes); they no longer leak `SyntaxError: Unexpected token <` to the console.
+
 ### Minimal consumer recipe
 
 ```php

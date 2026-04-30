@@ -1,0 +1,32 @@
+# Files and directories excluded from the composer dist zip.
+# Consumers receive only the runtime artefacts — they do NOT need
+# our CI configs, tests, lint rules, or local-only tooling.
+#
+# Apply with: composer require martis/martis (no flag needed,
+# composer respects export-ignore automatically when building dist).
+#
+# To audit what ships, after a fresh require:
+#   ls vendor/martis/martis/ | grep -E '\.github|tests|test-results'
+# should return nothing.
+
+/.github               export-ignore
+/.gitattributes        export-ignore
+/.gitignore            export-ignore
+/.editorconfig         export-ignore
+/.prettierrc           export-ignore
+/.prettierrc.json      export-ignore
+/.eslintrc             export-ignore
+/.eslintrc.json        export-ignore
+/.eslintrc.cjs         export-ignore
+/tests                 export-ignore
+/test-results          export-ignore
+/playwright.config.ts  export-ignore
+/playwright            export-ignore
+/phpunit.xml           export-ignore
+/phpunit.xml.dist      export-ignore
+/phpstan.neon          export-ignore
+/phpstan.neon.dist     export-ignore
+/pint.json             export-ignore
+/.codex                export-ignore
+/.claude               export-ignore
+/.idea                 export-ignore

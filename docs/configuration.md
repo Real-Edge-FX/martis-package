@@ -170,7 +170,23 @@ MARTIS_BRAND_LOGO_HEIGHT_AUTH=48   # auth card.        Default 48. Range 24–80
 
 The package clamps both values to the listed ranges — an absurd value cannot break the layout. The icon-mode size (28×28 in the menu, 32×32 in the auth card) is fixed and not configurable.
 
-> **Asset requirement.** Crop your image to remove transparent padding before deployment. The browser scales the *whole canvas* to the target height; padding makes the visible artwork appear proportionally smaller. See [issue #127](https://github.com/Real-Edge-FX/martis-package/issues/127).
+### Asset requirements (v1.8.0 — issue #127)
+
+Brand assets must satisfy three constraints to render cleanly:
+
+1. **Tight crop, no transparent padding.** The browser scales the entire canvas (visible + transparent) to the target height. A 200×200 PNG with the actual mark only occupying the centre 80×80 pixels will render at *less than half* the intended size. Crop to the visible bounds before exporting.
+2. **Power-of-two PNGs OR scalable SVG.** SVG is preferred — it stays sharp at any height. For raster, export at 2× the largest target height (auth card is 48 px → ship at 96 px) so retina displays look crisp.
+3. **Light- AND dark-theme variants.** When the user toggles theme, the inactive variant is hidden via CSS — both files ship in the bundle. If the brand mark works on both backgrounds, point `MARTIS_BRAND_LOGO` and `MARTIS_BRAND_LOGO_DARK` at the same file (zero overhead — same hash, dedup'd).
+
+Recommended targets per surface:
+
+| Surface | Logo height | Icon height |
+|---|---|---|
+| Sidebar (expanded) | 40 px (`MARTIS_BRAND_LOGO_HEIGHT_MENU` default) | 28 px |
+| Sidebar (collapsed rail) | n/a — icon wins | 28 px |
+| Auth card | 48 px (`MARTIS_BRAND_LOGO_HEIGHT_AUTH` default) | 32 px |
+
+Tracking issue: [#127](https://github.com/Real-Edge-FX/martis-package/issues/127).
 
 ### Sidebar collapse behaviour (v1.7.0)
 
@@ -365,12 +381,17 @@ Full wiring examples, prop contracts, and the rationale for piece-by-piece vs fu
 'navigation' => [
     'counts' => [
         'enabled' => env('MARTIS_NAV_COUNTS', true),
+        'compact_threshold' => env('MARTIS_NAV_COUNT_COMPACT_THRESHOLD', 10000),  // v1.8.0
     ],
     'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
 ],
 ```
 
 - `counts.enabled` — master switch for the resource count badge (`Users 1,284`) rendered in the sidebar and top-nav dropdowns. When true, every resource publishes a count by default; per-resource opt-out via `showMenuCount(): bool` on the `Resource` class.
+- `counts.compact_threshold` (v1.8.0) — value at or above which the badge switches from full digits to compact notation:
+  - Below threshold: `1,284` (locale-aware separators).
+  - At or above: `Intl.NumberFormat` compact notation — `10K`, `123.5K`, `1.2M`, `25M`.
+  - Default `10000` keeps everyday counts readable while preventing badges from blowing up the sidebar at 50 K+. Set to `null` to always show full digits, `0` to always compact, or any positive integer for a custom cutoff.
 - `poll_interval` — how often (in milliseconds) the sidebar and top-nav re-fetch `/api/navigation` while the tab is focused. Keeps badges in sync when a second user mutates data in parallel. Default: 60000 (60 seconds). Set to `0` to disable polling. React Query pauses the interval when the tab is hidden and refetches on window focus independently.
 
 See [menus.md](menus.md#count-badges) for the badge API (including `menuCount()` for custom values) and [menus.md](menus.md#sections) for the section heading API.

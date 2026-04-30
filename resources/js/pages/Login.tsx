@@ -4,6 +4,7 @@ import { useAuth, TwoFactorRequiredError } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
 import { ApiError } from "@/lib/api"
 import { config } from "@/lib/config"
+import { useAuthCopy } from "@/lib/authCopy"
 import { useTranslation } from "react-i18next"
 import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { AuthFrame } from "@/components/auth/AuthFrame"
@@ -23,6 +24,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { t } = useTranslation("auth")
+  const tCopy = useAuthCopy()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -128,11 +130,13 @@ export function LoginPage() {
 
   return (
     <AuthFrame>
-      <h2 className="martis-auth-title">{t('login_title', { defaultValue: 'Sign in to your workspace' })}</h2>
+      <h2 className="martis-auth-title">
+        {tCopy('login', 'title', 'login_title', 'Sign in to your workspace')}
+      </h2>
       <p className="martis-auth-sub">
         {showDivider
-          ? t('login_sub_v2', { defaultValue: 'Welcome back. Continue with SSO or use your email.' })
-          : t('login_sub', { defaultValue: 'Welcome back. Use your email and password to continue.' })}
+          ? tCopy('login', 'subtitle_with_sso', 'login_sub_v2', 'Welcome back. Continue with SSO or use your email.')
+          : tCopy('login', 'subtitle', 'login_sub', 'Welcome back. Use your email and password to continue.')}
       </p>
 
       {ssoProviders.map(([providerName, provider], idx) => (
@@ -174,7 +178,7 @@ export function LoginPage() {
             id="login-email"
             type="email"
             name="email"
-            autoComplete="email"
+            autoComplete="username email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={handleFieldKeyDown}

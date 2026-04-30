@@ -6,6 +6,7 @@ import { InputIcon } from 'primereact/inputicon'
 import { LockIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
 import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
 import type { FieldDefinition } from '@/types'
@@ -68,6 +69,7 @@ function buildConfirmField(attribute: string, confirms: string, label: string): 
 export function PasswordSection() {
   const { t } = useTranslation('profile')
   const { addToast } = useToast()
+  const { user } = useAuth()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -135,6 +137,21 @@ export function PasswordSection() {
         {t('password')}
       </h2>
       <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-4 max-w-lg">
+        {/* Hidden username field for password manager / accessibility.
+            Chrome / Firefox warn in the console if a password form has
+            no associated username field. We provide the email as a
+            readonly text input that screen readers and password managers
+            can pick up. v1.8.0. */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          defaultValue={user?.email ?? ''}
+          readOnly
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+        />
         <div className="flex flex-col gap-2">
           <label htmlFor="current-password" className="text-sm font-medium martis-text-muted">
             {t('current_password')}

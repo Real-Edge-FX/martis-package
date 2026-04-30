@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
+import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 
 /**
@@ -25,6 +26,7 @@ export function ForgotPasswordPage() {
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { t } = useTranslation('auth')
+  const tCopy = useAuthCopy()
 
   const [email, setEmail] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -34,18 +36,27 @@ export function ForgotPasswordPage() {
   const passwordReset = config.auth?.passwordReset
   const enabled = passwordReset?.enabled === true && !passwordReset?.url
 
+  // Redirect already-authed users out of the page (post-login no-flash).
   useEffect(() => {
     if (!isLoading && user) navigate('/', { replace: true })
   }, [isLoading, user, navigate])
 
-  if (!enabled) {
-    // Kicks the user back to login if reset is disabled or off-platform.
-    useEffect(() => {
+  // v1.8.0 — bounce back to /login when the feature is off (or the
+  // consumer points the URL off-platform). Hooks always run; the
+  // declarative effect keeps React's rules-of-hooks honest.
+  useEffect(() => {
+    if (!enabled) {
+      addToast(
+        'info',
+        t('forgot_password_disabled', {
+          defaultValue: 'Password reset is not enabled on this workspace.',
+        }),
+      )
       navigate('/login', { replace: true })
-    }, [navigate])
-    return null
-  }
+    }
+  }, [enabled, navigate, addToast, t])
 
+  if (!enabled) return null
   if (!isLoading && user) return null
 
   async function handleSubmit(e: FormEvent) {
@@ -86,12 +97,15 @@ export function ForgotPasswordPage() {
   return (
     <AuthFrame>
       <h2 className="martis-auth-title">
-        {t('forgot_password_title', { defaultValue: 'Reset your password' })}
+        {tCopy('forgot_password', 'title', 'forgot_password_title', 'Reset your password')}
       </h2>
       <p className="martis-auth-sub">
-        {t('forgot_password_sub', {
-          defaultValue: "Enter your email and we'll send you a link to set a new password.",
-        })}
+        {tCopy(
+          'forgot_password',
+          'subtitle',
+          'forgot_password_sub',
+          "Enter your email and we'll send you a link to set a new password.",
+        )}
       </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 24 }}>

@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-04-30
+
+UX polish for the unauthenticated auth surfaces, two new fields aimed at Spatie Permission resources, sidebar count compaction, and package hygiene.
+
+### Added
+
+- **`Martis\Fields\GuardSelect`** — dropdown of auth guards configured in `config/auth.guards`. Default value is `config('auth.defaults.guard')`. `->only([...])` restricts the list to a subset. Designed for the `guard_name` column on Spatie Permission / Role tables. See `docs/roles.md`.
+- **`Martis\Auth\GuardCatalog`** — programmatic helper exposing `available()` and `default()`. Same source of truth as `GuardSelect` so consumer-built selectors cannot drift.
+- **`GET /martis/api/_meta/guards`** — auth-protected endpoint returning `{guards, default}` for custom admin UIs.
+- **`Martis\Http\Controllers\MetaController`** — landing place for future meta endpoints (route catalog, middleware aliases) once concrete consumer demand exists.
+- **Configurable per-page copy on auth surfaces** — `config/martis.php` `auth.copy.{login,register,forgot_password,reset_password}` accepts string overrides for title and subtitle. Each entry's default `null` falls back to the bundled `auth.php` translations (i18n still wins when present). The bridge in `app.blade.php` exposes the block as `window.MartisConfig.auth.copy`; the React helper `useAuthCopy()` resolves overrides → translations.
+- **Sidebar count compaction** — `MARTIS_NAV_COUNT_COMPACT_THRESHOLD` (default `10000`) switches badges from full digits to compact notation (`10K`, `123.5K`, `1.2M`). Set to `null` to disable, `0` to always compact. Threshold is exposed via SSR (`window.MartisConfig.navigation.countCompactThreshold`); the formatter is `formatItemCount()` in `resources/js/lib/navigation.ts`. New Vitest fixtures cover the boundary (`tests/.../navigation.test.ts`).
+- **Translation keys** for forgot/reset password and AuthControls tooltips (theme labels, language label) — `auth.php` in `en`, `pt_PT`, `pt_BR` is now exhaustive for the unauthenticated surfaces.
+- **`permissions.php` translation namespace** — `name_help`, `guard_help`, `role_guard_help`, `multi_guard_explanation` for tooltip help text on Permission / Role forms.
+
+### Fixed
+
+- **MartisTooltip not rendering on auth surfaces.** `AuthControls.tsx` declared `data-pr-tooltip` but the listener was only mounted in the authenticated shell. `AuthFrame` now renders its own `<MartisTooltip />` so theme / locale tooltips actually appear in Martis style instead of the native browser bubble.
+- **Password forms missing username field for accessibility.** `PasswordSection` (Profile) now ships an off-screen `autoComplete="username"` input bound to `user.email`. `Login`, `Register`, and `ResetPassword` use `autoComplete="username email"` on their email input so password managers and Chrome's a11y audit treat the form as well-formed (no more "Password forms should have a username field" console warning).
+- **Theme / density / accent highlight invisible in light mode.** `--martis-input-bg` and `--martis-surface` were both `#FFFFFF` in light theme, so the active segment had no contrast against the track. The `.martis-segmented` track now uses `--martis-surface-alt` in light theme so the active button reads clearly. Dark theme already had distinct values (no visual change there).
+- **Password-reset 500 when the mailer is misconfigured.** `AuthController::sendPasswordResetLink` wraps the broker call in a `try/catch`; SMTP / queue / API-key failures now return `503` with `{message: __('auth.forgot_password_mailer_unavailable')}` and a Martis toast, instead of a raw 500 stack trace. The original throwable still goes through `report()` so the host can monitor it.
+- **`SyntaxError: Unexpected token <` from non-JSON error responses.** `lib/api.ts` now reads the body as text and parses defensively; non-JSON 404 / 405 responses surface as a clean `ApiError` with the standard "Request failed" toast.
+- **Forgot-password page when feature is disabled** redirects back to `/login` with a Martis info toast instead of throwing on mount (rules-of-hooks violation in the previous redirect logic).
+- **Reset-password page** had a hardcoded English `aria-label` for the show/hide-password button. Now uses `t('reset_password_show')` / `t('reset_password_hide')`.
+
+### Internal
+
+- `.gitattributes` added with `export-ignore` for `.github/`, `tests/`, `test-results/`, `playwright.config.ts`, `phpstan.neon`, `phpunit.xml`, etc. — these no longer ship to consumers via the composer dist zip.
+- `test-results/` added to `.gitignore`; the previously tracked `.last-run.json` is now untracked.
+- `PreferencesContextValue.update` no longer accepts only a `Partial<Preferences>` — also accepts `(prev) => Partial<Preferences>` (functional patch). Plain-object call sites unchanged. Documented in `docs/preferences.md`.
+
+### Validation
+
+- Pest: 1742 passing (3 new in `MetaGuardsEndpointTest`), 1 skipped, 0 failed.
+- Vitest: 119 passing (9 new in `navigation.test.ts`), 5 skipped.
+- PHPStan L8: 0 errors. Pint clean.
+
 ## [1.7.6] — 2026-04-30
 
 Comprehensive guest-flow hardening for the Login / Register / 2FA challenge surfaces, plus a CSS specificity fix for the theme-aware logo variants.

@@ -71,6 +71,55 @@ Each resource lands in the **System** sidebar group via `belongsToSystemSection(
 - Index columns: `id`, `name`, `guard_name`, count of roles.
 - Detail / edit form: `name`, `guard_name`, `Roles` (read-only relation).
 
+### Recommended fields (v1.8.0)
+
+The default scaffold uses `Text::make('name')` and `Text::make('guard_name')` — fast to wire, but typo-prone. Two newer fields surface stronger guarantees with no breaking change:
+
+| Original | Replacement | Why |
+|---|---|---|
+| `Text::make('name')` | `Slug::make('name')->separator('.')->reserved(['*'])` | Live preview, transliteration (`São Paulo` → `sao.paulo` with separator `.`), reserved-word guard, locked once the row exists. The dot separator matches the Spatie `dashboard.home.view` convention; pass `->separator('-')` for kebab style. |
+| `Text::make('guard_name')` | `GuardSelect::make('guard_name')` | Dropdown populated from `config('auth.guards')` at schema-render time — eliminates `'web'` typos. Default value comes from `config('auth.defaults.guard')`. Subset with `->only(['web', 'api'])` if a Resource only manages one guard. |
+
+Example PermissionResource form:
+
+```php
+use Martis\Fields\GuardSelect;
+use Martis\Fields\ID;
+use Martis\Fields\Slug;
+
+public function fields(Request $request): array
+{
+    return [
+        ID::make()->sortable(),
+
+        Slug::make('name')
+            ->separator('.')
+            ->reserved(['*'])              // wildcard sentinel
+            ->help(__('martis::permissions.name_help'))
+            ->required(),
+
+        GuardSelect::make('guard_name')
+            ->help(__('martis::permissions.guard_help'))
+            ->required(),
+    ];
+}
+```
+
+#### Why does `guard_name` exist on BOTH Permission and Role?
+
+Spatie enforces that a Role can only carry Permissions of the same guard. If your app has `web` and `api` guards, a Role `admin` registered against `web` cannot receive a Permission registered against `api` — Spatie rejects the assignment at runtime. `guard_name` ties each row to one guard so the integrity check has something to compare. **99% of apps run on a single guard (`web`)**, in which case the field is just paperwork — set it once, never look at it again. Multi-guard setups are rare and typically split admin (`web`) from a public API (`api`).
+
+#### Meta endpoint (v1.8.0)
+
+The same guard list is also served as JSON at `GET /martis/api/_meta/guards` (auth-protected). Useful when you build a custom admin UI outside the Martis Resource layer:
+
+```json
+{
+  "guards": ["api", "web"],
+  "default": "web"
+}
+```
+
 ## Customising the resources
 
 Open the file under `app/Martis/Resources/UserResource.php` (or wherever you scaffolded it) and edit. The package never reads these files directly — Martis loads them through the registry, which means you have full control:

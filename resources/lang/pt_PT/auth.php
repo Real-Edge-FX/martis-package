@@ -37,4 +37,41 @@ return [
     'register_success' => 'Conta criada. Inicie sessão.',
     'register_endpoint_missing' => 'O endpoint de registo não está disponível. Peça a um administrador para o configurar.',
     'register_have_account' => 'Já tem uma conta?',
+
+    // Recuperação de palavra-passe (v1.8.0)
+    'forgot_password_title' => 'Repor a sua palavra-passe',
+    'forgot_password_sub' => 'Indique o seu email e enviamos-lhe uma ligação para definir uma nova palavra-passe.',
+    'forgot_password_email_label' => 'Email',
+    'forgot_password_email_placeholder' => 'admin@exemplo.com',
+    'forgot_password_submit' => 'Enviar ligação',
+    'forgot_password_submitting' => 'A enviar…',
+    'forgot_password_sent_button' => 'Ligação enviada',
+    'forgot_password_sent' => 'Se existir uma conta com esse email, uma ligação de reposição já está a caminho.',
+    'forgot_password_back_to_login' => 'Voltar ao início de sessão',
+    'forgot_password_disabled' => 'A recuperação de palavra-passe não está activada neste espaço de trabalho.',
+    'forgot_password_mailer_unavailable' => 'O serviço de email está temporariamente indisponível. Tente novamente dentro de alguns minutos ou contacte o seu administrador.',
+
+    // Definir nova palavra-passe (v1.8.0)
+    'reset_password_title' => 'Definir uma nova palavra-passe',
+    'reset_password_sub' => 'Escolha uma nova palavra-passe para a sua conta.',
+    'reset_password_new' => 'Nova palavra-passe',
+    'reset_password_new_placeholder' => 'Introduza a nova palavra-passe',
+    'reset_password_confirm' => 'Confirmar palavra-passe',
+    'reset_password_confirm_placeholder' => 'Repita a nova palavra-passe',
+    'reset_password_show' => 'Mostrar palavra-passe',
+    'reset_password_hide' => 'Ocultar palavra-passe',
+    'reset_password_submit' => 'Actualizar palavra-passe',
+    'reset_password_submitting' => 'A actualizar…',
+    'reset_password_success' => 'Palavra-passe actualizada. Inicie sessão com as suas novas credenciais.',
+    'reset_password_mismatch' => 'As palavras-passe não coincidem.',
+    'reset_password_invalid_token' => 'Esta ligação de reposição é inválida ou expirou. Peça uma nova.',
+    'reset_password_disabled' => 'A recuperação de palavra-passe não está activada neste espaço de trabalho.',
+
+    // Etiquetas de tema (usadas pelo tooltip do AuthControls)
+    'theme_dark' => 'Escuro',
+    'theme_light' => 'Claro',
+    'theme_system' => 'Sistema',
+    'theme' => 'Tema',
+    'language' => 'Idioma',
+    'preferences' => 'Preferências',
 ];

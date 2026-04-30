@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
+import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 
 /**
@@ -27,6 +28,7 @@ export function ResetPasswordPage() {
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { t } = useTranslation('auth')
+  const tCopy = useAuthCopy()
 
   const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
@@ -100,10 +102,10 @@ export function ResetPasswordPage() {
   return (
     <AuthFrame>
       <h2 className="martis-auth-title">
-        {t('reset_password_title', { defaultValue: 'Set a new password' })}
+        {tCopy('reset_password', 'title', 'reset_password_title', 'Set a new password')}
       </h2>
       <p className="martis-auth-sub">
-        {t('reset_password_sub', { defaultValue: 'Choose a new password for your account.' })}
+        {tCopy('reset_password', 'subtitle', 'reset_password_sub', 'Choose a new password for your account.')}
       </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 24 }}>
@@ -117,7 +119,12 @@ export function ResetPasswordPage() {
             id="email"
             name="email"
             type="email"
-            autoComplete="email"
+            // `username email` so password managers and the browser's
+            // accessibility audit treat this as both the username AND
+            // the email — without `username` the new-password fields
+            // below trigger a console warning "Password form should
+            // have an associated username field".
+            autoComplete="username email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="martis-input"
@@ -150,7 +157,7 @@ export function ResetPasswordPage() {
               onClick={() => setShowPassword((v) => !v)}
               className="martis-input-toggle"
               tabIndex={-1}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? t('reset_password_hide', { defaultValue: 'Hide password' }) : t('reset_password_show', { defaultValue: 'Show password' })}
             >
               {showPassword ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />}
             </button>

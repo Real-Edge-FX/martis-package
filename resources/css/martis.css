@@ -6309,6 +6309,15 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   padding: 2px;
   gap: 2px;
 }
+/* v1.8.0 — In light theme `--martis-input-bg` and `--martis-surface`
+   are both #FFFFFF, so the active segment had no visual lift against
+   the track. Override the track to `--martis-surface-alt` (a soft
+   off-white) ONLY in light so the active button (still on `surface`)
+   reads clearly. Dark theme already had distinct values. */
+html:not(.dark) .martis-segmented,
+html[data-theme="light"] .martis-segmented {
+  background: var(--martis-surface-alt);
+}
 .martis-segmented-btn {
   flex: 1;
   height: 26px;
