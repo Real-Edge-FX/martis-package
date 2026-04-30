@@ -79,6 +79,12 @@ class GuardSelect extends Select
         // picks this up when no value is present on the model.
         $field->default(GuardCatalog::default());
 
+        // Spatie Permission requires `guard_name` on every row, so the
+        // field is always semantically required. Marking it here keeps
+        // consumers from having to repeat `->required()` and surfaces
+        // the red asterisk in the FieldWrapper. v1.8.3.
+        $field->required();
+
         // Server-side validation: reject any value not declared in
         // `config/auth.guards`. Without this guard a row could be
         // saved with a name like `sanctum` while the auth config has

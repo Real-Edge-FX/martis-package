@@ -4,6 +4,7 @@ namespace Martis;
 
 use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\AuthManager;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
@@ -139,6 +140,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'martis');
 
         $this->registerBuiltInResources();
+        $this->registerPasswordResetUrl();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -345,5 +347,58 @@ class MartisServiceProvider extends ServiceProvider
         if ($classes !== []) {
             $this->app->make(ResourceRegistry::class)->registerMany($classes);
         }
+    }
+
+    /**
+     * Wire the Laravel `ResetPassword` notification's URL builder to the
+     * Martis-prefixed `martis.password.reset` route.
+     *
+     * Laravel's default notification calls `route('password.reset', …)`
+     * to render the link in the email body. Martis nests every route
+     * under a `martis.` name prefix, so the unqualified `password.reset`
+     * is undefined and the broker crashes with
+     * `Symfony\Component\Routing\Exception\RouteNotFoundException`.
+     *
+     * Defensive registration:
+     *   - Only runs when the password-reset feature is enabled.
+     *   - Does not overwrite a callback already configured by the host
+     *     app (consumers can register their own URL builder before this
+     *     boots, or override it from `AppServiceProvider::boot()` after
+     *     this provider runs — both paths win).
+     *
+     * v1.8.3.
+     */
+    protected function registerPasswordResetUrl(): void
+    {
+        if (! (bool) config('martis.auth.passwordReset.enabled', false)) {
+            return;
+        }
+
+        // Reflection-based "is the static already set?" probe so we
+        // don't trample a consumer's own callback.
+        try {
+            $ref = new \ReflectionClass(ResetPassword::class);
+            if ($ref->hasProperty('createUrlCallback')) {
+                $prop = $ref->getProperty('createUrlCallback');
+                $prop->setAccessible(true);
+                if ($prop->getValue() !== null) {
+                    return; // Already customised — respect it.
+                }
+            }
+        } catch (\Throwable) {
+            // Probe failed; fall through to register anyway. Worst case
+            // we override an unset default.
+        }
+
+        ResetPassword::createUrlUsing(static function (object $notifiable, string $token): string {
+            $email = method_exists($notifiable, 'getEmailForPasswordReset')
+                ? (string) $notifiable->getEmailForPasswordReset()
+                : (string) ($notifiable->email ?? '');
+
+            return route('martis.password.reset', [
+                'token' => $token,
+                'email' => $email,
+            ]);
+        });
     }
 }
