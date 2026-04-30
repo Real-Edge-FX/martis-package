@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.5] — 2026-04-30
+
+Hotfix: dev-changed defaults now reach every guest who has not explicitly picked their own.
+
+### Fixed
+
+- **`MARTIS_DEFAULT_THEME` / `MARTIS_DEFAULT_ACCENT` / `MARTIS_DEFAULT_DENSITY` were silently masked by stale localStorage** for any visitor who had loaded the page even once before. The v1.7.3 `readInitialPrefs()` priority gives localStorage precedence over SSR defaults (correct, so a guest who picks pt_PT survives refresh), but the `useEffect([prefs])` write was also persisting the SSR defaults on the very first mount — every visitor's localStorage immediately mirrored whatever defaults shipped that day. A later `MARTIS_DEFAULT_*` change never reached anyone who had already visited.
+- localStorage is now written ONLY by `update()` (an explicit user pick) and cleared by `reset()`. The DOM-apply effect is split out and runs without the persistence side effect. SSR defaults are no longer locked into localStorage on first render, so a dev who flips `MARTIS_DEFAULT_THEME=dark → light` reaches every visitor without a local override.
+
+### Migration notes
+
+- Existing visitors who already have stale localStorage from v1.7.0–v1.7.4 still see their cached values until they pick something explicitly OR clear `martis-preferences` from their browser. New visitors after this release start clean and get whatever `MARTIS_DEFAULT_*` says.
+
+### Validation
+
+- Pest: 1739 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+
 ## [1.7.4] — 2026-04-30
 
 Two persistence bugs that survived v1.7.0–1.7.3.
