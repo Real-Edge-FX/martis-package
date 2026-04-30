@@ -424,6 +424,23 @@ class ResourceController extends MartisController
             ]);
 
             return $this->handleDatabaseError($e);
+        } catch (\Throwable $e) {
+            // v1.8.2 — broaden the catch beyond QueryException so non-DB
+            // failures (Spatie permission cache invalidation, observer
+            // hook errors, third-party policy listeners) don't bubble
+            // up as a vague 500 "Error deleting record". The original
+            // message reaches the toast so the operator sees what
+            // actually broke; the throwable still goes through report()
+            // for monitoring.
+            Log::error('Martis: error on delete', [
+                'resource' => $resource,
+                'id' => $id,
+                'class' => get_class($e),
+                'error' => $e->getMessage(),
+            ]);
+            report($e);
+
+            return JsonErrorResponse::serverError($e->getMessage() ?: 'Error deleting record.')->toResponse();
         }
 
         return new IlluminateJsonResponse(['data' => [], 'meta' => ['message' => $resourceClass::deletedMessage()], 'links' => []], 200);

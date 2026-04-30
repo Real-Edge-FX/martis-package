@@ -10,17 +10,48 @@ import { ClearButton } from '@/components/ClearButton'
 // Display
 // -----------------------------------------------------------------------------
 
-export function SlugFieldDisplay({ value }: FieldDisplayProps) {
+/**
+ * Badge variants exposed by the PHP API
+ * (`Slug::make(...)->badgeVariant('accent')`, `->badgeAccent()`,
+ * `->badgeColor('#hex')`).
+ *
+ *   `default` = surface-alt + text (the v1.5–v1.8.1 look).
+ *   `accent`  = `--martis-accent-bg-light` + `--martis-accent`.
+ *   `success`/`warning`/`danger` = semantic colour pairs.
+ *   `custom`  = derived from `field.badgeColor` at render time.
+ */
+const SLUG_BADGE_STYLES: Record<string, { bg: string; fg: string }> = {
+  default: { bg: 'var(--martis-surface-alt)', fg: 'var(--martis-text)' },
+  accent: { bg: 'var(--martis-accent-bg-light)', fg: 'var(--martis-accent)' },
+  success: { bg: 'color-mix(in srgb, var(--martis-success) 14%, transparent)', fg: 'var(--martis-success)' },
+  warning: { bg: 'color-mix(in srgb, var(--martis-warning) 14%, transparent)', fg: 'var(--martis-warning)' },
+  danger: { bg: 'var(--martis-danger-bg)', fg: 'var(--martis-danger)' },
+}
+
+export function SlugFieldDisplay({ field, value }: FieldDisplayProps) {
   if (value === null || value === undefined || value === '') {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
+  const meta = field as { badgeVariant?: string; badgeColor?: string }
+  const variant = meta.badgeVariant ?? 'default'
+  let bg: string
+  let fg: string
+  if (variant === 'custom' && typeof meta.badgeColor === 'string' && meta.badgeColor !== '') {
+    // Mix the custom colour with transparent so the badge stays
+    // subtle on both light and dark backgrounds; foreground keeps
+    // the colour verbatim for legibility.
+    bg = `color-mix(in srgb, ${meta.badgeColor} 14%, transparent)`
+    fg = meta.badgeColor
+  } else {
+    const palette = SLUG_BADGE_STYLES[variant] ?? SLUG_BADGE_STYLES.default!
+    bg = palette.bg
+    fg = palette.fg
+  }
   return (
     <code
-      className="text-xs font-mono rounded px-1.5 py-0.5"
-      style={{
-        backgroundColor: 'var(--martis-surface-alt)',
-        color: 'var(--martis-text)',
-      }}
+      className="martis-slug-badge text-xs font-mono rounded px-1.5 py-0.5"
+      data-variant={variant}
+      style={{ backgroundColor: bg, color: fg }}
     >
       {String(value)}
     </code>

@@ -1,13 +1,64 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
+import { ArrowRightIcon } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
 import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
+import { FieldError } from '@/components/auth/FieldError'
+import { PasswordFieldInput } from '@/components/fields/PasswordField'
+import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
+import type { FieldDefinition } from '@/types'
+
+/** v1.8.2 — share the FieldDefinition shape with PasswordSection so
+ *  Register's password block has the same strength meter, live
+ *  checklist, and confirmation-match indicator as the rest of the
+ *  product. */
+function buildRegisterPasswordField(): FieldDefinition {
+  return {
+    attribute: 'password',
+    label: '',
+    type: 'password',
+    nullable: false,
+    readonly: false,
+    required: true,
+    sortable: false,
+    searchable: false,
+    showOnIndex: false,
+    showOnDetail: false,
+    showOnForms: true,
+    strengthMeter: true,
+    showRequirements: true,
+    requirements: {
+      minLength: 8,
+      uppercase: true,
+      lowercase: true,
+      number: true,
+      symbol: true,
+      noCommon: true,
+    },
+  } as unknown as FieldDefinition
+}
+
+function buildRegisterConfirmField(): FieldDefinition {
+  return {
+    attribute: 'password_confirmation',
+    label: '',
+    type: 'password_confirmation',
+    nullable: true,
+    readonly: false,
+    required: true,
+    sortable: false,
+    searchable: false,
+    showOnIndex: false,
+    showOnDetail: false,
+    showOnForms: true,
+    confirms: 'password',
+  } as unknown as FieldDefinition
+}
 
 /**
  * Self-service registration page.
@@ -36,9 +87,13 @@ export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+
+  // Reuse the same field stack as the Profile password section —
+  // strength meter, live requirements checklist, match indicator. v1.8.2.
+  const passwordField = buildRegisterPasswordField()
+  const confirmField = buildRegisterConfirmField()
 
   const registration = config.auth?.registration
   const enabled = registration?.enabled === true
@@ -122,9 +177,7 @@ export function RegisterPage() {
               color: 'var(--martis-text)',
             }}
           />
-          {errors.name && (
-            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>{errors.name}</p>
-          )}
+          <FieldError message={errors.name} />
         </div>
 
         <div style={{ marginBottom: 12 }}>
@@ -151,92 +204,39 @@ export function RegisterPage() {
               color: 'var(--martis-text)',
             }}
           />
-          {errors.email && (
-            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>{errors.email}</p>
-          )}
+          <FieldError message={errors.email} />
         </div>
 
         <div style={{ marginBottom: 12 }}>
           <label
-            htmlFor="register-password"
+            htmlFor="password"
             style={{ display: 'block', fontSize: 13, color: 'var(--martis-text-muted)', marginBottom: 6 }}
           >
             {t('password')}
           </label>
-          <div style={{ position: 'relative' }}>
-            <input
-              id="register-password"
-              type={showPassword ? 'text' : 'password'}
-              name="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleFieldKeyDown}
-              placeholder={t('password_placeholder')}
-              required
-              className="w-full rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1"
-              style={{
-                backgroundColor: 'var(--martis-input-bg)',
-                border: `1px solid ${errors.password ? 'var(--martis-danger)' : 'var(--martis-border)'}`,
-                color: 'var(--martis-text)',
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((s) => !s)}
-              tabIndex={-1}
-              aria-label={showPassword ? t('hide_password') : t('show_password')}
-              style={{
-                position: 'absolute',
-                right: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 0,
-                cursor: 'pointer',
-                color: 'var(--martis-text-muted)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: 4,
-              }}
-            >
-              {showPassword ? <EyeSlashIcon size={16} /> : <EyeIcon size={16} />}
-            </button>
-          </div>
-          {errors.password && (
-            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>{errors.password}</p>
-          )}
+          <PasswordFieldInput
+            field={passwordField}
+            value={password}
+            onChange={(v) => setPassword(v === null || v === undefined ? '' : String(v))}
+            error={errors.password}
+            formValues={{ password }}
+          />
         </div>
 
         <div style={{ marginBottom: 20 }}>
           <label
-            htmlFor="register-password-confirm"
+            htmlFor="password_confirmation"
             style={{ display: 'block', fontSize: 13, color: 'var(--martis-text-muted)', marginBottom: 6 }}
           >
             {t('register_password_confirmation', { defaultValue: 'Confirm password' })}
           </label>
-          <input
-            id="register-password-confirm"
-            type={showPassword ? 'text' : 'password'}
-            name="password_confirmation"
-            autoComplete="new-password"
+          <PasswordConfirmationFieldInput
+            field={confirmField}
             value={passwordConfirmation}
-            onChange={(e) => setPasswordConfirmation(e.target.value)}
-            onKeyDown={handleFieldKeyDown}
-            placeholder={t('password_placeholder')}
-            required
-            className="w-full rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1"
-            style={{
-              backgroundColor: 'var(--martis-input-bg)',
-              border: `1px solid ${errors.password_confirmation ? 'var(--martis-danger)' : 'var(--martis-border)'}`,
-              color: 'var(--martis-text)',
-            }}
+            onChange={(v) => setPasswordConfirmation(v === null || v === undefined ? '' : String(v))}
+            error={errors.password_confirmation}
+            formValues={{ password }}
           />
-          {errors.password_confirmation && (
-            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--martis-danger)' }}>
-              {errors.password_confirmation}
-            </p>
-          )}
         </div>
 
         <button

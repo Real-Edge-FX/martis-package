@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
@@ -80,7 +80,7 @@ interface BtmMeta {
   hideDeleteAction?: boolean
 }
 
-function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDisplayProps['field']; readOnly?: boolean }) {
+function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { field: FieldDisplayProps['field']; readOnly?: boolean; formValues?: Record<string, unknown> }) {
   const { t: tAct } = useTranslation('actions')
   const qc = useQueryClient()
 
@@ -365,6 +365,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false }: { field: FieldDis
           modalHeight={modalHeight}
           withSubtitles={withSubtitles}
           subtitleAttribute={subtitleAttribute}
+          field={field}
+          formValues={formValues}
           onSuccess={() => {
             setShowAttachModal(false)
             void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
@@ -690,6 +692,8 @@ function AttachModal({
   modalHeight,
   withSubtitles = false,
   subtitleAttribute = 'subtitle',
+  field,
+  formValues,
   onSuccess,
   onClose,
 }: {
@@ -702,6 +706,11 @@ function AttachModal({
   modalHeight?: string | null
   withSubtitles?: boolean
   subtitleAttribute?: string
+  /** v1.8.2 — surfaced so we can read the optional `dependsOn` meta block. */
+  field?: FieldDefinition
+  /** v1.8.2 — sibling form values forwarded by the parent ResourceCreate /
+   *  ResourceUpdate page; used to filter the picker on unsaved drafts. */
+  formValues?: Record<string, unknown>
   onSuccess: () => void
   onClose: () => void
 }) {
@@ -735,11 +744,45 @@ function AttachModal({
     enabled: !!relatedResource,
   })
 
+  // v1.8.2 — Forward the parent form draft (sibling values the user
+  // already typed but didn't save yet) so server-side
+  // `relatableQueryUsing` closures can filter on it. The set of
+  // forwarded fields is declared via `BelongsToMany::dependsOn([...])`
+  // (or `MorphToMany::dependsOn([...])`) on the PHP side and surfaces
+  // here as `field.dependsOn.fields`. Including the values in the
+  // queryKey makes React Query refetch automatically when any of them
+  // changes, which is what makes the picker reactive in CREATE mode
+  // (where there's no parent record id to query off yet).
+  const dependentFieldNames = useMemo<string[]>(() => {
+    const meta = (field as { dependsOn?: { fields?: string[] } }).dependsOn
+    return Array.isArray(meta?.fields) ? meta!.fields! : []
+  }, [field])
+
+  const dependentFormSnapshot = useMemo(() => {
+    if (dependentFieldNames.length === 0 || !formValues) return {}
+    const out: Record<string, unknown> = {}
+    for (const name of dependentFieldNames) {
+      if (Object.prototype.hasOwnProperty.call(formValues, name)) {
+        out[name] = formValues[name]
+      }
+    }
+    return out
+  }, [dependentFieldNames, formValues])
+
   const attachableQuery = useQuery({
-    queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage],
+    queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage, dependentFormSnapshot],
     queryFn: ({ signal }) => {
       const params = new URLSearchParams({ per_page: String(attachPerPage), page: String(attachPage) })
       if (debouncedSearch) params.set('search', debouncedSearch)
+      // Append `form[attribute]=value` for each declared dependent
+      // field. The backend forwards these to the closure as a 3rd
+      // argument; closures with arity 2 ignore the extra data.
+      for (const [k, v] of Object.entries(dependentFormSnapshot)) {
+        if (v === null || v === undefined) continue
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+          params.set(`form[${k}]`, String(v))
+        }
+      }
       return api.get<PaginatedResponse<ResourceRecord>>(
         `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`,
         signal
@@ -1006,8 +1049,8 @@ function AttachModal({
 // Forms — no-op (BelongsToMany only on detail page)
 // -------------------------------------------------------------------------
 
-export function BelongsToManyFieldInput({ field }: FieldInputProps) {
-  return <BelongsToManyDetailPanel field={field} />
+export function BelongsToManyFieldInput({ field, formValues }: FieldInputProps) {
+  return <BelongsToManyDetailPanel field={field} formValues={formValues} />
 }
 
 // -------------------------------------------------------------------------

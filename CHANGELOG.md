@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.2] — 2026-04-30
+
+UX patches reported during edge-flow validation, plus two reusable DX upgrades that other Resources can now leverage.
+
+### Added
+
+- **`Martis\Fields\Slug::badgeVariant(...)` / `->badgeAccent()` / `->badgeColor('#hex')`.** The slug display badge can now be tinted with the brand accent, semantic colours (`success`/`warning`/`danger`), or any CSS colour value (hex / rgb / hsl / oklch). Useful when the slug IS the row identity — e.g. `Slug::make('name')->badgeAccent()` on PermissionResource / RoleResource so the names pop on the index. Default look unchanged.
+- **`BelongsToMany::dependsOn([...])` + 3-arg `relatableQueryUsing` closure.** The picker now forwards declared sibling fields from the unsaved parent form draft (`?form[guard_name]=…`) so server-side filters can scope on what the user just typed in the parent form even before save. Existing arity-2 closures are unaffected (detected via `ReflectionFunction`). Closes the create-time gap on Spatie Permission/Role pickers — admins can pick `guard='sanctum'` on a brand-new Role and the Permissions list narrows to that guard before save.
+- **`<FieldError>` component for the auth surfaces.** Replaces the bare `<p className="martis-field-error">` styling with an icon-plus-text pill on a tinted `--martis-danger-bg`. Login / Register / ForgotPassword / ResetPassword all use it now.
+
+### Fixed
+
+- **`PasswordField` and `PasswordConfirmationField` now expose the strength meter + checklist on the Register page.** The register page was rendering hand-rolled `<input type="password">` blocks that bypassed the shared `Password` field stack — Profile got the strength UI but Register did not. Migrated to the same component pair as `PasswordSection`, including the live confirmation-match indicator.
+- **`ResourceController::destroy` now catches `\Throwable`, not just `QueryException`.** Spatie's permission-cache invalidation, observer hook errors, third-party policy listeners — anything that throws on `$model->delete()` was bubbling up as a generic 500 with the toast "Error deleting record." The specific message now reaches the operator (still goes through `report()` for monitoring).
+
+### Internal
+
+- Slug field schema payload gains `badgeVariant` / `badgeColor` keys (omitted when default). Existing schemas unchanged.
+- BelongsToManyController has a new `collectFormDraft(Request)` helper that parses `?form[*]` into a typed array. Used as the 3rd arg passed to `relatableQueryUsing`.
+
+### Validation
+
+- Pest 1742 / 1 skipped / 0 failed.
+- Vitest 119 / 5 skipped.
+- PHPStan L8 0 errors. Pint clean.
+
+## [1.8.1] — 2026-04-30
+
+Patch fixes for the v1.8.0 cosmetic regressions reported during edge-flow validation.
+
+### Fixed
+
+- **Theme / locale tooltips clipping above viewport on auth surfaces.** `AuthControls` (top-right of Login / Register / ForgotPassword / ResetPassword / 2FA challenge) now declares `data-pr-position="bottom"` explicitly so the bubble drops below the strip instead of trying to render above it (where the strip is flush against the viewport edge). `MartisTooltip` itself gains a smart fallback: if the requested position would put the bubble within ~36 px of the viewport edge, it flips to the opposite side. Same logic mirrors for top / bottom / left / right.
+- **`[DOM] Input elements should have autocomplete attributes (suggested: "new-password")`** on every screen rendering the shared `PasswordField` / `PasswordConfirmationField` components (Profile password change, Register, custom forms with the Password field type). Both components now declare `autoComplete="new-password"`. Sign-in flows already used a hand-rolled `<input>` with `current-password` and were unaffected.
+
+### Validation
+
+- Pest: 1742 passing, 1 skipped, 0 failed.
+- Vitest: 119 passing, 5 skipped.
+- PHPStan L8: 0 errors. Pint clean.
+
 ## [1.8.0] — 2026-04-30
 
 UX polish for the unauthenticated auth surfaces, two new fields aimed at Spatie Permission resources, sidebar count compaction, and package hygiene.

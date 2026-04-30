@@ -8,6 +8,7 @@ import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
 import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
+import { FieldError } from '@/components/auth/FieldError'
 
 /**
  * Reset password — set the new password using the token from the email.
@@ -132,7 +133,7 @@ export function ResetPasswordPage() {
             required
             readOnly={!!searchParams.get('email')}
           />
-          {errors.email && <div className="martis-field-error">{errors.email}</div>}
+          <FieldError message={errors.email} />
         </div>
 
         <div style={{ marginBottom: 12 }}>
@@ -162,7 +163,7 @@ export function ResetPasswordPage() {
               {showPassword ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />}
             </button>
           </div>
-          {errors.password && <div className="martis-field-error">{errors.password}</div>}
+          <FieldError message={errors.password} />
         </div>
 
         <div style={{ marginBottom: 12 }}>
@@ -180,9 +181,7 @@ export function ResetPasswordPage() {
             disabled={submitting}
             required
           />
-          {errors.password_confirmation && (
-            <div className="martis-field-error">{errors.password_confirmation}</div>
-          )}
+          <FieldError message={errors.password_confirmation} />
         </div>
 
         <button
