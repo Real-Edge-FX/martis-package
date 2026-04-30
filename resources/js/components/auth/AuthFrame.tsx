@@ -44,7 +44,10 @@ export function AuthFrame({ children, width }: AuthFrameProps) {
       <div className="martis-auth-bg" aria-hidden="true" />
       <AuthControls />
       <div className="martis-auth-card" style={cardStyle}>
-        <div className="martis-auth-brand">
+        <div
+          className="martis-auth-brand"
+          data-mode={customLogo ? 'logo' : customIcon ? 'icon' : 'bundled'}
+        >
           {customLogo ? (
             <img src={customLogo} alt={brand} />
           ) : customIcon ? (

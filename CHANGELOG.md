@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.4] — 2026-04-30
+
+Two production-surfaced bugs + a doc rewrite.
+
+### Fixed
+
+- **Guest theme / locale preferences now persist across refresh.** The pre-paint resolver in `resources/views/app.blade.php` was `prefs.theme || cached.theme || ...`, which always honoured the server-injected payload first. For guests the server has no row to honour — it falls back to the config defaults (dark / en) — so a guest who picked light + pt_PT on the login page reverted on every refresh. The resolver now checks `preferences.initial.source`: when it is `'user'` or `'preset'`, the server payload wins (correct behaviour for authenticated users); when it is `'default'`, the localStorage cache wins, falling through to the server defaults only when nothing is cached.
+- **Logo-only mode no longer crams the asset into the 28×28 icon slot.** The CSS for `.martis-sb-logo-mark` and the topnav / auth-card equivalents kept the mark constrained to a square box, so a wide horizontal lockup looked tiny. The brand container now ships a `data-mode` attribute (`"logo"` / `"icon"` / `"bundled"`) and CSS frees the height (40px sidebar, 36px topnav, 40px auth card) and lets the image scale to its natural width, capped to prevent overflow.
+
+### Documentation
+
+- `docs/configuration.md` — "Logo vs icon" subsection rewritten as **"Choosing your brand mode"** with explicit walk-through of all four modes, ASCII previews, the env var for each knob, the surfaces each one reaches, and the cache-clear sequence to switch modes after deployment. Closes the "where do I set each mode?" question raised against v1.6.3.
+
+### Validation
+
+- Pest: 1718 passing, 1 skipped, 0 failed.
+- Vitest: 110 passing, 5 skipped.
+- PHPStan L8: 0 errors.
+- Pint: clean.
+
 ## [1.6.3] — 2026-04-30
 
 Brand surfaces gain a proper `icon` knob and the AuthFrame (Login / Register / Forgot / 2FA / error screens) finally honours the consumer's brand assets.
