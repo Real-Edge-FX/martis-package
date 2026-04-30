@@ -313,6 +313,12 @@ Two compact widgets live in the top-right of every auth surface (Login, Register
 
 When both flags are `false`, the strip itself doesn't render, so a single-locale single-theme deployment gets a pristine login screen.
 
+#### Guest persistence (v1.7.6)
+
+A guest's choice on the strip persists in `localStorage` (`martis-preferences` key) and survives a hard refresh. The picker NEVER calls the server — `/api/preferences` is `martis.auth`-protected and would 401 for a guest, polluting the console. Once the user signs in, `readInitialPrefs` keeps their localStorage choice (priority over the server "default" payload) and the next explicit `update()` call writes it server-side.
+
+Both controls render with the global PrimeReact tooltip (`data-pr-tooltip`), so styling matches the rest of the shell.
+
 ### Minimal consumer recipe
 
 ```php
