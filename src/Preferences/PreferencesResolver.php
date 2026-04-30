@@ -145,9 +145,26 @@ class PreferencesResolver
 
     protected function normaliseAccent(mixed $value): string
     {
+        // 1. Built-in enum match (martis, blue, teal, violet, amber, custom).
         $enum = $value instanceof AccentColor ? $value : AccentColor::tryFrom((string) $value);
+        if ($enum !== null) {
+            return $enum->value;
+        }
 
-        return ($enum ?? AccentColor::Martis)->value;
+        // 2. Custom accent registered via `MARTIS_CUSTOM_ACCENTS` (v1.7.0).
+        // The consumer can ship arbitrary `name:hex` pairs that extend
+        // the built-in set. The parser already validated the names,
+        // so a key match here is enough.
+        $candidate = is_string($value) ? strtolower($value) : null;
+        if ($candidate !== null) {
+            $custom = CustomAccentsParser::parse((string) (config('martis.preferences.custom_accents') ?? ''));
+            if (array_key_exists($candidate, $custom)) {
+                return $candidate;
+            }
+        }
+
+        // 3. Anything else degrades to the safe default.
+        return AccentColor::Martis->value;
     }
 
     protected function normaliseDensity(mixed $value): string

@@ -5,7 +5,20 @@ import { useAuth } from '@/contexts/AuthContext'
 import i18n, { loadLocale } from '@/lib/i18n'
 
 export type ThemeMode = 'dark' | 'light' | 'system'
-export type AccentColor = 'martis' | 'blue' | 'teal' | 'violet' | 'amber' | 'custom'
+/** Bundled accent values shipped by Martis. Custom accents declared via
+ *  `MARTIS_CUSTOM_ACCENTS` (v1.7.0) extend this set at runtime — they
+ *  are valid AccentColor values too, but TypeScript cannot enumerate
+ *  them statically because they come from env. The `string & {}` arm
+ *  keeps autocomplete on the bundled values while accepting any extra
+ *  custom name at compile time. */
+export type AccentColor =
+  | 'martis'
+  | 'blue'
+  | 'teal'
+  | 'violet'
+  | 'amber'
+  | 'custom'
+  | (string & {})
 export type UiDensity = 'comfortable' | 'dense'
 
 export interface Preferences {

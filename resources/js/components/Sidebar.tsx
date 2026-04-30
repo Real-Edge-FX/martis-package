@@ -23,24 +23,45 @@ function getBrand(): string {
 }
 
 /**
- * Sidebar brand resolution. Three modes:
+ * Sidebar brand resolution (v1.7.0).
  *
- *   1. `config.logo` set → render the full lockup ALONE (the wordmark
- *      is assumed to live inside the asset, so we hide the brand text
- *      next to it).
+ * Three modes, with per-theme variants:
+ *
+ *   1. `config.logo` set → render the full lockup ALONE (no separate
+ *      brand text). When `config.logoDark` is also set, both images
+ *      ship in the DOM and CSS hides one based on `<html data-theme>`.
  *   2. `config.icon` set → render the square icon + brand text
- *      side-by-side. Same shape as the bundled experience but with
- *      a consumer-supplied icon.
- *   3. Neither → bundled Martis cube + brand text (the default).
+ *      side-by-side. `config.iconDark` enables the same theme switch.
+ *   3. Neither → bundled Martis cube + brand text.
+ *
+ * Collapse override (v1.7.0): when the sidebar is collapsed AND the
+ * consumer shipped an icon, the icon wins regardless of `logo` —
+ * a horizontal lockup gets crammed into the 64px rail otherwise.
  */
-function getBrandMark(): { src: string; mode: "logo" | "icon" } {
-  if (config.logo) {
-    return { src: config.logo, mode: "logo" }
+function getBrandMark(collapsed: boolean): {
+  light: string
+  dark: string
+  mode: "logo" | "icon"
+} {
+  const logoLight = config.logo ?? config.logoDark ?? null
+  const logoDark = config.logoDark ?? config.logo ?? null
+  const iconLight = config.icon ?? config.iconDark ?? null
+  const iconDark = config.iconDark ?? config.icon ?? null
+
+  // Collapsed → prefer the icon when the consumer shipped one. The
+  // 64px rail cannot host a horizontal lockup without distortion.
+  if (collapsed && iconLight) {
+    return { light: iconLight, dark: iconDark ?? iconLight, mode: "icon" }
   }
-  if (config.icon) {
-    return { src: config.icon, mode: "icon" }
+
+  if (logoLight) {
+    return { light: logoLight, dark: logoDark ?? logoLight, mode: "logo" }
   }
-  return { src: logoSrcDefault as string, mode: "icon" }
+  if (iconLight) {
+    return { light: iconLight, dark: iconDark ?? iconLight, mode: "icon" }
+  }
+  const bundled = logoSrcDefault as string
+  return { light: bundled, dark: bundled, mode: "icon" }
 }
 
 interface SidebarProps {
@@ -76,8 +97,8 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
   }
 
   const brand = getBrand()
-  const brandMark = getBrandMark()
-  const logoSrc = brandMark.src
+  const brandMark = getBrandMark(!isMobile && collapsed)
+  const sameVariant = brandMark.light === brandMark.dark
 
   const mobileAttr = isMobile ? (mobileOpen ? "open" : "true") : undefined
 
@@ -91,11 +112,27 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
     >
       <div className="martis-sb-logo" data-mode={brandMark.mode}>
         <div className="martis-sb-logo-mark">
-          <img src={logoSrc} alt={brand} />
+          {sameVariant ? (
+            <img src={brandMark.light} alt={brand} />
+          ) : (
+            <>
+              <img
+                src={brandMark.light}
+                alt={brand}
+                className="martis-brand-img--light"
+              />
+              <img
+                src={brandMark.dark}
+                alt={brand}
+                className="martis-brand-img--dark"
+                aria-hidden="true"
+              />
+            </>
+          )}
         </div>
-        {brandMark.mode === "icon" && (
+        {brandMark.mode === "icon" && (!isMobile && collapsed ? null : (
           <span className="martis-sb-logo-text">{brand}</span>
-        )}
+        ))}
       </div>
 
       <div className="martis-sb-scroll">

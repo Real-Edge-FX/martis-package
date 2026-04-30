@@ -184,7 +184,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
 
           {/* Accent */}
           <Section label={t('accent', 'Accent')}>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {ACCENT_SWATCHES.map(({ key, label, color }) => (
                 <button
                   key={key}
@@ -203,6 +203,32 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                   )}
                 </button>
               ))}
+              {/* v1.7.0 — custom accents declared via MARTIS_CUSTOM_ACCENTS.
+                  The CSS rules for these names are injected inline by
+                  app.blade.php; clicking a swatch persists the name as
+                  the accent (server-side resolver accepts both bundled
+                  enum values and custom names). */}
+              {(config.preferences?.customAccents ?? []).map(({ name, color }) => {
+                const titleLabel = name.charAt(0).toUpperCase() + name.slice(1).replace(/[-_]/g, ' ')
+                return (
+                  <button
+                    key={`custom-${name}`}
+                    type="button"
+                    onClick={() => onAccentPick(name as AccentColor)}
+                    aria-label={titleLabel}
+                    title={`${titleLabel} (custom)`}
+                    className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
+                    style={{
+                      backgroundColor: color,
+                      boxShadow: prefs.accent === name ? '0 0 0 2px var(--martis-surface), 0 0 0 4px var(--martis-accent)' : 'none',
+                    }}
+                  >
+                    {prefs.accent === name && !prefs.brandColor && (
+                      <CheckIcon size={12} weight="bold" color="#fff" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+                    )}
+                  </button>
+                )
+              })}
             </div>
             {allowBrandColor && (
               <>

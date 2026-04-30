@@ -85,6 +85,28 @@ return [
         // can ship a square icon AND a horizontal lockup at the same
         // time — Martis prefers `logo` when both are set.
         'icon' => env('MARTIS_BRAND_ICON'),
+
+        // Theme-aware variants (v1.7.0). When the consumer ships
+        // separate light/dark assets, the SPA renders both side-by-
+        // side in the DOM and CSS hides one based on `data-theme`.
+        // Resolution if only one is set:
+        //   logo_dark unset → falls back to `logo` for both themes.
+        //   logo unset → `logo_dark` is used for both themes.
+        // Same for icon / icon_dark.
+        'logo_dark' => env('MARTIS_BRAND_LOGO_DARK'),
+        'icon_dark' => env('MARTIS_BRAND_ICON_DARK'),
+
+        // Per-surface logo height in pixels (v1.7.0). Drives a CSS
+        // variable injected into the SPA shell. Clamped at runtime
+        // to a safe range so absurd values cannot break the layout.
+        // Recommended ranges:
+        //   menu  20–56   (default 40)
+        //   auth  32–80   (default 48)
+        'logo_height' => [
+            'menu' => env('MARTIS_BRAND_LOGO_HEIGHT_MENU'),
+            'auth' => env('MARTIS_BRAND_LOGO_HEIGHT_AUTH'),
+        ],
+
         'favicon' => env('MARTIS_FAVICON', null),
 
         /*
@@ -356,13 +378,28 @@ return [
         'enabled' => env('MARTIS_PREFERENCES_ENABLED', true),
 
         'defaults' => [
-            'theme' => 'dark',
-            'accent' => 'martis',
+            // Default UI preferences for new users (v1.7.0 — env-driven).
+            // The PreferencesResolver normalises invalid values back to
+            // safe defaults, so a typo in .env never crashes the request.
+            'theme' => env('MARTIS_DEFAULT_THEME', 'dark'),                  // dark | light | system
+            'accent' => env('MARTIS_DEFAULT_ACCENT', 'martis'),              // martis | blue | teal | violet | amber | <custom name>
             'brandColor' => null,
-            'density' => 'comfortable',
+            'density' => env('MARTIS_DEFAULT_DENSITY', 'comfortable'),       // comfortable | dense
             'locale' => env('MARTIS_DEFAULT_LOCALE', 'en'),
             'reducedMotion' => false,
         ],
+
+        // Custom accent colours (v1.7.0). Comma-separated `name:hex`
+        // pairs in `MARTIS_CUSTOM_ACCENTS` are parsed into this array
+        // by `Martis\Preferences\CustomAccentsParser` and exposed to
+        // the SPA at boot. Each entry adds a new swatch in the
+        // PreferencesMenu accent picker. Defaults to an empty array;
+        // bundled accents (martis/blue/teal/violet/amber) are always
+        // available and cannot be overridden.
+        //
+        // Example .env:
+        //   MARTIS_CUSTOM_ACCENTS="edgeflow:#1a73e8,sunset:#ff6b35"
+        'custom_accents' => env('MARTIS_CUSTOM_ACCENTS'),
 
         // Locales the UI exposes in the language picker. Null = use the
         // three bundled by the package (en, pt_PT, pt_BR). Add any code

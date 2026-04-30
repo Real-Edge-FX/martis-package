@@ -635,12 +635,20 @@ html[data-density="dense"] .mwc-root {
    horizontal lockup reads at a comfortable size without dominating
    the form field below. The wordmark inside the lockup typically
    already includes the brand name, so no separate text span renders
-   (handled by AuthFrame.tsx). */
+   (handled by AuthFrame.tsx). Height is `--martis-brand-logo-height-auth`
+   (default 48px), tunable via MARTIS_BRAND_LOGO_HEIGHT_AUTH. */
 .martis-auth-brand[data-mode="logo"] img {
-  height: 48px;
-  max-height: 48px;
+  height: var(--martis-brand-logo-height-auth, 48px);
+  max-height: var(--martis-brand-logo-height-auth, 48px);
   max-width: 240px;
 }
+
+/* v1.7.0 — theme-aware brand variants. When the consumer ships
+   separate light/dark assets, both `<img>` tags render in the DOM
+   and we hide one based on `<html data-theme>`. The toggle is
+   instant (CSS-driven, no React re-render, no fetch). */
+html[data-theme="light"] .martis-brand-img--dark { display: none; }
+html[data-theme="dark"]  .martis-brand-img--light { display: none; }
 .martis-auth-title {
   font-size: 20px;
   font-weight: var(--martis-weight-semibold);
@@ -1253,15 +1261,15 @@ html[data-reduced-motion="true"] .mwc-shimmer {
    already hidden by Sidebar.tsx in this mode. */
 .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark {
   width: auto;
-  height: 40px;
-  max-height: 40px;
+  height: var(--martis-brand-logo-height-menu, 40px);
+  max-height: var(--martis-brand-logo-height-menu, 40px);
   max-width: calc(var(--sidebar-width, 240px) - 32px);
   overflow: hidden;
 }
 .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img {
   width: auto;
   height: 100%;
-  max-height: 40px;
+  max-height: var(--martis-brand-logo-height-menu, 40px);
   object-fit: contain;
   display: block;
 }
@@ -1801,18 +1809,20 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   flex-shrink: 0;
 }
 /* Logo-only mode on the topnav: same widening rule as the sidebar so
-   a horizontal lockup is not crammed into the 28×28 mark slot. */
+   a horizontal lockup is not crammed into the 28×28 mark slot. The
+   v1.7.0 menu height knob (`--martis-brand-logo-height-menu`)
+   applies here too — sidebar and topnav share the surface. */
 .martis-topnav-brand[data-mode="logo"] .martis-sb-logo-mark {
   width: auto;
-  height: 36px;
-  max-height: 36px;
+  height: var(--martis-brand-logo-height-menu, 36px);
+  max-height: var(--martis-brand-logo-height-menu, 36px);
   max-width: 220px;
   overflow: hidden;
 }
 .martis-topnav-brand[data-mode="logo"] .martis-sb-logo-mark img {
   width: auto;
   height: 100%;
-  max-height: 36px;
+  max-height: var(--martis-brand-logo-height-menu, 36px);
   object-fit: contain;
   display: block;
 }

@@ -179,12 +179,21 @@ export interface MartisPreferencesInitialPayload {
   preset?: string | null
 }
 
+/** A single custom accent declared via `MARTIS_CUSTOM_ACCENTS` (v1.7.0).
+ *  The hex value already passed server-side validation (#RRGGBB). */
+export interface MartisCustomAccent {
+  name: string
+  color: string
+}
+
 export interface MartisPreferencesConfig {
   enabled: boolean
   allowBrandColor: boolean
   /** Map of locale code → human-readable label (e.g. `en` → "English"). */
   localeLabels?: Record<string, string>
   initial: MartisPreferencesInitialPayload | null
+  /** Custom accent swatches surfaced in the PreferencesMenu picker (v1.7.0). */
+  customAccents?: MartisCustomAccent[]
 }
 
 /** Generic shape for each alternative auth flow (SSO, Google, password reset,
@@ -257,6 +266,21 @@ export interface MartisConfigShape {
    * prefers `logo` when both are set.
    */
   icon?: string | null
+  /**
+   * Theme-aware variants (v1.7.0). When `logoDark` / `iconDark` is
+   * set, the SPA renders both the light and dark variants in the
+   * DOM and CSS hides one based on `<html data-theme>`. If only
+   * one variant of a pair is set, it is used for both themes.
+   */
+  logoDark?: string | null
+  iconDark?: string | null
+  /**
+   * Per-surface logo height (v1.7.0). Drives a CSS variable on
+   * `:root`. Defaults: menu 40px, auth 48px. Server clamps the
+   * range to 20-56 (menu) and 24-80 (auth) so an absurd .env
+   * value cannot break the layout.
+   */
+  logoHeight?: { menu?: number; auth?: number }
   /** Martis package version surfaced in the sidebar footer. */
   version?: string
   /** Optional link to the project's docs shown in the sidebar footer. */
