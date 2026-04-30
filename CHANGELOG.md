@@ -9,14 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.6] — 2026-04-30
 
+Comprehensive guest-flow hardening for the Login / Register / 2FA challenge surfaces, plus a CSS specificity fix for the theme-aware logo variants.
+
 ### Fixed
 
-- **Guest login page no longer fires a 401 on `/api/preferences`.** `PreferencesContext` runs an auto-refetch of `/api/preferences` on every mount (keyed on `user?.id`) so post-login state reconciles with the server. The endpoint lives inside the `martis.auth` middleware group, so a guest mount produced a `401 Unauthorized` in the browser console (caught silently — no functional impact, but a confusing error log that surfaced in support requests). The effect now skips the fetch entirely when `user` is `null`. The SSR payload + localStorage are already authoritative for guests; the server has nothing extra to add.
+- **Guest login page no longer fires GET / PUT 401 on `/api/preferences`.** `PreferencesContext` previously refetched on every mount (GET) and round-tripped every theme/locale tweak (PUT). Both endpoints live behind the `martis.auth` middleware group, so each guest interaction logged a `401 Unauthorized` in the console. Both calls now skip when `user` is `null` — localStorage and the SSR payload are already authoritative for guests; the server has nothing extra to add.
+- **Theme cycle / locale picker on the login page did not persist across refresh.** `update()` relied on assigning `nextState` inside a `setPrefs(updater)` callback, which under React 18 automatic batching could run asynchronously — `nextState` stayed null and the `localStorage.setItem` was silently skipped. The merged snapshot is now computed from a `useRef` mirror BEFORE calling `setPrefs`, deterministic regardless of when React flushes the update.
+- **Theme toggle felt intermittent on rapid clicks.** Three back-to-back clicks before React re-rendered all read the same `prefs.theme` from the captured render closure, so the cycle "skipped" steps. `update()` now accepts a functional patch — `AuthControls.onThemeCycle` derives the next mode from the LATEST committed prefs (read via the ref mirror) so chained clicks compound correctly.
+- **Native browser tooltip on auth controls (off-brand styling).** `AuthControls` now uses the Martis-wide `data-pr-tooltip` pattern, so the global PrimeReact tooltip renders consistently with the rest of the shell.
+- **Logo variant did not swap on theme toggle, and a faint silhouette of the inactive variant peeked through.** The theme-aware logo CSS in `martis.css` now uses `display: none !important` to win against the logo-mode rule's higher specificity. A single image is rendered at any time.
+
+### Internal
+
+- `PreferencesContextValue.update` is now typed as `(patch: Partial<Preferences> | ((prev: Preferences) => Partial<Preferences>)) => Promise<void>`. Existing call sites that pass a plain object continue to work unchanged.
 
 ### Validation
 
 - Pest: 1739 passing, 1 skipped, 0 failed.
 - Vitest: 110 passing, 5 skipped.
+- Visual smoke in production (edge-flow): theme toggle persists across refresh in both auth and guest, locale picker persists, no 401 in console, tooltip styled.
 
 ## [1.7.5] — 2026-04-30
 

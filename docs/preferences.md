@@ -39,6 +39,25 @@ The resolved payload is injected into `window.MartisConfig.preferences.initial` 
 
 When the user logs in client-side (no hard reload), `PreferencesProvider` refetches `/api/preferences` so the authenticated user's saved preferences replace the guest defaults. This is why `AuthProvider` wraps `PreferencesProvider` in [app.tsx](../resources/js/app.tsx).
 
+The refetch and the optimistic PUT are BOTH skipped when `user` is null (v1.7.6). The endpoints live behind `martis.auth`, so a guest mount or guest theme/locale tweak would otherwise log a 401 in the browser console. localStorage and the SSR payload are already authoritative for guests; the server has nothing extra to add until the user signs in.
+
+### Persistence guarantees
+
+`PreferencesProvider` exposes `update(patch)` for partial writes. The patch can be a plain object **or** a function `(prev) => Partial<Preferences>` so callers can derive the next value from the LATEST committed state. The function form is required for chained updates that must compound (e.g. a theme cycle on rapid clicks) — the plain object form captures the current value in the render closure, which under React 18 batching can stay stale across multiple back-to-back invocations.
+
+Internally, `update()` mirrors the latest committed prefs into a `useRef` and computes the merged snapshot from the ref **before** calling `setPrefs`. Without this, the local `nextState` would be subject to React's update timing and the localStorage write could be silently skipped.
+
+```ts
+// Plain object form — fine for one-shot patches
+update({ theme: 'light' })
+
+// Function form — required for cycles / chained updates
+update((prev) => {
+  const next = nextThemeInCycle(prev.theme)
+  return { theme: next }
+})
+```
+
 ---
 
 ## API
