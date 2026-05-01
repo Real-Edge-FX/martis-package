@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.6] — 2026-05-01
+
+Hotfix: in v1.8.5 the multi-locale `auth.copy.*` was resolved server-side. That meant the copy was frozen at the locale the SSR knew about (always `en` for guests because the resolver doesn't see localStorage). Switching the language picker on `/login` failed to swap the copy.
+
+### Fixed
+
+- **`auth.copy.<page>.<key>` now resolves on the client.** The blade exposes the entry verbatim (string OR `Record<locale, string>`); `useAuthCopy()` picks the active i18n language at render time, so a language flip on `/login` re-renders the title and subtitle without a server round-trip. Resolution order: exact locale → base locale (`en_US` → `en`) → `'en'` → first non-empty.
+
+### Internal
+
+- `MartisAuthCopyEntry = string | Record<string, string> | null` now exported from `lib/config.ts`.
+- `useAuthCopy()` re-uses `useTranslation('auth')` (which subscribes to i18next's `languageChanged` event) so the consumer override and the bundled fallback both react to the same trigger.
+
 ## [1.8.5] — 2026-05-01
 
 Two UX patches reported during edge-flow validation: `auth.copy` is now multi-locale aware and guest preference picks (theme / locale / etc.) carry into the authenticated shell instead of being silently overwritten by the server-saved row.
