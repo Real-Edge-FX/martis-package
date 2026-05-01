@@ -112,8 +112,9 @@ class ResourceController extends MartisController
             }
         }
 
-        // Apply indexQuery hook
+        // Apply indexQuery hook + the declarative static $with list.
         $query = $resourceClass::indexQuery($request, $query);
+        $query = $resourceClass::applyWith($query);
 
         // Apply filters
         $this->applyFilters($request, $query, $instance);
@@ -287,9 +288,15 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
+        $meta = ['message' => $resourceClass::createdMessage()];
+        $redirectTo = $res->redirectAfterCreate($model, $request);
+        if (is_string($redirectTo) && $redirectTo !== '') {
+            $meta['redirectTo'] = $redirectTo;
+        }
+
         return JsonResponse::make(
             $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
-            meta: ['message' => $resourceClass::createdMessage()],
+            meta: $meta,
         )->toResponse(201);
     }
 
@@ -366,9 +373,15 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
+        $meta = ['message' => $resourceClass::updatedMessage()];
+        $redirectTo = $res->redirectAfterUpdate($model, $request);
+        if (is_string($redirectTo) && $redirectTo !== '') {
+            $meta['redirectTo'] = $redirectTo;
+        }
+
         return JsonResponse::make(
             $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
-            meta: ['message' => $resourceClass::updatedMessage()],
+            meta: $meta,
         )->toResponse();
     }
 
@@ -1247,6 +1260,10 @@ class ResourceController extends MartisController
             // No source context - apply only the target's generic relatableQuery
             $query = $relatedResourceClass::relatableQuery($request, $query);
         }
+
+        // The declarative static $with list applies to relatable lookups too,
+        // so the picker payload can include eager-loaded display fields.
+        $query = $relatedResourceClass::applyWith($query);
 
         // Apply search if provided
         $rawSearch = $request->query('search', '');

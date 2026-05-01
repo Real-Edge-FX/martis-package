@@ -12,7 +12,7 @@ use Martis\Models\UserPreference;
 use Throwable;
 
 /**
- * Resolve the effective UI preferences for the current request (Task 07.1 ⭐ D2).
+ * Resolve the effective UI preferences for the current request.
  *
  * Resolution chain (highest priority first):
  *   1. URL preset — `?preset=<name>` maps to `config('martis.preferences.presets.<name>')`

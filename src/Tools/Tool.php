@@ -159,7 +159,7 @@ class Tool implements ToolContract
     }
 
     // -------------------------------------------------------------------------
-    // Lifecycle (Nova-style boot hook for Composer-package tools)
+    // Lifecycle (boot hook for Composer-distributed tools)
     // -------------------------------------------------------------------------
 
     /** {@inheritdoc} */

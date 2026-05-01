@@ -87,6 +87,7 @@ class SearchController extends MartisController
             $modelClass = $resourceClass::model();
             $builder = $modelClass::query();
             $builder = $resourceClass::indexQuery($request, $builder);
+            $builder = $resourceClass::applyWith($builder);
             /** @var Builder<Model> $builder */
             $builder = SearchResolver::apply($request, $builder, $resourceClass, $q);
             $builder = $instance->searchOrderBy($builder, $q);

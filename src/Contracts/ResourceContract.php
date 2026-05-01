@@ -142,7 +142,7 @@ interface ResourceContract
     public function fieldsForPreview(Request $request): array;
 
     // -------------------------------------------------------------------------
-    // Schema foundation — task 1
+    // Schema foundation
     // -------------------------------------------------------------------------
 
     /**

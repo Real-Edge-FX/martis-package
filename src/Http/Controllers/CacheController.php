@@ -12,7 +12,7 @@ use Martis\Cache\MartisCache;
 use Martis\Http\Resources\JsonErrorResponse;
 
 /**
- * REST endpoints powering the "Sistema → Cache" admin page (Task 17).
+ * REST endpoints powering the "Sistema → Cache" admin page.
  *
  * Authorization: every endpoint goes through Gate `manage-martis-cache`.
  * The default Gate definition (registered in `MartisServiceProvider`)

@@ -196,6 +196,23 @@ abstract class Resource implements ResourceContract
     // -------------------------------------------------------------------------
 
     /**
+     * Eager-load relations on every index, detail, and relatableQuery build.
+     *
+     * Mirrors the Laravel `$with` convention but at the Resource layer:
+     * declare it once and Martis applies it on the listing query, the
+     * relationship-picker query, and any `findModel()` lookup. Saves the
+     * `indexQuery` / `relatableQuery` boilerplate that previously had to
+     * wrap `$query->with([...])` for every Resource that needed eager
+     * loading.
+     *
+     * Override `indexQuery()` directly when one surface needs a different
+     * relation set — the explicit override wins.
+     *
+     * @var list<string>
+     */
+    protected static array $with = [];
+
+    /**
      * Build a query for the resource index listing.
      *
      * Override this method to add tenant scoping, ownership filtering, or any
@@ -223,6 +240,25 @@ abstract class Resource implements ResourceContract
      */
     public static function relatableQuery(Request $request, Builder $query): Builder
     {
+        return $query;
+    }
+
+    /**
+     * Apply the declarative `static $with` eager-load list onto a query.
+     *
+     * Called by every entry point that builds a model query (index, detail,
+     * relatable selectors). Empty by default; overrides on consumer Resources
+     * fill `static::$with` with the relations they always want hydrated.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function applyWith(Builder $query): Builder
+    {
+        if (static::$with !== []) {
+            $query->with(static::$with);
+        }
+
         return $query;
     }
 
@@ -323,7 +359,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Schema foundation — task 1
+    // Schema foundation
     // -------------------------------------------------------------------------
 
     /** {@inheritdoc} */
@@ -351,7 +387,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Sticky Views (v0.8 — Task 15)
+    // Sticky Views
     // -------------------------------------------------------------------------
 
     /**
@@ -1135,6 +1171,46 @@ abstract class Resource implements ResourceContract
         $msg = __('martis::messages.validation_failed');
 
         return is_string($msg) ? $msg : 'The given data was invalid.';
+    }
+
+    /**
+     * Optional override for the post-create destination URL.
+     *
+     * Returns the URL the SPA should navigate to after a successful create.
+     * Returning `null` (the default) keeps the save-variant behaviour: the
+     * primary "Create {Resource}" button lands on the new record's detail
+     * page, "Create & view list" jumps to the index, "Create & add another"
+     * stays on the create page. Override this hook when the post-save flow
+     * should land somewhere outside the standard three options.
+     *
+     * The string is shipped to the frontend in the create response under
+     * `meta.redirectTo`. The SPA only consults it when the operator clicked
+     * the primary submit; "view list" and "add another" still win because
+     * they encode an explicit user intent.
+     */
+    public function redirectAfterCreate(Model $model, Request $request): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Optional override for the post-update destination URL.
+     *
+     * Returns the URL the SPA should navigate to after a successful update.
+     * Returning `null` (the default) keeps the save-variant behaviour: the
+     * primary "Save changes" button lands on the record's detail page,
+     * "Save & view list" jumps to the index, "Save & continue editing"
+     * stays on the edit page. Override this hook when the post-save flow
+     * should land somewhere outside the standard three options.
+     *
+     * The string is shipped to the frontend in the update response under
+     * `meta.redirectTo`. The SPA only consults it when the operator clicked
+     * the primary submit; "view list" and "continue editing" still win
+     * because they encode an explicit user intent.
+     */
+    public function redirectAfterUpdate(Model $model, Request $request): ?string
+    {
+        return null;
     }
 
     /** {@inheritdoc} */

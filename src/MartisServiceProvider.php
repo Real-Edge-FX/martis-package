@@ -220,17 +220,17 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../stubs/add_profile_picture_column.php.stub' => database_path('migrations/'.date('Y_m_d').'_000003_add_profile_picture_column.php'),
             ], 'martis-avatar-migration');
 
-            // Task 07.1 ⭐ D2 — user preferences table for theme/accent/
-            // density/locale/reduced-motion persistence + shareable presets.
+            // User preferences table for theme/accent/density/locale/
+            // reduced-motion persistence + shareable presets.
             $this->publishes([
                 __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
             ], 'martis-preferences-migration');
 
-            // Task 17 — host-app MartisServiceProvider stub. Holds main
-            // menu / dashboards / cache layers / gate definitions —
-            // anything that can't live in `config/martis.php` because
-            // closures don't survive `config:cache`. The InstallCommand
-            // publishes this automatically and wires it into
+            // Host-app MartisServiceProvider stub. Holds main menu /
+            // dashboards / cache layers / gate definitions — anything
+            // that can't live in `config/martis.php` because closures
+            // don't survive `config:cache`. The InstallCommand publishes
+            // this automatically and wires it into
             // `bootstrap/providers.php`; the tag below lets advanced
             // users republish it on demand.
             $this->publishes([

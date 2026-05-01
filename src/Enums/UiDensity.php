@@ -7,7 +7,7 @@ namespace Martis\Enums;
  * `--martis-row-h / nav-item-h / input-h / btn-h / pad-x / pad-y / gap`
  * scaffolding across the application.
  *
- * Per-surface overrides (⭐ D3) are applied via `data-density` on any
+ * Per-surface overrides are applied via `data-density` on any
  * ancestor element; the closest ancestor wins.
  */
 enum UiDensity: string

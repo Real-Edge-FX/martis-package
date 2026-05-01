@@ -11,8 +11,7 @@ use Martis\Facades\Martis;
 /**
  * Base ServiceProvider for Tools distributed as Composer packages.
  *
- * Mirrors Nova v5's `ToolServiceProvider` convention so a tool author
- * can ship a self-contained package that:
+ * Lets a tool author ship a self-contained package that:
  *
  *   1. Registers itself with Martis without the consumer touching
  *      their `MartisServiceProvider`.

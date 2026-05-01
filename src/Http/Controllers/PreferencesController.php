@@ -15,7 +15,7 @@ use Martis\Preferences\CustomAccentsParser;
 use Martis\Preferences\PreferencesResolver;
 
 /**
- * User-preferences API (Task 07.1 ⭐ D2).
+ * User-preferences API.
  *
  * Routes:
  *   GET    /martis/api/preferences           → current effective payload
