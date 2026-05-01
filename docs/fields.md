@@ -194,7 +194,7 @@ Text::make('first_name', 'First Name') // explicit label
 |--------|-----------|---------|-------------|
 | `hideWhenCreating` | `hideWhenCreating(): static` | `$this` | Hide on create form only. |
 | `hideWhenUpdating` | `hideWhenUpdating(): static` | `$this` | Hide on update form only. |
-| `showOnCreating` | `showOnCreating(): static` | `$this` | Show on create form. |
+| `showOnCreating` | `showOnCreating(): static` | `$this` | Show on create form. **v1.8.4**: required to opt back in for relationship fields whose persistence requires a saved parent — `BelongsToMany` and `MorphToMany` are hidden on create by default; `HasOne`, `HasMany`, `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOne`, `MorphMany`, `MorphOneOfMany` stay detail-only as before. |
 | `showOnUpdating` | `showOnUpdating(): static` | `$this` | Show on update form. |
 
 ### Convenience Visibility Presets

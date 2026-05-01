@@ -115,6 +115,13 @@ class MorphToMany extends Field
 
         // MorphToMany is hidden from index by default (shown on detail page)
         $this->hideFromIndex();
+
+        // v1.8.4 — Same logic as BelongsToMany: pivot rows need both
+        // `(parent_id, related_id)` and the parent doesn't exist yet
+        // when the create form is rendered. Picker only makes sense
+        // after the parent has been saved. Override with
+        // `->showOnCreating()` if you have a custom afterSave hook.
+        $this->showOnCreate = false;
     }
 
     /** {@inheritdoc} */
