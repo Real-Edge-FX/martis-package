@@ -119,6 +119,61 @@
                     'scroll' => false,
                 ],
             ])) !!},
+            @php
+                /**
+                 * v1.8.5 — Resolve `auth.copy.*` per current locale.
+                 *
+                 * Each entry in the config can be:
+                 *   - null   → frontend falls back to the bundled translation
+                 *   - string → rendered verbatim
+                 *   - array<locale, string> → multi-locale; resolved here
+                 *
+                 * The locale used is the one the frontend is actually
+                 * rendering with (the `locale` payload above), so a guest
+                 * who picked pt_BR sees pt_BR copy and the same browser
+                 * tab logged in as a user with locale=en sees en copy.
+                 *
+                 * Resolution chain for an array entry:
+                 *   1. exact locale match
+                 *   2. fallback locale (`config('martis.locale')`)
+                 *   3. `en` (sensible last-resort default)
+                 *   4. first available locale
+                 */
+                $authCopyLocale = $prefsPayload['locale']
+                    ?? config('martis.locale', config('app.locale', 'en'));
+
+                $resolveCopy = function ($value) use ($authCopyLocale) {
+                    if (! is_array($value)) {
+                        return $value;
+                    }
+                    $fallback = config('martis.locale', config('app.locale', 'en'));
+                    foreach ([$authCopyLocale, $fallback, 'en'] as $locale) {
+                        if (isset($value[$locale]) && is_string($value[$locale]) && $value[$locale] !== '') {
+                            return $value[$locale];
+                        }
+                    }
+                    foreach ($value as $candidate) {
+                        if (is_string($candidate) && $candidate !== '') {
+                            return $candidate;
+                        }
+                    }
+                    return null;
+                };
+
+                $authCopyRaw = config('martis.auth.copy', [
+                    'login' => ['title' => null, 'subtitle' => null, 'subtitle_with_sso' => null],
+                    'register' => ['title' => null, 'subtitle' => null],
+                    'forgot_password' => ['title' => null, 'subtitle' => null],
+                    'reset_password' => ['title' => null, 'subtitle' => null],
+                ]);
+
+                $authCopy = [];
+                foreach ($authCopyRaw as $page => $entries) {
+                    $authCopy[$page] = is_array($entries)
+                        ? array_map($resolveCopy, $entries)
+                        : $entries;
+                }
+            @endphp
             auth: {!! json_encode(array_merge(
                 config('martis.auth', [
                     'sso' => ['enabled' => false, 'url' => null],
@@ -127,17 +182,7 @@
                     'registration' => ['enabled' => false, 'url' => null],
                     'controls' => ['theme' => true, 'locale' => true],
                 ]),
-                [
-                    // v1.8.0 — explicit copy overrides for the auth pages.
-                    // Always merged on top so a missing key doesn't crash
-                    // the React helper.
-                    'copy' => config('martis.auth.copy', [
-                        'login' => ['title' => null, 'subtitle' => null, 'subtitle_with_sso' => null],
-                        'register' => ['title' => null, 'subtitle' => null],
-                        'forgot_password' => ['title' => null, 'subtitle' => null],
-                        'reset_password' => ['title' => null, 'subtitle' => null],
-                    ]),
-                ]
+                ['copy' => $authCopy],
             )) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),

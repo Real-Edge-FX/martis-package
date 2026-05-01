@@ -62,6 +62,19 @@ const DEFAULTS: Preferences = {
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
 const STORAGE_KEY = 'martis-preferences'
+/**
+ * Companion flag in `localStorage` that records whether the most recent
+ * `update()` happened while the user was unauthenticated. Set true on
+ * any guest pick (theme cycle, locale select, …) and consumed by the
+ * post-login effect, which promotes the cached preferences to the
+ * server with a single PUT and clears the flag.
+ *
+ * Without this signal, a guest who picks `theme=light` on the login
+ * page would silently revert to whatever was server-saved before once
+ * they authenticate — confusing because the change "disappeared" from
+ * their POV. v1.8.5.
+ */
+const GUEST_MODIFIED_KEY = 'martis-preferences-guest-modified'
 
 /** Map the `theme=system` preference into a concrete dark/light at runtime. */
 function resolveTheme(theme: ThemeMode): 'dark' | 'light' {
@@ -209,6 +222,39 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     // the SSR payload + localStorage are already authoritative.
     if (!user) return
     let active = true
+
+    // v1.8.5 — If the user explicitly tweaked theme / locale / etc on
+    // a guest auth surface immediately before logging in, promote
+    // those picks to the server with a single PUT instead of pulling
+    // the (potentially older) server row. The flag is cleared as soon
+    // as the round-trip succeeds so a future hard refresh resumes the
+    // normal GET-on-mount behaviour.
+    let guestModified = false
+    try {
+      guestModified = localStorage.getItem(GUEST_MODIFIED_KEY) === '1'
+    } catch { /* localStorage blocked — fall through to plain GET */ }
+
+    if (guestModified) {
+      api.put<ShowResponse>('/api/preferences', prefsRef.current)
+        .then((resp) => {
+          if (!active) return
+          try { localStorage.removeItem(GUEST_MODIFIED_KEY) } catch {}
+          if (resp?.data) setPrefs((prev) => ({ ...prev, ...resp.data }))
+          if (resp?.meta) setMeta(resp.meta)
+          if (resp?.data.locale && resp.data.locale !== i18n.language) {
+            void loadLocale(resp.data.locale)
+          }
+        })
+        .catch(() => {
+          // PUT failed (validation, 5xx, offline). Drop the flag
+          // anyway — keeping it would re-fire the same broken PUT on
+          // every mount. The local state is still correct from the
+          // optimistic update() that set the flag in the first place.
+          try { localStorage.removeItem(GUEST_MODIFIED_KEY) } catch {}
+        })
+      return () => { active = false }
+    }
+
     api.get<ShowResponse>('/api/preferences')
       .then((resp) => {
         if (!active || !resp?.data) return
@@ -269,6 +315,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     // change reaches every guest who has not yet picked anything.
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState))
+      // v1.8.5 — Mark the choice as a guest pick when the user is
+      // unauthenticated. The post-login effect uses this to promote
+      // the cached preferences to the server (single PUT) so a theme
+      // / locale picked on /login carries into the authenticated
+      // shell instead of getting silently overwritten by the
+      // server-saved row.
+      if (!user) {
+        localStorage.setItem(GUEST_MODIFIED_KEY, '1')
+      }
     } catch {}
     // Skip the server PUT for guests. The /api/preferences route lives
     // behind the `martis.auth` middleware group — every theme/locale

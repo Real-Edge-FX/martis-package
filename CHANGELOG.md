@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.5] — 2026-05-01
+
+Two UX patches reported during edge-flow validation: `auth.copy` is now multi-locale aware and guest preference picks (theme / locale / etc.) carry into the authenticated shell instead of being silently overwritten by the server-saved row.
+
+### Added
+
+- **Multi-locale `auth.copy.<page>.<key>`.** Each entry now accepts THREE shapes:
+  - `null` — fall back to the bundled `auth.php` translation (default).
+  - `string` — applied verbatim on every locale (the v1.8.0 behaviour).
+  - **`array<locale, string>`** — resolved server-side per the active locale. Resolution order: active locale → `config('martis.locale')` → `'en'` → first available. Edit `config/martis.php` directly when you need multi-locale; env vars stay on the single-string path.
+- **Guest preference promotion on login.** The first time `update()` runs while the user is unauthenticated, it sets a `martis-preferences-guest-modified` flag in `localStorage`. The post-login effect consumes the flag, PUTs the cached snapshot to `/api/preferences` (single round-trip) instead of GETting the older server row, and clears the flag on success or failure. Effect: a theme / locale / accent picked on `/login` carries into the authenticated shell instead of "disappearing" the moment the user signs in.
+
+### Internal
+
+- `app.blade.php` exposes `auth.copy` as plain strings to the SPA — the locale resolver runs server-side, so the `useAuthCopy()` hook stays simple. No frontend code change needed for multi-locale support.
+- `PreferencesContext` reads `prefsRef.current` for the post-login PUT, so the optimistic state captured during the guest session is exactly what reaches the server.
+
+### Validation
+
+- Pest 1751 / 1 skipped / 0 failed.
+- Vitest 119 / 5 skipped.
+- PHPStan L8 0 errors. Pint clean.
+
 ## [1.8.4] — 2026-05-01
 
 Patch release aligning the relationship-fields default visibility with Nova / Filament conventions: pickers that depend on the parent record having an id are now hidden from the CREATE form by default.
