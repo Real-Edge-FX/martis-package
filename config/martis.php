@@ -731,22 +731,38 @@ return [
 
         // Per-page copy overrides for the unauthenticated auth surfaces
         // (Login, Register, ForgotPassword, ResetPassword). Each entry
-        // accepts a string OR null:
-        //   - null       → fall back to the Martis i18n key (auth.php).
-        //                  This is the default — translations win.
-        //   - string     → override applied verbatim. Useful when the
-        //                  product brand wants a custom title without
-        //                  publishing the language files.
+        // accepts THREE shapes:
+        //   - null                       → fall back to the Martis i18n
+        //                                  key (auth.php). Default.
+        //   - string                     → override applied verbatim
+        //                                  on every locale.
+        //   - array<locale, string>      → multi-locale (v1.8.5).
+        //                                  Resolved server-side per the
+        //                                  active locale before being
+        //                                  exposed to the SPA.
         //
         // Multiple subtitles for login because the wording shifts when
         // SSO is enabled ("Continue with SSO or use your email" vs the
         // plain "Use your email…"). Set the SSO variant only if you
         // want different copy when SSO is on.
         //
-        // The bridge in `app.blade.php` exposes this block as
-        // `window.MartisConfig.auth.copy`; the React helper
-        // `useAuthCopy()` returns the override or falls back to t().
-        // v1.8.0.
+        // Edit the array form directly in this file when you need
+        // multi-locale copy — env vars are the single-string path. The
+        // bridge in `app.blade.php` exposes the resolved string as
+        // `window.MartisConfig.auth.copy.<page>.<key>`; the React
+        // helper `useAuthCopy()` returns the override or falls back
+        // to `t()`. v1.8.0 / v1.8.5.
+        //
+        // Example multi-locale:
+        //
+        //   'login' => [
+        //       'title' => [
+        //           'en'    => 'Sign in to Acme',
+        //           'pt_BR' => 'Entre no Acme',
+        //           'pt_PT' => 'Inicie sessão no Acme',
+        //       ],
+        //       'subtitle' => 'Welcome back.', // single string is fine
+        //   ],
         'copy' => [
             'login' => [
                 'title' => env('MARTIS_AUTH_LOGIN_TITLE'),
