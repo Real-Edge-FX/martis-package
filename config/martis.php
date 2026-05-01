@@ -378,7 +378,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | User Preferences (Task 07.1 ⭐ D2)
+    | User Preferences
     |--------------------------------------------------------------------------
     | Runtime UI preferences (theme, accent, density, locale, reduced-motion)
     | persisted per-user in `martis_user_preferences`. Disable with
@@ -429,7 +429,7 @@ return [
             'pt_BR' => 'Português (BR)',
         ],
 
-        // Allow users to set an arbitrary brand hex (⭐ D1). Off by default —
+        // Allow users to set an arbitrary brand hex. Off by default —
         // apps opt in via env or config override when multi-tenant branding
         // is a real requirement.
         'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
@@ -455,7 +455,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | In-app Notifications (v0.8 — Task 12)
+    | In-app Notifications
     |--------------------------------------------------------------------------
     | A persistent notification subsystem distinct from toasts. Backed by
     | Laravel's standard `notifications` table — any Notification class
@@ -482,7 +482,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Sticky Views (v0.8 — Task 15)
+    | Sticky Views
     |--------------------------------------------------------------------------
     | Persists per-user view state on resource index pages — filters,
     | sort, pagination, per-page selector and column visibility — so a
@@ -617,7 +617,7 @@ return [
     'auth' => [
         /*
         |----------------------------------------------------------------------
-        | SSO Subsystem (Task 14 ⭐ differential)
+        | SSO Subsystem
         |----------------------------------------------------------------------
         |
         | Per-provider SSO with three orthogonal configuration axes:
@@ -786,7 +786,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Cache — Martis Extension (Task 17 ⭐ runtime control)
+    | Cache — runtime control
     |--------------------------------------------------------------------------
     |
     | Per-subsystem cache layer with three control planes:
