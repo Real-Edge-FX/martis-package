@@ -92,6 +92,38 @@ Filters support `->span()` for layout control (1-12 column grid). Default spans:
 
 Filter values are passed to each card's compute endpoint and automatically applied to all built-in query helpers (count, sum, average, etc.).
 
+## Layout Type
+
+`Dashboard::layoutType(): string` returns the identifier the frontend uses to pick a layout renderer for the cards collection. Defaults to the standard grid; override only when shipping a custom dashboard component:
+
+```php
+public function layoutType(): string
+{
+    return 'kanban'; // matches a key the frontend knows how to render
+}
+```
+
+## Custom Component
+
+`Dashboard::componentKey(string)` swaps the entire dashboard view for a custom React component. The component must be registered in `componentRegistry` and able to consume the standard dashboard payload (`cards`, `filters`, `meta`):
+
+```php
+SalesDashboard::make('Sales')->componentKey('custom-sales-dashboard');
+```
+
+Use `component(): ?string` to read the configured key back.
+
+## Metadata
+
+Pass arbitrary metadata to the frontend with `withMeta()`. The values surface verbatim in the dashboard payload's `meta` block, so custom layout types or dashboard components can read them via `meta.*`:
+
+```php
+SalesDashboard::make('Sales')->withMeta([
+    'briefing' => 'Live every weekday at 09:00 WET.',
+    'owner'    => 'sales-leadership@example.com',
+]);
+```
+
 ## Artisan Command
 
 ```bash
@@ -102,16 +134,25 @@ php artisan martis:dashboard SalesDashboard
 
 > **Martis extension** — global defaults in addition to per-metric caching.
 
-Set global cache defaults in `config/martis.php`:
+Cache defaults live under the `cache` block of `config/martis.php`. Each subsystem (`metrics`, `dashboards`, `navigation`, `schema`) has its own `{enabled, ttl}` pair, plus a master kill-switch (`cache.enabled`):
 
 ```php
 'cache' => [
-    'metrics'    => env('MARTIS_CACHE_METRICS', 5),     // minutes
-    'dashboards' => env('MARTIS_CACHE_DASHBOARDS', null),
+    'enabled' => env('MARTIS_CACHE_ENABLED', true),
+
+    'metrics' => [
+        'enabled' => env('MARTIS_CACHE_METRICS_ENABLED', true),
+        'ttl'     => env('MARTIS_CACHE_METRICS_TTL', env('MARTIS_CACHE_METRICS', 5)),
+    ],
+    'dashboards' => [
+        'enabled' => env('MARTIS_CACHE_DASHBOARDS_ENABLED', true),
+        'ttl'     => env('MARTIS_CACHE_DASHBOARDS_TTL', env('MARTIS_CACHE_DASHBOARDS', null)),
+    ],
+    // navigation / schema follow the same shape
 ],
 ```
 
-Individual metrics can override with `cacheFor()`. The global config acts as a fallback.
+`ttl` is in minutes; `null` disables caching for that subsystem. Individual metrics override the global value via `cacheFor()`. Runtime overrides set with `php artisan martis:cache:disable {type}` survive restarts and take precedence over both layers. See [metrics.md — Cache Configuration](metrics.md#cache-configuration-martis-extension) for the full block.
 
 ## Default Dashboard
 
