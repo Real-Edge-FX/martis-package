@@ -294,7 +294,18 @@ Resolution precedence (highest first):
 
 > **i18n trade-off.** `MARTIS_FOOTER_TEXT` is a single string that overrides every locale. For per-locale footer copy, leave the env var unset and publish the lang files with `php artisan vendor:publish --tag=martis-lang`, then edit each locale file directly.
 
-## Welcome card
+## Dashboard greeting & welcome card
+
+The dashboard renders TWO different welcome strings — make sure you edit the right one:
+
+| Visible string | Translation key | Customisation |
+|---|---|---|
+| `Hello, {name}` (greeting line) | `martis::resources.hello` | Lang files only (publish + edit) |
+| **`Welcome to Martis Admin Engine.`** (subtitle under the greeting) | `martis::resources.welcome` | **Lang files only** (no env var) |
+| `Welcome to Martis` (animated `<WelcomeCard>` heading, optional) | `martis::resources.welcome_card_heading` | `MARTIS_WELCOME_HEADING` env **or** lang files |
+| Welcome card body | `martis::resources.welcome_card_description` | `MARTIS_WELCOME_DESCRIPTION` env **or** lang files |
+
+The `<WelcomeCard>` is the animated hero shown when `dashboard.showWelcomeCard !== false` — it sits at the top of the dashboard and is what the env vars below control. The greeting line ("Hello, X" + "Welcome to Martis Admin Engine") is a **separate** simple text block; **only lang files override it**. Frequent confusion: setting `MARTIS_WELCOME_HEADING` does not change the greeting subtitle.
 
 ```php
 'welcome' => [
@@ -305,16 +316,37 @@ Resolution precedence (highest first):
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `heading` | `?string` | `null` | Custom heading for the dashboard's hero welcome card. When `null`, uses the bundled `welcome_card_heading` translation. |
+| `heading` | `?string` | `null` | Custom heading for the dashboard's animated `<WelcomeCard>`. When `null`, uses the bundled `welcome_card_heading` translation. |
 | `description` | `?string` | `null` | Custom description shown below the heading. When `null`, uses the bundled `welcome_card_description` translation. |
 
-Resolution order (first non-null wins):
+### Customising the greeting subtitle ("Welcome to Martis Admin Engine.")
+
+Publish the lang files and edit the `welcome` key:
+
+```bash
+php artisan vendor:publish --tag=martis-lang --force
+```
+
+Then `resources/lang/vendor/martis/{en,pt_BR,pt_PT}/resources.php`:
+
+```php
+<?php
+return [
+    'welcome' => 'Welcome to EdgeFlow — your market quality terminal.',
+];
+```
+
+Laravel deep-merges with the package shipped file — only `welcome` changes; everything else falls through. After editing, `php artisan optimize:clear`.
+
+### Resolution order for the `<WelcomeCard>`
+
+(First non-null wins.)
 
 1. Prop passed at render-time (rare — only if the host overrides the React component itself).
-2. `welcome.heading` / `welcome.description` from this config block (env-driven).
-3. `martis::resources.welcome_card_heading` / `welcome_card_description` translations.
+2. `welcome.heading` / `welcome.description` from `config/martis.php` (env-driven).
+3. `martis::resources.welcome_card_heading` / `welcome_card_description` translations (which honour your published lang overrides if any).
 
-> **i18n trade-off.** `MARTIS_WELCOME_HEADING` and `MARTIS_WELCOME_DESCRIPTION` are single strings that override every locale. For per-locale copy, leave both env vars unset and publish the lang files with `php artisan vendor:publish --tag=martis-lang`, then edit `resources/lang/{en,pt_PT,pt_BR}/resources.php` directly. The two paths are mutually exclusive — env wins when set.
+> **i18n trade-off.** `MARTIS_WELCOME_HEADING` and `MARTIS_WELCOME_DESCRIPTION` are single strings that override every locale. For per-locale copy, leave both env vars unset and publish the lang files. The two paths are mutually exclusive — env wins when set.
 
 ### Example: branding the dashboard from `.env`
 
