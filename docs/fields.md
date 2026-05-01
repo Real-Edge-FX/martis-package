@@ -37,6 +37,7 @@ All available field types in Martis, their methods, and configuration options.
   - [UiAvatar](#uiavatar)
   - [Audio](#audio)
   - [Select](#select)
+  - [GuardSelect](#guardselect)
   - [MultiSelect](#multiselect)
   - [Date](#date)
   - [DateTime](#datetime)
@@ -944,6 +945,45 @@ Select::make('country_code')
 
 ---
 
+### GuardSelect
+
+**Type identifier:** `select` (inherits)
+**Extends:** `Select`
+**File:** `src/Fields/GuardSelect.php`
+
+Dropdown of the auth guards configured in the host app's `config/auth.php`. Designed for `guard_name` columns on Spatie Permission / Role tables — most installs have a single guard (`web`), but the field gives the developer a confident UI to pick from instead of typing free text. Shipped in v1.8.0.
+
+```php
+use Martis\Fields\GuardSelect;
+use Martis\Fields\Slug;
+
+public function fields(Request $request): array
+{
+    return [
+        Id::make()->sortable(),
+        Slug::make('name')
+            ->separator('.')
+            ->reserved(['*'])
+            ->help(__('martis::permissions.name_help'))
+            ->required(),
+        GuardSelect::make('guard_name')
+            ->help(__('martis::permissions.guard_help'))
+            ->required(),
+    ];
+}
+```
+
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `make` | `make(string $attribute, ?string $label = null): static` | `static` | Factory. Auto-wires the guard-list resolver, pulls the default value from `config('auth.defaults.guard')`, marks the field `required()`, and validates submitted values against `config('auth.guards')` keys via `Rule::in(...)`. |
+| `only` | `only(array $guardNames): static` | `$this` | Restrict the dropdown to a subset of the configured guards. Useful when a Resource only makes sense against one specific guard (`api` permissions vs `web` permissions managed in separate sections of the admin). Empty strings are filtered out. |
+
+The label and value are always identical — guard names are tokens (`web`, `api`, `sanctum`) and translating them would be misleading. Server-side validation rejects any value not declared in `config/auth.guards`, which prevents Spatie Permission from later crashing on `Role::users()` (`morphedByMany` cannot resolve the User model for an unconfigured guard).
+
+The list is fetched lazily at schema-render time so `config()` is read after the host app has finished booting. The catalog comes from `Martis\Auth\GuardCatalog`, which exposes `available(): list<string>` and `default(): string` for advanced uses.
+
+---
+
 ### MultiSelect
 
 **Type identifier:** `multi_select`
@@ -1147,6 +1187,9 @@ Slug::make('slug')
 - `separator(string $separator): static` — Token separator (default: `'-'`).
 - `reserved(array $reserved): static` — ⭐ **Martis extension.** Reject these exact values (system paths). Validation emits `slug_reserved` error; the `/slug-check` endpoint returns `{ reserved: true, suggestion }`.
 - `lockAfter(Closure $condition): static` — ⭐ **Martis extension.** Freezes the slug on existing records once the condition holds. `Slug::fill()` becomes a no-op in that case — SEO protection.
+- `badgeVariant(string $variant): static` — Read-only display badge variant. Accepts `'default'` (alias `'muted'`), `'accent'`, `'success'`, `'warning'`, `'danger'`, `'custom'`. Unknown values fall back to `'default'`.
+- `badgeAccent(): static` — Sugar for `badgeVariant('accent')`. Reads cleanly when the slug IS the row identity (Permission name, Role name).
+- `badgeColor(string $color): static` — Custom CSS colour for the badge. Accepts any browser-recognised colour (hex, `rgb()`, `hsl()`, `oklch()`, named). The frontend tints the background as a 14% mix with the surface so it stays subtle in both themes; the foreground uses the colour verbatim. Implies `badgeVariant('custom')`.
 - `generate(string $value): string` — Unicode-safe slugify ("São Paulo" → "sao-paulo"). Exposed for tests/controllers.
 - `isLockedFor(?Model $model): bool` — Query the lock condition directly.
 
@@ -1370,28 +1413,31 @@ Country::make('country')
 Monetary value input with currency formatting. Inherits `min()`, `max()`, `step()`, `integer()` from Number.
 
 ```php
+use Martis\Enums\CurrencyCode;
+use Martis\Enums\CurrencyDisplayMode;
+
 Currency::make('price')
-    ->currency('EUR')
-    ->asMinorUnits()     // stored as cents
-    ->displayMode('badge_text')
+    ->currency(CurrencyCode::EUR)
+    ->asMinorUnits()                                  // stored as cents
+    ->displayMode(CurrencyDisplayMode::BadgeText)
     ->badgeColor('green')
 ```
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| `currency` | `currency(string $code): static` | `$this` | Set ISO 4217 currency code. Auto-sets step. | `'USD'` |
+| `currency` | `currency(CurrencyCode $code): static` | `$this` | Set ISO 4217 currency code (typed enum). Auto-sets step. | `CurrencyCode::USD` |
 | `locale` | `locale(string $locale): static` | `$this` | Override locale for formatting. | app locale |
 | `asMinorUnits` | `asMinorUnits(): static` | `$this` | Treat stored value as minor units (cents). | `false` |
 | `asMajorUnits` | `asMajorUnits(): static` | `$this` | Treat stored value as major units (dollars). | — |
-| `displayMode` | `displayMode(string $mode): static` | `$this` | Set display mode: `'text'`, `'badge'`, or `'badge_text'`. Martis extension. | `'text'` |
-| `showBadge` | `showBadge(): static` | `$this` | Shortcut for `displayMode('badge')`. | — |
-| `showText` | `showText(): static` | `$this` | Shortcut for `displayMode('text')`. | — |
-| `showBadgeText` | `showBadgeText(): static` | `$this` | Shortcut for `displayMode('badge_text')`. | — |
+| `displayMode` | `displayMode(CurrencyDisplayMode $mode): static` | `$this` | Set display mode (typed enum: `Text`, `Badge`, `BadgeText`). Martis extension. | `CurrencyDisplayMode::Text` |
+| `showBadge` | `showBadge(): static` | `$this` | Shortcut for `displayMode(CurrencyDisplayMode::Badge)`. | — |
+| `showText` | `showText(): static` | `$this` | Shortcut for `displayMode(CurrencyDisplayMode::Text)`. | — |
+| `showBadgeText` | `showBadgeText(): static` | `$this` | Shortcut for `displayMode(CurrencyDisplayMode::BadgeText)`. | — |
 | `badgeColor` | `badgeColor(string $color): static` | `$this` | Set badge color. Martis extension. | `null` |
-| `getCurrencyCode` | `getCurrencyCode(): string` | `string` | Get currency code. | — |
+| `getCurrencyCode` | `getCurrencyCode(): CurrencyCode` | `CurrencyCode` | Get the currency enum case. | — |
 | `getLocale` | `getLocale(): string` | `string` | Get effective locale. | — |
 | `isMinorUnits` | `isMinorUnits(): bool` | `bool` | Check if using minor units. | — |
-| `getDisplayMode` | `getDisplayMode(): string` | `string` | Get display mode. | — |
+| `getDisplayMode` | `getDisplayMode(): CurrencyDisplayMode` | `CurrencyDisplayMode` | Get display mode enum. | — |
 | `getBadgeColor` | `getBadgeColor(): ?string` | `?string` | Get badge color. | — |
 | `getCurrencyInfo` | `getCurrencyInfo(): array` | `array` | Get `{symbol, name, decimals}` for current currency. | — |
 
@@ -1418,19 +1464,18 @@ BelongsTo::make('user_id', 'Author')
 // Alternative: pass relationship name
 BelongsTo::make('user', 'Author')
     ->relatedResource('users')
-
-// Many-to-many mode
-BelongsTo::make('categories', 'Categories')
-    ->relatedResource('categories')
-    ->multiple()
 ```
+
+For many-to-many relationships use [`BelongsToMany`](#belongstomany), [`MorphToMany`](#morphtomany), or [`Tag`](#tag) — `BelongsTo` itself is single-cardinality.
 
 ```php
 // Inline create — show "+" button to create related record in a modal
+use Martis\Enums\ModalSize;
+
 BelongsTo::make('category_id', 'Category')
     ->relatedResource('categories')
     ->showCreateRelationButton()
-    ->modalSize('lg')
+    ->modalSize(ModalSize::Large)
 ```
 
 | Method | Signature | Returns | Description | Default |
@@ -1439,13 +1484,13 @@ BelongsTo::make('category_id', 'Category')
 | `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | `'name'` |
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API. | `null` |
-| `placeholder` | `placeholder(string $text): static` | `$this` | Custom placeholder text shown when no value is selected. | translated `'Select {field}...'` |
+| `placeholder` | `placeholder(string\|\Closure $text): static` | `$this` | Custom placeholder shown when no value is selected. Closure receives `(?Request $r)` for per-request resolution. | translated `'Select {field}...'` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. | `true` |
-| `multiple` | `multiple(bool $value = true): static` | `$this` | Enable many-to-many mode (pivot sync). | `false` |
+| `relatableQueryUsing` | `relatableQueryUsing(\Closure $closure): static` | `$this` | Per-field constraint on the picker query. Closure receives `(Request $request, Builder $query, BelongsTo $field)` and must return a `Builder`. Runs after the resource's static `relatableQuery()`. | `null` |
 | `displayAsLink` | `displayAsLink(bool $value = true): static` | `$this` | Render as clickable link on index/detail. | `true` |
-| `showCreateRelationButton` | `showCreateRelationButton(bool|\Closure $callback = true): static` | `$this` | Show "+" button to create related record inline via modal. | `false` |
+| `showCreateRelationButton` | `showCreateRelationButton(bool\|\Closure $callback = true): static` | `$this` | Show "+" button to create related record inline via modal. | `false` |
 | `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
-| `modalSize` | `modalSize(ModalSize|string $size): static` | `$this` | Set the inline create modal size (`sm`, `md`, `lg`, `xl`, `2xl`–`7xl`). | `'2xl'` |
+| `modalSize` | `modalSize(ModalSize $size): static` | `$this` | Set the inline create modal size. Pass any `Martis\Enums\ModalSize` case (`Small`, `Medium`, `Large`, `ExtraLarge`, `TwoExtraLarge` through `SevenExtraLarge`). | `ModalSize::TwoExtraLarge` |
 | `iconColor` | `iconColor(string $color): static` | `$this` | Color for the resource icon in the inline create modal header. Any CSS color. | accent color |
 
 #### Peek / Preview
@@ -1492,10 +1537,10 @@ is also visible in preview (`showOnPreview` falls back to `showOnDetail`).
 | `noPeeking` | `noPeeking(): static` | `$this` | Disable peek. Shorthand for `peekable(false)`. | — |
 
 **Overrides:**
-- `resolve()` returns `{id, title}` (single) or `[{id, title}, ...]` (multiple).
-- `fill()` sets FK (single) or registers deferred pivot sync (multiple) via `DeferredRelationSync`.
+- `resolve()` returns `{id, title}` for the related record.
+- `fill()` sets the foreign-key column on the parent model.
 
-**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `multiple`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `placeholder`, `iconColor`
+**Extra attributes:** `relationship`, `foreignKey`, `titleAttribute`, `relatedResource`, `relatedLabel`, `relationSearchable`, `displayAsLink`, `showCreateRelationButton`, `modalSize`, `peekable`, `placeholder`, `iconColor`
 
 #### Toolbar controls (inherited)
 
@@ -2031,6 +2076,68 @@ for the shared shell layout.
 
 ---
 
+### MorphTo
+
+**Type identifier:** `morph_to`
+**Extends:** `Field`
+**File:** `src/Fields/MorphTo.php`
+
+Polymorphic many-to-one relationship — a record can belong to one of several different model types via a single relationship. The frontend renders a two-step picker: first a type dropdown (the resource families allowed by `types()`), then a record search filtered to the chosen type.
+
+```php
+use Martis\Enums\ModalSize;
+use Martis\Fields\MorphTo;
+
+MorphTo::make('commentable', 'Commentable')
+    ->types([PostResource::class, UserResource::class])
+    ->titleAttribute('name')
+    ->showCreateRelationButton()
+    ->modalSize(ModalSize::Large)
+    ->nullable();
+```
+
+| Method | Signature | Returns | Description | Default |
+|--------|-----------|---------|-------------|---------|
+| `types` | `types(array $resourceClasses): static` | `$this` | Allowed resource families for this polymorphic relationship. Each entry is a `Resource` class name; the model class is derived via `newModel()`. | — |
+| `titleAttribute` | `titleAttribute(string $attr): static` | `$this` | Attribute used for the display label in the picker and on detail rows. | `'name'` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable / disable text search inside the record dropdown. | `true` |
+| `showCreateRelationButton` | `showCreateRelationButton(bool\|\Closure $callback = true): static` | `$this` | Show the inline "+" button that creates a related record per type. | `false` |
+| `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
+| `modalSize` | `modalSize(ModalSize $size): static` | `$this` | Modal size for the inline create flow. Pass any `Martis\Enums\ModalSize` case (`Small` through `SevenExtraLarge`). | `ModalSize::TwoExtraLarge` |
+| `nullable` | `nullable(): static` | `$this` | Make the relationship optional on forms. | `false` |
+
+**Resolve format**
+
+```json
+{
+  "type": "App\\Models\\Post",
+  "id": 42,
+  "title": "Post Title",
+  "resourceType": "posts"
+}
+```
+
+**Fill format**
+
+The frontend submits:
+
+```json
+{ "resourceType": "posts", "id": 42 }
+```
+
+The backend resolves the model class from the resource URI key and writes both `commentable_type` and `commentable_id` columns on the parent.
+
+**Inline create**
+
+Inline create is per-type — the create button appears only after the operator picks a type. Nesting is limited to one level (no inline create inside an inline create). The related resource's `fieldsForInlineCreate()` controls which fields show; falls back to `fieldsForCreate()`.
+
+**Toolbar controls (inherited)**
+
+All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting). On `MorphTo` only the *Create* button (inline create) and the *View* action surface are affected (per the trait scope matrix). Remember: visible = authorized AND NOT hidden. Authorization is always the source of truth; the hide flags can only hide, never force-visible.
+*src/Fields/Concerns/ControlsRelationshipToolbar.php*
+
+---
+
 ### MorphToMany
 
 **Type identifier:** `morph_to_many`
@@ -2183,8 +2290,10 @@ Image::make('featured_image', 'Featured Image')
 Syntax-highlighted code editor (CodeMirror 6). Hidden from index by default.
 
 ```php
+use Martis\Enums\CodeLanguage;
+
 Code::make('config', 'Configuration')
-    ->language('json')
+    ->language(CodeLanguage::Yaml)
     ->json()
     ->rules(['json'])
 ```
@@ -2192,9 +2301,9 @@ Code::make('config', 'Configuration')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `json` | `json(): static` | `$this` | Treat as JSON: pretty-print on resolve, decode on fill. | `false` |
-| `language` | `language(string $language): static` | `$this` | Set syntax highlighting language. | `'javascript'` |
+| `language` | `language(CodeLanguage $language): static` | `$this` | Set syntax-highlighting language (typed enum). | `CodeLanguage::Javascript` |
 | `isJson` | `isJson(): bool` | `bool` | Check if JSON mode. | — |
-| `getLanguage` | `getLanguage(): string` | `string` | Get language. | — |
+| `getLanguage` | `getLanguage(): CodeLanguage` | `CodeLanguage` | Get the configured language enum case. | — |
 
 **Supported languages:** dockerfile, htmlmixed, javascript, markdown, nginx, php, ruby, sass, shell, sql, twig, vim, vue, xml, yaml-frontmatter, yaml
 **Overrides:** `resolve()` pretty-prints JSON; `fill()` decodes JSON before storing.
@@ -2572,7 +2681,7 @@ parses TSV/CSV/JSON.
 
 **File:** `src/Fields/DeferredRelationSync.php`
 
-Static registry for deferred many-to-many relationship syncs. Used by `BelongsTo::multiple()` and `Tag` fields.
+Static registry for deferred many-to-many relationship syncs. Used by `Tag` and similar fields where the pivot rows can only be written after the parent model has been saved (so the parent's primary key is available).
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
@@ -2692,72 +2801,3 @@ public function fieldsForInlineCreate(Request $request): array
 ```
 
 Falls back to `fieldsForCreate()` if not overridden.
-
-
-### MorphTo
-
-Polymorphic relationship field — a model can belong to multiple different model types via a single relationship.
-
-**Two-step selection:** The frontend renders a type dropdown first, then a record search for the selected type.
-
-```php
-use Martis\Fields\MorphTo;
-
-MorphTo::make('commentable', 'Commentable')
-    ->types([PostResource::class, UserResource::class])
-    ->titleAttribute('name')
-    ->showCreateRelationButton()
-    ->modalSize('lg')
-    ->nullable();
-```
-
-#### Methods
-
-| Method | Description |
-|--------|-------------|
-| `types(array $resourceClasses)` | Allowed resource types for this polymorphic relationship |
-| `titleAttribute(string $attr)` | Attribute used for display label (default: `name`) |
-| `showCreateRelationButton()` | Show inline create button (supports closure) |
-| `hideCreateRelationButton()` | Hide inline create button |
-| `modalSize(ModalSize\|string $size)` | Modal size for inline create (`sm` to `7xl`, default `2xl`) |
-| `relationSearchable(bool $value)` | Enable/disable dropdown search (default: `true`) |
-| `nullable()` | Make the relationship optional |
-
-#### Resolve Format
-
-```json
-{
-  "type": "App\\Models\\Post",
-  "id": 42,
-  "title": "Post Title",
-  "resourceType": "posts"
-}
-```
-
-#### Fill Format
-
-The frontend sends:
-```json
-{ "resourceType": "posts", "id": 42 }
-```
-
-The backend resolves the model class from the resource URI key and sets both `commentable_type` and `commentable_id` columns.
-
-#### Inline Create
-
-MorphTo supports inline create per selected type. The create button appears after selecting a type. Only one level of nesting is supported.
-
-#### Type resolution
-
-- Martis uses `types()` with Resource classes to declare the allowed morphable types.
-- The model class is resolved from the resource's `newModel()` method. Explicit morph maps are also supported.
-
-#### Toolbar controls (inherited)
-
-All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
-— see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
-On `MorphTo` only the *Create* button (inline create) and the *View* action
-surface are affected (per the trait scope matrix). Remember:
-visible = authorized AND NOT hidden. Authorization is always the source of
-truth; the hide flags can only hide, never force-visible.
-*src/Fields/Concerns/ControlsRelationshipToolbar.php*
