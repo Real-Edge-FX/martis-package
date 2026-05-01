@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.7] — 2026-05-01
+
+Patch fix for a bug visible on every toast across the app.
+
+### Fixed
+
+- **Double close-button on every toast.** The `ToastContext` `show()` call passed `closable: true` to the PrimeReact `<Toast>`, which renders the framework's own close glyph, while our custom `content` renderer painted its own Phosphor `<XIcon>` styled with `.martis-toast-close`. Both surfaced — operators saw two stacked X icons in the bottom-right of every toast. Now `closable: false`, only the custom Martis-styled button shows.
+
+### Tests
+
+- New `resources/js/toast.test.tsx` (Vitest) asserts exactly one close button per toast.
+
+### Validation
+
+- Pest 1751 / 1 skipped / 0 failed.
+- Vitest 120 / 5 skipped (one new).
+- PHPStan L8 0 errors. Pint clean.
+
 ## [1.8.6] — 2026-05-01
 
 Hotfix: in v1.8.5 the multi-locale `auth.copy.*` was resolved server-side. That meant the copy was frozen at the locale the SSR knew about (always `en` for guests because the resolver doesn't see localStorage). Switching the language picker on `/login` failed to swap the copy.

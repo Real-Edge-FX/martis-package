@@ -72,7 +72,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         severity: severityMap[type] ?? "info",
         life,
         sticky: false,
-        closable: true,
+        // v1.8.7 — `closable: false` here because the custom `content`
+        // below renders its own Phosphor `<XIcon>` close button styled
+        // with `.martis-toast-close`. Leaving `closable: true` made
+        // PrimeReact draw a SECOND default close button next to ours,
+        // surfacing two X icons in the bottom-right of every toast.
+        closable: false,
         content: (args) => {
           const { onClose } = args as ToastContentArgs
           return (

@@ -319,16 +319,59 @@ A guest's choice on the strip persists in `localStorage` (`martis-preferences` k
 
 Both controls render with the global PrimeReact tooltip (`data-pr-tooltip`), so styling matches the rest of the shell.
 
-### Per-page copy overrides (v1.8.0)
+### Customising the auth copy
 
-The titles and subtitles on the four guest pages (Login, Register, ForgotPassword, ResetPassword) used to be sourced exclusively from the bundled translations. Consumers wanting "Welcome to Acme" instead of "Sign in to your workspace" had to publish the language files. v1.8.0 introduces a config-level override that wins over translations:
+Two paths, in order of recommendation. Pick one:
+
+#### Path 1 — Publish the language files (recommended for multi-locale)
+
+This is the canonical Laravel path and what you want when:
+
+- you ship multiple languages,
+- you want translators to edit copy without touching PHP config,
+- you also want to override other Martis strings (toasts, validation messages, dashboard greeting, …).
+
+```bash
+# In the consumer app, run once:
+php artisan vendor:publish --tag=martis-lang --force
+```
+
+This copies the package's `resources/lang/{en,pt_BR,pt_PT}/*.php` to `resources/lang/vendor/martis/{en,pt_BR,pt_PT}/*.php` in your app. Edit only the keys you want to override — Laravel deep-merges the published file with the package shipped one, so unset keys fall through automatically.
+
+The auth keys live in `auth.php`:
+
+| Key | Renders on |
+|---|---|
+| `login_title` | Login page heading |
+| `login_sub` | Login page subtitle (no SSO providers configured) |
+| `login_sub_v2` | Login page subtitle (SSO providers visible) |
+| `register_title` / `register_sub` | Register page |
+| `forgot_password_title` / `forgot_password_sub` | Forgot-password page |
+| `reset_password_title` / `reset_password_sub` | Reset-password page |
+
+Example — `resources/lang/vendor/martis/pt_BR/auth.php`:
+
+```php
+<?php
+return [
+    'login_title' => 'Entre no Acme',
+    'login_sub' => 'Bem-vindo de volta. Use seu e-mail e senha.',
+    // any key you don't override falls through to the package default.
+];
+```
+
+After editing, `php artisan optimize:clear` (or restart php-fpm) for the new strings to land in production. Laravel resolves the active locale automatically; no Martis config involved.
+
+#### Path 2 — `auth.copy` config override (single-locale or env-driven)
+
+When the consumer runs a single language and wants a quick brand override without publishing the lang files, OR when the value has to come from env (CI / Docker injection), use `config('martis.auth.copy.*')`:
 
 ```php
 'auth' => [
     // ... sso / passwordReset / registration / controls
     'copy' => [
         'login' => [
-            'title' => env('MARTIS_AUTH_LOGIN_TITLE'),                 // null → translation
+            'title' => env('MARTIS_AUTH_LOGIN_TITLE'),
             'subtitle' => env('MARTIS_AUTH_LOGIN_SUBTITLE'),
             'subtitle_with_sso' => env('MARTIS_AUTH_LOGIN_SUBTITLE_SSO'),
         ],
@@ -348,9 +391,22 @@ The titles and subtitles on the four guest pages (Login, Register, ForgotPasswor
 ],
 ```
 
-Behaviour: each value is `null` by default, which means "use the bundled translation key" (`auth.login_title`, `auth.login_sub`, etc.). Set a non-empty string and that value renders verbatim — translations are skipped entirely for that key. The override is applied per-page, so you can replace just the title and keep the bundled subtitle, or vice-versa.
+Each entry accepts:
 
-The bridge in `app.blade.php` exposes the block as `window.MartisConfig.auth.copy`; the React helper `useAuthCopy()` reads it and falls through to `t()` when no override is present. Multi-locale overrides are not supported via this mechanism — use the published language files when you need different copy per language.
+- **`null`** (default) — fall through to the bundled translation (or your published override from Path 1).
+- **`string`** — applied verbatim on every locale.
+- **`array<locale, string>`** — multi-locale (v1.8.5+). The React `useAuthCopy()` resolves the active locale at render time. **For multi-locale Path 1 is recommended** — keeping copy in lang files keeps the translation workflow standard. The array form exists for projects that prefer to keep all consumer customisation in `config/martis.php`.
+
+#### Resolution order
+
+When a page renders, the `useAuthCopy()` helper resolves each value in this order:
+
+1. `config('martis.auth.copy.<page>.<key>')` — Path 2 override (string, array per locale, or null).
+2. `__('martis::auth.<key>')` — published lang file (Path 1) **or** package default.
+
+Path 1 always wins over the package defaults. Path 2 wins over both.
+
+> **Recommendation**: when you have one customisation, use Path 2 (one line in `.env` or `config/martis.php`). When you have many, or you ship more than one language, use Path 1 (publish + edit).
 
 ### Password-reset URL routing (v1.8.3)
 
