@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.4] — 2026-05-01
+
+Patch release aligning the relationship-fields default visibility with Nova / Filament conventions: pickers that depend on the parent record having an id are now hidden from the CREATE form by default.
+
+### Changed
+
+- **`BelongsToMany` and `MorphToMany` are now hidden on the create form by default.** Pivot rows need both `(parent_id, related_id)` and the parent does not exist yet when the create form is rendered. Showing the picker before save is misleading — the user expects the attach to "stick" but the parent has nothing to attach to. Override with `->showOnCreating()` if you have a custom `afterSave` hook that drains the picker. Update form behaviour and detail page behaviour are unchanged.
+
+  Affected resources you may want to revisit on consumers that previously relied on the picker being visible at create time: any `RoleResource` / `PermissionResource` with a `BelongsToMany` permissions/roles picker, any tag-style resource with a `MorphToMany` picker, etc.
+
+### Already aligned (no change in v1.8.4)
+
+For reference, the Nova-style "detail-only" defaults that were already in place:
+
+- `HasOne`, `HasOneThrough`, `HasOneOfMany` — `hideFromForms()` since the original implementation.
+- `HasMany`, `HasManyThrough` — `hideFromForms()` since the original implementation.
+- `MorphOne`, `MorphOneOfMany`, `MorphMany` — `onlyOnDetail()` since the original implementation.
+
+`BelongsTo` and `MorphTo` continue to appear on the create form (their FK lives on the record being created, so picking the related row before save is correct).
+
+### Tests
+
+- New `tests/Unit/Fields/RelationshipHideOnCreateTest.php` (9 cases) covering the defaults plus the `->showOnCreating()` override path.
+
+### Validation
+
+- Pest 1751 / 1 skipped / 0 failed.
+- Vitest 119 / 5 skipped.
+- PHPStan L8 0 errors. Pint clean.
+
 ## [1.8.3] — 2026-05-01
 
 Multiple polish items reported during edge-flow validation. The headliners are the password-reset email finally going out without consumer config, automatic required-field detection, and the BelongsToMany dependsOn mechanism actually firing in CREATE mode.

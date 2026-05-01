@@ -111,6 +111,14 @@ class BelongsToMany extends Field
         // BelongsToMany is hidden from index by default (shown on detail + forms)
         $this->hideFromIndex();
 
+        // v1.8.4 — Auto-hide on the create form. Pivot rows need both
+        // `(parent_id, related_id)` and the parent doesn't exist yet
+        // when the form is rendered. Showing the picker on create is
+        // visually misleading: clicks would attach to nothing or, with
+        // the v1.8.2 form-draft mechanism, would still need the parent
+        // saved before sync. Use `->showOnCreating()` to override when
+        // you have a custom afterSave hook that drains the picker.
+        $this->showOnCreate = false;
     }
 
     /** {@inheritdoc} */
