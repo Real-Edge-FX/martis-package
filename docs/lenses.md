@@ -111,7 +111,7 @@ for the full ruleset (Rules 1–3 apply identically here).
 
 - `withFilters(Builder): Builder` — applies filter values selected by
   the user.
-- `withOrdering(Builder, Closure $default = null): Builder` — applies
+- `withOrdering(Builder, ?Closure $default = null): Builder` — applies
   the user's chosen sort column; if none, calls the default closure.
 
 ```php
@@ -203,7 +203,7 @@ contract.
 
 ## Martis extensions
 
-### D1 — Sticky summary row
+### Sticky summary row
 
 > Martis ships a built-in summary row; no separate Metric card is
 > needed for totals.
@@ -224,7 +224,7 @@ public function summary(Request $request, Builder $query): array
 Served inside the paginated response meta as
 `meta.summary[key] = { label, value, format? }`.
 
-### D2 — Declarative query cache (with auto-invalidation)
+### Declarative query cache (with auto-invalidation)
 
 > Pass `cacheFor` to stop paying the cost of heavy joins on every
 > pageload.
@@ -246,7 +246,7 @@ Any insert, update or delete on the model bumps the signature, so the
 next request automatically misses the cache without any observers or
 cache tags. TTL `0` (default) disables the cache.
 
-### D3 — Default filters pre-applied
+### Default filters pre-applied
 
 > Declare the filters the lens should open with so product dashboards
 > open in a useful state.
@@ -260,7 +260,21 @@ The first load hydrates the URL with those values. If the user clears
 them manually, the empty state is respected; the defaults do not
 re-populate.
 
-### D4 — URL state sync (frontend)
+Use `Lens::defaultFilters(): array` to read the configured map back —
+useful for diagnostics or to forward the defaults into another lens.
+
+### Inspecting the cache and polling state
+
+Pair `cacheFor()` and the polling static properties with the matching getters when consumer code needs to query the resolved values:
+
+| Getter | Returns |
+|---|---|
+| `cacheTtl(): int` | TTL in seconds (`0` when caching is disabled). |
+| `pollingEnabled(): bool` | Whether the lens auto-refreshes the index payload. Reads `static::$polling`. |
+| `pollingInterval(): int` | Refresh cadence in seconds. Clamped at the same five-second floor as the resource. |
+| `pollingToggleVisible(): bool` | Whether the toolbar exposes the pause/resume affordance. |
+
+### URL state sync (frontend)
 
 All lens view state — search, filters, sort column, sort direction,
 page — lives in the URL query string. Copy-paste a URL and you
