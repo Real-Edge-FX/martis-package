@@ -893,6 +893,17 @@ return [
     'index' => [
         'default_row_actions' => [
             'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+
+            // Per-action global kill-switches. Each defaults to true, so the
+            // out-of-the-box behaviour is unchanged. Flip a single one to
+            // false (via env or config override) to hide that icon across
+            // every resource without touching individual resource classes —
+            // useful for apps that want, say, "no delete affordance ever".
+            // Resource-level `defaultRowActions()` can subtract further but
+            // never force a globally-disabled action back on.
+            'view'   => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+            'edit'  => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+            'delete' => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
         ],
 
         'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),

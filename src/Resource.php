@@ -1335,6 +1335,14 @@ abstract class Resource implements ResourceContract
             return ['enabled' => false, 'view' => false, 'edit' => false, 'delete' => false];
         }
 
+        // Per-action global kill-switches (`config('martis.index.default_row_actions.view|edit|delete')`).
+        // Each defaults to true. Resource-level `defaultRowActions()` can
+        // subtract further but never force a globally-disabled action back
+        // on — the global flag wins via AND.
+        $globalView = (bool) config('martis.index.default_row_actions.view', true);
+        $globalEdit = (bool) config('martis.index.default_row_actions.edit', true);
+        $globalDelete = (bool) config('martis.index.default_row_actions.delete', true);
+
         $resourceOverride = $this->defaultRowActions($request);
 
         if ($resourceOverride === false) {
@@ -1344,13 +1352,18 @@ abstract class Resource implements ResourceContract
         if (is_array($resourceOverride)) {
             return [
                 'enabled' => true,
-                'view' => in_array(DefaultRowAction::View, $resourceOverride, true),
-                'edit' => in_array(DefaultRowAction::Edit, $resourceOverride, true),
-                'delete' => in_array(DefaultRowAction::Delete, $resourceOverride, true),
+                'view' => $globalView && in_array(DefaultRowAction::View, $resourceOverride, true),
+                'edit' => $globalEdit && in_array(DefaultRowAction::Edit, $resourceOverride, true),
+                'delete' => $globalDelete && in_array(DefaultRowAction::Delete, $resourceOverride, true),
             ];
         }
 
-        return ['enabled' => true, 'view' => true, 'edit' => true, 'delete' => true];
+        return [
+            'enabled' => true,
+            'view' => $globalView,
+            'edit' => $globalEdit,
+            'delete' => $globalDelete,
+        ];
     }
 
     // -------------------------------------------------------------------------

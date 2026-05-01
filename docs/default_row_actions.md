@@ -2,7 +2,7 @@
 
 Every Martis resource index ships with a trailing column of built-in row actions — **View**, **Edit**, and **Delete** — out of the box. No registration required. Icons disable themselves automatically when the row's authorization denies the operation.
 
-This is a Martis differential: the View/Edit/Delete row actions are the default experience, and you can customize or opt out with three layers of control.
+This is a Martis differential: the View/Edit/Delete row actions are the default experience, and you can customize or opt out with three layers of control (global config, per-action global flag, per-resource override).
 
 ## How it looks
 
@@ -25,9 +25,13 @@ This is a Martis differential: the View/Edit/Delete row actions are the default 
 'index' => [
     'default_row_actions' => [
         'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
-        'view'    => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
-        'edit'    => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
-        'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
+
+        // Per-action global kill-switches. Each defaults to true; flip a
+        // single one to false (env or config) to hide that icon across
+        // every resource.
+        'view'   => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+        'edit'   => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+        'delete' => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
     ],
     'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
 ],
@@ -36,10 +40,12 @@ This is a Martis differential: the View/Edit/Delete row actions are the default 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `default_row_actions.enabled` | `bool` | `true` | Master switch for the defaults column. Set to `false` to hide everywhere unless an individual resource re-enables. |
-| `default_row_actions.view` | `bool` | `true` | Show the view (eye) icon. |
-| `default_row_actions.edit` | `bool` | `true` | Show the edit (pencil) icon. |
-| `default_row_actions.delete` | `bool` | `true` | Show the delete (trash) icon. |
+| `default_row_actions.view` | `bool` | `true` | Show the view (eye) icon globally. |
+| `default_row_actions.edit` | `bool` | `true` | Show the edit (pencil) icon globally. |
+| `default_row_actions.delete` | `bool` | `true` | Show the delete (trash) icon globally. |
 | `row_click_opens_detail` | `bool` | `true` | Whether clicking anywhere on a row opens the detail view. Set to `false` when the default "view" icon makes row-click redundant. |
+
+The per-action flags compose with the resource-level override via **AND**: a resource can subtract further (return a smaller whitelist) but can never force a globally-disabled action back on.
 
 ## Row-click redundancy
 
@@ -62,16 +68,17 @@ public function rowClickOpensDetail(Request $request): ?bool
 
 ## Per-resource override
 
-Override via a **method** (not a property) so the decision can depend on the request, the current user, feature flags, etc.:
+Override via a **method** (not a property) so the decision can depend on the request, the current user, feature flags, etc. The resource returns either a boolean or a list of `Martis\Enums\DefaultRowAction` cases:
 
 ```php
 use Illuminate\Http\Request;
+use Martis\Enums\DefaultRowAction;
 
 class ClientResource extends Resource
 {
     public function defaultRowActions(Request $request): bool|array
     {
-        return ['view', 'edit']; // subset
+        return [DefaultRowAction::View, DefaultRowAction::Edit]; // subset
     }
 }
 ```
@@ -82,20 +89,24 @@ Return values:
 |---|---|
 | `true` | Fall back to the global config (default behavior). |
 | `false` | Hide the defaults column entirely for this resource. |
-| `array` | Show only the listed keys. Supported: `'view'`, `'edit'`, `'delete'`. |
+| `array` of `DefaultRowAction` cases | Show only the listed actions. Cases: `DefaultRowAction::View`, `DefaultRowAction::Edit`, `DefaultRowAction::Delete`. |
+
+> The whitelist is type-checked. The resolver does a strict `in_array(DefaultRowAction::View, $array, true)` against the returned list, so plain strings like `'view'` will not match — always import the enum and pass cases.
 
 ## Composing with custom inline actions
 
 Inline actions you define on the resource always render **after** the defaults. This lets you add extras (e.g. *Approve*, *Archive*, *Duplicate*) without losing view/edit/delete.
 
 ```php
+use Martis\Actions\Action;
+use Martis\Actions\ActionResponse;
+
 public function actions(Request $request): array
 {
     return [
-        Action::make(__('Approve'))
+        Action::using('Approve', fn ($f, $models) => ActionResponse::message('Approved.'))
             ->showInline()
-            ->icon('check-circle')
-            ->destructive(false),
+            ->icon('check-circle'),
     ];
 }
 ```
@@ -109,11 +120,16 @@ Rendered order:
 If your custom inline action replaces the meaning of a default (e.g. a soft "Archive" instead of hard delete), opt out of the relevant default:
 
 ```php
+use Martis\Enums\DefaultRowAction;
+
 public function defaultRowActions(Request $request): bool|array
 {
-    return ['view', 'edit']; // drop 'delete' — we have custom Archive instead
+    // Drop Delete — we have a custom Archive action instead.
+    return [DefaultRowAction::View, DefaultRowAction::Edit];
 }
 ```
+
+For destructive UI styling (red border, destructive button label) extend `Martis\Actions\DestructiveAction` instead of toggling a flag — see [actions.md § Destructive Actions](actions.md#destructive-actions).
 
 ## Authorization
 
@@ -139,15 +155,18 @@ Published in EN, pt_PT and pt_BR out of the box.
 
 ## Opting out globally for a project
 
-Set in `.env`:
+Disable the entire defaults column across the app:
 
-```
+```env
 MARTIS_DEFAULT_ROW_ACTIONS=false
 ```
 
-Or hide a single action across the whole app:
+Or hide a single icon globally without touching individual resources:
 
-```
+```env
 MARTIS_DEFAULT_ROW_ACTION_DELETE=false
+# MARTIS_DEFAULT_ROW_ACTION_VIEW=false
+# MARTIS_DEFAULT_ROW_ACTION_EDIT=false
 ```
 
+These are AND-composed with the per-resource `defaultRowActions()` override, so the global flag always wins when it says "off".
