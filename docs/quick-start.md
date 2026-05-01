@@ -76,11 +76,12 @@ class ClientResource extends Resource
             // Editable on detail / create / update; hidden from the
             // index column because the Badge below already covers it.
             Select::make('status')
-                ->optionsFromMap([
-                    'active'   => 'Active',
-                    'paused'   => 'Paused',
-                    'archived' => 'Archived',
+                ->options([
+                    'Active'   => 'active',
+                    'Paused'   => 'paused',
+                    'Archived' => 'archived',
                 ])
+                ->displayUsingLabels()
                 ->hideFromIndex(),
 
             // Read-only colour pill rendered only on the index column.
