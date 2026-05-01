@@ -234,27 +234,33 @@ export interface MartisSsoConfig {
   providers?: Record<string, MartisSsoProviderConfig>
 }
 
-/** Per-page copy overrides for the unauthenticated auth surfaces.
- *  Each value: `null` falls back to the bundled translation; a string
- *  is rendered verbatim. v1.8.0. */
+/** A copy override entry. Three accepted shapes (since v1.8.5):
+ *   - string                              → applied verbatim
+ *   - `Record<locale, string>`            → resolved against the active
+ *                                           i18n language at render time
+ *   - null / undefined                    → falls back to the bundled translation
+ */
+export type MartisAuthCopyEntry = string | Record<string, string> | null
+
+/** Per-page copy overrides for the unauthenticated auth surfaces. v1.8.0 / v1.8.5. */
 export interface MartisAuthCopyConfig {
   login?: {
-    title?: string | null
-    subtitle?: string | null
+    title?: MartisAuthCopyEntry
+    subtitle?: MartisAuthCopyEntry
     /** Used instead of `subtitle` when SSO is enabled. */
-    subtitle_with_sso?: string | null
+    subtitle_with_sso?: MartisAuthCopyEntry
   }
   register?: {
-    title?: string | null
-    subtitle?: string | null
+    title?: MartisAuthCopyEntry
+    subtitle?: MartisAuthCopyEntry
   }
   forgot_password?: {
-    title?: string | null
-    subtitle?: string | null
+    title?: MartisAuthCopyEntry
+    subtitle?: MartisAuthCopyEntry
   }
   reset_password?: {
-    title?: string | null
-    subtitle?: string | null
+    title?: MartisAuthCopyEntry
+    subtitle?: MartisAuthCopyEntry
   }
 }
 
