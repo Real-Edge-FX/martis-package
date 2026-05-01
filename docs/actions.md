@@ -469,9 +469,6 @@ public function handle(ActionFields $fields, Collection $models): ActionResponse
 
 ---
 
-
----
-
 ## Post-processing with then()
 
 The `then()` callback runs **after `handle()` completes** on a synchronous (non-queued) action. Use it to run code that should happen outside the action itself: sending notifications, invalidating caches, triggering follow-up jobs, or recording external audit entries beyond the built-in `martis_action_events` log.
@@ -623,7 +620,7 @@ PublishPosts::make()
     ->confirmText('Are you sure you want to publish these posts?')
     ->confirmButtonText('Yes, publish')
     ->cancelButtonText('Cancel')
-    ->size(\Martis\Enums\ModalSize::Lg)     // sm | md | lg | xl | 2xl
+    ->size(\Martis\Enums\ModalSize::Large)  // Small | Medium | Large | ExtraLarge | TwoExtraLarge … SevenExtraLarge
     ->fullscreen()                           // overrides size
     ->withoutConfirmation()                  // skip modal entirely (runs immediately)
 ```
@@ -716,6 +713,8 @@ Defaults: `showOnIndex = true`, `showOnDetail = true`, `showInline = false`.
 | `standalone()` | Runs with no models — selection not required |
 | `sole()` | Requires exactly 1 selected model |
 
+`Action::executionMode(): ActionExecutionMode` returns the resolved mode (`Default`, `Standalone`, `Sole`) — useful when consumer code or tests need to branch on the configured mode without re-checking each setter. The matching boolean shortcuts `isStandalone()` and `isSole()` are also available.
+
 ---
 
 ## Authorization
@@ -797,9 +796,6 @@ class PostResource extends Resource
 | `ActionResponse::download($filename, $url)` | Triggers file download |
 | `ActionResponse::emit($event, $data)` | Fires a client-side event |
 | `ActionResponse::modal($component, $props)` | Opens a custom modal |
-
----
-
 
 ---
 
@@ -1041,10 +1037,10 @@ $post = Post::find(1);
 $post->actions()->latest()->get();
 
 // Count publish actions
-$post->actions()->where(name, Publish Posts)->count();
+$post->actions()->where('name', 'Publish Posts')->count();
 
 // Get failed actions
-$post->actions()->where(status, failed)->get();
+$post->actions()->where('status', 'failed')->get();
 ```
 
 ### Built-in ActionEvent Resource
@@ -1062,9 +1058,9 @@ To hide the ActionEvent resource from the sidebar, set the config option:
 
 ```php
 // config/martis.php
-action_events => [
-    enabled => true,
-    resource => false,    // Hide from sidebar
+'action_events' => [
+    'enabled'  => true,
+    'resource' => false,    // Hide from sidebar
 ],
 ```
 
@@ -1082,9 +1078,9 @@ Disable all action event logging via configuration:
 
 ```php
 // config/martis.php
-action_events => [
-    enabled => false,     // No events recorded at all
-    resource => true,
+'action_events' => [
+    'enabled'  => false,    // No events recorded at all
+    'resource' => true,
 ],
 ```
 
@@ -1110,9 +1106,9 @@ This is useful for high-frequency or low-value actions that would clutter the au
 
 | Method | Scope | Effect |
 |--------|-------|--------|
-| `config(martis.action_events.enabled, true)` | Global | Disables all action logging |
+| `config('martis.action_events.enabled', false)` | Global | Disables all action logging |
 | `->withoutActionEvents()` | Per action | Disables logging for one action |
-| `config(martis.action_events.resource, true)` | Global | Hides ActionEvent from sidebar |
+| `config('martis.action_events.resource', false)` | Global | Hides ActionEvent from sidebar |
 
 ---
 
