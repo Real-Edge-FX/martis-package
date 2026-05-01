@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`Select::displayUsingLabels()` and `Select::displayUsingValues()`.** Brings API parity with `MultiSelect`. The flag defaults to `true` so existing `Select` payloads keep rendering labels on index and detail (long-standing frontend behaviour). Call `displayUsingValues()` when the raw stored value is meaningful enough to surface (ISO codes, slugs, identifiers). The flag travels through `extraAttributes()` as `displayLabels` and the React `SelectFieldDisplay` reads it; the absence of the flag in older payloads still resolves to label rendering, so consumer apps that ship with older asset bundles continue to work unchanged.
+
+### Documentation audit (page by page)
+
+- **Installation guide** (`docs/installation-guide.md` → `getting-started/installation.mdx`): rewritten to match shipped code. PHP 8.3+, Laravel 11/12/13. Translation tag corrected to `martis-lang`. Lists the four real migration tags and drops the phantom `martis-profile-migration`. Documents `--with-2fa` and `--existing-avatar-column`. Manual install grew to 9 steps with `martis-provider` and `martis-views` publishes. Config-key list aligned with what `config/martis.php` actually defines. Boot-file path corrected to `resources/martis-extensions/martis/boot.ts` and the import to `@/lib/componentRegistry`. New sections: Host MartisServiceProvider and Vendor Publish Tags Reference. Artisan reference grew from 8 commands to all 28, grouped by purpose.
+- **Quick start** (`docs/quick-start.md`, new — was `.mdx`-only): `Select::displayUsingLabels()` example now works because the method exists. Step 3 no longer instructs users to add a `'resources' => [...]` array (which never existed); it explains auto-discovery from `resources_path`. Action `handle()` signature corrected to `ActionResponse|Action|null`, `Action::message()` replaced with `ActionResponse::message()`, the imports the stub generates are now shown. `titleAttribute()` added to the resource example. Badge type `'secondary'` (which is not a built-in) replaced with `'info'`.
+
+### Tests
+
+- Three new Pest cases on `Select` covering the default flag value, the explicit `displayUsingLabels()` setter, and the `displayUsingValues()` opt-out path.
+
 ## [1.8.7] — 2026-05-01
 
 Patch fix for a bug visible on every toast across the app.

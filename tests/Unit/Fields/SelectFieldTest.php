@@ -91,3 +91,39 @@ it('options() rejects a string that is not an enum class as a regular value', fu
     // there's no false-positive enum interpretation.
     expect(enum_exists('NotAnEnum'))->toBeFalse();
 });
+
+it('displayUsingLabels defaults to true so the index/detail cell shows labels', function () {
+    $field = Select::make('status');
+
+    expect($field->isDisplayingLabels())->toBeTrue();
+
+    $extra = (function () {
+        return $this->extraAttributes();
+    })->call($field);
+
+    expect($extra)->toHaveKey('displayLabels', true);
+});
+
+it('displayUsingLabels() keeps the flag true and is exposed in the schema payload', function () {
+    $field = Select::make('status')->displayUsingLabels();
+
+    expect($field->isDisplayingLabels())->toBeTrue();
+
+    $extra = (function () {
+        return $this->extraAttributes();
+    })->call($field);
+
+    expect($extra['displayLabels'])->toBeTrue();
+});
+
+it('displayUsingValues() flips the flag so the index/detail cell renders raw values', function () {
+    $field = Select::make('country_code')->displayUsingValues();
+
+    expect($field->isDisplayingLabels())->toBeFalse();
+
+    $extra = (function () {
+        return $this->extraAttributes();
+    })->call($field);
+
+    expect($extra['displayLabels'])->toBeFalse();
+});

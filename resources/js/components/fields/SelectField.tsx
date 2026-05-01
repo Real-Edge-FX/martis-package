@@ -8,9 +8,15 @@ export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
   const opt = field.options?.find((o) => String(o.value) === String(value))
+  // PHP `Select::displayUsingLabels()` (default `true`) controls whether
+  // the index/detail cell renders the option label or the raw stored
+  // value. Falling back to the original label-resolution path when the
+  // flag is missing keeps prior payloads working.
+  const displayLabels = (field as Record<string, unknown>).displayLabels !== false
+  const rendered = displayLabels && opt ? opt.label : String(value)
   return (
     <span className="martis-badge martis-badge-neutral">
-      {opt ? opt.label : String(value)}
+      {rendered}
     </span>
   )
 }

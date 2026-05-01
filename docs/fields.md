@@ -915,16 +915,31 @@ Select::make('status')
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `options` | `options(array\|Closure $options): static` | `$this` | Set options. Accepts associative `['Label' => 'value']`, sequential `['value1', 'value2']`, or a closure that resolves at render time (perfect for DB-backed lists). See [Closure-aware setters](#closure-aware-setters). |
+| `optionsFromMap` | `optionsFromMap(array $map): static` | `$this` | Set options from a `[value => label]` map. More ergonomic than `options()` when labels come from i18n: the value (what's persisted) stays unchanged while the label can be translated. |
+| `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Render the option label on index and detail (default behaviour). Symmetric with `MultiSelect::displayUsingLabels()` for code that handles both fields generically. |
+| `displayUsingValues` | `displayUsingValues(): static` | `$this` | Render the raw stored value on index and detail. Useful when the value is itself meaningful (ISO codes, slugs) and the label is just a humanised alias. |
+| `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Whether the field currently renders labels (true) or raw values (false). |
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value}]` (resolves the closure if one was set). |
 
-**Extra attributes:** `options`
+**Extra attributes:** `options`, `displayLabels`
 
 ```php
 // Static options
 Select::make('status')->options(['Draft' => 'draft', 'Published' => 'published']);
 
+// value => label map — keeps stored value stable when translating
+Select::make('plan')->optionsFromMap([
+    'free' => __('plans.free'),
+    'pro'  => __('plans.pro'),
+]);
+
 // Database-backed options resolved at render time
 Select::make('owner_id')->options(fn () => User::query()->pluck('name', 'id')->all());
+
+// Show the raw ISO code on the index column instead of the country name
+Select::make('country_code')
+    ->options(['Portugal' => 'PT', 'United Kingdom' => 'GB'])
+    ->displayUsingValues();
 ```
 
 ---
