@@ -10,13 +10,16 @@ Register filters on a resource by overriding the `filters()` method:
 
 ```php
 use Illuminate\Http\Request;
+use Martis\Enums\ComparisonOperator;
 
 public function filters(Request $request): array
 {
     return [
         StatusFilter::make('Status'),
         RoleFilter::make('Role'),
-        DateFilter::make('Created After')->column('created_at')->operator('>='),
+        DateFilter::make('Created After')
+            ->column('created_at')
+            ->operator(ComparisonOperator::GreaterThanOrEqual),
     ];
 }
 ```
@@ -136,8 +139,8 @@ Available operators: `Equals`, `GreaterThanOrEqual`, `LessThanOrEqual`, `Greater
 
 | Method | Description | Default |
 |--------|-------------|---------|
-| `column(string)` | Database column to filter | Derived from filter name |
-| `operator(string)` | Comparison operator (`=`, `>=`, `<=`, `>`, `<`) | `=` |
+| `column(string $column)` | Database column to filter. | Derived from filter name |
+| `operator(ComparisonOperator $operator)` | Typed comparison operator. Cases: `Equals`, `GreaterThanOrEqual`, `LessThanOrEqual`, `GreaterThan`, `LessThan`. | `ComparisonOperator::Equals` |
 
 ### DateRangeFilter
 
@@ -214,6 +217,24 @@ StatusFilter::make('Internal Rating')
 When a filter is hidden via `canSee()`:
 - It is excluded from the schema response (frontend never sees it)
 - Even if a client sends the filter in query params, it is ignored on the backend
+
+## Excluding a Filter from Lenses
+
+> **Martis extension** — keep a filter on the default index but skip it on lenses.
+
+By default, lenses inherit `Resource::filters()` so the lens toolbar shows the same filters as the parent index. When a lens has a different intent (e.g. an audit log that always renders "today first" regardless of operator filtering), opt the filter out per-instance:
+
+```php
+public function filters(Request $request): array
+{
+    return [
+        StatusFilter::make('Status'),
+        DateRangeFilter::make('Period')->excludeFromLens(),
+    ];
+}
+```
+
+`excludeFromLens()` accepts a single boolean (defaults to `true`). The opt-out is per-filter and per-resource — each lens that builds its own `filters()` from scratch is unaffected. Use `isExcludedFromLens(): bool` to query the flag.
 
 ## Dynamic Filters
 
