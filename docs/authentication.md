@@ -614,15 +614,27 @@ Bind a subclass of `Martis\Auth\MagicLinkNotification` against the FQCN, or over
 
 ## Browser sessions
 
-Profile page gets a "Browser sessions" surface (mounted automatically when the host app uses Laravel's `database` session driver) listing every active session for the current user — IP, user agent, last activity, and an "is current" pill. Two revoke endpoints let the user kick stale devices.
+Profile page gets a "Browser sessions" surface (`<BrowserSessionsSection />`) that lists every active session for the current user — IP, user agent, last activity, and a "This device" badge on the current row. Two revoke flows let the user kick stale devices: per-row trash icon (skipped on the current row to prevent accidental self-logout) and a one-click "Sign out everywhere else" button that drops every other session.
+
+### Enabling
+
+The section is mounted by default when `martis.profile.sections` includes `'sessions'`. Since v1.8.8 the bundled default is `['avatar', 'account', 'password', 'security', 'sessions']`. Older installs that pinned the list to four entries need to add `'sessions'` to the published `config/martis.php` to see the panel.
+
+The host app must use Laravel's `database` session driver for the panel to populate. When the driver is `file` / `cookie` / `array` / unknown, the API returns `supported: false` and the React UI renders a one-line hint explaining how to switch (`php artisan session:table` + `php artisan migrate`) instead of a confusing empty list.
+
+### Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`. `supported: false` when the host app uses `file` / `cookie` / `array` / unknown driver — UI renders a one-line hint instead of a confusing empty list. |
+| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`. Each session row carries `id`, `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
 | `DELETE` | `/martis/api/profile/sessions/others` | Revokes every session except the current one. Returns `{ revoked, supported }`. |
-| `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by ID. Targeting the current session is a deliberate no-op so the call cannot accidentally sign the user out of the device they are issuing the request from. |
+| `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by ID. Targeting the current session is a deliberate no-op so the call cannot accidentally sign the user out of the device issuing the request. |
 
-The implementation lives in `Martis\Profile\BrowserSessionsService` — bind your own subclass to extend with geo-IP enrichment, audit logging, etc.
+### Customisation
+
+- **Backend**: bind your own subclass of `Martis\Profile\BrowserSessionsService` against the FQCN to extend with geo-IP enrichment, audit logging, or cross-device push notifications. The service exposes `forUser(Authenticatable, Request)`, `revokeOthers(Authenticatable, Request)`, and `revoke(Authenticatable, Request, string $id)`.
+- **UI**: register a custom React component under the `martis:profile-sessions` registry key from your consumer `boot.ts` to swap the bundled `BrowserSessionsSection`. When unset, the bundled component renders.
+- **Translations**: keys live under the `profile` namespace — `sessions_title`, `sessions_subtitle`, `sessions_loading`, `sessions_empty`, `sessions_unsupported`, `sessions_current_badge`, `sessions_unknown_ip`, `sessions_revoke`, `sessions_revoke_success`, `sessions_revoke_others`, `sessions_revoke_others_confirm`, `sessions_revoke_others_success`, `sessions_revoking`. All shipped in en, pt_PT, pt_BR.
 
 ## Error pages
 
@@ -704,7 +716,7 @@ The profile page is accessible at `/{martis-path}/profile` and provides:
         'enabled' => true,
         'recovery_codes' => 8,           // Number of one-time codes
     ],
-    'sections' => ['account', 'password', 'avatar', 'security'],
+    'sections' => ['account', 'password', 'avatar', 'security', 'sessions'],
 ],
 ```
 
