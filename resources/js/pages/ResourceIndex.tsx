@@ -104,11 +104,10 @@ export function ResourceIndexPage() {
     // ?filters={"<uriKey>":<value>,...} in the URL wins over sticky view on
     // mount. Used by `MenuItem::filter()->applies()` to deep-link straight
     // to a pre-filtered view (e.g. "Open Tickets", "Overdue Invoices") and
-    // by anyone hand-crafting shareable URLs. We strip the param after
-    // reading so subsequent state changes (sticky-view writes, manual
-    // filter edits) do not race with a stale URL value. The Sidebar's
-    // active-state rule keys off pathname only — it intentionally does
-    // not try to mirror activeFilters.
+    // by anyone hand-crafting shareable URLs. The param is **kept** in
+    // the URL (unlike `?search=`) so the Sidebar's filter-aware active
+    // state can read it consistently across renders — stripping it
+    // would only flicker the active highlight.
     const urlFilters = initialUrlParams.get('filters') ?? ''
     if (urlFilters) {
       try {
@@ -123,24 +122,6 @@ export function ResourceIndexPage() {
           setSortDir('asc')
           setTrashedFilter('')
           setFiltersOpen(true)
-
-          initialUrlParams.delete('filters')
-          const next = initialUrlParams.toString()
-          // Use react-router's `navigate` (replace) instead of
-          // `window.history.replaceState` so the Sidebar (and any
-          // other location-aware component) re-renders with the new
-          // search string. `replaceState` mutates the URL silently
-          // and leaves the sidebar showing the now-stale filter
-          // factory item as active. We omit `pathname` so navigate
-          // keeps the current path — passing `window.location.pathname`
-          // would duplicate the router basename ("/martis/martis/...").
-          navigate(
-            {
-              search: next ? `?${next}` : '',
-              hash: window.location.hash,
-            },
-            { replace: true },
-          )
           return
         }
       } catch {

@@ -114,12 +114,80 @@ class NavigationController extends MartisController
 
         $resolved = $this->martis->resolveMainMenu($request, $sections);
 
+        // Suppress auto-injection for system-section resources the host-app
+        // already pulled into a custom `Martis::mainMenu(...)` payload. A
+        // resource that opts into `belongsToSystemSection()` would otherwise
+        // appear twice — once where the host placed it, and once in the
+        // bundled "System" section — which surprised people building dense
+        // sidebars (Real-Edge-FX/martis-package#NN).
+        $referencedUriKeys = $this->collectResourceUriKeys($resolved);
+        if ($referencedUriKeys !== []) {
+            $systemResources = array_values(array_filter(
+                $systemResources,
+                function (MenuItem $item) use ($referencedUriKeys) {
+                    $resourceClass = $item->resourceClass();
+                    if ($resourceClass === null) {
+                        return true;
+                    }
+
+                    return ! in_array($resourceClass::uriKey(), $referencedUriKeys, true);
+                },
+            ));
+        }
+
         // Append the System section AFTER the host-app resolver runs so
         // a custom `Martis::mainMenu(...)` callback that replaces the
         // entire section list still sees the Cache admin entry. The
         // section appears whenever there is at least one item visible
         // to this user (cache admin link + any system-grouped resources).
         return $this->appendSystemSection($resolved, $request, $systemResources);
+    }
+
+    /**
+     * Walk a resolved navigation payload and collect every resource
+     * `uriKey` referenced inside it. Used to suppress double-rendering
+     * of `belongsToSystemSection()` resources that a host already placed
+     * via `Martis::mainMenu(...)`.
+     *
+     * Handles the heterogeneous shape emitted by `MenuSection::resolve()`:
+     * top-level sections, nested `MenuGroup` containers (`type === 'group'`),
+     * and leaf items of any factory type. Only `type === 'resource'`
+     * leaves contribute a uriKey.
+     *
+     * @param  list<array<string, mixed>>  $sections
+     * @return list<string>
+     */
+    protected function collectResourceUriKeys(array $sections): array
+    {
+        $found = [];
+
+        $walk = function (array $items) use (&$walk, &$found): void {
+            foreach ($items as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $type = $item['type'] ?? null;
+
+                if ($type === 'group' && isset($item['items']) && is_array($item['items'])) {
+                    $walk($item['items']);
+
+                    continue;
+                }
+
+                if ($type === 'resource' && isset($item['uriKey']) && is_string($item['uriKey'])) {
+                    $found[] = $item['uriKey'];
+                }
+            }
+        };
+
+        foreach ($sections as $section) {
+            if (isset($section['items']) && is_array($section['items'])) {
+                $walk($section['items']);
+            }
+        }
+
+        return array_values(array_unique($found));
     }
 
     /**

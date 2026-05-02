@@ -307,6 +307,40 @@ it('serialises a nested MenuGroup with type=group inside a section', function ()
     $response->assertJsonPath('0.items.1.label', 'General');
 });
 
+it('suppresses System auto-injection when a resource is referenced in the custom mainMenu', function () {
+    // ActionEventResource ships with belongsToSystemSection() === true.
+    // When the host app pulls it into a custom MenuSection / MenuGroup,
+    // the System section should NOT also auto-inject it (avoids the
+    // duplicate-row sidebar bug).
+    app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu): Menu {
+        return $menu->prepend(MenuSection::make('Audit', [
+            MenuGroup::make('Activity', [
+                MenuItem::resource(\Martis\Resources\ActionEventResource::class),
+            ]),
+        ]));
+    });
+
+    // The bundled System section may still show the Cache admin link,
+    // but it must not contain a second copy of the action-events resource.
+    $response = $this->getJson('/martis/api/navigation');
+    $sections = collect($response->json());
+
+    $auditSection = $sections->firstWhere('label', 'Audit');
+    expect($auditSection)->not->toBeNull();
+    $auditUriKeys = collect($auditSection['items'])
+        ->flatMap(fn ($item) => $item['type'] === 'group' ? $item['items'] : [$item])
+        ->pluck('uriKey')
+        ->filter()
+        ->all();
+    expect($auditUriKeys)->toContain('action-events');
+
+    $systemSection = $sections->firstWhere('label', 'System');
+    if ($systemSection !== null) {
+        $systemUriKeys = collect($systemSection['items'])->pluck('uriKey')->filter()->all();
+        expect($systemUriKeys)->not->toContain('action-events');
+    }
+});
+
 it('drops a MenuGroup whose canSee returns false', function () {
     app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu): Menu {
         return $menu->prepend(MenuSection::make('Settings', [
