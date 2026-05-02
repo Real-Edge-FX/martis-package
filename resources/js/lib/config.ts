@@ -168,6 +168,29 @@ export interface MartisProfileConfig {
   two_factor?: MartisProfileTwoFactorConfig
 }
 
+/**
+ * Bridge for the PHP-side `martis.locales.*` config block. Surfaced
+ * verbatim so the React shell can short-circuit a server round-trip
+ * when deciding whether the active locale should render right-to-left.
+ *
+ * The TranslationsController already encodes app namespaces and the
+ * fallback chain in the `/api/translations/{locale}` payload; the
+ * matching keys here are exposed mostly for symmetry / debug overlays.
+ */
+export interface MartisLocalesConfig {
+  /** Extra translation namespaces merged in by the TranslationsController. */
+  appNamespaces?: string[]
+  /** Ordered fallback chain searched when a key is missing. */
+  fallbackChain?: string[]
+  /**
+   * Locale codes that should render the panel in right-to-left layout.
+   * The shell matches the active i18next language against this list and
+   * writes `dir="rtl"` on `<html>` so the bundled CSS (logical
+   * properties) flips margins / paddings / borders automatically.
+   */
+  rtlLocales?: string[]
+}
+
 export interface MartisPreferencesInitialPayload {
   theme?: 'dark' | 'light' | 'system'
   accent?: 'martis' | 'blue' | 'teal' | 'violet' | 'amber' | 'custom'
@@ -330,6 +353,12 @@ export interface MartisConfigShape {
   loader?: MartisLoaderConfig
   profile?: MartisProfileConfig
   preferences?: MartisPreferencesConfig
+  /**
+   * Locale extensibility knobs surfaced to the SPA so the shell can
+   * react to RTL locales, app-level namespaces, and the configured
+   * fallback chain without an extra round-trip.
+   */
+  locales?: MartisLocalesConfig
   auth?: MartisAuthConfig
   stickyViews?: MartisStickyViewsConfig
   notifications?: MartisNotificationsConfig

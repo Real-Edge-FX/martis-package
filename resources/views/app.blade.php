@@ -105,6 +105,11 @@
             dev: {!! json_encode([
                 'toolsEnabled' => (bool) config('martis.dev.tools_enabled', false),
             ]) !!},
+            locales: {!! json_encode([
+                'appNamespaces' => array_values((array) config('martis.locales.app_namespaces', [])),
+                'fallbackChain' => array_values((array) config('martis.locales.fallback_chain', ['en'])),
+                'rtlLocales' => array_values((array) config('martis.locales.rtl_locales', [])),
+            ]) !!},
             notifications: {!! json_encode(config('martis.notifications', [
                 'enabled' => true,
                 'poll_interval' => 60000,

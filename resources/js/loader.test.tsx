@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
-import { render, screen, act } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { MartisLoader, DefaultMartisLoader } from "@/components/Loader"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"

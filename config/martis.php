@@ -304,6 +304,13 @@ return [
     |     Default `['en']` matches the historical behaviour. A multi-step
     |     example: `['pt_BR', 'en']` for `pt_PT` requests so European
     |     Portuguese first borrows from Brazilian, then from English.
+    |
+    |   - `rtl_locales`: locale codes that should render the admin panel
+    |     in right-to-left layout. When the active locale matches an
+    |     entry, the React shell writes `dir="rtl"` on `<html>` and the
+    |     bundled CSS uses logical properties so margins / paddings /
+    |     borders flip automatically. Default ships with Arabic, Persian,
+    |     Hebrew, Urdu — opt out by clearing the list.
     */
     'locales' => [
         'app_namespaces' => array_filter(
@@ -312,6 +319,10 @@ return [
         ),
         'fallback_chain' => array_filter(
             array_map('trim', explode(',', (string) env('MARTIS_LOCALE_FALLBACK_CHAIN', 'en'))),
+            static fn (string $locale): bool => $locale !== '',
+        ),
+        'rtl_locales' => array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_RTL_LOCALES', 'ar,fa,he,ur'))),
             static fn (string $locale): bool => $locale !== '',
         ),
     ],
