@@ -8,6 +8,7 @@ import { AccountSection } from '@/components/Profile/AccountSection'
 import { PasswordSection } from '@/components/Profile/PasswordSection'
 import { AvatarSection } from '@/components/Profile/AvatarSection'
 import { SecuritySection } from '@/components/Profile/SecuritySection'
+import { BrowserSessionsSection } from '@/components/Profile/BrowserSessionsSection'
 import { MartisLoader } from '@/components/Loader'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
@@ -29,7 +30,7 @@ export function ProfilePage() {
 
   const avatarEnabled = config.profile?.avatar?.enabled !== false
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false
-  const sections = config.profile?.sections ?? ['avatar', 'account', 'password', 'security']
+  const sections = config.profile?.sections ?? ['avatar', 'account', 'password', 'security', 'sessions']
 
   useEffect(() => {
     api
@@ -107,6 +108,8 @@ export function ProfilePage() {
                   }
                 />
               ) : null
+            case 'sessions':
+              return <BrowserSessionsSection key="sessions" />
             default:
               return null
           }
