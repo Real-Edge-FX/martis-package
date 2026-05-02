@@ -103,6 +103,8 @@ The main application shell that wraps all pages. Resolves layout preset from con
 | `topnav` | TopnavLayout | Top navigation bar + main content |
 | `minimal` | MinimalLayout | Minimal header + main content |
 
+> `SidebarLayout` is an inner function inside `resources/js/components/Layout.tsx`, not a standalone file under `components/layouts/`. `TopnavLayout` and `MinimalLayout` each live in their own file there. To override the sidebar preset wholesale, register a custom layout via `layoutRegistry.register('sidebar', MyLayout)`.
+
 Override the layout for a specific resource using `layoutRegistry`:
 
 ```typescript
@@ -423,6 +425,36 @@ const { theme, toggle, setTheme } = useTheme()
 - Persists to localStorage (`martis-theme`)
 - Toggles `.dark` class on `<html>`
 
+### PreferencesContext
+
+Single source of truth for user-tunable preferences (theme, accent, density, locale, reduced motion). Drives the Preferences menu, the per-resource accent override, and the density / reduced-motion CSS hooks (`data-density`, `data-reduced-motion`).
+
+```typescript
+import { usePreferences, usePreferencesOptional } from '@martis/martis/contexts/PreferencesContext'
+
+const { prefs, meta, update, reset, enabled } = usePreferences()
+
+prefs.theme           // 'dark' | 'light' | 'system'
+prefs.accent          // accent token name (e.g. 'martis', 'teal')
+prefs.density         // 'comfortable' | 'dense'
+prefs.locale          // 'en' | 'pt_PT' | 'pt_BR' | …
+prefs.reducedMotion   // boolean
+
+await update({ theme: 'light' })       // patch one or many keys
+await update((prev) => ({ accent: prev.accent === 'teal' ? 'martis' : 'teal' }))
+await reset()                           // back to package defaults
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `prefs` | `Preferences` | Currently-applied preference set. |
+| `meta` | `PreferencesMeta \| null` | Allowed values per axis (`themes`, `accents`, `densities`, `locales`, `presetsAvailable`) plus `source` (`default`, `user`, or `preset`). `null` while loading. |
+| `update(patch)` | `(Partial<Preferences> \| (prev) => Partial<Preferences>) => Promise<void>` | Optimistic patch; persists to the server when authenticated and to `localStorage` when not. |
+| `reset()` | `() => Promise<void>` | Clears the user override and falls back to the active preset (or package defaults). |
+| `enabled` | `boolean` | `false` when the preferences subsystem is disabled via config; UI surfaces should hide their controls. |
+
+`usePreferencesOptional()` is the safe variant that returns `null` outside the provider — use it from surfaces that may render before the shell mounts.
+
 ### ToastContext
 
 Centralized notification system.
@@ -619,6 +651,74 @@ try {
 | `setError(err)` | `(ApiError \| Error \| string) => void` | Parse and set errors from a caught exception |
 | `clearErrors()` | `() => void` | Reset all error state |
 | `hasErrors` | `boolean` | Whether any error is currently set |
+
+---
+
+## useOverrideProps Hook
+
+React context primitive that carries the live `OverrideProps` payload (the `schema`, `record`, `recordId`, `params`, navigation callbacks, etc.) every drawer or page override receives. Wrap children with the provider and any deeply-nested component reads the same payload without prop-drilling.
+
+```tsx
+import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@martis/martis/hooks/useOverrideProps'
+
+export function MyDrawerCreate(props: OverrideProps) {
+  return (
+    <OverridePropsProvider value={props}>
+      <MyHeader />
+      <MyForm />
+    </OverridePropsProvider>
+  )
+}
+
+function MyHeader() {
+  const { schema, onClose } = useOverrideProps()       // throws outside provider
+  return <h2>{schema.singularLabel}</h2>
+}
+
+function MyOptionalConsumer() {
+  const ctx = useOverridePropsOptional()               // returns null outside provider
+  if (!ctx) return null
+  return <span>{ctx.recordId}</span>
+}
+```
+
+Opt-in. Overrides that prefer manual prop passing don't need to wrap.
+
+## usePageTitle Hook
+
+Sets `document.title` for the currently-mounted page and restores the previous title on unmount, so stacked drawers and modals do not leave stale segments after they close.
+
+```tsx
+import { usePageTitle } from '@martis/martis/hooks/usePageTitle'
+
+function MyCustomPage({ resource }) {
+  usePageTitle(resource.label)            // → "Clients · Brand"
+  // usePageTitle(null)                    // → translated default ("Brand — Admin Control")
+  return <div>…</div>
+}
+```
+
+| Argument | Effect |
+|---|---|
+| `string` | Renders `"{segment} · {brand}"`. |
+| `null` / `undefined` / `""` | Falls back to the localized default (`navigation.page_title_default`). |
+
+Brand resolves from `config.brand`; the translation namespace is `navigation`.
+
+## useIsMobile Hook
+
+Reactive viewport-width hook. Returns `true` when `window.innerWidth <= breakpoint` (default `768`) and re-renders on every resize. Used by the topbar to switch the search input between bar and icon modes; consumers can reuse it from any override that needs a JS-side mobile gate without re-implementing the matchMedia listener.
+
+```tsx
+import { useIsMobile } from '@martis/martis/hooks/useIsMobile'
+
+const isMobile = useIsMobile()           // default 768px
+const isNarrow = useIsMobile(540)        // custom breakpoint
+
+return isMobile ? <CompactToolbar /> : <FullToolbar />
+```
+
+Prefer CSS media queries when the layout swap is purely visual; reach for this hook when the difference is structural (different React tree, different data fetch, etc.).
 
 ---
 
