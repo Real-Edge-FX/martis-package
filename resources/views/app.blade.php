@@ -136,6 +136,12 @@
                     'controls' => ['theme' => true, 'locale' => true],
                 ]),
                 [
+                    'magicLink' => [
+                        'enabled' => (bool) config('martis.auth.magic_link.enabled', false),
+                        'ttlMinutes' => (int) config('martis.auth.magic_link.ttl_minutes', 15),
+                    ],
+                ],
+                [
                     // v1.8.5 — `auth.copy.*` accepts strings OR
                     // `array<locale, string>` per entry. The blade
                     // exposes the entries verbatim; the React helper

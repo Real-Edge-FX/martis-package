@@ -724,6 +724,28 @@ return [
             'default_role' => env('MARTIS_AUTH_REGISTRATION_DEFAULT_ROLE'),
         ],
 
+        // Magic-link (passwordless) login. Off by default. When
+        // enabled, the Login page exposes a "Email me a sign-in link"
+        // button that POSTs to /api/auth/magic-link/request. The
+        // emailed link points at /api/auth/magic-link/consume which
+        // logs the user in and redirects to the dashboard.
+        // Tokens are persisted in the same `password_reset_tokens`
+        // table Laravel ships with, scoped by a `martis-magic:` prefix
+        // so they never clash with reset-password tokens. TTL defaults
+        // to 15 minutes; one-shot semantics — using a token deletes it.
+        'magic_link' => [
+            'enabled' => env('MARTIS_AUTH_MAGIC_LINK_ENABLED', false),
+            // Minutes the emailed token stays valid. Short by design:
+            // a magic-link is mailbox-equivalent, so a leak past the
+            // window is the same threat as a password.
+            'ttl_minutes' => (int) env('MARTIS_AUTH_MAGIC_LINK_TTL', 15),
+            // Whether to auto-create a user when the email is unknown.
+            // Default false — magic-link as a sign-in shortcut for
+            // existing accounts, not a registration backdoor. Flip to
+            // true when registration is open + you accept any email.
+            'auto_register' => (bool) env('MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER', false),
+        ],
+
         'email_verification' => [
             // Master switch. When true:
             //   - Martis registers the `martis.verified` middleware alias.

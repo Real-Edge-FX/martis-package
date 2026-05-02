@@ -300,6 +300,15 @@ export interface MartisAuthConfig {
   controls?: MartisAuthControlsConfig
   /** Optional per-page copy overrides. v1.8.0. */
   copy?: MartisAuthCopyConfig
+  /** Magic-link (passwordless) sign-in. v1.8.8. */
+  magicLink?: MartisMagicLinkConfig
+}
+
+export interface MartisMagicLinkConfig {
+  /** When true the Login page shows the "Email me a sign-in link" button. */
+  enabled?: boolean
+  /** Minutes the emailed token stays valid; surfaced to the UI for copy. */
+  ttlMinutes?: number
 }
 
 export interface MartisConfigShape {

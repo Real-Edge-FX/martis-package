@@ -5,10 +5,13 @@ namespace Martis;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
@@ -143,6 +146,7 @@ class MartisServiceProvider extends ServiceProvider
 
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
+        $this->registerRateLimiters();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -403,6 +407,41 @@ class MartisServiceProvider extends ServiceProvider
                 'token' => $token,
                 'email' => $email,
             ]);
+        });
+    }
+
+    /**
+     * Register the named rate limiters Martis applies on top of the
+     * generic per-IP `throttle:N,1` middleware.
+     *
+     * `martis-login` keys on the lowercased email + the client IP, so
+     * a credential-stuffing attempt against a single account is caught
+     * regardless of which botnet IP fires the next attempt. The window
+     * matches the global login throttle so users see a single, coherent
+     * 429 envelope across both layers.
+     *
+     * Routes opt in via `throttle:martis-login` in addition to the
+     * generic `throttle:N,1`. Per-IP catches a noisy machine, per-email
+     * catches a slow distributed attack on a known account.
+     */
+    protected function registerRateLimiters(): void
+    {
+        $attempts = (int) config('martis.throttle.login_attempts', 20);
+        $minutes = (int) config('martis.throttle.login_minutes', 1);
+
+        RateLimiter::for('martis-login', function (Request $request) use ($attempts, $minutes) {
+            $email = strtolower((string) $request->input('email', ''));
+
+            // Empty-email request (no payload at all): fall back to
+            // the standard per-IP envelope so a script hammering the
+            // endpoint without payload still gets throttled.
+            $key = $email === ''
+                ? 'martis-login|ip|'.$request->ip()
+                : 'martis-login|email|'.sha1($email).'|ip|'.$request->ip();
+
+            return [
+                Limit::perMinutes($minutes, $attempts)->by($key),
+            ];
         });
     }
 }

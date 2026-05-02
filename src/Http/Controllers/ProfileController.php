@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rules\Password;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
+use Martis\Profile\BrowserSessionsService;
 use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 
@@ -200,6 +201,55 @@ class ProfileController extends MartisController
         }
 
         return response()->json($result);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Browser sessions
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * List the active browser sessions for the current user. Reads from
+     * the framework `sessions` table (Laravel database session driver)
+     * and decorates each row with `is_current`, parsed user-agent
+     * snippets, and `last_active`.
+     *
+     * Returns `{ sessions: [], driver: 'database', supported: true }`.
+     * When the host app uses the `file` / `array` / `cookie` driver the
+     * service returns `supported: false` so the React UI can render an
+     * informational empty state instead of a confusing "no sessions".
+     */
+    public function sessions(Request $request, BrowserSessionsService $sessions): JsonResponse
+    {
+        $user = $this->resolveUser($request);
+
+        return response()->json($sessions->forUser($user, $request));
+    }
+
+    /**
+     * Revoke every session for the current user except the current one.
+     * Useful as a single button on the Profile page (`Sign out everywhere
+     * else`). When the driver does not store sessions (file / array)
+     * returns `204` with `supported: false` so the UI can react.
+     */
+    public function destroyOtherSessions(Request $request, BrowserSessionsService $sessions): JsonResponse
+    {
+        $user = $this->resolveUser($request);
+        $result = $sessions->revokeOthers($user, $request);
+
+        return response()->json($result, $result['supported'] ? 200 : 204);
+    }
+
+    /**
+     * Revoke a single session by ID. The current session ID is always
+     * preserved — pointing the endpoint at it is a no-op rather than a
+     * footgun that signs the user out of the device they are using.
+     */
+    public function destroySession(Request $request, BrowserSessionsService $sessions, string $id): JsonResponse
+    {
+        $user = $this->resolveUser($request);
+        $result = $sessions->revoke($user, $request, $id);
+
+        return response()->json($result, $result['supported'] ? 200 : 204);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

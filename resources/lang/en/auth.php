@@ -51,6 +51,21 @@ return [
     'forgot_password_disabled' => 'Password reset is not enabled on this workspace.',
     'forgot_password_mailer_unavailable' => 'The email service is temporarily unavailable. Please try again in a few minutes or contact your administrator.',
 
+    // Magic-link sign-in (v1.8.8)
+    'magic_link_subject' => 'Your :app sign-in link',
+    'magic_link_greeting' => 'Hello!',
+    'magic_link_intro' => 'Click the button below to sign in. The link expires in :minutes minutes and can only be used once.',
+    'magic_link_cta' => 'Sign in',
+    'magic_link_outro' => "If you didn't request this email, you can safely ignore it.",
+    'magic_link_button' => 'Email me a sign-in link',
+    'magic_link_button_sending' => 'Sending…',
+    'magic_link_sent' => 'If an account exists for that email, a sign-in link is on its way.',
+    'magic_link_disabled' => 'Magic-link sign-in is not enabled on this workspace.',
+    'magic_link_unavailable' => 'Magic-link sign-in is temporarily unavailable. Please try again later or contact your administrator.',
+    'magic_link_expired' => 'This sign-in link has expired or already been used. Please request a new one.',
+    'magic_link_invalid' => 'This sign-in link is invalid. Please request a new one.',
+    'magic_link_email_placeholder' => 'admin@example.com',
+
     // Reset password (v1.8.0)
     'reset_password_title' => 'Set a new password',
     'reset_password_sub' => 'Choose a new password for your account.',

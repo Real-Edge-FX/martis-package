@@ -51,6 +51,21 @@ return [
     'forgot_password_disabled' => 'A recuperação de palavra-passe não está activada neste espaço de trabalho.',
     'forgot_password_mailer_unavailable' => 'O serviço de email está temporariamente indisponível. Tente novamente dentro de alguns minutos ou contacte o seu administrador.',
 
+    // Magic-link sign-in (v1.8.8)
+    'magic_link_subject' => 'O seu link de acesso ao :app',
+    'magic_link_greeting' => 'Olá!',
+    'magic_link_intro' => 'Clique no botão abaixo para iniciar sessão. O link expira em :minutes minutos e só pode ser usado uma vez.',
+    'magic_link_cta' => 'Iniciar sessão',
+    'magic_link_outro' => 'Se não solicitou este email, pode ignorá-lo em segurança.',
+    'magic_link_button' => 'Envie-me um link de acesso',
+    'magic_link_button_sending' => 'A enviar…',
+    'magic_link_sent' => 'Se existir uma conta para este email, um link de acesso está a caminho.',
+    'magic_link_disabled' => 'O acesso por link mágico não está activado neste espaço de trabalho.',
+    'magic_link_unavailable' => 'O acesso por link mágico está temporariamente indisponível. Tente mais tarde ou contacte o seu administrador.',
+    'magic_link_expired' => 'Este link de acesso expirou ou já foi utilizado. Solicite um novo.',
+    'magic_link_invalid' => 'Este link de acesso é inválido. Solicite um novo.',
+    'magic_link_email_placeholder' => 'admin@example.com',
+
     // Definir nova palavra-passe (v1.8.0)
     'reset_password_title' => 'Definir uma nova palavra-passe',
     'reset_password_sub' => 'Escolha uma nova palavra-passe para a sua conta.',
