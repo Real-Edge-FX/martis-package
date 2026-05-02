@@ -233,6 +233,42 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
             {allowBrandColor && (
               <>
                 <div className="mt-2 flex items-center gap-2">
+                  {/* Native color picker — opens the OS palette. Updates
+                      the text input in lock-step so users see the hex
+                      they just picked. */}
+                  <label
+                    className="relative inline-flex h-7 w-7 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border"
+                    style={{
+                      borderColor: 'var(--martis-border)',
+                      backgroundColor: prefs.brandColor && brandColorValid
+                        ? prefs.brandColor
+                        : 'transparent',
+                      backgroundImage: prefs.brandColor && brandColorValid
+                        ? 'none'
+                        : 'conic-gradient(#ef4444, #f59e0b, #22c55e, #3b82f6, #8b5cf6, #ef4444)',
+                    }}
+                    title={t('pick_brand_color', 'Pick a custom accent')}
+                  >
+                    <input
+                      type="color"
+                      value={
+                        prefs.brandColor && /^#[0-9a-f]{6}$/i.test(prefs.brandColor)
+                          ? prefs.brandColor
+                          : '#4f7bf9'
+                      }
+                      onChange={(e) => onBrandColorChange(e.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      aria-label={t('pick_brand_color', 'Pick a custom accent')}
+                    />
+                    {prefs.accent === 'custom' && prefs.brandColor && (
+                      <CheckIcon
+                        size={12}
+                        weight="bold"
+                        color="#fff"
+                        style={{ position: 'absolute', filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.6))' }}
+                      />
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={brandColorInput}
@@ -259,7 +295,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                 </div>
                 <p className="mt-1 text-[10px]" style={{ color: brandColorValid ? 'var(--martis-text-muted)' : 'var(--martis-danger-text)' }}>
                   {brandColorValid
-                    ? t('brand_color_help', 'Custom hex overrides the accent (⭐ D1)')
+                    ? t('brand_color_help', 'Custom hex overrides the accent')
                     : t('brand_color_invalid', 'Use #RGB, #RRGGBB or #RRGGBBAA')}
                 </p>
               </>
