@@ -27,4 +27,14 @@ enum DrawerSlot: string
     case Create = 'create';
     case Update = 'update';
     case Detail = 'detail';
+    /**
+     * Lightweight quick-look surface — typically wired to a row
+     * "open quickly" affordance that shows a curated subset of fields
+     * without the full detail page chrome. Distinct from `Detail`
+     * (the canonical destination after navigating into a record) and
+     * from the BelongsTo / MorphTo hover **peek** popover (which
+     * surfaces related-record metadata, not a drawer for the current
+     * row).
+     */
+    case Quick = 'quick';
 }

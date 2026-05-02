@@ -19,6 +19,7 @@ import { DrawerCreate } from '@/components/overrides/DrawerCreate'
 import { DrawerUpdate } from '@/components/overrides/DrawerUpdate'
 import { DemoCustomAction } from '@/components/Actions/DemoCustomAction'
 import { DrawerDetail } from '@/components/overrides/DrawerDetail'
+import { DrawerQuick } from '@/components/overrides/DrawerQuick'
 import { SystemStatusDemo } from '@/components/tools/SystemStatusDemo'
 
 // Register all default field renderers into the global component registry
@@ -28,6 +29,7 @@ registerDefaultFields()
 componentRegistry.register('martis:drawer-create', DrawerCreate as never)
 componentRegistry.register('martis:drawer-update', DrawerUpdate as never)
 componentRegistry.register('martis:drawer-detail', DrawerDetail as never)
+componentRegistry.register('martis:drawer-quick', DrawerQuick as never)
 componentRegistry.register('demo-custom-action', DemoCustomAction as never)
 
 // Built-in Tools demo component (v0.10) — apps that want a quick

@@ -97,6 +97,19 @@ export const router = createBrowserRouter([
         },
       },
       {
+        // Developer-only Component Inspector — pick any registered
+        // component, feed it a JSON payload, see it render in
+        // isolation. Gated on `config.preview.enabled` (default true
+        // in `local`, false elsewhere). The route is always wired so
+        // that a deliberate `MARTIS_DEV_INSPECTOR=true` works in
+        // staging without re-deploying.
+        path: 'dev/components',
+        lazy: async () => {
+          const { ComponentInspectorPage } = await import('@/pages/ComponentInspector')
+          return { element: <ComponentInspectorPage />, handle: { crumb: 'dev_components' } }
+        },
+      },
+      {
         path: 'tools/:uriKey',
         lazy: async () => {
           const { ToolPage } = await import('@/pages/ToolPage')

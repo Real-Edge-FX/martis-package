@@ -182,7 +182,7 @@ public function overrides(): array
 
 ### `DrawerSlot` enum (typed slot keys)
 
-`Resource::overrides()` returns an associative array keyed by slot. The bundled controllers accept either string keys (`'create' | 'update' | 'detail'`) or the typed `DrawerSlot` enum — using the enum surfaces typos at compile time:
+`Resource::overrides()` returns an associative array keyed by slot. The bundled controllers accept either string keys (`'create' | 'update' | 'detail' | 'quick'`) or the typed `DrawerSlot` enum — using the enum surfaces typos at compile time:
 
 ```php
 use Martis\Enums\DrawerSlot;
@@ -193,6 +193,7 @@ public function overrides(): array
         DrawerSlot::Create->value => DrawerOverride::create(),
         DrawerSlot::Update->value => DrawerOverride::update(),
         DrawerSlot::Detail->value => DrawerOverride::detail(),
+        DrawerSlot::Quick->value  => DrawerOverride::quick(),
     ];
 }
 ```
@@ -228,6 +229,7 @@ interface OverrideProps {
 | DrawerCreate | `martis:drawer-create` | Slide-in create form |
 | DrawerUpdate | `martis:drawer-update` | Slide-in edit form |
 | DrawerDetail | `martis:drawer-detail` | Slide-in detail view |
+| DrawerQuick | `martis:drawer-quick` | ⭐ Lightweight read-only quick-look (narrower, no actions). Distinct from the BelongsTo / MorphTo hover **peek** popover, which surfaces *related-record* metadata; `DrawerQuick` is for the current row. |
 
 ### ⭐ Reading override props from nested components — `useOverrideProps()`
 
@@ -486,7 +488,22 @@ If you opted out of the Tailwind preset, the same effect works with inline style
 
 ## 6. Creating Custom Components (Artisan)
 
-Use the `martis:component` artisan command to scaffold and auto-register a component (alias: `martis:override`, kept for back-compat).
+Use the `martis:component` artisan command to scaffold and auto-register a component (alias: `martis:override`, kept for back-compat). Each `--type` option writes a different starter — see the [stubs directory on GitHub](https://github.com/Real-Edge-FX/martis-package/tree/main/stubs) for the full source of every scaffold:
+
+| `--type` | Stub source |
+|----------|-------------|
+| `field` | [`stubs/component-field.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-field.tsx.stub) |
+| `shell` | [`stubs/component-shell.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-shell.tsx.stub) |
+| `sidebar` | [`stubs/component-sidebar.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-sidebar.tsx.stub) |
+| `topbar` | [`stubs/component-topbar.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-topbar.tsx.stub) |
+| `footer` | [`stubs/component-footer.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-footer.tsx.stub) |
+| `generic` | [`stubs/component-generic.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-generic.tsx.stub) |
+| `login-page` | [`stubs/component-login-page.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-login-page.tsx.stub) |
+| `register-page` | [`stubs/component-register-page.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-register-page.tsx.stub) |
+| `forgot-password-page` | [`stubs/component-forgot-password-page.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-forgot-password-page.tsx.stub) |
+| `reset-password-page` | [`stubs/component-reset-password-page.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-reset-password-page.tsx.stub) |
+| `email-verify-notice-page` | [`stubs/component-email-verify-notice-page.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-email-verify-notice-page.tsx.stub) |
+| `card` | [`stubs/component-card.tsx.stub`](https://github.com/Real-Edge-FX/martis-package/blob/main/stubs/component-card.tsx.stub) |
 
 ```bash
 php artisan martis:component StatusBadge --type=field
@@ -647,7 +664,26 @@ php artisan martis:list-overrides --kind=tool       # only Tools
 php artisan martis:list-overrides --kind=action     # only Actions with Action::component()
 php artisan martis:list-overrides --kind=resource   # only Resources (uri keys)
 php artisan martis:list-overrides --filter=order    # substring filter on the key
+php artisan martis:list-overrides --frontend        # ⭐ cross-check vs boot.ts and flag missing registrations
 ```
+
+### ⭐ `--frontend` cross-check
+
+The `--frontend` flag adds a **Frontend** column to the table that statically parses your `resources/js/martis/boot.ts` for `componentRegistry.register/registerFieldDisplay/registerFieldInput/registerResourceFieldDisplay/registerResourceFieldInput` calls and shows whether each PHP-declared key is registered:
+
+```
++----------+--------------------------+------------------------+----------------+
+| Kind     | Component key            | Source                 | Frontend       |
++----------+--------------------------+------------------------+----------------+
+| resource | clients                  | App\Martis\ClientResource | ✓ registered |
+| resource | invoices                 | App\Martis\InvoiceResource| ✓ registered |
+| tool     | system-status            | App\Martis\Tools\…        | ✗ missing     |
++----------+--------------------------+------------------------+----------------+
+```
+
+Exit code `2` (INVALID) when any key is missing, so you can wire it into CI as `php artisan martis:list-overrides --frontend || exit 1`. Pass `--boot=path/to/file.ts` to point at a non-default boot file.
+
+The parser handles string-literal keys; computed keys (`register(\`field:${kind}\`, ...)`) are not resolved — list those manually.
 
 Sample output:
 
@@ -671,6 +707,22 @@ window.componentRegistry.keys()
 ```
 
 Any key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is a missing registration in your `boot.ts` — the most common reason an override fails to resolve.
+
+## ⭐ Component Inspector — `/dev/components`
+
+A developer-only page mounted at `/martis/dev/components` (alongside the regular admin routes) that lets you preview any registered component in isolation, fed by an editable JSON payload. The intended workflow:
+
+1. Scaffold an override (`php artisan martis:component StatusBadge --type=field`).
+2. Build the bundle (`npm run build`).
+3. Open `/martis/dev/components`, pick `status-badge` from the list on the left.
+4. Tweak the JSON payload (`{ field: {...}, value: 'draft' }`) and watch the component re-render on the right.
+5. Iterate until the design is right — *then* go test through a real Resource page.
+
+Distinct from the BelongsTo / MorphTo **peek** popover. Peek shows real records of a related model to end-users. The Inspector renders synthetic payloads for **developers**.
+
+The page reads the same `componentRegistry.keys()` you'd inspect via the browser devtools console, so it surfaces every registered key — bundled drawers (`martis:drawer-*`), built-in field renderers (`field:display:text`, `field:input:select`, …), and your own overrides.
+
+A misshapen JSON payload renders a red error box instead of crashing the inspector. The page does not gate on auth at the route level (it sits inside the same authenticated shell as every other Martis admin page); restrict it via your existing middleware if you don't want non-developers landing on it.
 
 ## Page Title Hook
 
