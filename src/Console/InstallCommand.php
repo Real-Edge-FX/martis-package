@@ -5,6 +5,7 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 use RuntimeException;
 
 class InstallCommand extends Command
@@ -181,7 +182,7 @@ class InstallCommand extends Command
     protected function publishCoreMigrations(): void
     {
         $this->publishMigrationStub(
-            __DIR__.'/../../stubs/create_martis_action_events_table.php.stub',
+            StubResolver::path('create_martis_action_events_table.php.stub'),
             'create_martis_action_events_table'
         );
 
@@ -190,7 +191,7 @@ class InstallCommand extends Command
         // migration is never run, so the table is core but not strictly
         // blocking for apps that disable the feature.
         $this->publishMigrationStub(
-            __DIR__.'/../../stubs/create_user_preferences_table.php.stub',
+            StubResolver::path('create_user_preferences_table.php.stub'),
             'create_martis_user_preferences_table'
         );
 
@@ -201,7 +202,7 @@ class InstallCommand extends Command
         // skipped when the table already exists (some apps already
         // ran `php artisan notifications:table`).
         $this->publishMigrationStub(
-            __DIR__.'/../../stubs/create_martis_notifications_table.php.stub',
+            StubResolver::path('create_martis_notifications_table.php.stub'),
             'create_notifications_table'
         );
     }
@@ -219,7 +220,7 @@ class InstallCommand extends Command
     {
         if ($options['publish_avatar_migration']) {
             $this->publishMigrationStub(
-                __DIR__.'/../../stubs/add_profile_picture_column.php.stub',
+                StubResolver::path('add_profile_picture_column.php.stub'),
                 'add_martis_profile_picture_column_to_users_table',
                 fn (string $stub): string => str_replace('profile_picture', $options['avatar_column'], $stub)
             );
@@ -229,7 +230,7 @@ class InstallCommand extends Command
 
         if ($options['two_factor_enabled']) {
             $this->publishMigrationStub(
-                __DIR__.'/../../stubs/add_two_factor_columns.php.stub',
+                StubResolver::path('add_two_factor_columns.php.stub'),
                 'add_martis_two_factor_columns_to_users_table'
             );
 
@@ -298,7 +299,7 @@ class InstallCommand extends Command
      */
     protected function publishServiceProvider(): void
     {
-        $stubPath = __DIR__.'/../../stubs/MartisServiceProvider.php.stub';
+        $stubPath = StubResolver::path('MartisServiceProvider.php.stub');
 
         if (! file_exists($stubPath)) {
             $this->components->warn('MartisServiceProvider stub not found. Skipping.');

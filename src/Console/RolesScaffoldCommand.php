@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Process\Process;
 
 /**
@@ -232,13 +233,10 @@ class RolesScaffoldCommand extends Command
 
     protected function scaffoldResource(Filesystem $files, string $namespace, string $name, string $userClass): void
     {
-        $stubFile = base_path('vendor/martis/martis/stubs/roles-'.strtolower($name).'-resource.stub');
-        if (! file_exists($stubFile)) {
-            // When the package is symlinked into the host app via path
-            // repository, stubs live at the package root. Fall back to
-            // the package directory derived from the autoloader.
-            $stubFile = $this->stubFromPackageRoot('roles-'.strtolower($name).'-resource.stub');
-        }
+        // Routes through `StubResolver` so a `php artisan martis:stubs`
+        // override at `stubs/martis/roles-{name}-resource.stub` wins over
+        // the bundled default.
+        $stubFile = StubResolver::path('roles-'.strtolower($name).'-resource.stub');
 
         if (! file_exists($stubFile)) {
             $this->components->error(sprintf('Stub not found: %s', $stubFile));
@@ -273,10 +271,7 @@ class RolesScaffoldCommand extends Command
 
     protected function scaffoldPolicies(Filesystem $files, string $userClass): void
     {
-        $stubFile = base_path('vendor/martis/martis/stubs/roles-policy.stub');
-        if (! file_exists($stubFile)) {
-            $stubFile = $this->stubFromPackageRoot('roles-policy.stub');
-        }
+        $stubFile = StubResolver::path('roles-policy.stub');
 
         if (! file_exists($stubFile)) {
             $this->components->error('Policy stub not found.');
@@ -390,10 +385,7 @@ class RolesScaffoldCommand extends Command
 
     protected function scaffoldSeeder(Filesystem $files): void
     {
-        $stubFile = base_path('vendor/martis/martis/stubs/roles-seeder.stub');
-        if (! file_exists($stubFile)) {
-            $stubFile = $this->stubFromPackageRoot('roles-seeder.stub');
-        }
+        $stubFile = StubResolver::path('roles-seeder.stub');
 
         if (! file_exists($stubFile)) {
             $this->components->warn('Seeder stub not found — create the `admin` role manually.');
@@ -413,15 +405,4 @@ class RolesScaffoldCommand extends Command
         $this->components->twoColumnDetail('<fg=green>Created</> seeder', $targetFile);
     }
 
-    /**
-     * When the package is symlinked via path repo, vendor/martis/martis
-     * does not exist. Resolve the stub via the autoloader instead.
-     */
-    protected function stubFromPackageRoot(string $stubName): string
-    {
-        $reflection = new \ReflectionClass(self::class);
-        $packageRoot = dirname((string) $reflection->getFileName(), 3);
-
-        return $packageRoot.'/stubs/'.$stubName;
-    }
 }

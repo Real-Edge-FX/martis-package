@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Process\Process;
 
 /**
@@ -512,7 +513,7 @@ class SsoMakeCommand extends Command
 
     protected function publishMigration(string $name): void
     {
-        $stubPath = __DIR__.'/../../stubs/add_provider_group_column_to_roles_table.php.stub';
+        $stubPath = StubResolver::path('add_provider_group_column_to_roles_table.php.stub');
         if (! file_exists($stubPath)) {
             $this->components->warn('Migration stub missing.');
 
