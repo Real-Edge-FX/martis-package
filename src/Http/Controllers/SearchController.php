@@ -22,7 +22,7 @@ use Martis\SearchResolver;
  * {"results": [{
  *   "resource": "users",
  *   "label": "Users",
- *   "items": [{"id": 1, "title": "...", "subtitle": "...", "url": "..."}],
+ *   "items": [{"id": 1, "title": "...", "subtitle": "...", "image": null, "url": "..."}],
  *   "total": 42,                              // ← present when items count == limit
  *   "viewAllUrl": "/resources/users?search=Cl"
  * }]}
@@ -50,7 +50,7 @@ class SearchController extends MartisController
      * @response array{results: array<int, array{
      *   resource: string,
      *   label: string,
-     *   items: array<int, array{id: int|string, title: string, subtitle: string|null, url: string}>,
+     *   items: array<int, array<string, mixed>>,
      *   total?: int,
      *   viewAllUrl: string
      * }>}
@@ -102,12 +102,11 @@ class SearchController extends MartisController
             /** @var Model $model */
             foreach ($models as $model) {
                 $resourceInstance = new $resourceClass($model);
-                $items[] = [
-                    'id' => $model->getKey(),
-                    'title' => $resourceInstance->title(),
-                    'subtitle' => $resourceInstance->searchSubtitle($model),
-                    'url' => '/resources/'.$resourceClass::uriKey().'/'.$model->getKey(),
-                ];
+                // Delegated transformer — the default emits id/title/
+                // subtitle/image/url. Resources that override it can
+                // surface arbitrary fields (badges, status, tags) the
+                // host frontend is prepared to render.
+                $items[] = $resourceInstance->globalSearchResult($model);
             }
 
             $group = [

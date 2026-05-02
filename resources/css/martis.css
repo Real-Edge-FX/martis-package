@@ -968,6 +968,15 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
 .martis-cmdk-item svg { color: var(--martis-text-muted); flex-shrink: 0; }
 .martis-cmdk-item:hover svg,
 .martis-cmdk-item.is-active svg { color: var(--martis-accent); }
+/* Avatar slot for record items whose Resource implements searchImage(). */
+.martis-cmdk-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--martis-hover);
+}
 .martis-cmdk-name {
   flex: 1 1 auto;
   min-width: 0;

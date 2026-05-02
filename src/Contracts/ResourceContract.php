@@ -499,6 +499,29 @@ interface ResourceContract
      */
     public function searchOrderBy(Builder $query, string $term): Builder;
 
+    /**
+     * Image / avatar URL rendered next to a Global Search hit. Default
+     * `null` keeps the result row icon-only.
+     */
+    public function searchImage(Model $model): ?string;
+
+    /**
+     * Transform a model into the array shape emitted by the Global
+     * Search API. The default produces id / title / subtitle / image /
+     * url; override for custom shapes consumed by a frontend slot.
+     *
+     * @return array<string, mixed>
+     */
+    public function globalSearchResult(Model $model): array;
+
+    /**
+     * Dot-notation relation paths searched alongside the resource's own
+     * fields when the database LIKE pipeline runs. Defaults to `[]`.
+     *
+     * @return list<string>
+     */
+    public static function searchableRelations(): array;
+
     // -------------------------------------------------------------------------
     // Page overrides
     // -------------------------------------------------------------------------

@@ -122,6 +122,95 @@ Return `null` to suppress the subtitle for a record.
 
 ---
 
+## ⭐ Result image / avatar — `searchImage()`
+
+Surface a per-record image (gravatar, file thumbnail, photo) to the left of the title in the palette. Defaults to `null` so the row stays icon-only — the same as before this hook landed.
+
+```php
+public function searchImage(Model $model): ?string
+{
+    return $model->avatar_url
+        ?? 'https://www.gravatar.com/avatar/'.md5(strtolower(trim($model->email)));
+}
+```
+
+The frontend renders the URL as a 20×20 round avatar; the icon set is suppressed for that row only.
+
+---
+
+## ⭐ Custom result shape — `globalSearchResult()`
+
+The bundled transformer emits `id`, `title`, `subtitle`, `image`, and `url`. Override `globalSearchResult()` on the resource to attach arbitrary fields a frontend slot is prepared to render (status badges, tags, counts):
+
+```php
+public function globalSearchResult(Model $model): array
+{
+    return [
+        'id' => $model->getKey(),
+        'title' => $this->title(),
+        'subtitle' => $this->searchSubtitle($model),
+        'image' => $this->searchImage($model),
+        'url' => '/resources/'.static::uriKey().'/'.$model->getKey(),
+        // Custom — pair with a frontend override that reads it.
+        'status' => $model->status,
+    ];
+}
+```
+
+The default implementation already calls `searchSubtitle()` and `searchImage()` — override only when you need extra keys on the wire.
+
+---
+
+## ⭐ Per-field search priority — `searchPriority()`
+
+Rank matches in higher-weight fields above matches in lower-weight ones without writing a custom `searchOrderBy()`. The Global Search resolver builds a `CASE` expression that scores each row by its highest-priority match:
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('email')->searchable()->searchPriority(3), // canonical id
+        Text::make('name')->searchable()->searchPriority(2),  // primary label
+        Textarea::make('notes')->searchable(),                // priority 1 (default)
+    ];
+}
+```
+
+Active only on MySQL; other database drivers keep the unranked LIKE result set. Use `searchOrderBy()` for engine-agnostic custom ordering.
+
+---
+
+## ⭐ `field:value` query syntax
+
+The Cmd+K input understands per-field tokens. They are parsed out of the free-text term and applied as `where(attribute, like, %value%)` constraints scoped to the named field. Whatever's left of the query (after the tokens are stripped) runs as the regular free-text search.
+
+```
+status:open                  → WHERE status LIKE %open%
+admin status:active          → free-text "admin" + WHERE status LIKE %active%
+title:"Quarterly Report"     → quoted value, treated as one token
+```
+
+If the named field is not declared `searchable()` on the resource, the token is silently dropped. When a user types **only** unknown tokens (no free-text fallback), the search returns no results — preferable to returning every row from a typo.
+
+---
+
+## ⭐ Searchable detail relations — `searchableRelations()`
+
+Search across attributes on related models. Each entry is a dot-notation path that the resolver translates into a `whereHas`:
+
+```php
+public static function searchableRelations(): array
+{
+    return ['customer.name', 'customer.email'];
+}
+```
+
+A query like `John` on the snippet above also matches Orders whose `customer.name` or `customer.email` contains `John`. Defaults to `[]` (own fields only).
+
+Scout-backed resources ignore this hook — Scout indexes whatever the model exposes via `toSearchableArray()`.
+
+---
+
 ## API contract
 
 `GET /martis/api/search?q=<query>` (auth required).
@@ -155,9 +244,11 @@ Return `null` to suppress the subtitle for a record.
 | `items[].id` | int\|string | Primary key. |
 | `items[].title` | string | From `Resource::title()`. |
 | `items[].subtitle` | string\|null | From `searchSubtitle()`. |
+| `items[].image` | string\|null | From `searchImage()` (avatar/thumbnail URL). |
 | `items[].url` | string | `/resources/{uriKey}/{id}`. |
+| `items[].*` | mixed | Any extra keys returned by `globalSearchResult()`. |
 | `total` | int (optional) | Present **only** when `items.length === limit`. |
-| `viewAllUrl` | string | Always present. |
+| `viewAllUrl` | string | Always present. The `q` parameter is `rawurlencode`d so spaces and symbols round-trip safely. |
 
 The endpoint never returns an `items` array smaller than 1 — empty groups are filtered out before serialisation.
 
@@ -187,8 +278,8 @@ Both values are clamped to a minimum of 1 at request time, so a misconfigured en
 
 `SearchResolver` decides per-resource:
 
-- If the model uses `Laravel\Scout\Searchable` AND the resource has not overridden `usesScout(): false`, Scout drives the search.
-- Otherwise, the standard database `LIKE %term%` pipeline runs against fields marked `searchable()`.
+- If the model uses `Laravel\Scout\Searchable` AND the resource has not overridden `public static function usesScout(): bool` to return `false`, Scout drives the search.
+- Otherwise, the standard database `LIKE %term%` pipeline runs against fields marked `searchable()`. `searchPriority()`, `searchableRelations()`, and the `field:value` query syntax all run on this path; Scout is left to its own ranking and indexed shape.
 
 Both paths integrate identically with the Cmd+K palette — `searchOrderBy()` runs in either case.
 
@@ -198,14 +289,15 @@ See [resources.md](resources.md#laravel-scout-integration) for full Scout integr
 
 ## Cmd+K palette sections
 
-The palette renders four kinds of sections, each grown from a different data source:
+The palette renders five kinds of sections, each grown from a different data source:
 
 1. **Resources** — every resource the user can view, filtered by query (client-side).
 2. **Actions** — standalone resource actions (`showInline=false`, `standalone=true`), filtered by query.
 3. **Recent activity** — the last few records the user opened (drawn from action events).
-4. **Records** — live hits per resource via `/api/search`. Each resource gets its own labelled section with the optional "View all" footer.
+4. **⭐ Recent searches** — the user's last 5 successful queries, persisted in `sessionStorage`. Visible only when the input is empty. Clicking re-runs the query.
+5. **Records** — live hits per resource via `/api/search`. Each resource gets its own labelled section with the optional "View all" footer.
 
-The first three are loaded from `/api/command-palette` once per session and cached for 30 s. The Records section debounces 300 ms before firing `/api/search`.
+Sections 1–3 are loaded from `/api/command-palette` once per session and cached for 30 s. The Recent searches section is purely client-side (no backend, no roundtrip). The Records section debounces 300 ms before firing `/api/search`.
 
 ---
 

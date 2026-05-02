@@ -56,7 +56,12 @@ interface SearchRecordItem {
   id: number | string
   title: string
   subtitle: string | null
+  /** Optional avatar / thumbnail URL surfaced via Resource::searchImage(). */
+  image?: string | null
   url: string
+  // Hosts may attach arbitrary fields via Resource::globalSearchResult();
+  // a future override slot can pluck them here without touching this type.
+  [extra: string]: unknown
 }
 
 interface SearchRecordGroup {
@@ -78,8 +83,9 @@ type PaletteItem =
   | { kind: 'resource'; label: string; hint: string | null; url: string; icon: string | null }
   | { kind: 'action'; label: string; hint: string | null; url: string; icon: string | null; destructive: boolean }
   | { kind: 'recent'; label: string; hint: string | null; url: string | null; icon: ReactNode }
-  | { kind: 'record'; label: string; hint: string | null; url: string }
+  | { kind: 'record'; label: string; hint: string | null; url: string; image?: string | null }
   | { kind: 'view-all'; label: string; hint: string | null; url: string }
+  | { kind: 'recent-query'; label: string; hint: string | null; url: null; query: string }
 
 interface PaletteSection {
   label: string
@@ -87,6 +93,37 @@ interface PaletteSection {
 }
 
 const MIN_QUERY_LEN_RECORDS = 2
+
+// Recent queries — persisted in sessionStorage under this key so they
+// survive client-side navigation but die with the tab. Capped at 5 to
+// keep the empty-state footer short and the storage payload tiny.
+const RECENT_QUERIES_KEY = 'martis:cmdk-recent-queries'
+const RECENT_QUERIES_LIMIT = 5
+
+function readRecentQueries(): string[] {
+  try {
+    if (typeof window === 'undefined') return []
+    const raw = window.sessionStorage.getItem(RECENT_QUERIES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed.filter((q): q is string => typeof q === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function pushRecentQuery(q: string): void {
+  try {
+    if (typeof window === 'undefined') return
+    const trimmed = q.trim()
+    if (trimmed.length < MIN_QUERY_LEN_RECORDS) return
+    const existing = readRecentQueries().filter((r) => r !== trimmed)
+    const next = [trimmed, ...existing].slice(0, RECENT_QUERIES_LIMIT)
+    window.sessionStorage.setItem(RECENT_QUERIES_KEY, JSON.stringify(next))
+  } catch {
+    // sessionStorage may throw under quota or privacy modes — drop silently.
+  }
+}
 
 function matches(item: PaletteItem, query: string): boolean {
   if (!query) return true
@@ -105,6 +142,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
   const [query, setQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
+  const [recentQueries, setRecentQueries] = useState<string[]>(() => readRecentQueries())
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Palette aggregate (resources + standalone actions + recent events).
@@ -135,6 +173,18 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     enabled: debouncedQuery.length >= MIN_QUERY_LEN_RECORDS,
     staleTime: 1000 * 10,
   })
+
+  // Persist any query that produced at least one record group so it
+  // shows up in "Recent searches" next time the palette opens. We
+  // deliberately gate on `results.length > 0` to keep the list signal-
+  // heavy — empty searches don't pollute it.
+  useEffect(() => {
+    if (!debouncedQuery) return
+    if (!searchResponse) return
+    if (searchResponse.results.length === 0) return
+    pushRecentQuery(debouncedQuery)
+    setRecentQueries(readRecentQueries())
+  }, [debouncedQuery, searchResponse])
 
   // Build the rendered sections from palette data + live record hits.
   const sections: PaletteSection[] = []
@@ -180,6 +230,23 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     sections.push({ label: t('palette_recent', 'Recent activity'), items: recentItems })
   }
 
+  // Recent queries — only when the input is empty. Clicking re-runs
+  // the query by writing it back into the input, which triggers the
+  // debounced /api/search call. Backend-free: pure sessionStorage.
+  if (!query && recentQueries.length > 0) {
+    const recentQueryItems: PaletteItem[] = recentQueries.map((q) => ({
+      kind: 'recent-query' as const,
+      label: q,
+      hint: null,
+      url: null,
+      query: q,
+    }))
+    sections.push({
+      label: t('palette_recent_searches', 'Recent searches'),
+      items: recentQueryItems,
+    })
+  }
+
   // ⭐ Differential 2 — render each resource as its own section with a
   // trailing "View all N matches in {resource}" item when the backend
   // signalled overflow (`total` present + > items.length). Promotes
@@ -191,6 +258,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
       label: item.title,
       hint: item.subtitle ?? group.label,
       url: item.url,
+      image: item.image ?? null,
     }))
 
     if (typeof group.total === 'number' && group.total > group.items.length) {
@@ -224,6 +292,15 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
   }, [activeIndex])
 
   const runItem = useCallback((item: PaletteItem) => {
+    // Recent-query items don't navigate — they re-fill the input so
+    // the live `/api/search` debounce kicks in.
+    if (item.kind === 'recent-query') {
+      setQuery(item.query)
+      setDebouncedQuery(item.query)
+      inputRef.current?.focus()
+      return
+    }
+
     if (item.url) {
       if ('url' in item && item.url) {
         navigate(item.url)
@@ -283,7 +360,10 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
               {section.items.map((item) => {
                 const globalIdx = flatCursor++
                 const isActive = globalIdx === activeIndex
-                const icon = renderItemIcon(item)
+                const recordImage = item.kind === 'record' ? (item.image ?? null) : null
+                const icon = recordImage
+                  ? <img src={recordImage} alt="" className="martis-cmdk-avatar" />
+                  : renderItemIcon(item)
                 return (
                   <button
                     key={`${section.label}:${globalIdx}:${item.label}`}
@@ -342,6 +422,9 @@ function renderItemIcon(item: PaletteItem): ReactNode {
   }
   if (item.kind === 'view-all') {
     return <ArrowRightIcon size={16} weight="bold" />
+  }
+  if (item.kind === 'recent-query') {
+    return <MagnifyingGlassIcon size={16} />
   }
   return item.icon ?? <ClockCounterClockwiseIcon size={16} />
 }

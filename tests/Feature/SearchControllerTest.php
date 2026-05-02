@@ -20,6 +20,57 @@ class SearchTestPost extends Model
     protected $fillable = ['title', 'body'];
 }
 
+// Used by the searchableRelations() test below — kept top-level so the
+// `belongsTo` relation can resolve via class-string.
+class SearchRelationAuthor extends Model
+{
+    protected $table = 'martis_search_relation_authors';
+
+    protected $fillable = ['name'];
+
+    public $timestamps = false;
+}
+
+class SearchRelationPost extends Model
+{
+    protected $table = 'martis_search_relation_posts';
+
+    protected $fillable = ['title', 'author_id'];
+
+    public function author()
+    {
+        return $this->belongsTo(SearchRelationAuthor::class, 'author_id');
+    }
+}
+
+class SearchRelationPostResource extends Resource
+{
+    public static function model(): string
+    {
+        return SearchRelationPost::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'search-relation-posts';
+    }
+
+    public static function titleAttribute(): string
+    {
+        return 'title';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')->searchable()];
+    }
+
+    public static function searchableRelations(): array
+    {
+        return ['author.name'];
+    }
+}
+
 class SearchTestUser extends Model
 {
     protected $table = 'martis_search_test_users';
@@ -478,4 +529,183 @@ it('calls searchOrderBy() hook so resources can boost prefix matches', function 
     // Hook orders title-prefix matches first.
     expect($items[0]['title'])->toBe('Claudia gets boosted');
     expect($items[1]['title'])->toBe('Closer to the start with Cla');
+});
+
+// ---------------------------------------------------------------------------
+// Result transformer + image hook (v1.8.x)
+// ---------------------------------------------------------------------------
+
+it('emits the image key from Resource::searchImage()', function () {
+    $resourceClass = new class(null) extends SearchTestUserResource
+    {
+        public static function uriKey(): string
+        {
+            return 'search-test-users-with-image';
+        }
+
+        public function searchImage(Model $model): ?string
+        {
+            return 'https://gravatar.example/'.md5((string) $model->email);
+        }
+    };
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register($resourceClass::class);
+
+    SearchTestUser::create(['name' => 'Avatar User', 'email' => 'av@example.com']);
+
+    $data = $this->getJson('/martis/api/search?q=Avatar')->json();
+    $items = $data['results'][0]['items'];
+
+    expect($items[0])->toHaveKey('image');
+    expect($items[0]['image'])->toStartWith('https://gravatar.example/');
+});
+
+it('Resource::globalSearchResult can attach arbitrary fields to a result', function () {
+    $resourceClass = new class(null) extends SearchTestUserResource
+    {
+        public static function uriKey(): string
+        {
+            return 'search-test-users-with-shape';
+        }
+
+        public function globalSearchResult(Model $model): array
+        {
+            return [
+                'id' => $model->getKey(),
+                'title' => 'CUSTOM '.$model->name,
+                'subtitle' => null,
+                'image' => null,
+                'url' => '/x/'.$model->getKey(),
+                'badge' => 'pro',
+            ];
+        }
+    };
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register($resourceClass::class);
+
+    SearchTestUser::create(['name' => 'Shape', 'email' => 's@example.com']);
+
+    $items = $this->getJson('/martis/api/search?q=Shape')->json('results.0.items');
+
+    expect($items[0]['title'])->toBe('CUSTOM Shape');
+    expect($items[0]['url'])->toBe('/x/'.SearchTestUser::first()->id);
+    expect($items[0]['badge'])->toBe('pro');
+});
+
+// ---------------------------------------------------------------------------
+// Per-field search priority (v1.8.x)
+// ---------------------------------------------------------------------------
+
+it('ranks results by Field::searchPriority on MySQL drivers', function () {
+    if (\DB::connection()->getDriverName() !== 'mysql') {
+        $this->markTestSkipped('searchPriority ORDER BY only applies on MySQL.');
+    }
+
+    $resourceClass = new class(null) extends SearchTestUserResource
+    {
+        public static function uriKey(): string
+        {
+            return 'search-test-users-priority';
+        }
+
+        public function fields(Request $request): array
+        {
+            return [
+                Text::make('name')->searchable()->searchPriority(2),
+                Text::make('email')->searchable()->searchPriority(1),
+            ];
+        }
+    };
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register($resourceClass::class);
+
+    SearchTestUser::create(['name' => 'Bob', 'email' => 'priority@example.com']);
+    SearchTestUser::create(['name' => 'priority Anna', 'email' => 'a@example.com']);
+
+    $items = $this->getJson('/martis/api/search?q=priority')->json('results.0.items');
+
+    // Hit on `name` (priority 2) ranks above hit on `email` (priority 1).
+    expect($items[0]['title'])->toBe('priority Anna');
+    expect($items[1]['title'])->toBe('Bob');
+});
+
+// ---------------------------------------------------------------------------
+// field:value query syntax (v1.8.x)
+// ---------------------------------------------------------------------------
+
+it('parses field:value tokens out of the search query', function () {
+    SearchTestUser::create(['name' => 'Alpha', 'email' => 'a@example.com']);
+    SearchTestUser::create(['name' => 'Beta', 'email' => 'b@example.com']);
+
+    $items = $this->getJson('/martis/api/search?q=email:b@example.com')->json('results.0.items');
+
+    expect($items)->toHaveCount(1);
+    expect($items[0]['title'])->toBe('Beta');
+});
+
+it('combines field:value tokens with free-text search', function () {
+    SearchTestUser::create(['name' => 'TopHit', 'email' => 't@example.com']);
+    SearchTestUser::create(['name' => 'TopHit Two', 'email' => 't2@example.com']);
+    SearchTestUser::create(['name' => 'Other', 'email' => 't@example.com']);
+
+    $items = $this->getJson('/martis/api/search?q=TopHit email:t@example.com')->json('results.0.items');
+    $titles = collect($items)->pluck('title')->all();
+
+    expect($titles)->toContain('TopHit');
+    expect($titles)->not->toContain('TopHit Two'); // wrong email
+    expect($titles)->not->toContain('Other');      // wrong name
+});
+
+it('silently ignores field:value tokens whose field is not searchable', function () {
+    SearchTestUser::create(['name' => 'Visible', 'email' => 'v@example.com']);
+
+    // `created_at` is not on the searchable list — token is ignored,
+    // and the resource simply does not match without free-text fallback.
+    $data = $this->getJson('/martis/api/search?q=created_at:foo')->json();
+
+    expect($data['results'])->toBe([]);
+});
+
+// ---------------------------------------------------------------------------
+// Searchable detail relations (v1.8.x)
+// ---------------------------------------------------------------------------
+
+it('searches across relation paths declared in searchableRelations()', function () {
+    // Top-level model + resource declared in this test file (Eloquent
+    // resolves relations via class names, so anonymous classes don't
+    // play well with `belongsTo`).
+    Schema::dropIfExists('martis_search_relation_authors');
+    Schema::dropIfExists('martis_search_relation_posts');
+    Schema::create('martis_search_relation_authors', function ($table) {
+        $table->id();
+        $table->string('name');
+    });
+    Schema::create('martis_search_relation_posts', function ($table) {
+        $table->id();
+        $table->unsignedBigInteger('author_id')->nullable();
+        $table->string('title');
+        $table->timestamps();
+    });
+
+    $hero = SearchRelationAuthor::create(['name' => 'Hidden Hero']);
+    SearchRelationPost::create(['title' => 'Plain post', 'author_id' => $hero->id]);
+    SearchRelationPost::create(['title' => 'Solo post', 'author_id' => null]);
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(SearchRelationPostResource::class);
+
+    $items = $this->getJson('/martis/api/search?q=Hero')->json('results.0.items');
+
+    expect($items)->toHaveCount(1);
+    expect($items[0]['title'])->toBe('Plain post');
+
+    Schema::dropIfExists('martis_search_relation_authors');
+    Schema::dropIfExists('martis_search_relation_posts');
 });

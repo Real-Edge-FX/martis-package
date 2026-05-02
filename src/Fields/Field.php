@@ -84,6 +84,14 @@ abstract class Field implements FieldContract
     protected bool $searchable = false;
 
     /**
+     * Search priority — higher values rank matches in this field above
+     * matches in lower-priority fields. The Global Search resolver
+     * uses this when ranking LIKE results: a `priority(2)` field beats
+     * a `priority(1)` field on the same query. Default 1.
+     */
+    protected int $searchPriority = 1;
+
+    /**
      * Callback that determines whether this field is visible to the current user.
      */
     protected ?\Closure $canSeeCallback = null;
@@ -1161,6 +1169,34 @@ abstract class Field implements FieldContract
         $this->searchable = $value;
 
         return $this;
+    }
+
+    /**
+     * Mark this field searchable AND assign a relative ranking weight.
+     *
+     * Sugar for `->searchable(true)` plus a `searchPriority`. Higher
+     * weights rank matches in this field above matches in lower-weight
+     * fields when the Global Search resolver runs a LIKE pipeline.
+     * Typical values: `1` (default — body/long fields), `2` (titles,
+     * names), `3` (canonical identifiers like email or sku).
+     *
+     * Example:
+     *
+     *     Text::make('name')->searchable()->searchPriority(2);
+     *     Text::make('email')->searchable()->searchPriority(3);
+     *     Textarea::make('notes')->searchable();   // priority 1
+     */
+    public function searchPriority(int $priority): static
+    {
+        $this->searchPriority = max(1, $priority);
+
+        return $this;
+    }
+
+    /** {@inheritdoc} */
+    public function getSearchPriority(): int
+    {
+        return $this->searchPriority;
     }
 
     /** {@inheritdoc} */

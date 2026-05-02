@@ -1539,6 +1539,84 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Image / avatar URL rendered to the left of the title in the
+     * Global Search palette. Returning `null` (the default) keeps the
+     * row icon-only, matching the legacy behaviour. Override per-
+     * resource to surface gravatars, file thumbnails, or any other
+     * visual cue that helps users disambiguate matches.
+     *
+     * Example:
+     *
+     *     public function searchImage(Model $model): ?string
+     *     {
+     *         return $model->avatar_url ?? gravatar($model->email);
+     *     }
+     */
+    public function searchImage(Model $model): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Per-resource result transformer. The default builds the bundled
+     * shape — id / title / subtitle / image / url. Override to add
+     * arbitrary fields (e.g. status tags, badges) the host frontend
+     * is prepared to render.
+     *
+     * Example:
+     *
+     *     public function globalSearchResult(Model $model): array
+     *     {
+     *         return [
+     *             'id'       => $model->getKey(),
+     *             'title'    => $this->title(),
+     *             'subtitle' => $this->searchSubtitle($model),
+     *             'image'    => $this->searchImage($model),
+     *             'url'      => '/resources/'.static::uriKey().'/'.$model->getKey(),
+     *             // Custom — pair with a frontend override that reads it.
+     *             'status'   => $model->status,
+     *         ];
+     *     }
+     *
+     * @return array<string, mixed>
+     */
+    public function globalSearchResult(Model $model): array
+    {
+        return [
+            'id' => $model->getKey(),
+            'title' => $this->title(),
+            'subtitle' => $this->searchSubtitle($model),
+            'image' => $this->searchImage($model),
+            'url' => '/resources/'.static::uriKey().'/'.$model->getKey(),
+        ];
+    }
+
+    /**
+     * Dot-notation relation paths searched alongside this resource's own
+     * fields when Global Search runs a LIKE pipeline. Each entry is a
+     * `relation.attribute` pair. The resolver joins (or falls back to a
+     * `whereHas`) so the parent resource shows up when a related model's
+     * attribute matches.
+     *
+     * Example — find an Order by its customer's name or email:
+     *
+     *     public static function searchableRelations(): array
+     *     {
+     *         return ['customer.name', 'customer.email'];
+     *     }
+     *
+     * Defaults to `[]` (own fields only). Scout-backed resources ignore
+     * this hook — Scout indexes whatever the model exposes via
+     * `toSearchableArray()`.
+     *
+     * @return list<string>
+     */
+    public static function searchableRelations(): array
+    {
+        return [];
+    }
+
+    /**
      * Customise result ordering for global search.
      *
      * Called by `SearchController` AFTER the search filter has been
