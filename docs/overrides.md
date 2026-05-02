@@ -159,6 +159,46 @@ public function overrides(): array
 }
 ```
 
+### Override constructor + `redirectAfter()`
+
+The `Override` class accepts an optional second argument for arbitrary params and exposes a `redirectAfter()` chainable method that controls where the user lands after a successful CRUD operation:
+
+```php
+use Martis\Override;
+use Martis\RedirectAfter;
+
+public function overrides(): array
+{
+    return [
+        'create' => (new Override('custom-post-creator', ['wizardMode' => true]))
+            ->redirectAfter(RedirectAfter::DETAIL),    // open the new record
+        'update' => (new Override('martis:drawer-update'))
+            ->redirectAfter(RedirectAfter::INDEX),     // back to the list
+    ];
+}
+```
+
+`RedirectAfter` enum cases: `DETAIL` · `INDEX` · `EDIT` · `CREATE` · `DASHBOARD` · `STAY`. A literal string (`'detail'`, `'index'`, …) is accepted as a fallback for the same values. `STAY` keeps the drawer / page open after save — useful for "save and continue editing" workflows.
+
+### `DrawerSlot` enum (typed slot keys)
+
+`Resource::overrides()` returns an associative array keyed by slot. The bundled controllers accept either string keys (`'create' | 'update' | 'detail'`) or the typed `DrawerSlot` enum — using the enum surfaces typos at compile time:
+
+```php
+use Martis\Enums\DrawerSlot;
+
+public function overrides(): array
+{
+    return [
+        DrawerSlot::Create->value => DrawerOverride::create(),
+        DrawerSlot::Update->value => DrawerOverride::update(),
+        DrawerSlot::Detail->value => DrawerOverride::detail(),
+    ];
+}
+```
+
+Both forms are accepted in the same return array — adopt the enum incrementally.
+
 ### Override Props
 
 All override components receive the `OverrideProps` interface:
@@ -188,6 +228,38 @@ interface OverrideProps {
 | DrawerCreate | `martis:drawer-create` | Slide-in create form |
 | DrawerUpdate | `martis:drawer-update` | Slide-in edit form |
 | DrawerDetail | `martis:drawer-detail` | Slide-in detail view |
+
+### ⭐ Reading override props from nested components — `useOverrideProps()`
+
+When a custom override has its own internal component tree (header, sidebar, form sections), prop-drilling `OverrideProps` through every level is noisy. The `useOverrideProps()` hook exposes the same payload via React context — wrap once at the top of your override, read anywhere underneath:
+
+```tsx
+import { useOverrideProps, OverridePropsProvider } from '@martis/martis/hooks/useOverrideProps'
+
+export function MyDrawerCreate(props: OverrideProps) {
+  return (
+    <OverridePropsProvider value={props}>
+      <MyHeader />
+      <MyForm />
+    </OverridePropsProvider>
+  )
+}
+
+function MyHeader() {
+  // No props passed — pulls from context
+  const { schema, onClose } = useOverrideProps()
+  return (
+    <header>
+      <h2>{schema.singularLabel}</h2>
+      <button onClick={onClose}>×</button>
+    </header>
+  )
+}
+```
+
+The hook **throws** outside the provider so wiring bugs are loud. Use `useOverridePropsOptional()` (returns `null`) when an override component is shared between contexts where the provider may not exist.
+
+The provider is opt-in — overrides that pass `props` manually keep working unchanged.
 
 **Drawer features:**
 - Slide-in animation from left/right
@@ -242,7 +314,13 @@ every piece of copy and colour. `icon(null)` hides the dialog icon.
 
 ### DrawerOverride PHP API
 
-Use the `DrawerOverride` class for chainable PHP configuration of built-in drawers:
+Use the `DrawerOverride` class for chainable PHP configuration of the built-in drawers. Three static factories spin up a pre-keyed override — pick the one that matches the slot:
+
+| Factory | Slot key it emits | Drawer component |
+|---------|-------------------|------------------|
+| `DrawerOverride::create()` | `martis:drawer-create` | DrawerCreate |
+| `DrawerOverride::update()` | `martis:drawer-update` | DrawerUpdate |
+| `DrawerOverride::detail()` | `martis:drawer-detail` | DrawerDetail |
 
 ```php
 use Martis\Enums\DrawerPosition;
@@ -261,9 +339,20 @@ public function overrides(): array
             ->subtitle('Fill in the details below')
             ->showIcon()
             ->iconColor('#6366f1'),
+
+        'update' => DrawerOverride::update()
+            ->width('720px')
+            ->allowExpand()
+            ->subtitle('Editing this record'),
+
+        'detail' => DrawerOverride::detail()
+            ->position(DrawerPosition::Left)
+            ->backdrop(true),
     ];
 }
 ```
+
+All three factories return a `DrawerOverride` instance, so every chainable method below is shared.
 
 **Available methods:**
 
@@ -341,17 +430,25 @@ Event::listen(BeforeDelete::class, function (BeforeDelete $event) {
 
 ### Display Component
 
-Every display component receives `FieldDisplayProps`:
+Every display component receives `FieldDisplayProps`. Examples below use the [Tailwind preset](theming.md#-in-tsx-tailwind-preset) so the override stays in sync with the active theme (light/dark, accent override, density).
 
 ```typescript
 import type { FieldDisplayProps } from '@martis/martis/components/fields/types'
 
 export function StatusBadge({ field, value }: FieldDisplayProps) {
   const label = String(value ?? '')
-  const color = label === 'published' ? 'green' : 'gray'
+  // Map domain status to a semantic Martis tone.
+  const tone = label === 'published' ? 'success' : 'info'
 
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-${color}-100 text-${color}-800`}>
+    <span
+      className={
+        'inline-flex items-center rounded-martis-full px-2 py-0.5 text-martis-xs font-martis-medium ' +
+        (tone === 'success'
+          ? 'bg-martis-success-bg text-martis-success'
+          : 'bg-martis-info-bg text-martis-info')
+      }
+    >
       {label}
     </span>
   )
@@ -371,16 +468,21 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
       <select
         value={String(value ?? '')}
         onChange={(e) => onChange(e.target.value)}
-        className={error ? 'border-red-500' : 'border-gray-300'}
+        className={
+          'rounded-martis-md bg-martis-input-bg text-martis-text px-2 py-1 ' +
+          (error ? 'border border-martis-danger' : 'border border-martis-border')
+        }
       >
         <option value="draft">Draft</option>
         <option value="published">Published</option>
       </select>
-      {error && <small className="text-red-500">{error}</small>}
+      {error && <small className="text-martis-danger">{error}</small>}
     </div>
   )
 }
 ```
+
+If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
 
 ## 6. Creating Custom Components (Artisan)
 
@@ -429,7 +531,14 @@ The command:
 | `topbar` | Top bar only | `layout:topbar` |
 | `footer` | Page footer only | `layout:footer` |
 | `complete-layout` | All four shell pieces at once (shell + sidebar + topbar + footer), each under its default key | `layout:shell`, `layout:sidebar`, `layout:topbar`, `layout:footer` |
+| `login-page` | Custom login page (replaces the bundled one) | `auth:login-page` |
+| `register-page` | Custom registration page | `auth:register-page` |
+| `forgot-password-page` | Custom "forgot password" page | `auth:forgot-password-page` |
+| `reset-password-page` | Custom "reset password" page | `auth:reset-password-page` |
+| `email-verify-notice-page` | Custom email verification notice page | `auth:email-verify-notice-page` |
 | `generic` | Free-form component | `{kebab-name}` |
+
+The five auth-page types follow the same wiring as the shell pieces — generate the TSX, build, and the bundled login / register / password-reset / email-verify pages are automatically replaced. See [authentication.md](authentication.md) for the broader auth customisation surface (backend handlers, blade templates, OAuth providers).
 
 After creating a component, rebuild assets:
 ```bash
@@ -496,26 +605,37 @@ Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuil
 ```typescript
 import { componentRegistry } from '@martis/martis/lib/componentRegistry'
 
-// Register by key
+// ─── Registration ──────────────────────────────────────────
+// Register by key (also used for explicit `field.component` keys from PHP)
 componentRegistry.register(key, component)
 
-// Register field display/input by type
+// Register a global field display/input by field type
 componentRegistry.registerFieldDisplay(type, component)
 componentRegistry.registerFieldInput(type, component)
 
-// Register per-resource field display/input
+// Register a per-resource field display/input
 componentRegistry.registerResourceFieldDisplay(resource, field, component)
 componentRegistry.registerResourceFieldInput(resource, field, component)
 
-// Check if a key is registered
+// ─── Lookup ────────────────────────────────────────────────
+// Resolve a display component with the full 4-tier priority chain
+componentRegistry.resolveDisplay(type, fieldName, resourceKey, explicitKey, fallback)
+
+// Resolve an input component with the full 4-tier priority chain
+componentRegistry.resolveInput(type, fieldName, resourceKey, explicitKey, fallback)
+
+// Resolve a single component by exact key (no fallback chain)
+componentRegistry.resolve(key)
+
+// Boolean check
 componentRegistry.has(key)
 
-// List all registered keys
+// List every registered key — useful in devtools console for debugging
+// "why didn't my override pick up?" cases.
 componentRegistry.keys()
-
-// Resolve a component (follows 4-tier priority)
-componentRegistry.resolve(type, field, resource, explicitKey, fallback)
 ```
+
+`resolveDisplay` and `resolveInput` walk Tiers 1 → 4 in order (explicit key → per-resource → global type → fallback). The single-arg `resolve(key)` is the low-level lookup used by drawer / shell overrides where the consumer already knows the exact registry key.
 
 ## Debugging — `martis:list-overrides`
 
