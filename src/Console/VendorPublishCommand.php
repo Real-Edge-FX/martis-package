@@ -3,6 +3,7 @@
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
 
 class VendorPublishCommand extends Command
 {
@@ -11,14 +12,15 @@ class VendorPublishCommand extends Command
                             {--assets : Publish the Martis frontend assets}
                             {--views : Publish the Martis view stubs}
                             {--lang : Publish the Martis language files}
-                            {--force : Overwrite existing published files}';
+                            {--force : Overwrite existing published files}
+                            {--no-wipe : Skip the destination wipe before publishing assets (legacy merge-style behaviour)}';
 
     protected $description = 'Publish Martis package files (config, assets, views, lang)';
 
     /**
      * Handle.
      */
-    public function handle(): int
+    public function handle(Filesystem $filesystem): int
     {
         $this->components->info('Publishing Martis files...');
 
@@ -37,6 +39,17 @@ class VendorPublishCommand extends Command
                 $this->line('  Fix the package release by running <fg=cyan>npm install && npm run build</> before publishing.');
 
                 return self::FAILURE;
+            }
+
+            // Wipe `public/vendor/martis` before publishing assets so
+            // stale Vite-hashed chunks from previous package versions
+            // don't accumulate (Laravel's `vendor:publish --force` only
+            // overwrites; it never deletes). On macOS Docker the
+            // accumulation has produced 70k+ files and 5–10s/request
+            // bind-mount stalls. Pass `--no-wipe` to opt out.
+            $assetsDestination = public_path('vendor/martis');
+            if (! $this->option('no-wipe') && $filesystem->exists($assetsDestination)) {
+                $filesystem->deleteDirectory($assetsDestination);
             }
 
             $this->publishTag('martis-assets', 'public/vendor/martis', $force);

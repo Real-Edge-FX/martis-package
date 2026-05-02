@@ -42,6 +42,7 @@ use Martis\Console\ToolMakeCommand;
 use Martis\Console\TrendMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\ValueMakeCommand;
+use Martis\Console\PublishAssetsCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
@@ -163,6 +164,7 @@ class MartisServiceProvider extends ServiceProvider
                 ComponentMakeCommand::class,
                 ThemeMakeCommand::class,
                 VendorPublishCommand::class,
+                PublishAssetsCommand::class,
                 PolicyMakeCommand::class,
                 ActionMakeCommand::class,
                 FilterMakeCommand::class,

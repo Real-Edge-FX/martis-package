@@ -36,14 +36,16 @@ php artisan martis:install --force --with-profile
 The package ships precompiled assets under `public/vendor/martis`. Republish them:
 
 ```bash
-php artisan vendor:publish --tag=martis-assets --force
+php artisan martis:publish-assets
 ```
 
-Then clear caches:
+This wipes `public/vendor/martis/` first so stale Vite-hashed chunks from previous package versions don't pile up across upgrades. Then clear caches:
 
 ```bash
 php artisan optimize:clear
 ```
+
+> **Note:** the legacy `php artisan vendor:publish --tag=martis-assets --force` still works but is a merge-style copy — orphaned chunks accumulate at every `composer update`. The `martis:publish-assets` command (and `martis:vendor-publish --assets`) is the canonical entry point and avoids the disk bloat. Pass `--no-wipe` to opt back into the merge behaviour if you have a specific reason to.
 
 If you sit behind a reverse proxy (Nginx Proxy Manager, Cloudflare, custom Nginx), set `ASSET_URL` in `.env` to the public origin:
 

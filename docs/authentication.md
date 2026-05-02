@@ -217,7 +217,7 @@ cd vendor/martis/martis
 MARTIS_USER_DIR=$(pwd)/../../../resources/martis-extensions npm run build
 ```
 
-The build copies the rebuilt `public/` back to your app via `php artisan vendor:publish --tag=martis-assets --force` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
+The build copies the rebuilt `public/` back to your app via `php artisan martis:publish-assets` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
 
 Reference impls live under `vendor/martis/martis/resources/js/pages/` — the stub starts as a working copy of the bundled default so you can edit incrementally rather than rewrite from scratch.
 

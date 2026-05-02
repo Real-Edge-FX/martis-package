@@ -141,15 +141,19 @@ Creates `app/Providers/MartisServiceProvider.php`. The `martis:install` command 
 ### Step 4: Publish Frontend Assets
 
 ```bash
-php artisan vendor:publish --tag=martis-assets --force
+php artisan martis:publish-assets
 ```
 
 This copies the precompiled React application to `public/vendor/martis/`. End users do not need to run Vite in the consuming Laravel app.
 
+The command **wipes `public/vendor/martis/` first** so stale Vite-hashed chunks from previous package versions never accumulate. Laravel's stock `vendor:publish --tag=martis-assets --force` is a merge-style copy and would otherwise pile up tens of thousands of orphan files across upgrades — enough on macOS Docker bind mounts to slow every PHP-FPM request to several seconds. Pass `--no-wipe` to opt back into the legacy merge behaviour if you have a specific reason to.
+
+Equivalent: `php artisan martis:vendor-publish --assets` performs the same wipe-then-publish flow.
+
 Important:
 
 - `composer require`, `composer install`, and `composer update` do **not** automatically refresh files already published into `public/vendor/martis/`
-- after installing or upgrading Martis, run `martis:install` or `vendor:publish --tag=martis-assets --force`
+- after installing or upgrading Martis, run `martis:install` or `martis:publish-assets`
 - this is standard behavior for Laravel packages that publish static files into the host application
 
 ### Step 5: Publish and Run Migrations
@@ -380,7 +384,7 @@ Equivalent manual asset-only upgrade:
 
 ```bash
 composer update martis/martis
-php artisan vendor:publish --tag=martis-assets --force
+php artisan martis:publish-assets
 ```
 
 Why this second step exists:
