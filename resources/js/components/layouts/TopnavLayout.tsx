@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
 import {
-  getNavigationItems,
+  flattenNavigationItems,
   getItemCount,
   formatItemCount,
   useNavigationRefreshOnNavigate,
@@ -106,7 +106,7 @@ export function TopnavLayout() {
   // Active group — the one whose items include the current path.
   const activeGroup = useMemo(() => {
     for (const g of groups) {
-      for (const i of getNavigationItems(g)) {
+      for (const i of flattenNavigationItems(g)) {
         if (location.pathname.startsWith(i.url)) return g.label ?? ""
       }
     }
@@ -215,7 +215,7 @@ export function TopnavLayout() {
 
           {groups.map((group, i) => {
             const groupKey = group.label ?? `group-${i}`
-            const items = getNavigationItems(group)
+            const items = flattenNavigationItems(group)
             const isActive = activeGroup === groupKey
 
             // Ungrouped items render inline as top-level links.

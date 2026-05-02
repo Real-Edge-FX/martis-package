@@ -16,21 +16,39 @@ export interface ResourceMeta {
   subtitle?: string | null
 }
 
+export type NavigationBadgeTone =
+  | "neutral"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger"
+  | "accent"
+
+export interface NavigationBadge {
+  text: string
+  tone: NavigationBadgeTone
+}
+
 export interface NavigationGroup {
   label: string | null
   icon?: string | null
   collapsable?: boolean
   /** Optional top-level section this group belongs to (e.g. "Resources"). */
   section?: string | null
-  items: NavigationItem[]
+  /** When set, the group label becomes a link to this URL. */
+  path?: string | null
+  /** Heterogeneous list: leaf items OR nested MenuGroup entries. */
+  items: NavigationGroupChild[]
 }
 
 export interface NavigationItemBase {
-  type: "resource" | "link"
+  type: "resource" | "link" | "tool" | "dashboard" | "lens" | "filter"
   label: string
   url: string
   icon: string | null
   external?: boolean
+  /** Optional decorative badge ("New", "Beta", "Pro" — distinct from count). */
+  badge?: NavigationBadge | null
 }
 
 export interface NavigationResourceItem extends NavigationItemBase, ResourceMeta {
@@ -40,10 +58,22 @@ export interface NavigationResourceItem extends NavigationItemBase, ResourceMeta
 }
 
 export interface NavigationLinkItem extends NavigationItemBase {
-  type: "link"
+  type: "link" | "tool" | "dashboard" | "lens" | "filter"
 }
 
 export type NavigationItem = NavigationResourceItem | NavigationLinkItem
+
+export interface NavigationNestedGroup {
+  type: "group"
+  label: string
+  icon?: string | null
+  collapsable?: boolean
+  /** When set, the group label becomes a link to this URL. */
+  path?: string | null
+  items: NavigationItem[]
+}
+
+export type NavigationGroupChild = NavigationItem | NavigationNestedGroup
 
 export interface PaginatedResponse<T> {
   data: T[]

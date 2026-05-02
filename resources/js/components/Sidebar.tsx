@@ -3,11 +3,17 @@ import { NavLink } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
-import type { NavigationGroup } from "@/types"
+import type {
+  NavigationGroup,
+  NavigationGroupChild,
+  NavigationItem,
+  NavigationNestedGroup,
+} from "@/types"
 import {
   getNavigationItems,
   getItemCount,
   formatItemCount,
+  isNestedGroup,
   useNavigationRefreshOnNavigate,
 } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
@@ -69,6 +75,144 @@ interface SidebarProps {
   onMobileClose?: () => void
   /** When provided, the sidebar renders in collapsed mode on desktop. */
   collapsed?: boolean
+}
+
+interface RenderItemContext {
+  groupKey: string
+  collapsed: boolean
+  isMobile: boolean
+  onMobileClose?: () => void
+}
+
+/**
+ * Render a single leaf navigation item (resource / link / tool / dashboard /
+ * lens / filter). Shared between flat groups and nested MenuGroups so the
+ * row markup stays consistent across both levels.
+ */
+function renderLeafItem(
+  item: NavigationItem,
+  ctx: RenderItemContext,
+): JSX.Element {
+  const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
+  const showTooltip = !ctx.isMobile && ctx.collapsed ? item.label : undefined
+  const count = getItemCount(item)
+  const showLabel = ctx.isMobile || !ctx.collapsed
+  const showCount = showLabel && count !== null
+  const badge = item.badge ?? null
+
+  const inner = (
+    <>
+      <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
+      {showLabel && (
+        <span className="martis-sb-item-label">{item.label}</span>
+      )}
+      {showLabel && badge && (
+        <span
+          className="martis-sb-item-tag"
+          data-tone={badge.tone}
+        >
+          {badge.text}
+        </span>
+      )}
+      {showCount && (
+        <span className="martis-sb-item-badge">
+          {formatItemCount(count!)}
+        </span>
+      )}
+    </>
+  )
+
+  const key =
+    item.type === "resource"
+      ? item.uriKey
+      : `${ctx.groupKey}-${item.label}-${item.url}`
+
+  if (item.external) {
+    return (
+      <a
+        key={key}
+        href={item.url}
+        target="_blank"
+        rel="noreferrer"
+        className="martis-sb-item"
+        data-pr-tooltip={showTooltip}
+        data-pr-position="right"
+        onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
+      >
+        {inner}
+      </a>
+    )
+  }
+
+  return (
+    <NavLink
+      key={key}
+      to={item.url}
+      className={({ isActive }) =>
+        "martis-sb-item" + (isActive ? " active" : "")
+      }
+      data-pr-tooltip={showTooltip}
+      data-pr-position="right"
+      onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
+    >
+      {inner}
+    </NavLink>
+  )
+}
+
+/**
+ * Render a nested MenuGroup: its own collapsible header + an indented
+ * list of leaf items underneath. Sits inside a section's items list.
+ */
+function NestedGroupBlock({
+  group,
+  parentKey,
+  ctx,
+}: {
+  group: NavigationNestedGroup
+  parentKey: string
+  ctx: RenderItemContext
+}): JSX.Element {
+  const groupKey = `${parentKey}::${group.label}`
+  const [open, setOpen] = useState(true)
+  const showLabel = ctx.isMobile || !ctx.collapsed
+  const headerLabel = (
+    <>
+      {group.icon && (
+        <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
+      )}
+      <span>{group.label}</span>
+      {group.collapsable !== false && (
+        <CaretRightIcon size={10} className="caret" />
+      )}
+    </>
+  )
+
+  return (
+    <div className="martis-sb-subgroup" data-open={open ? "true" : "false"}>
+      {showLabel &&
+        (group.path ? (
+          <NavLink to={group.path} className="martis-sb-subgroup-label martis-sb-subgroup-label--link">
+            {headerLabel}
+          </NavLink>
+        ) : (
+          <button
+            type="button"
+            className="martis-sb-subgroup-label"
+            onClick={() => group.collapsable !== false && setOpen((o) => !o)}
+          >
+            {headerLabel}
+          </button>
+        ))}
+      {(open || (!ctx.isMobile && ctx.collapsed)) && (
+        <div className="martis-sb-subgroup-items">
+          {group.items.map((item) =>
+            renderLeafItem(item, { ...ctx, groupKey }),
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: SidebarProps = {}) {
@@ -168,6 +312,21 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
             currentSection !== null &&
             currentSection !== previousSection &&
             (isMobile || !collapsed)
+          const ctx: RenderItemContext = {
+            groupKey,
+            collapsed,
+            isMobile,
+            onMobileClose,
+          }
+          const headerInner = (
+            <>
+              {group.icon && (
+                <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
+              )}
+              <span>{group.label}</span>
+              <CaretRightIcon size={10} className="caret" />
+            </>
+          )
           return (
             <Fragment key={groupKey}>
               {showSection && (
@@ -175,93 +334,43 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                   {currentSection}
                 </div>
               )}
-            <div
-              className="martis-sb-group"
-              data-open={isExpanded ? "true" : "false"}
-            >
-              {group.label && (isMobile || !collapsed) && (
-                <button
-                  type="button"
-                  className="martis-sb-group-label"
-                  onClick={() => toggleGroup(groupKey)}
-                >
-                  {group.icon && (
-                    <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
-                  )}
-                  <span>{group.label}</span>
-                  <CaretRightIcon size={10} className="caret" />
-                </button>
-              )}
-              {(isExpanded || (!isMobile && collapsed)) &&
-                getNavigationItems(group).map((item) => {
-                  const iconName =
-                    item.type === "resource" ? item.icon : item.icon ?? "link"
-                  const showTooltip = !isMobile && collapsed ? item.label : undefined
-                  const count = getItemCount(item)
-                  const showLabel = isMobile || !collapsed
-                  const showCount = showLabel && count !== null
-
-                  if (item.external) {
-                    return (
-                      <a
-                        key={`${groupKey}-${item.label}-${item.url}`}
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="martis-sb-item"
-                        data-pr-tooltip={showTooltip}
-                        data-pr-position="right"
-                        onClick={isMobile ? onMobileClose : undefined}
-                      >
-                        <ResourceIcon
-                          iconName={iconName ?? null}
-                          size={16}
-                          className="shrink-0"
-                        />
-                        {showLabel && (
-                          <span className="martis-sb-item-label">{item.label}</span>
-                        )}
-                        {showCount && (
-                          <span className="martis-sb-item-badge">
-                            {formatItemCount(count!)}
-                          </span>
-                        )}
-                      </a>
-                    )
-                  }
-
-                  return (
+              <div
+                className="martis-sb-group"
+                data-open={isExpanded ? "true" : "false"}
+              >
+                {group.label &&
+                  (isMobile || !collapsed) &&
+                  (group.path ? (
                     <NavLink
-                      key={
-                        item.type === "resource"
-                          ? item.uriKey
-                          : `${groupKey}-${item.label}-${item.url}`
-                      }
-                      to={item.url}
-                      className={({ isActive }) =>
-                        "martis-sb-item" + (isActive ? " active" : "")
-                      }
-                      data-pr-tooltip={showTooltip}
-                      data-pr-position="right"
-                      onClick={isMobile ? onMobileClose : undefined}
+                      to={group.path}
+                      className="martis-sb-group-label martis-sb-group-label--link"
                     >
-                      <ResourceIcon
-                        iconName={iconName ?? null}
-                        size={16}
-                        className="shrink-0"
-                      />
-                      {showLabel && (
-                        <span className="martis-sb-item-label">{item.label}</span>
-                      )}
-                      {showCount && (
-                        <span className="martis-sb-item-badge">
-                          {formatItemCount(count!)}
-                        </span>
-                      )}
+                      {headerInner}
                     </NavLink>
-                  )
-                })}
-            </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="martis-sb-group-label"
+                      onClick={() => toggleGroup(groupKey)}
+                    >
+                      {headerInner}
+                    </button>
+                  ))}
+                {(isExpanded || (!isMobile && collapsed)) &&
+                  getNavigationItems(group).map((child: NavigationGroupChild, idx) => {
+                    if (isNestedGroup(child)) {
+                      return (
+                        <NestedGroupBlock
+                          key={`${groupKey}-nested-${child.label}-${idx}`}
+                          group={child}
+                          parentKey={groupKey}
+                          ctx={ctx}
+                        />
+                      )
+                    }
+                    return renderLeafItem(child, ctx)
+                  })}
+              </div>
             </Fragment>
           )
         })}

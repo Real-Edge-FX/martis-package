@@ -1,16 +1,55 @@
 import { useEffect, useRef } from "react"
 import { useLocation } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
-import type { NavigationGroup, NavigationItem, NavigationResourceItem } from "@/types"
+import type {
+  NavigationGroup,
+  NavigationGroupChild,
+  NavigationItem,
+  NavigationNestedGroup,
+  NavigationResourceItem,
+} from "@/types"
 
-export function getNavigationItems(group: NavigationGroup): NavigationItem[] {
+export function isNestedGroup(child: NavigationGroupChild): child is NavigationNestedGroup {
+  return (child as NavigationNestedGroup).type === "group"
+}
+
+/**
+ * Flatten a navigation group's heterogeneous children into the leaf
+ * items only — nested MenuGroup containers are preserved in `getNavigationItems`
+ * but stripped here for callers that just want the resource/link entries.
+ */
+export function getNavigationItems(group: NavigationGroup): NavigationGroupChild[] {
   return group.items
 }
 
+/**
+ * Collapse a group's heterogeneous children into a flat list of leaf
+ * `NavigationItem`s by lifting nested-MenuGroup items up to the parent.
+ * Used by surfaces that don't have a 3rd visual level — typically the
+ * topnav, command palette, or anywhere a flat list is preferable.
+ */
+export function flattenNavigationItems(group: NavigationGroup): NavigationItem[] {
+  const out: NavigationItem[] = []
+  for (const child of group.items) {
+    if (isNestedGroup(child)) {
+      out.push(...child.items)
+    } else {
+      out.push(child)
+    }
+  }
+  return out
+}
+
 export function getNavigationResourceItems(group: NavigationGroup): NavigationResourceItem[] {
-  return getNavigationItems(group).filter(
-    (item): item is NavigationResourceItem => item.type === "resource",
-  )
+  const out: NavigationResourceItem[] = []
+  for (const child of group.items) {
+    if (isNestedGroup(child)) {
+      out.push(...child.items.filter((i): i is NavigationResourceItem => i.type === "resource"))
+    } else if (child.type === "resource") {
+      out.push(child)
+    }
+  }
+  return out
 }
 
 /**
@@ -20,7 +59,9 @@ export function getNavigationResourceItems(group: NavigationGroup): NavigationRe
  */
 export function getItemCount(item: NavigationItem): number | null {
   if (item.type !== "resource") return null
-  return typeof item.count === "number" ? item.count : null
+  return typeof (item as NavigationResourceItem).count === "number"
+    ? (item as NavigationResourceItem).count!
+    : null
 }
 
 /**

@@ -10,4 +10,7 @@ enum MenuItemType: string
     case Link = 'link';
     case Resource = 'resource';
     case Tool = 'tool';
+    case Dashboard = 'dashboard';
+    case Lens = 'lens';
+    case Filter = 'filter';
 }

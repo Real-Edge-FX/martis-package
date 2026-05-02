@@ -1418,6 +1418,80 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   color: var(--martis-accent);
 }
 
+/* Decorative tag chip on a sidebar item ("New", "Beta", "Pro" — distinct
+ * from the count badge above). Tones map to the same semantic palette as
+ * the Badge field. */
+.martis-sb-item-tag {
+  font-family: var(--martis-font-sans);
+  font-size: 9.5px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--martis-radius-sm);
+  line-height: 1.5;
+  background: var(--martis-hover);
+  color: var(--martis-text-muted);
+}
+.martis-sb-item-tag[data-tone="info"]    { background: var(--martis-info-bg);    color: var(--martis-info); }
+.martis-sb-item-tag[data-tone="success"] { background: var(--martis-success-bg); color: var(--martis-success); }
+.martis-sb-item-tag[data-tone="warning"] { background: var(--martis-warning-bg); color: var(--martis-warning); }
+.martis-sb-item-tag[data-tone="danger"]  { background: var(--martis-danger-bg);  color: var(--martis-danger); }
+.martis-sb-item-tag[data-tone="accent"]  { background: var(--martis-accent-bg);  color: var(--martis-accent); }
+
+/* Section / group header as a clickable link (when MenuSection::path() or
+ * MenuGroup::path() is set). Inherits the existing label typography but
+ * adopts NavLink active styling. */
+.martis-sb-group-label--link,
+.martis-sb-subgroup-label--link {
+  text-decoration: none;
+  color: inherit;
+}
+.martis-sb-group-label--link.active,
+.martis-sb-subgroup-label--link.active {
+  color: var(--martis-accent);
+}
+
+/* Nested MenuGroup inside a section: smaller header, indented items. */
+.martis-sb-subgroup {
+  margin: 4px 0 4px 8px;
+  border-left: 1px solid var(--martis-border);
+  padding-left: 6px;
+}
+.martis-sb-subgroup-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.martis-sb-subgroup-label:hover {
+  color: var(--martis-text);
+}
+.martis-sb-subgroup-label .caret {
+  margin-left: auto;
+  transition: transform var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-sb-subgroup[data-open="true"] .caret {
+  transform: rotate(90deg);
+}
+.martis-sb-subgroup-items {
+  display: flex;
+  flex-direction: column;
+}
+.martis-sb-subgroup[data-open="false"] .martis-sb-subgroup-items {
+  display: none;
+}
+
 .martis-sb-footer {
   border-top: 1px solid var(--martis-border);
   height: 44px;
@@ -1452,10 +1526,17 @@ html[data-reduced-motion="true"] .mwc-shimmer {
 .martis-sb[data-collapsed="true"] .martis-sb-logo-text,
 .martis-sb[data-collapsed="true"] .martis-sb-group-label > span,
 .martis-sb[data-collapsed="true"] .martis-sb-group-label > .caret,
+.martis-sb[data-collapsed="true"] .martis-sb-subgroup-label,
 .martis-sb[data-collapsed="true"] .martis-sb-item-label,
 .martis-sb[data-collapsed="true"] .martis-sb-item-badge,
+.martis-sb[data-collapsed="true"] .martis-sb-item-tag,
 .martis-sb[data-collapsed="true"] .martis-sb-footer > *:not(:first-child) {
   display: none;
+}
+.martis-sb[data-collapsed="true"] .martis-sb-subgroup {
+  border-left: 0;
+  margin-left: 0;
+  padding-left: 0;
 }
 .martis-sb[data-collapsed="true"] .martis-sb-item {
   justify-content: center;
