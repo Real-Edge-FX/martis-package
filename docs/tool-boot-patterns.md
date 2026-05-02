@@ -196,21 +196,19 @@ public function boot(): void
     // Translation strings (consumer can override via vendor:publish).
     Lang::addNamespace('system-status', __DIR__.'/../../resources/lang/system-status');
 
-    // Migrations that ship with the Tool — typically only used
-    // by Composer-package tools, but in-app tools may want to
-    // colocate migrations next to the Tool's own logic.
-    if (function_exists('database_path')) {
-        $this->loadMigrationsFrom(__DIR__.'/../../database/migrations/system-status');
-    }
+    // Migrations that ship with the Tool. `Tool` does not extend
+    // ServiceProvider, so use the migrator helper directly instead
+    // of `$this->loadMigrationsFrom()` (the latter only exists on
+    // service providers). Composer-package Tools should subclass
+    // `ToolServiceProvider` and call `loadMigrationsFrom()` there.
+    app('migrator')->path(__DIR__.'/../../database/migrations/system-status');
 }
 ```
 
 **Why here vs the Service Provider?**
 - The Tool defines its own templating / locale surface — moving the registration into `AppServiceProvider` separates "the Tool" from "the Tool's resources", and the next maintainer has to walk both files to understand what runs.
 - The host app can re-`addNamespace()` later (or publish overrides via `$this->publishes(...)` from the same `boot()`) — last write wins.
-- Composer-package Tools should subclass `ToolServiceProvider` instead and call `loadViewsFrom` / `loadTranslationsFrom` / `loadMigrationsFrom` from there. The pattern above is for in-app Tools that prefer co-location.
-
-> `loadMigrationsFrom()` is provided by `Illuminate\Support\ServiceProvider`. Tools are not service providers, so use the equivalent `app('migrator')->path(...)` call when registering migrations from a plain `Tool` subclass; or simply move migrations into `database/migrations/` for in-app Tools where path consolidation is fine.
+- Composer-package Tools should subclass `ToolServiceProvider` instead, where the standard `loadViewsFrom` / `loadTranslationsFrom` / `loadMigrationsFrom` helpers are available. The pattern above is for in-app Tools that prefer co-location.
 
 ## Anti-patterns
 
