@@ -308,7 +308,7 @@ it('Tool implements ToolContract and exposes the documented hooks', function () 
     }
 
     // v0.10 Nova-parity: per-tool lifecycle + publishing.
-    foreach (['boot', 'publishes', 'publishesAssets'] as $method) {
+    foreach (['boot', 'publishes', 'publishesAssets', 'loadRoutes'] as $method) {
         expect($reflection->hasMethod($method))
             ->toBeTrue("Tool::{$method}() must exist (Nova-parity lifecycle).");
         expect($reflection->getMethod($method)->isPublic())->toBeTrue();

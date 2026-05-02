@@ -6,6 +6,7 @@ namespace Martis\Tools;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Martis\Contracts\ToolContract;
@@ -232,6 +233,49 @@ class Tool implements ToolContract
         }
 
         $this->publishes([$sourceDir => $target], $tag);
+    }
+
+    // -------------------------------------------------------------------------
+    // Route helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Load a routes file under the standard Martis tool prefix and
+     * middleware stack. Pair with `boot()` so consumers can ship a
+     * sibling `routes/tool.php` and keep their lifecycle file lean:
+     *
+     *     public function boot(): void
+     *     {
+     *         $this->loadRoutes(__DIR__.'/../routes/tool.php');
+     *     }
+     *
+     * The file is `require`d inside a `Route::middleware([...])->prefix(...)`
+     * group, so the routes inside it should be plain `Route::post(...)` /
+     * `Route::get(...)` calls without any wrapper. The default prefix is
+     * `martis/api/tools/{uriKey}` and the default middleware is the same
+     * stack the rest of the package uses (`web`, `martis.auth`).
+     *
+     * Skipped silently when the file does not exist — this lets a tool
+     * keep the call in place even when the consumer has not yet shipped
+     * a routes file.
+     *
+     * @param  list<string>  $middleware  Middleware stack. Defaults to the standard Martis admin stack.
+     * @param  string|null   $prefix      URL prefix. Defaults to `martis/api/tools/{uriKey}`.
+     */
+    public function loadRoutes(
+        string $path,
+        array $middleware = ['web', 'martis.auth'],
+        ?string $prefix = null,
+    ): void {
+        if (! is_file($path)) {
+            return;
+        }
+
+        $effectivePrefix = $prefix ?? 'martis/api/tools/'.$this->uriKey();
+
+        Route::middleware($middleware)
+            ->prefix($effectivePrefix)
+            ->group($path);
     }
 
     // -------------------------------------------------------------------------
