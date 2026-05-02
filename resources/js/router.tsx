@@ -73,6 +73,16 @@ export const router = createBrowserRouter([
         handle: { crumb: 'dashboard' },
       },
       {
+        // Direct deep-link to a registered Dashboard by its uriKey.
+        // Powers `MenuItem::dashboard($class)` URLs like
+        // `/dashboards/client-insights`. The DashboardPage reads the
+        // uriKey via useParams and renders that dashboard's cards;
+        // omitting the segment falls back to the index route above.
+        path: 'dashboards/:uriKey',
+        element: <DashboardPage />,
+        handle: { crumb: 'dashboard' },
+      },
+      {
         path: 'profile',
         lazy: async () => {
           const { ProfilePage } = await import('@/pages/Profile')

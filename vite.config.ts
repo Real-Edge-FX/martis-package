@@ -57,6 +57,14 @@ export default defineConfig({
     build: {
         outDir: 'public',
         manifest: 'manifest.json',
+        // Empty `public/` before each build so old hashed assets don't
+        // accumulate (we've seen 1k+ stale chunks after a few weeks of
+        // active development, and they get rsync'd to every consumer
+        // by `vendor:publish --tag=martis-assets`). Vite's auto-detection
+        // skips this when `publicDir: false` is set, hence the explicit
+        // opt-in. The whole directory only contains build artifacts
+        // (manifest.json + assets/), so emptying it is safe.
+        emptyOutDir: true,
         rollupOptions: {
             input: 'resources/js/app.tsx',
             output: {
