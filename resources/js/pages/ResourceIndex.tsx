@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
@@ -26,6 +26,10 @@ import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  // POP = back/forward/initial mount, PUSH = link click, REPLACE = our own
+  // hydration-time URL strip. Drives the sticky-vs-clean decision below.
+  const navigationType = useNavigationType()
   const qc = useQueryClient()
   const { addToast } = useToast()
   const { t } = useTranslation('resources')
@@ -78,7 +82,7 @@ export function ResourceIndexPage() {
     // query already applied. We strip the param after reading so the
     // user's later manual edits don't get overridden by browser back/
     // forward navigation. Other URL params keep their existing flow.
-    const initialUrlParams = new URLSearchParams(window.location.search)
+    const initialUrlParams = new URLSearchParams(location.search)
     const urlSearch = initialUrlParams.get('search') ?? ''
     if (urlSearch) {
       setSearch(urlSearch)
@@ -129,6 +133,33 @@ export function ResourceIndexPage() {
       }
     }
 
+    // No URL-driven view state. Decide based on navigation type:
+    //
+    //   - PUSH:   user clicked a NavLink (e.g. the "Invoices" sidebar
+    //             entry while a `?filters=…` deep-link was active).
+    //             Treat as an explicit "go to a clean view" — ignore
+    //             sticky storage so leftover filters from the previous
+    //             URL do not silently follow the user across.
+    //   - POP:    initial mount, browser back/forward, or refresh —
+    //             restore sticky storage (the original use case for
+    //             sticky views: "open a record, click back, find the
+    //             table exactly as you left it").
+    //   - REPLACE: an internal `navigate({...}, {replace:true})` call
+    //             (we currently only use this elsewhere); fall through
+    //             to sticky for symmetry with POP.
+    if (navigationType === 'PUSH') {
+      setSearch('')
+      setDebouncedSearch('')
+      setActiveFilters({})
+      setPage(1)
+      setPerPage(null)
+      setSortBy(null)
+      setSortDir('asc')
+      setTrashedFilter('')
+      setFiltersOpen(false)
+      return
+    }
+
     const saved = readStickyView(resource)
     if (saved) {
       setSearch(typeof saved.search === 'string' ? saved.search : '')
@@ -154,7 +185,11 @@ export function ResourceIndexPage() {
     setSortDir('asc')
     setTrashedFilter('')
     setFiltersOpen(false)
-  }, [resource])
+    // location.search is intentionally a dep: this hook runs again when
+    // the user navigates inside the same resource (filter factory click
+    // → ?filters= URL → re-hydrate from URL). navigationType ensures we
+    // distinguish "I clicked something" from "browser back/refresh".
+  }, [resource, location.search, navigationType])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
