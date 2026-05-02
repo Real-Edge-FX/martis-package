@@ -195,11 +195,21 @@ class SearchResolver
             return $query->whereRaw('1 = 0');
         }
 
-        if ($searchableFields === [] && $freeText === '') {
-            return $query;
+        $relations = $resourceClass::searchableRelations();
+
+        // Refuse to return anything when the resource has nothing to
+        // search against — no searchable fields, no relation paths.
+        // Without this guard the controller's `limit($limit)` would
+        // happily dump a random first-page slice of unfiltered rows
+        // (e.g. searching `martis.local` would surface unrelated Notes
+        // simply because NoteResource declared no searchable fields).
+        if ($searchableFields === [] && $relations === [] && $appliedTokens === 0) {
+            return $query->whereRaw('1 = 0');
         }
 
-        $relations = $resourceClass::searchableRelations();
+        if ($searchableFields === [] && $freeText === '' && $relations === []) {
+            return $query;
+        }
 
         // Stage 2 — free-text LIKE across the resource's own searchable
         // fields plus any declared relation paths. The whole disjunction

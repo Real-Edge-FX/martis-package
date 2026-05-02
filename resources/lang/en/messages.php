@@ -297,4 +297,11 @@ return [
     'impersonation_stop' => 'Stop impersonating',
     'impersonation_start_failed' => 'Could not start the impersonation session.',
     'impersonation_stop_failed' => 'Could not stop the impersonation session.',
+
+    // Friendly fallbacks for HTTP errors that come back as a non-JSON
+    // page (e.g. Nginx 413 / Cloudflare 502). The frontend api.ts
+    // surfaces these instead of the generic "Request failed" toast.
+    'errors_payload_too_large' => 'The file you uploaded is too large for the server to accept. Try a smaller image.',
+    'errors_session_expired' => 'Your session expired. Please sign in again.',
+    'errors_server_unavailable' => 'The server is temporarily unavailable. Please retry in a moment.',
 ];

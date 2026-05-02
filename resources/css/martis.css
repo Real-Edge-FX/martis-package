@@ -7849,3 +7849,82 @@ html[data-density="dense"] .martis-cache-toggle {
   font-weight: 600;
   color: var(--martis-text-muted);
 }
+
+/* ─────────────────────────────────────────────────────────────────
+ * Print stylesheet — `@media print` overrides for admin reports,
+ * record exports, and any "print this page" workflow.
+ *
+ * Tokens are themeable via `--martis-print-*` so consumers can keep
+ * their brand on paper without forking the rules below. The defaults
+ * mirror what most printable admin surfaces want:
+ *   - White paper background, black text (saves ink)
+ *   - No shadows, no rounded corners (cleaner photocopies)
+ *   - Sidebar / topbar / chrome hidden (only the content frame prints)
+ *   - Links inlined with their `href` for offline reference
+ *
+ * Override any token in your theme CSS to tune; override the rules
+ * themselves only when the defaults can't be reconciled via tokens.
+ * ────────────────────────────────────────────────────────────────── */
+
+:root {
+  --martis-print-bg: #ffffff;
+  --martis-print-text: #000000;
+  --martis-print-border: #000000;
+  --martis-print-link-color: #000000;
+  --martis-print-muted: #444444;
+}
+
+@media print {
+  :root,
+  html.dark,
+  html[data-theme="dark"],
+  html:not(.dark),
+  html[data-theme="light"] {
+    /* Force the printable palette regardless of which theme/mode the
+     * user had active on screen. Anyone who actually wants the dark
+     * palette on paper can override these tokens explicitly. */
+    --martis-bg:           var(--martis-print-bg);
+    --martis-surface:      var(--martis-print-bg);
+    --martis-surface-alt:  var(--martis-print-bg);
+    --martis-card:         var(--martis-print-bg);
+    --martis-input-bg:     var(--martis-print-bg);
+    --martis-text:         var(--martis-print-text);
+    --martis-text-muted:   var(--martis-print-muted);
+    --martis-border:       var(--martis-print-border);
+    --martis-shadow-sm:    none;
+    --martis-shadow-md:    none;
+    --martis-shadow-lg:    none;
+    --martis-peek-shadow:  none;
+  }
+
+  body {
+    background: var(--martis-print-bg) !important;
+    color: var(--martis-print-text) !important;
+  }
+
+  /* Hide non-content chrome by default. Override per-app by re-showing
+   * specific selectors in your own CSS. */
+  .martis-sb,
+  .martis-topbar,
+  .martis-cmdk-scrim,
+  .martis-toast,
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+
+  /* Inline link targets so offline readers can resolve them. */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    color: var(--martis-print-muted);
+    font-size: 0.85em;
+  }
+  /* Skip the inline expansion for in-page anchors and javascript: links. */
+  a[href^="#"]::after,
+  a[href^="javascript:"]::after {
+    content: "";
+  }
+
+  /* Avoid widow/orphan rows in tables when a record splits across pages. */
+  table thead { display: table-header-group; }
+  table tr    { page-break-inside: avoid; }
+}

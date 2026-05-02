@@ -14,6 +14,15 @@ export interface ResourceMeta {
   group: string | null
   titleAttribute?: string
   subtitle?: string | null
+  /**
+   * Optional per-resource accent override. Either a built-in accent
+   * name (`martis | blue | teal | violet | amber`) or a hex string.
+   * The Layout component writes this as `data-accent` (or, for hex
+   * values, an inline `--martis-accent` property) on `<html>` while
+   * the resource is active and restores the user's global preference
+   * on unmount.
+   */
+  accentColor?: string | null
 }
 
 export type NavigationBadgeTone =

@@ -37,6 +37,7 @@ use Martis\Console\ResourceMakeCommand;
 use Martis\Console\RolesScaffoldCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\StubsCommand;
+use Martis\Console\ThemeDiffCommand;
 use Martis\Console\ThemeMakeCommand;
 use Martis\Console\ToolMakeCommand;
 use Martis\Console\TrendMakeCommand;
@@ -163,6 +164,7 @@ class MartisServiceProvider extends ServiceProvider
                 CardMakeCommand::class,
                 ComponentMakeCommand::class,
                 ThemeMakeCommand::class,
+                ThemeDiffCommand::class,
                 VendorPublishCommand::class,
                 PublishAssetsCommand::class,
                 PolicyMakeCommand::class,

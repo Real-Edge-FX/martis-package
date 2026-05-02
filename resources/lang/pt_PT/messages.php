@@ -284,4 +284,8 @@ return [
     'audio_play' => 'Reproduzir',
     'audio_pause' => 'Pausar',
     'audio_download' => 'Descarregar',
+
+    'errors_payload_too_large' => 'O ficheiro que carregou é demasiado grande para o servidor aceitar. Tente uma imagem mais pequena.',
+    'errors_session_expired' => 'A sua sessão expirou. Inicie sessão novamente.',
+    'errors_server_unavailable' => 'O servidor está temporariamente indisponível. Tente daqui a um instante.',
 ];

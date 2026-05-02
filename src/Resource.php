@@ -1152,7 +1152,42 @@ abstract class Resource implements ResourceContract
             'softDeletes' => static::softDeletes() && static::canViewTrashed(),
             'group' => $this->group(),
             'icon' => $this->icon(),
+            'accentColor' => static::accentColor(),
         ];
+    }
+
+    /**
+     * Optional per-resource accent override. The frontend sets this as
+     * `data-accent` on `<html>` when navigating to the resource and
+     * restores the user's global preference on unmount, so a resource
+     * can carry its own brand colour without polluting the rest of the
+     * panel.
+     *
+     * Two value shapes are accepted:
+     *
+     *   - A built-in accent name (`'martis'`, `'blue'`, `'teal'`,
+     *     `'violet'`, `'amber'`) — the matching `[data-accent]` rules
+     *     in the bundled theme already define five token overrides.
+     *   - A hex string (`'#DC143C'`) — the frontend assigns it to the
+     *     `--martis-accent` custom property as an inline style on
+     *     `<html>`, which wins over the `data-accent` selector. Use
+     *     this when none of the built-ins match your brand.
+     *
+     * Default `null` keeps the user's global accent.
+     *
+     * Example:
+     *
+     *     class PaymentResource extends Resource
+     *     {
+     *         public static function accentColor(): ?string
+     *         {
+     *             return 'teal';
+     *         }
+     *     }
+     */
+    public static function accentColor(): ?string
+    {
+        return null;
     }
 
     // -------------------------------------------------------------------------

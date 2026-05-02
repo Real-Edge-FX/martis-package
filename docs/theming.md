@@ -65,15 +65,16 @@ Surface and background colors used throughout the UI.
 | `--martis-card` | Card components |
 | `--martis-input-bg` | Form input backgrounds |
 
-### 2. Text & Borders (3 variables)
+### 2. Text & Borders (4 variables)
 
 | Variable | Purpose |
 |----------|---------|
 | `--martis-text` | Primary text color |
 | `--martis-text-muted` | Secondary, placeholder, label text |
+| `--martis-text-faint` | Tertiary text (footers, timestamps, helper text) |
 | `--martis-border` | Default border color (inputs, panels, table cells) |
 
-### 3. Accent / Brand (6 variables)
+### 3. Accent / Brand (7 variables)
 
 The brand identity colors — buttons, links, focus states, selected items.
 
@@ -82,6 +83,7 @@ The brand identity colors — buttons, links, focus states, selected items.
 | `--martis-accent` | Primary brand color |
 | `--martis-accent-hover` | Hover state |
 | `--martis-accent-active` | Active/pressed state |
+| `--martis-accent-contrast` | Text/icon colour rendered **on top of** an accent fill (buttons, badges) |
 | `--martis-accent-bg-light` | Subtle background tint (e.g. selected row) |
 | `--martis-accent-bg` | Stronger background tint |
 | `--martis-focus-ring` | Focus ring color (with alpha for box-shadow) |
@@ -125,7 +127,7 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 | `--martis-search-bg` | Search input overlay |
 | `--martis-search-border` | Search input border |
 
-### 7. Overlays & Shadows (4 variables)
+### 7. Overlays & Shadows (5 variables)
 
 | Variable | Purpose |
 |----------|---------|
@@ -155,7 +157,7 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 | `--martis-radius-xl` | `0.75rem` | Containers, large cards |
 | `--martis-radius-full` | `9999px` | Pills, avatars |
 
-### 10. Typography (15 variables)
+### 10. Typography (17 variables)
 
 #### Font families
 
@@ -167,24 +169,28 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 
 #### Font sizes (modular scale)
 
-| Variable | Size | Pixels | Use |
-|----------|------|--------|-----|
-| `--martis-font-size-xs` | `0.75rem` | 12px | Tooltips, micro labels |
-| `--martis-font-size-sm` | `0.875rem` | 14px | Body, inputs, labels |
-| `--martis-font-size-base` | `1rem` | 16px | Default |
-| `--martis-font-size-lg` | `1.125rem` | 18px | Section headers |
-| `--martis-font-size-xl` | `1.25rem` | 20px | Card titles |
-| `--martis-font-size-2xl` | `1.5rem` | 24px | Page titles |
-| `--martis-font-size-3xl` | `1.875rem` | 30px | Dashboard metrics |
+The scale ships with **two interchangeable names** — `--martis-text-*` (short, used pervasively in package CSS) and `--martis-font-size-*` (verbose, semantic). Both resolve to the same value. Prefer the short form in new code.
+
+| Variable | Alias | Size | Pixels | Use |
+|----------|-------|------|--------|-----|
+| `--martis-text-xs` | `--martis-font-size-xs` | `0.75rem` | 12px | Tooltips, micro labels |
+| `--martis-text-sm` | `--martis-font-size-sm` | `0.875rem` | 14px | Body, inputs, labels |
+| `--martis-text-base` | `--martis-font-size-base` | `1rem` | 16px | Default |
+| `--martis-text-lg` | `--martis-font-size-lg` | `1.125rem` | 18px | Section headers |
+| `--martis-text-xl` | `--martis-font-size-xl` | `1.25rem` | 20px | Card titles |
+| `--martis-text-2xl` | `--martis-font-size-2xl` | `1.5rem` | 24px | Page titles |
+| `--martis-text-3xl` | `--martis-font-size-3xl` | `1.875rem` | 30px | Dashboard metrics |
 
 #### Font weights
 
-| Variable | Value |
-|----------|-------|
-| `--martis-font-weight-normal` | `400` |
-| `--martis-font-weight-medium` | `500` |
-| `--martis-font-weight-semibold` | `600` |
-| `--martis-font-weight-bold` | `700` |
+Same dual-naming convention as font sizes. The short form (`--martis-weight-*`) is what the bundled package CSS uses.
+
+| Variable | Alias | Value |
+|----------|-------|-------|
+| `--martis-weight-regular` | `--martis-font-weight-normal` | `400` |
+| `--martis-weight-medium` | `--martis-font-weight-medium` | `500` |
+| `--martis-weight-semibold` | `--martis-font-weight-semibold` | `600` |
+| `--martis-weight-bold` | `--martis-font-weight-bold` | `700` |
 
 #### Line heights
 
@@ -204,7 +210,7 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 
 Used automatically by `PartitionCard` (donut/pie) when no custom colors provided. Resolved at runtime via JavaScript (Chart.js can't read CSS vars natively).
 
-### 11b. Avatar Palette (16 variables)
+### 12. Avatar Palette (16 variables)
 
 16 deterministic hues used by `AvatarField` and `UiAvatarField` when the backend doesn't supply an explicit colour. The `lib/avatarPalette.ts` helper picks one of `--martis-avatar-1..16` from a stable hash of the seed (name, email, slug), so two users with the same name always get the same colour.
 
@@ -214,9 +220,9 @@ Used automatically by `PartitionCard` (donut/pie) when no custom colors provided
 
 The hex values are intentionally identical across light and dark themes — a user's avatar colour cannot change when the theme toggles.
 
-### 11c. Brand Gradient (7 variables)
+### 13. Brand Gradient (9 variables)
 
-Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`). Override these in your theme CSS to reskin the brand without touching React.
+Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`) and brand-bearing surfaces like the auth screen. Override these in your theme CSS to reskin the brand without touching React.
 
 | Variable | Description |
 |----------|-------------|
@@ -227,10 +233,12 @@ Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCa
 | `--martis-brand-grid-dot` | Dot-grid overlay opacity. |
 | `--martis-brand-shadow` | Shadow pushed under the brand surface. |
 | `--martis-brand-text` | Default text colour on top of the brand surface. |
+| `--martis-brand-logo-height-auth` | Logo height (px) on the auth screen lockup. |
+| `--martis-brand-logo-height-menu` | Logo height (px) in the user dropdown menu. |
 
 Light and dark themes ship the same recipe with stops keyed for the canvas — hero surfaces stay dark by design (white type on a saturated gradient reads better than the inverse), so the difference between themes is mostly trimmed opacity on the auroras.
 
-### 12. File Icon Colors (6 variables)
+### 14. File Icon Colors (6 variables)
 
 Semantic colors for file type icons in `FileField`.
 
@@ -243,7 +251,7 @@ Semantic colors for file type icons in `FileField`.
 | `--martis-file-icon-zip` | `#a855f7` | Archives |
 | `--martis-file-icon-default` | `#6b7280` | Unknown |
 
-### 13. Badge Variants (legacy — 12 variables)
+### 15. Badge Variants (legacy — 12 variables)
 
 Kept for backward compatibility with existing Badge field components. New code should use semantic variants (`--martis-success-bg`, etc.).
 
@@ -307,7 +315,7 @@ Override per-surface by adding `[data-density="dense"]` on any ancestor — a de
 
 ### Motion tokens — `--martis-dur-*`, `--martis-ease-*`
 
-Five duration stops (80ms → 320ms) and five easing curves. Custom themes inherit them; override any value to slow down / speed up your whole app without touching component CSS.
+**Six** duration stops (`fast`, `sm`, `base`, `medium`, `slow`, `ultra` — 80ms → 480ms) and **five** easing curves (`linear`, `standard`, `accel`, `decel`, `spring`). Custom themes inherit them; override any value to slow down / speed up your whole app without touching component CSS.
 
 Both `@media (prefers-reduced-motion: reduce)` and `html[data-reduced-motion="true"]` clamp every duration to `1ms` — transitions still resolve (focus rings keep working), just instantly.
 
@@ -321,6 +329,51 @@ html:not(.dark), html[data-theme="light"]        { /* light tokens */ }
 ```
 
 This means any app that sets either `.dark` or `data-theme` on `<html>` gets the right palette without extra glue.
+
+### ⭐ Per-resource accent override — `Resource::accentColor()`
+
+Override the panel's accent colour while a specific resource is active without mutating the user's global preference.
+
+```php
+use Martis\Resource;
+
+class PaymentResource extends Resource
+{
+    public static function accentColor(): ?string
+    {
+        return 'teal';   // built-in name OR a hex like '#DC143C'
+    }
+}
+```
+
+How the frontend handles the value:
+
+- **Built-in name** (`'martis' | 'blue' | 'teal' | 'violet' | 'amber'`, or any custom one your theme registered) — written to `<html data-accent>` while the resource view is mounted and restored on unmount.
+- **Hex string** (`'#DC143C'`) — written as an inline `--martis-accent` style on `<html>` (wins over the `[data-accent]` selector). Use when none of the built-ins match your brand.
+- **`null`** (default) — keeps the user's global accent.
+
+The hook lives in `lib/useResourceAccent.ts`; both `ResourceIndexPage` and `ResourceDetailPage` already wire it up. Sidebar and topbar share the same `<html>`, so they reflect the override immediately.
+
+### ⭐ Print stylesheet — `@media print`
+
+The bundled CSS ships a print mode that:
+
+- Forces a white-paper / black-text palette (saves ink).
+- Drops shadows, sidebar, topbar, command palette overlay.
+- Inlines link targets (`<a>foo</a>` → `foo (https://…)`) for offline reading.
+- Avoids splitting table rows across pages.
+
+Five tokens drive the print palette — override them in your theme to keep the print mode on-brand:
+
+| Variable | Default |
+|----------|---------|
+| `--martis-print-bg` | `#ffffff` |
+| `--martis-print-text` | `#000000` |
+| `--martis-print-border` | `#000000` |
+| `--martis-print-link-color` | `#000000` |
+| `--martis-print-muted` | `#444444` |
+
+Hide additional surfaces by attribute: `<div data-print-hide="true">…` is not printed.
 
 ---
 
@@ -340,9 +393,9 @@ This means any app that sets either `.dark` or `data-theme` on `<html>` gets the
 </div>
 ```
 
-### In TSX (Tailwind utilities)
+### In TSX (helper utility classes)
 
-Most variables are exposed as Tailwind classes:
+The bundled CSS ships a small set of pre-built utility classes that wrap the most common token references:
 
 ```tsx
 <div className="martis-text martis-card-bg martis-border">
@@ -354,6 +407,33 @@ Available helper classes:
 - `.martis-text`, `.martis-text-muted`
 - `.martis-bg`, `.martis-surface`, `.martis-card-bg`, `.martis-sidebar-bg`, `.martis-topbar-bg`
 - `.martis-border`, `.martis-input-bg`, `.martis-surface-alt`
+
+### ⭐ In TSX (Tailwind preset)
+
+For consumers using Tailwind, the package ships `tailwind.preset.js` that surfaces every `--martis-*` token as a real Tailwind utility — no need to ship your own `theme.extend.colors` block:
+
+```js
+// tailwind.config.js
+module.exports = {
+  presets: [require('martis/tailwind.preset')],
+  content: [
+    './resources/**/*.{tsx,ts,jsx,js,blade.php}',
+    './vendor/martis/martis/resources/js/**/*.tsx',
+  ],
+}
+```
+
+After this, write component CSS the Tailwind way — utilities resolve at runtime via `var()` so the active theme (light/dark, accent override, density) is always honoured:
+
+```tsx
+<div className="bg-martis-surface text-martis-text rounded-martis-lg shadow-martis-md p-4">
+  <button className="bg-martis-accent text-martis-accent-contrast hover:bg-martis-accent-hover">
+    Save
+  </button>
+</div>
+```
+
+The preset is additive — your existing `colors`, `fontFamily`, etc. stay untouched.
 
 ### In TSX (canvas/Chart.js — runtime resolution)
 
@@ -397,19 +477,25 @@ RevenueMetric::make()->color('var(--martis-success)');
 | Category | Count |
 |----------|-------|
 | Background layers | 7 |
-| Text & borders | 3 |
-| Accent variants | 6 |
+| Text & borders | 4 |
+| Accent variants | 7 |
 | Semantic solid | 8 |
 | Semantic backgrounds & text | 8 |
 | Interactive states | 4 |
 | Overlays & shadows | 5 |
 | DataTable | 5 |
 | Border radius | 5 |
-| Typography (families/sizes/weights/heights) | 15 |
+| Typography (families/sizes/weights/heights) | 17 |
 | Chart palette | 10 |
+| Avatar palette | 16 |
+| Brand gradient | 9 |
 | File icons | 6 |
 | Badge variants (legacy) | 12 |
-| **Total** | **94** |
+| Density tokens | 7 |
+| Motion tokens (durations + eases) | 11 |
+| **Total** | **141** |
+
+The `--martis-text-*` ↔ `--martis-font-size-*` and `--martis-weight-*` ↔ `--martis-font-weight-*` aliases are counted once each; the package ships both names but they always resolve to the same value.
 
 ---
 
@@ -463,6 +549,26 @@ That's it — buttons, links, focus rings, selected items all turn pink instantl
   --martis-radius-xl: 6px;
 }
 ```
+
+---
+
+## Theme upgrade workflow
+
+When a new package version introduces additional `--martis-*` tokens, your custom theme keeps working (the package CSS provides defaults), but a brand-conscious team usually wants to redeclare the new tokens explicitly. Use the bundled diff command:
+
+```bash
+php artisan martis:theme:diff               # uses config('martis.theme.name')
+php artisan martis:theme:diff mytheme       # explicit theme name
+php artisan martis:theme:diff --show-match  # also list tokens both files declare
+```
+
+Output is split into three groups:
+
+- **Missing in consumer** — tokens the package defines that your theme does not. Add a value for each one.
+- **Unknown to package** — tokens your theme defines that no longer exist. Either a typo or a deprecated token from a previous package version.
+- **Match** — tokens both files declare. Counted by default; pass `--show-match` to list them.
+
+Exit codes: `0` (everything aligned), `2` (drift detected — useful for CI gates).
 
 ---
 

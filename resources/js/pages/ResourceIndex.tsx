@@ -20,6 +20,7 @@ import { FilterPanel } from '@/components/FilterPanel'
 import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useResourceAccent } from '@/lib/useResourceAccent'
 import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 
@@ -224,6 +225,7 @@ export function ResourceIndexPage() {
   }, [schema?.defaultSort, schema?.defaultSortDirection, sortBy])
 
   usePageTitle(schema?.label ?? null)
+  useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
 
   // Sticky view writer — every meaningful state change rolls into
   // sessionStorage under `martis:view:{uriKey}` so the next visit to

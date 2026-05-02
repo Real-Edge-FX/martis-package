@@ -998,6 +998,11 @@ class ResourceController extends MartisController
             'icon' => $instance->icon(),
             'iconColor' => $instance->iconColor(),
             'titleAttribute' => $resourceClass::titleAttribute(),
+            // Per-resource accent override; null keeps the user's
+            // global preference. The frontend `useResourceAccent`
+            // hook reads this from the schema and writes data-accent
+            // on `<html>` while the resource is active.
+            'accentColor' => $resourceClass::accentColor(),
             'indexSearchable' => $resourceClass::indexSearchable(),
             'usesScout' => $resourceClass::usesScout(),
             'perPageOptions' => $resourceClass::perPageOptions(),

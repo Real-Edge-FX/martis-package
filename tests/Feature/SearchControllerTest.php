@@ -676,6 +676,49 @@ it('silently ignores field:value tokens whose field is not searchable', function
 // Searchable detail relations (v1.8.x)
 // ---------------------------------------------------------------------------
 
+it('returns no results for a resource with no searchable fields and no relations', function () {
+    // A resource that opted into globallySearchable() but forgot to
+    // mark any field `searchable()` (and declared no
+    // searchableRelations()) has nothing to filter against. Without a
+    // guard the controller's `limit()` would dump a random first-page
+    // slice — the bug that surfaced unrelated Notes for `martis.local`
+    // in the playground demo.
+    $resourceClass = new class(null) extends Resource
+    {
+        public static function model(): string
+        {
+            return SearchTestPost::class;
+        }
+
+        public static function uriKey(): string
+        {
+            return 'search-test-posts-empty-fields';
+        }
+
+        public static function titleAttribute(): string
+        {
+            return 'title';
+        }
+
+        public function fields(Request $request): array
+        {
+            // No `->searchable()` on any field.
+            return [Text::make('title')];
+        }
+    };
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register($resourceClass::class);
+
+    SearchTestPost::create(['title' => 'Anything', 'body' => null]);
+    SearchTestPost::create(['title' => 'Whatever', 'body' => null]);
+
+    $data = $this->getJson('/martis/api/search?q=anything')->json();
+
+    expect($data['results'])->toBe([]);
+});
+
 it('searches across relation paths declared in searchableRelations()', function () {
     // Top-level model + resource declared in this test file (Eloquent
     // resolves relations via class names, so anonymous classes don't
