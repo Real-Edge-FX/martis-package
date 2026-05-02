@@ -119,6 +119,13 @@ class SsoController extends Controller
         $guard = config('martis.guard') ?: config('auth.defaults.guard');
         Auth::guard($guard)->login($user, true);
 
+        // Stash the provider name in the session so a later logout can
+        // optionally redirect through the IdP's federated logout URL
+        // (see AuthController::logout for the consumption side). Stays
+        // around for the lifetime of the session — cleared on logout
+        // and on a non-SSO login.
+        $request->session()->put('martis_sso_provider', $provider);
+
         $redirectTo = (string) (config("martis.auth.sso.providers.{$provider}.redirect_to") ?? '/'.config('martis.path', 'martis'));
 
         return redirect()->intended($redirectTo);

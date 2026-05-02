@@ -696,6 +696,26 @@ return [
                 //
                 //     'on_no_role_match' => 'deny',
                 //     'redirect_to' => null,
+                //
+                //     // Federated logout (v1.8.8). Optional. When set,
+                //     // POST /api/auth/logout redirects through the IdP's
+                //     // logout URL after clearing the local session, so the
+                //     // IdP session is also terminated. The placeholder
+                //     // {post_logout_redirect_uri} is replaced with the
+                //     // urlencoded Martis login page URL.
+                //     //
+                //     // Microsoft Azure example:
+                //     //   logout_url => 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout?post_logout_redirect_uri={post_logout_redirect_uri}'
+                //     //
+                //     // Leave null (the default) to use Martis's own
+                //     // local-only logout (clears the cookie, redirects
+                //     // back to /martis/login).
+                //     'logout_url' => env('MARTIS_SSO_AZURE_LOGOUT_URL'),
+                //
+                //     // Defer external role-name resolution to a closure.
+                //     // Active when role_source = 'callable'. The closure
+                //     // receives the SsoIdentity and returns array<string>.
+                //     // 'role_source_callable' => fn (SsoIdentity $i) => [...],
                 // ],
             ],
         ],
