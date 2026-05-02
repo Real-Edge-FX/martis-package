@@ -1003,6 +1003,12 @@ class ResourceController extends MartisController
             // hook reads this from the schema and writes data-accent
             // on `<html>` while the resource is active.
             'accentColor' => $resourceClass::accentColor(),
+            // Per-resource loader override. Merged on top of the global
+            // `config.loader` by the React shell before each render so a
+            // resource can have a bespoke spinner message / colour without
+            // touching the consumer's published config. Empty array means
+            // "no override; use global config".
+            'loaderConfig' => $resourceClass::loaderConfig(),
             'indexSearchable' => $resourceClass::indexSearchable(),
             'usesScout' => $resourceClass::usesScout(),
             'perPageOptions' => $resourceClass::perPageOptions(),

@@ -108,7 +108,7 @@ The main application shell that wraps all pages. Resolves layout preset from con
 Override the layout for a specific resource using `layoutRegistry`:
 
 ```typescript
-import { layoutRegistry } from '@martis/martis/lib/layoutRegistry'
+import { layoutRegistry } from '@/lib/layoutRegistry'
 layoutRegistry.register('users', CustomUserLayout)
 ```
 
@@ -297,7 +297,7 @@ For icons outside Phosphor (custom SVGs) or to skip the dynamic-import roundtrip
 
 ```ts
 // resources/martis-extensions/martis/boot.ts
-import { iconRegistry } from '@martis/martis/lib/iconRegistry'
+import { iconRegistry } from '@/lib/iconRegistry'
 import { CrownIcon } from '@phosphor-icons/react'
 
 iconRegistry.register('crown', CrownIcon)
@@ -430,7 +430,7 @@ const { theme, toggle, setTheme } = useTheme()
 Single source of truth for user-tunable preferences (theme, accent, density, locale, reduced motion). Drives the Preferences menu, the per-resource accent override, and the density / reduced-motion CSS hooks (`data-density`, `data-reduced-motion`).
 
 ```typescript
-import { usePreferences, usePreferencesOptional } from '@martis/martis/contexts/PreferencesContext'
+import { usePreferences, usePreferencesOptional } from '@/contexts/PreferencesContext'
 
 const { prefs, meta, update, reset, enabled } = usePreferences()
 
@@ -471,7 +471,7 @@ addToast('success', 'Changes saved')
 Unified API client with CSRF handling, JSON and multipart support.
 
 ```typescript
-import { api } from '@martis/martis/lib/api'
+import { api } from '@/lib/api'
 
 const data = await api.get<Post[]>('/api/posts')
 await api.post('/api/posts', { title: 'New Post' })
@@ -490,7 +490,7 @@ await api.upload('POST', '/api/posts', formValues) // handles file uploads
 Reads configuration from `window.MartisConfig` (set by Laravel's Blade template).
 
 ```typescript
-import { config, API_BASE_URL, BASE_PATH } from '@martis/martis/lib/config'
+import { config, API_BASE_URL, BASE_PATH } from '@/lib/config'
 
 config.theme?.default      // 'dark' or 'light'
 config.layout?.preset      // 'sidebar', 'topnav', 'minimal'
@@ -555,7 +555,7 @@ Resolves post-CRUD navigation targets:
 The Martis Event Bus enables decoupled communication between components without prop drilling. It is available via the `useEventBus` hook.
 
 ```tsx
-import { useEventBus } from '@martis/martis/lib/useEventBus'
+import { useEventBus } from '@/lib/useEventBus'
 
 const { on, emit } = useEventBus()
 
@@ -590,7 +590,7 @@ Custom events can use any string key. Martis prefixes built-in events with `mart
 Wraps a form with the package-wide unsaved-changes guard. Reads the resource's `confirmUnsavedChanges` flag from the schema, snapshots initial values, and intercepts navigation when the form is dirty.
 
 ```tsx
-import { useUnsavedChangesGuard } from '@martis/martis/lib/useUnsavedChangesGuard'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
 function MyForm({ schema, initialValues }) {
   const [values, setValues] = useState(initialValues)
@@ -630,7 +630,7 @@ The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<
 Centralised error state management for forms and page components.
 
 ```tsx
-import { useError } from '@martis/martis/lib/useError'
+import { useError } from '@/lib/useError'
 
 const { errors, setError, clearErrors, hasErrors } = useError()
 
@@ -659,7 +659,7 @@ try {
 React context primitive that carries the live `OverrideProps` payload (the `schema`, `record`, `recordId`, `params`, navigation callbacks, etc.) every drawer or page override receives. Wrap children with the provider and any deeply-nested component reads the same payload without prop-drilling.
 
 ```tsx
-import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@martis/martis/hooks/useOverrideProps'
+import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
 
 export function MyDrawerCreate(props: OverrideProps) {
   return (
@@ -689,7 +689,7 @@ Opt-in. Overrides that prefer manual prop passing don't need to wrap.
 Sets `document.title` for the currently-mounted page and restores the previous title on unmount, so stacked drawers and modals do not leave stale segments after they close.
 
 ```tsx
-import { usePageTitle } from '@martis/martis/hooks/usePageTitle'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 function MyCustomPage({ resource }) {
   usePageTitle(resource.label)            // → "Clients · Brand"
@@ -710,7 +710,7 @@ Brand resolves from `config.brand`; the translation namespace is `navigation`.
 Reactive viewport-width hook. Returns `true` when `window.innerWidth <= breakpoint` (default `768`) and re-renders on every resize. Used by the topbar to switch the search input between bar and icon modes; consumers can reuse it from any override that needs a JS-side mobile gate without re-implementing the matchMedia listener.
 
 ```tsx
-import { useIsMobile } from '@martis/martis/hooks/useIsMobile'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const isMobile = useIsMobile()           // default 768px
 const isNarrow = useIsMobile(540)        // custom breakpoint
@@ -804,7 +804,7 @@ The built-in loading indicator used across all resource pages, the profile page,
 **Usage:**
 
 ```tsx
-import { MartisLoader } from '@martis/martis/components/Loader'
+import { MartisLoader } from '@/components/Loader'
 
 // Simple spinner
 <MartisLoader loading={isLoading} />
@@ -820,7 +820,7 @@ import { MartisLoader } from '@martis/martis/components/Loader'
 **Custom loader component:** Replace the built-in loader entirely via the component registry:
 
 ```typescript
-import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+import { componentRegistry } from '@/lib/componentRegistry'
 componentRegistry.register('loader', MyCustomLoader)
 ```
 

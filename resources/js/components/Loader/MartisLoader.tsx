@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { config } from "@/lib/config"
+import { config, type MartisLoaderConfig } from "@/lib/config"
 import { SpinnerGapIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 
@@ -21,6 +21,16 @@ export interface MartisLoaderProps {
    * Supported: "table", "search", "components", "detail".
    */
   context?: "table" | "search" | "components" | "detail"
+  /**
+   * Per-instance override merged on top of `config.loader`.
+   *
+   * Used by the Loader wrapper in `@/components/Loader` to apply
+   * `Resource::loaderConfig()` while a resource page is mounted (the
+   * wrapper reads the override from `LoaderConfigContext` and forwards
+   * it here). Consumers that import `MartisLoader` directly can pass
+   * the override inline for one-off cases.
+   */
+  configOverride?: Partial<MartisLoaderConfig>
 }
 
 /**
@@ -44,10 +54,26 @@ export function MartisLoader({
   size = "md",
   children,
   context,
+  configOverride,
 }: MartisLoaderProps) {
   const { t } = useTranslation("messages")
 
-  const loaderCfg = config.loader
+  // Merge global config with the per-instance override so a resource
+  // can supply only the keys it cares about and inherit the rest.
+  // `disableOn` is shallow-merged so a resource opting in/out of a
+  // single context doesn't clobber the others.
+  const baseCfg = config.loader as MartisLoaderConfig | undefined
+  const loaderCfg: MartisLoaderConfig | undefined = configOverride
+    ? {
+        ...baseCfg,
+        ...configOverride,
+        disableOn: {
+          ...(baseCfg?.disableOn ?? {}),
+          ...(configOverride.disableOn ?? {}),
+        },
+      }
+    : baseCfg
+
   const globallyDisabled = loaderCfg?.disabled === true
   const contextDisabled = context !== undefined && loaderCfg?.disableOn?.[context] === true
 
@@ -55,21 +81,12 @@ export function MartisLoader({
     return overlay ? <>{children}</> : null
   }
 
-  const loaderConfig = (config as Record<string, unknown>).loader as {
-    message?: string
-    icon?: string
-    logo?: string
-    spinnerColor?: string
-    overlayOpacity?: number
-    overlayColor?: string
-  } | undefined
-
-  const displayMessage = message ?? loaderConfig?.message ?? t("loading")
-  const iconName = loaderConfig?.icon
-  const logoUrl = loaderConfig?.logo
-  const spinnerColor = loaderConfig?.spinnerColor ?? "var(--martis-accent)"
-  const overlayOpacity = loaderConfig?.overlayOpacity ?? 0.6
-  const overlayColor = loaderConfig?.overlayColor ?? "var(--martis-bg)"
+  const displayMessage = message ?? loaderCfg?.message ?? t("loading")
+  const iconName = loaderCfg?.icon
+  const logoUrl = loaderCfg?.logo
+  const spinnerColor = loaderCfg?.spinnerColor ?? "var(--martis-accent)"
+  const overlayOpacity = loaderCfg?.overlayOpacity ?? 0.6
+  const overlayColor = loaderCfg?.overlayColor ?? "var(--martis-bg)"
 
   const spinnerSize = size === "sm" ? 16 : size === "lg" ? 32 : 24
   const textSize = size === "sm" ? "text-xs" : size === "lg" ? "text-base" : "text-sm"

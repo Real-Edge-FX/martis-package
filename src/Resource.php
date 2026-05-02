@@ -899,6 +899,28 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
+    /**
+     * Per-resource overrides for the loader (`MartisLoader`) on this resource's pages.
+     *
+     * Return a partial array that is merged on top of `config('martis.loader')`
+     * before the schema payload is shipped to the frontend. Use it to give a
+     * heavy resource a custom message ("Calibrating audit log…"), a brand
+     * spinner colour different from the global accent, or a per-resource
+     * `disableOn` toggle without touching global config.
+     *
+     * Recognised keys mirror `config/martis.php` `loader`:
+     * `message`, `icon`, `logo`, `spinnerColor`, `overlayOpacity`,
+     * `overlayColor`, `disabled`, `disableOn` (table | search | detail | components).
+     *
+     * Default: `[]` — no override; fall through to global config.
+     *
+     * @return array<string, mixed>
+     */
+    public static function loaderConfig(): array
+    {
+        return [];
+    }
+
     /** {@inheritdoc} */
     public static function tableShowGridlines(): bool
     {

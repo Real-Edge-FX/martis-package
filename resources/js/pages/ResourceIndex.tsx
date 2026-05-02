@@ -21,6 +21,7 @@ import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useResourceAccent } from '@/lib/useResourceAccent'
+import { useResourceLoaderConfig } from '@/contexts/LoaderConfigContext'
 import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 
@@ -226,6 +227,7 @@ export function ResourceIndexPage() {
 
   usePageTitle(schema?.label ?? null)
   useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
+  useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
   // Sticky view writer — every meaningful state change rolls into
   // sessionStorage under `martis:view:{uriKey}` so the next visit to

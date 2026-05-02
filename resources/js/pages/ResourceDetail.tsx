@@ -22,6 +22,7 @@ import { resolveRedirect } from "@/lib/resolveRedirect"
 import { MartisLoader } from "@/components/Loader"
 import { usePageTitle } from "@/hooks/usePageTitle"
 import { useResourceAccent } from "@/lib/useResourceAccent"
+import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -107,6 +108,7 @@ export function ResourceDetailPage() {
     : ''
   usePageTitle(schema ? `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ''}` : null)
   useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
+  useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
   if (schemaQuery.isLoading || recordQuery.isLoading) {
     return (

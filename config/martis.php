@@ -1084,7 +1084,9 @@ return [
     | disableOn      - Granular opt-out per context.
     |   table        - Disable the refetch overlay on index tables.
     |   search       - Disable the loader on search refetch.
-    |   components   - Disable loaders inside other components.
+    |   detail       - Disable the loader on resource detail pages.
+    |   components   - Disable loaders inside other components (Profile,
+    |                  ActionDrawer, ToolPage, CacheAdmin, ResourceLens).
     */
     'loader' => [
         'message' => null,
@@ -1102,6 +1104,7 @@ return [
         'disableOn' => [
             'table' => false,
             'search' => false,
+            'detail' => false,
             'components' => false,
         ],
     ],

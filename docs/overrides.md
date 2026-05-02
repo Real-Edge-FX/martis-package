@@ -21,7 +21,7 @@ Replace the component for **all fields** of a given type across every resource.
 
 ```typescript
 // resources/js/martis/boot.ts
-import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+import { componentRegistry } from '@/lib/componentRegistry'
 import { MyRatingDisplay, MyRatingInput } from './components/RatingField'
 
 // All "number" fields now use MyRatingDisplay/MyRatingInput
@@ -35,7 +35,7 @@ Replace the component only for a specific field in a specific resource.
 
 ```typescript
 // resources/js/martis/boot.ts
-import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+import { componentRegistry } from '@/lib/componentRegistry'
 import { StatusBadgeDisplay } from './components/StatusBadge'
 
 // Only the "status" field in the "posts" resource uses StatusBadgeDisplay
@@ -63,7 +63,7 @@ public function fields(Request $request): array
 **TypeScript:**
 ```typescript
 // resources/js/martis/boot.ts
-import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+import { componentRegistry } from '@/lib/componentRegistry'
 import { StatusBadge } from './components/StatusBadge'
 import { StarRating } from './components/StarRating'
 
@@ -89,7 +89,7 @@ Each resource can use a custom page layout shell.
 
 ```typescript
 // resources/js/martis/boot.ts
-import { layoutRegistry } from '@martis/martis/lib/layoutRegistry'
+import { layoutRegistry } from '@/lib/layoutRegistry'
 import { UserResourceLayout } from './layouts/UserResourceLayout'
 
 // The "users" resource uses a custom layout
@@ -143,7 +143,7 @@ Register a custom component to handle a CRUD action:
 
 ```typescript
 // resources/js/martis/boot.ts
-import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+import { componentRegistry } from '@/lib/componentRegistry'
 import { MyPostCreator } from './components/MyPostCreator'
 
 componentRegistry.register('custom-post-creator', MyPostCreator)
@@ -236,7 +236,7 @@ interface OverrideProps {
 When a custom override has its own internal component tree (header, sidebar, form sections), prop-drilling `OverrideProps` through every level is noisy. The `useOverrideProps()` hook exposes the same payload via React context — wrap once at the top of your override, read anywhere underneath:
 
 ```tsx
-import { useOverrideProps, OverridePropsProvider } from '@martis/martis/hooks/useOverrideProps'
+import { useOverrideProps, OverridePropsProvider } from '@/hooks/useOverrideProps'
 
 export function MyDrawerCreate(props: OverrideProps) {
   return (
@@ -435,7 +435,7 @@ Event::listen(BeforeDelete::class, function (BeforeDelete $event) {
 Every display component receives `FieldDisplayProps`. Examples below use the [Tailwind preset](theming.md#-in-tsx-tailwind-preset) so the override stays in sync with the active theme (light/dark, accent override, density).
 
 ```typescript
-import type { FieldDisplayProps } from '@martis/martis/components/fields/types'
+import type { FieldDisplayProps } from '@/components/fields/types'
 
 export function StatusBadge({ field, value }: FieldDisplayProps) {
   const label = String(value ?? '')
@@ -462,7 +462,7 @@ export function StatusBadge({ field, value }: FieldDisplayProps) {
 Every input component receives `FieldInputProps`:
 
 ```typescript
-import type { FieldInputProps } from '@martis/martis/components/fields/types'
+import type { FieldInputProps } from '@/components/fields/types'
 
 export function StatusSelect({ field, value, onChange, error }: FieldInputProps) {
   return (
@@ -620,7 +620,7 @@ Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuil
 ## Component Registry API
 
 ```typescript
-import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+import { componentRegistry } from '@/lib/componentRegistry'
 
 // ─── Registration ──────────────────────────────────────────
 // Register by key (also used for explicit `field.component` keys from PHP)

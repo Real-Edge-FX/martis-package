@@ -241,6 +241,15 @@ interface ResourceContract
     // Table display options
     // -------------------------------------------------------------------------
 
+    /**
+     * Per-resource loader overrides merged on top of `config('martis.loader')`.
+     *
+     * Returning `[]` falls through to the global config (default behaviour).
+     *
+     * @return array<string, mixed>
+     */
+    public static function loaderConfig(): array;
+
     /** Whether the data table should display striped rows. */
     public static function tableStriped(): bool;
 
