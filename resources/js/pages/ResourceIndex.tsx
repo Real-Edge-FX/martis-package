@@ -101,6 +101,53 @@ export function ResourceIndexPage() {
       return
     }
 
+    // ?filters={"<uriKey>":<value>,...} in the URL wins over sticky view on
+    // mount. Used by `MenuItem::filter()->applies()` to deep-link straight
+    // to a pre-filtered view (e.g. "Open Tickets", "Overdue Invoices") and
+    // by anyone hand-crafting shareable URLs. We strip the param after
+    // reading so subsequent state changes (sticky-view writes, manual
+    // filter edits) do not race with a stale URL value. The Sidebar's
+    // active-state rule keys off pathname only — it intentionally does
+    // not try to mirror activeFilters.
+    const urlFilters = initialUrlParams.get('filters') ?? ''
+    if (urlFilters) {
+      try {
+        const parsed = JSON.parse(urlFilters)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          setSearch('')
+          setDebouncedSearch('')
+          setActiveFilters(parsed as ActiveFilters)
+          setPage(1)
+          setPerPage(null)
+          setSortBy(null)
+          setSortDir('asc')
+          setTrashedFilter('')
+          setFiltersOpen(true)
+
+          initialUrlParams.delete('filters')
+          const next = initialUrlParams.toString()
+          // Use react-router's `navigate` (replace) instead of
+          // `window.history.replaceState` so the Sidebar (and any
+          // other location-aware component) re-renders with the new
+          // search string. `replaceState` mutates the URL silently
+          // and leaves the sidebar showing the now-stale filter
+          // factory item as active. We omit `pathname` so navigate
+          // keeps the current path — passing `window.location.pathname`
+          // would duplicate the router basename ("/martis/martis/...").
+          navigate(
+            {
+              search: next ? `?${next}` : '',
+              hash: window.location.hash,
+            },
+            { replace: true },
+          )
+          return
+        }
+      } catch {
+        // Malformed JSON — fall through to the sticky-view / defaults path.
+      }
+    }
+
     const saved = readStickyView(resource)
     if (saved) {
       setSearch(typeof saved.search === 'string' ? saved.search : '')

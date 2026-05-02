@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react"
-import { NavLink } from "react-router-dom"
+import { NavLink, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
@@ -82,6 +82,45 @@ interface RenderItemContext {
   collapsed: boolean
   isMobile: boolean
   onMobileClose?: () => void
+  location: { pathname: string; search: string }
+}
+
+/**
+ * Whether a navigation item should light up as active given the current
+ * `react-router` `location`.
+ *
+ * NavLink's default `end={false}` prefix-matches paths, which would
+ * make a "Invoices" resource link bleed into its "Overdue Invoices"
+ * lens or filter children — clicking any descendant lights them all
+ * up at once. We tighten the rule:
+ *
+ *   - Filter factory items (URL carries `?filters=…`): pathname must
+ *     match exactly AND the current `?filters=` payload must equal
+ *     the item's payload. The filter param is short-lived in the URL
+ *     (stripped on hydration), so these items go quiet quickly.
+ *   - Every other item: pathname exact match. Resource items also
+ *     require the absence of a `?filters=` query so that, while the
+ *     filter sibling is briefly active during deep-link hydration,
+ *     the bare resource link does not steal the active state.
+ */
+function isLeafActive(item: NavigationItem, location: { pathname: string; search: string }): boolean {
+  // react-router routes are mounted under `/martis` via basename; both
+  // `location.pathname` and `item.url` already include the basename, so
+  // a direct string comparison is correct here.
+  const [itemPath, itemQuery = ''] = item.url.split('?')
+  if (location.pathname !== itemPath) return false
+
+  if (item.type === 'filter') {
+    const itemFilter = new URLSearchParams(itemQuery).get('filters')
+    const currentFilter = new URLSearchParams(location.search).get('filters')
+    return itemFilter !== null && itemFilter === currentFilter
+  }
+
+  if (item.type === 'resource') {
+    return !new URLSearchParams(location.search).has('filters')
+  }
+
+  return true
 }
 
 /**
@@ -144,13 +183,24 @@ function renderLeafItem(
     )
   }
 
+  // Use our own active rule (see isLeafActive) instead of NavLink's
+  // default prefix matcher. NavLink with a *string* className would
+  // still append its own " active" based on its internal isActive
+  // (a bare-pathname prefix match), which lights up the resource link
+  // plus every lens/filter sibling together. Passing a function lets
+  // us ignore NavLink's verdict entirely and return the precomputed
+  // class. `aria-current="page"` is still emitted by NavLink based on
+  // its own match — visually irrelevant since we drive the highlight
+  // via the `active` class.
+  const active = isLeafActive(item, ctx.location)
+  const className = "martis-sb-item" + (active ? " active" : "")
+
   return (
     <NavLink
       key={key}
       to={item.url}
-      className={({ isActive }) =>
-        "martis-sb-item" + (isActive ? " active" : "")
-      }
+      end
+      className={() => className}
       data-pr-tooltip={showTooltip}
       data-pr-position="right"
       onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
@@ -176,34 +226,59 @@ function NestedGroupBlock({
   const groupKey = `${parentKey}::${group.label}`
   const [open, setOpen] = useState(true)
   const showLabel = ctx.isMobile || !ctx.collapsed
-  const headerLabel = (
-    <>
-      {group.icon && (
-        <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
-      )}
-      <span>{group.label}</span>
-      {group.collapsable !== false && (
-        <CaretRightIcon size={10} className="caret" />
-      )}
-    </>
+  const collapsable = group.collapsable !== false
+  const iconNode = group.icon && (
+    <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
+  )
+  const labelNode = <span>{group.label}</span>
+  const caretNode = collapsable && (
+    <CaretRightIcon size={10} className="caret" />
   )
 
   return (
     <div className="martis-sb-subgroup" data-open={open ? "true" : "false"}>
-      {showLabel &&
-        (group.path ? (
-          <NavLink to={group.path} className="martis-sb-subgroup-label martis-sb-subgroup-label--link">
-            {headerLabel}
-          </NavLink>
-        ) : (
-          <button
-            type="button"
-            className="martis-sb-subgroup-label"
-            onClick={() => group.collapsable !== false && setOpen((o) => !o)}
-          >
-            {headerLabel}
-          </button>
-        ))}
+      {showLabel && (
+        <div className="martis-sb-subgroup-header">
+          {/* Label area — link when path() is set, plain button otherwise.
+              The chevron lives outside this so collapse + deep-link can
+              coexist on the same header. */}
+          {group.path ? (
+            <NavLink
+              to={group.path}
+              end
+              className={({ isActive }) =>
+                "martis-sb-subgroup-label martis-sb-subgroup-label--link" +
+                (isActive ? " active" : "")
+              }
+            >
+              {iconNode}
+              {labelNode}
+            </NavLink>
+          ) : (
+            <button
+              type="button"
+              className="martis-sb-subgroup-label"
+              onClick={() => collapsable && setOpen((o) => !o)}
+            >
+              {iconNode}
+              {labelNode}
+            </button>
+          )}
+          {/* Independent chevron — always toggles collapse, regardless of
+              whether the label is a link. Hidden when the group opted
+              out of collapsing entirely. */}
+          {collapsable && (
+            <button
+              type="button"
+              className="martis-sb-subgroup-toggle"
+              aria-label={open ? 'Collapse' : 'Expand'}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }}
+            >
+              {caretNode}
+            </button>
+          )}
+        </div>
+      )}
       {(open || (!ctx.isMobile && ctx.collapsed)) && (
         <div className="martis-sb-subgroup-items">
           {group.items.map((item) =>
@@ -228,6 +303,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
   useNavigationRefreshOnNavigate()
 
   const isMobile = mobileOpen !== undefined
+  const location = useLocation()
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
@@ -317,16 +393,13 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
             collapsed,
             isMobile,
             onMobileClose,
+            location: { pathname: location.pathname, search: location.search },
           }
-          const headerInner = (
-            <>
-              {group.icon && (
-                <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
-              )}
-              <span>{group.label}</span>
-              <CaretRightIcon size={10} className="caret" />
-            </>
+          const groupCollapsable = group.collapsable !== false
+          const groupIcon = group.icon && (
+            <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
           )
+          const groupLabel = <span>{group.label}</span>
           return (
             <Fragment key={groupKey}>
               {showSection && (
@@ -338,24 +411,47 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                 className="martis-sb-group"
                 data-open={isExpanded ? "true" : "false"}
               >
-                {group.label &&
-                  (isMobile || !collapsed) &&
-                  (group.path ? (
-                    <NavLink
-                      to={group.path}
-                      className="martis-sb-group-label martis-sb-group-label--link"
-                    >
-                      {headerInner}
-                    </NavLink>
-                  ) : (
-                    <button
-                      type="button"
-                      className="martis-sb-group-label"
-                      onClick={() => toggleGroup(groupKey)}
-                    >
-                      {headerInner}
-                    </button>
-                  ))}
+                {group.label && (isMobile || !collapsed) && (
+                  <div className="martis-sb-group-header">
+                    {/* Label area: NavLink when path() is set, button
+                        otherwise. The chevron lives outside so deep-link
+                        and collapse can coexist on the same header. */}
+                    {group.path ? (
+                      <NavLink
+                        to={group.path}
+                        end
+                        className={({ isActive }) =>
+                          "martis-sb-group-label martis-sb-group-label--link" +
+                          (isActive ? " active" : "")
+                        }
+                      >
+                        {groupIcon}
+                        {groupLabel}
+                      </NavLink>
+                    ) : (
+                      <button
+                        type="button"
+                        className="martis-sb-group-label"
+                        onClick={() => groupCollapsable && toggleGroup(groupKey)}
+                      >
+                        {groupIcon}
+                        {groupLabel}
+                      </button>
+                    )}
+                    {/* Independent chevron — always toggles collapse,
+                        regardless of whether the label is a link. */}
+                    {groupCollapsable && (
+                      <button
+                        type="button"
+                        className="martis-sb-group-toggle"
+                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleGroup(groupKey) }}
+                      >
+                        <CaretRightIcon size={10} className="caret" />
+                      </button>
+                    )}
+                  </div>
+                )}
                 {(isExpanded || (!isMobile && collapsed)) &&
                   getNavigationItems(group).map((child: NavigationGroupChild, idx) => {
                     if (isNestedGroup(child)) {

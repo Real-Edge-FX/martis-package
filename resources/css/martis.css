@@ -1439,9 +1439,49 @@ html[data-reduced-motion="true"] .mwc-shimmer {
 .martis-sb-item-tag[data-tone="danger"]  { background: var(--martis-danger-bg);  color: var(--martis-danger); }
 .martis-sb-item-tag[data-tone="accent"]  { background: var(--martis-accent-bg);  color: var(--martis-accent); }
 
-/* Section / group header as a clickable link (when MenuSection::path() or
- * MenuGroup::path() is set). Inherits the existing label typography but
- * adopts NavLink active styling. */
+/* Section / group header — split layout: label area (link or button)
+ * on the left, optional chevron toggle on the right. Allows path() and
+ * collapse to coexist on the same header. */
+.martis-sb-group-header,
+.martis-sb-subgroup-header {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.martis-sb-group-header > .martis-sb-group-label,
+.martis-sb-subgroup-header > .martis-sb-subgroup-label {
+  flex: 1;
+  min-width: 0;
+}
+.martis-sb-group-toggle,
+.martis-sb-subgroup-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0 8px;
+  cursor: pointer;
+  color: var(--martis-text-muted);
+  transition: color var(--martis-dur-fast) var(--martis-ease-standard),
+              background-color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-sb-group-toggle:hover,
+.martis-sb-subgroup-toggle:hover {
+  color: var(--martis-text);
+  background: var(--martis-hover);
+}
+.martis-sb-group-toggle .caret,
+.martis-sb-subgroup-toggle .caret {
+  transition: transform var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-sb-group[data-open="true"] .martis-sb-group-toggle .caret,
+.martis-sb-subgroup[data-open="true"] .martis-sb-subgroup-toggle .caret {
+  transform: rotate(90deg);
+}
+
+/* When MenuSection::path() / MenuGroup::path() is set, the label area
+ * becomes a NavLink. Inherit typography, gain active styling. */
 .martis-sb-group-label--link,
 .martis-sb-subgroup-label--link {
   text-decoration: none;
@@ -1525,8 +1565,8 @@ html[data-reduced-motion="true"] .mwc-shimmer {
 }
 .martis-sb[data-collapsed="true"] .martis-sb-logo-text,
 .martis-sb[data-collapsed="true"] .martis-sb-group-label > span,
-.martis-sb[data-collapsed="true"] .martis-sb-group-label > .caret,
-.martis-sb[data-collapsed="true"] .martis-sb-subgroup-label,
+.martis-sb[data-collapsed="true"] .martis-sb-group-toggle,
+.martis-sb[data-collapsed="true"] .martis-sb-subgroup-header,
 .martis-sb[data-collapsed="true"] .martis-sb-item-label,
 .martis-sb[data-collapsed="true"] .martis-sb-item-badge,
 .martis-sb[data-collapsed="true"] .martis-sb-item-tag,
