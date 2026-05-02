@@ -11,7 +11,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { ForbiddenPage } from '@/pages/Forbidden'
 import { ServerErrorPage } from '@/pages/ServerError'
 import { TwoFactorChallengePage } from '@/pages/TwoFactorChallenge'
-import { BASE_PATH } from '@/lib/config'
+import { BASE_PATH, config } from '@/lib/config'
 import { componentRegistry } from '@/lib/componentRegistry'
 
 /**
@@ -96,19 +96,23 @@ export const router = createBrowserRouter([
           return { element: <CacheAdminPage />, handle: { crumb: 'system_cache' } }
         },
       },
-      {
-        // Developer-only Component Inspector — pick any registered
-        // component, feed it a JSON payload, see it render in
-        // isolation. Gated on `config.preview.enabled` (default true
-        // in `local`, false elsewhere). The route is always wired so
-        // that a deliberate `MARTIS_DEV_INSPECTOR=true` works in
-        // staging without re-deploying.
-        path: 'dev/components',
-        lazy: async () => {
-          const { ComponentInspectorPage } = await import('@/pages/ComponentInspector')
-          return { element: <ComponentInspectorPage />, handle: { crumb: 'dev_components' } }
-        },
-      },
+      // Developer-only Component Inspector — pick any registered
+      // component, feed it a JSON payload, see it render in
+      // isolation. Gated on `config.dev.toolsEnabled` (PHP side:
+      // `MARTIS_DEV_TOOLS`, default true in `local`/`testing`, false
+      // elsewhere). When the flag is off the route is not registered
+      // at all so production bundles never resolve it.
+      ...(config.dev?.toolsEnabled
+        ? [
+            {
+              path: 'dev/components',
+              lazy: async () => {
+                const { ComponentInspectorPage } = await import('@/pages/ComponentInspector')
+                return { element: <ComponentInspectorPage />, handle: { crumb: 'dev_components' } }
+              },
+            },
+          ]
+        : []),
       {
         path: 'tools/:uriKey',
         lazy: async () => {

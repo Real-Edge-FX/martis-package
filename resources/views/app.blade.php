@@ -102,6 +102,9 @@
                     : (int) config('martis.navigation.counts.compact_threshold', 10000),
             ]) !!},
             loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
+            dev: {!! json_encode([
+                'toolsEnabled' => (bool) config('martis.dev.tools_enabled', false),
+            ]) !!},
             notifications: {!! json_encode(config('martis.notifications', [
                 'enabled' => true,
                 'poll_interval' => 60000,

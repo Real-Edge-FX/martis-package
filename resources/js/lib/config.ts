@@ -335,6 +335,20 @@ export interface MartisConfigShape {
   notifications?: MartisNotificationsConfig
   impersonation?: MartisImpersonationConfig
   keyboardShortcuts?: MartisKeyboardShortcutsConfig
+  /**
+   * Developer tooling switches. Today this only carries the gate
+   * for the Component Inspector at `/dev/components`; future dev
+   * surfaces (route inspector, schema browser, etc.) hang here too.
+   */
+  dev?: {
+    /**
+     * Whether the Component Inspector route is mounted. Defaults
+     * to true on `local` / `testing` environments and false
+     * everywhere else; the host can force either value via the
+     * `MARTIS_DEV_TOOLS` env var.
+     */
+    toolsEnabled?: boolean
+  }
 }
 
 /**

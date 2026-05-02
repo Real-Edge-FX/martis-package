@@ -230,6 +230,25 @@ return [
     |     count. Set to false to silence all badges globally without
     |     touching individual resources.
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Developer tools
+    |--------------------------------------------------------------------------
+    |
+    | Surface the in-panel developer tooling (Component Inspector at
+    | /martis/dev/components). The default keeps it ON in `local`/`testing`
+    | environments (so developers using the playground / their own dev
+    | container see it without flipping a flag) and OFF everywhere else,
+    | which prevents end-users on staging or production from stumbling onto
+    | the page. Set MARTIS_DEV_TOOLS=true in any environment to force-enable.
+    */
+    'dev' => [
+        'tools_enabled' => env(
+            'MARTIS_DEV_TOOLS',
+            in_array(env('APP_ENV', 'production'), ['local', 'testing'], true),
+        ),
+    ],
+
     'navigation' => [
         'counts' => [
             'enabled' => env('MARTIS_NAV_COUNTS', true),

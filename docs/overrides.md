@@ -722,7 +722,21 @@ Distinct from the BelongsTo / MorphTo **peek** popover. Peek shows real records 
 
 The page reads the same `componentRegistry.keys()` you'd inspect via the browser devtools console, so it surfaces every registered key — bundled drawers (`martis:drawer-*`), built-in field renderers (`field:display:text`, `field:input:select`, …), and your own overrides.
 
-A misshapen JSON payload renders a red error box instead of crashing the inspector. The page does not gate on auth at the route level (it sits inside the same authenticated shell as every other Martis admin page); restrict it via your existing middleware if you don't want non-developers landing on it.
+A misshapen JSON payload renders a red error box instead of crashing the inspector. The page sits inside the same authenticated shell as every other Martis admin page; restrict it via your existing middleware if you don't want non-developers landing on it.
+
+### Environment gate
+
+The Inspector route is **only registered when `config('martis.dev.tools_enabled')` is true**. The default resolves to `true` on `local` / `testing` environments and `false` everywhere else, so production bundles do not expose `/dev/components` at all. Force either value via env:
+
+```dotenv
+# Force enable on a staging box for a specific debugging session.
+MARTIS_DEV_TOOLS=true
+
+# Force disable even in local (e.g. recording a clean walkthrough).
+MARTIS_DEV_TOOLS=false
+```
+
+Setting this is a server-side config change, so re-publish or re-bundle after editing — the bridge runs through `window.MartisConfig.dev.toolsEnabled` and the React router conditionally registers the route from there.
 
 ## Page Title Hook
 
