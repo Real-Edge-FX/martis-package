@@ -21,7 +21,7 @@ The implementation uses a hybrid model:
 3. When the user lands back on the index page, the saved state is restored before the first render — no flicker.
 4. Closing the tab wipes `sessionStorage` so a fresh window starts clean.
 
-URL-as-source-of-truth deep-linking is on the roadmap (next iteration); the current cut already covers the daily pain.
+Filter state, sort and pagination are already reflected in the URL — every view is deep-linkable. Sticky Views complement this by restoring the last-used URL parameters when the user lands on an index page without explicit URL state (for example, from the sidebar link or a fresh tab).
 
 ## What gets persisted
 
@@ -91,23 +91,17 @@ The button is hidden when nothing would change.
 
 ## API
 
-The feature is implemented as a small library exported from `@martis/martis/lib/useStickyView`:
+The persistence logic lives in an internal module (`lib/useStickyView`). Most developers never touch it directly — `ResourceIndexPage` wires it automatically.
 
-```ts
-import {
-  useStickyView,        // hook — writes state into storage on change
-  readStickyView,       // imperative read (used during restore)
-  writeStickyView,      // imperative write
-  clearStickyView,      // drop one resource's saved state
-  clearAllStickyViews,  // drop every Martis sticky-view entry
-} from '@martis/martis/lib/useStickyView'
-```
+The two affordances exposed to consumers are:
 
-Most consumers won't touch this directly — `ResourceIndexPage` already wires it. The imperative helpers are exposed for custom index components and for the user profile / preferences "Clear saved views" affordance.
+- **"Reset view" button** — built into the index toolbar, visible when saved state differs from resource defaults.
+- **"Clear saved views"** — available in the user profile / preferences panel; clears all sticky-view entries from storage.
+
+If you are building a fully custom index component and need to read or write sticky state programmatically, open an issue — a stable public API is planned once the `scope=server` iteration is complete.
 
 ## Future iterations
 
 - **`scope=server`** — sync state to a `martis_user_view_state` JSON column / table. Multi-device support.
-- **URL-as-source-of-truth** — every state change reflects in `?` query params so the current view is shareable / deep-linkable.
 - **Named views** — user saves "Active clients in EU" as a named preset and recalls it from a dropdown. Shareable URLs.
 - **Column visibility toggle** — once the column-toggle UI ships, the `columns` bucket starts capturing real state.
