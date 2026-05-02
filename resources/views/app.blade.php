@@ -160,8 +160,8 @@
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
                 'sections' => array_values(array_intersect(
-                    config('martis.profile.sections', ['account', 'password', 'avatar', 'security']),
-                    ['account', 'password', 'avatar', 'security']
+                    config('martis.profile.sections', ['account', 'password', 'avatar', 'security', 'sessions']),
+                    ['account', 'password', 'avatar', 'security', 'sessions']
                 )),
                 'menu' => [
                     'label' => config('martis.profile.menu.label'),

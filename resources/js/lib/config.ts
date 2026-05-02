@@ -161,7 +161,7 @@ export interface MartisProfileTwoFactorConfig {
 export interface MartisProfileConfig {
   /** Whether the profile page and its backend routes are enabled. Default: true. */
   enabled?: boolean
-  /** Ordered list of sections to render. Supported: 'account', 'password', 'avatar', 'security'. */
+  /** Ordered list of sections to render. Supported: 'account', 'password', 'avatar', 'security', 'sessions'. */
   sections?: string[]
   menu?: MartisProfileMenuConfig
   avatar?: MartisProfileAvatarConfig
