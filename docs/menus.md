@@ -69,25 +69,51 @@ Martis::mainMenu(function (Request $request, Menu $menu): Menu {
 
 ### `MenuSection`
 
-- `MenuSection::make($label, [...])`
+- `MenuSection::make(?string $label = null, array $items = [])` — `$label` is optional; omit it for an unnamed cluster
 - `items([...])`
 - `add(...)`
 - `icon(...)`
 - `collapsable(bool)`
+- `section(?string $section)` — assign this group to a higher-level section divider (see [Sections](#sections))
 - `canSee(...)`
 - `withMeta([...])`
 
 ### `MenuItem`
 
+- `MenuItem::make($label, $url)` — alias for `link()`
 - `MenuItem::link($label, $url)`
 - `MenuItem::externalLink($label, $url)`
 - `MenuItem::resource(ResourceClass::class)`
+- `MenuItem::tool(ToolClass::class | $toolInstance)` — see [Tool menu items](#tool-menu-items)
 - `label(...)`
 - `icon(...)`
 - `path(...)`
 - `external(bool)`
 - `canSee(...)`
 - `withMeta([...])`
+
+### Tool menu items
+
+`MenuItem::tool()` builds a navigation entry from a registered Martis Tool.
+The factory accepts either a class-string or a tool instance, and reads
+`name()`, `uriKey()`, `icon()`, and `authorizedToSee()` lazily at request
+time, so the rendered menu always reflects the live state of the tool —
+including authorization checks, which silently drop the item when the user
+is not allowed to see it.
+
+```php
+use App\Martis\Tools\HealthCheck;
+use Martis\Menu\MenuItem;
+use Martis\Menu\MenuSection;
+
+MenuSection::make('Operations', [
+    MenuItem::tool(HealthCheck::class),
+    MenuItem::tool(HealthCheck::class)->label('Status')->icon('pulse'),
+]);
+```
+
+Any combination of `label()`, `icon()`, and `path()` overrides the tool's
+defaults. Otherwise the item resolves to `/tools/<uriKey>` automatically.
 
 ## Authorization and Visibility
 
@@ -169,6 +195,36 @@ Disable badges globally with:
 
 or the `MARTIS_NAV_COUNTS=false` env var. The global switch wins over
 per-resource opt-ins.
+
+### Compact notation
+
+Counts above the configured threshold render in compact notation (`10K`,
+`1.2M`) so dense sidebars stay readable. Default threshold is `10000`:
+
+```php
+// config/martis.php
+'navigation' => [
+    'count_compact_threshold' => env('MARTIS_NAV_COUNT_COMPACT_THRESHOLD', 10000),
+],
+```
+
+Lower the value (e.g. `1000`) to compact earlier, or set it to a very
+large number to disable compaction entirely.
+
+### Live polling
+
+The frontend polls `/martis/api/navigation` while a tab is focused so
+counts stay fresh without a full page reload. The cadence is controlled
+in `config/martis.php`:
+
+```php
+'navigation' => [
+    'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+],
+```
+
+The default is 60 seconds. Set it to `0` to disable polling entirely —
+counts then refresh only on full navigation.
 
 ## Navigation API Response
 
