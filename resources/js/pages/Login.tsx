@@ -137,13 +137,23 @@ export function LoginPage() {
    *  outcome. Identical envelope success / fail to avoid account
    *  enumeration. */
   async function handleMagicLinkRequest(): Promise<void> {
-    if (!email) {
+    // Clear any prior validation error from a previous submit so the
+    // form does not flash a stale "Email is required" once the user
+    // has actually filled the field in.
+    setErrors({})
+
+    if (!email.trim()) {
       setErrors({ email: t('email_required', { defaultValue: 'Email is required.' }) })
       return
     }
+
     setMagicLinkSubmitting(true)
     try {
-      await api.post(`${BASE_PATH}/api/auth/magic-link/request`, { email })
+      // `api.post()` already prepends `API_BASE_URL` (which is the
+      // configured Martis path prefix). Passing a leading-`/api/...`
+      // path here is the same convention every other auth call uses
+      // (see `ForgotPassword.tsx` for a parallel).
+      await api.post('/api/auth/magic-link/request', { email })
       addToast(
         'success',
         t('magic_link_sent', { defaultValue: 'If an account exists for that email, a sign-in link is on its way.' }),
