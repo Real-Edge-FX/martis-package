@@ -145,11 +145,21 @@ Route::middleware(config('martis.middleware', ['web']))
         Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
             ->middleware('martis.auth')
             ->name('email.verify.notice');
+        // Public route — the signed URL + `sha1(email)` hash in the
+        // path are the proof of intent; requiring an active session
+        // (via `martis.auth`) on top broke the common case of "open
+        // email on phone, click link" because the user is logged out
+        // and the auth middleware would bounce them to /login,
+        // discarding the signature. v1.8.16+.
         Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-            ->middleware(['martis.auth', 'signed', 'throttle:6,1'])
+            ->middleware(['signed', 'throttle:6,1'])
             ->name('email.verify');
+        // Resend throttle dropped from 6/min to 3/min after a user
+        // reported clicking >5 times in a row without being blocked.
+        // 3/min is the conventional ceiling for password-reset and
+        // verification re-send flows. v1.8.16+.
         Route::post('/api/auth/email/verification-notification', [EmailVerificationController::class, 'send'])
-            ->middleware(['martis.auth', 'throttle:6,1'])
+            ->middleware(['martis.auth', 'throttle:3,1'])
             ->name('api.auth.email.verification.send');
 
         // Translations — public, loaded before login

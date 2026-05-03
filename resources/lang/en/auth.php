@@ -35,8 +35,20 @@ return [
     'register_submit' => 'Create account',
     'register_submitting' => 'Creating account…',
     'register_success' => 'Account created. Please sign in.',
+    'register_success_verify' => 'Account created. Check your inbox to verify your email before signing in.',
     'register_endpoint_missing' => 'Registration endpoint is not available. Ask a workspace admin to finish setting it up.',
     'register_have_account' => 'Already have an account?',
+
+    // Email-verify notice page (v1.8.16)
+    'verify_title' => 'Verify your email',
+    'verify_sub' => 'We sent a verification link to {{email}}. Click it to continue.',
+    'verify_sub_guest' => 'Check the inbox you registered with for the verification link, then sign in.',
+    'verify_resend' => 'Resend verification link',
+    'verify_resending' => 'Sending…',
+    'verify_resent' => 'Verification link sent. Check your inbox.',
+    'verify_sign_out' => 'Sign in with a different account',
+    'verify_back_to_login' => 'Back to sign in',
+    'verify_success' => 'Email verified. You can sign in now.',
 
     // Forgot password (v1.8.0)
     'forgot_password_title' => 'Reset your password',

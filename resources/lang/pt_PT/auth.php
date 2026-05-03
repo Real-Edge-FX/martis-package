@@ -35,8 +35,20 @@ return [
     'register_submit' => 'Criar conta',
     'register_submitting' => 'A criar conta…',
     'register_success' => 'Conta criada. Inicie sessão.',
+    'register_success_verify' => 'Conta criada. Verifique a sua caixa de entrada para confirmar o email antes de iniciar sessão.',
     'register_endpoint_missing' => 'O endpoint de registo não está disponível. Peça a um administrador para o configurar.',
     'register_have_account' => 'Já tem uma conta?',
+
+    // Página de aviso de verificação de email (v1.8.16)
+    'verify_title' => 'Verifique o seu email',
+    'verify_sub' => 'Enviámos uma ligação de verificação para {{email}}. Clique nela para continuar.',
+    'verify_sub_guest' => 'Verifique a caixa de entrada do email com que se registou para a ligação de verificação. Depois inicie sessão.',
+    'verify_resend' => 'Reenviar ligação de verificação',
+    'verify_resending' => 'A enviar…',
+    'verify_resent' => 'Ligação de verificação enviada. Verifique a sua caixa de entrada.',
+    'verify_sign_out' => 'Iniciar sessão com outra conta',
+    'verify_back_to_login' => 'Voltar ao início de sessão',
+    'verify_success' => 'Email verificado. Já pode iniciar sessão.',
 
     // Recuperação de palavra-passe (v1.8.0)
     'forgot_password_title' => 'Repor a sua palavra-passe',

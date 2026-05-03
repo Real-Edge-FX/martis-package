@@ -116,8 +116,25 @@ export function RegisterPage() {
         password,
         password_confirmation: passwordConfirmation,
       })
-      addToast('success', t('register_success', { defaultValue: 'Account created. Please sign in.' }))
-      navigate('/login', { replace: true })
+      // When the workspace requires email verification, the user is NOT
+      // ready to sign in yet — sending them to /login with a "Please
+      // sign in" toast is misleading because the next login attempt
+      // will be gated by the verification flag and they'll be bounced
+      // to /email/verify regardless. Surface a "check your inbox"
+      // message that matches the actual next step.
+      const verifyRequired = config.auth?.emailVerification?.enabled === true
+      if (verifyRequired) {
+        addToast(
+          'success',
+          t('register_success_verify', {
+            defaultValue: 'Account created. Check your inbox to verify your email before signing in.',
+          }),
+        )
+        navigate('/email/verify', { replace: true })
+      } else {
+        addToast('success', t('register_success', { defaultValue: 'Account created. Please sign in.' }))
+        navigate('/login', { replace: true })
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 422 && err.errors) {
