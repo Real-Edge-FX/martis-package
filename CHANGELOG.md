@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.12] — 2026-05-03
+
+### Fixed
+
+- **`brandColor` (custom hex accent) now drives the full 6-token palette.** When a user's preferences declared `brandColor`, only `--martis-accent` was overridden; `--martis-accent-hover`, `-active`, `-bg-light`, `-bg` and `--martis-focus-ring` kept inheriting the bundled named-accent defaults. Most visible regression: a button with a teal `--martis-accent` flashed bundled-blue on hover. The fix derives the five remaining tokens via `color-mix(in srgb, ...)` — the same chain the SSR rule emits for `MARTIS_CUSTOM_ACCENTS`. Applied in both the pre-paint bootstrap (`app.blade.php`) so the FOUC stays clean, and `PreferencesContext::applyToDom()` so runtime accent changes stay consistent. Clearing `brandColor` removes all six overrides, falling cleanly back to the data-accent-driven palette.
+
+
 ## [1.8.11] — 2026-05-03
 
 ### Fixed
