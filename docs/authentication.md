@@ -527,6 +527,8 @@ Once `enabled=true`, the package:
 - Renders the themed notice page at `/{martis-path}/email/verify`. Override via `martis:component MyVerifyNotice --type=email-verify-notice-page`.
 - Handles the signed verify link at `/{martis-path}/email/verify/{id}/{hash}` — marks `email_verified_at`, fires `Verified`, redirects to the dashboard.
 - Exposes `POST /{martis-path}/api/auth/email/verification-notification` so the notice page can offer a "resend" button.
+- Overrides Laravel's `VerifyEmail::createUrlUsing()` so the bundled notification builds its signed link against the Martis-named route (`martis.email.verify`) instead of the framework default `verification.verify` (which Martis does not register). Without this override registration would 500 with `Route [verification.verify] not defined` as soon as the bundled listener runs. The override is gated on the same `enabled` flag and skips when a consumer has already installed its own callback. (v1.8.13+)
+- The shared SPA `request()` interceptor watches for `409 { message: "Your email address is not verified." }` and forces a hard navigation to `/{martis-path}/email/verify`. The middleware itself only redirects HTML requests, so without this hook a logged-in unverified user who reached the dashboard via client-side navigation would see every API call 409 in place. Mirrors the existing 401 → `/login?expired=1` behaviour. (v1.8.13+)
 
 ### What if the user loses the verification email?
 
