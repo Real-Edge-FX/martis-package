@@ -145,6 +145,14 @@
                         'enabled' => (bool) config('martis.auth.magic_link.enabled', false),
                         'ttlMinutes' => (int) config('martis.auth.magic_link.ttl_minutes', 15),
                     ],
+                    // v1.8.16 — surfaced so the SPA can switch the
+                    // post-register toast from "Sign in" to "Check your
+                    // inbox" and the verify notice page can render a
+                    // generic "Check the inbox you registered with"
+                    // message when no session is active.
+                    'emailVerification' => [
+                        'enabled' => (bool) config('martis.auth.email_verification.enabled', false),
+                    ],
                 ],
                 [
                     // v1.8.5 — `auth.copy.*` accepts strings OR

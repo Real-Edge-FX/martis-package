@@ -68,6 +68,26 @@ export function LoginPage() {
     return () => window.clearTimeout(handle)
   }, [])
 
+  // Detect arrival from the verification-link controller (v1.8.16). Same
+  // deferred-toast pattern as the session-expired branch above so the
+  // portal mount race stays clear.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('verified') !== '1') return
+
+    const handle = window.setTimeout(() => {
+      addToast(
+        'success',
+        t('verify_success', { defaultValue: 'Email verified. You can sign in now.' }),
+      )
+      const url = new URL(window.location.href)
+      url.searchParams.delete('verified')
+      window.history.replaceState({}, '', url.toString())
+    }, 0)
+
+    return () => window.clearTimeout(handle)
+  }, [])
+
   // Redirect already-authenticated users out of the login page via an
   // effect rather than a render-time `<Navigate>` so the navigation
   // happens outside of React's render cycle. This avoids racing with

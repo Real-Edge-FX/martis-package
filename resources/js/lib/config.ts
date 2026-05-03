@@ -316,6 +316,12 @@ export interface MartisAuthConfig {
   copy?: MartisAuthCopyConfig
   /** Magic-link (passwordless) sign-in. v1.8.8. */
   magicLink?: MartisMagicLinkConfig
+  /** Email-verification subsystem state. The SPA branches on this for
+   *  the post-register UX (toast copy + redirect) and for the verify
+   *  notice page when no session is active. v1.8.16. */
+  emailVerification?: {
+    enabled?: boolean
+  }
 }
 
 export interface MartisMagicLinkConfig {

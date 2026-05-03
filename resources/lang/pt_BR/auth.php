@@ -35,8 +35,20 @@ return [
     'register_submit' => 'Criar conta',
     'register_submitting' => 'Criando conta…',
     'register_success' => 'Conta criada. Faça login.',
+    'register_success_verify' => 'Conta criada. Verifique sua caixa de entrada para confirmar o e-mail antes de fazer login.',
     'register_endpoint_missing' => 'O endpoint de registro não está disponível. Peça ao administrador para configurá-lo.',
     'register_have_account' => 'Já tem uma conta?',
+
+    // Página de aviso de verificação de e-mail (v1.8.16)
+    'verify_title' => 'Verifique seu e-mail',
+    'verify_sub' => 'Enviamos um link de verificação para {{email}}. Clique nele para continuar.',
+    'verify_sub_guest' => 'Verifique a caixa de entrada do e-mail com que você se registrou para o link de verificação. Depois faça login.',
+    'verify_resend' => 'Reenviar link de verificação',
+    'verify_resending' => 'Enviando…',
+    'verify_resent' => 'Link de verificação enviado. Verifique sua caixa de entrada.',
+    'verify_sign_out' => 'Entrar com outra conta',
+    'verify_back_to_login' => 'Voltar para o login',
+    'verify_success' => 'E-mail verificado. Você já pode fazer login.',
 
     // Recuperação de senha (v1.8.0)
     'forgot_password_title' => 'Recuperar sua senha',
