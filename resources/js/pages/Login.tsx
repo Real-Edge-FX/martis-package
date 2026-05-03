@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { useAuth, TwoFactorRequiredError } from "@/contexts/AuthContext"
+import { useAuth, TwoFactorRequiredError, EmailVerificationRequiredError } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
 import { api, ApiError } from "@/lib/api"
 import { config } from "@/lib/config"
@@ -95,6 +95,10 @@ export function LoginPage() {
     } catch (err) {
       if (err instanceof TwoFactorRequiredError) {
         navigate('/2fa/challenge', { replace: true })
+        return
+      }
+      if (err instanceof EmailVerificationRequiredError) {
+        navigate('/email/verify', { replace: true })
         return
       }
       if (err instanceof ApiError) {
