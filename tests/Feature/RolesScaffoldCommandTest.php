@@ -264,8 +264,13 @@ it('with --with-categories, PermissionResource gains the field + filter and the 
     $body = (string) file_get_contents(app_path('Martis/Resources/PermissionResource.php'));
 
     expect($body)->toContain("Text::make('Category', 'category')")
-        ->and($body)->toContain('public function filters(\Illuminate\Http\Request $request)')
-        ->and($body)->toContain('SelectFilter');
+        ->and($body)->toContain('public function filters(Request $request)')
+        ->and($body)->toContain('PermissionCategoryFilter');
+
+    // Concrete SelectFilter subclass scaffolded alongside the resource.
+    $filter = (string) file_get_contents(app_path('Martis/Filters/PermissionCategoryFilter.php'));
+    expect($filter)->toContain('class PermissionCategoryFilter extends SelectFilter')
+        ->and($filter)->toContain("->where('category', (string) \$value)");
 
     $migrations = (array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php'));
     expect($migrations)->not->toBeEmpty();

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.17] — 2026-05-03
+
+### Fixed
+
+- **`martis:roles --with-categories` no longer scaffolds an uninstantiable filter.** The pre-1.8.17 stub embedded `new \Martis\Filters\SelectFilter(column:..., name:..., options: fn () => ...)` directly inside the generated `PermissionResource::filters()` — but `SelectFilter` is abstract and the `Filter` base ctor requires a `string $name`. Visiting `/martis/resources/permissions` threw `Cannot instantiate abstract class Martis\Filters\SelectFilter` (or, on a partial fix, `Too few arguments to function Martis\Filters\Filter::__construct, 0 passed`). The scaffolder now writes a dedicated concrete subclass at `app/Martis/Filters/PermissionCategoryFilter.php` with a working `__construct()` (`parent::__construct(name: 'Category', uriKey: 'category')`) and the resource references it by name. New regression spec in `RolesScaffoldCommandTest` locks the scaffold output.
+
 ## [1.8.16] — 2026-05-03
 
 ### Fixed
