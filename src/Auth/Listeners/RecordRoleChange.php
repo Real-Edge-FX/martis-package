@@ -81,6 +81,7 @@ class RecordRoleChange
     public function handleRoleDetached(object $event): void
     {
         $this->dispatchIfShape($event, 'role.detached');
+        $this->maybeRevokeSessions($event);
     }
 
     public function handlePermissionAttached(object $event): void
@@ -91,6 +92,53 @@ class RecordRoleChange
     public function handlePermissionDetached(object $event): void
     {
         $this->dispatchIfShape($event, 'permission.detached');
+        $this->maybeRevokeSessions($event);
+    }
+
+    /**
+     * v1.8.8 — when `martis.authz.revoke_sessions_on_demote` is true,
+     * detach events trigger a session sweep on the affected user. Any
+     * active session for that user (other than the operator's current
+     * one) is dropped immediately, so a demotion takes effect on every
+     * device without waiting for the cookie to expire.
+     *
+     * Skips silently when the host app does not use the database
+     * session driver (BrowserSessionsService surfaces a
+     * `supported: false` envelope in that case; nothing to revoke).
+     */
+    protected function maybeRevokeSessions(object $event): void
+    {
+        if (! (bool) config('martis.authz.revoke_sessions_on_demote', false)) {
+            return;
+        }
+
+        $model = property_exists($event, 'model') ? $event->model : null;
+        if (! $model instanceof \Illuminate\Database\Eloquent\Model) {
+            return;
+        }
+
+        $userId = $model->getKey();
+        if (! is_int($userId) && ! is_string($userId)) {
+            return;
+        }
+
+        $driver = (string) config('session.driver', 'file');
+        if ($driver !== 'database') {
+            return;
+        }
+
+        $table = (string) config('session.table', 'sessions');
+        if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+            return;
+        }
+
+        // Drop EVERY session row for the demoted user. The current
+        // session belongs to the OPERATOR (admin), not the demoted
+        // user, so a wholesale delete is safe — the operator stays
+        // signed in on their own session row.
+        \Illuminate\Support\Facades\DB::table($table)
+            ->where('user_id', $userId)
+            ->delete();
     }
 
     protected function dispatchIfShape(object $event, string $name): void

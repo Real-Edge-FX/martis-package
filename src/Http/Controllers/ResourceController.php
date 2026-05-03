@@ -112,7 +112,11 @@ class ResourceController extends MartisController
             }
         }
 
-        // Apply indexQuery hook + the declarative static $with list.
+        // Apply declarative scopes (v1.8.8) BEFORE the imperative
+        // `indexQuery()` so the manual hook can override scope-applied
+        // predicates when the resource really needs to. Then the
+        // declarative static $with list.
+        $query = $resourceClass::applyScopes($request, $query);
         $query = $resourceClass::indexQuery($request, $query);
         $query = $resourceClass::applyWith($query);
 
@@ -1764,7 +1768,19 @@ class ResourceController extends MartisController
         /** @var array<string, mixed> $data */
         $data = ['id' => $model->getKey()];
 
+        $request = request();
+
         foreach ($fields as $field) {
+            // v1.8.8 — per-model field authorization. When the field
+            // declared `canSeeForModel(...)` or `canSeeUsingPolicy(...)`,
+            // skip its serialization for rows where the closure returns
+            // false. Stripping at serialization time means the value
+            // never reaches the wire — the consumer cannot read it
+            // even if the React layer has stale state.
+            if (method_exists($field, 'isAuthorizedForModel') && ! $field->isAuthorizedForModel($request, $model)) {
+                continue;
+            }
+
             if ($forDisplay) {
                 /** @var FieldContract&Field $fieldInstance */
                 $fieldInstance = $field;
@@ -1776,7 +1792,7 @@ class ResourceController extends MartisController
 
         $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();
-        $data['_authorization'] = $resource->authorizationMetadata(request());
+        $data['_authorization'] = $resource->authorizationMetadata($request);
 
         // Include deleted_at for soft-delete resources so the frontend can show Archived badge
         if ($resource::softDeletes() && $model->getAttribute('deleted_at') !== null) {

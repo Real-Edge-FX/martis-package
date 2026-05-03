@@ -228,6 +228,64 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * Declarative query scopes applied to every list-side query before
+     * `indexQuery()` runs. v1.8.8.
+     *
+     * Return an associative `[label => Closure]` map; each closure
+     * receives the `Builder` (and the `Request` if it declares the
+     * second parameter) and returns the (possibly mutated) builder.
+     *
+     * Common multi-tenant pattern:
+     *
+     *     public static function scopes(Request $request): array
+     *     {
+     *         return [
+     *             'tenant'  => fn (Builder $q) => $q->where('tenant_id', $request->user()->tenant_id),
+     *             'visible' => fn (Builder $q) => $q->where('archived', false),
+     *         ];
+     *     }
+     *
+     * The label is purely informational (used by future debug overlays
+     * and logging). The order is iteration order — array keys define a
+     * stable apply order across reloads.
+     *
+     * Default `[]` keeps the resource untouched. Use `indexQuery()` for
+     * one-off mutations that don't fit the declarative shape (joins,
+     * raw SQL, conditional ordering); use `scopes()` for invariants
+     * that should compose across every list endpoint.
+     *
+     * @return array<string, \Closure>
+     */
+    public static function scopes(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Apply every closure returned by `scopes()` to the given query
+     * in declaration order. Called by the controller before
+     * `indexQuery()` so the manual hook can override scope-applied
+     * predicates when really needed.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function applyScopes(Request $request, Builder $query): Builder
+    {
+        foreach (static::scopes($request) as $closure) {
+            if (! is_callable($closure)) {
+                continue;
+            }
+            $result = $closure($query, $request);
+            if ($result instanceof Builder) {
+                $query = $result;
+            }
+        }
+
+        return $query;
+    }
+
+    /**
      * Build a query for relatable resource options.
      *
      * Override this method to filter which records appear in relationship
@@ -1039,6 +1097,10 @@ abstract class Resource implements ResourceContract
     public static function menuCount(Request $request): ?int
     {
         $query = static::newModel()->newQuery();
+
+        // v1.8.8 — apply declarative scopes before the imperative hook
+        // so the count badge agrees with the index-page row count.
+        $query = static::applyScopes($request, $query);
 
         /** @var Builder<Model> $scoped */
         $scoped = static::indexQuery($request, $query);

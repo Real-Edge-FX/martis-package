@@ -269,6 +269,46 @@ return [
         // false to silence the audit-table writes; the events still
         // fire so your own listeners keep working. v1.8.8.
         'impersonation' => env('MARTIS_AUDIT_IMPERSONATION', true),
+
+        // Authorization denials (Laravel Gate evaluations that returned
+        // false for an authenticated user). Off by default — busy apps
+        // can produce a row per denial per request. Turn on for
+        // compliance / forensics. v1.8.8.
+        'authz_denials' => env('MARTIS_AUDIT_AUTHZ_DENIALS', false),
+
+        // When true, the listener also records the noisy `viewAny`
+        // cascade (Laravel runs it for sidebar / navigation). Default
+        // false — the parent `view` denial is the actionable signal.
+        // v1.8.8.
+        'authz_denials_include_viewany' => env('MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authorization tuning
+    |--------------------------------------------------------------------------
+    | Knobs for the policy / Gate layer that sit alongside the audit
+    | toggles above. Today only the per-request cache lives here;
+    | future entries (e.g. per-resource policy override registry,
+    | global before() callbacks) hang off the same block.
+    */
+    'authz' => [
+        // Memoise Gate decisions inside a single request. Off by
+        // default. Useful for non-Spatie apps where the same
+        // ability is evaluated many times per request from different
+        // surfaces (sidebar visibility, schema authorization block,
+        // per-record _authorization, action visibility). The cache
+        // is request-scoped — never spans requests, never persisted.
+        // Skips closure gates and unkeyable arguments. v1.8.8.
+        'request_cache' => env('MARTIS_AUTHZ_REQUEST_CACHE', false),
+
+        // When set true, the impersonation / role-demote listeners
+        // revoke a user's other browser sessions whenever a role or
+        // permission is detached from them. Useful in regulated apps
+        // where a demotion must take immediate effect on every device
+        // the user is signed in on. Default false because revoking
+        // active sessions is a heavy hammer. v1.8.8.
+        'revoke_sessions_on_demote' => env('MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE', false),
     ],
 
     'navigation' => [

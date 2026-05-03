@@ -473,6 +473,23 @@ class MartisServiceProvider extends ServiceProvider
             [\Martis\Auth\Listeners\RecordImpersonation::class, 'handleStopped'],
         );
 
+        // v1.8.8 — Gate denial audit. The listener carries per-request
+        // dedup state, so register it as a request-scoped singleton so
+        // the same instance handles every event in one request lifecycle.
+        $this->app->scoped(\Martis\Auth\Listeners\RecordAuthorizationDenial::class);
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Access\Events\GateEvaluated::class,
+            [\Martis\Auth\Listeners\RecordAuthorizationDenial::class, 'handle'],
+        );
+
+        // v1.8.8 — Per-request Gate cache. Same scoped registration so
+        // the cache state lives only for the current request lifecycle.
+        $this->app->scoped(\Martis\Authorization\RequestScopedAbilityCache::class);
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Access\Events\GateEvaluated::class,
+            [\Martis\Authorization\RequestScopedAbilityCache::class, 'handle'],
+        );
+
         // Spatie listeners only register when the package is installed —
         // the events themselves do not exist otherwise.
         if (! class_exists(\Spatie\Permission\Events\RoleAttachedEvent::class)) {

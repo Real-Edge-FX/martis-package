@@ -199,13 +199,94 @@ list where only some rows allow it), the button is rendered `disabled`.
   row edits. It falls back to `update` on the parent so existing
   policies keep working.
 
+## Per-field authorization
+
+Most field visibility is per-request — `Field::canSee(fn (Request $r) => …)` is enough. When the decision needs to consult the row being rendered (e.g. hiding `email` for non-admins on a User index), use the v1.8.8 model-aware variant:
+
+```php
+Email::make('email')
+    ->canSeeForModel(fn (Request $r, User $user) => $r->user()?->can('viewEmail', $user) ?? false);
+```
+
+Sugar over a Gate ability:
+
+```php
+Email::make('email')->canSeeUsingPolicy('viewEmail');
+// Equivalent to canSeeForModel(fn (Request, Model) => Gate::forUser($request->user())->allows('viewEmail', $model))
+```
+
+The check runs at serialization time inside `serializeModel()`, so the value never reaches the wire when the closure returns false. Stripping at serialization time means even a tampered React layer cannot read the masked field — the bytes are simply not in the response payload.
+
+## Declarative query scopes
+
+`Resource::indexQuery()` is the imperative hook for one-off mutations. For invariants that should compose across every list endpoint (multi-tenancy, "archived = false", "subscription_active = true"), declare them with the v1.8.8 `scopes()` method:
+
+```php
+public static function scopes(Request $request): array
+{
+    return [
+        'tenant'  => fn (Builder $q) => $q->where('tenant_id', $request->user()->tenant_id),
+        'visible' => fn (Builder $q) => $q->where('archived', false),
+    ];
+}
+```
+
+The labels are informational (used by future debug overlays). The order is iteration order — the array key declares a stable apply order across reloads. The controller calls `applyScopes()` BEFORE `indexQuery()` so the manual hook can override scope-applied predicates when really needed. Both surfaces feed the same Builder.
+
+The count badge on the sidebar uses the same code path, so the scoped count always agrees with the row count on the index page.
+
+## Audit log of denied authorizations
+
+Off by default. Flip `MARTIS_AUDIT_AUTHZ_DENIALS=true` to record every Gate denial for an authenticated user into the `martis_action_events` audit table. Each row carries:
+
+- `name = authz.denied`
+- `user_id` — the user the check ran for.
+- `fields.ability` — the ability name.
+- `fields.model_class` / `fields.model_id` — the target row when the gate received a Model argument.
+- `status = denied`.
+
+Repeat denials of the same `(user, ability, model)` within one request are de-duplicated to a single row, so a page that runs many redundant checks does not flood the table.
+
+The noisy `viewAny` cascade (sidebar / navigation) is dropped by default. Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep it.
+
+## Per-request Gate cache
+
+Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and the package memoises every Gate result keyed on `(user, ability, model_class, model_id)` for the duration of the request. Subsequent checks read from a `Map<string, bool>` instead of re-running the policy method. Useful for non-Spatie apps where the sidebar, schema authorization block, per-record `_authorization` block, and action visibility all evaluate the same gate.
+
+The cache is request-scoped — never spans requests, never persisted. Closure-only gates that depend on `Request` state are skipped (the cache key would be ambiguous). `null` results (no policy registered) are not cached so the next call still falls through to the default behaviour.
+
+## Revoke sessions on demote
+
+Off by default. When `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE=true` and the host app uses Laravel's `database` session driver, a Spatie `RoleDetachedEvent` or `PermissionDetachedEvent` triggers a session sweep on the demoted user — every active session row for that user (across all devices) is dropped. The operator (admin) stays signed in because their session row belongs to them, not to the demoted user.
+
+Use this in regulated apps where a demotion must take immediate effect on every device the user is signed in on, without waiting for the session cookie to expire.
+
+## Testing helpers
+
+The `Martis\Testing\AssertsAuthorization` Pest / PHPUnit trait adds expressive helpers that route through the same Laravel Gate Martis uses internally:
+
+```php
+uses(\Martis\Testing\AssertsAuthorization::class);
+
+it('admins can edit any post', function () {
+    $admin = User::factory()->admin()->create();
+    $post = Post::factory()->create();
+    $this->assertCanUpdate($admin, $post);
+    $this->assertCanDelete($admin, $post);
+});
+
+it('readers cannot mutate', function () {
+    $reader = User::factory()->create();
+    $post = Post::factory()->create();
+    $this->assertCannotUpdate($reader, $post);
+    $this->assertCannotDelete($reader, $post);
+});
+```
+
+Available helpers: `assertCan` / `assertCannot` (generic), plus typed shortcuts for `view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`. Failure messages name the user, ability, and target model — instead of "Failed asserting that false is true." you get "Expected user 12 to be allowed to update Post #5, but the policy denied.".
+
 ## Tips
 
-- The test playground seeds a `readonly@martis.local` user whose every
-  policy write ability returns false. Use it (together with the
-  `tests/e2e/authorization.spec.ts` suite in `martis-playground`) as a
-  smoke test for new features — if the readonly user can still cause
-  mutations, the feature is missing an authorization gate.
-- A single `Policy::before(User $user, string $ability): ?bool` short-
-  circuits all checks when it returns non-null. Useful for super-admin
-  flags.
+- A single `Policy::before(User $user, string $ability): ?bool` short-circuits all checks when it returns non-null. Useful for super-admin flags.
+- Every `Resource::authorizedTo*()` method delegates to Laravel's `Gate::denies()` under the hood, so consumer code that calls `$user->can('update', $post)` directly always agrees with what the admin UI hides — single source of truth, single set of policy methods.
+- For testing, the package ships an `AssertsAuthorization` Pest trait. See [Testing helpers](#testing-helpers) below.

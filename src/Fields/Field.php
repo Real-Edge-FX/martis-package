@@ -96,6 +96,16 @@ abstract class Field implements FieldContract
      */
     protected ?\Closure $canSeeCallback = null;
 
+    /**
+     * Per-model visibility callback. v1.8.8. Accepts `(Request, Model)`
+     * and runs at serialization time inside `serializeModel`. When set,
+     * the field is hidden from the per-record payload when the closure
+     * returns false. Differs from `canSeeCallback` (which is per-request,
+     * model-agnostic) — this one supports field-level authorization
+     * that depends on the row being shown.
+     */
+    protected ?\Closure $canSeeForModelCallback = null;
+
     /** @var callable|null */
     protected mixed $resolveCallback = null;
 
@@ -1149,6 +1159,61 @@ abstract class Field implements FieldContract
         }
 
         return (bool) ($this->canSeeCallback)($request);
+    }
+
+    /**
+     * Per-model visibility callback (v1.8.8).
+     *
+     * Use it when whether the field should appear depends on the row
+     * being rendered, not just on the user. Common case: hiding the
+     * `email` column on a User index for non-admins, regardless of
+     * whether the row exists or not.
+     *
+     * The callback receives `(Request $request, Model $model)` and
+     * returns `bool`. When false, the field is stripped from the
+     * per-record payload at serialization time.
+     */
+    public function canSeeForModel(callable $callback): static
+    {
+        $this->canSeeForModelCallback = $callback(...);
+
+        return $this;
+    }
+
+    /**
+     * Sugar over `canSeeForModel()` that delegates to a Laravel Gate
+     * ability evaluated against the current model and request user.
+     *
+     *     Email::make('email')->canSeeUsingPolicy('viewEmail');
+     *
+     * Equivalent to:
+     *
+     *     ->canSeeForModel(fn (Request $r, Model $m) => $r->user()?->can('viewEmail', $m) ?? false)
+     */
+    public function canSeeUsingPolicy(string $ability): static
+    {
+        return $this->canSeeForModel(function (Request $request, Model $model) use ($ability): bool {
+            $user = $request->user();
+            if ($user === null) {
+                return false;
+            }
+
+            return (bool) $user->can($ability, $model);
+        });
+    }
+
+    /**
+     * Resolve per-model visibility for serialization. Returns true when
+     * no per-model callback is set (most fields). When set, runs the
+     * closure with the active request + model.
+     */
+    public function isAuthorizedForModel(Request $request, Model $model): bool
+    {
+        if ($this->canSeeForModelCallback === null) {
+            return true;
+        }
+
+        return (bool) ($this->canSeeForModelCallback)($request, $model);
     }
 
     // -------------------------------------------------------------------------
