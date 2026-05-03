@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.16] — 2026-05-03
+
+### Fixed
+
+- **Verification link now works when clicked from a logged-out browser.** The `/email/verify/{id}/{hash}` route was gated by `martis.auth`, so users opening the email on their phone (typical case) hit the auth middleware first and got redirected to `/login`, discarding the signature. After logging in, `email_verified_at` was still null so the v1.8.14 login gate bounced them back to `/email/verify` — the user reported "I clicked the link, logged in, and it asks me to verify again." The signed URL plus the `sha1(email)` hash in the path are unforgeable proofs of intent on their own; requiring an active session on top added no security and broke the dominant flow. Route is now public (`signed` middleware only). Logged-out clicks redirect to `/login?verified=1` so the SPA can show a success toast; logged-in clicks land on the dashboard. Column-fallback path (User without `MustVerifyEmail`) populates `email_verified_at` directly.
+
+### Changed
+
+- **Resend-verification throttle dropped from 6/min to 3/min.** The 6/min ceiling let an operator click the resend button five-plus times in a row without a cool-down, fanning out duplicate emails to the user's inbox. 3/min matches the conventional ceiling for password-reset and verification re-send flows.
+
 ## [1.8.15] — 2026-05-03
 
 ### Added
