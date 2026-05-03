@@ -35,13 +35,7 @@ class EnsureEmailIsVerified
 
         $user = $request->user();
 
-        if (
-            $user === null
-            || (
-                $user instanceof MustVerifyEmail
-                && ! $user->hasVerifiedEmail()
-            )
-        ) {
+        if ($user === null || ! $this->emailIsVerified($user)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => 'Your email address is not verified.',
@@ -58,5 +52,53 @@ class EnsureEmailIsVerified
         }
 
         return $next($request);
+    }
+
+    /**
+     * Whether the user has a verified email.
+     *
+     * Two paths:
+     *   1. User implements `MustVerifyEmail` (Laravel's recommended
+     *      contract) → call `hasVerifiedEmail()` verbatim.
+     *   2. User does NOT implement the contract but exposes the
+     *      `email_verified_at` attribute (the standard Laravel users
+     *      table ships this column) → check it directly. This is the
+     *      common-case fallback: most app User models keep the column
+     *      from the default migration but never opt into the trait.
+     *      Treating them as silently verified would defeat the entire
+     *      flag — Martis chooses to enforce verification consistently
+     *      with the column when available.
+     *
+     * If neither path applies, the user is considered unverified —
+     * fail-safe so a misconfigured app doesn't accidentally let
+     * unverified accounts through with the flag on.
+     */
+    protected function emailIsVerified(mixed $user): bool
+    {
+        if ($user instanceof MustVerifyEmail) {
+            return $user->hasVerifiedEmail();
+        }
+
+        if (is_object($user) && method_exists($user, 'getAttribute')) {
+            $value = $user->getAttribute('email_verified_at');
+            if ($value !== null) {
+                return true;
+            }
+
+            // Distinguish "column null" from "column missing": when
+            // the column doesn't exist on the model, getAttribute
+            // also returns null. Use the model's attribute set so we
+            // only block when the column actually exists and is null.
+            if (method_exists($user, 'getAttributes')) {
+                /** @var array<string, mixed> $attrs */
+                $attrs = $user->getAttributes();
+                if (array_key_exists('email_verified_at', $attrs)) {
+                    return false;
+                }
+            }
+        }
+
+        // No way to tell — fail safe so the flag's intent wins.
+        return false;
     }
 }

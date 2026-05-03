@@ -97,6 +97,66 @@ it('the verified middleware lets verified users through when enabled', function 
     $response->assertStatus(200);
 });
 
+it('the verified middleware blocks unverified users even when their User model does NOT implement MustVerifyEmail (v1.8.9 regression)', function () {
+    // The standard Laravel `App\Models\User` has the `email_verified_at`
+    // column but is NOT typically declared as `implements MustVerifyEmail`.
+    // Pre-1.8.9 the middleware silently passed those users through with
+    // the flag on — letting unverified accounts into the panel.
+    config(['martis.auth.email_verification.enabled' => true]);
+
+    if (! class_exists('Tests\\Stubs\\BareUser')) {
+        eval('namespace Tests\\Stubs;
+            class BareUser extends \\Illuminate\\Foundation\\Auth\\User {
+                use \\Illuminate\\Notifications\\Notifiable;
+                protected $table = "users";
+                protected $guarded = [];
+                protected $hidden = ["password"];
+            }
+        ');
+    }
+    config(['auth.providers.users.model' => 'Tests\\Stubs\\BareUser']);
+
+    /** @var \Illuminate\Foundation\Auth\User $user */
+    $user = ('Tests\\Stubs\\BareUser')::create([
+        'name' => 'Bare',
+        'email' => 'bare-unverified@example.com',
+        'password' => Hash::make('secret'),
+        'email_verified_at' => null,
+    ]);
+
+    $response = $this->actingAs($user)->get('/martis');
+
+    $response->assertRedirect('/martis/email/verify');
+});
+
+it('the verified middleware lets users without MustVerifyEmail through when their email_verified_at column is set', function () {
+    config(['martis.auth.email_verification.enabled' => true]);
+
+    if (! class_exists('Tests\\Stubs\\BareUser')) {
+        eval('namespace Tests\\Stubs;
+            class BareUser extends \\Illuminate\\Foundation\\Auth\\User {
+                use \\Illuminate\\Notifications\\Notifiable;
+                protected $table = "users";
+                protected $guarded = [];
+                protected $hidden = ["password"];
+            }
+        ');
+    }
+    config(['auth.providers.users.model' => 'Tests\\Stubs\\BareUser']);
+
+    /** @var \Illuminate\Foundation\Auth\User $user */
+    $user = ('Tests\\Stubs\\BareUser')::create([
+        'name' => 'Bare',
+        'email' => 'bare-verified@example.com',
+        'password' => Hash::make('secret'),
+        'email_verified_at' => now(),
+    ]);
+
+    $response = $this->actingAs($user)->get('/martis');
+
+    $response->assertStatus(200);
+});
+
 it('the verified middleware honours notice_url override', function () {
     config([
         'martis.auth.email_verification.enabled' => true,
