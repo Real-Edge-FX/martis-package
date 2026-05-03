@@ -63,7 +63,12 @@ class TranslationsController extends MartisController
             $this->mergeAppNamespace($translations, $locale, $namespace);
         }
 
-        // Layer 4 — consumer overrides (lang/vendor/martis/<locale>/).
+        // Layer 4 — consumer overrides. Laravel 11+ ships translations at
+        // the top-level `lang/` directory; pre-11 apps still keep them
+        // under `resources/lang/`. Probe both so a consumer override
+        // wins regardless of host version (and the order — top-level
+        // first — matches Laravel's own resolution priority).
+        $this->mergeFromDirectory($translations, lang_path("vendor/martis/{$locale}"));
         $this->mergeFromDirectory($translations, resource_path("lang/vendor/martis/{$locale}"));
 
         $this->mergeLaravelValidationTranslations($translations, $locale);
@@ -103,7 +108,13 @@ class TranslationsController extends MartisController
      */
     private function mergeAppNamespace(array &$translations, string $locale, string $namespace): void
     {
-        $file = resource_path("lang/{$locale}/{$namespace}.php");
+        // Probe the Laravel 11+ top-level `lang/` first, fall back to
+        // the legacy `resources/lang/` so consumers on either layout
+        // can ship app-namespace overrides.
+        $file = lang_path("{$locale}/{$namespace}.php");
+        if (! is_file($file)) {
+            $file = resource_path("lang/{$locale}/{$namespace}.php");
+        }
         if (! is_file($file)) {
             return;
         }
@@ -197,7 +208,13 @@ class TranslationsController extends MartisController
         $validation = [];
 
         foreach ([$fallbackLocale, $locale] as $candidate) {
-            $file = resource_path("lang/{$candidate}/validation.php");
+            // Top-level `lang/` (Laravel 11+) wins over the legacy
+            // `resources/lang/` if both exist; same priority chain
+            // Laravel's own translator uses.
+            $file = lang_path("{$candidate}/validation.php");
+            if (! is_file($file)) {
+                $file = resource_path("lang/{$candidate}/validation.php");
+            }
             if (! is_file($file)) {
                 continue;
             }
