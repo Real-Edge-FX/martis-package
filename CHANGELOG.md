@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.15] — 2026-05-03
+
+### Added
+
+- **`martis:roles --promote=<email>` flag** to assign the freshly-seeded `admin` role to a user in the same command. Pass an email (case-insensitive exact match) or the literal `first` to grab the lowest-id user — handy for fresh installs where there's exactly one account. Without the flag the command keeps the previous "promote yourself manually" hint, but the operator no longer has to drop into tinker for the most common case.
+- **`martis:roles` now auto-runs `MartisRolesSeeder`** so the `admin` role exists immediately. Idempotent (`firstOrCreate` in the seeder), opt out with `--no-seed` for CI / scripted setups that handle seeding separately.
+
+### Fixed
+
+- **Restored the `safeUserArray()` docblock** dropped accidentally during the v1.8.14 patch. PHPStan flagged the missing `@return array<string, mixed>` annotation. CI is green again.
+
 ## [1.8.14] — 2026-05-03
 
 ### Changed
