@@ -57,7 +57,7 @@ export function EmailVerifyNoticePage() {
       </h2>
       <p className="martis-auth-sub">
         {t('verify_sub', {
-          defaultValue: "We sent a verification link to {email}. Click it to continue.",
+          defaultValue: 'We sent a verification link to {{email}}. Click it to continue.',
           email: user?.email ?? '',
         })}
       </p>

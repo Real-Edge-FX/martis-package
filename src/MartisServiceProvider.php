@@ -6,6 +6,7 @@ use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
@@ -163,6 +164,7 @@ class MartisServiceProvider extends ServiceProvider
 
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
+        $this->registerEmailVerificationUrl();
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
 
@@ -448,6 +450,62 @@ class MartisServiceProvider extends ServiceProvider
                 'token' => $token,
                 'email' => $email,
             ]);
+        });
+    }
+
+    /**
+     * Override Laravel's stock `VerifyEmail` notification URL builder so
+     * verification links resolve under Martis's own route name
+     * (`martis.email.verify`) instead of the framework default
+     * (`verification.verify`), which Martis does not register.
+     *
+     * Without this override, registering a user whose model implements
+     * `MustVerifyEmail` crashes in
+     * `SendEmailVerificationNotification` with
+     * `Route [verification.verify] not defined.`
+     *
+     * Mirrors the precedent set by `registerPasswordResetUrl()`.
+     * Skipped when email verification is disabled in config, and
+     * preserves any consumer-side override via reflection probe.
+     */
+    protected function registerEmailVerificationUrl(): void
+    {
+        if (! (bool) config('martis.auth.email_verification.enabled', false)) {
+            return;
+        }
+
+        try {
+            $ref = new \ReflectionClass(VerifyEmail::class);
+            if ($ref->hasProperty('createUrlCallback')) {
+                $prop = $ref->getProperty('createUrlCallback');
+                $prop->setAccessible(true);
+                if ($prop->getValue() !== null) {
+                    return; // Consumer already customised — respect it.
+                }
+            }
+        } catch (\Throwable) {
+            // Probe failed; fall through to register anyway.
+        }
+
+        VerifyEmail::createUrlUsing(static function (object $notifiable): string {
+            $expireMinutes = (int) config('auth.verification.expire', 60);
+
+            $key = method_exists($notifiable, 'getKey')
+                ? $notifiable->getKey()
+                : ($notifiable->id ?? null);
+
+            $emailForVerification = method_exists($notifiable, 'getEmailForVerification')
+                ? (string) $notifiable->getEmailForVerification()
+                : (string) ($notifiable->email ?? '');
+
+            return \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'martis.email.verify',
+                \Illuminate\Support\Carbon::now()->addMinutes($expireMinutes),
+                [
+                    'id' => $key,
+                    'hash' => sha1($emailForVerification),
+                ]
+            );
         });
     }
 
