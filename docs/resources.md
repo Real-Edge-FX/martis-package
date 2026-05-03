@@ -865,7 +865,7 @@ Martis provides dedicated resource policies, auto-discovery, and comprehensive a
 When checking authorization, Martis resolves the policy in this order:
 
 1. **Explicit $policy property** on the Resource class
-2. **Auto-discovery** by convention: {policy_namespace}\{ResourceBaseName}Policy
+2. **Auto-discovery** by convention: `{policy_namespace}\{ResourceBaseName}Policy`
 3. **Laravel Gate** policy registered for the model class
 4. **No policy found** → permissive defaults (all allowed)
 
@@ -905,10 +905,10 @@ Override these directly on a Resource to hardcode behaviour without writing a Po
 
 | Ability | Controls | Default (no method) |
 |---------|----------|-------------------|
-| add{Model} | Inline create related record | allowed |
-| attach{Model} | Attach specific related record | allowed |
-| attachAny{Model} | Show attach button | allowed |
-| detach{Model} | Detach related record | allowed |
+| `add{Model}` | Inline create related record | allowed |
+| `attach{Model}` | Attach specific related record | allowed |
+| `attachAny{Model}` | Show attach button | allowed |
+| `detach{Model}` | Detach related record | allowed |
 
 ### Authorization Metadata
 

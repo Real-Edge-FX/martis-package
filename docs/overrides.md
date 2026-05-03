@@ -683,7 +683,7 @@ The `--frontend` flag adds a **Frontend** column to the table that statically pa
 
 Exit code `2` (INVALID) when any key is missing, so you can wire it into CI as `php artisan martis:list-overrides --frontend || exit 1`. Pass `--boot=path/to/file.ts` to point at a non-default boot file.
 
-The parser handles string-literal keys; computed keys (`register(\`field:${kind}\`, ...)`) are not resolved — list those manually.
+The parser handles string-literal keys; computed keys (e.g. `register('field:' + kind, ...)` or template-literal variants) are not resolved — list those manually.
 
 Sample output:
 
