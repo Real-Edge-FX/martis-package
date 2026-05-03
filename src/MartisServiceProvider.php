@@ -11,10 +11,12 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
@@ -498,9 +500,9 @@ class MartisServiceProvider extends ServiceProvider
                 ? (string) $notifiable->getEmailForVerification()
                 : (string) ($notifiable->email ?? '');
 
-            return \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            return URL::temporarySignedRoute(
                 'martis.email.verify',
-                \Illuminate\Support\Carbon::now()->addMinutes($expireMinutes),
+                Carbon::now()->addMinutes($expireMinutes),
                 [
                     'id' => $key,
                     'hash' => sha1($emailForVerification),
