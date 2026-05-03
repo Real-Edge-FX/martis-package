@@ -238,13 +238,16 @@ GET /martis/api/translations/{locale}
 
 **Public** (no auth required). Bundled locales: `en`, `pt_BR`, `pt_PT` (underscore form is canonical; the controller normalises hyphenated input). See [i18n](../i18n.md) for the merge order, `app_namespaces`, and fallback chain.
 
-## Navigation Endpoint
+## Navigation Endpoints
 
 ```http
 GET /martis/api/navigation
+GET /martis/api/navigation/badges    # v1.8.8
 ```
 
-Returns the canonical sidebar tree the React shell renders. Each section carries its label, icon, and items (resources, links, dashboards, tools).
+`/navigation` returns the canonical sidebar tree the React shell renders — sections with label, icon, and items (resources, links, dashboards, tools). It is fetched once per session + on route mutations and is **not auto-polled**.
+
+`/navigation/badges` returns a flat `{ uriKey: count }` map keyed by resource `uriKey`. The SPA polls this endpoint at the cadence configured in `martis.navigation.badges_poll_interval` (default 300 000 ms = 5 min) and merges the values into the cached tree. 5–10× cheaper server-side than the full tree; resources that opt out of `showMenuCount()` are excluded.
 
 ## Global Search
 

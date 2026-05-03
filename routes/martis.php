@@ -200,6 +200,7 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->middleware($throttle)
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('navigation');
+                                Route::get('/navigation/badges', [NavigationController::class, 'badges'])->name('navigation.badges');
 
                                 // Meta endpoints — reference data for admin
                                 // dropdowns. v1.8.0.

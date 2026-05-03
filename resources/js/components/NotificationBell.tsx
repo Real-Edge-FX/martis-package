@@ -28,12 +28,12 @@ interface UnreadCountResponse {
   unread: number
 }
 
-const POLL_DEFAULT = 60_000
+const POLL_DEFAULT = 90_000
 
 /**
  * Bell button + dropdown panel for the in-app notifications subsystem.
  * Polls `/martis/api/notifications/unread-count` at the configured
- * interval (default 60s) so the badge stays in sync without a full
+ * interval (default 90s) so the badge stays in sync without a full
  * list fetch. The list itself is fetched only when the dropdown
  * opens — keeps the topbar lean.
  */

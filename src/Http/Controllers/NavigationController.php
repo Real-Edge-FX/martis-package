@@ -66,6 +66,84 @@ class NavigationController extends MartisController
     }
 
     /**
+     * Lightweight count map for sidebar badges.
+     *
+     * Returns `{ "users": 1284, "invoices": 7, ... }` keyed by resource
+     * `uriKey`. Skips menu structure, icons, system section, host-app
+     * mainMenu resolver and per-section MenuItem rendering — only the
+     * `menuCount()` calls run. Polling this from the SPA instead of
+     * `/api/navigation` cuts the per-tick payload by 10× or more on a
+     * typical sidebar.
+     *
+     * Cache scope mirrors `index()` (same user + locale key) but lives
+     * under a separate `badges:` prefix so navigation cache and badge
+     * cache invalidate independently. Both share the `navigation`
+     * cache layer, so `php artisan martis:cache:clear navigation`
+     * still wipes both.
+     */
+    public function badges(Request $request): JsonResponse
+    {
+        $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+        $locale = app()->getLocale();
+        $cacheKey = 'badges:'.$userKey.':'.$locale;
+
+        $payload = $this->cache->remember('navigation', $cacheKey, function () use ($request) {
+            return $this->buildBadges($request);
+        });
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Walk the registered resources and resolve only the count badge
+     * for each one that opts in. Per-resource auth is enforced first,
+     * matching the visibility rules of the full navigation payload.
+     *
+     * Failures inside a single resource's `menuCount()` are swallowed
+     * (mirroring the behaviour in `MenuItem::resolveMenuCount`) so a
+     * broken counter never poisons the response.
+     *
+     * @return array<string, int>
+     */
+    protected function buildBadges(Request $request): array
+    {
+        if (! (bool) config('martis.navigation.counts.enabled', true)) {
+            return [];
+        }
+
+        $counts = [];
+
+        foreach ($this->registry->list() as $resourceClass) {
+            if (! $resourceClass::displayInNavigation()) {
+                continue;
+            }
+
+            if (! $resourceClass::showMenuCount()) {
+                continue;
+            }
+
+            $instance = new $resourceClass;
+            if (! $instance->authorizedToViewAny($request)) {
+                continue;
+            }
+
+            try {
+                $count = $resourceClass::menuCount($request);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($count === null) {
+                continue;
+            }
+
+            $counts[$resourceClass::uriKey()] = (int) $count;
+        }
+
+        return $counts;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     protected function buildNavigation(Request $request): array

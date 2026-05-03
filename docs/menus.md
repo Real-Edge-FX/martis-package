@@ -354,18 +354,34 @@ large number to disable compaction entirely.
 
 ### Live polling
 
-The frontend polls `/martis/api/navigation` while a tab is focused so
-counts stay fresh without a full page reload. The cadence is controlled
-in `config/martis.php`:
+The frontend keeps counts fresh through a **lightweight badges
+endpoint** that does not re-pull the full navigation tree.
+
+- `/martis/api/navigation` is fetched **once** per session (and on
+  route mutations). Menu structure rarely changes in production, so
+  there is no auto-poll.
+- `/martis/api/navigation/badges` is polled at the configured
+  cadence and returns a flat `{ uriKey: count }` map. The SPA merges
+  it into the cached navigation tree on each tick. 5–10× cheaper
+  server-side than the full tree.
 
 ```php
 'navigation' => [
-    'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+    'badges_poll_interval' => (int) env('MARTIS_NAV_BADGES_POLL_MS', 300000),  // v1.8.8
 ],
 ```
 
-The default is 60 seconds. Set it to `0` to disable polling entirely —
-counts then refresh only on full navigation.
+The default is **300 000 ms (5 minutes)**. Set it to `0` to disable
+badge polling entirely — counts then refresh only on full navigation
+or on the user's own mutations (which invalidate the badges query via
+the React Query MutationCache).
+
+> **Breaking change in v1.8.8.** `MARTIS_NAV_POLL_MS` /
+> `navigation.poll_interval` was removed. Renaming to
+> `MARTIS_NAV_BADGES_POLL_MS` is enough to migrate, but consider
+> raising the cadence (the new default is 5 min, up from 60 s)
+> because badges-only is cheap and menu structure rarely changes
+> mid-session.
 
 ## Navigation API Response
 
@@ -461,3 +477,26 @@ emitted item:
   "badge": { "text": "Beta", "tone": "warning" }
 }
 ```
+
+## Badges-Only API (v1.8.8)
+
+`GET /martis/api/navigation/badges` returns a flat `{ uriKey: count }`
+map keyed by the resource `uriKey`. Resources that opt out of
+`showMenuCount()` or fail per-user authorization are excluded; broken
+`menuCount()` calls are silently skipped so a single counter cannot
+take the whole endpoint down.
+
+```json
+{
+  "users": 1284,
+  "invoices": 7,
+  "tickets": 42
+}
+```
+
+The endpoint shares the `navigation` cache layer with `/api/navigation`
+but lives under a separate `badges:` cache prefix, so flushing one
+does not poison the other (`php artisan martis:cache:clear navigation`
+still wipes both). Default poll cadence is **300 000 ms (5 minutes)**;
+override per environment with `MARTIS_NAV_BADGES_POLL_MS` or per
+boot via `config('martis.navigation.badges_poll_interval', ...)`.

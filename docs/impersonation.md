@@ -93,6 +93,8 @@ The closure receives the **operator** (not the target). The package does not pas
 
 The package ships a fully functional banner — `resources/js/components/ImpersonationBanner.tsx` — that the bundled `Layout.tsx` renders right above every page (`<main class="martis-shell-content"> > <ImpersonationBanner />`). It polls `/martis/api/impersonation/status` on every shell mount, surfaces the current target's label + a "Stop impersonating" button, and reloads the SPA on stop. Consumers do not need to wire anything for the basic flow.
 
+The poll cadence is configurable via `martis.impersonation.poll_interval` (env `MARTIS_IMPERSONATION_POLL_MS`, default **120 000 ms / 2 min**, raised from 30 s in v1.8.8). Set to `0` to disable polling — the banner still mounts and reads state once per page load. The banner short-circuits the entire effect when `martis.impersonation.enabled` is `false` at boot, so installs that never enable the feature pay zero ongoing cost.
+
 ### Overriding the banner
 
 Register a custom React component under the canonical registry key from your consumer `boot.ts`:

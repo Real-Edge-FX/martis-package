@@ -144,7 +144,7 @@ Notification::send($team->members, new InvoicePaid($invoice));
 
 ### Step 4 — verify
 
-Recipients see the notification inside 60 seconds (default poll interval) — the bell badge updates, then the dropdown shows the new entry on next open. To confirm during local development:
+Recipients see the notification inside 90 seconds (default poll interval, configurable) — the bell badge updates, then the dropdown shows the new entry on next open. To confirm during local development:
 
 ```bash
 # count pending notifications for a user
@@ -177,7 +177,7 @@ In addition to the keys above, every row carries Laravel's standard notification
 // config/martis.php
 'notifications' => [
     'enabled' => env('MARTIS_NOTIFICATIONS_ENABLED', true),
-    'poll_interval' => env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 60000),
+    'poll_interval' => env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 90000),
     'max_in_dropdown' => env('MARTIS_NOTIFICATIONS_MAX_DROPDOWN', 10),
 ],
 ```
@@ -185,7 +185,7 @@ In addition to the keys above, every row carries Laravel's standard notification
 | Key | Effect |
 |-----|--------|
 | `enabled` | Master switch. When false, the bell never renders and the API returns empty payloads. |
-| `poll_interval` | How often the bell badge polls `/api/notifications/unread-count` (ms). Set to `0` to disable polling — refresh manually via React Query / broadcast events. |
+| `poll_interval` | How often the bell badge polls `/api/notifications/unread-count` (ms). **Default 90000 (90 s)** — bumped from 60 s in v1.8.8 to halve idle traffic without a UX regression for typical workflows. Set to `0` to disable polling — refresh manually via React Query / broadcast events. |
 | `max_in_dropdown` | Maximum entries shown in the dropdown. Older entries live behind a future "View all" link. Capped at 50 server-side. |
 
 ## REST API
@@ -203,7 +203,7 @@ All endpoints live under `/{martis-path}/api/notifications`, scope to the authen
 
 ## Real-time delivery
 
-Polling defaults to 60s — fine for most apps. For instant updates (Slack-like), add the `broadcast` channel to your notification's `via()` and listen for the event on the React side. The `MartisNotification` base ships a default `toBroadcast()` payload so this works without extra work:
+Polling defaults to 90 s — fine for most apps. For instant updates (Slack-like), add the `broadcast` channel to your notification's `via()` and listen for the event on the React side. The `MartisNotification` base ships a default `toBroadcast()` payload so this works without extra work:
 
 ```php
 class MyNotification extends MartisNotification

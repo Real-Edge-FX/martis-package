@@ -6,6 +6,7 @@ import {
   flattenNavigationItems,
   getItemCount,
   formatItemCount,
+  mergeBadgeCounts,
   useNavigationRefreshOnNavigate,
 } from "@/lib/navigation"
 import { useAuth } from "@/contexts/AuthContext"
@@ -65,14 +66,26 @@ export function TopnavLayout() {
   const [searchOpen, setSearchOpen] = useState(false)
   const location = useLocation()
 
-  const pollInterval = config.navigation?.pollInterval ?? 60_000
-  const { data: groups = [] } = useQuery<NavigationGroup[]>({
+  // Full navigation tree: fetched once per session + on route mutations.
+  // NOT auto-polled — menu structure rarely changes in production.
+  const { data: rawGroups = [] } = useQuery<NavigationGroup[]>({
     queryKey: ["navigation"],
     queryFn: () => api.get("/api/navigation"),
-    staleTime: 1000 * 30,
-    refetchInterval: pollInterval > 0 ? pollInterval : false,
-    refetchOnWindowFocus: true,
+    staleTime: Infinity,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   })
+  // Lightweight badges payload: polled on a separate, longer interval.
+  const badgesPollInterval = config.navigation?.badgesPollInterval ?? 300_000
+  const { data: badges } = useQuery<Record<string, number>>({
+    queryKey: ["navigation", "badges"],
+    queryFn: () => api.get("/api/navigation/badges"),
+    staleTime: 1000 * 30,
+    refetchInterval: badgesPollInterval > 0 ? badgesPollInterval : false,
+    refetchOnWindowFocus: true,
+    enabled: rawGroups.length > 0,
+  })
+  const groups = badges ? mergeBadgeCounts(rawGroups, badges) : rawGroups
   useNavigationRefreshOnNavigate()
 
   const brand = config.brand ?? "Martis"

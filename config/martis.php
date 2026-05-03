@@ -331,11 +331,19 @@ return [
 
         /*
          | How often (in milliseconds) the sidebar and top-nav re-fetch the
-         | navigation endpoint while a tab is focused. Keeps count badges
-         | in sync when a second user mutates data in parallel.
-         | Set to 0 to disable polling entirely.
+         | LIGHTWEIGHT badges endpoint (`/api/navigation/badges`). Keeps
+         | count badges in sync without re-pulling the full navigation
+         | structure (which rarely changes in production).
+         |
+         | Set to 0 to disable badge polling entirely. Default: 300_000
+         | (5 minutes).
+         |
+         | The full navigation tree (`/api/navigation`) is fetched once
+         | per session + on route mutations and is NOT auto-polled — by
+         | design, since menu structure changes only on deploy or
+         | role/permission changes.
          */
-        'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+        'badges_poll_interval' => (int) env('MARTIS_NAV_BADGES_POLL_MS', 300000),
     ],
 
     /*
@@ -563,8 +571,8 @@ return [
         'enabled' => env('MARTIS_NOTIFICATIONS_ENABLED', true),
 
         // Polling interval for the unread-count badge, in milliseconds.
-        // Set to 0 to disable polling.
-        'poll_interval' => env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 60000),
+        // Default 90_000 (90s). Set to 0 to disable polling.
+        'poll_interval' => env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 90000),
 
         // Maximum number of notifications shown in the dropdown panel.
         // The full list lives behind a "View all" link for users who
@@ -1270,6 +1278,11 @@ return [
         // the timer — the operator stays in the impersonated session
         // until they click Stop or the browser session ends. v1.8.8.
         'max_duration_minutes' => (int) env('MARTIS_IMPERSONATION_MAX_DURATION', 0),
+        // Polling interval for the banner status endpoint, in
+        // milliseconds. Sessions change rarely, so the default sits at
+        // 120_000 (2 minutes). Set to 0 to disable polling — the
+        // banner still mounts and reads state once per page load.
+        'poll_interval' => (int) env('MARTIS_IMPERSONATION_POLL_MS', 120000),
     ],
 
 ];

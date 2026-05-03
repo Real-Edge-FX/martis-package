@@ -114,15 +114,19 @@ export function formatItemCount(value: number): string {
 }
 
 /**
- * Reactive refresh of the navigation query when the user navigates.
+ * Reactive refresh of the badges query when the user navigates.
  *
- * Pairs with the passive `refetchInterval` on the `['navigation']` query:
- * polling keeps badges in sync while idle, while this hook refreshes
- * them the moment a user interacts with the menu. Throttled to
- * `minIntervalMs` between consecutive navigations so rapid clicks don't
- * flood the server — the user's own mutations already invalidate the
- * query via the MutationCache, so this only matters for *other users'*
- * concurrent writes.
+ * The full navigation tree (`['navigation']`) is fetched once per
+ * session and is NOT auto-polled — menu structure rarely changes in
+ * production. Only the lightweight badges payload
+ * (`['navigation', 'badges']`) refreshes on navigation, so a user
+ * clicking around sees up-to-date counts without paying for the full
+ * tree on every route change.
+ *
+ * Throttled to `minIntervalMs` between consecutive navigations so
+ * rapid clicks don't flood the server. The user's own mutations
+ * already invalidate the badges query via the MutationCache, so this
+ * only matters for *other users'* concurrent writes.
  */
 export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
   const location = useLocation()
@@ -133,6 +137,38 @@ export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
     const now = Date.now()
     if (now - last.current < minIntervalMs) return
     last.current = now
-    void qc.invalidateQueries({ queryKey: ["navigation"] })
+    void qc.invalidateQueries({ queryKey: ["navigation", "badges"] })
   }, [location.pathname, qc, minIntervalMs])
+}
+
+/**
+ * Merge a flat `{ uriKey: count }` map (from `/api/navigation/badges`)
+ * into the cached navigation tree, returning a new array with updated
+ * `count` values on every resource leaf. Items not present in the map
+ * keep their existing count (covers the case where a resource opted
+ * out of `showMenuCount` between fetches and the badges payload no
+ * longer mentions it — the stale count would be removed on the next
+ * full navigation refetch).
+ *
+ * Pure / immutable: never mutates the input groups.
+ */
+export function mergeBadgeCounts(
+  groups: NavigationGroup[],
+  badges: Record<string, number>,
+): NavigationGroup[] {
+  const apply = (item: NavigationGroupChild): NavigationGroupChild => {
+    if (isNestedGroup(item)) {
+      return { ...item, items: item.items.map((leaf) => apply(leaf) as NavigationItem) }
+    }
+    if (item.type !== "resource") return item
+    const resource = item as NavigationResourceItem
+    const uriKey = resource.uriKey
+    if (typeof uriKey !== "string" || !(uriKey in badges)) return resource
+    return { ...resource, count: badges[uriKey] }
+  }
+
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map(apply),
+  }))
 }

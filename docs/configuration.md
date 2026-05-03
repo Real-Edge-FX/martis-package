@@ -8,7 +8,7 @@ php artisan martis:vendor-publish --config
 # php artisan vendor:publish --tag=martis-config
 ```
 
-This page documents every configuration option grouped by subsystem. The full env-var index lives at the bottom — that table is **generated** by `php artisan martis:list-env-vars` and reflects the live config surface (currently **129 env vars**).
+This page documents every configuration option grouped by subsystem. The full env-var index lives at the bottom — that table is **generated** by `php artisan martis:list-env-vars` and reflects the live config surface (currently **130 env vars**).
 
 > **Single source of truth.** Whenever you suspect an env var is documented incorrectly here, run `php artisan martis:list-env-vars` and compare. The command parses `config/martis.php` directly, so its output cannot drift. CI calls it during release-cut to refresh the table at the bottom of this page.
 
@@ -419,7 +419,7 @@ Full wiring examples, prop contracts, and the rationale for piece-by-piece vs fu
         'enabled' => env('MARTIS_NAV_COUNTS', true),
         'compact_threshold' => env('MARTIS_NAV_COUNT_COMPACT_THRESHOLD', 10000),  // v1.8.0
     ],
-    'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+    'badges_poll_interval' => (int) env('MARTIS_NAV_BADGES_POLL_MS', 300000),  // v1.8.8
 ],
 ```
 
@@ -428,7 +428,9 @@ Full wiring examples, prop contracts, and the rationale for piece-by-piece vs fu
   - Below threshold: `1,284` (locale-aware separators).
   - At or above: `Intl.NumberFormat` compact notation — `10K`, `123.5K`, `1.2M`, `25M`.
   - Default `10000` keeps everyday counts readable while preventing badges from blowing up the sidebar at 50 K+. Set to `null` to always show full digits, `0` to always compact, or any positive integer for a custom cutoff.
-- `poll_interval` — how often (in milliseconds) the sidebar and top-nav re-fetch `/api/navigation` while the tab is focused. Keeps badges in sync when a second user mutates data in parallel. Default: 60000 (60 seconds). Set to `0` to disable polling. React Query pauses the interval when the tab is hidden and refetches on window focus independently.
+- `badges_poll_interval` (v1.8.8) — how often (in milliseconds) the sidebar and top-nav re-fetch the **lightweight** badges endpoint (`/api/navigation/badges`). Default: 300000 (5 minutes). Set to `0` to disable badge polling. The full navigation tree is fetched once per session + on route mutations and is **not auto-polled** — menu structure rarely changes in production. The badges payload is a flat `{ uriKey: count }` map and is 5–10× cheaper server-side than the full tree. React Query pauses the interval when the tab is hidden and refetches on window focus independently.
+
+> **Breaking change in v1.8.8.** The previous `MARTIS_NAV_POLL_MS` (which auto-polled `/api/navigation`) was removed. The full navigation tree is no longer auto-polled at all — only `/api/navigation/badges` is, on the new `badges_poll_interval`. Apps that still set `MARTIS_NAV_POLL_MS` will see the value silently ignored; rename to `MARTIS_NAV_BADGES_POLL_MS` (and pick a longer cadence — the default jumped from 60 s to 5 min because badges-only is cheap and menu structure rarely changes mid-session).
 
 See [menus.md](menus.md#count-badges) for the badge API (including `menuCount()` for custom values) and [menus.md](menus.md#sections) for the section heading API.
 
@@ -1055,6 +1057,7 @@ In addition to `MARTIS_IMPERSONATION_ENABLED` (covered above), the impersonation
 | `MARTIS_IMPERSONATION_GUARD` | `web` | Auth guard the impersonation operates on. |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `martis.impersonation` | Session bag where the operator's id is stashed. |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` | Maximum session length in minutes. `0` disables the timeout. |
+| `MARTIS_IMPERSONATION_POLL_MS` | `120000` | Banner status poll interval in ms. Default 2 min — sessions change rarely. Set to `0` to disable polling (banner still mounts and reads state once per page load). v1.8.8. |
 
 ## API docs (Scramble)
 
@@ -1071,9 +1074,11 @@ Off by default. When enabled, mounts the Scramble-generated OpenAPI 3.1 surface 
 
 ```php
 'notifications' => [
-    'enabled'            => env('MARTIS_NOTIFICATIONS_ENABLED', true),
-    'max_dropdown'       => (int) env('MARTIS_NOTIFICATIONS_MAX_DROPDOWN', 10),
-    'poll_interval_ms'   => (int) env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 60000),
+    'enabled'         => env('MARTIS_NOTIFICATIONS_ENABLED', true),
+    'max_in_dropdown' => (int) env('MARTIS_NOTIFICATIONS_MAX_DROPDOWN', 10),
+    // v1.8.8 — bumped from 60 s to 90 s. Single COUNT query, but no
+    // need to poll faster than the average user notices a new entry.
+    'poll_interval'   => (int) env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 90000),
 ],
 ```
 
@@ -1187,7 +1192,7 @@ Master switch for the Component Inspector overlay (Cmd/Ctrl+Shift+I) and other i
 
 ## Environment variables (auto-generated)
 
-The table below is generated by `php artisan martis:list-env-vars` from the live `config/martis.php` and reflects **129 env vars** in the current build. Run the command yourself to refresh it; CI runs it during release-cut. The command also takes `--json` for machine consumption.
+The table below is generated by `php artisan martis:list-env-vars` from the live `config/martis.php` and reflects **130 env vars** in the current build. Run the command yourself to refresh it; CI runs it during release-cut. The command also takes `--json` for machine consumption.
 
 ```bash
 php artisan martis:list-env-vars             # markdown table
@@ -1275,7 +1280,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_DEFAULT_ROW_ACTION_VIEW` | `true` |
 | `MARTIS_DEFAULT_THEME` | `'dark'` |
 | `MARTIS_DEFAULT_TRASHED_FILTER` | `'active'` |
-| `MARTIS_DEV_TOOLS` | `in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)` |
+| `MARTIS_DEV_TOOLS` | `in_array(env('APP_ENV', 'production'), ['local', 'testing'], true),` |
 | `MARTIS_DRAWER_EXPANDABLE` | `true` |
 | `MARTIS_EXTENSIONS_PATH` | `'martis-extensions'` |
 | `MARTIS_FAVICON` | `null` |
@@ -1284,6 +1289,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_IMPERSONATION_ENABLED` | `false` |
 | `MARTIS_IMPERSONATION_GUARD` | `'web'` |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` |
+| `MARTIS_IMPERSONATION_POLL_MS` | `120000` |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `'martis.impersonation'` |
 | `MARTIS_INDEX_COLUMN_DEFAULTS` | `true` |
 | `MARTIS_KEYBOARD_SHORTCUTS_ENABLED` | `true` |
@@ -1294,12 +1300,12 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_LOCALE_FALLBACK_CHAIN` | `'en'` |
 | `MARTIS_LOGIN_THROTTLE_ATTEMPTS` | `20` |
 | `MARTIS_LOGIN_THROTTLE_MINUTES` | `1` |
+| `MARTIS_NAV_BADGES_POLL_MS` | `300000` |
 | `MARTIS_NAV_COUNTS` | `true` |
 | `MARTIS_NAV_COUNT_COMPACT_THRESHOLD` | `10000` |
-| `MARTIS_NAV_POLL_MS` | `60000` |
 | `MARTIS_NOTIFICATIONS_ENABLED` | `true` |
 | `MARTIS_NOTIFICATIONS_MAX_DROPDOWN` | `10` |
-| `MARTIS_NOTIFICATIONS_POLL_INTERVAL` | `60000` |
+| `MARTIS_NOTIFICATIONS_POLL_INTERVAL` | `90000` |
 | `MARTIS_PAGE_TITLE` | `(no default)` |
 | `MARTIS_PATH` | `'martis'` |
 | `MARTIS_PREFERENCES_ENABLED` | `true` |
@@ -1325,7 +1331,6 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_TOAST_POSITION` | `'bottom-right'` |
 | `MARTIS_WELCOME_DESCRIPTION` | `(no default)` |
 | `MARTIS_WELCOME_HEADING` | `(no default)` |
-
 ## Next Steps
 
 - [Installation Guide](installation-guide.md) — Initial setup

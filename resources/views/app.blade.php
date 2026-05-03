@@ -93,7 +93,12 @@
             ]) !!},
             layout: {!! json_encode(config('martis.layout', ['preset' => 'sidebar'])) !!},
             navigation: {!! json_encode([
-                'pollInterval' => (int) config('martis.navigation.poll_interval', 60000),
+                // Lightweight badges-only refresh interval, in ms. The
+                // full navigation tree is fetched once per session and
+                // is NOT auto-polled (menu structure rarely changes in
+                // production). Default 300_000 (5 min). Set to 0 to
+                // disable badge polling entirely.
+                'badgesPollInterval' => (int) config('martis.navigation.badges_poll_interval', 300000),
                 // null disables compaction (always full digits); a positive
                 // integer is the threshold above which the badge switches
                 // to compact notation (10K, 1.2M). Default 10000.
@@ -112,7 +117,7 @@
             ]) !!},
             notifications: {!! json_encode(config('martis.notifications', [
                 'enabled' => true,
-                'poll_interval' => 60000,
+                'poll_interval' => 90000,
                 'max_in_dropdown' => 10,
             ])) !!},
             stickyViews: {!! json_encode(config('martis.sticky_views', [
@@ -182,6 +187,10 @@
                 // when the feature is off, which adds ~1s to every
                 // navigation under a cold cache.
                 'enabled' => (bool) config('martis.impersonation.enabled', false),
+                // Polling interval for the banner status endpoint, in
+                // ms. Sessions change rarely; default 120_000 (2 min).
+                // Set to 0 to disable polling.
+                'pollInterval' => (int) config('martis.impersonation.poll_interval', 120000),
             ]) !!}
         };
         // Apply preferences BEFORE first paint to prevent any flash.

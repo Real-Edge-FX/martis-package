@@ -119,12 +119,26 @@ export interface MartisLoaderConfig {
 export interface MartisNavigationConfig {
   /**
    * Interval in milliseconds at which the sidebar and top-nav menus
-   * re-fetch the navigation endpoint while the tab is focused. Keeps
-   * resource count badges in sync when a second user mutates data.
+   * re-fetch the LIGHTWEIGHT badges endpoint
+   * (`/api/navigation/badges`). Keeps resource count badges in sync
+   * without re-pulling the full navigation tree (which rarely changes
+   * in production).
    *
-   * Set to `0` to disable polling. Default: 60000 (60 seconds).
+   * The full navigation payload is fetched once per session and on
+   * route mutations — it is NOT auto-polled by design. The badges
+   * payload is a flat `{ uriKey: count }` map and is 5-10× cheaper
+   * server-side than the full tree.
+   *
+   * Set to `0` to disable badge polling entirely. Default: 300000
+   * (5 minutes).
    */
-  pollInterval?: number
+  badgesPollInterval?: number
+  /**
+   * Threshold above which count badges switch from full digits
+   * (1,284) to compact notation (10K, 1.2M). `null` = always full.
+   * Default: 10000.
+   */
+  countCompactThreshold?: number | null
 }
 
 export interface MartisLayoutConfig {
@@ -404,6 +418,13 @@ export interface MartisImpersonationConfig {
    * skips its mount-time fetch entirely.
    */
   enabled?: boolean
+  /**
+   * Polling interval in milliseconds for the
+   * `/api/impersonation/status` endpoint. Sessions change rarely;
+   * default is 120000 (2 minutes). Set to 0 to disable polling — the
+   * banner still mounts and reads state once per page load.
+   */
+  pollInterval?: number
 }
 
 /**
@@ -417,9 +438,9 @@ export interface MartisNotificationsConfig {
   enabled?: boolean
   /**
    * Polling interval for the unread-count badge in milliseconds.
-   * Set to 0 to disable polling (consumers can refresh manually
-   * via React Query, e.g. when a Pusher / Reverb broadcast event
-   * fires).
+   * Default: 90000 (90 seconds). Set to 0 to disable polling
+   * (consumers can refresh manually via React Query, e.g. when a
+   * Pusher / Reverb broadcast event fires).
    */
   poll_interval?: number
   /**
