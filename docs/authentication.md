@@ -509,6 +509,18 @@ Three steps:
 
 3. **Mailer must be configured** (Postmark, Resend, Mailgun, SES, SMTP — anything Laravel supports). The verification notification goes through the default mail channel.
 
+### What happens when the flag is on but the mailer isn't?
+
+The package does not pre-validate `MAIL_*` env on boot. Three scenarios depending on the value of `MAIL_MAILER`:
+
+| `MAIL_MAILER` | Effect on registration | Effect on user | What to do |
+|---|---|---|---|
+| `log` (Laravel's default on a fresh install) | Registration succeeds. Verification URL is written to `storage/logs/laravel.log`. | Login still blocks the user at `/email/verify` with a "resend" button. The link is reachable from the log file for the dev to forward / paste. | Acceptable in dev. **Set a real mailer before going live** so users actually receive the link. |
+| `smtp` / `postmark` / `resend` / `ses` / `mailgun` configured AND reachable | Registration succeeds. Email is sent through the host's mailer. | Standard flow — user clicks link, lands on `/email/verify/{id}/{hash}`, column gets populated, panel unlocks. | Nothing extra. |
+| `smtp` (or any external transport) configured but **broken** (wrong host, wrong creds, network unreachable) | `Mail::send` throws. Registration POST returns **500**. The user is created server-side but never sees the success response. | The user can still log in (account exists, unverified), reaches `/email/verify`, hits "Resend" — which throws again. | Fix the mailer. Until then, set `MAIL_MAILER=log` so registration completes cleanly even with no real outbound email. |
+
+A 500 on registration is bad UX, but Martis intentionally does not swallow mailer exceptions: a silent send failure would leave the operator thinking the system worked while every newly registered user is stuck. Loud failure surfaces the misconfiguration immediately. If you want a custom recovery path (e.g. queue the email and retry), bind your own `SendsEmailVerification` implementation — see "Customising the verification email" below.
+
 Once `enabled=true`, the package:
 
 - Registers the `martis.verified` middleware alias and applies it to every protected Martis route. Unverified users hitting `/martis`, `/martis/profile`, `/martis/resources/...` etc. are redirected to `/{martis-path}/email/verify` (or the URL set in `notice_url`).
