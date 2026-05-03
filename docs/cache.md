@@ -141,7 +141,7 @@ php artisan martis:cache:enable navigation        # runtime force-on
 For ad-hoc debugging without flipping any switch:
 
 - `X-Martis-No-Cache: 1` header.
-- `?nocache=1` query parameter.
+- `?nocache=1` query parameter (also accepts `?nocache=true`).
 
 Both work on every cached endpoint. Useful for testing whether an issue is cache-related before changing config.
 
