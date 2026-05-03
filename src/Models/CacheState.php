@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * Operational metadata for one cache layer (`metrics`, `navigation`,
@@ -33,10 +34,10 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property string $type
  * @property int $version
- * @property \Illuminate\Support\Carbon|null $cleared_at
+ * @property Carbon|null $cleared_at
  * @property bool|null $override
- * @property \Illuminate\Support\Carbon $created_at
- * @property \Illuminate\Support\Carbon $updated_at
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
  */
 class CacheState extends Model
 {
@@ -48,8 +49,10 @@ class CacheState extends Model
 
     protected $keyType = 'string';
 
+    /** @var list<string> */
     protected $fillable = ['type', 'version', 'cleared_at', 'override'];
 
+    /** @var array<string, string> */
     protected $casts = [
         'version' => 'integer',
         'cleared_at' => 'datetime',

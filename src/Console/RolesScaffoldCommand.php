@@ -527,5 +527,4 @@ class RolesScaffoldCommand extends Command
         $files->put($targetFile, (string) file_get_contents($stubFile));
         $this->components->twoColumnDetail('<fg=green>Created</> seeder', $targetFile);
     }
-
 }

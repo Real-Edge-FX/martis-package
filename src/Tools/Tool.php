@@ -260,7 +260,7 @@ class Tool implements ToolContract
      * a routes file.
      *
      * @param  list<string>  $middleware  Middleware stack. Defaults to the standard Martis admin stack.
-     * @param  string|null   $prefix      URL prefix. Defaults to `martis/api/tools/{uriKey}`.
+     * @param  string|null  $prefix  URL prefix. Defaults to `martis/api/tools/{uriKey}`.
      */
     public function loadRoutes(
         string $path,

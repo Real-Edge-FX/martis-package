@@ -1043,8 +1043,8 @@ return [
             // useful for apps that want, say, "no delete affordance ever".
             // Resource-level `defaultRowActions()` can subtract further but
             // never force a globally-disabled action back on.
-            'view'   => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
-            'edit'  => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+            'view' => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+            'edit' => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
             'delete' => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
         ],
 

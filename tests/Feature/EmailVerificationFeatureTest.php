@@ -116,7 +116,7 @@ it('the verified middleware blocks unverified users even when their User model d
     }
     config(['auth.providers.users.model' => 'Tests\\Stubs\\BareUser']);
 
-    /** @var \Illuminate\Foundation\Auth\User $user */
+    /** @var User $user */
     $user = ('Tests\\Stubs\\BareUser')::create([
         'name' => 'Bare',
         'email' => 'bare-unverified@example.com',
@@ -144,7 +144,7 @@ it('the verified middleware lets users without MustVerifyEmail through when thei
     }
     config(['auth.providers.users.model' => 'Tests\\Stubs\\BareUser']);
 
-    /** @var \Illuminate\Foundation\Auth\User $user */
+    /** @var User $user */
     $user = ('Tests\\Stubs\\BareUser')::create([
         'name' => 'Bare',
         'email' => 'bare-verified@example.com',

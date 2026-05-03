@@ -9,9 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
 
@@ -131,14 +133,14 @@ class MagicLinkController
         $user = new $userClass([
             'email' => $email,
             'name' => $email,
-            'password' => bcrypt(\Illuminate\Support\Str::random(40)),
+            'password' => bcrypt(Str::random(40)),
         ]);
         $user->save();
 
         return $user instanceof Authenticatable ? $user : null;
     }
 
-    protected function resolveAnonymousNotifiable(string $email): \Illuminate\Notifications\AnonymousNotifiable
+    protected function resolveAnonymousNotifiable(string $email): AnonymousNotifiable
     {
         return Notification::route('mail', $email);
     }

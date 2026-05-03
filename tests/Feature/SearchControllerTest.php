@@ -601,7 +601,7 @@ it('Resource::globalSearchResult can attach arbitrary fields to a result', funct
 // ---------------------------------------------------------------------------
 
 it('ranks results by Field::searchPriority on MySQL drivers', function () {
-    if (\DB::connection()->getDriverName() !== 'mysql') {
+    if (DB::connection()->getDriverName() !== 'mysql') {
         $this->markTestSkipped('searchPriority ORDER BY only applies on MySQL.');
     }
 

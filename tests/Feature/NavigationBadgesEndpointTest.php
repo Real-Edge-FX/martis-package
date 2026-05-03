@@ -96,7 +96,7 @@ class BadgesBrokenCountResource extends BadgesAccountsResource
 
     public static function menuCount(Request $request): ?int
     {
-        throw new \RuntimeException('boom');
+        throw new RuntimeException('boom');
     }
 }
 
