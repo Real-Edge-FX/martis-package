@@ -232,6 +232,7 @@
             var accent = pick('accent') || 'martis';
             var density = pick('density') || 'comfortable';
             var reducedMotion = pick('reducedMotion') || false;
+            var brandColor = pick('brandColor');
 
             // `theme = system` honours the OS preference at paint time.
             if (theme === 'system') {
@@ -245,6 +246,19 @@
             root.setAttribute('data-density', density);
             if (reducedMotion) root.setAttribute('data-reduced-motion', 'true');
             else root.removeAttribute('data-reduced-motion');
+
+            // brandColor — derive the full 6-token accent palette so
+            // hover / active / bg / focus-ring follow the override
+            // without flashing the bundled blue defaults before the
+            // React PreferencesContext mounts and re-applies them.
+            if (typeof brandColor === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(brandColor)) {
+                root.style.setProperty('--martis-accent', brandColor);
+                root.style.setProperty('--martis-accent-hover',    'color-mix(in srgb, ' + brandColor + ' 88%, black)');
+                root.style.setProperty('--martis-accent-active',   'color-mix(in srgb, ' + brandColor + ' 78%, black)');
+                root.style.setProperty('--martis-accent-bg-light', 'color-mix(in srgb, ' + brandColor + ' 14%, transparent)');
+                root.style.setProperty('--martis-accent-bg',       'color-mix(in srgb, ' + brandColor + ' 24%, transparent)');
+                root.style.setProperty('--martis-focus-ring',      'color-mix(in srgb, ' + brandColor + ' 45%, transparent)');
+            }
         })();
     </script>
     @php
