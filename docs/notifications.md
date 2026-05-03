@@ -1,4 +1,4 @@
-# In-app Notifications (⭐ Martis differential)
+# In-app Notifications
 
 > Persistent notifications surfaced in the topbar bell dropdown — distinct from toasts (transient feedback). Backed by Laravel's standard `notifications` table.
 
@@ -7,7 +7,7 @@
 - **Toasts** (`useToast`) — transient, auto-dismiss, reactive feedback for the action a user just took ("Record saved", "Failed to send"). They're gone when the page reloads.
 - **Notifications** — persistent, per-user, bell + badge. The user opens the dropdown, reads them, marks as read, clicks through to a link, and they survive page reloads / sessions.
 
-Pre-v0.8 Martis only had toasts. v0.8 ships the proper notifications subsystem.
+Pre-v0.8 Martis only had toasts. v0.8 ships the proper notifications subsystem on top of Laravel's standard `notifications` table — so anything you already deliver via the `database` channel surfaces in the bell with zero glue.
 
 ## How it works
 
