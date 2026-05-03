@@ -103,9 +103,26 @@ function applyToDom(prefs: Preferences): void {
   else root.removeAttribute('data-reduced-motion')
 
   if (prefs.brandColor) {
-    root.style.setProperty('--martis-accent', prefs.brandColor)
+    // Derive the full 6-token accent palette from the user's hex so
+    // hover / active / bg / focus-ring follow the brand colour
+    // instead of inheriting the bundled blue default. Mirrors the
+    // SSR rule the Blade template emits for named custom accents
+    // (MARTIS_CUSTOM_ACCENTS), so a per-user `brandColor` and a
+    // host-registered named accent end up with the same visual weight.
+    const c = prefs.brandColor
+    root.style.setProperty('--martis-accent', c)
+    root.style.setProperty('--martis-accent-hover', `color-mix(in srgb, ${c} 88%, black)`)
+    root.style.setProperty('--martis-accent-active', `color-mix(in srgb, ${c} 78%, black)`)
+    root.style.setProperty('--martis-accent-bg-light', `color-mix(in srgb, ${c} 14%, transparent)`)
+    root.style.setProperty('--martis-accent-bg', `color-mix(in srgb, ${c} 24%, transparent)`)
+    root.style.setProperty('--martis-focus-ring', `color-mix(in srgb, ${c} 45%, transparent)`)
   } else {
     root.style.removeProperty('--martis-accent')
+    root.style.removeProperty('--martis-accent-hover')
+    root.style.removeProperty('--martis-accent-active')
+    root.style.removeProperty('--martis-accent-bg-light')
+    root.style.removeProperty('--martis-accent-bg')
+    root.style.removeProperty('--martis-focus-ring')
   }
 }
 
