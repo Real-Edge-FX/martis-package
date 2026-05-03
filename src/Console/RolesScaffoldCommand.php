@@ -93,6 +93,7 @@ class RolesScaffoldCommand extends Command
         // {{ categoryField }} / {{ categoryFilters }} placeholders.
         if ((bool) $this->option('with-categories')) {
             $this->publishCategoryMigration($files);
+            $this->scaffoldPermissionCategoryFilter($files);
         }
 
         // 6. Scaffold the three policies (User / Role / Permission).
@@ -470,23 +471,99 @@ class RolesScaffoldCommand extends Command
             ."                ->rules(['nullable', 'string', 'max:64'])\n"
             ."                ->help('Free-form group label — drives the filter on the index. Leave blank to keep the row uncategorised.'),\n";
 
-        $filters = "\n    public function filters(\\Illuminate\\Http\\Request \$request): array\n"
+        // The filter has to be a concrete subclass of `SelectFilter`
+        // (abstract). Inline `new SelectFilter(...)` instantiation —
+        // shipped pre-v1.8.17 — threw `Cannot instantiate abstract
+        // class` the first time the operator opened the permissions
+        // index. Reference a sibling class that the scaffolder writes
+        // alongside the resource (see `scaffoldPermissionCategoryFilter`).
+        $filters = "\n    public function filters(Request \$request): array\n"
             ."    {\n"
             ."        return [\n"
-            ."            new \\Martis\\Filters\\SelectFilter(\n"
-            ."                column: 'category',\n"
-            ."                name: 'Category',\n"
-            ."                options: fn () => \\Spatie\\Permission\\Models\\Permission::query()\n"
-            ."                    ->whereNotNull('category')\n"
-            ."                    ->distinct()\n"
-            ."                    ->orderBy('category')\n"
-            ."                    ->pluck('category', 'category')\n"
-            ."                    ->all(),\n"
-            ."            ),\n"
+            ."            new \\App\\Martis\\Filters\\PermissionCategoryFilter,\n"
             ."        ];\n"
             ."    }\n";
 
         return [$field, $filters];
+    }
+
+    /**
+     * Scaffold `app/Martis/Filters/PermissionCategoryFilter.php` —
+     * the concrete `SelectFilter` subclass referenced by the
+     * `--with-categories` PermissionResource. Idempotent: skipped
+     * when the file already exists unless `--force` is set.
+     */
+    protected function scaffoldPermissionCategoryFilter(Filesystem $files): void
+    {
+        if (! (bool) $this->option('with-categories')) {
+            return;
+        }
+
+        $target = app_path('Martis/Filters/PermissionCategoryFilter.php');
+        if ($files->exists($target) && ! (bool) $this->option('force')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> filter', 'PermissionCategoryFilter already exists');
+
+            return;
+        }
+
+        $files->ensureDirectoryExists(dirname($target));
+
+        $contents = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Martis\Filters;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Martis\Filters\SelectFilter;
+use Spatie\Permission\Models\Permission;
+
+/**
+ * Index filter for `App\Martis\Resources\PermissionResource`.
+ *
+ * Pulls the distinct list of `category` values currently in use so
+ * the dropdown reflects the live data — adding a new category to a
+ * permission row immediately surfaces it as a filter option, no
+ * re-deploy needed. Customise freely; this file is yours, not the
+ * package's.
+ */
+class PermissionCategoryFilter extends SelectFilter
+{
+    public function __construct()
+    {
+        // Filter base class requires `__construct(string $name,
+        // ?string $uriKey)`. Pass the user-facing label here so the
+        // SelectFilter ctor chain wires up correctly; without this the
+        // first instantiation throws ArgumentCountError.
+        parent::__construct(name: 'Category', uriKey: 'category');
+    }
+
+    /** @return array<string, string> */
+    public function options(Request $request): array
+    {
+        /** @var array<string, string> $rows */
+        $rows = Permission::query()
+            ->whereNotNull('category')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category', 'category')
+            ->all();
+
+        return $rows;
+    }
+
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return $query->where('category', (string) $value);
+    }
+}
+
+PHP;
+
+        $files->put($target, $contents);
+        $this->components->twoColumnDetail('<fg=green>Created</> filter', 'app/Martis/Filters/PermissionCategoryFilter.php');
     }
 
     protected function scaffoldPolicies(Filesystem $files, string $userClass): void
