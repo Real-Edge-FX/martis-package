@@ -1,13 +1,22 @@
 import { Fragment, useState } from "react"
-import { NavLink } from "react-router-dom"
+import { NavLink, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
-import type { NavigationGroup } from "@/types"
+import type {
+  NavigationGroup,
+  NavigationGroupChild,
+  NavigationItem,
+  NavigationNestedGroup,
+} from "@/types"
 import {
   getNavigationItems,
   getItemCount,
   formatItemCount,
+  isLeafActive,
+  isNestedGroup,
+  isGroupActive,
+  mergeBadgeCounts,
   useNavigationRefreshOnNavigate,
 } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
@@ -71,19 +80,237 @@ interface SidebarProps {
   collapsed?: boolean
 }
 
+interface RenderItemContext {
+  groupKey: string
+  collapsed: boolean
+  isMobile: boolean
+  onMobileClose?: () => void
+  location: { pathname: string; search: string }
+}
+
+
+/**
+ * Render a single leaf navigation item (resource / link / tool / dashboard /
+ * lens / filter). Shared between flat groups and nested MenuGroups so the
+ * row markup stays consistent across both levels.
+ */
+function renderLeafItem(
+  item: NavigationItem,
+  ctx: RenderItemContext,
+): JSX.Element {
+  const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
+  const showTooltip = !ctx.isMobile && ctx.collapsed ? item.label : undefined
+  const count = getItemCount(item)
+  const showLabel = ctx.isMobile || !ctx.collapsed
+  const showCount = showLabel && count !== null
+  const badge = item.badge ?? null
+
+  const inner = (
+    <>
+      <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
+      {showLabel && (
+        <span className="martis-sb-item-label">{item.label}</span>
+      )}
+      {showLabel && badge && (
+        <span
+          className="martis-sb-item-tag"
+          data-tone={badge.tone}
+        >
+          {badge.text}
+        </span>
+      )}
+      {showCount && (
+        <span className="martis-sb-item-badge">
+          {formatItemCount(count!)}
+        </span>
+      )}
+    </>
+  )
+
+  const key =
+    item.type === "resource"
+      ? item.uriKey
+      : `${ctx.groupKey}-${item.label}-${item.url}`
+
+  if (item.external) {
+    return (
+      <a
+        key={key}
+        href={item.url}
+        target="_blank"
+        rel="noreferrer"
+        className="martis-sb-item"
+        data-pr-tooltip={showTooltip}
+        data-pr-position="right"
+        onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
+      >
+        {inner}
+      </a>
+    )
+  }
+
+  // Use our own active rule (see isLeafActive) instead of NavLink's
+  // default prefix matcher. NavLink with a *string* className would
+  // still append its own " active" based on its internal isActive
+  // (a bare-pathname prefix match), which lights up the resource link
+  // plus every lens/filter sibling together. Passing a function lets
+  // us ignore NavLink's verdict entirely and return the precomputed
+  // class. `aria-current="page"` is still emitted by NavLink based on
+  // its own match — visually irrelevant since we drive the highlight
+  // via the `active` class.
+  const active = isLeafActive(item, ctx.location)
+  const className = "martis-sb-item" + (active ? " active" : "")
+
+  // Mirror the resource's per-resource accent on the active leaf so
+  // the sidebar selection lines up visually with the page header.
+  // The accent var is set on this single element only — siblings on
+  // the sidebar keep the user's global accent. See useResourceAccent
+  // for the same pattern applied to the page wrapper.
+  const accentProps =
+    active && item.type === 'resource' && item.accentColor
+      ? buildAccentProps(item.accentColor)
+      : null
+
+  return (
+    <NavLink
+      key={key}
+      to={item.url}
+      end
+      className={() => className}
+      data-pr-tooltip={showTooltip}
+      data-pr-position="right"
+      onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
+      {...accentProps}
+    >
+      {inner}
+    </NavLink>
+  )
+}
+
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
+/**
+ * Build the `data-resource-accent` / inline-style props that pin a
+ * single sidebar leaf to a resource's accent. Mirrors the contract
+ * of `useResourceAccent` (which targets the page wrapper) so the
+ * two surfaces stay in lockstep.
+ */
+function buildAccentProps(accent: string): {
+  'data-resource-accent'?: string
+  style?: React.CSSProperties
+} {
+  if (HEX_RE.test(accent)) {
+    return { style: { '--martis-accent': accent } as React.CSSProperties }
+  }
+  return { 'data-resource-accent': accent }
+}
+
+/**
+ * Render a nested MenuGroup: its own collapsible header + an indented
+ * list of leaf items underneath. Sits inside a section's items list.
+ */
+function NestedGroupBlock({
+  group,
+  parentKey,
+  ctx,
+}: {
+  group: NavigationNestedGroup
+  parentKey: string
+  ctx: RenderItemContext
+}): JSX.Element {
+  const groupKey = `${parentKey}::${group.label}`
+  const [open, setOpen] = useState(true)
+  const showLabel = ctx.isMobile || !ctx.collapsed
+  const collapsable = group.collapsable !== false
+  const iconNode = group.icon && (
+    <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
+  )
+  const labelNode = <span>{group.label}</span>
+  const caretNode = collapsable && (
+    <CaretRightIcon size={10} className="caret" />
+  )
+
+  return (
+    <div className="martis-sb-subgroup" data-open={open ? "true" : "false"}>
+      {showLabel && (
+        <div className="martis-sb-subgroup-header">
+          {/* Label area — link when path() is set, plain button otherwise.
+              The chevron lives outside this so collapse + deep-link can
+              coexist on the same header. */}
+          {group.path ? (
+            <NavLink
+              to={group.path}
+              end
+              className={() =>
+                "martis-sb-subgroup-label martis-sb-subgroup-label--link" +
+                (isGroupActive(group.path, group.items, ctx.location) ? " active" : "")
+              }
+            >
+              {iconNode}
+              {labelNode}
+            </NavLink>
+          ) : (
+            <button
+              type="button"
+              className="martis-sb-subgroup-label"
+              onClick={() => collapsable && setOpen((o) => !o)}
+            >
+              {iconNode}
+              {labelNode}
+            </button>
+          )}
+          {/* Independent chevron — always toggles collapse, regardless of
+              whether the label is a link. Hidden when the group opted
+              out of collapsing entirely. */}
+          {collapsable && (
+            <button
+              type="button"
+              className="martis-sb-subgroup-toggle"
+              aria-label={open ? 'Collapse' : 'Expand'}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }}
+            >
+              {caretNode}
+            </button>
+          )}
+        </div>
+      )}
+      {(open || (!ctx.isMobile && ctx.collapsed)) && (
+        <div className="martis-sb-subgroup-items">
+          {group.items.map((item) =>
+            renderLeafItem(item, { ...ctx, groupKey }),
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: SidebarProps = {}) {
   const { t } = useTranslation("navigation")
-  const pollInterval = config.navigation?.pollInterval ?? 60_000
-  const { data: groups = [] } = useQuery<NavigationGroup[]>({
+  // Full navigation tree: fetched once per session + on route mutations.
+  // NOT auto-polled — menu structure rarely changes in production.
+  const { data: rawGroups = [] } = useQuery<NavigationGroup[]>({
     queryKey: ["navigation"],
     queryFn: () => api.get("/api/navigation"),
-    staleTime: 1000 * 30,
-    refetchInterval: pollInterval > 0 ? pollInterval : false,
-    refetchOnWindowFocus: true,
+    staleTime: Infinity,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   })
+  // Lightweight badges payload: polled on a separate, longer interval.
+  const badgesPollInterval = config.navigation?.badgesPollInterval ?? 300_000
+  const { data: badges } = useQuery<Record<string, number>>({
+    queryKey: ["navigation", "badges"],
+    queryFn: () => api.get("/api/navigation/badges"),
+    staleTime: 1000 * 30,
+    refetchInterval: badgesPollInterval > 0 ? badgesPollInterval : false,
+    refetchOnWindowFocus: true,
+    enabled: rawGroups.length > 0,
+  })
+  const groups = badges ? mergeBadgeCounts(rawGroups, badges) : rawGroups
   useNavigationRefreshOnNavigate()
 
   const isMobile = mobileOpen !== undefined
+  const location = useLocation()
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
@@ -168,6 +395,18 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
             currentSection !== null &&
             currentSection !== previousSection &&
             (isMobile || !collapsed)
+          const ctx: RenderItemContext = {
+            groupKey,
+            collapsed,
+            isMobile,
+            onMobileClose,
+            location: { pathname: location.pathname, search: location.search },
+          }
+          const groupCollapsable = group.collapsable !== false
+          const groupIcon = group.icon && (
+            <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
+          )
+          const groupLabel = <span>{group.label}</span>
           return (
             <Fragment key={groupKey}>
               {showSection && (
@@ -175,93 +414,66 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                   {currentSection}
                 </div>
               )}
-            <div
-              className="martis-sb-group"
-              data-open={isExpanded ? "true" : "false"}
-            >
-              {group.label && (isMobile || !collapsed) && (
-                <button
-                  type="button"
-                  className="martis-sb-group-label"
-                  onClick={() => toggleGroup(groupKey)}
-                >
-                  {group.icon && (
-                    <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
-                  )}
-                  <span>{group.label}</span>
-                  <CaretRightIcon size={10} className="caret" />
-                </button>
-              )}
-              {(isExpanded || (!isMobile && collapsed)) &&
-                getNavigationItems(group).map((item) => {
-                  const iconName =
-                    item.type === "resource" ? item.icon : item.icon ?? "link"
-                  const showTooltip = !isMobile && collapsed ? item.label : undefined
-                  const count = getItemCount(item)
-                  const showLabel = isMobile || !collapsed
-                  const showCount = showLabel && count !== null
-
-                  if (item.external) {
-                    return (
-                      <a
-                        key={`${groupKey}-${item.label}-${item.url}`}
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="martis-sb-item"
-                        data-pr-tooltip={showTooltip}
-                        data-pr-position="right"
-                        onClick={isMobile ? onMobileClose : undefined}
+              <div
+                className="martis-sb-group"
+                data-open={isExpanded ? "true" : "false"}
+              >
+                {group.label && (isMobile || !collapsed) && (
+                  <div className="martis-sb-group-header">
+                    {/* Label area: NavLink when path() is set, button
+                        otherwise. The chevron lives outside so deep-link
+                        and collapse can coexist on the same header. */}
+                    {group.path ? (
+                      <NavLink
+                        to={group.path}
+                        end
+                        className={() =>
+                          "martis-sb-group-label martis-sb-group-label--link" +
+                          (isGroupActive(group.path, group.items, { pathname: location.pathname, search: location.search }) ? " active" : "")
+                        }
                       >
-                        <ResourceIcon
-                          iconName={iconName ?? null}
-                          size={16}
-                          className="shrink-0"
+                        {groupIcon}
+                        {groupLabel}
+                      </NavLink>
+                    ) : (
+                      <button
+                        type="button"
+                        className="martis-sb-group-label"
+                        onClick={() => groupCollapsable && toggleGroup(groupKey)}
+                      >
+                        {groupIcon}
+                        {groupLabel}
+                      </button>
+                    )}
+                    {/* Independent chevron — always toggles collapse,
+                        regardless of whether the label is a link. */}
+                    {groupCollapsable && (
+                      <button
+                        type="button"
+                        className="martis-sb-group-toggle"
+                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleGroup(groupKey) }}
+                      >
+                        <CaretRightIcon size={10} className="caret" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                {(isExpanded || (!isMobile && collapsed)) &&
+                  getNavigationItems(group).map((child: NavigationGroupChild, idx) => {
+                    if (isNestedGroup(child)) {
+                      return (
+                        <NestedGroupBlock
+                          key={`${groupKey}-nested-${child.label}-${idx}`}
+                          group={child}
+                          parentKey={groupKey}
+                          ctx={ctx}
                         />
-                        {showLabel && (
-                          <span className="martis-sb-item-label">{item.label}</span>
-                        )}
-                        {showCount && (
-                          <span className="martis-sb-item-badge">
-                            {formatItemCount(count!)}
-                          </span>
-                        )}
-                      </a>
-                    )
-                  }
-
-                  return (
-                    <NavLink
-                      key={
-                        item.type === "resource"
-                          ? item.uriKey
-                          : `${groupKey}-${item.label}-${item.url}`
-                      }
-                      to={item.url}
-                      className={({ isActive }) =>
-                        "martis-sb-item" + (isActive ? " active" : "")
-                      }
-                      data-pr-tooltip={showTooltip}
-                      data-pr-position="right"
-                      onClick={isMobile ? onMobileClose : undefined}
-                    >
-                      <ResourceIcon
-                        iconName={iconName ?? null}
-                        size={16}
-                        className="shrink-0"
-                      />
-                      {showLabel && (
-                        <span className="martis-sb-item-label">{item.label}</span>
-                      )}
-                      {showCount && (
-                        <span className="martis-sb-item-badge">
-                          {formatItemCount(count!)}
-                        </span>
-                      )}
-                    </NavLink>
-                  )
-                })}
-            </div>
+                      )
+                    }
+                    return renderLeafItem(child, ctx)
+                  })}
+              </div>
             </Fragment>
           )
         })}

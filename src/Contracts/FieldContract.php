@@ -132,6 +132,19 @@ interface FieldContract
     public function searchable(bool $value = true): static;
 
     /**
+     * Set the relative ranking weight for matches in this field. Higher
+     * values rank above lower ones in Global Search LIKE results.
+     *
+     * @param  int  $priority  Default 1; typical values 1 (long-form), 2 (title), 3 (id-like).
+     */
+    public function searchPriority(int $priority): static;
+
+    /**
+     * Return the search priority assigned via `searchPriority()`. Defaults to 1.
+     */
+    public function getSearchPriority(): int;
+
+    /**
      * Override the frontend component used to render this field.
      *
      * @param  string  $key  The component key registered in the frontend componentRegistry.

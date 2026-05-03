@@ -8,7 +8,7 @@ use Martis\Resource;
 
 class MenuSection
 {
-    /** @var list<MenuItem> */
+    /** @var list<MenuItem|MenuGroup> */
     protected array $items = [];
 
     /** @var Closure(Request): bool|bool|null */
@@ -23,12 +23,13 @@ class MenuSection
         protected ?string $icon = null,
         protected bool $collapsable = true,
         protected ?string $section = null,
+        protected ?string $path = null,
     ) {
         $this->items = $this->normalizeItems($items);
     }
 
     /**
-     * @param  list<MenuItem|class-string<resource>>  $items
+     * @param  list<MenuItem|MenuGroup|class-string<resource>>  $items
      */
     public static function make(?string $label = null, array $items = []): self
     {
@@ -36,7 +37,7 @@ class MenuSection
     }
 
     /**
-     * @param  list<MenuItem|class-string<resource>>  $items
+     * @param  list<MenuItem|MenuGroup|class-string<resource>>  $items
      */
     public function items(array $items): self
     {
@@ -45,7 +46,7 @@ class MenuSection
         return $this;
     }
 
-    public function add(MenuItem|string $item): self
+    public function add(MenuItem|MenuGroup|string $item): self
     {
         $this->items[] = $this->normalizeItem($item);
 
@@ -62,6 +63,19 @@ class MenuSection
     public function collapsable(bool $collapsable = true): self
     {
         $this->collapsable = $collapsable;
+
+        return $this;
+    }
+
+    /**
+     * Make the section header clickable. When set, the frontend wraps
+     * the header label in a link to this URL — useful when the cluster
+     * has a dedicated landing page (e.g. "/reports") that complements
+     * the items underneath.
+     */
+    public function path(?string $url): self
+    {
+        $this->path = $url;
 
         return $this;
     }
@@ -126,6 +140,7 @@ class MenuSection
             'icon' => $this->icon,
             'collapsable' => $this->collapsable,
             'section' => $this->section,
+            'path' => $this->path,
             'items' => array_values($resolvedItems),
         ], $this->meta);
     }
@@ -144,20 +159,20 @@ class MenuSection
     }
 
     /**
-     * @param  list<MenuItem|class-string<resource>>  $items
-     * @return list<MenuItem>
+     * @param  list<MenuItem|MenuGroup|class-string<resource>>  $items
+     * @return list<MenuItem|MenuGroup>
      */
     protected function normalizeItems(array $items): array
     {
         return array_values(array_map(
-            fn (MenuItem|string $item): MenuItem => $this->normalizeItem($item),
+            fn (MenuItem|MenuGroup|string $item): MenuItem|MenuGroup => $this->normalizeItem($item),
             $items
         ));
     }
 
-    protected function normalizeItem(MenuItem|string $item): MenuItem
+    protected function normalizeItem(MenuItem|MenuGroup|string $item): MenuItem|MenuGroup
     {
-        if ($item instanceof MenuItem) {
+        if ($item instanceof MenuItem || $item instanceof MenuGroup) {
             return $item;
         }
 

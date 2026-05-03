@@ -1,7 +1,11 @@
 # Panels and Tabs
 
-Martis supports two advanced layout mechanisms for organising fields on forms and
-detail pages: **Panels** and **Tabs**.
+Martis supports three layout mechanisms for organising fields on forms and
+detail pages: **Panels**, **Tabs**, and **Sections**.
+
+- **Panel** — a visual grouping with a title bar, optional description, collapsible, and a Show more limit.
+- **TabGroup / Tab** — navigable sections; each Tab holds fields and/or Panels.
+- **Section** — a configurable CSS grid for multi-column form layouts with `Field::span()`. Covered in [Grid Layout](/docs/core/grid-layout).
 
 ---
 
@@ -235,6 +239,10 @@ public function fieldsForUpdate(Request $request): array
 }
 ```
 
+### Tab configuration
+
+`Tab` is a thin container — it accepts a title and a list of fields/panels. There are no fluent extras (no `collapsible`, no `description`, no `icon`). Use a `Panel` inside the tab if you need those features.
+
 ### Where to use TabGroup
 
 TabGroup may appear in:
@@ -249,12 +257,14 @@ It does not appear in `fields()` (index) — fields are always flattened for the
 
 ## Possible Combinations
 
-| Context            | Panel | TabGroup | Tab inside TabGroup | Panel inside Tab |
-|--------------------|-------|----------|---------------------|------------------|
-| `fields()` (index) | ✗     | ✗        | ✗                   | ✗                |
-| `fieldsForCreate`  | ✅    | ✅       | ✅                  | ✅               |
-| `fieldsForUpdate`  | ✅    | ✅       | ✅                  | ✅               |
-| `fieldsForDetail`  | ✅    | ✅       | ✅                  | ✅               |
+| Context            | Panel | TabGroup | Tab inside TabGroup | Panel inside Tab | Section |
+|--------------------|-------|----------|---------------------|------------------|---------|
+| `fields()` (index) | ✗     | ✗        | ✗                   | ✗                | ✗       |
+| `fieldsForCreate`  | ✅    | ✅       | ✅                  | ✅               | ✅      |
+| `fieldsForUpdate`  | ✅    | ✅       | ✅                  | ✅               | ✅      |
+| `fieldsForDetail`  | ✅    | ✅       | ✅                  | ✅               | ✅      |
+
+Section cannot be nested inside a Tab (Tab accepts `FieldContract|Panel` only). See [Grid Layout](/docs/core/grid-layout) for the Section API.
 
 ---
 
@@ -282,6 +292,7 @@ The format is stable and can be inspected via `GET /api/{resource}/schema`.
 {
   "type": "panel",
   "title": "Publication",
+  "description": null,
   "collapsible": false,
   "collapsedByDefault": false,
   "limit": null,
@@ -293,6 +304,8 @@ The format is stable and can be inspected via `GET /api/{resource}/schema`.
 ```
 
 ### TabGroup
+
+The `fields` key inside each tab holds a heterogeneous array — it may contain field objects **and** panel objects mixed together (panels are serialised inline, not promoted to a separate key).
 
 ```json
 {
@@ -309,13 +322,36 @@ The format is stable and can be inspected via `GET /api/{resource}/schema`.
       "type": "tab",
       "title": "Organisation",
       "fields": [
+        { "type": "text", "attribute": "note", ... },
         {
           "type": "panel",
           "title": "Relations",
+          "description": null,
+          "collapsible": true,
+          "collapsedByDefault": false,
+          "limit": null,
           "fields": [ ... ]
         }
       ]
     }
+  ]
+}
+```
+
+### Section
+
+```json
+{
+  "type": "section",
+  "title": "Timeline",
+  "description": null,
+  "columns": 12,
+  "collapsible": false,
+  "collapsedByDefault": false,
+  "limit": null,
+  "fields": [
+    { "type": "date", "attribute": "starts_at", "colSpan": 6, ... },
+    { "type": "date", "attribute": "ends_at", "colSpan": 6, ... }
   ]
 }
 ```

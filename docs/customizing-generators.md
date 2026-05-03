@@ -4,25 +4,29 @@ Every Martis make-command (e.g. `martis:resource`, `martis:action`, `martis:lens
 
 `martis:stubs` publishes every template into `stubs/martis/` so consumers can edit them in place.
 
+> **Stub overrides vs component overrides.** This page is about **scaffolding** — the source code emitted once when you run `php artisan martis:resource Foo`. It does not affect runtime rendering. To swap a React component the panel uses live, see the [Override System](overrides.md) (`componentRegistry`, `layoutRegistry`).
+
 ## Quick start
 
 ```bash
 php artisan martis:stubs
 ```
 
-Output:
+Output (truncated — the package ships ~45 stubs):
 
 ```
   resource.stub ............................................... PUBLISHED
   action.stub ................................................. PUBLISHED
   action.destructive.stub ..................................... PUBLISHED
   lens.stub ................................................... PUBLISHED
-  ... (18 stubs total)
+  ...
 
-  18 stubs published; 0 skipped. Edit them in stubs/martis/ to customise generator output.
+  45 stubs published; 0 skipped. Edit them in stubs/martis/ to customise generator output.
 ```
 
-The folder is created at `base_path('stubs/martis/')`. From now on every `martis:*` make-command reads its template from there first, falling back to the package default only if the override file is missing.
+When you re-run with `--force`, the status column reads `OVERWRITTEN` instead of `PUBLISHED` so the overwrite is visible in the log.
+
+The folder is created at `base_path('stubs/martis/')`. From now on every `martis:*` make-command reads its template from there first via `StubResolver::path()`, falling back to the package default only if the override file is missing.
 
 ## What gets published
 
@@ -39,9 +43,39 @@ The folder is created at `base_path('stubs/martis/')`. From now on every `martis
 | `field.stub`, `field.tsx.stub` | `martis:field` |
 | `policy.stub` | `martis:policy` |
 | `theme.css.stub` | `martis:theme` |
-| `component-*.tsx.stub` | `martis:component` |
+| `component-{type}.tsx.stub` (12 variants) | `martis:component --type={type}` (see table below) |
 
-The migration stubs (`create_*_table.php.stub`, `add_*_column.php.stub`) used by `martis:install` and `martis:sso` are intentionally **not** customisable — they describe schema the package depends on at runtime, and divergence there breaks upgrades.
+### `martis:component` types
+
+`martis:component` accepts a `--type=` flag and resolves a dedicated stub per type. The stub-resolver fallback to `component-generic.tsx.stub` keeps the command working when `--type=` is omitted or unrecognised.
+
+| `--type=` | Stub | Override key registered by the generated component |
+|---|---|---|
+| `shell` | `component-shell.tsx.stub` | `layout:shell` |
+| `sidebar` | `component-sidebar.tsx.stub` | `layout:sidebar` |
+| `topbar` | `component-topbar.tsx.stub` | `layout:topbar` |
+| `footer` | `component-footer.tsx.stub` | `layout:footer` |
+| `card` | `component-card.tsx.stub` | (used by `martis:card`) |
+| `field` | `component-field.tsx.stub` | (used by `martis:field`) |
+| `generic` (default fallback) | `component-generic.tsx.stub` | — |
+| `login-page` | `component-login-page.tsx.stub` | `auth:login` |
+| `register-page` | `component-register-page.tsx.stub` | `auth:register` |
+| `forgot-password-page` | `component-forgot-password-page.tsx.stub` | `auth:forgot-password` |
+| `reset-password-page` | `component-reset-password-page.tsx.stub` | `auth:reset-password` |
+| `email-verify-notice-page` | `component-email-verify-notice-page.tsx.stub` | `auth:email-verify-notice` |
+
+### Install / SSO / Roles stubs
+
+`martis:stubs` also publishes the templates that `martis:install`, `martis:sso`, and `martis:roles:scaffold` use to write migrations + helper classes:
+
+| Stub | Used by |
+|---|---|
+| `create_martis_action_events_table.php.stub`, `create_user_preferences_table.php.stub`, `create_martis_notifications_table.php.stub`, `add_profile_picture_column.php.stub`, `add_two_factor_columns.php.stub` | `martis:install` |
+| `add_provider_group_column_to_roles_table.php.stub` | `martis:sso --with-migration` |
+| `MartisServiceProvider.php.stub` | `martis:install` (provider scaffold) |
+| `roles-permission-resource.stub`, `roles-role-resource.stub`, `roles-user-resource.stub`, `roles-policy.stub`, `roles-seeder.stub` | `martis:roles:scaffold` |
+
+Since v1.8.8 these all route through `StubResolver::path()`, so editing the published copy in `stubs/martis/` produces a custom output exactly like the regular generators. **Caveat:** the migrations describe schema Martis depends on at runtime — change column names or types only if you also update the matching app code, and re-run `martis:install` after.
 
 ## Editing a stub
 
@@ -75,10 +109,13 @@ Every make-command resolves its stub through:
 \Martis\Stubs\StubResolver::path('resource.stub');
 ```
 
-The resolver:
+The resolver exposes three static methods:
 
-1. Returns `base_path('stubs/martis/resource.stub')` when that file exists.
-2. Falls back to `<package>/stubs/resource.stub` otherwise.
+| Method | Returns |
+|---|---|
+| `path(string $name): string` | Override-aware path — `base_path('stubs/martis/<name>')` when present, else the package default. This is the path every make-command uses. |
+| `packagePath(string $name): string` | Always the bundled package default, regardless of any override. Useful when your custom command needs the unmodified template (e.g. to diff against a customer override). |
+| `packageDirectory(): string` | The package's `stubs/` root, derived from the resolver's own filename via reflection. Drives the `martis:stubs` command itself. |
 
 If you ship a custom artisan command of your own, the same resolver gives you the override-aware path:
 

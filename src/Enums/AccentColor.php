@@ -3,11 +3,10 @@
 namespace Martis\Enums;
 
 /**
- * Accent colors shipped by the Martis design system (Task 07.1).
+ * Accent colors shipped by the Martis design system.
  *
  * `Custom` is a sentinel — when set, `user_preferences.brand_color`
- * (a hex string) drives the accent via perceptual-luminance derivation
- * (⭐ D1 differential).
+ * (a hex string) drives the accent via perceptual-luminance derivation.
  */
 enum AccentColor: string
 {

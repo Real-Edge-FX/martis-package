@@ -112,28 +112,59 @@ function applyToDom(prefs: Preferences): void {
 /**
  * Resolve the initial preference state on every page load.
  *
- * Priority (v1.7.3):
- *   1. SSR payload with `source` ∈ {user, preset} — describes what THIS
- *      authenticated user / preset actually persisted server-side.
- *      Wins over localStorage (which may hold stale values from a
- *      different account that previously logged in on this browser).
- *   2. localStorage cache — guest choices made on the login / register
- *      surfaces, OR the most recent state for an authed user when
- *      offline.
- *   3. SSR payload with `source = default` — config defaults from the
- *      server (no row found, no preset applied).
+ * Priority:
+ *   0. localStorage cache + `GUEST_MODIFIED` flag — the user just
+ *      picked something on a guest auth surface (login / register
+ *      / 2FA), then logged in. The post-login useEffect promotes
+ *      that choice to the server with a single PUT, but in the
+ *      tiny window between page mount and the round-trip we still
+ *      need to honour the guest's pick — otherwise the login
+ *      transition flashes the old saved prefs (or the config
+ *      defaults) before snapping back. v1.8.8.
+ *   1. SSR payload with `source` ∈ {user, preset} — describes what
+ *      THIS authenticated user / preset actually persisted server-
+ *      side. Wins over localStorage when the guest did NOT modify
+ *      anything (the cache may hold stale values from a different
+ *      account that previously logged in on this browser).
+ *   2. localStorage cache — last-applied state for any user when
+ *      no SSR payload exists.
+ *   3. SSR payload with `source = default` — config defaults from
+ *      the server (no row found, no preset applied).
  *   4. Hard-coded fallback derived from `config.theme.default`.
  *
  * The earlier implementation collapsed (1) and (3) into a single
  * `injected wins always` branch, which made guest preferences
  * silently revert to the config default after every refresh — the
  * SSR payload came back as `source=default` and overwrote the
- * localStorage value the guest just picked.
+ * localStorage value the guest just picked. v1.7.3 fixed that for
+ * fresh users (no server row); v1.8.8 closes the same hole for
+ * returning users with an existing server row.
  */
 function readInitialPrefs(): Preferences {
   const injected = (window as unknown as {
     MartisConfig?: { preferences?: { initial?: Partial<Preferences> & { source?: string } } }
   }).MartisConfig?.preferences?.initial
+
+  // (0) Guest just picked something on an auth surface? Honour it.
+  // The post-login PUT will sync the choice to the server; this
+  // branch keeps the visual state coherent during the round-trip
+  // and across the login redirect.
+  let guestModified = false
+  let cached: Partial<Preferences> | null = null
+  try {
+    guestModified = localStorage.getItem(GUEST_MODIFIED_KEY) === '1'
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        cached = parsed as Partial<Preferences>
+      }
+    }
+  } catch {}
+
+  if (guestModified && cached) {
+    return { ...DEFAULTS, ...cached } as Preferences
+  }
 
   const isPersisted =
     injected !== undefined &&
@@ -146,19 +177,13 @@ function readInitialPrefs(): Preferences {
     return { ...DEFAULTS, ...injected } as Preferences
   }
 
-  // (2) localStorage cache — guest choices on login/register, or the
-  // last-applied state for any user. Wins over the server "default"
-  // payload because that payload is just config defaults, not
-  // anything the user actually saved.
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const cached = JSON.parse(raw)
-      if (cached && typeof cached === 'object') {
-        return { ...DEFAULTS, ...cached } as Preferences
-      }
-    }
-  } catch {}
+  // (2) localStorage cache — last-applied state when SSR has nothing
+  // authoritative. Wins over the server "default" payload because
+  // that payload is just config defaults, not anything the user
+  // actually saved.
+  if (cached) {
+    return { ...DEFAULTS, ...cached } as Preferences
+  }
 
   // (3) Server-supplied defaults (source = 'default').
   if (injected && typeof injected === 'object') {

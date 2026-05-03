@@ -230,6 +230,87 @@ return [
     |     count. Set to false to silence all badges globally without
     |     touching individual resources.
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Developer tools
+    |--------------------------------------------------------------------------
+    |
+    | Surface the in-panel developer tooling (Component Inspector at
+    | /martis/dev/components). The default keeps it ON in `local`/`testing`
+    | environments (so developers using the playground / their own dev
+    | container see it without flipping a flag) and OFF everywhere else,
+    | which prevents end-users on staging or production from stumbling onto
+    | the page. Set MARTIS_DEV_TOOLS=true in any environment to force-enable.
+    */
+    'dev' => [
+        'tools_enabled' => env(
+            'MARTIS_DEV_TOOLS',
+            in_array(env('APP_ENV', 'production'), ['local', 'testing'], true),
+        ),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Audit log (martis_action_events)
+    |--------------------------------------------------------------------------
+    | Toggles for the side-effect listeners that write into the
+    | `martis_action_events` audit table. Each one is independently
+    | togglable so an app that does not need a particular signal can
+    | drop the listener without touching the rest of the package.
+    */
+    'audit' => [
+        // Spatie role / permission attach + detach events. Default on
+        // when `spatie/laravel-permission` is installed. Flip to false
+        // to silence the Martis-side audit row (your own listeners
+        // keep firing — Martis only stops writing into action_events).
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+
+        // Impersonation start / stop events. Default on. Flip to
+        // false to silence the audit-table writes; the events still
+        // fire so your own listeners keep working. v1.8.8.
+        'impersonation' => env('MARTIS_AUDIT_IMPERSONATION', true),
+
+        // Authorization denials (Laravel Gate evaluations that returned
+        // false for an authenticated user). Off by default — busy apps
+        // can produce a row per denial per request. Turn on for
+        // compliance / forensics. v1.8.8.
+        'authz_denials' => env('MARTIS_AUDIT_AUTHZ_DENIALS', false),
+
+        // When true, the listener also records the noisy `viewAny`
+        // cascade (Laravel runs it for sidebar / navigation). Default
+        // false — the parent `view` denial is the actionable signal.
+        // v1.8.8.
+        'authz_denials_include_viewany' => env('MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authorization tuning
+    |--------------------------------------------------------------------------
+    | Knobs for the policy / Gate layer that sit alongside the audit
+    | toggles above. Today only the per-request cache lives here;
+    | future entries (e.g. per-resource policy override registry,
+    | global before() callbacks) hang off the same block.
+    */
+    'authz' => [
+        // Memoise Gate decisions inside a single request. Off by
+        // default. Useful for non-Spatie apps where the same
+        // ability is evaluated many times per request from different
+        // surfaces (sidebar visibility, schema authorization block,
+        // per-record _authorization, action visibility). The cache
+        // is request-scoped — never spans requests, never persisted.
+        // Skips closure gates and unkeyable arguments. v1.8.8.
+        'request_cache' => env('MARTIS_AUTHZ_REQUEST_CACHE', false),
+
+        // When set true, the impersonation / role-demote listeners
+        // revoke a user's other browser sessions whenever a role or
+        // permission is detached from them. Useful in regulated apps
+        // where a demotion must take immediate effect on every device
+        // the user is signed in on. Default false because revoking
+        // active sessions is a heavy hammer. v1.8.8.
+        'revoke_sessions_on_demote' => env('MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE', false),
+    ],
+
     'navigation' => [
         'counts' => [
             'enabled' => env('MARTIS_NAV_COUNTS', true),
@@ -250,11 +331,19 @@ return [
 
         /*
          | How often (in milliseconds) the sidebar and top-nav re-fetch the
-         | navigation endpoint while a tab is focused. Keeps count badges
-         | in sync when a second user mutates data in parallel.
-         | Set to 0 to disable polling entirely.
+         | LIGHTWEIGHT badges endpoint (`/api/navigation/badges`). Keeps
+         | count badges in sync without re-pulling the full navigation
+         | structure (which rarely changes in production).
+         |
+         | Set to 0 to disable badge polling entirely. Default: 300_000
+         | (5 minutes).
+         |
+         | The full navigation tree (`/api/navigation`) is fetched once
+         | per session + on route mutations and is NOT auto-polled — by
+         | design, since menu structure changes only on deploy or
+         | role/permission changes.
          */
-        'poll_interval' => (int) env('MARTIS_NAV_POLL_MS', 60000),
+        'badges_poll_interval' => (int) env('MARTIS_NAV_BADGES_POLL_MS', 300000),
     ],
 
     /*
@@ -285,6 +374,13 @@ return [
     |     Default `['en']` matches the historical behaviour. A multi-step
     |     example: `['pt_BR', 'en']` for `pt_PT` requests so European
     |     Portuguese first borrows from Brazilian, then from English.
+    |
+    |   - `rtl_locales`: locale codes that should render the admin panel
+    |     in right-to-left layout. When the active locale matches an
+    |     entry, the React shell writes `dir="rtl"` on `<html>` and the
+    |     bundled CSS uses logical properties so margins / paddings /
+    |     borders flip automatically. Default ships with Arabic, Persian,
+    |     Hebrew, Urdu — opt out by clearing the list.
     */
     'locales' => [
         'app_namespaces' => array_filter(
@@ -293,6 +389,10 @@ return [
         ),
         'fallback_chain' => array_filter(
             array_map('trim', explode(',', (string) env('MARTIS_LOCALE_FALLBACK_CHAIN', 'en'))),
+            static fn (string $locale): bool => $locale !== '',
+        ),
+        'rtl_locales' => array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_RTL_LOCALES', 'ar,fa,he,ur'))),
             static fn (string $locale): bool => $locale !== '',
         ),
     ],
@@ -378,7 +478,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | User Preferences (Task 07.1 ⭐ D2)
+    | User Preferences
     |--------------------------------------------------------------------------
     | Runtime UI preferences (theme, accent, density, locale, reduced-motion)
     | persisted per-user in `martis_user_preferences`. Disable with
@@ -429,7 +529,7 @@ return [
             'pt_BR' => 'Português (BR)',
         ],
 
-        // Allow users to set an arbitrary brand hex (⭐ D1). Off by default —
+        // Allow users to set an arbitrary brand hex. Off by default —
         // apps opt in via env or config override when multi-tenant branding
         // is a real requirement.
         'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
@@ -455,7 +555,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | In-app Notifications (v0.8 — Task 12)
+    | In-app Notifications
     |--------------------------------------------------------------------------
     | A persistent notification subsystem distinct from toasts. Backed by
     | Laravel's standard `notifications` table — any Notification class
@@ -471,8 +571,8 @@ return [
         'enabled' => env('MARTIS_NOTIFICATIONS_ENABLED', true),
 
         // Polling interval for the unread-count badge, in milliseconds.
-        // Set to 0 to disable polling.
-        'poll_interval' => env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 60000),
+        // Default 90_000 (90s). Set to 0 to disable polling.
+        'poll_interval' => env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 90000),
 
         // Maximum number of notifications shown in the dropdown panel.
         // The full list lives behind a "View all" link for users who
@@ -482,7 +582,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Sticky Views (v0.8 — Task 15)
+    | Sticky Views
     |--------------------------------------------------------------------------
     | Persists per-user view state on resource index pages — filters,
     | sort, pagination, per-page selector and column visibility — so a
@@ -617,7 +717,7 @@ return [
     'auth' => [
         /*
         |----------------------------------------------------------------------
-        | SSO Subsystem (Task 14 ⭐ differential)
+        | SSO Subsystem
         |----------------------------------------------------------------------
         |
         | Per-provider SSO with three orthogonal configuration axes:
@@ -666,6 +766,26 @@ return [
                 //
                 //     'on_no_role_match' => 'deny',
                 //     'redirect_to' => null,
+                //
+                //     // Federated logout (v1.8.8). Optional. When set,
+                //     // POST /api/auth/logout redirects through the IdP's
+                //     // logout URL after clearing the local session, so the
+                //     // IdP session is also terminated. The placeholder
+                //     // {post_logout_redirect_uri} is replaced with the
+                //     // urlencoded Martis login page URL.
+                //     //
+                //     // Microsoft Azure example:
+                //     //   logout_url => 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout?post_logout_redirect_uri={post_logout_redirect_uri}'
+                //     //
+                //     // Leave null (the default) to use Martis's own
+                //     // local-only logout (clears the cookie, redirects
+                //     // back to /martis/login).
+                //     'logout_url' => env('MARTIS_SSO_AZURE_LOGOUT_URL'),
+                //
+                //     // Defer external role-name resolution to a closure.
+                //     // Active when role_source = 'callable'. The closure
+                //     // receives the SsoIdentity and returns array<string>.
+                //     // 'role_source_callable' => fn (SsoIdentity $i) => [...],
                 // ],
             ],
         ],
@@ -692,6 +812,28 @@ return [
             // assignment entirely. Requires `assignRole()` on the user
             // model (Spatie Permission or equivalent).
             'default_role' => env('MARTIS_AUTH_REGISTRATION_DEFAULT_ROLE'),
+        ],
+
+        // Magic-link (passwordless) login. Off by default. When
+        // enabled, the Login page exposes a "Email me a sign-in link"
+        // button that POSTs to /api/auth/magic-link/request. The
+        // emailed link points at /api/auth/magic-link/consume which
+        // logs the user in and redirects to the dashboard.
+        // Tokens are persisted in the same `password_reset_tokens`
+        // table Laravel ships with, scoped by a `martis-magic:` prefix
+        // so they never clash with reset-password tokens. TTL defaults
+        // to 15 minutes; one-shot semantics — using a token deletes it.
+        'magic_link' => [
+            'enabled' => env('MARTIS_AUTH_MAGIC_LINK_ENABLED', false),
+            // Minutes the emailed token stays valid. Short by design:
+            // a magic-link is mailbox-equivalent, so a leak past the
+            // window is the same threat as a password.
+            'ttl_minutes' => (int) env('MARTIS_AUTH_MAGIC_LINK_TTL', 15),
+            // Whether to auto-create a user when the email is unknown.
+            // Default false — magic-link as a sign-in shortcut for
+            // existing accounts, not a registration backdoor. Flip to
+            // true when registration is open + you accept any email.
+            'auto_register' => (bool) env('MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER', false),
         ],
 
         'email_verification' => [
@@ -786,7 +928,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Cache — Martis Extension (Task 17 ⭐ runtime control)
+    | Cache — runtime control
     |--------------------------------------------------------------------------
     |
     | Per-subsystem cache layer with three control planes:
@@ -893,6 +1035,17 @@ return [
     'index' => [
         'default_row_actions' => [
             'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+
+            // Per-action global kill-switches. Each defaults to true, so the
+            // out-of-the-box behaviour is unchanged. Flip a single one to
+            // false (via env or config override) to hide that icon across
+            // every resource without touching individual resource classes —
+            // useful for apps that want, say, "no delete affordance ever".
+            // Resource-level `defaultRowActions()` can subtract further but
+            // never force a globally-disabled action back on.
+            'view'   => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+            'edit'  => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+            'delete' => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
         ],
 
         'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
@@ -1033,7 +1186,7 @@ return [
             'enabled' => env('MARTIS_2FA_ENABLED', true),
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
         ],
-        'sections' => ['avatar', 'account', 'password', 'security'],
+        'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],
     ],
 
     /*
@@ -1054,7 +1207,9 @@ return [
     | disableOn      - Granular opt-out per context.
     |   table        - Disable the refetch overlay on index tables.
     |   search       - Disable the loader on search refetch.
-    |   components   - Disable loaders inside other components.
+    |   detail       - Disable the loader on resource detail pages.
+    |   components   - Disable loaders inside other components (Profile,
+    |                  ActionDrawer, ToolPage, CacheAdmin, ResourceLens).
     */
     'loader' => [
         'message' => null,
@@ -1072,6 +1227,7 @@ return [
         'disableOn' => [
             'table' => false,
             'search' => false,
+            'detail' => false,
             'components' => false,
         ],
     ],
@@ -1117,6 +1273,16 @@ return [
         'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
         'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
         'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
+        // Auto-stop after N minutes of impersonation (prevents
+        // forgotten sessions from leaking access). 0 / null disables
+        // the timer — the operator stays in the impersonated session
+        // until they click Stop or the browser session ends. v1.8.8.
+        'max_duration_minutes' => (int) env('MARTIS_IMPERSONATION_MAX_DURATION', 0),
+        // Polling interval for the banner status endpoint, in
+        // milliseconds. Sessions change rarely, so the default sits at
+        // 120_000 (2 minutes). Set to 0 to disable polling — the
+        // banner still mounts and reads state once per page load.
+        'poll_interval' => (int) env('MARTIS_IMPERSONATION_POLL_MS', 120000),
     ],
 
 ];

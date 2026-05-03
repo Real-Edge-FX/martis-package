@@ -56,16 +56,16 @@ Result: `Start Date` and `End Date` render in two equal columns on a 12-column g
 
 ## Scope
 
-Grid layout applies **only to `create` and `update` forms**.
+Grid layout applies to **`create`**, **`update`**, and **`detail`** views.
 
 | Context | Grid layout? |
 |---------|:------------:|
 | create  | ✅            |
 | update  | ✅            |
+| detail  | ✅            |
 | index   | ❌            |
-| detail  | ❌            |
 
-If you need to organise fields on the detail page, use `Panel` instead.
+On index views, fields are flattened into table columns — Section containers have no effect there.
 
 ---
 
@@ -74,17 +74,17 @@ If you need to organise fields on the detail page, use `Panel` instead.
 ### Section::columns()
 
 ```php
-Section::make(string $title, array $fields): static
+Section::make(?string $title, array $fields): static
 Section::columns(int $columns): static
 ```
 
 Creates a form section with a named CSS grid.
 
-| Parameter  | Type     | Default | Description                                    |
-|------------|----------|---------|------------------------------------------------|
-| `$title`   | `string` | —       | Section heading shown in the header bar        |
-| `$fields`  | `array`  | —       | Fields in this section                         |
-| `$columns` | `int`    | `12`    | Number of CSS grid columns                     |
+| Parameter  | Type           | Default | Description                                                              |
+|------------|----------------|---------|--------------------------------------------------------------------------|
+| `$title`   | `string\|null` | —       | Section heading shown in the header bar. Pass `null` for a header-less grid. |
+| `$fields`  | `array`        | —       | Fields in this section                                                   |
+| `$columns` | `int`          | `12`    | Number of CSS grid columns                                               |
 
 The `columns()` value defines how many equal-width tracks the grid has.
 A `columns(12)` grid with `span(6)` fields gives you two 50%-wide columns.
@@ -120,9 +120,9 @@ Field::span(int $cols): static
 
 Assigns a column span to a field within its parent Section grid.
 
-| Parameter | Type  | Default         | Description                                  |
-|-----------|-------|-----------------|----------------------------------------------|
-| `$cols`   | `int` | section columns | Number of grid columns this field occupies   |
+| Parameter | Type  | Default         | Description                                                           |
+|-----------|-------|-----------------|-----------------------------------------------------------------------|
+| `$cols`   | `int` | section columns | Number of grid columns this field occupies. Clamped server-side to `[1, 12]`. |
 
 `span()` is a clean shorthand for `colSpan()`. Both are equivalent.
 
@@ -343,7 +343,7 @@ Section::make('Project Details', [
 
 - For forms with just 2–3 long fields — single-column is usually cleaner.
 - When fields have no logical grouping — don't create sections just for the grid.
-- On index and detail views — scope is create/update only.
+- On index views — Section containers have no effect there; fields are flattened into table columns.
 
 ### Keeping spans readable
 
@@ -355,16 +355,16 @@ Section::make('Project Details', [
 
 ### Section vs Panel
 
-| Feature       | Panel        | Section              |
-|---------------|--------------|----------------------|
-| Scope         | all contexts | create/update only   |
-| Grid control  | fixed 12-col | configurable         |
-| Field span    | `colSpan()`  | `span()` or `colSpan()` |
-| Collapsible   | ✅            | ✅                   |
-| Tabs inside   | via TabGroup | not supported        |
+| Feature              | Panel               | Section             |
+|----------------------|---------------------|---------------------|
+| Scope                | create/update/detail | create/update/detail |
+| Grid control         | fixed 12-col        | configurable        |
+| `span()` / `colSpan()` | ✅ (both work)    | ✅ (both work)      |
+| Collapsible          | ✅                  | ✅                  |
+| Can be placed inside a Tab | ✅           | ❌ (Tab accepts Panel, not Section) |
 
-Use `Panel` when you need consistent layout across detail + forms.
-Use `Section` when you want modern multi-column forms with grouping.
+Use `Panel` when you need tabs (Tab can contain Panel but not Section), or when a fixed single-column group layout is all you need.
+Use `Section` when you want configurable multi-column grid layout on forms or detail views.
 
 ---
 
@@ -401,12 +401,9 @@ Text::make('name')
 
 ## Limitations and Notes
 
-- **Index and detail views**: Sections are ignored. Use `Panel` for detail-page layouts.
-- **Inline create (drawer)**: Sections are currently excluded from the inline drawer create form.
-  Fields inside sections will not appear in inline create mode. If you need inline create
-  support for these fields, define a separate `fieldsForInlineCreate()` method.
-- **Span overflow**: If a field's `span()` exceeds the section's `columns()`, the browser
-  will cap it at the grid width. No error is thrown; the field just takes full row width.
+- **Index views**: Sections are ignored — fields are flattened into table columns. Section containers have no effect on the index.
+- **Inline create (drawer)**: Sections are flattened for inline create. Every field inside a Section renders in the inline-create form, but the section header and multi-column grid are dropped — fields appear in the standard single-column label/input layout. To customise inline create fields independently, define `fieldsForInlineCreate()`.
+- **Span overflow**: `span()` / `colSpan()` values are clamped to `[1, 12]` server-side, regardless of the section's `columns()` setting. If a value still overflows the CSS grid at render time, the browser places the field on its own row — no error is thrown.
 - **Nested sections**: Sections cannot be nested. Use a flat structure with multiple
   top-level Sections instead.
 - **Mixed scalar + section**: You can mix top-level scalar fields and Sections in the same

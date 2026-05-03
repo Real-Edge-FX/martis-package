@@ -166,6 +166,26 @@ class ComponentRegistry {
     return this.components.has(key)
   }
 
+  /**
+   * Remove a single registration. Returns `true` when a registration
+   * existed for the key, `false` otherwise. Mostly useful in tests
+   * that mount a custom component for one assertion and want a clean
+   * slate afterwards.
+   */
+  unregister(key: string): boolean {
+    return this.components.delete(key)
+  }
+
+  /**
+   * Drop every registration. Same intended use as `unregister()` —
+   * keeping tests isolated. Production code should never call this;
+   * the registry is built up at boot and is expected to be stable for
+   * the lifetime of the SPA.
+   */
+  clear(): void {
+    this.components.clear()
+  }
+
   /** List all registered keys (useful for debugging). */
   keys(): string[] {
     return Array.from(this.components.keys())

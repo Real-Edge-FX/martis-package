@@ -238,6 +238,16 @@ class StubField implements FieldContract
         return $this;
     }
 
+    public function searchPriority(int $priority): static
+    {
+        return $this;
+    }
+
+    public function getSearchPriority(): int
+    {
+        return 1;
+    }
+
     public function isSortable(): bool
     {
         return false;

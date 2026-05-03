@@ -84,9 +84,27 @@ abstract class Field implements FieldContract
     protected bool $searchable = false;
 
     /**
+     * Search priority — higher values rank matches in this field above
+     * matches in lower-priority fields. The Global Search resolver
+     * uses this when ranking LIKE results: a `priority(2)` field beats
+     * a `priority(1)` field on the same query. Default 1.
+     */
+    protected int $searchPriority = 1;
+
+    /**
      * Callback that determines whether this field is visible to the current user.
      */
     protected ?\Closure $canSeeCallback = null;
+
+    /**
+     * Per-model visibility callback. v1.8.8. Accepts `(Request, Model)`
+     * and runs at serialization time inside `serializeModel`. When set,
+     * the field is hidden from the per-record payload when the closure
+     * returns false. Differs from `canSeeCallback` (which is per-request,
+     * model-agnostic) — this one supports field-level authorization
+     * that depends on the row being shown.
+     */
+    protected ?\Closure $canSeeForModelCallback = null;
 
     /** @var callable|null */
     protected mixed $resolveCallback = null;
@@ -1143,6 +1161,61 @@ abstract class Field implements FieldContract
         return (bool) ($this->canSeeCallback)($request);
     }
 
+    /**
+     * Per-model visibility callback (v1.8.8).
+     *
+     * Use it when whether the field should appear depends on the row
+     * being rendered, not just on the user. Common case: hiding the
+     * `email` column on a User index for non-admins, regardless of
+     * whether the row exists or not.
+     *
+     * The callback receives `(Request $request, Model $model)` and
+     * returns `bool`. When false, the field is stripped from the
+     * per-record payload at serialization time.
+     */
+    public function canSeeForModel(callable $callback): static
+    {
+        $this->canSeeForModelCallback = $callback(...);
+
+        return $this;
+    }
+
+    /**
+     * Sugar over `canSeeForModel()` that delegates to a Laravel Gate
+     * ability evaluated against the current model and request user.
+     *
+     *     Email::make('email')->canSeeUsingPolicy('viewEmail');
+     *
+     * Equivalent to:
+     *
+     *     ->canSeeForModel(fn (Request $r, Model $m) => $r->user()?->can('viewEmail', $m) ?? false)
+     */
+    public function canSeeUsingPolicy(string $ability): static
+    {
+        return $this->canSeeForModel(function (Request $request, Model $model) use ($ability): bool {
+            $user = $request->user();
+            if ($user === null) {
+                return false;
+            }
+
+            return (bool) $user->can($ability, $model);
+        });
+    }
+
+    /**
+     * Resolve per-model visibility for serialization. Returns true when
+     * no per-model callback is set (most fields). When set, runs the
+     * closure with the active request + model.
+     */
+    public function isAuthorizedForModel(Request $request, Model $model): bool
+    {
+        if ($this->canSeeForModelCallback === null) {
+            return true;
+        }
+
+        return (bool) ($this->canSeeForModelCallback)($request, $model);
+    }
+
     // -------------------------------------------------------------------------
     // Sortable / Searchable
     // -------------------------------------------------------------------------
@@ -1161,6 +1234,34 @@ abstract class Field implements FieldContract
         $this->searchable = $value;
 
         return $this;
+    }
+
+    /**
+     * Mark this field searchable AND assign a relative ranking weight.
+     *
+     * Sugar for `->searchable(true)` plus a `searchPriority`. Higher
+     * weights rank matches in this field above matches in lower-weight
+     * fields when the Global Search resolver runs a LIKE pipeline.
+     * Typical values: `1` (default — body/long fields), `2` (titles,
+     * names), `3` (canonical identifiers like email or sku).
+     *
+     * Example:
+     *
+     *     Text::make('name')->searchable()->searchPriority(2);
+     *     Text::make('email')->searchable()->searchPriority(3);
+     *     Textarea::make('notes')->searchable();   // priority 1
+     */
+    public function searchPriority(int $priority): static
+    {
+        $this->searchPriority = max(1, $priority);
+
+        return $this;
+    }
+
+    /** {@inheritdoc} */
+    public function getSearchPriority(): int
+    {
+        return $this->searchPriority;
     }
 
     /** {@inheritdoc} */

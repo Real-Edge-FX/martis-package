@@ -87,4 +87,19 @@ return [
     '2fa_otp_digit' => 'Digit :n',
 
     'profile' => 'Profile',
+
+    // Browser sessions (v1.8.8)
+    'sessions_title' => 'Browser sessions',
+    'sessions_subtitle' => 'Devices that are signed in to your account.',
+    'sessions_loading' => 'Loading…',
+    'sessions_empty' => 'No active sessions found.',
+    'sessions_unsupported' => 'Browser-session management requires the Laravel database session driver. Run `php artisan session:table` and `php artisan migrate` to enable it.',
+    'sessions_current_badge' => 'This device',
+    'sessions_unknown_ip' => 'Unknown IP',
+    'sessions_revoke' => 'Revoke session',
+    'sessions_revoke_success' => 'Session revoked.',
+    'sessions_revoke_others' => 'Sign out everywhere else',
+    'sessions_revoke_others_confirm' => 'Sign out of every other device? You will stay signed in here.',
+    'sessions_revoke_others_success' => 'Signed out of {{count}} session(s).',
+    'sessions_revoking' => 'Revoking…',
 ];

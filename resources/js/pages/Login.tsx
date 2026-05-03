@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth, TwoFactorRequiredError } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
-import { ApiError } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import { config } from "@/lib/config"
 import { useAuthCopy } from "@/lib/authCopy"
 import { useTranslation } from "react-i18next"
@@ -43,6 +43,9 @@ export function LoginPage() {
   const showDivider = ssoProviders.length > 0
   const showForgot = isFlowEnabled(passwordReset)
   const showRegister = isFlowEnabled(registration)
+  const magicLink = config.auth?.magicLink
+  const showMagicLink = magicLink?.enabled === true
+  const [magicLinkSubmitting, setMagicLinkSubmitting] = useState(false)
 
   // Detect session-expired redirect from api.ts global 401 handler.
   // The toast + history rewrite are deferred to the next macrotask so
@@ -127,6 +130,42 @@ export function LoginPage() {
       return
     }
     addToast('info', t('sso_not_configured', { defaultValue: 'This sign-in method is not configured on this workspace.' }))
+  }
+
+  /** Magic-link request — POSTs the email and toasts a generic
+   *  "if an account exists, link is on its way" message regardless of
+   *  outcome. Identical envelope success / fail to avoid account
+   *  enumeration. */
+  async function handleMagicLinkRequest(): Promise<void> {
+    // Clear any prior validation error from a previous submit so the
+    // form does not flash a stale "Email is required" once the user
+    // has actually filled the field in.
+    setErrors({})
+
+    if (!email.trim()) {
+      setErrors({ email: t('email_required', { defaultValue: 'Email is required.' }) })
+      return
+    }
+
+    setMagicLinkSubmitting(true)
+    try {
+      // `api.post()` already prepends `API_BASE_URL` (which is the
+      // configured Martis path prefix). Passing a leading-`/api/...`
+      // path here is the same convention every other auth call uses
+      // (see `ForgotPassword.tsx` for a parallel).
+      await api.post('/api/auth/magic-link/request', { email })
+      addToast(
+        'success',
+        t('magic_link_sent', { defaultValue: 'If an account exists for that email, a sign-in link is on its way.' }),
+      )
+    } catch (err) {
+      const msg = err instanceof ApiError && err.message
+        ? err.message
+        : t('magic_link_unavailable', { defaultValue: 'Magic-link sign-in is temporarily unavailable. Please try again later.' })
+      addToast('error', msg)
+    } finally {
+      setMagicLinkSubmitting(false)
+    }
   }
 
   return (
@@ -272,6 +311,20 @@ export function LoginPage() {
           {submitting ? t('signing_in') : t('sign_in')}
           {!submitting && <ArrowRightIcon size={14} weight="bold" />}
         </button>
+
+        {showMagicLink && (
+          <button
+            type="button"
+            onClick={() => void handleMagicLinkRequest()}
+            disabled={magicLinkSubmitting || submitting}
+            className="martis-btn-secondary"
+            style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: 10 }}
+          >
+            {magicLinkSubmitting
+              ? t('magic_link_button_sending', { defaultValue: 'Sending…' })
+              : t('magic_link_button', { defaultValue: 'Email me a sign-in link' })}
+          </button>
+        )}
 
         {showRegister && (
           <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--martis-text-muted)' }}>

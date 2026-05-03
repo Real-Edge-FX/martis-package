@@ -35,7 +35,7 @@ class MartisNotification extends Notification
 
     public function __construct(
         public readonly string $title,
-        public readonly string $message,
+        public readonly string $message = '',
         public readonly string $level = 'info',
         public readonly ?string $icon = null,
         public readonly ?string $actionUrl = null,
@@ -45,10 +45,14 @@ class MartisNotification extends Notification
     /**
      * Fluent factory mirroring the constructor — preferred by docs and
      * stubs because named arguments make the call site self-explanatory.
+     *
+     * Only `title` is required; every other field has a sensible default
+     * so a one-liner like `MartisNotification::make(title: 'Saved')` is
+     * a valid call.
      */
     public static function make(
         string $title,
-        string $message,
+        string $message = '',
         string $level = 'info',
         ?string $icon = null,
         ?string $actionUrl = null,

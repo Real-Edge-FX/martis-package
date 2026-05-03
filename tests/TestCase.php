@@ -72,6 +72,21 @@ abstract class TestCase extends OrchestraTestCase
      */
     protected function afterRefreshingDatabase(): void
     {
+        // v1.8.8 — operational metadata for the cache subsystem. Every
+        // suite that exercises MartisCache writes to this table, so it
+        // is part of the standard fixture. Lives outside the
+        // `users` guard below because cache tests do not depend on
+        // the users table.
+        if (! Schema::hasTable('martis_cache_state')) {
+            Schema::create('martis_cache_state', function (Blueprint $table) {
+                $table->string('type')->primary();
+                $table->unsignedInteger('version')->default(1);
+                $table->timestamp('cleared_at')->nullable();
+                $table->boolean('override')->nullable();
+                $table->timestamps();
+            });
+        }
+
         if (! Schema::hasTable('users')) {
             return;
         }

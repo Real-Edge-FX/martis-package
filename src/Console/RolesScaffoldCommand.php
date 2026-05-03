@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Stubs\StubResolver;
 use Symfony\Component\Process\Process;
 
 /**
@@ -37,6 +38,7 @@ class RolesScaffoldCommand extends Command
                             {--no-install : Assume spatie/laravel-permission is already installed}
                             {--no-migrate : Skip running migrations after publishing them}
                             {--no-publish-spatie : Skip publishing Spatie config + migrations}
+                            {--with-categories : Add a `category` column on permissions and surface it as a field + filter on PermissionResource (handy for apps with 50+ permissions)}
                             {--force : Overwrite existing resource / policy files}';
 
     protected $description = 'Scaffold a Spatie-backed admin UI for users, roles, and permissions.';
@@ -76,6 +78,18 @@ class RolesScaffoldCommand extends Command
         $namespace = $this->resolveResourceNamespace();
         foreach (self::RESOURCE_NAMES as $name) {
             $this->scaffoldResource($files, $namespace, $name, $userClass);
+        }
+
+        // 5b. Scaffold the BulkAssignRole action wired into the
+        // generated UserResource. v1.8.8.
+        $this->scaffoldBulkAssignRoleAction($files, $namespace);
+
+        // 5c. With `--with-categories`, publish the migration that
+        // adds the `category` column to permissions. The PermissionResource
+        // stub above already wired the field + filter through the
+        // {{ categoryField }} / {{ categoryFilters }} placeholders.
+        if ((bool) $this->option('with-categories')) {
+            $this->publishCategoryMigration($files);
         }
 
         // 6. Scaffold the three policies (User / Role / Permission).
@@ -230,15 +244,76 @@ class RolesScaffoldCommand extends Command
         $this->components->twoColumnDetail('<fg=green>Patched</> User model', $userPath);
     }
 
+    /**
+     * v1.8.8 — publish the `add_category_column_to_permissions_table`
+     * migration when the operator passed `--with-categories`. Skips
+     * silently when an equivalent migration is already on disk so the
+     * step stays idempotent under re-runs.
+     */
+    protected function publishCategoryMigration(Filesystem $files): void
+    {
+        $stubFile = StubResolver::path('add_category_column_to_permissions_table.php.stub');
+        if (! file_exists($stubFile)) {
+            return;
+        }
+
+        $migrationsDir = base_path('database/migrations');
+        $files->ensureDirectoryExists($migrationsDir);
+
+        // Skip when an equivalent migration already exists. Match the
+        // family rather than the exact filename so re-runs do not
+        // double-publish under a fresh timestamp.
+        $existing = collect((array) glob($migrationsDir.'/*_add_category_column_to_permissions_table.php'));
+        if ($existing->isNotEmpty()) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> category migration', 'already published');
+
+            return;
+        }
+
+        $target = $migrationsDir.'/'.date('Y_m_d_His').'_add_category_column_to_permissions_table.php';
+        $files->put($target, (string) file_get_contents($stubFile));
+        $this->components->twoColumnDetail('<fg=green>Published</> category migration', $target);
+    }
+
+    /**
+     * v1.8.8 — emit the `BulkAssignRole` action used by the generated
+     * UserResource. Lives under `{namespace}\Actions\BulkAssignRole`,
+     * idempotent under `--force` like every other scaffold step.
+     */
+    protected function scaffoldBulkAssignRoleAction(Filesystem $files, string $namespace): void
+    {
+        $stubFile = StubResolver::path('roles-bulk-assign-role-action.stub');
+        if (! file_exists($stubFile)) {
+            return;
+        }
+
+        $actionsNamespace = $namespace.'\\Actions';
+        $namespacePath = str_replace('\\', '/', $actionsNamespace);
+        $targetDir = base_path(str_replace('App/', 'app/', $namespacePath));
+        $files->ensureDirectoryExists($targetDir);
+
+        $targetFile = $targetDir.'/BulkAssignRole.php';
+        if (file_exists($targetFile) && ! $this->option('force')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> BulkAssignRole', 'already exists (use --force to overwrite)');
+
+            return;
+        }
+
+        $stub = (string) file_get_contents($stubFile);
+        $rendered = strtr($stub, [
+            '{{ namespace }}' => $actionsNamespace,
+        ]);
+
+        $files->put($targetFile, $rendered);
+        $this->components->twoColumnDetail('<fg=green>Created</> BulkAssignRole', $targetFile);
+    }
+
     protected function scaffoldResource(Filesystem $files, string $namespace, string $name, string $userClass): void
     {
-        $stubFile = base_path('vendor/martis/martis/stubs/roles-'.strtolower($name).'-resource.stub');
-        if (! file_exists($stubFile)) {
-            // When the package is symlinked into the host app via path
-            // repository, stubs live at the package root. Fall back to
-            // the package directory derived from the autoloader.
-            $stubFile = $this->stubFromPackageRoot('roles-'.strtolower($name).'-resource.stub');
-        }
+        // Routes through `StubResolver` so a `php artisan martis:stubs`
+        // override at `stubs/martis/roles-{name}-resource.stub` wins over
+        // the bundled default.
+        $stubFile = StubResolver::path('roles-'.strtolower($name).'-resource.stub');
 
         if (! file_exists($stubFile)) {
             $this->components->error(sprintf('Stub not found: %s', $stubFile));
@@ -260,23 +335,66 @@ class RolesScaffoldCommand extends Command
 
         $stub = (string) file_get_contents($stubFile);
 
+        // v1.8.8 — Permission resource picks up an optional `category`
+        // field + filter when `--with-categories` is set. Keeps the
+        // baseline scaffold unchanged for apps with a small permission
+        // catalogue and wires the grouping for apps with 50+.
+        [$categoryField, $categoryFilters] = $this->renderCategorySnippets($name);
+
         $rendered = strtr($stub, [
             '{{ namespace }}' => $namespace,
             '{{ class }}' => $name.'Resource',
             '{{ userModelImport }}' => ltrim($userClass, '\\'),
             '{{ userModelClass }}' => class_basename($userClass),
+            '{{ categoryField }}' => $categoryField,
+            '{{ categoryFilters }}' => $categoryFilters,
         ]);
 
         $files->put($targetFile, $rendered);
         $this->components->twoColumnDetail('<fg=green>Created</> '.$name.'Resource', $targetFile);
     }
 
+    /**
+     * @return array{0: string, 1: string} `[fieldsBlock, filtersMethod]` ready
+     *                                     for stub interpolation. Both
+     *                                     strings are empty when the
+     *                                     `--with-categories` flag is off,
+     *                                     so the rendered stub is
+     *                                     byte-identical to pre-v1.8.8.
+     */
+    protected function renderCategorySnippets(string $resourceName): array
+    {
+        if (! (bool) $this->option('with-categories') || $resourceName !== 'Permission') {
+            return ['', ''];
+        }
+
+        $field = "\n            \\Martis\\Fields\\Text::make('Category', 'category')\n"
+            ."                ->sortable()\n"
+            ."                ->rules(['nullable', 'string', 'max:64'])\n"
+            ."                ->help('Free-form group label — drives the filter on the index. Leave blank to keep the row uncategorised.'),\n";
+
+        $filters = "\n    public function filters(\\Illuminate\\Http\\Request \$request): array\n"
+            ."    {\n"
+            ."        return [\n"
+            ."            new \\Martis\\Filters\\SelectFilter(\n"
+            ."                column: 'category',\n"
+            ."                name: 'Category',\n"
+            ."                options: fn () => \\Spatie\\Permission\\Models\\Permission::query()\n"
+            ."                    ->whereNotNull('category')\n"
+            ."                    ->distinct()\n"
+            ."                    ->orderBy('category')\n"
+            ."                    ->pluck('category', 'category')\n"
+            ."                    ->all(),\n"
+            ."            ),\n"
+            ."        ];\n"
+            ."    }\n";
+
+        return [$field, $filters];
+    }
+
     protected function scaffoldPolicies(Filesystem $files, string $userClass): void
     {
-        $stubFile = base_path('vendor/martis/martis/stubs/roles-policy.stub');
-        if (! file_exists($stubFile)) {
-            $stubFile = $this->stubFromPackageRoot('roles-policy.stub');
-        }
+        $stubFile = StubResolver::path('roles-policy.stub');
 
         if (! file_exists($stubFile)) {
             $this->components->error('Policy stub not found.');
@@ -390,10 +508,7 @@ class RolesScaffoldCommand extends Command
 
     protected function scaffoldSeeder(Filesystem $files): void
     {
-        $stubFile = base_path('vendor/martis/martis/stubs/roles-seeder.stub');
-        if (! file_exists($stubFile)) {
-            $stubFile = $this->stubFromPackageRoot('roles-seeder.stub');
-        }
+        $stubFile = StubResolver::path('roles-seeder.stub');
 
         if (! file_exists($stubFile)) {
             $this->components->warn('Seeder stub not found — create the `admin` role manually.');
@@ -413,15 +528,4 @@ class RolesScaffoldCommand extends Command
         $this->components->twoColumnDetail('<fg=green>Created</> seeder', $targetFile);
     }
 
-    /**
-     * When the package is symlinked via path repo, vendor/martis/martis
-     * does not exist. Resolve the stub via the autoloader instead.
-     */
-    protected function stubFromPackageRoot(string $stubName): string
-    {
-        $reflection = new \ReflectionClass(self::class);
-        $packageRoot = dirname((string) $reflection->getFileName(), 3);
-
-        return $packageRoot.'/stubs/'.$stubName;
-    }
 }

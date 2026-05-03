@@ -207,6 +207,21 @@ class WeeklyRevenue extends TrendMetric
 
 The `<Sparkline>` React component used internally is also exported (`@/components/metrics`) for use inside custom cards or framed components.
 
+## Custom date column on query helpers
+
+Every query helper (`count`, `sum`, `average`, `max`, `min` on `ValueMetric`; `countByDays` / `countByWeeks` / `countByMonths` / `sumByDays` / `sumByWeeks` / `sumByMonths` / `averageByDays` / `averageByMonths` on `TrendMetric`) accepts an optional `?string $dateColumn = null` final argument that controls which timestamp column the active range filter applies against. Defaults to `created_at`.
+
+```php
+public function calculate(Request $request): TrendResult
+{
+    return $this->sumByMonths($request, Invoice::class, 'total', 'paid_at');
+    //                                                          ^^^^^^^
+    // Range filter (?range=12) bounds Invoice.paid_at, not Invoice.created_at.
+}
+```
+
+Use it whenever the metric should track a domain timestamp (`paid_at`, `closed_at`, `delivered_at`, `archived_at`) that differs from row creation.
+
 ## Ranges
 
 Metrics support time range selection. Override `ranges()` to customize:
@@ -239,6 +254,18 @@ Overview::make('Overview')->width('full')      // full width
 
 Fraction strings are auto-converted: `'1/3'` → 4, `'1/2'` → 6, `'2/3'` → 8, `'full'` → 12.
 
+For typed callers (and stricter analyzers), `width()` also accepts the `Martis\Enums\MetricWidthPreset` enum:
+
+```php
+use Martis\Enums\MetricWidthPreset;
+
+TotalUsers::make('Total Users')->width(MetricWidthPreset::OneThird);  // = 4
+UsersPerDay::make('Trend')->width(MetricWidthPreset::TwoThirds);      // = 8
+Overview::make('Overview')->width(MetricWidthPreset::Full);           // = 12
+```
+
+Cases: `OneThird`, `Half`, `TwoThirds`, `Full`. The integer / fraction / enum forms are interchangeable.
+
 > **Martis extension:** Responsive breakpoints with `widthMd()` and `widthLg()`:
 ```php
 TotalUsers::make('Total Users')
@@ -266,6 +293,42 @@ Use `canSee()` to control metric visibility:
 TotalUsers::make('Total Users')
     ->canSee(fn ($request) => $request->user()->isAdmin())
 ```
+
+## Restricting a card to the resource detail page
+
+`onlyOnDetail()` removes the metric from dashboards and shows it only on the resource's detail surface. Useful for per-record health cards (e.g. "Last 30 days for THIS customer") that have no meaning on a global dashboard.
+
+```php
+ChurnRiskScore::make('Churn risk')
+    ->onlyOnDetail();
+```
+
+## Inheriting the resource's active filters
+
+Resource index filters do not flow into metric queries by default. Call `withFilterScope()` to wire the parent resource's filter state into the metric's query builder:
+
+```php
+PaidRevenue::make('Paid revenue')
+    ->withFilterScope(function ($query, $request) {
+        if ($plan = $request->input('filters.plan')) {
+            $query->where('plan', $plan);
+        }
+        return $query;
+    });
+```
+
+The closure receives `($query, $request)` and must return the (possibly modified) `$query`. Pair this with the resource's `filters()` so the metric reacts to the same filter pills the user sees on the index.
+
+## Custom card colour
+
+`color(string)` accepts any CSS colour and overrides the accent the card uses for the icon, value, and accent border:
+
+```php
+ActiveAlerts::make('Active alerts')->color('#dc2626');
+ServerLoad::make('Load avg')->color('var(--martis-chart-3)');
+```
+
+Use it when a card needs to stand out from the global accent without committing to one of the `CardStyle` semantic variants.
 
 ## Card Icons (Martis Extension)
 
@@ -317,16 +380,34 @@ public function cacheFor(): ?\DateTimeInterface
 
 ### Global cache defaults
 
-Set defaults in `config/martis.php` — individual metrics override these:
+Defaults live in `config/martis.php` under the `cache` block. Each subsystem (`metrics`, `navigation`, `dashboards`, `schema`) has its own `{enabled, ttl}` pair so an operator can flip a single layer off without touching the others. Individual metrics still win via `cacheFor()`.
 
 ```php
 'cache' => [
-    'metrics'    => env('MARTIS_CACHE_METRICS', 5),     // minutes, null to disable
-    'dashboards' => env('MARTIS_CACHE_DASHBOARDS', null),
-    'navigation' => env('MARTIS_CACHE_NAVIGATION', 1),
-    'schema'     => env('MARTIS_CACHE_SCHEMA', null),
+    'enabled' => env('MARTIS_CACHE_ENABLED', true),     // master kill-switch
+
+    'metrics' => [
+        'enabled' => env('MARTIS_CACHE_METRICS_ENABLED', true),
+        'ttl'     => env('MARTIS_CACHE_METRICS_TTL', env('MARTIS_CACHE_METRICS', 5)),
+    ],
+    'navigation' => [
+        'enabled' => env('MARTIS_CACHE_NAVIGATION_ENABLED', true),
+        'ttl'     => env('MARTIS_CACHE_NAVIGATION_TTL', env('MARTIS_CACHE_NAVIGATION', 1)),
+    ],
+    'dashboards' => [
+        'enabled' => env('MARTIS_CACHE_DASHBOARDS_ENABLED', true),
+        'ttl'     => env('MARTIS_CACHE_DASHBOARDS_TTL', env('MARTIS_CACHE_DASHBOARDS', null)),
+    ],
+    'schema' => [
+        'enabled' => env('MARTIS_CACHE_SCHEMA_ENABLED', true),
+        'ttl'     => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null)),
+    ],
+
+    'admin_ui' => env('MARTIS_CACHE_ADMIN_UI', true),    // exposes /api/cache/* + the admin page
 ],
 ```
+
+`ttl` is in minutes; `null` disables caching for that subsystem. The single-name env vars (`MARTIS_CACHE_METRICS`, `MARTIS_CACHE_NAVIGATION`, …) are still read as a fallback so older `.env` files keep working. Runtime overrides set via `php artisan martis:cache:disable {type}` survive restarts and take precedence over both layers.
 
 ## Auto-Refresh (Martis Extension)
 

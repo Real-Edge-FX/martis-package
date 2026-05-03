@@ -475,6 +475,101 @@ html:not(.dark)[data-accent="amber"] {
 }
 
 /* ============================================================
+   PER-RESOURCE ACCENT OVERRIDE (v1.8.8)
+   Applied as `data-resource-accent` on a wrapper inside the
+   resource page (NOT on <html>) so the override is scoped to
+   the page content. Sidebar/topbar/badges sitting outside the
+   wrapper keep the user's global accent.
+   ============================================================ */
+
+html.dark [data-resource-accent="blue"] {
+  --martis-accent:          #3B82F6;
+  --martis-accent-hover:    #2563EB;
+  --martis-accent-active:   #1D4ED8;
+  --martis-accent-bg-light: rgba(59, 130, 246, 0.12);
+  --martis-accent-bg:       rgba(59, 130, 246, 0.20);
+  --martis-focus-ring:      rgba(59, 130, 246, 0.45);
+}
+html:not(.dark) [data-resource-accent="blue"] {
+  --martis-accent:          #2563EB;
+  --martis-accent-hover:    #1D4ED8;
+  --martis-accent-active:   #1E40AF;
+  --martis-accent-bg-light: #EFF4FF;
+  --martis-accent-bg:       #DBE7FE;
+  --martis-focus-ring:      rgba(37, 99, 235, 0.35);
+}
+
+html.dark [data-resource-accent="teal"] {
+  --martis-accent:          #14B8A6;
+  --martis-accent-hover:    #0D9488;
+  --martis-accent-active:   #0F766E;
+  --martis-accent-bg-light: rgba(20, 184, 166, 0.12);
+  --martis-accent-bg:       rgba(20, 184, 166, 0.22);
+  --martis-focus-ring:      rgba(20, 184, 166, 0.45);
+}
+html:not(.dark) [data-resource-accent="teal"] {
+  --martis-accent:          #0D9488;
+  --martis-accent-hover:    #0F766E;
+  --martis-accent-active:   #115E59;
+  --martis-accent-bg-light: #E6FBF6;
+  --martis-accent-bg:       #CCF6EC;
+  --martis-focus-ring:      rgba(13, 148, 136, 0.35);
+}
+
+html.dark [data-resource-accent="violet"] {
+  --martis-accent:          #8B5CF6;
+  --martis-accent-hover:    #7C3AED;
+  --martis-accent-active:   #6D28D9;
+  --martis-accent-bg-light: rgba(139, 92, 246, 0.14);
+  --martis-accent-bg:       rgba(139, 92, 246, 0.24);
+  --martis-focus-ring:      rgba(139, 92, 246, 0.45);
+}
+html:not(.dark) [data-resource-accent="violet"] {
+  --martis-accent:          #7C3AED;
+  --martis-accent-hover:    #6D28D9;
+  --martis-accent-active:   #5B21B6;
+  --martis-accent-bg-light: #F3EEFF;
+  --martis-accent-bg:       #E4D8FE;
+  --martis-focus-ring:      rgba(124, 58, 237, 0.35);
+}
+
+html.dark [data-resource-accent="amber"] {
+  --martis-accent:          #F59E0B;
+  --martis-accent-hover:    #D97706;
+  --martis-accent-active:   #B45309;
+  --martis-accent-bg-light: rgba(245, 158, 11, 0.14);
+  --martis-accent-bg:       rgba(245, 158, 11, 0.24);
+  --martis-focus-ring:      rgba(245, 158, 11, 0.45);
+}
+html:not(.dark) [data-resource-accent="amber"] {
+  --martis-accent:          #D97706;
+  --martis-accent-hover:    #B45309;
+  --martis-accent-active:   #92400E;
+  --martis-accent-bg-light: #FEF3DB;
+  --martis-accent-bg:       #FDE6B5;
+  --martis-focus-ring:      rgba(217, 119, 6, 0.35);
+}
+
+/* "martis" (default) — explicitly scoped so a resource can
+   force the bundled brand accent on top of a user preference. */
+html.dark [data-resource-accent="martis"] {
+  --martis-accent:          #4F7BF9;
+  --martis-accent-hover:    #3B6AF0;
+  --martis-accent-active:   #2C57D8;
+  --martis-accent-bg-light: rgba(79, 123, 249, 0.14);
+  --martis-accent-bg:       rgba(79, 123, 249, 0.24);
+  --martis-focus-ring:      rgba(79, 123, 249, 0.45);
+}
+html:not(.dark) [data-resource-accent="martis"] {
+  --martis-accent:          #3B6AF0;
+  --martis-accent-hover:    #2C57D8;
+  --martis-accent-active:   #1E44BE;
+  --martis-accent-bg-light: #ECF1FE;
+  --martis-accent-bg:       #D7E1FD;
+  --martis-focus-ring:      rgba(59, 106, 240, 0.35);
+}
+
+/* ============================================================
    DENSITY TOKENS
    Global scaffolding para Martis components. Override per-surface
    via [data-density] em qualquer elemento ancestor.
@@ -968,6 +1063,15 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
 .martis-cmdk-item svg { color: var(--martis-text-muted); flex-shrink: 0; }
 .martis-cmdk-item:hover svg,
 .martis-cmdk-item.is-active svg { color: var(--martis-accent); }
+/* Avatar slot for record items whose Resource implements searchImage(). */
+.martis-cmdk-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--martis-hover);
+}
 .martis-cmdk-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -1418,6 +1522,120 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   color: var(--martis-accent);
 }
 
+/* Decorative tag chip on a sidebar item ("New", "Beta", "Pro" — distinct
+ * from the count badge above). Tones map to the same semantic palette as
+ * the Badge field. */
+.martis-sb-item-tag {
+  font-family: var(--martis-font-sans);
+  font-size: 9.5px;
+  font-weight: var(--martis-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--martis-radius-sm);
+  line-height: 1.5;
+  background: var(--martis-hover);
+  color: var(--martis-text-muted);
+}
+.martis-sb-item-tag[data-tone="info"]    { background: var(--martis-info-bg);    color: var(--martis-info); }
+.martis-sb-item-tag[data-tone="success"] { background: var(--martis-success-bg); color: var(--martis-success); }
+.martis-sb-item-tag[data-tone="warning"] { background: var(--martis-warning-bg); color: var(--martis-warning); }
+.martis-sb-item-tag[data-tone="danger"]  { background: var(--martis-danger-bg);  color: var(--martis-danger); }
+.martis-sb-item-tag[data-tone="accent"]  { background: var(--martis-accent-bg);  color: var(--martis-accent); }
+
+/* Section / group header — split layout: label area (link or button)
+ * on the left, optional chevron toggle on the right. Allows path() and
+ * collapse to coexist on the same header. */
+.martis-sb-group-header,
+.martis-sb-subgroup-header {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.martis-sb-group-header > .martis-sb-group-label,
+.martis-sb-subgroup-header > .martis-sb-subgroup-label {
+  flex: 1;
+  min-width: 0;
+}
+.martis-sb-group-toggle,
+.martis-sb-subgroup-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0 8px;
+  cursor: pointer;
+  color: var(--martis-text-muted);
+  transition: color var(--martis-dur-fast) var(--martis-ease-standard),
+              background-color var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-sb-group-toggle:hover,
+.martis-sb-subgroup-toggle:hover {
+  color: var(--martis-text);
+  background: var(--martis-hover);
+}
+.martis-sb-group-toggle .caret,
+.martis-sb-subgroup-toggle .caret {
+  transition: transform var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-sb-group[data-open="true"] .martis-sb-group-toggle .caret,
+.martis-sb-subgroup[data-open="true"] .martis-sb-subgroup-toggle .caret {
+  transform: rotate(90deg);
+}
+
+/* When MenuSection::path() / MenuGroup::path() is set, the label area
+ * becomes a NavLink. Inherit typography, gain active styling. */
+.martis-sb-group-label--link,
+.martis-sb-subgroup-label--link {
+  text-decoration: none;
+  color: inherit;
+}
+.martis-sb-group-label--link.active,
+.martis-sb-subgroup-label--link.active {
+  color: var(--martis-accent);
+}
+
+/* Nested MenuGroup inside a section: smaller header, indented items. */
+.martis-sb-subgroup {
+  margin: 4px 0 4px 8px;
+  border-left: 1px solid var(--martis-border);
+  padding-left: 6px;
+}
+.martis-sb-subgroup-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: var(--martis-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.martis-sb-subgroup-label:hover {
+  color: var(--martis-text);
+}
+.martis-sb-subgroup-label .caret {
+  margin-left: auto;
+  transition: transform var(--martis-dur-fast) var(--martis-ease-standard);
+}
+.martis-sb-subgroup[data-open="true"] .caret {
+  transform: rotate(90deg);
+}
+.martis-sb-subgroup-items {
+  display: flex;
+  flex-direction: column;
+}
+.martis-sb-subgroup[data-open="false"] .martis-sb-subgroup-items {
+  display: none;
+}
+
 .martis-sb-footer {
   border-top: 1px solid var(--martis-border);
   height: 44px;
@@ -1451,11 +1669,18 @@ html[data-reduced-motion="true"] .mwc-shimmer {
 }
 .martis-sb[data-collapsed="true"] .martis-sb-logo-text,
 .martis-sb[data-collapsed="true"] .martis-sb-group-label > span,
-.martis-sb[data-collapsed="true"] .martis-sb-group-label > .caret,
+.martis-sb[data-collapsed="true"] .martis-sb-group-toggle,
+.martis-sb[data-collapsed="true"] .martis-sb-subgroup-header,
 .martis-sb[data-collapsed="true"] .martis-sb-item-label,
 .martis-sb[data-collapsed="true"] .martis-sb-item-badge,
+.martis-sb[data-collapsed="true"] .martis-sb-item-tag,
 .martis-sb[data-collapsed="true"] .martis-sb-footer > *:not(:first-child) {
   display: none;
+}
+.martis-sb[data-collapsed="true"] .martis-sb-subgroup {
+  border-left: 0;
+  margin-left: 0;
+  padding-left: 0;
 }
 .martis-sb[data-collapsed="true"] .martis-sb-item {
   justify-content: center;
@@ -1567,14 +1792,17 @@ html[data-reduced-motion="true"] .mwc-shimmer {
      left of the content-area center (and visibly misaligning the command
      palette that anchors to it).
      Width budget — the right cluster grew with v0.8 (notification bell
-     joined preferences + user chip), so we keep more headroom: cap the
-     bar at 420px and reserve at least 480px for siblings. The previous
-     520 / 420 split used to overlap into the bell on narrower viewports. */
+     joined preferences + user chip) and again with v1.8.x (long user
+     names like "Read-only Viewer" plus the divider). Reserve 660px for
+     siblings to keep the right cluster from overlapping the bar at
+     mid-width viewports (≤ 1100 px); the icon-mode breakpoint below
+     handles smaller widths by collapsing the search to a 36px hit
+     target. */
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(420px, calc(100% - 540px));
+  width: min(420px, calc(100% - 660px));
   /* Floor — never shrink below an icon-button footprint so the search
      stays a usable click target. The placeholder + kbd hint hide via
      the responsive rules further down. */
@@ -1607,20 +1835,30 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   }
 }
 
-/* Narrow topbars (≤900px) — collapse to icon-only. The bar still
-   anchors the command palette via `position: absolute` but no longer
-   overlaps the right-cluster icons (notification bell, preferences,
-   user chip). The full-width input lives inside the palette modal. */
-@media (max-width: 900px) {
+/* Default: the right-cluster narrow-mode search icon is hidden when
+   the absolute-centered bar is shown. The bar is the canonical search
+   trigger at ≥1025 px. Specificity bumped to win over the generic
+   `.martis-tb-icon-btn { display: flex }` declaration that ships
+   later in this file. */
+.martis-tb-icon-btn.martis-tb-search-icon--narrow {
+  display: none;
+}
+
+/* Narrow topbars (≤1024px) — hide the absolute-centered bar entirely
+   (it would otherwise collapse to a 36 px icon at the geometric centre
+   of the topbar, where the right cluster's bell visually overlaps it).
+   Show the right-cluster search icon instead. v1.8.8 — the previous
+   "shrink to 36 px in place" approach kept the icon at the page
+   centre even as the right cluster expanded into the same x-range,
+   producing a visible icon-on-icon collision at 900-1024 px. The full
+   command palette modal still mounts on cmd/ctrl-K + on the icon
+   click, so the search affordance is preserved. */
+@media (max-width: 1024px) {
   .martis-tb-search {
-    /* Centre the icon visually instead of letting the now-empty bar
-       look unbalanced. Width shrinks to a 36px touch target. */
-    width: 36px;
-    padding: 0;
-    justify-content: center;
-  }
-  .martis-tb-search-placeholder {
     display: none;
+  }
+  .martis-tb-icon-btn.martis-tb-search-icon--narrow {
+    display: inline-flex;
   }
 }
 .martis-tb-search:hover {
@@ -7718,4 +7956,83 @@ html[data-density="dense"] .martis-cache-toggle {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--martis-text-muted);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Print stylesheet — `@media print` overrides for admin reports,
+ * record exports, and any "print this page" workflow.
+ *
+ * Tokens are themeable via `--martis-print-*` so consumers can keep
+ * their brand on paper without forking the rules below. The defaults
+ * mirror what most printable admin surfaces want:
+ *   - White paper background, black text (saves ink)
+ *   - No shadows, no rounded corners (cleaner photocopies)
+ *   - Sidebar / topbar / chrome hidden (only the content frame prints)
+ *   - Links inlined with their `href` for offline reference
+ *
+ * Override any token in your theme CSS to tune; override the rules
+ * themselves only when the defaults can't be reconciled via tokens.
+ * ────────────────────────────────────────────────────────────────── */
+
+:root {
+  --martis-print-bg: #ffffff;
+  --martis-print-text: #000000;
+  --martis-print-border: #000000;
+  --martis-print-link-color: #000000;
+  --martis-print-muted: #444444;
+}
+
+@media print {
+  :root,
+  html.dark,
+  html[data-theme="dark"],
+  html:not(.dark),
+  html[data-theme="light"] {
+    /* Force the printable palette regardless of which theme/mode the
+     * user had active on screen. Anyone who actually wants the dark
+     * palette on paper can override these tokens explicitly. */
+    --martis-bg:           var(--martis-print-bg);
+    --martis-surface:      var(--martis-print-bg);
+    --martis-surface-alt:  var(--martis-print-bg);
+    --martis-card:         var(--martis-print-bg);
+    --martis-input-bg:     var(--martis-print-bg);
+    --martis-text:         var(--martis-print-text);
+    --martis-text-muted:   var(--martis-print-muted);
+    --martis-border:       var(--martis-print-border);
+    --martis-shadow-sm:    none;
+    --martis-shadow-md:    none;
+    --martis-shadow-lg:    none;
+    --martis-peek-shadow:  none;
+  }
+
+  body {
+    background: var(--martis-print-bg) !important;
+    color: var(--martis-print-text) !important;
+  }
+
+  /* Hide non-content chrome by default. Override per-app by re-showing
+   * specific selectors in your own CSS. */
+  .martis-sb,
+  .martis-topbar,
+  .martis-cmdk-scrim,
+  .martis-toast,
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+
+  /* Inline link targets so offline readers can resolve them. */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    color: var(--martis-print-muted);
+    font-size: 0.85em;
+  }
+  /* Skip the inline expansion for in-page anchors and javascript: links. */
+  a[href^="#"]::after,
+  a[href^="javascript:"]::after {
+    content: "";
+  }
+
+  /* Avoid widow/orphan rows in tables when a record splits across pages. */
+  table thead { display: table-header-group; }
+  table tr    { page-break-inside: avoid; }
 }

@@ -5,10 +5,13 @@ namespace Martis;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
@@ -29,6 +32,7 @@ use Martis\Console\FieldMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\InstallCommand;
 use Martis\Console\LensMakeCommand;
+use Martis\Console\ListEnvVarsCommand;
 use Martis\Console\ListOverridesCommand;
 use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
@@ -37,11 +41,13 @@ use Martis\Console\ResourceMakeCommand;
 use Martis\Console\RolesScaffoldCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\StubsCommand;
+use Martis\Console\ThemeDiffCommand;
 use Martis\Console\ThemeMakeCommand;
 use Martis\Console\ToolMakeCommand;
 use Martis\Console\TrendMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\ValueMakeCommand;
+use Martis\Console\PublishAssetsCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
@@ -90,8 +96,11 @@ class MartisServiceProvider extends ServiceProvider
 
         // Cache facade is bound during boot, but Cache::store() resolves
         // through the manager which itself depends on config — safe to
-        // call lazily inside the closure.
-        $this->app->singleton(MartisCache::class, function (): MartisCache {
+        // call lazily inside the closure. v1.8.8: bound as scoped()
+        // (per-request) so the in-instance state cache is reset between
+        // requests — operational metadata read from `martis_cache_state`
+        // stays at most one request stale.
+        $this->app->scoped(MartisCache::class, function (): MartisCache {
             return new MartisCache(Cache::store());
         });
 
@@ -141,6 +150,8 @@ class MartisServiceProvider extends ServiceProvider
 
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
+        $this->registerRateLimiters();
+        $this->registerRoleAuditListeners();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -162,7 +173,9 @@ class MartisServiceProvider extends ServiceProvider
                 CardMakeCommand::class,
                 ComponentMakeCommand::class,
                 ThemeMakeCommand::class,
+                ThemeDiffCommand::class,
                 VendorPublishCommand::class,
+                PublishAssetsCommand::class,
                 PolicyMakeCommand::class,
                 ActionMakeCommand::class,
                 FilterMakeCommand::class,
@@ -180,6 +193,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,
+                ListEnvVarsCommand::class,
                 SsoMakeCommand::class,
                 RolesScaffoldCommand::class,
                 StubsCommand::class,
@@ -220,17 +234,35 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../stubs/add_profile_picture_column.php.stub' => database_path('migrations/'.date('Y_m_d').'_000003_add_profile_picture_column.php'),
             ], 'martis-avatar-migration');
 
-            // Task 07.1 ⭐ D2 — user preferences table for theme/accent/
-            // density/locale/reduced-motion persistence + shareable presets.
+            // User preferences table for theme/accent/density/locale/
+            // reduced-motion persistence + shareable presets.
             $this->publishes([
                 __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
             ], 'martis-preferences-migration');
 
-            // Task 17 — host-app MartisServiceProvider stub. Holds main
-            // menu / dashboards / cache layers / gate definitions —
-            // anything that can't live in `config/martis.php` because
-            // closures don't survive `config:cache`. The InstallCommand
-            // publishes this automatically and wires it into
+            // Cache subsystem operational metadata. Lives in a
+            // dedicated table so the version counter / cleared_at /
+            // runtime override flag survive Cache::flush(),
+            // redis-cli FLUSHDB, container restarts, and LRU
+            // eviction. v1.8.8.
+            $this->publishes([
+                __DIR__.'/../stubs/create_martis_cache_state_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000005_create_martis_cache_state_table.php'),
+            ], 'martis-cache-state-migration');
+
+            // Bundle this into `martis-migrations` too so apps doing
+            // `vendor:publish --tag=martis-migrations` pick up every
+            // package-owned table at once.
+            $this->publishes([
+                __DIR__.'/../stubs/create_martis_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_martis_action_events_table.php'),
+                __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
+                __DIR__.'/../stubs/create_martis_cache_state_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000005_create_martis_cache_state_table.php'),
+            ], 'martis-migrations');
+
+            // Host-app MartisServiceProvider stub. Holds main menu /
+            // dashboards / cache layers / gate definitions — anything
+            // that can't live in `config/martis.php` because closures
+            // don't survive `config:cache`. The InstallCommand publishes
+            // this automatically and wires it into
             // `bootstrap/providers.php`; the tag below lets advanced
             // users republish it on demand.
             $this->publishes([
@@ -331,6 +363,10 @@ class MartisServiceProvider extends ServiceProvider
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);
+        $router->aliasMiddleware(
+            'martis.impersonation.duration',
+            \Martis\Http\Middleware\EnforceImpersonationDuration::class,
+        );
     }
 
     /**
@@ -400,5 +436,101 @@ class MartisServiceProvider extends ServiceProvider
                 'email' => $email,
             ]);
         });
+    }
+
+    /**
+     * Register the named rate limiters Martis applies on top of the
+     * generic per-IP `throttle:N,1` middleware.
+     *
+     * `martis-login` keys on the lowercased email + the client IP, so
+     * a credential-stuffing attempt against a single account is caught
+     * regardless of which botnet IP fires the next attempt. The window
+     * matches the global login throttle so users see a single, coherent
+     * 429 envelope across both layers.
+     *
+     * Routes opt in via `throttle:martis-login` in addition to the
+     * generic `throttle:N,1`. Per-IP catches a noisy machine, per-email
+     * catches a slow distributed attack on a known account.
+     */
+    protected function registerRateLimiters(): void
+    {
+        $attempts = (int) config('martis.throttle.login_attempts', 20);
+        $minutes = (int) config('martis.throttle.login_minutes', 1);
+
+        RateLimiter::for('martis-login', function (Request $request) use ($attempts, $minutes) {
+            $email = strtolower((string) $request->input('email', ''));
+
+            // Empty-email request (no payload at all): fall back to
+            // the standard per-IP envelope so a script hammering the
+            // endpoint without payload still gets throttled.
+            $key = $email === ''
+                ? 'martis-login|ip|'.$request->ip()
+                : 'martis-login|email|'.sha1($email).'|ip|'.$request->ip();
+
+            return [
+                Limit::perMinutes($minutes, $attempts)->by($key),
+            ];
+        });
+    }
+
+    /**
+     * Subscribe Spatie role / permission attach + detach events to
+     * the Martis audit log when the package is installed.
+     *
+     * Defensive: skips silently when Spatie's event classes are not
+     * loaded (consumer never ran `martis:roles`) or when the audit
+     * table is missing (consumer skipped the `martis:install` migrations).
+     * The listener itself probes both at dispatch time, so the
+     * registration is cheap regardless.
+     */
+    protected function registerRoleAuditListeners(): void
+    {
+        // v1.8.8 — impersonation audit is package-internal (no third-party
+        // dependency), register unconditionally.
+        \Illuminate\Support\Facades\Event::listen(
+            \Martis\Impersonation\Events\ImpersonationStarted::class,
+            [\Martis\Auth\Listeners\RecordImpersonation::class, 'handleStarted'],
+        );
+        \Illuminate\Support\Facades\Event::listen(
+            \Martis\Impersonation\Events\ImpersonationStopped::class,
+            [\Martis\Auth\Listeners\RecordImpersonation::class, 'handleStopped'],
+        );
+
+        // v1.8.8 — Gate denial audit. The listener carries per-request
+        // dedup state, so register it as a request-scoped singleton so
+        // the same instance handles every event in one request lifecycle.
+        $this->app->scoped(\Martis\Auth\Listeners\RecordAuthorizationDenial::class);
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Access\Events\GateEvaluated::class,
+            [\Martis\Auth\Listeners\RecordAuthorizationDenial::class, 'handle'],
+        );
+
+        // v1.8.8 — Per-request Gate cache. Same scoped registration so
+        // the cache state lives only for the current request lifecycle.
+        $this->app->scoped(\Martis\Authorization\RequestScopedAbilityCache::class);
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Access\Events\GateEvaluated::class,
+            [\Martis\Authorization\RequestScopedAbilityCache::class, 'handle'],
+        );
+
+        // Spatie listeners only register when the package is installed —
+        // the events themselves do not exist otherwise.
+        if (! class_exists(\Spatie\Permission\Events\RoleAttachedEvent::class)) {
+            return;
+        }
+
+        $events = [
+            \Spatie\Permission\Events\RoleAttachedEvent::class => 'handleRoleAttached',
+            \Spatie\Permission\Events\RoleDetachedEvent::class => 'handleRoleDetached',
+            \Spatie\Permission\Events\PermissionAttachedEvent::class => 'handlePermissionAttached',
+            \Spatie\Permission\Events\PermissionDetachedEvent::class => 'handlePermissionDetached',
+        ];
+
+        foreach ($events as $event => $method) {
+            \Illuminate\Support\Facades\Event::listen($event, [
+                \Martis\Auth\Listeners\RecordRoleChange::class,
+                $method,
+            ]);
+        }
     }
 }

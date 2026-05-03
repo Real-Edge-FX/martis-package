@@ -137,10 +137,14 @@ render a three-state filter in the toolbar — **Active / With trashed /
 Only trashed**. Trashed rows show **Restore** and **Force-delete** actions
 instead of Edit/Delete.
 
-The default state comes from `config/martis.php`:
+The default state comes from `config/martis.php` under the `index` block:
 
 ```php
-'default_trashed_filter' => 'active', // 'active' | 'with' | 'only'
+// config/martis.php
+'index' => [
+    'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
+    // 'active' | 'with' | 'only'
+],
 ```
 
 Visibility follows the usual gate — `Resource::canViewTrashed()` must return
@@ -230,13 +234,15 @@ BelongsToMany::make('Tags', 'tags')
 ### Full Configuration
 
 ```php
+use Martis\Enums\ModalSize;
+
 BelongsToMany::make('Roles', 'roles', RoleResource::class)
     ->searchable()                      // enable search in attach modal
     ->collapsable()                     // make panel collapsable
     ->collapsedByDefault()              // start collapsed
     ->allowDuplicateRelations()         // allow same record attached twice
     ->showCreateRelationButton()        // inline create button in modal
-    ->modalSize('3xl')                  // modal size
+    ->modalSize(ModalSize::ThreeExtraLarge, '70vh') // size + optional fixed height
     ->withSubtitles()                   // show subtitles in search results
     ->dontReorderAttachables()          // keep DB order in attachable list
     ->relatableQueryUsing(fn ($req, $q) => $q->where('active', true))
@@ -245,11 +251,15 @@ BelongsToMany::make('Roles', 'roles', RoleResource::class)
         Date::make('expires_at', 'Expires At')->nullable(),
     ])
     ->perPage(15)
-    ->canAttach(fn () => auth()->user()?->isAdmin())
-    ->canDetach(fn () => auth()->user()?->isAdmin())
+    ->canAttach()                       // bool toggle — defaults to true
+    ->canDetach()                       // bool toggle — defaults to true
 ```
 
+`modalSize()` accepts a `Martis\Enums\ModalSize` case (`Small` through `SevenExtraLarge`) and an optional second parameter that pins the modal's height to a fixed CSS value (`'70vh'`, `'600px'`). Default height tracks the size; pass the second arg only when the size's intrinsic height is wrong for your form.
+
 ### Authorization
+
+`canAttach()` / `canDetach()` are **static toggles** (defaults to `true` — pass `false` to hide the affordance for everyone). They do not accept closures. For dynamic, request-aware authorization, override the matching method on the parent Resource:
 
 ```php
 // In your Resource class:
@@ -264,7 +274,7 @@ public function authorizedToDetach(Request $request, Model $related): bool
 }
 ```
 
-If these methods are absent, falls back to `authorizedToUpdate()`.
+If these methods are absent, the framework falls back to `authorizedToUpdate()`.
 
 ### API Endpoints
 
@@ -314,14 +324,14 @@ Use `BelongsToMany` instead of `Tag` when you need pivot fields, a full DataTabl
 A polymorphic relationship. The parent model can belong to different model types via a single FK pair (`_type` + `_id`).
 
 ```php
-MorphTo::make('commentable_id', 'Commentable')
+MorphTo::make('commentable', 'Commentable')
     ->types([PostResource::class, VideoResource::class])
     ->nullable()
 ```
 
-See [fields.md — MorphTo](fields.md#morphto) for full API reference.
+Pass the **relationship method name** (e.g. `commentable`), not the FK column. MorphTo writes both `commentable_type` and `commentable_id` based on the resolved related record.
 
----
+See [fields.md — MorphTo](fields.md#morphto) for full API reference.
 
 ---
 
@@ -561,9 +571,9 @@ See [fields.md § MorphToMany](fields.md#morphtomany) for the full API.
 | Polymorphic has-many (many children across types) | `MorphMany` |
 | Polymorphic many-to-many with pivot | `MorphToMany` |
 
-## Hardening — guaranteed behaviour matrix (Task 10)
+## Hardening — guaranteed behaviour matrix
 
-The Task 10 hardening pass codified the contract every relationship surface guarantees. Each row below has a feature test in `tests/Feature/`. Use this as your spec when building or migrating a relationship-heavy resource.
+The hardening pass codified the contract every relationship surface guarantees. Each row below has a feature test in `tests/Feature/`. Use this as your spec when building or migrating a relationship-heavy resource.
 
 ### Per-type controller behaviour
 

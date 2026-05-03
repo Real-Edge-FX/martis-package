@@ -108,6 +108,11 @@ class AuthController extends MartisController
 
         $request->session()->regenerate();
 
+        // Drop any stale SSO marker from a previous session so a
+        // password-based login does not later redirect through the
+        // IdP federated-logout URL on logout.
+        $request->session()->forget('martis_sso_provider');
+
         // Check if 2FA is active — reset the challenge flag on new login
         $user = $auth->user();
         if ($user && app(TwoFactorService::class)->isEnabled($user)) {
@@ -149,8 +154,40 @@ class AuthController extends MartisController
         $auth = auth()->guard($guardName);
         $auth->logout();
 
+        // Federated logout — when the user came in via SSO and the
+        // matching provider declared `logout_url`, redirect them
+        // through the IdP's logout endpoint so the IdP session is
+        // also cleared. Without this the local session ends but the
+        // user stays signed in at the IdP, and re-clicking "Sign in
+        // with Microsoft" silently reuses the SSO session.
+        $ssoProvider = (string) ($request->session()->get('martis_sso_provider') ?? '');
+        $logoutUrl = $ssoProvider !== ''
+            ? (string) (config("martis.auth.sso.providers.{$ssoProvider}.logout_url") ?? '')
+            : '';
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($logoutUrl !== '') {
+            // Replace `{post_logout_redirect_uri}` with the canonical
+            // post-logout target (Martis login page) so consumers can
+            // template the redirect inside the env var.
+            $loginUrl = (string) url('/'.ltrim((string) config('martis.path', 'martis'), '/').'/login');
+            $logoutUrl = str_replace(
+                '{post_logout_redirect_uri}',
+                rawurlencode($loginUrl),
+                $logoutUrl,
+            );
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Logged out',
+                    'logout_url' => $logoutUrl,
+                ]);
+            }
+
+            return redirect()->away($logoutUrl);
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['message' => 'Logged out']);

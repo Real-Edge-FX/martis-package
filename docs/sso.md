@@ -78,7 +78,8 @@ HTTP entry points (registered when `auth.sso.enabled = true`):
 │   resolveIdentity(Request) : SsoIdentity                         │
 │                                                                  │
 │   Built-in: AzureProvider                                        │
-│   Built-in scaffolding: GoogleProvider, GitHubProvider           │
+│   Generator stubs (config + env only, no Provider class):        │
+│     `martis:sso google` and `martis:sso github`                  │
 │   Custom: register via `MartisSso::extend('okta', OktaProvider)` │
 └────────┬────────────────────────────────────────────────────────┘
          │ returns SsoIdentity { provider, externalId, email, name,
@@ -812,9 +813,37 @@ Look at `tests/Feature/SsoControllerTest.php` for 8 working examples.
 
 ## 15. Security considerations
 
-### CSRF / state parameter
+### CSRF / state / nonce / PKCE
 
-Socialite manages the OAuth `state` parameter automatically. Don't disable it.
+Socialite 5.x manages the OAuth `state`, `nonce`, and PKCE parameters automatically. ID-token signature validation is delegated to Socialite for OIDC providers. Don't disable the state check; don't drop the nonce; don't try to assemble the authorize URL by hand. The `redirect()` flow in `AzureProvider` defers entirely to `Socialite::driver(...)->redirect()`.
+
+### Federated logout (Single Sign-Out)
+
+By default `POST /martis/api/auth/logout` only clears the local session. The user stays signed in at the IdP, so re-clicking "Sign in with Microsoft" silently reuses the SSO session.
+
+To opt in to federated logout, set the per-provider `logout_url` (since v1.8.8). When the user came in via SSO, logout redirects through the IdP's logout endpoint after invalidating the local session:
+
+```php
+// config/martis.php
+'azure' => [
+    // ... rest of the block
+    'logout_url' => env('MARTIS_SSO_AZURE_LOGOUT_URL'),
+],
+```
+
+```dotenv
+MARTIS_SSO_AZURE_LOGOUT_URL=https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout?post_logout_redirect_uri={post_logout_redirect_uri}
+```
+
+The placeholder `{post_logout_redirect_uri}` is replaced at logout time with the urlencoded Martis login URL — Azure (and most OIDC providers) need this to know where to bounce the browser after killing the IdP session.
+
+The marker that says "this user came in via SSO" lives in the session under `martis_sso_provider`. A regular password login wipes it, so a user who switches from SSO to password mid-stream does not get redirected to Azure on logout.
+
+The JSON variant of the logout endpoint surfaces the IdP URL as `logout_url`, so a SPA can drive the redirect itself if it needs to add UI between local and federated logout.
+
+### Refresh tokens
+
+Martis does **not** persist refresh tokens. Apps that need offline-token rotation (Graph queries fired from queued jobs, calendar sync, etc.) should capture both the access token and the refresh token in the `afterLogin` hook and run their own renewal flow. A first-class refresh-token store is on the roadmap, not in the current release.
 
 ### Token storage
 
@@ -910,7 +939,7 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 
 | Likely cause | Fix |
 |---|---|
-| Missing `AppRoleAssignment.ReadWrite.All` permission | Most setups need only `User.ReadBasic.All` + `GroupMember.Read.All`; double-check by hitting `/users/me/appRoleAssignments` in Graph Explorer with the same delegated permissions |
+| Missing read permission on `AppRoleAssignment` | The Azure app needs `User.ReadBasic.All` + `GroupMember.Read.All` granted; double-check by hitting `/users/me/appRoleAssignments` in Graph Explorer with the same delegated permissions. Martis only ever reads — the `ReadWrite.All` scope is never required. |
 | `AZURE_RESOURCE_ID` mismatch | Set it to the Application ID, not the Object ID or Tenant ID |
 | Token expired / wrong scopes | Ensure `openid profile email` are requested |
 
@@ -926,11 +955,22 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 
 ## 17. Test coverage
 
-| File | Tests | What it covers |
-|---|---|---|
-| `tests/Unit/Sso/SsoIdentityTest.php` | 2 | Value object contract (full + minimal payloads). |
-| `tests/Unit/Sso/RoleMapperTest.php` | 6 | All three strategies (column, config, callable) + global override + empty input + no-match. |
-| `tests/Feature/SsoControllerTest.php` | 8 | Callback auto-creates user, syncs attributes, maps roles, denies on no match, allows guest mode, hook firing, disabled-provider redirect, route gating off when master switch is false. |
-| **Total** | **16** | |
+| File | What it covers |
+|---|---|
+| `tests/Unit/Sso/SsoIdentityTest.php` | Value object contract (full + minimal payloads). |
+| `tests/Unit/Sso/RoleMapperTest.php` | All three strategies (column, config, callable) + global override + empty input + no-match. |
+| `tests/Unit/Sso/IdentityResolverTest.php` | Find-or-create flow, attribute sync, soft-delete handling, host-app override hook. |
+| `tests/Unit/Sso/PermissionAdaptersTest.php` | Spatie / Native / Callable / Auto adapter routing + role attach/detach semantics. |
+| `tests/Unit/Sso/SsoManagerTest.php` | Singleton wiring, hook registration + dispatch, provider extension via `extend()`. |
+| `tests/Feature/SsoControllerTest.php` | End-to-end callback: user create / sync, role map, deny / guest paths, hook firing, disabled-provider redirect, route gating, federated logout, password-login wipe of the SSO marker. |
+| `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
-Combined Martis suite is 1455 / 0 with these tests included.
+Run the SSO slice with:
+
+```bash
+vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoMakeCommandTest.php
+```
+
+The counts grow with each release — see CI output for the live total.
+
+> Looking to swap the React `LoginPage` (multi-provider button strip + email/password form) for a custom shell? See [Override System](overrides.md) — the auth pages sit under registry keys `auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice`.

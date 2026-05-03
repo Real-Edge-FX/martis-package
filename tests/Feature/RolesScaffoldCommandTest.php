@@ -224,6 +224,115 @@ it('registers the policies in AuthServiceProvider', function () {
         ->toContain('PermissionPolicy::class');
 });
 
+it('without --with-categories, PermissionResource stays at the baseline shape', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    $this->artisan('martis:roles', [
+        '--no-install' => true,
+        '--no-publish-spatie' => true,
+        '--no-migrate' => true,
+    ])->run();
+
+    $body = (string) file_get_contents(app_path('Martis/Resources/PermissionResource.php'));
+
+    expect($body)->not->toContain('Category')
+        ->and($body)->not->toContain("public function filters")
+        ->and($body)->not->toContain('SelectFilter');
+});
+
+it('with --with-categories, PermissionResource gains the field + filter and the migration is published', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    // Clean any prior category migration so the publish step has a
+    // clear field. Idempotency is exercised in the next test.
+    foreach ((array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php')) as $file) {
+        @unlink((string) $file);
+    }
+
+    $this->artisan('martis:roles', [
+        '--no-install' => true,
+        '--no-publish-spatie' => true,
+        '--no-migrate' => true,
+        '--with-categories' => true,
+        '--force' => true,
+    ])->run();
+
+    $body = (string) file_get_contents(app_path('Martis/Resources/PermissionResource.php'));
+
+    expect($body)->toContain("Text::make('Category', 'category')")
+        ->and($body)->toContain('public function filters(\Illuminate\Http\Request $request)')
+        ->and($body)->toContain('SelectFilter');
+
+    $migrations = (array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php'));
+    expect($migrations)->not->toBeEmpty();
+
+    $migration = (string) file_get_contents((string) $migrations[0]);
+    expect($migration)->toContain("Schema::hasColumn('permissions', 'category')")
+        ->and($migration)->toContain("string('category', 64)");
+});
+
+it('--with-categories migration publish is idempotent', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    // First run.
+    $this->artisan('martis:roles', [
+        '--no-install' => true,
+        '--no-publish-spatie' => true,
+        '--no-migrate' => true,
+        '--with-categories' => true,
+        '--force' => true,
+    ])->run();
+
+    $countAfterFirst = count((array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php')));
+
+    // Second run — must NOT publish a duplicate even with --force.
+    $this->artisan('martis:roles', [
+        '--no-install' => true,
+        '--no-publish-spatie' => true,
+        '--no-migrate' => true,
+        '--with-categories' => true,
+        '--force' => true,
+    ])->run();
+
+    $countAfterSecond = count((array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php')));
+
+    expect($countAfterFirst)->toBe(1);
+    expect($countAfterSecond)->toBe(1);
+});
+
+it('scaffolds the BulkAssignRole action wired into UserResource', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    $this->artisan('martis:roles', [
+        '--no-install' => true,
+        '--no-publish-spatie' => true,
+        '--no-migrate' => true,
+    ])->run();
+
+    $actionPath = app_path('Martis/Resources/Actions/BulkAssignRole.php');
+    $userResourcePath = app_path('Martis/Resources/UserResource.php');
+
+    expect(file_exists($actionPath))->toBeTrue();
+
+    $action = (string) file_get_contents($actionPath);
+    expect($action)->toContain('class BulkAssignRole')
+        ->and($action)->toContain('Role::query()->find')
+        ->and($action)->toContain('assignRole($role)');
+
+    $userResource = (string) file_get_contents($userResourcePath);
+    expect($userResource)->toContain('use App\\Martis\\Resources\\Actions\\BulkAssignRole;')
+        ->and($userResource)->toContain('public function actions(Request $request): array')
+        ->and($userResource)->toContain('new BulkAssignRole');
+});
+
 it('is idempotent — re-running without --force skips existing files', function () {
     if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
         $this->markTestSkipped('spatie/laravel-permission not installed');

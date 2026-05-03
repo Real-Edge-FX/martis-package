@@ -47,6 +47,7 @@ Spatie itself is intentionally a soft dependency. If you do not run `martis:role
 | `--no-install` | Assume Spatie is already installed. Skips the `composer require` step. |
 | `--no-migrate` | Publish migrations but do not run them. Useful when other migrations are pending review. |
 | `--no-publish-spatie` | Skip publishing Spatie's config + migrations. Use after a manual publish. |
+| `--with-categories` | Adds a `category` column to `permissions` (via published migration) and surfaces it as a field + filter on the generated PermissionResource. Useful for apps with 50+ permissions. v1.8.8. |
 | `--force` | Overwrite resource / policy files that already exist. |
 
 The command is idempotent — re-running it without `--force` skips files already on disk.
@@ -152,6 +153,18 @@ $user->assignRole('editor');
 $user->hasRole('editor');
 ```
 
+### Refresh the permission cache
+
+Spatie caches permissions and roles in the application cache (default TTL 24 h) for performance. When you assign or revoke permissions outside the admin UI — from a seeder, a tinker session, a bulk-import script — the cache does not know and authorization checks may stay on the previous state until the TTL expires.
+
+Reset the cache after any out-of-band write:
+
+```bash
+php artisan permission:cache-reset
+```
+
+The Martis admin UI calls this automatically after every Role / Permission update from the Resource forms, so the manual command is only needed when you bypass the UI.
+
 ### Gating a Martis Resource by a permission
 
 The cleanest path is a Policy — the resource layer calls `Gate::allows(...)` and Laravel resolves the policy method automatically:
@@ -237,6 +250,16 @@ When `martis:sso azure --with-spatie --with-migration` ran in the same project, 
 1. The IdP owns those roles. The next sign-in would overwrite any manual change.
 2. The operator should grant local-only roles via the admin UI; SSO-driven roles flow in automatically.
 
+The exclusion is a single `relatableQuery()` clause inside the BelongsToMany picker — the stub renders it as:
+
+```php
+BelongsToMany::make(__('Roles'), 'roles', RoleResource::class)
+    ->relatableQuery(fn (Builder $query) => $query->whereNull('provider_group_name'))
+    ->help(__('martis::permissions.user_roles_help')),
+```
+
+Replicate the same pattern in any custom Resource that exposes the role relation (e.g. a TenantResource that scopes roles per tenant). Drop the clause to expose every role, or tighten it (`->whereNull('provider_group_name')->where('active', true)`) to add app-specific predicates.
+
 If you want to display (read-only) which SSO roles a user has, add a computed `Text` field at the top of the User resource that reads from the relation:
 
 ```php
@@ -248,6 +271,57 @@ Text::make('SSO roles', fn ($user) => $user->roles
     ->onlyOnDetail()
     ->help('Synced from your IdP — managed via group claims, not editable here.'),
 ```
+
+## Permission categories (`--with-categories`)
+
+Apps with 50+ permissions get unwieldy in a flat index list. Run the generator with `--with-categories` to opt in to a tiny addition: a nullable `category` column on `permissions` plus a Field + SelectFilter on the generated `PermissionResource`.
+
+```bash
+php artisan martis:roles --with-categories
+```
+
+Effects:
+
+- Publishes `database/migrations/{ts}_add_category_column_to_permissions_table.php` (re-runs are idempotent — only the first publish writes; subsequent runs skip with a yellow `already published` row).
+- Renders `Text::make('Category', 'category')` inside the PermissionResource fields list.
+- Renders a `filters()` method on the resource that surfaces every distinct category currently in use as a SelectFilter on the index page.
+
+The column is **metadata only** — Martis never reads `permissions.category` for authorization. The string is just a UX label so the operator can group `posts.publish`, `posts.draft`, `posts.unpublish` under "Posts" and the admin index renders them grouped.
+
+To add categories to existing scaffolds without re-running the generator: copy the field + filter snippets from `vendor/martis/martis/stubs/roles-permission-resource.stub` and re-run `php artisan migrate` after publishing the migration with `php artisan martis:stubs` (you can also write the migration by hand against your existing schema — the column is `string('category', 64)->nullable()->index()`).
+
+To remove the feature: drop the column from `permissions`, remove the field + filter from your `PermissionResource`. No code reads the column.
+
+## Audit log of role / permission changes
+
+Spatie 5+ fires `RoleAttachedEvent`, `RoleDetachedEvent`, `PermissionAttachedEvent`, and `PermissionDetachedEvent` whenever a `HasRoles` model has its grants changed (`assignRole`, `removeRole`, `syncRoles`, `givePermissionTo`, `revokePermissionTo`, …). Since v1.8.8 Martis subscribes a default listener — `Martis\Auth\Listeners\RecordRoleChange` — that records each event into the `martis_action_events` audit log:
+
+| Action name | Fires when |
+|---|---|
+| `role.attached` | Spatie role attached to a model |
+| `role.detached` | Spatie role detached from a model |
+| `permission.attached` | Spatie permission attached directly to a model (rare; usually flows via roles) |
+| `permission.detached` | Spatie permission detached directly from a model |
+
+Each row carries the acting user (from the active session, or `null` for system-level writes), the target model FQCN + id, and the list of role / permission ids in the `fields.ids` JSON column. Browse the log under `/martis/system/action-events`.
+
+The listener is gated on a single config knob:
+
+```dotenv
+# Set false to silence the Martis-side audit row entirely. Your own
+# listeners keep firing — this only stops the action_events write.
+MARTIS_AUDIT_ROLE_CHANGES=false
+```
+
+When the audit table is missing (apps that opted out of the v0.7 install migrations) the listener short-circuits — the role change still happens, the audit row is just skipped. Same when Spatie is not installed: the listener is never registered.
+
+## Bulk-assign roles to many users at once
+
+The generated `UserResource` now ships an action — `BulkAssignRole` — that exposes a single Role dropdown in its confirmation modal and assigns the chosen role to every selected user in one click. The action lives at `app/Martis/Resources/Actions/BulkAssignRole.php`; it is yours to customise (rename the role pool, broadcast a notification, deny self-assignment, etc.).
+
+The Role picker excludes any role whose `provider_group_name` is set — those are owned by an SSO provider and would be overwritten on the next sign-in. Drop the clause in the action's `fields()` method to expose every role, or tighten the predicate further to scope per tenant.
+
+Each `assignRole()` call inside the action fires Spatie's `RoleAttachedEvent`, which the audit listener captures into `martis_action_events`. A bulk run of 50 users assigning `editor` produces 50 audit rows tagged with the operator and the role id — perfect for compliance review.
 
 ## Where the System section comes from
 
@@ -266,6 +340,27 @@ class TenantResource extends Resource
 ```
 
 The label "System" is published via `martis::messages.system`. Override it via `vendor:publish --tag=martis-lang` for per-locale customisation.
+
+## Laravel 11+ note
+
+On Laravel 11+, `App\Providers\AuthServiceProvider` no longer ships by default. The command emits a warning + manual instructions; register the policies inside any service provider's `boot()` method:
+
+```php
+use App\Policies\PermissionPolicy;
+use App\Policies\RolePolicy;
+use App\Policies\UserPolicy;
+use App\Models\User;
+use Illuminate\Support\Facades\Gate;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+
+public function boot(): void
+{
+    Gate::policy(User::class, UserPolicy::class);
+    Gate::policy(Role::class, RolePolicy::class);
+    Gate::policy(Permission::class, PermissionPolicy::class);
+}
+```
 
 ## Removing the generated UI
 

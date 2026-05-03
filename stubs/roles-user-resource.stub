@@ -14,6 +14,7 @@ use Martis\Fields\Email;
 use Martis\Fields\Id;
 use Martis\Fields\Text;
 use Martis\Resource;
+use {{ namespace }}\Actions\BulkAssignRole;
 
 /**
  * User administration surface, scaffolded by `php artisan martis:roles`.
@@ -99,6 +100,20 @@ class {{ class }} extends Resource
                 ->onlyOnIndex()
                 ->onlyOnDetail()
                 ->sortable(),
+        ];
+    }
+
+    /**
+     * Bulk + per-row actions exposed on the User index. The
+     * `BulkAssignRole` action lets an operator pick a role in the
+     * confirmation modal and assign it to every selected user in one
+     * click; the audit log records every attach (see
+     * `Martis\Auth\Listeners\RecordRoleChange`).
+     */
+    public function actions(Request $request): array
+    {
+        return [
+            new BulkAssignRole,
         ];
     }
 }

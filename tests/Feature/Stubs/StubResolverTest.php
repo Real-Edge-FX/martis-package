@@ -61,6 +61,40 @@ it('packageDirectory points at the package stubs/ folder', function () {
     expect(file_exists($dir.'/resource.stub'))->toBeTrue();
 });
 
+it('install/sso/roles stubs route through StubResolver and respect user overrides', function () {
+    // Each of these stubs was previously read directly from
+    // `__DIR__.'/../../stubs/...'` (InstallCommand, SsoMakeCommand) or
+    // `vendor/martis/martis/stubs/...` (RolesScaffoldCommand). They
+    // were copied into `stubs/martis/` by `martis:stubs` but no command
+    // ever read from there, so the override was inert. After v1.8.8
+    // they all route through StubResolver — proving an override at
+    // `stubs/martis/<name>` is the resolved path.
+    /** @var Filesystem $files */
+    $files = $this->app->make(Filesystem::class);
+    $files->makeDirectory($this->stubsDir, 0755, true);
+
+    $stubsToCheck = [
+        'create_martis_action_events_table.php.stub',
+        'create_user_preferences_table.php.stub',
+        'create_martis_notifications_table.php.stub',
+        'add_profile_picture_column.php.stub',
+        'add_two_factor_columns.php.stub',
+        'add_provider_group_column_to_roles_table.php.stub',
+        'MartisServiceProvider.php.stub',
+        'roles-policy.stub',
+        'roles-seeder.stub',
+        'roles-permission-resource.stub',
+        'roles-role-resource.stub',
+        'roles-user-resource.stub',
+    ];
+
+    foreach ($stubsToCheck as $stub) {
+        $override = $this->stubsDir.'/'.$stub;
+        $files->put($override, '/* override for '.$stub.' */');
+        expect(StubResolver::path($stub))->toBe($override);
+    }
+});
+
 it('overrides are scoped per-stub — an unrelated override does not affect resolution', function () {
     /** @var Filesystem $files */
     $files = $this->app->make(Filesystem::class);

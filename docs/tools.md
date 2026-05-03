@@ -87,14 +87,27 @@ $this->withIcon('upload')           // Phosphor icon name, surfaced in the menu.
     ->withMenuSection('Operations'); // Optional menu section label.
 ```
 
+If you omit `uriKey:`, Martis derives it from `Str::kebab($name)`. The `Tool::make($name, ?$uriKey)` static factory is a one-line alternative when you want to inline the construction:
+
+```php
+Tool::make(__('Finance Imports'))
+    ->withIcon('upload')
+    ->withComponent('tool:imports')
+    ->withMenuSection('Operations');
+```
+
 | Method | Purpose |
 |---|---|
-| `name()` | Human-readable label. Wrap with `__()` to localise. |
-| `uriKey()` | URL slug — `/martis/tools/{uriKey}`. Defaults to kebab-case of name. |
-| `withIcon(string)` | Phosphor icon for the menu entry. |
-| `withComponent(string)` | React component key. The frontend looks this up in `componentRegistry`. |
-| `withMenuSection(?string)` | Optional menu section label. |
-| `withMeta(array)` | Arbitrary descriptor data passed to the React component. |
+| `name()` | Human-readable label getter. Wrap the construct-time argument with `__()` to localise. |
+| `uriKey()` | URL slug getter — `/martis/tools/{uriKey}`. Defaults to kebab-case of name. |
+| `icon()` | Currently-set Phosphor icon name, or `null`. Read by `MenuItem::tool()` and `toArray()`. |
+| `component()` | Registered React component key, or `null` (config-only tools). |
+| `menuSection()` | Active menu section label, or `null`. |
+| `meta()` | The accumulated metadata array (mirrors what `withMeta()` set). |
+| `withIcon(string)` | Phosphor icon for the menu entry. Chainable. |
+| `withComponent(string)` | React component key. The frontend looks this up in `componentRegistry`. Chainable. |
+| `withMenuSection(?string)` | Optional menu section label. Chainable. |
+| `withMeta(array)` | Merge arbitrary descriptor data; surfaced verbatim to the React component. Chainable. |
 
 ### Authorisation
 
@@ -106,9 +119,14 @@ $this->canSee(fn (Request $request) =>
 
 `canSee()` controls **both** menu visibility and route access. Tools that fail `authorizedToSee()` are silently dropped from the menu, and `GET /martis/api/tools/{uriKey}` returns **404** (not 403) — intentionally indistinguishable from "tool does not exist" so an unauthorised user cannot probe which tools the app ships.
 
+| Method | Purpose |
+|---|---|
+| `canSee(Closure)` | Fluent setter. Closure receives a `Request` and returns `bool`. |
+| `authorizedToSee(Request)` | Resolved boolean used by the controller and the menu builder. Useful in tests / dynamic menus that need to pre-filter. Defaults to `true` when no `canSee()` callback is set. |
+
 ### Lifecycle: `boot()`
 
-The most powerful per-tool hook. Runs **once** during host application boot, **after** Martis has loaded its own routes / views / config — so tool-owned routes register on top of an initialised package.
+The most powerful per-tool hook. Runs **once per request lifecycle**, lazily on the first hit that needs the tools registry, **after** Martis has loaded its own routes / views / config — so tool-owned routes register on top of an initialised package.
 
 > **When to put setup in `Tool::boot()` vs `AppServiceProvider::boot()`?** Read [tool-boot-patterns.md](tool-boot-patterns.md) — it has a decision rubric and 4 worked examples (routes, gates, schedules, event listeners) with the trade-offs spelt out.
 
@@ -144,6 +162,43 @@ public function boot(): void
 - Runs exactly once per request lifecycle. Reset only when `Martis::tools([...])` is called again (e.g. in tests).
 - Exceptions thrown from `boot()` are **logged and swallowed** — a single broken tool cannot bring down the whole admin panel. Watch your `laravel.log` for `[martis] Tool boot() threw` entries.
 - The hook receives no arguments. Resolve dependencies via `app(...)` or facades.
+
+### Loading routes from a sibling file
+
+For tools with more than two or three endpoints the inline `Route::middleware(...)->group(function () { ... })` block in `boot()` gets noisy. `loadRoutes()` is a thin wrapper that pre-applies the standard Martis prefix + middleware stack and `require`s a sibling file:
+
+```php
+public function boot(): void
+{
+    // Loads `app/Martis/Tools/routes/finance-imports.php` under
+    // the prefix `martis/api/tools/finance-imports` with the
+    // ['web', 'martis.auth'] middleware stack.
+    $this->loadRoutes(__DIR__.'/routes/finance-imports.php');
+}
+```
+
+Inside the routes file, write plain `Route::*` calls — the prefix and middleware are applied by the surrounding group:
+
+```php
+// app/Martis/Tools/routes/finance-imports.php
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\FinanceImportsController;
+
+Route::post('/upload', [FinanceImportsController::class, 'upload']);
+Route::get('/status/{job}', [FinanceImportsController::class, 'status']);
+```
+
+Signature:
+
+```php
+$this->loadRoutes(
+    string $path,                           // path to the routes file
+    array $middleware = ['web', 'martis.auth'],
+    ?string $prefix = null,                 // defaults to 'martis/api/tools/{uriKey}'
+);
+```
+
+Missing files are skipped silently — convenient when shipping a Composer-package tool whose routes file is optional, or when a consumer publishes a stub they have not edited yet.
 
 ### Asset & file publishing
 
@@ -212,7 +267,7 @@ Bind a React component to the key your PHP tool declared:
 
 ```ts
 // resources/js/martis/boot.ts
-import { componentRegistry } from '@martis/admin'
+import { componentRegistry } from '@/lib/componentRegistry'
 import { FinanceImportsTool } from './tools/FinanceImportsTool'
 
 componentRegistry.register('tool:imports', FinanceImportsTool)
@@ -240,7 +295,7 @@ export function FinanceImportsTool({ tool }: { tool: ToolDescriptor }) {
 
 The Martis `ToolPage` shell (route `/tools/:uriKey`) fetches `/api/tools/{uriKey}`, looks up the registered component by key, and mounts it inside the standard layout (topbar, sidebar, breadcrumbs, theme — all wired automatically).
 
-If your tool's component key has no registration in `componentRegistry`, the page renders an empty shell and prints a console warning — the same fallback behaviour as an unregistered Resource component override.
+If your tool's `component()` returns a key that has no registration in `componentRegistry`, `ToolPage` renders a developer-friendly error UI (the tool name as the heading, then a translated message pointing you at the missing `componentRegistry.register(...)` call). The error is rendered to the DOM, not the console — it is hard to miss during local dev and is harmless in production beyond the visible message. To ship a config-only tool without a React body, simply do not call `withComponent()`; `ToolPage` then renders just the standard header and no content panel.
 
 ## The `martis:tool` generator
 
@@ -458,9 +513,21 @@ Consumer: `composer require your-vendor/martis-backups` and they get a working B
 - **Don't register routes outside `boot()`.** Routes registered in the constructor run at object-construction time (before the application has fully booted) and can leak across tests.
 - **Don't depend on `boot()` running multiple times.** The hook is idempotent per registration. If you need re-runnable setup (e.g. resetting state in tests), trigger it explicitly.
 
+## Differences from Nova 5
+
+If you arrive at Martis Tools from Nova 5, the surface looks familiar but a few things diverge by design. None of these are "missing features" we plan to add; they are deliberate choices.
+
+| Topic | Nova 5 | Martis | Why |
+|---|---|---|---|
+| Custom menu rendering | `Tool::menu(Request)` returns a `View` so the tool can render its own menu item HTML. | The menu entry is built from `name()` / `icon()` / `uriKey()` only. | Uniform menu styling. Custom menu HTML is the surface most likely to drift visually away from the rest of the admin. |
+| In-page sub-navigation | `Tool::renderNavigation()` slot for tabs / sections. | Delegated to your React component. Build the sub-nav inline; the standard layout already provides breadcrumbs + page header. | React side has more flexibility to react to client state than a server-rendered fragment. |
+| Route file auto-discovery | Tools may ship a `routes/tool.php` that Nova auto-loads. | `Tool::loadRoutes($path)` (since v1.8.8) — explicit one-liner from `boot()`. | Auto-discovery hides where routes come from. Keeping the call site explicit makes route registration trivially `grep`-able. |
+| Per-tool resource isolation | Tools can register their own Resources so two tools can ship overlapping URI keys. | `Martis::resources()` is global; tools should use their own controllers + endpoints rather than registering Resources. | Resource registration is global anyway in Laravel routing; per-tool isolation is rarely needed and adds significant indirection. |
+| Bundled webpack scaffolding | Nova ships a webpack config + `nova:tool` builds a tool package's JS. | `publishesAssets()` proxies the standard `vendor:publish` mechanism; the tool author owns the build pipeline (Vite, Webpack, anything). | Decouples tool packaging from the package's own build choices. |
+
 ## Tests
 
-Behaviour-level coverage lives in `tests/Feature/ToolsControllerTest.php` (13 Feature tests covering registration, authorisation, the boot lifecycle, exception swallowing, publishing, and menu integration). The Task-18 ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts the public surface — `Tool`, `Tool::boot()`, `Tool::publishes()`, `Tool::publishesAssets()`, `ToolServiceProvider`, `Martis::tools()`, `Martis::resolveTools()`, `MartisManager::bootTools()` — keeps its contract.
+Behaviour-level coverage lives in `tests/Feature/ToolsControllerTest.php` (15 Feature tests covering registration, authorisation, the boot lifecycle, exception swallowing, publishing, route loading, and menu integration). The ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts the public surface — `Tool`, `Tool::boot()`, `Tool::publishes()`, `Tool::publishesAssets()`, `Tool::loadRoutes()`, `ToolServiceProvider`, `Martis::tools()`, `Martis::resolveTools()`, `MartisManager::bootTools()` — keeps its contract.
 
 Run the focused suites:
 

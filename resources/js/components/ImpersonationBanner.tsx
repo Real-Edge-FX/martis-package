@@ -41,6 +41,11 @@ export function ImpersonationBanner() {
   // impersonation we skip the entire effect — no fetch, no interval,
   // no work whatsoever. This is the cheap path 99% of installs sit on.
   const enabledAtBoot = config.impersonation?.enabled === true
+  // Polling cadence is config-driven. Default 120000 (2 min) — sessions
+  // change rarely, so the historical 30s polling was wasteful. Set to
+  // 0 to disable polling entirely (the banner still mounts and reads
+  // state once per page load).
+  const pollIntervalMs = config.impersonation?.pollInterval ?? 120_000
 
   useEffect(() => {
     if (!enabledAtBoot) return
@@ -81,7 +86,9 @@ export function ImpersonationBanner() {
     }
 
     fetchOnce()
-    interval = window.setInterval(fetchOnce, 30_000)
+    if (pollIntervalMs > 0) {
+      interval = window.setInterval(fetchOnce, pollIntervalMs)
+    }
 
     return () => {
       cancelled = true
@@ -89,7 +96,7 @@ export function ImpersonationBanner() {
         window.clearInterval(interval)
       }
     }
-  }, [enabledAtBoot])
+  }, [enabledAtBoot, pollIntervalMs])
 
   if (!enabledAtBoot) return null
   if (!snap?.active) return null

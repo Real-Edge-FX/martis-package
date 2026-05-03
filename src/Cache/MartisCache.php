@@ -6,9 +6,11 @@ namespace Martis\Cache;
 
 use Closure;
 use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
+use Martis\Models\CacheState;
 
 /**
  * Central cache service for Martis subsystems.
@@ -18,17 +20,29 @@ use Illuminate\Support\Facades\Date;
  *
  *   1. Config (`config/martis.php` → `cache.{type}`).
  *   2. Env vars (one per type plus a master `MARTIS_CACHE_ENABLED`).
- *   3. Runtime — toggle stored in cache, survives restarts, set via
- *      Artisan or the admin panel.
+ *   3. Runtime — toggle persisted to the `martis_cache_state` table,
+ *      survives restarts, set via Artisan or the admin panel.
  *
- * Invalidation uses a per-type version key (`martis:cache:{type}:version`).
- * Bumping the version makes every key derived from it stale at once,
- * which works on every cache backend (file, array, redis, memcached, db)
- * without needing tagging support. Old entries linger until natural
- * expiration; that's fine because the version is part of the key.
+ * Invalidation uses a per-type version counter stored in the
+ * `martis_cache_state` table. Bumping the counter makes every key
+ * `martis:cache:{type}:v{N}:...` orphaned at once, which works on every
+ * cache backend (file, array, redis, memcached, db) without needing
+ * tagging support. Old entries linger until natural expiration or
+ * eviction; that's fine because the version is part of the key.
+ *
+ * **Why DB-backed metadata?** v1.8.7 and earlier stored the version
+ * counter, `cleared_at` stamp and runtime override flag in the cache
+ * itself. That made them volatile — `php artisan cache:clear`,
+ * `redis-cli FLUSHDB`, container restarts and LRU eviction all wiped
+ * them, leaving the admin UI showing "V1 · cleared at —" right after
+ * the operator had explicitly invalidated to V2. v1.8.8 moves them
+ * to a dedicated `martis_cache_state` table so they survive every
+ * cache-backend reset. The cache entries themselves still live in
+ * `Cache::store()`.
  *
  * Per-request bypass — header `X-Martis-No-Cache: 1` or query
- * `?nocache=1`. Useful for debugging without flipping config.
+ * `?nocache=1` (or `?nocache=true`). Useful for debugging without
+ * flipping config.
  */
 class MartisCache
 {
@@ -44,15 +58,6 @@ class MartisCache
      */
     public const TYPES = ['metrics', 'navigation', 'dashboards', 'schema'];
 
-    /** Cache key holding the per-type runtime override map. */
-    private const OVERRIDES_KEY = 'martis:cache:overrides';
-
-    /** Cache key prefix for the per-type version counter. */
-    private const VERSION_KEY_PREFIX = 'martis:cache:version:';
-
-    /** Cache key prefix for the per-type "last cleared at" stamp. */
-    private const CLEARED_AT_PREFIX = 'martis:cache:cleared-at:';
-
     /**
      * Custom layers registered via `extend()`. Map of name => default
      * config. Built-in layers always exist regardless of this list.
@@ -60,6 +65,15 @@ class MartisCache
      * @var array<string, array{enabled: bool, ttl: int|null}>
      */
     protected static array $extensions = [];
+
+    /**
+     * Per-instance state cache: `[type => ['version' => int, 'cleared_at' => ?string, 'override' => ?bool]]`.
+     * Hydrated lazily by `loadStates()` on first read. Container binds
+     * this class as `scoped()` so the cache is reset between requests.
+     *
+     * @var array<string, array{version: int, cleared_at: ?string, override: ?bool}>|null
+     */
+    protected ?array $states = null;
 
     public function __construct(private readonly Repository $store) {}
 
@@ -190,24 +204,30 @@ class MartisCache
     /**
      * Invalidate every entry for a cache type by bumping its version.
      * When `$type` is null every type is bumped at once.
+     *
+     * Persists to the `martis_cache_state` table so the version and
+     * `cleared_at` stamp survive Cache::flush(), redis-cli FLUSHDB,
+     * container restarts and LRU eviction. The cache entries
+     * themselves remain in Cache::store() — they become orphans
+     * (keys reference the previous version) and either expire by TTL
+     * or get evicted under memory pressure.
      */
     public function clear(?string $type = null): void
     {
         $types = $type === null ? static::types() : [$type];
+        $now = Date::now();
 
         foreach ($types as $t) {
             $this->assertKnownType($t);
-            // Read-then-write rather than `increment()` because the
-            // `?? 1` default in `buildKey()` means a never-touched
-            // version starts at 1; a naive increment from a missing
-            // key would leave it at 1 too on stores that initialize at
-            // 0, so the post-clear key would still match the pre-clear
-            // key. Take the current effective version and bump from
-            // there. `forever()` keeps the counter outside the regular
-            // TTL flow.
-            $current = (int) ($this->store->get(self::VERSION_KEY_PREFIX.$t) ?? 1);
-            $this->store->forever(self::VERSION_KEY_PREFIX.$t, $current + 1);
-            $this->store->forever(self::CLEARED_AT_PREFIX.$t, Date::now()->toIso8601String());
+
+            $current = $this->state($t);
+            $next = [
+                'version' => $current['version'] + 1,
+                'cleared_at' => $now->toIso8601String(),
+                'override' => $current['override'],
+            ];
+
+            $this->writeState($t, $next);
         }
     }
 
@@ -227,9 +247,13 @@ class MartisCache
     public function clearOverride(string $type): void
     {
         $this->assertKnownType($type);
-        $overrides = $this->overrides();
-        unset($overrides[$type]);
-        $this->store->forever(self::OVERRIDES_KEY, $overrides);
+
+        $current = $this->state($type);
+        $this->writeState($type, [
+            'version' => $current['version'],
+            'cleared_at' => $current['cleared_at'],
+            'override' => null,
+        ]);
     }
 
     /**
@@ -247,21 +271,20 @@ class MartisCache
      */
     public function status(): array
     {
-        $overrides = $this->overrides();
         $out = [];
 
         foreach (static::types() as $type) {
             $cfg = $this->normalizedConfig($type);
-            $runtime = array_key_exists($type, $overrides) ? (bool) $overrides[$type] : null;
+            $st = $this->state($type);
 
             $out[] = [
                 'type' => $type,
                 'enabled' => $this->enabled($type),
                 'ttl' => $cfg['ttl'],
                 'config_enabled' => (bool) $cfg['enabled'],
-                'runtime_override' => $runtime,
-                'version' => (int) ($this->store->get(self::VERSION_KEY_PREFIX.$type) ?? 1),
-                'cleared_at' => $this->store->get(self::CLEARED_AT_PREFIX.$type),
+                'runtime_override' => $st['override'],
+                'version' => $st['version'],
+                'cleared_at' => $st['cleared_at'],
             ];
         }
 
@@ -299,9 +322,7 @@ class MartisCache
      */
     public function buildKey(string $type, string $key): string
     {
-        $version = (int) ($this->store->get(self::VERSION_KEY_PREFIX.$type) ?? 1);
-
-        return 'martis:cache:'.$type.':v'.$version.':'.$key;
+        return 'martis:cache:'.$type.':v'.$this->state($type)['version'].':'.$key;
     }
 
     /**
@@ -360,21 +381,116 @@ class MartisCache
     }
 
     /**
+     * Map of `[type => override]` for layers with a non-null override.
+     * Backward-compat helper kept for the few external callers and the
+     * test suite — `enabled()` and `status()` go through `state()`
+     * directly.
+     *
      * @return array<string, bool>
      */
     protected function overrides(): array
     {
-        $value = $this->store->get(self::OVERRIDES_KEY);
+        $out = [];
+        foreach (static::types() as $type) {
+            $st = $this->state($type);
+            if ($st['override'] !== null) {
+                $out[$type] = (bool) $st['override'];
+            }
+        }
 
-        return is_array($value) ? $value : [];
+        return $out;
     }
 
     protected function setOverride(string $type, bool $enabled): void
     {
         $this->assertKnownType($type);
-        $overrides = $this->overrides();
-        $overrides[$type] = $enabled;
-        $this->store->forever(self::OVERRIDES_KEY, $overrides);
+
+        $current = $this->state($type);
+        $this->writeState($type, [
+            'version' => $current['version'],
+            'cleared_at' => $current['cleared_at'],
+            'override' => $enabled,
+        ]);
+    }
+
+    /**
+     * Read the operational state for one cache layer, hydrating the
+     * per-instance cache from the `martis_cache_state` table on first
+     * call. Returns the historical defaults when the table is missing
+     * (gracefully covers the upgrade window between deploying the
+     * v1.8.8 code and running `php artisan migrate`).
+     *
+     * @return array{version: int, cleared_at: ?string, override: ?bool}
+     */
+    protected function state(string $type): array
+    {
+        if ($this->states === null) {
+            $this->states = $this->loadStates();
+        }
+
+        return $this->states[$type] ?? ['version' => 1, 'cleared_at' => null, 'override' => null];
+    }
+
+    /**
+     * Load every state row in one query and index by type. Falls back
+     * to an empty map when the table is missing — `state()` then
+     * applies the historical defaults on lookup.
+     *
+     * @return array<string, array{version: int, cleared_at: ?string, override: ?bool}>
+     */
+    protected function loadStates(): array
+    {
+        try {
+            $rows = CacheState::query()->get(['type', 'version', 'cleared_at', 'override']);
+        } catch (QueryException) {
+            // Table does not exist — host has not run the v1.8.8
+            // migration yet. Defaults reproduce historical behaviour.
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(string) $row->type] = [
+                'version' => (int) $row->version,
+                'cleared_at' => $row->cleared_at?->toIso8601String(),
+                'override' => $row->override === null ? null : (bool) $row->override,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Persist a state record (upsert) and update the in-instance
+     * cache so subsequent reads in the same request see the new
+     * values without an extra SELECT.
+     *
+     * @param  array{version: int, cleared_at: ?string, override: ?bool}  $next
+     */
+    protected function writeState(string $type, array $next): void
+    {
+        try {
+            CacheState::query()->updateOrInsert(
+                ['type' => $type],
+                [
+                    'version' => $next['version'],
+                    'cleared_at' => $next['cleared_at'],
+                    'override' => $next['override'],
+                    'updated_at' => Date::now(),
+                    'created_at' => Date::now(),
+                ],
+            );
+        } catch (QueryException) {
+            // Migration pending — silently degrade. The historical
+            // semantics (state lost on Cache::flush()) reapply until
+            // the consumer runs `php artisan migrate`.
+            return;
+        }
+
+        if ($this->states === null) {
+            $this->states = [];
+        }
+        $this->states[$type] = $next;
     }
 
     protected function assertKnownType(string $type): void
@@ -406,15 +522,30 @@ class MartisCache
 
     /**
      * Test helper — drop every Martis cache key out of the underlying
-     * store so suites that hit `array` driver state stay isolated.
-     * Intentionally untouched by the public API; only test setups call it.
+     * store AND truncate the operational state table so suites that
+     * hit `array` driver + in-memory SQLite stay isolated.
+     * Intentionally untouched by the public API; only test setups
+     * call it.
      */
     public function flushAllForTesting(): void
     {
-        $this->store->forget(self::OVERRIDES_KEY);
-        foreach (static::types() as $type) {
-            $this->store->forget(self::VERSION_KEY_PREFIX.$type);
-            $this->store->forget(self::CLEARED_AT_PREFIX.$type);
+        try {
+            CacheState::query()->delete();
+        } catch (QueryException) {
+            // Table not migrated — nothing to flush.
         }
+
+        $this->states = null;
+    }
+
+    /**
+     * Force-reload the in-instance state cache. Useful for long-lived
+     * processes (queue workers, Octane) that want to pick up changes
+     * made by other workers without waiting for the next request
+     * boundary.
+     */
+    public function refreshState(): void
+    {
+        $this->states = null;
     }
 }

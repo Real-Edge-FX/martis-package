@@ -98,14 +98,16 @@ html[data-theme="dark"] {
   --martis-input-bg:    #0E1115;
 
   /* Text & borders */
-  --martis-text:       #E6E8EC;
-  --martis-text-muted: #8A93A1;
-  --martis-border:     #232830;
+  --martis-text:        #E6E8EC;
+  --martis-text-muted:  #8A93A1;
+  --martis-text-faint:  #5C6370;  /* tertiary — footers, timestamps, helper text */
+  --martis-border:      #232830;
 
   /* Accent — Martis brand default. Overridden by [data-accent="..."] below. */
   --martis-accent:          #4F7BF9;
   --martis-accent-hover:    #3B6AF0;
   --martis-accent-active:   #2C57D8;
+  --martis-accent-contrast: #FFFFFF;  /* text/icon colour ON TOP of an accent fill */
   --martis-accent-bg-light: rgba(79, 123, 249, 0.14);
   --martis-accent-bg:       rgba(79, 123, 249, 0.24);
   --martis-focus-ring:      rgba(79, 123, 249, 0.45);
@@ -233,14 +235,16 @@ html[data-theme="light"] {
   --martis-input-bg:    #FFFFFF;
 
   /* Text & borders */
-  --martis-text:       #0F172A;
-  --martis-text-muted: #64748B;
-  --martis-border:     #E4E8EE;
+  --martis-text:        #0F172A;
+  --martis-text-muted:  #64748B;
+  --martis-text-faint:  #94A3B8;  /* tertiary on light surfaces */
+  --martis-border:      #E4E8EE;
 
   /* Accent — Martis brand default (light variant). */
   --martis-accent:          #3B6AF0;
   --martis-accent-hover:    #2C57D8;
   --martis-accent-active:   #1E44BE;
+  --martis-accent-contrast: #FFFFFF;
   --martis-accent-bg-light: #ECF1FE;
   --martis-accent-bg:       #D7E1FD;
   --martis-focus-ring:      rgba(59, 106, 240, 0.35);
@@ -459,4 +463,29 @@ html[data-reduced-motion="true"] {
   --martis-dur-base:   1ms;
   --martis-dur-medium: 1ms;
   --martis-dur-slow:   1ms;
+}
+
+/* ============================================================
+   BRAND LOGO HEIGHTS
+   Optional override for the bundled logo lockup heights. Useful
+   when the consumer ships a wider/taller mark and wants to
+   harmonise vertical rhythm without forking the React layout.
+   ============================================================ */
+:root {
+  --martis-brand-logo-height-auth: 48px;  /* auth screen lockup */
+  --martis-brand-logo-height-menu: 28px;  /* user dropdown menu */
+}
+
+/* ============================================================
+   PRINT MODE
+   The bundled `@media print` block forces a white-paper palette
+   and hides the sidebar / topbar / cmdk overlay. Override these
+   tokens to keep the print mode on-brand.
+   ============================================================ */
+:root {
+  --martis-print-bg:         #FFFFFF;
+  --martis-print-text:       #000000;
+  --martis-print-border:     #000000;
+  --martis-print-link-color: #000000;
+  --martis-print-muted:      #444444;
 }

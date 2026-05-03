@@ -119,12 +119,26 @@ export interface MartisLoaderConfig {
 export interface MartisNavigationConfig {
   /**
    * Interval in milliseconds at which the sidebar and top-nav menus
-   * re-fetch the navigation endpoint while the tab is focused. Keeps
-   * resource count badges in sync when a second user mutates data.
+   * re-fetch the LIGHTWEIGHT badges endpoint
+   * (`/api/navigation/badges`). Keeps resource count badges in sync
+   * without re-pulling the full navigation tree (which rarely changes
+   * in production).
    *
-   * Set to `0` to disable polling. Default: 60000 (60 seconds).
+   * The full navigation payload is fetched once per session and on
+   * route mutations — it is NOT auto-polled by design. The badges
+   * payload is a flat `{ uriKey: count }` map and is 5-10× cheaper
+   * server-side than the full tree.
+   *
+   * Set to `0` to disable badge polling entirely. Default: 300000
+   * (5 minutes).
    */
-  pollInterval?: number
+  badgesPollInterval?: number
+  /**
+   * Threshold above which count badges switch from full digits
+   * (1,284) to compact notation (10K, 1.2M). `null` = always full.
+   * Default: 10000.
+   */
+  countCompactThreshold?: number | null
 }
 
 export interface MartisLayoutConfig {
@@ -161,11 +175,34 @@ export interface MartisProfileTwoFactorConfig {
 export interface MartisProfileConfig {
   /** Whether the profile page and its backend routes are enabled. Default: true. */
   enabled?: boolean
-  /** Ordered list of sections to render. Supported: 'account', 'password', 'avatar', 'security'. */
+  /** Ordered list of sections to render. Supported: 'account', 'password', 'avatar', 'security', 'sessions'. */
   sections?: string[]
   menu?: MartisProfileMenuConfig
   avatar?: MartisProfileAvatarConfig
   two_factor?: MartisProfileTwoFactorConfig
+}
+
+/**
+ * Bridge for the PHP-side `martis.locales.*` config block. Surfaced
+ * verbatim so the React shell can short-circuit a server round-trip
+ * when deciding whether the active locale should render right-to-left.
+ *
+ * The TranslationsController already encodes app namespaces and the
+ * fallback chain in the `/api/translations/{locale}` payload; the
+ * matching keys here are exposed mostly for symmetry / debug overlays.
+ */
+export interface MartisLocalesConfig {
+  /** Extra translation namespaces merged in by the TranslationsController. */
+  appNamespaces?: string[]
+  /** Ordered fallback chain searched when a key is missing. */
+  fallbackChain?: string[]
+  /**
+   * Locale codes that should render the panel in right-to-left layout.
+   * The shell matches the active i18next language against this list and
+   * writes `dir="rtl"` on `<html>` so the bundled CSS (logical
+   * properties) flips margins / paddings / borders automatically.
+   */
+  rtlLocales?: string[]
 }
 
 export interface MartisPreferencesInitialPayload {
@@ -277,6 +314,15 @@ export interface MartisAuthConfig {
   controls?: MartisAuthControlsConfig
   /** Optional per-page copy overrides. v1.8.0. */
   copy?: MartisAuthCopyConfig
+  /** Magic-link (passwordless) sign-in. v1.8.8. */
+  magicLink?: MartisMagicLinkConfig
+}
+
+export interface MartisMagicLinkConfig {
+  /** When true the Login page shows the "Email me a sign-in link" button. */
+  enabled?: boolean
+  /** Minutes the emailed token stays valid; surfaced to the UI for copy. */
+  ttlMinutes?: number
 }
 
 export interface MartisConfigShape {
@@ -330,11 +376,31 @@ export interface MartisConfigShape {
   loader?: MartisLoaderConfig
   profile?: MartisProfileConfig
   preferences?: MartisPreferencesConfig
+  /**
+   * Locale extensibility knobs surfaced to the SPA so the shell can
+   * react to RTL locales, app-level namespaces, and the configured
+   * fallback chain without an extra round-trip.
+   */
+  locales?: MartisLocalesConfig
   auth?: MartisAuthConfig
   stickyViews?: MartisStickyViewsConfig
   notifications?: MartisNotificationsConfig
   impersonation?: MartisImpersonationConfig
   keyboardShortcuts?: MartisKeyboardShortcutsConfig
+  /**
+   * Developer tooling switches. Today this only carries the gate
+   * for the Component Inspector at `/dev/components`; future dev
+   * surfaces (route inspector, schema browser, etc.) hang here too.
+   */
+  dev?: {
+    /**
+     * Whether the Component Inspector route is mounted. Defaults
+     * to true on `local` / `testing` environments and false
+     * everywhere else; the host can force either value via the
+     * `MARTIS_DEV_TOOLS` env var.
+     */
+    toolsEnabled?: boolean
+  }
 }
 
 /**
@@ -352,6 +418,13 @@ export interface MartisImpersonationConfig {
    * skips its mount-time fetch entirely.
    */
   enabled?: boolean
+  /**
+   * Polling interval in milliseconds for the
+   * `/api/impersonation/status` endpoint. Sessions change rarely;
+   * default is 120000 (2 minutes). Set to 0 to disable polling — the
+   * banner still mounts and reads state once per page load.
+   */
+  pollInterval?: number
 }
 
 /**
@@ -365,9 +438,9 @@ export interface MartisNotificationsConfig {
   enabled?: boolean
   /**
    * Polling interval for the unread-count badge in milliseconds.
-   * Set to 0 to disable polling (consumers can refresh manually
-   * via React Query, e.g. when a Pusher / Reverb broadcast event
-   * fires).
+   * Default: 90000 (90 seconds). Set to 0 to disable polling
+   * (consumers can refresh manually via React Query, e.g. when a
+   * Pusher / Reverb broadcast event fires).
    */
   poll_interval?: number
   /**

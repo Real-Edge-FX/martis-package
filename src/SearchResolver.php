@@ -125,6 +125,19 @@ class SearchResolver
     /**
      * Execute search via database LIKE queries on searchable fields.
      *
+     * Three pipeline stages:
+     *   1. Parse `field:value` tokens out of the query and turn each
+     *      into a `where(attribute, like, %value%)` constraint scoped
+     *      to a single matching field. This trims them from the free
+     *      text so the rest of the resolver only sees what's left.
+     *   2. Run the remaining free-text against every `searchable()`
+     *      field on the resource (LIKE %term%), plus optionally any
+     *      attribute reachable via a `searchableRelations()` dot
+     *      path (`whereHas` against the related model).
+     *   3. Rank by `searchPriority()` so high-weight field hits
+     *      bubble above low-weight ones (MySQL only — other drivers
+     *      keep the unranked LIKE result set).
+     *
      * @param  Builder<Model>  $query
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @return Builder<Model>
@@ -150,17 +163,140 @@ class SearchResolver
             fn (FieldContract $field): bool => $field->isSearchable(),
         );
 
-        if ($searchableFields === []) {
+        // Stage 1 — extract `field:value` tokens. Anything that survives
+        // the regex is the free-text term.
+        [$freeText, $tokens] = static::splitFieldTokens($search);
+
+        $byAttribute = [];
+        foreach ($searchableFields as $field) {
+            $byAttribute[$field->attribute()] = $field;
+        }
+
+        $appliedTokens = 0;
+        foreach ($tokens as $token) {
+            // Only apply the token when the resource declares the
+            // attribute as searchable; unknown field:value pairs are
+            // silently dropped (we'd rather return "no matches" than
+            // accidentally match everything from a typo).
+            if (! isset($byAttribute[$token['field']])) {
+                continue;
+            }
+            $value = $token['value'];
+            $query->where(function (Builder $q) use ($byAttribute, $token, $value): void {
+                $q->where($byAttribute[$token['field']]->attribute(), 'like', "%{$value}%");
+            });
+            $appliedTokens++;
+        }
+
+        // Refuse to return anything when the user typed only field:value
+        // tokens, none of them applied, and there's no free-text fallback.
+        // Without this guard the unfiltered query would dump every row.
+        if ($appliedTokens === 0 && $tokens !== [] && $freeText === '') {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $relations = $resourceClass::searchableRelations();
+
+        // Refuse to return anything when the resource has nothing to
+        // search against — no searchable fields, no relation paths.
+        // Without this guard the controller's `limit($limit)` would
+        // happily dump a random first-page slice of unfiltered rows
+        // (e.g. searching `martis.local` would surface unrelated Notes
+        // simply because NoteResource declared no searchable fields).
+        if ($searchableFields === [] && $relations === [] && $appliedTokens === 0) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($searchableFields === [] && $freeText === '' && $relations === []) {
             return $query;
         }
 
-        $query->where(function (Builder $q) use ($searchableFields, $search): void {
-            foreach ($searchableFields as $field) {
-                $q->orWhere($field->attribute(), 'like', "%{$search}%");
+        // Stage 2 — free-text LIKE across the resource's own searchable
+        // fields plus any declared relation paths. The whole disjunction
+        // sits inside one `where(Closure)` so it composes correctly with
+        // any AND filters already on the builder.
+        if ($freeText !== '' && ($searchableFields !== [] || $relations !== [])) {
+            $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText): void {
+                foreach ($searchableFields as $field) {
+                    $q->orWhere($field->attribute(), 'like', "%{$freeText}%");
+                }
+
+                foreach ($relations as $path) {
+                    $segments = explode('.', $path);
+                    if (count($segments) < 2) {
+                        continue;
+                    }
+                    $attribute = array_pop($segments);
+                    $relation = implode('.', $segments);
+
+                    $q->orWhereHas($relation, function (Builder $sub) use ($attribute, $freeText): void {
+                        $sub->where($attribute, 'like', "%{$freeText}%");
+                    });
+                }
+            });
+        }
+
+        // Stage 3 — priority ranking. Build a single `CASE` expression
+        // that scores each row by the highest matching field's weight,
+        // then ORDER BY that score DESC. MySQL-only because other
+        // drivers tolerate the bind list shape less reliably; the
+        // result set is unchanged on other engines, just unranked.
+        if ($freeText !== '' && $searchableFields !== []) {
+            $connection = $query->getConnection();
+            $driver = method_exists($connection, 'getDriverName')
+                ? $connection->getDriverName()
+                : '';
+
+            if ($driver === 'mysql') {
+                $cases = [];
+                $bindings = [];
+                $like = '%'.$freeText.'%';
+                foreach ($searchableFields as $field) {
+                    $cases[] = 'WHEN '.$connection->getQueryGrammar()->wrap($field->attribute()).' LIKE ? THEN '.((int) $field->getSearchPriority());
+                    $bindings[] = $like;
+                }
+                if ($cases !== []) {
+                    $expr = 'CASE '.implode(' ', $cases).' ELSE 0 END';
+                    $query->orderByRaw($expr.' DESC', $bindings);
+                }
             }
-        });
+        }
 
         return $query;
+    }
+
+    /**
+     * Pull `field:value` tokens out of the query and return the
+     * remainder as free-text along with the parsed tokens.
+     *
+     * Handles unquoted (`status:open`) and quoted (`status:"open issue"`)
+     * values. The free-text return is trimmed of double-spaces left
+     * behind by the strip.
+     *
+     * @return array{0: string, 1: list<array{field: string, value: string}>}
+     */
+    protected static function splitFieldTokens(string $search): array
+    {
+        $tokens = [];
+
+        // The regex matches: word characters, `:`, then either a quoted
+        // value or a non-whitespace run.
+        $pattern = '/(?P<field>[a-zA-Z_][\w]*):(?:"(?P<quoted>[^"]*)"|(?P<bare>\S+))/';
+
+        $remainder = preg_replace_callback(
+            $pattern,
+            function (array $match) use (&$tokens): string {
+                $tokens[] = [
+                    'field' => $match['field'],
+                    'value' => $match['quoted'] !== '' ? $match['quoted'] : ($match['bare'] ?? ''),
+                ];
+
+                return '';
+            },
+            $search,
+        ) ?? $search;
+
+        return [trim(preg_replace('/\s+/', ' ', $remainder) ?? ''), $tokens];
     }
 
     /**

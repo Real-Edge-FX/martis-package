@@ -308,7 +308,7 @@ it('Tool implements ToolContract and exposes the documented hooks', function () 
     }
 
     // v0.10 Nova-parity: per-tool lifecycle + publishing.
-    foreach (['boot', 'publishes', 'publishesAssets'] as $method) {
+    foreach (['boot', 'publishes', 'publishesAssets', 'loadRoutes'] as $method) {
         expect($reflection->hasMethod($method))
             ->toBeTrue("Tool::{$method}() must exist (Nova-parity lifecycle).");
         expect($reflection->getMethod($method)->isPublic())->toBeTrue();
@@ -388,6 +388,7 @@ it('ImpersonationManager exposes the documented public surface', function () {
         'start',
         'stop',
         'isActive',
+        'isExpired',          // v1.8.8 — max-duration probe
         'originalUser',
         'currentTarget',
         'enabled',
@@ -397,6 +398,24 @@ it('ImpersonationManager exposes the documented public surface', function () {
         $reflection = new ReflectionMethod(ImpersonationManager::class, $method);
         expect($reflection->isPublic())
             ->toBeTrue("ImpersonationManager::{$method}() must remain public.");
+    }
+});
+
+it('NotImpersonable contract is a marker interface (no methods required)', function () {
+    expect(interface_exists(\Martis\Contracts\NotImpersonable::class))->toBeTrue();
+    $reflection = new ReflectionClass(\Martis\Contracts\NotImpersonable::class);
+    expect($reflection->getMethods())->toBeEmpty();
+});
+
+it('ImpersonationStarted + ImpersonationStopped events expose operator + target properties', function () {
+    foreach ([
+        \Martis\Impersonation\Events\ImpersonationStarted::class,
+        \Martis\Impersonation\Events\ImpersonationStopped::class,
+    ] as $event) {
+        expect(class_exists($event))->toBeTrue();
+        $reflection = new ReflectionClass($event);
+        expect($reflection->hasProperty('operator'))->toBeTrue();
+        expect($reflection->hasProperty('target'))->toBeTrue();
     }
 });
 

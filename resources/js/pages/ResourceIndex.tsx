@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
@@ -20,12 +20,18 @@ import { FilterPanel } from '@/components/FilterPanel'
 import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useResourceAccent } from '@/lib/useResourceAccent'
+import { useResourceLoaderConfig } from '@/contexts/LoaderConfigContext'
 import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  // POP = back/forward/initial mount, PUSH = link click, REPLACE = our own
+  // hydration-time URL strip. Drives the sticky-vs-clean decision below.
+  const navigationType = useNavigationType()
   const qc = useQueryClient()
   const { addToast } = useToast()
   const { t } = useTranslation('resources')
@@ -45,6 +51,14 @@ export function ResourceIndexPage() {
   const [showCreateOverride, setShowCreateOverride] = useState(false)
   const [trashedFilter, setTrashedFilter] = useState<"" | "with" | "only">("")
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  // Tracks whether the current view state was set from URL parameters
+  // or PUSH-style navigation rather than from sticky storage / user UI
+  // edits. While true, sticky writes are paused so a transient deep-link
+  // (e.g. `MenuItem::filter()->applies(...)`) doesn't overwrite the
+  // user's saved view. Any handler that the user wires into the UI flips
+  // this back to false via `markUserDriven()`.
+  const [viewIsUrlDriven, setViewIsUrlDriven] = useState(false)
+  const markUserDriven = useCallback(() => setViewIsUrlDriven(false), [])
   // Controls the FilterPanel collapsed/expanded affordance. Tracked in
   // ResourceIndex (rather than inside FilterPanel) so it can be
   // persisted per-resource via sticky views — without this, opening
@@ -78,9 +92,10 @@ export function ResourceIndexPage() {
     // query already applied. We strip the param after reading so the
     // user's later manual edits don't get overridden by browser back/
     // forward navigation. Other URL params keep their existing flow.
-    const initialUrlParams = new URLSearchParams(window.location.search)
+    const initialUrlParams = new URLSearchParams(location.search)
     const urlSearch = initialUrlParams.get('search') ?? ''
     if (urlSearch) {
+      setViewIsUrlDriven(true)
       setSearch(urlSearch)
       setDebouncedSearch(urlSearch)
       setActiveFilters({})
@@ -101,8 +116,53 @@ export function ResourceIndexPage() {
       return
     }
 
+    // ?filters={"<uriKey>":<value>,...} in the URL wins over sticky view on
+    // mount. Used by `MenuItem::filter()->applies()` to deep-link straight
+    // to a pre-filtered view (e.g. "Open Tickets", "Overdue Invoices") and
+    // by anyone hand-crafting shareable URLs. The param is **kept** in
+    // the URL (unlike `?search=`) so the Sidebar's filter-aware active
+    // state can read it consistently across renders — stripping it
+    // would only flicker the active highlight.
+    const urlFilters = initialUrlParams.get('filters') ?? ''
+    if (urlFilters) {
+      try {
+        const parsed = JSON.parse(urlFilters)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          setViewIsUrlDriven(true)
+          setSearch('')
+          setDebouncedSearch('')
+          setActiveFilters(parsed as ActiveFilters)
+          setPage(1)
+          setPerPage(null)
+          setSortBy(null)
+          setSortDir('asc')
+          setTrashedFilter('')
+          setFiltersOpen(true)
+          return
+        }
+      } catch {
+        // Malformed JSON — fall through to the sticky-view / defaults path.
+      }
+    }
+
+    // No URL-driven view state — restore sticky storage. This applies
+    // uniformly across navigation types:
+    //
+    //   - POP (initial mount, browser back/forward, refresh) — the
+    //     original sticky-views use case: "open a record, click back,
+    //     find the table exactly as you left it".
+    //   - PUSH (NavLink click, e.g. clicking "Invoices" in the sidebar
+    //     after a filter-factory deep-link) — should also restore the
+    //     user's saved view. Sticky storage is safe to restore here
+    //     because URL-driven transitions (`?filters=`, `?search=`,
+    //     etc.) flip `viewIsUrlDriven=true` while they are active and
+    //     the sticky writer is paused for that duration. So sticky
+    //     reliably contains only state the user committed via the UI.
+    //   - REPLACE — internal `navigate({...}, {replace:true})` calls,
+    //     same treatment as POP.
     const saved = readStickyView(resource)
     if (saved) {
+      setViewIsUrlDriven(false)
       setSearch(typeof saved.search === 'string' ? saved.search : '')
       setDebouncedSearch(typeof saved.search === 'string' ? saved.search : '')
       setActiveFilters((saved.activeFilters as ActiveFilters) ?? {})
@@ -117,6 +177,7 @@ export function ResourceIndexPage() {
       return
     }
 
+    setViewIsUrlDriven(false)
     setSearch('')
     setDebouncedSearch('')
     setActiveFilters({})
@@ -126,16 +187,23 @@ export function ResourceIndexPage() {
     setSortDir('asc')
     setTrashedFilter('')
     setFiltersOpen(false)
-  }, [resource])
+    // location.search is intentionally a dep: this hook runs again when
+    // the user navigates inside the same resource (filter factory click
+    // → ?filters= URL → re-hydrate from URL). navigationType is no
+    // longer used in the body of this hook but we keep it here so a
+    // cleanly-typed POP-vs-PUSH distinction is available if a future
+    // edge case needs it.
+  }, [resource, location.search, navigationType])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
+    markUserDriven()
     setSearch(value)
     clearTimeout(searchTimerRef.current)
     searchTimerRef.current = setTimeout(() => {
       setDebouncedSearch(value)
       setPage(1)
     }, 300)
-  }, [])
+  }, [markUserDriven])
 
   // Schema
   const schemaQuery = useQuery({
@@ -158,6 +226,8 @@ export function ResourceIndexPage() {
   }, [schema?.defaultSort, schema?.defaultSortDirection, sortBy])
 
   usePageTitle(schema?.label ?? null)
+  const accentProps = useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
+  useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
   // Sticky view writer — every meaningful state change rolls into
   // sessionStorage under `martis:view:{uriKey}` so the next visit to
@@ -177,13 +247,18 @@ export function ResourceIndexPage() {
       search: debouncedSearch,
       filtersOpen,
     },
-    stickyEnabled,
+    // Pause sticky writes while the view was set from a URL deep-link
+    // (`?filters=` / `?search=`) — those are transient and must not
+    // overwrite the user's persisted manual view. The first user-driven
+    // change (markUserDriven in any handler) flips this back on.
+    stickyEnabled && !viewIsUrlDriven,
   )
 
   // Reset the saved view for THIS resource and bring the table back
   // to its defaults. Called from the "Reset view" toolbar button.
   const handleResetView = useCallback(() => {
     if (!resource) return
+    markUserDriven()
     clearStickyView(resource)
     setSearch('')
     setDebouncedSearch('')
@@ -194,7 +269,7 @@ export function ResourceIndexPage() {
     setSortDir(schema?.defaultSortDirection ?? 'asc')
     setTrashedFilter('')
     setFiltersOpen(false)
-  }, [resource, schema?.defaultSort, schema?.defaultSortDirection])
+  }, [resource, schema?.defaultSort, schema?.defaultSortDirection, markUserDriven])
 
   /**
    * Clear ONLY the active filters — keeps sort, search, pagination,
@@ -207,9 +282,10 @@ export function ResourceIndexPage() {
    * users frequently want to keep their sort + page size.
    */
   const handleResetFilters = useCallback(() => {
+    markUserDriven()
     setActiveFilters({})
     setPage(1)
-  }, [])
+  }, [markUserDriven])
 
   // Resolve effective per-page (state overrides schema default)
   const effectivePerPage = perPage ?? schema?.perPage ?? 25
@@ -298,6 +374,7 @@ export function ResourceIndexPage() {
   })
 
   function handleSort(attribute: string) {
+    markUserDriven()
     if (sortBy === attribute) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     } else {
@@ -327,6 +404,7 @@ export function ResourceIndexPage() {
   }
 
   function handlePerPageChange(value: number) {
+    markUserDriven()
     setPerPage(value)
     setPage(1)
   }
@@ -466,7 +544,7 @@ export function ResourceIndexPage() {
   ) : null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" {...accentProps}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -584,10 +662,10 @@ export function ResourceIndexPage() {
             <FilterPanel
               filters={schema.filters!}
               value={activeFilters}
-              onChange={(filters) => { setActiveFilters(filters); setPage(1) }}
+              onChange={(filters) => { markUserDriven(); setActiveFilters(filters); setPage(1) }}
               rightSlot={combinedReset}
               open={filtersOpen}
-              onOpenChange={setFiltersOpen}
+              onOpenChange={(open) => { markUserDriven(); setFiltersOpen(open) }}
             />
           ) : null
 
@@ -656,7 +734,7 @@ export function ResourceIndexPage() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <select
                       value={trashedFilter}
-                      onChange={(e) => { setTrashedFilter(e.target.value as "" | "with" | "only"); setPage(1) }}
+                      onChange={(e) => { markUserDriven(); setTrashedFilter(e.target.value as "" | "with" | "only"); setPage(1) }}
                       className="martis-perpage-select"
                     >
                       <option value="">{t("trashed_active")}</option>
@@ -731,7 +809,7 @@ export function ResourceIndexPage() {
           perPage={meta.per_page}
           from={meta.from}
           to={meta.to}
-          onPageChange={setPage}
+          onPageChange={(p) => { markUserDriven(); setPage(p) }}
           selectedCount={selectedIds.size}
           itemLabel={schema.label.toLowerCase()}
         />

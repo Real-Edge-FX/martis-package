@@ -255,7 +255,7 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
     json = text ? JSON.parse(text) : null
   } catch {
     if (!res.ok) {
-      throw new ApiError(res.status, translateIfKey('Request failed'), [])
+      throw new ApiError(res.status, friendlyMessageForStatus(res.status), [])
     }
     return null as unknown as T
   }
@@ -265,14 +265,39 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
       redirectOnSessionExpiry()
     }
     const err = (json ?? {}) as { message?: string; errors?: unknown }
+    // For status codes that typically come back as a non-JSON page from
+    // the proxy / web server (413 Request Entity Too Large from Nginx,
+    // 502/504 from a load balancer), prefer our own friendly explanation
+    // over the generic "Request failed" fallback.
+    const fallback = err.message ?? friendlyMessageForStatus(res.status)
     throw new ApiError(
       res.status,
-      translateIfKey(err.message ?? 'Request failed'),
+      translateIfKey(fallback),
       normalizeErrors(err.errors),
     )
   }
 
   return json as T
+}
+
+/**
+ * Map a non-OK HTTP status to a user-readable explanation. Used as a
+ * fallback when the response body is empty / non-JSON (e.g. an Nginx
+ * error page) so users see something more useful than "Request failed".
+ */
+function friendlyMessageForStatus(status: number): string {
+  switch (status) {
+    case 413:
+      return translateIfKey('messages.errors_payload_too_large')
+    case 419:
+      return translateIfKey('messages.errors_session_expired')
+    case 502:
+    case 503:
+    case 504:
+      return translateIfKey('messages.errors_server_unavailable')
+    default:
+      return translateIfKey('Request failed')
+  }
 }
 
 export const api = {

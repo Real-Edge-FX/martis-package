@@ -65,7 +65,7 @@ TTL `null` means "no expiration" — the entry stays cached until explicitly cle
 | **Effective** | The live answer to "is this layer caching right now?". Computed from the master switch, the runtime override, and the config — in that order. This is what's actually applied, not just what the config says. |
 | **TTL** | Time-to-live for entries in this layer, in minutes (`5m`) or `No expiration` when `null`. With no TTL, entries live until explicitly cleared. |
 | **Config** | Static `enabled` value declared in `config/martis.php → cache.{type}` (or its env override). Ignores runtime toggles. Useful to spot drift between deploy-time config and runtime overrides. |
-| **Runtime** | Persistent runtime override that survives restarts. Three states:<br>• **Inherit** — no override, the config wins.<br>• **Forced ON** — override = true, beats `config_enabled = false`.<br>• **Forced OFF** — override = false, beats `config_enabled = true`.<br>Stored in cache itself under `martis:cache:overrides`, so it sticks across queue worker / fpm restarts. |
+| **Runtime** | Persistent runtime override that survives restarts. Three states:<br />• **Inherit** — no override, the config wins.<br />• **Forced ON** — override = true, beats `config_enabled = false`.<br />• **Forced OFF** — override = false, beats `config_enabled = true`.<br />Persisted in the `martis_cache_state` DB table (v1.8.8), so it survives queue worker / fpm restarts AND `php artisan cache:clear` / `redis-cli FLUSHDB`. |
 | **Version** | Per-layer version counter included in every cache key. Clearing the layer increments it; every key derived from the previous version becomes orphaned at once — atomic, O(1), no traversal. |
 | **Last cleared** | ISO-8601 timestamp of the last clear operation (Artisan, REST, or admin click). Dash means it has not been cleared since the application started. |
 
@@ -116,7 +116,16 @@ Empty value = `null` = no expiration.
 
 ### 3. Runtime — the differential
 
-Runtime overrides are **persisted in the cache store itself** under a single `martis:cache:overrides` key. They survive restarts, queue worker reboots, php-fpm reloads, and `php artisan config:cache`. The only thing that wipes them is `php artisan cache:clear` — which is intentional (you want a way to fully reset state).
+Runtime overrides, the per-layer version counter and the `cleared_at` timestamp are **persisted in the dedicated `martis_cache_state` table** (one row per layer). They survive every cache-backend reset:
+
+- `php artisan cache:clear` (deploy scripts often run this).
+- `redis-cli FLUSHDB`.
+- A container restart without a persistent volume.
+- Redis memory pressure with `maxmemory-policy: allkeys-lru` evicting "forever" keys.
+
+The cache entries themselves still live in `Cache::store()` — only the operational metadata is DB-backed. When the operator clears a layer, they care about the visibility trail ("V3 since 14:53"), not about the entries (those will rebuild lazily). Putting the trail in the same Redis bucket that gets flushed defeated the visibility — fixed in v1.8.8.
+
+> **v1.8.7 and earlier** stored these three pieces of state in `Cache::store()` itself (`martis:cache:version:*`, `martis:cache:cleared-at:*`, `martis:cache:overrides`). The values were lost whenever the backend was wiped, leaving the admin UI showing "V1 · cleared at —" minutes after the operator had explicitly bumped it to V2. The DB-backed table fixes this without any change to the public API — same env vars, same Artisan commands, same admin UI.
 
 **Artisan:**
 
@@ -141,7 +150,7 @@ php artisan martis:cache:enable navigation        # runtime force-on
 For ad-hoc debugging without flipping any switch:
 
 - `X-Martis-No-Cache: 1` header.
-- `?nocache=1` query parameter.
+- `?nocache=1` query parameter (also accepts `?nocache=true`).
 
 Both work on every cached endpoint. Useful for testing whether an issue is cache-related before changing config.
 
@@ -247,6 +256,37 @@ Old keys linger until natural expiration (or until the store evicts them under p
 
 Martis uses Laravel's default cache store (`Cache::store()`). Every cache key is namespaced under `martis:` so it never collides with the host application's keys. To pin Martis to a specific store, point `CACHE_STORE` to a dedicated connection in `config/cache.php`.
 
+## Operational metadata is DB-backed (v1.8.8)
+
+The version counter, `cleared_at` timestamp and runtime override flag for every layer live in a dedicated `martis_cache_state` table rather than in the cache store itself. One row per layer:
+
+| Column | Type | Purpose |
+|---|---|---|
+| `type` | `string` (PK) | Layer name (`metrics`, `navigation`, `dashboards`, `schema`, or any custom layer name registered via `MartisCache::extend()`). |
+| `version` | `unsignedInteger` (default 1) | Per-layer version counter — bumped on every `clear()`. |
+| `cleared_at` | `timestamp` (nullable) | Timestamp of the last `clear()` call. |
+| `override` | `boolean` (nullable) | `null` = inherit config, `true` = forced ON, `false` = forced OFF. |
+| `created_at` / `updated_at` | timestamps | Standard Eloquent audit columns. |
+
+This is **transparent to consumer code** — the public `MartisCache` API, the four Artisan commands, the REST endpoints and the admin page all stayed identical. The only operator-visible change is that the table appears after the next `php artisan migrate`. Everything else (config keys, env vars, custom layer registration via `MartisCache::extend()`, runtime override semantics) works exactly as before.
+
+**One-time migration**
+
+Existing installs upgrading to v1.8.8 must run:
+
+```bash
+php artisan vendor:publish --tag=martis-cache-state-migration
+php artisan migrate
+```
+
+`martis:install --force` already publishes this stub, so a fresh install picks it up automatically. Until the migration is applied, the new code falls back to the historical defaults (version=1, cleared_at=null, override=null) — the runtime override and version trail are simply not persisted, identical to the v1.8.7 behaviour after a `cache:clear`. No request will fail.
+
+**Performance**
+
+`MartisCache` is bound as `app->scoped()` (per-request singleton). On the first call to `remember()` / `clear()` / `enabled()` / `status()` in a given request, the service issues a single `SELECT type, version, cleared_at, override FROM martis_cache_state` and indexes the result in memory. Subsequent calls in the same request are zero-DB. Mutations (`clear()`, `disable()`, `enable()`, `clearOverride()`) issue one `UPDATE OR INSERT` and update the in-memory map directly.
+
+For long-running processes (Octane, queue workers) the per-instance cache is reset between requests / jobs through Laravel's request lifecycle. Use `MartisCache::refreshState()` if a worker holds the instance across multiple jobs and wants to pick up changes made by other workers.
+
 ## REST API
 
 Endpoints under `/{martis-path}/api/cache`. Every endpoint requires the `manage-martis-cache` Gate.
@@ -271,6 +311,8 @@ Custom layers registered via `extend()` are valid `type` values for every endpoi
 | User A sees user B's nav | Cache key did not include the auth identifier | Confirm the controller (or your custom layer) prepends `$userKey` to the cache key, like `NavigationController` does |
 | Admin says master is OFF in production | `MARTIS_CACHE_ENABLED=false` somewhere | Check env, then `php artisan config:clear` |
 | Custom layer toggles don't appear in admin | `extend()` not called at boot | Add the call inside `MartisServiceProvider::registerCacheLayers()` (the stub published by `martis:install`) |
+| Admin shows "V1 · cleared at —" right after I clicked Clear | Pre-v1.8.8 install, metadata still in cache → wiped by something | Upgrade to v1.8.8 and run `php artisan vendor:publish --tag=martis-cache-state-migration && php artisan migrate`. Metadata then survives every cache flush. |
+| Runtime disable resets to "Inherit" after a deploy | Same as above (override stored in cache pre-1.8.8) | Same fix — DB-backed override survives deploys. |
 
 ## Reference: `MartisCache` API
 

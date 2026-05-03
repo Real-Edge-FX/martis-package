@@ -1,8 +1,8 @@
 # In-app Tools: when (and how) to use `boot()`
 
-> Companion notes to [tools.md](tools.md). Focused on Tools that live INSIDE your application (not Composer packages).
+> Companion notes to [tools.md](tools.md). Focused on Tools that live INSIDE your application (not Composer packages). For the contrast with Nova 5 conventions (auto-loaded `routes/tool.php`, `Tool::menu()`, sub-nav slot, etc.), see [Differences from Nova 5](tools.md#differences-from-nova-5).
 >
-> Live reference: a playground demo ships a real `boot()` with all four patterns wired up — `app/Martis/Tools/SystemStatus.php` (the Tool), `app/Http/Controllers/SystemStatusController.php` (the routes' backend), and `resources/js/tools/SystemStatusTool.tsx` (the React consumer).
+> Live reference: a playground demo ships a real `boot()` with all four core patterns wired up — `app/Martis/Tools/SystemStatus.php` (the Tool), `app/Http/Controllers/SystemStatusController.php` (the routes' backend), and `resources/js/tools/SystemStatusTool.tsx` (the React consumer).
 
 ## The question this answers
 
@@ -45,9 +45,9 @@ Concrete examples:
 | Listener for `JobFailed` that updates one Tool's UI | `MyTool::boot()` | Tied to one Tool |
 | Listener for `JobFailed` that pages on-call via PagerDuty | `EventServiceProvider` | App-wide |
 
-## The four patterns (with code)
+## The patterns (with code)
 
-The playground's `SystemStatus` Tool demonstrates all four. Pick the ones you need; skip the rest.
+The playground's `SystemStatus` Tool demonstrates the first four end-to-end. Patterns 5 and 6 are common follow-ups for richer Tools. Pick the ones you need; skip the rest.
 
 ### Pattern 1 — Tool-owned routes
 
@@ -72,6 +72,19 @@ public function boot(): void
 - The route name prefix mirrors the Tool's name, making `route('martis-playground.tools.system-status.snapshot')` unambiguous.
 
 **Watch out:** if the Tool is hidden via `canSee()`, the routes still register. The middleware chain (`martis.auth`, `can:`) is what gates access. Routes are an HTTP-level surface; the Tool's UI visibility is an **orthogonal** concern.
+
+**Tip — `Tool::loadRoutes()` for richer Tools.** When the inline group exceeds three or four routes, `Tool::loadRoutes($path)` (added in v1.8.8) extracts them into a sibling file under the same prefix + middleware:
+
+```php
+public function boot(): void
+{
+    // Loads `app/Martis/Tools/routes/system-status.php` under
+    // 'martis/api/tools/system-status' with ['web', 'martis.auth'].
+    $this->loadRoutes(__DIR__.'/routes/system-status.php');
+}
+```
+
+See [Loading routes from a sibling file](tools.md#loading-routes-from-a-sibling-file) for the full signature, including custom `middleware` and `prefix`. The inline group above remains valid; `loadRoutes()` is a readability optimisation, not a replacement.
 
 ### Pattern 2 — Per-tool Gate
 
@@ -142,6 +155,61 @@ public function boot(): void
 - The `observed_by` marker lets the Tool filter logs without coupling to internal Laravel layout.
 - Removing the Tool removes the listener.
 
+### Pattern 5 — Tool-owned console commands
+
+When a Tool has backend operations a developer wants to invoke from the CLI (manually triggering the snapshot refresh, dumping a debug payload, kicking a re-index), register them inside `boot()` instead of cluttering `App\Console\Kernel`:
+
+```php
+use Illuminate\Support\Facades\Artisan;
+
+public function boot(): void
+{
+    Artisan::command('system-status:refresh', function (): void {
+        cache()->put(
+            'system-status:snapshot',
+            app(SystemStatusController::class)->computeSnapshot(),
+            now()->addMinutes(5),
+        );
+        $this->info('Snapshot refreshed.');
+    })->purpose('Refresh the System Status snapshot cache (Martis Tool).');
+}
+```
+
+**Why here vs `App\Console\Kernel`?**
+- The command is meaningful only because the Tool exists; remove the Tool, lose the command.
+- Closure commands keep the wiring inline. For full command classes, prefer `Artisan::resolve(MyCommand::class)` from `boot()` so the class still lives under `app/Console/Commands/Martis/...`.
+- The Schedule pattern above can `->call(fn () => Artisan::call('system-status:refresh'))` to share the implementation between the schedule and a manual `php artisan` run.
+
+### Pattern 6 — View / translation / migration namespaces
+
+Tools that ship Blade templates (PDF receipts, mail layouts), translation strings, or migrations typically register them from `boot()` so the host app does not have to know they exist:
+
+```php
+use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\View;
+
+public function boot(): void
+{
+    // Blade templates packaged alongside the Tool.
+    View::addNamespace('system-status', __DIR__.'/../../resources/views/system-status');
+
+    // Translation strings (consumer can override via vendor:publish).
+    Lang::addNamespace('system-status', __DIR__.'/../../resources/lang/system-status');
+
+    // Migrations that ship with the Tool. `Tool` does not extend
+    // ServiceProvider, so use the migrator helper directly instead
+    // of `$this->loadMigrationsFrom()` (the latter only exists on
+    // service providers). Composer-package Tools should subclass
+    // `ToolServiceProvider` and call `loadMigrationsFrom()` there.
+    app('migrator')->path(__DIR__.'/../../database/migrations/system-status');
+}
+```
+
+**Why here vs the Service Provider?**
+- The Tool defines its own templating / locale surface — moving the registration into `AppServiceProvider` separates "the Tool" from "the Tool's resources", and the next maintainer has to walk both files to understand what runs.
+- The host app can re-`addNamespace()` later (or publish overrides via `$this->publishes(...)` from the same `boot()`) — last write wins.
+- Composer-package Tools should subclass `ToolServiceProvider` instead, where the standard `loadViewsFrom` / `loadTranslationsFrom` / `loadMigrationsFrom` helpers are available. The pattern above is for in-app Tools that prefer co-location.
+
 ## Anti-patterns
 
 - **Don't register routes in the constructor.** The constructor runs at object-construction time (before the application has fully booted) and can leak across tests.
@@ -151,6 +219,6 @@ public function boot(): void
 
 ## TL;DR
 
-`Tool::boot()` is **co-location**. It lets you keep all the setup that "exists because of this Tool" inside the Tool file. Cleaner diffs, no orphaned routes/gates/schedules, easier to see at a glance what each Tool actually does.
+`Tool::boot()` is **co-location**. It lets you keep all the setup that "exists because of this Tool" inside the Tool file — routes, gates, schedules, listeners, console commands, view / translation namespaces. Cleaner diffs, no orphaned wiring, easier to see at a glance what each Tool actually does.
 
 For setup that's app-wide, `AppServiceProvider::boot()` is still the right home. The two complement each other; they don't compete.

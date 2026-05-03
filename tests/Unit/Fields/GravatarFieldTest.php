@@ -87,18 +87,36 @@ it('Gravatar resolves null when email is empty', function () {
     expect($field->resolve($model))->toBeNull();
 });
 
-it('Gravatar fill saves value when provided', function () {
+it('Gravatar fill is a no-op for sourceType=Email (default)', function () {
+    // sourceType=Email means the field is purely a computed preview
+    // surfaced from the email column; the form payload (the rendered
+    // gravatar URL we now hand back to the input) must not flow back
+    // and overwrite the email column on submit.
     $model = new GravatarTestModel(['email' => 'original@test.com']);
     $field = Gravatar::make();
-    $field->fill($model, 'new@test.com');
-    expect($model->getAttribute('email'))->toBe('new@test.com');
+    $field->fill($model, 'https://www.gravatar.com/avatar/abc?s=40&d=mp');
+    expect($model->getAttribute('email'))->toBe('original@test.com');
+});
+
+it('Gravatar fill writes for sourceType=Url', function () {
+    $model = new GravatarTestModel(['email' => 'original@test.com']);
+    $field = Gravatar::make()->fromUrl();
+    $field->fill($model, 'https://example.com/avatar.png');
+    expect($model->getAttribute('email'))->toBe('https://example.com/avatar.png');
 });
 
 it('Gravatar fill does not overwrite when value is null', function () {
     $model = new GravatarTestModel(['email' => 'original@test.com']);
-    $field = Gravatar::make();
+    $field = Gravatar::make()->fromUrl();
     $field->fill($model, null);
     expect($model->getAttribute('email'))->toBe('original@test.com');
+});
+
+it('Gravatar resolveForForm emits the computed URL (not the raw email)', function () {
+    $model = new GravatarTestModel(['email' => 'preview@test.com']);
+    $field = Gravatar::make();
+    $url = $field->resolveForForm($model);
+    expect($url)->toStartWith('https://www.gravatar.com/avatar/');
 });
 
 it('Gravatar toArray contains shape and size', function () {

@@ -11,7 +11,7 @@ import { MetricCard } from '@/components/metrics'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { FilterPanel } from '@/components/FilterPanel'
 import { Card } from 'primereact/card'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -20,6 +20,11 @@ import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 export function DashboardPage() {
   const { user } = useAuth()
   const { t } = useTranslation('resources')
+  // Optional uriKey from `/dashboards/:uriKey` route. When set, this
+  // wins over the locally-stored `activeDashboard` so deep-link URLs
+  // (`MenuItem::dashboard()` shortcuts, browser back/forward) always
+  // render the requested dashboard.
+  const { uriKey: routeUriKey } = useParams<{ uriKey?: string }>()
 
   // Fetch navigation (needed for default layout + fallback)
   const { data: groups = [], isLoading: navLoading } = useQuery<NavigationGroup[]>({
@@ -39,8 +44,10 @@ export function DashboardPage() {
 
   const [activeDashboard, setActiveDashboard] = useState<string | null>(null)
 
-  // Use first dashboard as default
-  const currentDashboardKey = activeDashboard ?? dashboards[0]?.uriKey ?? null
+  // Resolution priority: route param (deep-link / sidebar shortcut)
+  //   > user's last in-page selection > first registered dashboard.
+  const currentDashboardKey =
+    routeUriKey ?? activeDashboard ?? dashboards[0]?.uriKey ?? null
 
   const name = user?.name ?? user?.email ?? ''
   const showGreeting = config.dashboard?.showGreeting !== false

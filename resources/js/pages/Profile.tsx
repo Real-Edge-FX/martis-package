@@ -8,6 +8,8 @@ import { AccountSection } from '@/components/Profile/AccountSection'
 import { PasswordSection } from '@/components/Profile/PasswordSection'
 import { AvatarSection } from '@/components/Profile/AvatarSection'
 import { SecuritySection } from '@/components/Profile/SecuritySection'
+import { BrowserSessionsSection as BundledBrowserSessionsSection } from '@/components/Profile/BrowserSessionsSection'
+import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
@@ -29,7 +31,7 @@ export function ProfilePage() {
 
   const avatarEnabled = config.profile?.avatar?.enabled !== false
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false
-  const sections = config.profile?.sections ?? ['avatar', 'account', 'password', 'security']
+  const sections = config.profile?.sections ?? ['avatar', 'account', 'password', 'security', 'sessions']
 
   useEffect(() => {
     api
@@ -107,6 +109,15 @@ export function ProfilePage() {
                   }
                 />
               ) : null
+            case 'sessions': {
+              // Allow consumer override under the canonical registry
+              // key. When unset the bundled component renders.
+              const Override = componentRegistry.has('martis:profile-sessions')
+                ? (componentRegistry.resolve('martis:profile-sessions') as React.ComponentType | undefined)
+                : undefined
+              const Section = Override ?? BundledBrowserSessionsSection
+              return <Section key="sessions" />
+            }
             default:
               return null
           }

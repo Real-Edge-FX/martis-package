@@ -60,6 +60,36 @@ async function fetchTranslations(locale: string): Promise<ResourceLanguage> {
 }
 
 /**
+ * Apply the right `dir` attribute to `<html>` for the active locale.
+ *
+ * The list of RTL locales lives in `config('martis.locales.rtl_locales')`
+ * (default: `ar`, `fa`, `he`, `ur`) and is bridged through
+ * `window.MartisConfig.locales.rtlLocales`. The shell calls this on every
+ * locale switch so the bundled CSS — which uses logical properties
+ * (`margin-inline-start`, `padding-inline-end`, etc.) — flips margins
+ * and paddings automatically without a stylesheet swap.
+ *
+ * Exported so consumer overrides + the test suite can drive it directly.
+ */
+export function applyDocumentDirection(locale: string): void {
+  if (typeof document === "undefined") return
+
+  // Read `window.MartisConfig` directly (not the cached `config` import)
+  // so a runtime patch — useful in tests and in consumer overrides that
+  // mutate `window.MartisConfig.locales.rtlLocales` after boot — is
+  // reflected immediately. Falls back to an empty list when the config
+  // is missing entirely.
+  const rtlLocales =
+    (window as unknown as { MartisConfig?: { locales?: { rtlLocales?: string[] } } })
+      .MartisConfig?.locales?.rtlLocales ?? []
+  const normalized = rtlLocales.map((l) => l.toLowerCase())
+  const isRtl = normalized.includes(locale.toLowerCase())
+
+  document.documentElement.setAttribute("dir", isRtl ? "rtl" : "ltr")
+  document.documentElement.setAttribute("lang", locale)
+}
+
+/**
  * Load (or reload) a locale's translations into i18next and switch to it.
  * `changeLanguage` alone does not refetch resources — this helper keeps
  * the Preferences language picker honest so labels actually update.
@@ -70,6 +100,7 @@ export async function loadLocale(locale: string): Promise<void> {
     i18n.addResourceBundle(locale, ns, (translations as Record<string, object>)[ns], true, true)
   }
   await i18n.changeLanguage(locale)
+  applyDocumentDirection(locale)
   // Many UI strings (navigation labels, resource schemas, dashboards, lenses,
   // metric names) are translated server-side via `__()`. Invalidating the
   // react-query cache forces every protected endpoint to refetch under the
@@ -95,6 +126,11 @@ export async function initI18n(): Promise<void> {
       interpolation: { escapeValue: false },
       react: { useSuspense: false },
     })
+
+    // Apply RTL direction at first paint so a refreshed page on an
+    // RTL locale never flashes a left-to-right layout before the
+    // language picker fires `loadLocale()`.
+    applyDocumentDirection(locale)
   })()
 
   return initPromise

@@ -297,6 +297,86 @@ it('afterLogin hook fires once after a successful flow', function () {
     expect($fired)->toBe(1);
 });
 
+it('callback stashes the provider name in the session for federated logout', function () {
+    $identity = stubIdentity('flogout@example.com', ['PMI ADMIN']);
+
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
+        public function __construct(private SsoIdentity $stub) {}
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
+    });
+
+    $this->get('/martis/sso/azure/callback');
+
+    expect(session('martis_sso_provider'))->toBe('azure');
+});
+
+it('logout redirects through the IdP logout URL when the provider declared one', function () {
+    config()->set('martis.auth.sso.providers.azure.logout_url', 'https://login.microsoftonline.com/T/oauth2/v2.0/logout?post_logout_redirect_uri={post_logout_redirect_uri}');
+
+    $user = SsoTestUser::query()->create(['name' => 'F', 'email' => 'f@example.com', 'password' => bcrypt('x')]);
+    $this->actingAs($user)
+        ->withSession(['martis_sso_provider' => 'azure', 'martis_two_factor_passed' => true]);
+
+    $response = $this->post('/martis/api/auth/logout');
+
+    $response->assertRedirect();
+    $location = (string) $response->headers->get('Location');
+    expect($location)->toStartWith('https://login.microsoftonline.com/T/oauth2/v2.0/logout?post_logout_redirect_uri=');
+    // post-logout target points back at the Martis login page.
+    expect(rawurldecode($location))->toContain('/martis/login');
+});
+
+it('logout falls through to the local login page when no IdP logout_url is set', function () {
+    config()->set('martis.auth.sso.providers.azure.logout_url', null);
+
+    $user = SsoTestUser::query()->create(['name' => 'G', 'email' => 'g@example.com', 'password' => bcrypt('x')]);
+    $this->actingAs($user)
+        ->withSession(['martis_sso_provider' => 'azure', 'martis_two_factor_passed' => true]);
+
+    $response = $this->post('/martis/api/auth/logout');
+
+    $response->assertRedirect();
+    expect((string) $response->headers->get('Location'))->toContain('/martis/login');
+    expect((string) $response->headers->get('Location'))->not->toContain('login.microsoftonline.com');
+});
+
+it('logout JSON envelope includes the IdP logout_url when present', function () {
+    config()->set('martis.auth.sso.providers.azure.logout_url', 'https://example.com/logout');
+
+    $user = SsoTestUser::query()->create(['name' => 'H', 'email' => 'h@example.com', 'password' => bcrypt('x')]);
+    $this->actingAs($user)
+        ->withSession(['martis_sso_provider' => 'azure', 'martis_two_factor_passed' => true]);
+
+    $response = $this->postJson('/martis/api/auth/logout');
+
+    $response->assertOk()
+        ->assertJsonFragment(['logout_url' => 'https://example.com/logout', 'message' => 'Logged out']);
+});
+
+it('password login wipes the stale martis_sso_provider marker', function () {
+    SsoTestUser::query()->create([
+        'name' => 'I',
+        'email' => 'i@example.com',
+        'password' => bcrypt('s3cret-password'),
+    ]);
+
+    $this->withSession(['martis_sso_provider' => 'azure'])
+        ->postJson('/martis/api/auth/login', ['email' => 'i@example.com', 'password' => 's3cret-password'])
+        ->assertOk();
+
+    expect(session('martis_sso_provider'))->toBeNull();
+});
+
 it('routes are NOT registered when sso master switch is off', function () {
     /** @var Router $router */
     $router = $this->app['router'];

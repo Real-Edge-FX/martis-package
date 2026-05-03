@@ -147,17 +147,31 @@ class Gravatar extends Field
     }
 
     /**
-     * Resolve the raw value (email or URL) for form contexts.
-     * This returns the unmodified model value so forms show the actual stored data.
+     * Resolve the value for form contexts. The gravatar field is purely
+     * a read-only preview surface (the avatar itself lives on
+     * gravatar.com, not the host DB), so we emit the COMPUTED image URL
+     * even on create / update forms — the frontend `<GravatarFieldInput>`
+     * needs a URL to render the preview, not the source email/url
+     * attribute. The actual stored attribute is preserved on submit
+     * because Gravatar fields don't `fill()` anything (the field is
+     * always readonly when shown on a form via `showOnForms()`).
      */
     public function resolveForForm(Model $model, ?string $attribute = null): mixed
     {
-        return $model->getAttribute($attribute ?? $this->attribute);
+        return $this->resolve($model, $attribute);
     }
 
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
+        // sourceType=Email is computed (we never want to write the
+        // generated gravatar URL back over the email column). Only
+        // sourceType=Url receives writes from the form, which is the
+        // case where the consumer stores a direct avatar URL on the
+        // model.
+        if ($this->sourceType === GravatarSourceType::Email) {
+            return;
+        }
         if ($value !== null) {
             $model->setAttribute($this->attribute, $value);
         }

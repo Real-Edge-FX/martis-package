@@ -26,6 +26,7 @@ When the master switch is off, every endpoint returns **503**. When the gate den
     'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
     'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
     'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
+    'max_duration_minutes' => (int) env('MARTIS_IMPERSONATION_MAX_DURATION', 0),
 ],
 ```
 
@@ -34,6 +35,7 @@ When the master switch is off, every endpoint returns **503**. When the gate den
 | `enabled` | `false` | Master switch. |
 | `guard` | `web` | Auth guard the impersonation operates on. Most apps stay on `web`. |
 | `session_key` | `martis.impersonation` | Session bag where the operator's id is stashed. Change it for cross-tenant isolation. |
+| `max_duration_minutes` | `0` (disabled) | Auto-stop the session after N minutes of impersonation. The `martis.impersonation.duration` middleware (registered automatically on every protected Martis route) compares `started_at` against `now()` and calls `stop()` when the window has elapsed. Use it to prevent forgotten impersonations from leaking access. v1.8.8. |
 
 ## Defining the gate
 
@@ -89,45 +91,28 @@ The closure receives the **operator** (not the target). The package does not pas
 
 ## Frontend banner
 
-The banner UI is the consumer's responsibility — the package ships the data, you ship the visuals. Recommended pattern:
+The package ships a fully functional banner — `resources/js/components/ImpersonationBanner.tsx` — that the bundled `Layout.tsx` renders right above every page (`<main class="martis-shell-content"> > <ImpersonationBanner />`). It polls `/martis/api/impersonation/status` on every shell mount, surfaces the current target's label + a "Stop impersonating" button, and reloads the SPA on stop. Consumers do not need to wire anything for the basic flow.
 
-```tsx
-// resources/js/martis/ImpersonationBanner.tsx
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+The poll cadence is configurable via `martis.impersonation.poll_interval` (env `MARTIS_IMPERSONATION_POLL_MS`, default **120 000 ms / 2 min**, raised from 30 s in v1.8.8). Set to `0` to disable polling — the banner still mounts and reads state once per page load. The banner short-circuits the entire effect when `martis.impersonation.enabled` is `false` at boot, so installs that never enable the feature pay zero ongoing cost.
 
-export function ImpersonationBanner() {
-  const [snap, setSnap] = useState<null | {
-    active: boolean
-    original: { label: string | null } | null
-    target: { label: string | null } | null
-  }>(null)
-  const { t } = useTranslation('resources')
+### Overriding the banner
 
-  useEffect(() => {
-    fetch('/martis/api/impersonation/status').then(r => r.json()).then(setSnap)
-  }, [])
+Register a custom React component under the canonical registry key from your consumer `boot.ts`:
 
-  if (!snap?.active) return null
+```ts
+import { componentRegistry } from '@/lib/componentRegistry'
+import { MyBrandedImpersonationBanner } from './components/MyBrandedImpersonationBanner'
 
-  return (
-    <div role="alert" className="martis-impersonation-banner">
-      {t('impersonation.banner', {
-        target: snap.target?.label ?? '?',
-        original: snap.original?.label ?? '?',
-      })}
-      <button onClick={async () => {
-        await fetch('/martis/api/impersonation/stop', { method: 'POST' })
-        window.location.reload()
-      }}>
-        {t('impersonation.stop')}
-      </button>
-    </div>
-  )
-}
+componentRegistry.register('impersonation:banner', MyBrandedImpersonationBanner)
 ```
 
-Mount it inside your shell layout — typically right above the topbar, so it is impossible to miss.
+The Layout resolves the override on every render (same pattern as `loader`, `martis:profile-sessions`, `martis:drawer-create`, `auth:login`); a missing registration falls back to the bundled default. Use this when you want to:
+
+- Add an audit-reason chip ("Impersonating to investigate ticket #123").
+- Swap the colour for a different security accent.
+- Render the banner inside a different shell slot.
+
+Your override is responsible for fetching `/martis/api/impersonation/status` itself — there is no shared store. Polling cadence and stop UX are entirely yours.
 
 ## Trigger UX
 
@@ -138,41 +123,57 @@ Two common patterns to surface the action:
 
 Either way the call is a plain POST — no special middleware.
 
-## Audit logging
+## Per-target blacklist (`NotImpersonable`)
 
-The package does not write impersonation events to the action_events table by design — the audit story is yours, because every team scopes auditing differently. Recommended hook points:
-
-- Subclass `ImpersonationManager` and override `start()` / `stop()` to emit a Laravel event.
-- Listen to `Illuminate\Auth\Events\Login` and inspect the session for the impersonation marker.
-
-Example event-driven audit:
+Some users must never be impersonated — system / API accounts, super-admins, anything where letting an operator borrow the identity would be a security footgun. Mark them with the `Martis\Contracts\NotImpersonable` interface:
 
 ```php
-class AuditedImpersonation extends ImpersonationManager
-{
-    public function start(Authenticatable $target): void
-    {
-        parent::start($target);
-        event(new ImpersonationStarted($this->originalUser(), $target));
-    }
+namespace App\Models;
 
-    public function stop(): void
-    {
-        $original = $this->originalUser();
-        $target = $this->currentTarget();
-        parent::stop();
-        if ($original && $target) {
-            event(new ImpersonationStopped($original, $target));
-        }
-    }
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Martis\Contracts\NotImpersonable;
+
+class SystemAccount extends Authenticatable implements NotImpersonable
+{
 }
 ```
 
-Bind your subclass instead of the default in `AppServiceProvider`:
+`ImpersonationManager::start()` checks for the interface before mutating the session and rejects with `RuntimeException`, which the controller surfaces as `422 { message: "This user cannot be impersonated." }`. The check runs server-side; the operator's UI is unchanged. You typically pair this with a `canSee()` clause on the trigger button (the row never shows the option) for the cleanest UX.
+
+## Audit logging
+
+Since v1.8.8 every successful `start()` / `stop()` is recorded into the `martis_action_events` audit log automatically. The Martis-shipped listener subscribes to two events (also new in v1.8.8) and writes one row per dispatch:
+
+| Event | Action `name` |
+|---|---|
+| `Martis\Impersonation\Events\ImpersonationStarted` | `impersonation.started` |
+| `Martis\Impersonation\Events\ImpersonationStopped` | `impersonation.stopped` |
+
+Each row carries:
+
+- `user_id` — the operator (the user issuing the impersonation, even after the auth guard switched to the target).
+- `model_id` / `target_id` — the target user.
+- `fields.target_label` — the target's `name`, falling back to `email` (mirrors the snapshot label).
+
+Browse them under `/martis/system/action-events` (or whatever URL the bundled `ActionEventResource` lives at). Toggle the audit-row write per-environment via `MARTIS_AUDIT_IMPERSONATION=false` — the events still fire so any custom listeners you attach keep firing; only the Martis row is suppressed.
+
+### Custom listeners
+
+The events are public, so consumer apps can attach their own observers without subclassing the manager:
 
 ```php
-$this->app->singleton(\Martis\Impersonation\ImpersonationManager::class, AuditedImpersonation::class);
+use Martis\Impersonation\Events\ImpersonationStarted;
+use Illuminate\Support\Facades\Event;
+
+Event::listen(ImpersonationStarted::class, function (ImpersonationStarted $e) {
+    \App\Notifications\SecurityWebhook::send([
+        'operator_id' => $e->operator->getAuthIdentifier(),
+        'target_id' => $e->target->getAuthIdentifier(),
+    ]);
+});
 ```
+
+The two events live under `Martis\Impersonation\Events\*` and carry both `operator` and `target` as `Authenticatable` instances. Subscribe from `AppServiceProvider::boot()` or your own `EventServiceProvider`.
 
 ## Security notes
 
@@ -183,4 +184,4 @@ $this->app->singleton(\Martis\Impersonation\ImpersonationManager::class, Audited
 
 ## Tests
 
-Behaviour-level coverage lives in `tests/Feature/ImpersonationControllerTest.php` (10 tests). The Task-18 ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts the public surface — `ImpersonationManager::start/stop/isActive/originalUser/currentTarget/snapshot` — keeps its contract.
+Behaviour-level coverage lives in `tests/Feature/ImpersonationControllerTest.php` (14 cases — full error matrix, NotImpersonable rejection, max-duration auto-stop via the middleware, event dispatch on start + stop). The ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts the public surface — `ImpersonationManager::start/stop/isActive/isExpired/originalUser/currentTarget/enabled/guard/snapshot` — keeps its contract.

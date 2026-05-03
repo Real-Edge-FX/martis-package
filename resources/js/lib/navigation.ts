@@ -1,16 +1,123 @@
 import { useEffect, useRef } from "react"
 import { useLocation } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
-import type { NavigationGroup, NavigationItem, NavigationResourceItem } from "@/types"
+import type {
+  NavigationGroup,
+  NavigationGroupChild,
+  NavigationItem,
+  NavigationNestedGroup,
+  NavigationResourceItem,
+} from "@/types"
 
-export function getNavigationItems(group: NavigationGroup): NavigationItem[] {
+export function isNestedGroup(child: NavigationGroupChild): child is NavigationNestedGroup {
+  return (child as NavigationNestedGroup).type === "group"
+}
+
+/**
+ * Whether a leaf navigation item should render as active given the
+ * current location.
+ *
+ * NavLink's default `end={false}` prefix-matches paths, which would
+ * make a "Invoices" resource link bleed into its "Overdue Invoices"
+ * lens or filter children — clicking any descendant lights them all
+ * up at once. We tighten the rule:
+ *
+ *   - Filter factory items (URL carries `?filters=…`): pathname must
+ *     match exactly AND the current `?filters=` payload must equal
+ *     the item's payload.
+ *   - Every other item: pathname exact match. Resource items also
+ *     require the absence of a `?filters=` query so that, while the
+ *     filter sibling is briefly active during deep-link hydration,
+ *     the bare resource link does not steal the active state.
+ */
+export function isLeafActive(
+  item: NavigationItem,
+  location: { pathname: string; search: string },
+): boolean {
+  const [itemPath, itemQuery = ''] = item.url.split('?')
+  if (location.pathname !== itemPath) return false
+
+  if (item.type === 'filter') {
+    const itemFilter = new URLSearchParams(itemQuery).get('filters')
+    const currentFilter = new URLSearchParams(location.search).get('filters')
+    return itemFilter !== null && itemFilter === currentFilter
+  }
+
+  if (item.type === 'resource') {
+    return !new URLSearchParams(location.search).has('filters')
+  }
+
+  return true
+}
+
+/**
+ * Whether a `MenuSection` / `MenuGroup` header NavLink should render
+ * as active given the current location AND its descendants.
+ *
+ * Enforces the "deepest match wins" rule: the group is only active
+ * when its `path` matches the current pathname AND no descendant
+ * leaf would itself be active at the same pathname. Without this
+ * rule a config that points a section's `path()` at the same URL
+ * as a leaf inside it (e.g. `Library->path('/notes')` containing
+ * `Notas` at `/notes`) lights up *every* ancestor when the user
+ * lands on `/notes`. The leaf takes precedence; the group reflects
+ * "an active item lives inside me" via expanded state instead.
+ */
+export function isGroupActive(
+  groupPath: string | null | undefined,
+  items: NavigationGroupChild[],
+  location: { pathname: string; search: string },
+): boolean {
+  if (!groupPath) return false
+  if (location.pathname !== groupPath.split('?')[0]) return false
+
+  const hasActiveLeaf = items.some((item) => {
+    if (isNestedGroup(item)) {
+      return item.items.some((leaf) => isLeafActive(leaf, location))
+    }
+    return isLeafActive(item, location)
+  })
+
+  return !hasActiveLeaf
+}
+
+/**
+ * Flatten a navigation group's heterogeneous children into the leaf
+ * items only — nested MenuGroup containers are preserved in `getNavigationItems`
+ * but stripped here for callers that just want the resource/link entries.
+ */
+export function getNavigationItems(group: NavigationGroup): NavigationGroupChild[] {
   return group.items
 }
 
+/**
+ * Collapse a group's heterogeneous children into a flat list of leaf
+ * `NavigationItem`s by lifting nested-MenuGroup items up to the parent.
+ * Used by surfaces that don't have a 3rd visual level — typically the
+ * topnav, command palette, or anywhere a flat list is preferable.
+ */
+export function flattenNavigationItems(group: NavigationGroup): NavigationItem[] {
+  const out: NavigationItem[] = []
+  for (const child of group.items) {
+    if (isNestedGroup(child)) {
+      out.push(...child.items)
+    } else {
+      out.push(child)
+    }
+  }
+  return out
+}
+
 export function getNavigationResourceItems(group: NavigationGroup): NavigationResourceItem[] {
-  return getNavigationItems(group).filter(
-    (item): item is NavigationResourceItem => item.type === "resource",
-  )
+  const out: NavigationResourceItem[] = []
+  for (const child of group.items) {
+    if (isNestedGroup(child)) {
+      out.push(...child.items.filter((i): i is NavigationResourceItem => i.type === "resource"))
+    } else if (child.type === "resource") {
+      out.push(child)
+    }
+  }
+  return out
 }
 
 /**
@@ -20,7 +127,9 @@ export function getNavigationResourceItems(group: NavigationGroup): NavigationRe
  */
 export function getItemCount(item: NavigationItem): number | null {
   if (item.type !== "resource") return null
-  return typeof item.count === "number" ? item.count : null
+  return typeof (item as NavigationResourceItem).count === "number"
+    ? (item as NavigationResourceItem).count!
+    : null
 }
 
 /**
@@ -73,15 +182,19 @@ export function formatItemCount(value: number): string {
 }
 
 /**
- * Reactive refresh of the navigation query when the user navigates.
+ * Reactive refresh of the badges query when the user navigates.
  *
- * Pairs with the passive `refetchInterval` on the `['navigation']` query:
- * polling keeps badges in sync while idle, while this hook refreshes
- * them the moment a user interacts with the menu. Throttled to
- * `minIntervalMs` between consecutive navigations so rapid clicks don't
- * flood the server — the user's own mutations already invalidate the
- * query via the MutationCache, so this only matters for *other users'*
- * concurrent writes.
+ * The full navigation tree (`['navigation']`) is fetched once per
+ * session and is NOT auto-polled — menu structure rarely changes in
+ * production. Only the lightweight badges payload
+ * (`['navigation', 'badges']`) refreshes on navigation, so a user
+ * clicking around sees up-to-date counts without paying for the full
+ * tree on every route change.
+ *
+ * Throttled to `minIntervalMs` between consecutive navigations so
+ * rapid clicks don't flood the server. The user's own mutations
+ * already invalidate the badges query via the MutationCache, so this
+ * only matters for *other users'* concurrent writes.
  */
 export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
   const location = useLocation()
@@ -92,6 +205,38 @@ export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
     const now = Date.now()
     if (now - last.current < minIntervalMs) return
     last.current = now
-    void qc.invalidateQueries({ queryKey: ["navigation"] })
+    void qc.invalidateQueries({ queryKey: ["navigation", "badges"] })
   }, [location.pathname, qc, minIntervalMs])
+}
+
+/**
+ * Merge a flat `{ uriKey: count }` map (from `/api/navigation/badges`)
+ * into the cached navigation tree, returning a new array with updated
+ * `count` values on every resource leaf. Items not present in the map
+ * keep their existing count (covers the case where a resource opted
+ * out of `showMenuCount` between fetches and the badges payload no
+ * longer mentions it — the stale count would be removed on the next
+ * full navigation refetch).
+ *
+ * Pure / immutable: never mutates the input groups.
+ */
+export function mergeBadgeCounts(
+  groups: NavigationGroup[],
+  badges: Record<string, number>,
+): NavigationGroup[] {
+  const apply = (item: NavigationGroupChild): NavigationGroupChild => {
+    if (isNestedGroup(item)) {
+      return { ...item, items: item.items.map((leaf) => apply(leaf) as NavigationItem) }
+    }
+    if (item.type !== "resource") return item
+    const resource = item as NavigationResourceItem
+    const uriKey = resource.uriKey
+    if (typeof uriKey !== "string" || !(uriKey in badges)) return resource
+    return { ...resource, count: badges[uriKey] }
+  }
+
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map(apply),
+  }))
 }

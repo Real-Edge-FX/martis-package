@@ -1,8 +1,8 @@
 # Authentication
 
-Martis provides a complete authentication system with login, logout, two-factor authentication (2FA), and a user profile page — all configurable and overridable.
+Martis provides a complete authentication system with login, logout, two-factor authentication (2FA), magic-link, browser-session management, and a user profile page — all configurable and overridable.
 
-> See also: [SSO](sso.md) for OAuth/OIDC providers (Azure / Google / GitHub / custom), and [Impersonation](impersonation.md) for the v0.10 login-as-another-user subsystem.
+> See also: [SSO](sso.md) for OAuth/OIDC providers (Azure / Google / GitHub / custom), and [Impersonation](impersonation.md) for the login-as-another-user subsystem (admins surfacing a switch from the user menu and from the User Resource detail page).
 
 ## Login Flow
 
@@ -28,27 +28,37 @@ Content-Type: application/json
 
 | Status | Body | Description |
 |--------|------|-------------|
-| `200` | `{ "user": {...}, "token": "..." }` | Successful login |
-| `422` | `{ "message": "...", "errors": {...} }` | Validation error |
-| `429` | `{ "message": "Too many attempts" }` | Rate limited (5 attempts per minute) |
+| `200` | `{ "id": 1, "name": "Maria", "email": "...", "avatar_url": "...", ... }` | Successful login. The user object is returned flat (no `user` wrapper). Authentication is session-cookie based, so there is no `token` to track. |
+| `200` | `{ "two_factor_required": true, "message": "..." }` | 2FA enabled on the account — the frontend redirects to the challenge screen. |
+| `422` | `{ "message": "...", "errors": {...} }` | Validation error. |
+| `429` | `{ "message": "Too many attempts" }` | Rate limited. Default: `MARTIS_LOGIN_THROTTLE_ATTEMPTS=20` per `MARTIS_LOGIN_THROTTLE_MINUTES=1`. The same envelope applies to register, password-reset and 2FA challenge endpoints. Per-email throttle in addition to per-IP — see [Per-email throttle](#per-email-throttle) below. |
 
-When 2FA is enabled for the user, the login response returns a `two_factor_challenge` flag instead of a token, redirecting the user to the 2FA challenge screen.
+> **Auth model.** Martis is **session-cookie based**, not bearer-token based. The Laravel guard sets the cookie on `attempt()` + `session()->regenerate()`. There is no JWT; no `Authorization: Bearer …` header is needed (or accepted) by any Martis endpoint. Same-origin SPA calls work out of the box.
+
+### Per-email throttle
+
+In addition to the per-IP `throttle:N,1` envelope (configured via `MARTIS_LOGIN_THROTTLE_ATTEMPTS` / `_MINUTES`), the `/api/auth/login` route runs a second named limiter — `martis-login` — keyed on `lower(email) + ip`. The composition catches credential-stuffing attacks distributed across many IPs that the per-IP layer alone cannot stop:
+
+- Per-IP layer (`throttle:20,1`): kills a noisy single machine.
+- Per-email layer (`throttle:martis-login`): kills a slow distributed brute-force against a known account, even when each request comes from a fresh IP.
+
+The named limiter is registered in `MartisServiceProvider::registerRateLimiters()`. Empty-payload requests (no `email` field at all) fall back to per-IP keying so an unfocused script still hits the rate limit. Override the default by re-registering `RateLimiter::for('martis-login', ...)` in your own service provider — last definition wins.
 
 ### Logout
 
 ```
 POST /martis/api/auth/logout
-Authorization: Bearer {token}
 ```
+
+Invalidates the server-side session. The browser cookie is cleared on the next request.
 
 ### Check Current User
 
 ```
 GET /martis/api/auth/user
-Authorization: Bearer {token}
 ```
 
-Returns the authenticated user object or `401` if not authenticated.
+Public route (deliberately unprotected) so the Login page can probe the active session without a noisy `401` in the console. Returns the user object when a session cookie is present, or `null` when the visitor is a guest.
 
 ## Auth UI shell
 
@@ -217,7 +227,7 @@ cd vendor/martis/martis
 MARTIS_USER_DIR=$(pwd)/../../../resources/martis-extensions npm run build
 ```
 
-The build copies the rebuilt `public/` back to your app via `php artisan vendor:publish --tag=martis-assets --force` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
+The build copies the rebuilt `public/` back to your app via `php artisan martis:publish-assets` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
 
 Reference impls live under `vendor/martis/martis/resources/js/pages/` — the stub starts as a working copy of the bundled default so you can edit incrementally rather than rewrite from scratch.
 
@@ -556,6 +566,76 @@ Same mechanism as Login/Register/Forgot/Reset — see the table in "Customising 
 | `enabled=true`, user unverified | 302 → notice (or `notice_url`) | 200 (themed page) | Marks verified, 302 → dashboard | 200 |
 | `enabled=true`, JSON request | 409 with `{message}` | 409 | normal | normal |
 
+## Magic-link (passwordless) sign-in
+
+Off by default. When enabled, the Login page exposes a "Email me a sign-in link" button that issues a one-shot token and emails it. Clicking the link signs the user in and redirects to the dashboard — no password required.
+
+### Enable
+
+```dotenv
+MARTIS_AUTH_MAGIC_LINK_ENABLED=true
+# Optional — defaults shown
+MARTIS_AUTH_MAGIC_LINK_TTL=15
+MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER=false   # auto-create users for unknown emails
+```
+
+Or directly in `config/martis.php`:
+
+```php
+'magic_link' => [
+    'enabled' => env('MARTIS_AUTH_MAGIC_LINK_ENABLED', false),
+    'ttl_minutes' => (int) env('MARTIS_AUTH_MAGIC_LINK_TTL', 15),
+    'auto_register' => (bool) env('MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER', false),
+],
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/martis/api/auth/magic-link/request` | `{ email }` → issues a token and emails it. Returns `200 { ok: true }` whether or not the email exists (account-enumeration safe). |
+| `GET` | `/martis/api/auth/magic-link/consume?email=…&token=…` | Verifies the token, signs the user in, redirects to `/{martis-path}`. On failure redirects to `/{martis-path}/login?magic_link=expired` (or `=invalid`, `=disabled`). |
+
+### Storage
+
+Tokens are persisted in the same `password_reset_tokens` table Laravel ships with, scoped under an `email` value prefixed with `martis-magic:` so they never clash with reset-password rows. Tokens are hashed before storage; the plaintext token only exists in the email body. Issuing a fresh token deletes any prior token for the same email.
+
+### Security envelope
+
+- **One-shot.** Consuming a token deletes the row. Replays return `expired`.
+- **Short TTL.** Default 15 minutes — a magic-link is mailbox-equivalent, so the leak window matches the threat profile.
+- **Per-email throttle.** The request endpoint sits behind both per-IP `throttle:N,1` and the `martis-login` named limiter (per-email + IP). A flood against `victim@example.com` is blocked even when distributed across IPs.
+- **No account enumeration.** When the email is unknown the endpoint still returns `200 { ok: true }` and sends nothing. The frontend toast is identical to the success path.
+- **Auto-register opt-in.** Default false. When you flip it on, an unknown email triggers a user create with a random password before the login completes — useful for invite-by-link flows.
+
+### Customising the email
+
+Bind a subclass of `Martis\Auth\MagicLinkNotification` against the FQCN, or override `MagicLinkController` entirely if you need to swap the storage strategy. The notification uses the standard `MailMessage` shape so consumer-side `php artisan vendor:publish --tag=laravel-notifications` to publish the email template still applies.
+
+## Browser sessions
+
+Profile page gets a "Browser sessions" surface (`<BrowserSessionsSection />`) that lists every active session for the current user — IP, user agent, last activity, and a "This device" badge on the current row. Two revoke flows let the user kick stale devices: per-row trash icon (skipped on the current row to prevent accidental self-logout) and a one-click "Sign out everywhere else" button that drops every other session.
+
+### Enabling
+
+The section is mounted by default when `martis.profile.sections` includes `'sessions'`. Since v1.8.8 the bundled default is `['avatar', 'account', 'password', 'security', 'sessions']`. Older installs that pinned the list to four entries need to add `'sessions'` to the published `config/martis.php` to see the panel.
+
+The host app must use Laravel's `database` session driver for the panel to populate. When the driver is `file` / `cookie` / `array` / unknown, the API returns `supported: false` and the React UI renders a one-line hint explaining how to switch (`php artisan session:table` + `php artisan migrate`) instead of a confusing empty list.
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`. Each session row carries `id`, `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
+| `DELETE` | `/martis/api/profile/sessions/others` | Revokes every session except the current one. Returns `{ revoked, supported }`. |
+| `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by ID. Targeting the current session is a deliberate no-op so the call cannot accidentally sign the user out of the device issuing the request. |
+
+### Customisation
+
+- **Backend**: bind your own subclass of `Martis\Profile\BrowserSessionsService` against the FQCN to extend with geo-IP enrichment, audit logging, or cross-device push notifications. The service exposes `forUser(Authenticatable, Request)`, `revokeOthers(Authenticatable, Request)`, and `revoke(Authenticatable, Request, string $id)`.
+- **UI**: register a custom React component under the `martis:profile-sessions` registry key from your consumer `boot.ts` to swap the bundled `BrowserSessionsSection`. When unset, the bundled component renders.
+- **Translations**: keys live under the `profile` namespace — `sessions_title`, `sessions_subtitle`, `sessions_loading`, `sessions_empty`, `sessions_unsupported`, `sessions_current_badge`, `sessions_unknown_ip`, `sessions_revoke`, `sessions_revoke_success`, `sessions_revoke_others`, `sessions_revoke_others_confirm`, `sessions_revoke_others_success`, `sessions_revoking`. All shipped in en, pt_PT, pt_BR.
+
 ## Error pages
 
 Three themed error screens are wired into the router:
@@ -636,7 +716,7 @@ The profile page is accessible at `/{martis-path}/profile` and provides:
         'enabled' => true,
         'recovery_codes' => 8,           // Number of one-time codes
     ],
-    'sections' => ['account', 'password', 'avatar', 'security'],
+    'sections' => ['account', 'password', 'avatar', 'security', 'sessions'],
 ],
 ```
 
@@ -694,14 +774,15 @@ Martis includes TOTP-based two-factor authentication with a guided setup wizard.
 |--------|------|-------------|
 | `POST` | `/martis/api/profile/2fa/setup` | Initialize 2FA (returns QR code SVG + secret) |
 | `POST` | `/martis/api/profile/2fa/confirm` | Verify OTP code and activate 2FA |
+| `POST` | `/martis/api/profile/2fa/recovery-codes` | Regenerate the recovery-code set for an already-active 2FA account |
 | `DELETE` | `/martis/api/profile/2fa` | Disable 2FA for current user |
-| `POST` | `/martis/api/2fa/challenge` | Submit 2FA code during login (rate limited) |
+| `POST` | `/martis/api/2fa/challenge` | Submit 2FA code during login (rate limited via `MARTIS_LOGIN_THROTTLE_*`) |
 
 ### 2FA Challenge on Login
 
 When a user with 2FA enabled logs in:
 
-1. Initial login returns `{ "two_factor_challenge": true }` instead of a token
+1. Initial login returns `{ "two_factor_required": true, "message": "..." }` instead of the user object
 2. The frontend redirects to the 2FA challenge screen
 3. User enters their 6-digit TOTP code (or a recovery code)
 4. On success, the session is fully authenticated
@@ -744,6 +825,12 @@ The user dropdown menu in the topbar is configurable:
     // ],
 ],
 ```
+
+## On the roadmap: WebAuthn / Passkeys
+
+The current 2FA layer is TOTP-only. Passkey support (WebAuthn ceremony, credential storage, browser API) is a substantial addition that pulls in a third-party library (`web-auth/webauthn-lib`) and a new migration — both decisions that warrant their own design pass. Tracked separately; not shipped in v1.8.8.
+
+The contract layout above (bind your own `Martis\Contracts\*` implementations) is the same surface the future WebAuthn flow will use, so consumer overrides written for TOTP today do not need to change when passkeys ship.
 
 ## Middleware
 

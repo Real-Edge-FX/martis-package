@@ -50,6 +50,18 @@ class DrawerOverride extends Override
     }
 
     /**
+     * Create override with the built-in drawer-quick component — a
+     * lightweight read-only quick-look. Defaults to a narrow drawer
+     * (480px) since the use case is a focused snapshot, not full
+     * record review. Override with `->width(...)` if needed.
+     */
+    public static function quick(): self
+    {
+        return self::makeWithDefaults('martis:drawer-quick')
+            ->width('480px');
+    }
+
+    /**
      * Build a drawer override with the package-wide width defaults pre-applied.
      * Explicit `->width()` / `->expandedWidth()` calls still win.
      */

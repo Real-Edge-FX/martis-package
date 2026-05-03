@@ -11,7 +11,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { ForbiddenPage } from '@/pages/Forbidden'
 import { ServerErrorPage } from '@/pages/ServerError'
 import { TwoFactorChallengePage } from '@/pages/TwoFactorChallenge'
-import { BASE_PATH } from '@/lib/config'
+import { BASE_PATH, config } from '@/lib/config'
 import { componentRegistry } from '@/lib/componentRegistry'
 
 /**
@@ -73,6 +73,16 @@ export const router = createBrowserRouter([
         handle: { crumb: 'dashboard' },
       },
       {
+        // Direct deep-link to a registered Dashboard by its uriKey.
+        // Powers `MenuItem::dashboard($class)` URLs like
+        // `/dashboards/client-insights`. The DashboardPage reads the
+        // uriKey via useParams and renders that dashboard's cards;
+        // omitting the segment falls back to the index route above.
+        path: 'dashboards/:uriKey',
+        element: <DashboardPage />,
+        handle: { crumb: 'dashboard' },
+      },
+      {
         path: 'profile',
         lazy: async () => {
           const { ProfilePage } = await import('@/pages/Profile')
@@ -86,6 +96,23 @@ export const router = createBrowserRouter([
           return { element: <CacheAdminPage />, handle: { crumb: 'system_cache' } }
         },
       },
+      // Developer-only Component Inspector — pick any registered
+      // component, feed it a JSON payload, see it render in
+      // isolation. Gated on `config.dev.toolsEnabled` (PHP side:
+      // `MARTIS_DEV_TOOLS`, default true in `local`/`testing`, false
+      // elsewhere). When the flag is off the route is not registered
+      // at all so production bundles never resolve it.
+      ...(config.dev?.toolsEnabled
+        ? [
+            {
+              path: 'dev/components',
+              lazy: async () => {
+                const { ComponentInspectorPage } = await import('@/pages/ComponentInspector')
+                return { element: <ComponentInspectorPage />, handle: { crumb: 'dev_components' } }
+              },
+            },
+          ]
+        : []),
       {
         path: 'tools/:uriKey',
         lazy: async () => {

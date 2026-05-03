@@ -21,6 +21,8 @@ import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
 import { MartisLoader } from "@/components/Loader"
 import { usePageTitle } from "@/hooks/usePageTitle"
+import { useResourceAccent } from "@/lib/useResourceAccent"
+import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -105,6 +107,8 @@ export function ResourceDetailPage() {
     ? String(record[schema.titleAttribute] ?? '')
     : ''
   usePageTitle(schema ? `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ''}` : null)
+  const accentProps = useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
+  useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
   if (schemaQuery.isLoading || recordQuery.isLoading) {
     return (
@@ -269,7 +273,7 @@ export function ResourceDetailPage() {
   const canReplicate = auth?.authorizedToReplicate !== false
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" {...accentProps}>
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <Link

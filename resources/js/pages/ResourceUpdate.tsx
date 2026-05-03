@@ -167,9 +167,9 @@ export function ResourceUpdatePage() {
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
       if (hasFileValues(data)) {
-        return api.upload<{ data: ResourceRecord; meta?: { message?: string } }>('PUT', `/api/resources/${resource}/${id}`, data)
+        return api.upload<{ data: ResourceRecord; meta?: { message?: string; redirectTo?: string } }>('PUT', `/api/resources/${resource}/${id}`, data)
       }
-      return api.put<{ data: ResourceRecord; meta?: { message?: string } }>(`/api/resources/${resource}/${id}`, data)
+      return api.put<{ data: ResourceRecord; meta?: { message?: string; redirectTo?: string } }>(`/api/resources/${resource}/${id}`, data)
     },
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
@@ -205,6 +205,16 @@ export function ResourceUpdatePage() {
       if (mode === 'list') {
         submitModeRef.current = 'detail'
         navigate(`/resources/${resource}`)
+        return
+      }
+
+      // Resource-side redirectAfterUpdate() override — surfaces in
+      // meta.redirectTo. Only consulted on the primary "Save changes"
+      // button path; "view list" and "continue editing" already exited
+      // above with their explicit destination.
+      const redirectTo = res.meta?.redirectTo
+      if (redirectTo) {
+        navigate(redirectTo)
         return
       }
 

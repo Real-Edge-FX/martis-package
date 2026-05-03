@@ -87,4 +87,19 @@ return [
     '2fa_otp_digit' => 'Dígito :n',
 
     'profile' => 'Perfil',
+
+    // Sessões do navegador (v1.8.8)
+    'sessions_title' => 'Sessões do navegador',
+    'sessions_subtitle' => 'Dispositivos conectados à sua conta.',
+    'sessions_loading' => 'Carregando…',
+    'sessions_empty' => 'Nenhuma sessão ativa.',
+    'sessions_unsupported' => 'A gestão de sessões requer o driver de sessões em banco de dados do Laravel. Rode `php artisan session:table` e `php artisan migrate` para ativar.',
+    'sessions_current_badge' => 'Este dispositivo',
+    'sessions_unknown_ip' => 'IP desconhecido',
+    'sessions_revoke' => 'Revogar sessão',
+    'sessions_revoke_success' => 'Sessão revogada.',
+    'sessions_revoke_others' => 'Sair de todos os outros dispositivos',
+    'sessions_revoke_others_confirm' => 'Sair de todos os outros dispositivos? Sua sessão atual permanece.',
+    'sessions_revoke_others_success' => 'Saída em {{count}} dispositivo(s).',
+    'sessions_revoking' => 'Revogando…',
 ];

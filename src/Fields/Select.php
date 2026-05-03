@@ -23,6 +23,15 @@ class Select extends Field
      */
     protected ?\Closure $optionsResolver = null;
 
+    /**
+     * Whether index/detail views render the option label or the raw
+     * stored value. Default `true` matches the long-standing frontend
+     * behaviour where SelectFieldDisplay always resolved value → label.
+     * The flag exists for API parity with {@see MultiSelect} and so a
+     * consumer can opt out via {@see self::displayUsingValues()}.
+     */
+    protected bool $displayLabels = true;
+
     /** {@inheritdoc} */
     public function type(): string
     {
@@ -149,6 +158,42 @@ class Select extends Field
     }
 
     /**
+     * Render the option label (not the raw value) on index and detail.
+     *
+     * Calling this is currently a no-op because Select renders labels
+     * by default — but it documents intent and keeps the API symmetric
+     * with {@see MultiSelect::displayUsingLabels()} so generic code that
+     * calls the method on either field type works.
+     */
+    public function displayUsingLabels(): static
+    {
+        $this->displayLabels = true;
+
+        return $this;
+    }
+
+    /**
+     * Render the raw stored value (not the option label) on index and
+     * detail. Useful when the value is itself a meaningful identifier
+     * (e.g. an ISO code) and the label is just a humanised alias.
+     */
+    public function displayUsingValues(): static
+    {
+        $this->displayLabels = false;
+
+        return $this;
+    }
+
+    /**
+     * Whether the field is currently configured to render labels
+     * instead of raw values on index and detail.
+     */
+    public function isDisplayingLabels(): bool
+    {
+        return $this->displayLabels;
+    }
+
+    /**
      * Return the normalized options array.
      *
      * @return list<array{label: string, value: scalar}>
@@ -170,6 +215,9 @@ class Select extends Field
      */
     protected function extraAttributes(): array
     {
-        return ['options' => $this->getOptions()];
+        return [
+            'options' => $this->getOptions(),
+            'displayLabels' => $this->displayLabels,
+        ];
     }
 }

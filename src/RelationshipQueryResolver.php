@@ -63,6 +63,10 @@ class RelationshipQueryResolver
             $query = $targetResourceClass::relatableQuery($request, $query);
         }
 
+        // Step 2b: Apply the target Resource's declarative static $with list
+        // so eager-loaded display fields are available to the picker payload.
+        $query = $targetResourceClass::applyWith($query);
+
         // Step 3: Apply field-level query modifiers (BelongsTo-specific)
         if ($field instanceof BelongsTo) {
             // Apply relatableQueryUsing closure if defined

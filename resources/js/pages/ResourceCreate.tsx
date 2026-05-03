@@ -250,16 +250,16 @@ export function ResourceCreatePage() {
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
       if (isViaRelation) {
-        return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(
+        return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(
           `/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`,
           data,
         )
       }
       const payload = isReplicate ? { ...data, fromResourceId } : data
       if (hasFileValues(payload)) {
-        return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>('POST', `/api/resources/${resource}`, payload)
+        return api.upload<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>('POST', `/api/resources/${resource}`, payload)
       }
-      return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(`/api/resources/${resource}`, payload)
+      return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(`/api/resources/${resource}`, payload)
     },
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
@@ -287,6 +287,16 @@ export function ResourceCreatePage() {
       if (mode === 'list') {
         submitModeRef.current = 'detail'
         navigate(`/resources/${resource}`)
+        return
+      }
+
+      // Resource-side redirectAfterCreate() override — surfaces in
+      // meta.redirectTo. Only consulted on the primary "Create" button
+      // path; "view list" and "add another" already exited above with
+      // their explicit destination.
+      const redirectTo = res.meta?.redirectTo
+      if (redirectTo) {
+        navigate(redirectTo)
         return
       }
 

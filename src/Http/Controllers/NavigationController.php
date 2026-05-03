@@ -66,6 +66,84 @@ class NavigationController extends MartisController
     }
 
     /**
+     * Lightweight count map for sidebar badges.
+     *
+     * Returns `{ "users": 1284, "invoices": 7, ... }` keyed by resource
+     * `uriKey`. Skips menu structure, icons, system section, host-app
+     * mainMenu resolver and per-section MenuItem rendering — only the
+     * `menuCount()` calls run. Polling this from the SPA instead of
+     * `/api/navigation` cuts the per-tick payload by 10× or more on a
+     * typical sidebar.
+     *
+     * Cache scope mirrors `index()` (same user + locale key) but lives
+     * under a separate `badges:` prefix so navigation cache and badge
+     * cache invalidate independently. Both share the `navigation`
+     * cache layer, so `php artisan martis:cache:clear navigation`
+     * still wipes both.
+     */
+    public function badges(Request $request): JsonResponse
+    {
+        $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+        $locale = app()->getLocale();
+        $cacheKey = 'badges:'.$userKey.':'.$locale;
+
+        $payload = $this->cache->remember('navigation', $cacheKey, function () use ($request) {
+            return $this->buildBadges($request);
+        });
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Walk the registered resources and resolve only the count badge
+     * for each one that opts in. Per-resource auth is enforced first,
+     * matching the visibility rules of the full navigation payload.
+     *
+     * Failures inside a single resource's `menuCount()` are swallowed
+     * (mirroring the behaviour in `MenuItem::resolveMenuCount`) so a
+     * broken counter never poisons the response.
+     *
+     * @return array<string, int>
+     */
+    protected function buildBadges(Request $request): array
+    {
+        if (! (bool) config('martis.navigation.counts.enabled', true)) {
+            return [];
+        }
+
+        $counts = [];
+
+        foreach ($this->registry->list() as $resourceClass) {
+            if (! $resourceClass::displayInNavigation()) {
+                continue;
+            }
+
+            if (! $resourceClass::showMenuCount()) {
+                continue;
+            }
+
+            $instance = new $resourceClass;
+            if (! $instance->authorizedToViewAny($request)) {
+                continue;
+            }
+
+            try {
+                $count = $resourceClass::menuCount($request);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($count === null) {
+                continue;
+            }
+
+            $counts[$resourceClass::uriKey()] = (int) $count;
+        }
+
+        return $counts;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     protected function buildNavigation(Request $request): array
@@ -114,12 +192,80 @@ class NavigationController extends MartisController
 
         $resolved = $this->martis->resolveMainMenu($request, $sections);
 
+        // Suppress auto-injection for system-section resources the host-app
+        // already pulled into a custom `Martis::mainMenu(...)` payload. A
+        // resource that opts into `belongsToSystemSection()` would otherwise
+        // appear twice — once where the host placed it, and once in the
+        // bundled "System" section — which surprised people building dense
+        // sidebars (Real-Edge-FX/martis-package#NN).
+        $referencedUriKeys = $this->collectResourceUriKeys($resolved);
+        if ($referencedUriKeys !== []) {
+            $systemResources = array_values(array_filter(
+                $systemResources,
+                function (MenuItem $item) use ($referencedUriKeys) {
+                    $resourceClass = $item->resourceClass();
+                    if ($resourceClass === null) {
+                        return true;
+                    }
+
+                    return ! in_array($resourceClass::uriKey(), $referencedUriKeys, true);
+                },
+            ));
+        }
+
         // Append the System section AFTER the host-app resolver runs so
         // a custom `Martis::mainMenu(...)` callback that replaces the
         // entire section list still sees the Cache admin entry. The
         // section appears whenever there is at least one item visible
         // to this user (cache admin link + any system-grouped resources).
         return $this->appendSystemSection($resolved, $request, $systemResources);
+    }
+
+    /**
+     * Walk a resolved navigation payload and collect every resource
+     * `uriKey` referenced inside it. Used to suppress double-rendering
+     * of `belongsToSystemSection()` resources that a host already placed
+     * via `Martis::mainMenu(...)`.
+     *
+     * Handles the heterogeneous shape emitted by `MenuSection::resolve()`:
+     * top-level sections, nested `MenuGroup` containers (`type === 'group'`),
+     * and leaf items of any factory type. Only `type === 'resource'`
+     * leaves contribute a uriKey.
+     *
+     * @param  list<array<string, mixed>>  $sections
+     * @return list<string>
+     */
+    protected function collectResourceUriKeys(array $sections): array
+    {
+        $found = [];
+
+        $walk = function (array $items) use (&$walk, &$found): void {
+            foreach ($items as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $type = $item['type'] ?? null;
+
+                if ($type === 'group' && isset($item['items']) && is_array($item['items'])) {
+                    $walk($item['items']);
+
+                    continue;
+                }
+
+                if ($type === 'resource' && isset($item['uriKey']) && is_string($item['uriKey'])) {
+                    $found[] = $item['uriKey'];
+                }
+            }
+        };
+
+        foreach ($sections as $section) {
+            if (isset($section['items']) && is_array($section['items'])) {
+                $walk($section['items']);
+            }
+        }
+
+        return array_values(array_unique($found));
     }
 
     /**

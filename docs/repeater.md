@@ -1,10 +1,10 @@
 # Repeater
 
-Repeatable row widget backed by JSON, a child table (HasMany) or a single
-polymorphic child table. Ships **five Martis differentials** — drag-and-drop
-reorder, collapse, cardinality limits, dynamic row headers, row templates,
-duplicate, bulk paste, and a polymorphic storage mode for page-builder-style
-layouts.
+Repeatable row widget backed by JSON, a child table (HasMany), or a single
+polymorphic child table. Ships five differentials: parent-context injection
+(`dependsOn`), collapsible rows with cardinality limits, dynamic row headers,
+row templates with duplicate and bulk paste, and a polymorphic storage mode for
+page-builder-style layouts.
 
 - [Quick start](#quick-start)
 - [Storage modes](#storage-modes)
@@ -150,23 +150,54 @@ Milestone::make()
     ->badgeCount();                     // "#N" badge per row
 ```
 
+### Repeatable identity methods
+
+Three methods may be overridden to control how the Repeatable identifies itself
+at runtime. The defaults are usually sufficient.
+
+| Method | Default | Effect |
+|--------|---------|--------|
+| `shortName(): string` | Kebab-case class basename | Type identifier written into the payload `type` column |
+| `label(): string` | Title-cased `shortName()` | Human-readable label used in the Add button ("Add Milestone") |
+| `uniqueKey(): string` | `'id'` | Per-row key used by the frontend for keyed diffing |
+
 ## Core API
 
-| Method | Notes |
-|---|---|
-| `Repeater::make($name, $attr, $resolveFn)` | Factory |
-| `->repeatables(array)` | Declare the row types |
-| `->asJson()` | JSON storage mode |
-| `->asHasMany()` | HasMany storage mode |
-| `->uniqueField(string)` | Stable identifier column for HasMany upsert |
-| `->confirmRemoval()` | Show a confirm dialog before removing a row |
-| Single-type Add button | Label includes the type: "Add Milestone" |
-| Multi-type Add dropdown | Closes on click-outside/Esc |
-| Per-row validation | Errors formatted `attribute.0.field` |
+### `Repeater` methods
+
+| Method | Signature | Notes |
+|--------|-----------|-------|
+| `make` | `make(string $attribute, ?string $label = null)` | Factory |
+| `repeatables` | `->repeatables(array $repeatables)` | Declare the row types |
+| `asJson` | `->asJson()` | JSON storage mode |
+| `asHasMany` | `->asHasMany()` | HasMany storage mode |
+| `asPolymorphic` | `->asPolymorphic(string $typeColumn, string $payloadColumn)` | Polymorphic storage mode |
+| `uniqueField` | `->uniqueField(string $attribute)` | Stable row identifier for upsert and frontend keying |
+| `collapsible` | `->collapsible(bool $enabled = true)` | Toggle per-row collapse affordance |
+| `collapsedByDefault` | `->collapsedByDefault(bool $enabled = true)` | Start every row collapsed |
+| `reorderable` | `->reorderable(bool $enabled = true, ?string $orderColumn = null)` | Drag-and-drop reorder; `$orderColumn` is the position column in HasMany/Polymorphic |
+| `minRows` | `->minRows(int $n)` | Minimum row count enforced client-side |
+| `maxRows` | `->maxRows(int $n)` | Maximum row count enforced client-side |
+| `confirmRemoval` | `->confirmRemoval(bool $confirm = true)` | Show a confirm dialog before removing a row |
+| `rowTemplate` | `->rowTemplate(string $label, string $type, array $fields, array $options = [])` | Register one pre-filled template |
+| `rowTemplates` | `->rowTemplates(array $templates)` | Register multiple templates in one call |
+| `hideDuplicate` | `->hideDuplicate(bool $hidden = true)` | Opt-out of the per-row duplicate affordance |
+| `hideBulkPaste` | `->hideBulkPaste(bool $hidden = true)` | Opt-out of the bulk paste affordance |
+| `dependsOn` | `->dependsOn(array $attributes, ?\Closure $callback = null)` | Expose parent-record attributes to row field resolvers |
+
+### `Repeatable` methods
+
+| Method | Signature | Notes |
+|--------|-----------|-------|
+| `make` | `make()` | No arguments — Repeatables have no attribute of their own |
+| `icon` | `->icon(string $icon)` | Phosphor icon name |
+| `color` | `->color(string $color)` | Semantic color token |
+| `title` | `->title(Closure\|string $title)` | Dynamic row header; `{attribute}` placeholders or closure |
+| `badgeCount` | `->badgeCount(bool $enabled = true)` | "#N" auto-numbered badge on the header |
 
 ## ⭐ Martis differentials
 
-### D1 — `dependsOn(array)`
+### Parent context — `dependsOn()`
 
 Exposes selected parent-record attributes to every field **inside** every
 row, so conditional field logic can react to data outside the row itself.
@@ -179,7 +210,17 @@ Repeater::make('milestones')
 Inside a row's field resolver, `formValues` now contains the row's own
 fields *plus* the parent's `status` and `deadline`.
 
-### D2 — Collapse, reorder, cardinality
+An optional `$callback` is called when any of the depended-on attributes
+change, letting you reconfigure row types or field options dynamically:
+
+```php
+Repeater::make('tasks')
+    ->dependsOn(['project_id'], function (Repeater $field, array $values) {
+        // Reconfigure based on $values['project_id']
+    });
+```
+
+### Collapse, reorder, cardinality
 
 | Method | Effect |
 |---|---|
@@ -190,7 +231,7 @@ fields *plus* the parent's `status` and `deadline`.
 | `->minRows(int)` | Footer shows "Minimum N required" when below threshold |
 | `->maxRows(int)` | Disables the Add button when the cap is reached, with a `N / max` counter |
 
-### D3 — Row header affordances
+### Row header affordances
 
 Declared on the `Repeatable` itself; surfaces real row context beyond the class basename.
 
@@ -202,15 +243,16 @@ Declared on the `Repeatable` itself; surfaces real row context beyond the class 
 | `->title(fn($row, $i) => "…")` | Closure variant resolved on the server |
 | `->badgeCount()` | Show "#N" on the header (auto-numbered) |
 
-### D4 — Templates, duplicate, bulk paste
+### Templates, duplicate, bulk paste
 
-| Method / UI | Effect |
+Pre-filled templates surface in the Add menu alongside the raw types.
+
+| Method | Effect |
 |---|---|
-| `->rowTemplates([...])` | Pre-filled templates surface in the Add menu alongside the raw types |
-| Copy icon on every row header | Duplicates the row immediately after it |
-| "Colar linhas" footer button | Opens a modal that parses TSV/CSV/JSON into rows — detects a header row automatically when it matches the Repeatable's field attributes |
-| `->hideDuplicate()` | Opt-out of the duplicate-row affordance when row identity must stay unique |
-| `->hideBulkPaste()` | Opt-out of bulk paste when imports need a stricter flow |
+| `->rowTemplate(string $label, string $type, array $fields, array $options = [])` | Register one pre-filled template |
+| `->rowTemplates(array $templates)` | Register multiple templates in one call |
+| `->hideDuplicate(bool $hidden = true)` | Opt-out of the duplicate-row affordance when row identity must stay unique |
+| `->hideBulkPaste(bool $hidden = true)` | Opt-out of bulk paste when imports need a stricter flow |
 
 ```php
 Repeater::make('delivery_phases')
@@ -226,7 +268,11 @@ Repeater::make('delivery_phases')
     ]);
 ```
 
-### D5 — `asPolymorphic()`
+The "Paste rows" footer button opens a modal that parses TSV/CSV/JSON into rows,
+detecting a header row automatically when column names match the Repeatable's
+field attributes.
+
+### Polymorphic storage
 
 See [Polymorphic mode](#polymorphic-mode-aspolymorphic-). One table holds
 every row type — ideal for page-builder-style layouts.
@@ -259,14 +305,14 @@ All storage modes ship rows to the frontend in the same shape:
     "id": "01HXYZ…",
     "type": "milestone",
     "fields": {
-      "name": "Wireframes aprovados",
+      "name": "Wireframes approved",
       "due_date": "2026-05-10",
-      "description": "Validação com stakeholders."
+      "description": "Validation with stakeholders."
     }
   }
 ]
 ```
 
 In polymorphic mode the `id` comes from `uniqueField` (typically a UUID
-column), `type` matches the `Repeatable::shortName()`, and `fields` is the
+column), `type` matches `Repeatable::shortName()`, and `fields` is the
 deserialised `payload` column.

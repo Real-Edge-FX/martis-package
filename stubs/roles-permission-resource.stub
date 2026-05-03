@@ -67,7 +67,7 @@ class {{ class }} extends Resource
             Text::make('guard_name', 'Guard')
                 ->default('web')
                 ->rules(['required', 'string', 'max:125']),
-
+{{ categoryField }}
             BelongsToMany::make('Roles', 'roles', RoleResource::class)
                 ->onlyOnDetail(),
 
@@ -77,4 +77,5 @@ class {{ class }} extends Resource
                 ->sortable(),
         ];
     }
+{{ categoryFilters }}
 }

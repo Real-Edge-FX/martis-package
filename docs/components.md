@@ -103,10 +103,12 @@ The main application shell that wraps all pages. Resolves layout preset from con
 | `topnav` | TopnavLayout | Top navigation bar + main content |
 | `minimal` | MinimalLayout | Minimal header + main content |
 
+> `SidebarLayout` is an inner function inside `resources/js/components/Layout.tsx`, not a standalone file under `components/layouts/`. `TopnavLayout` and `MinimalLayout` each live in their own file there. To override the sidebar preset wholesale, register a custom layout via `layoutRegistry.register('sidebar', MyLayout)`.
+
 Override the layout for a specific resource using `layoutRegistry`:
 
 ```typescript
-import { layoutRegistry } from '@martis/martis/lib/layoutRegistry'
+import { layoutRegistry } from '@/lib/layoutRegistry'
 layoutRegistry.register('users', CustomUserLayout)
 ```
 
@@ -295,7 +297,7 @@ For icons outside Phosphor (custom SVGs) or to skip the dynamic-import roundtrip
 
 ```ts
 // resources/martis-extensions/martis/boot.ts
-import { iconRegistry } from '@martis/martis/lib/iconRegistry'
+import { iconRegistry } from '@/lib/iconRegistry'
 import { CrownIcon } from '@phosphor-icons/react'
 
 iconRegistry.register('crown', CrownIcon)
@@ -423,6 +425,36 @@ const { theme, toggle, setTheme } = useTheme()
 - Persists to localStorage (`martis-theme`)
 - Toggles `.dark` class on `<html>`
 
+### PreferencesContext
+
+Single source of truth for user-tunable preferences (theme, accent, density, locale, reduced motion). Drives the Preferences menu, the per-resource accent override, and the density / reduced-motion CSS hooks (`data-density`, `data-reduced-motion`).
+
+```typescript
+import { usePreferences, usePreferencesOptional } from '@/contexts/PreferencesContext'
+
+const { prefs, meta, update, reset, enabled } = usePreferences()
+
+prefs.theme           // 'dark' | 'light' | 'system'
+prefs.accent          // accent token name (e.g. 'martis', 'teal')
+prefs.density         // 'comfortable' | 'dense'
+prefs.locale          // 'en' | 'pt_PT' | 'pt_BR' | …
+prefs.reducedMotion   // boolean
+
+await update({ theme: 'light' })       // patch one or many keys
+await update((prev) => ({ accent: prev.accent === 'teal' ? 'martis' : 'teal' }))
+await reset()                           // back to package defaults
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `prefs` | `Preferences` | Currently-applied preference set. |
+| `meta` | `PreferencesMeta \| null` | Allowed values per axis (`themes`, `accents`, `densities`, `locales`, `presetsAvailable`) plus `source` (`default`, `user`, or `preset`). `null` while loading. |
+| `update(patch)` | `(Partial<Preferences> \| (prev) => Partial<Preferences>) => Promise<void>` | Optimistic patch; persists to the server when authenticated and to `localStorage` when not. |
+| `reset()` | `() => Promise<void>` | Clears the user override and falls back to the active preset (or package defaults). |
+| `enabled` | `boolean` | `false` when the preferences subsystem is disabled via config; UI surfaces should hide their controls. |
+
+`usePreferencesOptional()` is the safe variant that returns `null` outside the provider — use it from surfaces that may render before the shell mounts.
+
 ### ToastContext
 
 Centralized notification system.
@@ -439,7 +471,7 @@ addToast('success', 'Changes saved')
 Unified API client with CSRF handling, JSON and multipart support.
 
 ```typescript
-import { api } from '@martis/martis/lib/api'
+import { api } from '@/lib/api'
 
 const data = await api.get<Post[]>('/api/posts')
 await api.post('/api/posts', { title: 'New Post' })
@@ -458,7 +490,7 @@ await api.upload('POST', '/api/posts', formValues) // handles file uploads
 Reads configuration from `window.MartisConfig` (set by Laravel's Blade template).
 
 ```typescript
-import { config, API_BASE_URL, BASE_PATH } from '@martis/martis/lib/config'
+import { config, API_BASE_URL, BASE_PATH } from '@/lib/config'
 
 config.theme?.default      // 'dark' or 'light'
 config.layout?.preset      // 'sidebar', 'topnav', 'minimal'
@@ -523,7 +555,7 @@ Resolves post-CRUD navigation targets:
 The Martis Event Bus enables decoupled communication between components without prop drilling. It is available via the `useEventBus` hook.
 
 ```tsx
-import { useEventBus } from '@martis/martis/lib/useEventBus'
+import { useEventBus } from '@/lib/useEventBus'
 
 const { on, emit } = useEventBus()
 
@@ -558,7 +590,7 @@ Custom events can use any string key. Martis prefixes built-in events with `mart
 Wraps a form with the package-wide unsaved-changes guard. Reads the resource's `confirmUnsavedChanges` flag from the schema, snapshots initial values, and intercepts navigation when the form is dirty.
 
 ```tsx
-import { useUnsavedChangesGuard } from '@martis/martis/lib/useUnsavedChangesGuard'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
 function MyForm({ schema, initialValues }) {
   const [values, setValues] = useState(initialValues)
@@ -598,7 +630,7 @@ The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<
 Centralised error state management for forms and page components.
 
 ```tsx
-import { useError } from '@martis/martis/lib/useError'
+import { useError } from '@/lib/useError'
 
 const { errors, setError, clearErrors, hasErrors } = useError()
 
@@ -619,6 +651,74 @@ try {
 | `setError(err)` | `(ApiError \| Error \| string) => void` | Parse and set errors from a caught exception |
 | `clearErrors()` | `() => void` | Reset all error state |
 | `hasErrors` | `boolean` | Whether any error is currently set |
+
+---
+
+## useOverrideProps Hook
+
+React context primitive that carries the live `OverrideProps` payload (the `schema`, `record`, `recordId`, `params`, navigation callbacks, etc.) every drawer or page override receives. Wrap children with the provider and any deeply-nested component reads the same payload without prop-drilling.
+
+```tsx
+import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
+
+export function MyDrawerCreate(props: OverrideProps) {
+  return (
+    <OverridePropsProvider value={props}>
+      <MyHeader />
+      <MyForm />
+    </OverridePropsProvider>
+  )
+}
+
+function MyHeader() {
+  const { schema, onClose } = useOverrideProps()       // throws outside provider
+  return <h2>{schema.singularLabel}</h2>
+}
+
+function MyOptionalConsumer() {
+  const ctx = useOverridePropsOptional()               // returns null outside provider
+  if (!ctx) return null
+  return <span>{ctx.recordId}</span>
+}
+```
+
+Opt-in. Overrides that prefer manual prop passing don't need to wrap.
+
+## usePageTitle Hook
+
+Sets `document.title` for the currently-mounted page and restores the previous title on unmount, so stacked drawers and modals do not leave stale segments after they close.
+
+```tsx
+import { usePageTitle } from '@/hooks/usePageTitle'
+
+function MyCustomPage({ resource }) {
+  usePageTitle(resource.label)            // → "Clients · Brand"
+  // usePageTitle(null)                    // → translated default ("Brand — Admin Control")
+  return <div>…</div>
+}
+```
+
+| Argument | Effect |
+|---|---|
+| `string` | Renders `"{segment} · {brand}"`. |
+| `null` / `undefined` / `""` | Falls back to the localized default (`navigation.page_title_default`). |
+
+Brand resolves from `config.brand`; the translation namespace is `navigation`.
+
+## useIsMobile Hook
+
+Reactive viewport-width hook. Returns `true` when `window.innerWidth <= breakpoint` (default `768`) and re-renders on every resize. Used by the topbar to switch the search input between bar and icon modes; consumers can reuse it from any override that needs a JS-side mobile gate without re-implementing the matchMedia listener.
+
+```tsx
+import { useIsMobile } from '@/hooks/useIsMobile'
+
+const isMobile = useIsMobile()           // default 768px
+const isNarrow = useIsMobile(540)        // custom breakpoint
+
+return isMobile ? <CompactToolbar /> : <FullToolbar />
+```
+
+Prefer CSS media queries when the layout swap is purely visual; reach for this hook when the difference is structural (different React tree, different data fetch, etc.).
 
 ---
 
@@ -704,7 +804,7 @@ The built-in loading indicator used across all resource pages, the profile page,
 **Usage:**
 
 ```tsx
-import { MartisLoader } from '@martis/martis/components/Loader'
+import { MartisLoader } from '@/components/Loader'
 
 // Simple spinner
 <MartisLoader loading={isLoading} />
@@ -720,7 +820,7 @@ import { MartisLoader } from '@martis/martis/components/Loader'
 **Custom loader component:** Replace the built-in loader entirely via the component registry:
 
 ```typescript
-import { componentRegistry } from '@martis/martis/lib/componentRegistry'
+import { componentRegistry } from '@/lib/componentRegistry'
 componentRegistry.register('loader', MyCustomLoader)
 ```
 

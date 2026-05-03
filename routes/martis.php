@@ -23,6 +23,7 @@ use Martis\Http\Controllers\MorphToManyController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\NotificationController;
 use Martis\Http\Controllers\PreferencesController;
+use Martis\Http\Controllers\MagicLinkController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
@@ -94,8 +95,15 @@ Route::middleware(config('martis.middleware', ['web']))
         })->name('favicon');
 
         // API auth — public (exempt from CSRF via playground bootstrap/app.php)
+        // Two throttles compose: per-IP (generic) and per-email (named limiter
+        // registered in MartisServiceProvider::registerRateLimiters()). The
+        // per-email layer catches credential-stuffing distributed across IPs
+        // that the generic per-IP throttle alone cannot stop.
         Route::post('/api/auth/login', [AuthController::class, 'login'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'throttle:martis-login',
+            ])
             ->name('api.auth.login');
         Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
@@ -113,6 +121,19 @@ Route::middleware(config('martis.middleware', ['web']))
         Route::post('/api/auth/password/reset', [AuthController::class, 'resetPassword'])
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('api.auth.password.reset');
+
+        // Magic-link (passwordless) sign-in. Routes are always
+        // registered; the controller checks `auth.magic_link.enabled`
+        // and 404s when off (same pattern as register / forgot).
+        Route::post('/api/auth/magic-link/request', [MagicLinkController::class, 'request'])
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'throttle:martis-login',
+            ])
+            ->name('api.auth.magic-link.request');
+        Route::get('/api/auth/magic-link/consume', [MagicLinkController::class, 'consume'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('api.auth.magic-link.consume');
 
         // Email verification surfaces — always-registered. The
         // controller checks `auth.email_verification.enabled` and
@@ -142,8 +163,15 @@ Route::middleware(config('martis.middleware', ['web']))
             ? 'throttle:'.config('martis.throttle.max_attempts', 120).','.config('martis.throttle.decay_minutes', 1)
             : [];
 
-        // Protected routes — require martis.auth middleware
-        Route::middleware(config('martis.auth_middleware', ['martis.auth']))
+        // Protected routes — require martis.auth middleware. The
+        // `martis.impersonation.duration` middleware sits inside the
+        // auth group so it can read the impersonation session bag —
+        // it auto-stops impersonation that has run past the configured
+        // `max_duration_minutes` (default disabled).
+        Route::middleware([
+            ...config('martis.auth_middleware', ['martis.auth']),
+            'martis.impersonation.duration',
+        ])
             ->group(function () use ($throttle) {
                 // ── 2FA challenge — auth only, NO martis.2fa (this is how you complete 2FA) ──
                 Route::prefix('api')
@@ -172,6 +200,7 @@ Route::middleware(config('martis.middleware', ['web']))
                             ->middleware($throttle)
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('navigation');
+                                Route::get('/navigation/badges', [NavigationController::class, 'badges'])->name('navigation.badges');
 
                                 // Meta endpoints — reference data for admin
                                 // dropdowns. v1.8.0.
@@ -271,6 +300,16 @@ Route::middleware(config('martis.middleware', ['web']))
                                     Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
                                     Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
                                     Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+
+                                    // Browser sessions — backed by the Laravel
+                                    // database session driver. The service
+                                    // short-circuits to supported=false when
+                                    // the driver does not store sessions.
+                                    Route::get('/profile/sessions', [ProfileController::class, 'sessions'])->name('profile.sessions.index');
+                                    Route::delete('/profile/sessions/others', [ProfileController::class, 'destroyOtherSessions'])->name('profile.sessions.destroy.others');
+                                    Route::delete('/profile/sessions/{id}', [ProfileController::class, 'destroySession'])
+                                        ->where('id', '[A-Za-z0-9]+')
+                                        ->name('profile.sessions.destroy');
                                 }
 
                                 // Resource CRUD

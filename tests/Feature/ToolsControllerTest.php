@@ -232,3 +232,47 @@ it('Tool::publishes() registers paths under the standard ServiceProvider buckets
 
     $reset();
 });
+
+class RoutesTool extends Tool
+{
+    public function __construct(public string $routesPath)
+    {
+        parent::__construct(name: 'Routes Tool', uriKey: 'routes-tool');
+    }
+
+    public function boot(): void
+    {
+        $this->loadRoutes($this->routesPath, middleware: ['web']);
+    }
+}
+
+it('Tool::loadRoutes() registers a routes file under the standard prefix and middleware', function () {
+    $tmp = tempnam(sys_get_temp_dir(), 'martis_tool_routes_');
+    file_put_contents(
+        $tmp,
+        "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n\nRoute::get('/ping', fn () => 'pong')->name('martis.tool.routes-tool.ping');\n",
+    );
+
+    Martis::tools([new RoutesTool($tmp)]);
+    Martis::getFacadeRoot()?->bootTools();
+
+    // Locate by URI — the named lookup table is sometimes lazy in test
+    // bootstraps; iterating the registered routes is unambiguous.
+    $route = collect(app('router')->getRoutes()->getRoutes())
+        ->first(fn ($r) => $r->uri() === 'martis/api/tools/routes-tool/ping');
+
+    expect($route)->not->toBeNull()
+        ->and($route->getName())->toBe('martis.tool.routes-tool.ping')
+        ->and($route->gatherMiddleware())->toContain('web');
+
+    @unlink($tmp);
+});
+
+it('Tool::loadRoutes() silently skips missing files', function () {
+    Martis::tools([new RoutesTool('/nonexistent/path/'.uniqid())]);
+
+    // Must not throw.
+    Martis::getFacadeRoot()?->bootTools();
+
+    expect(true)->toBeTrue();
+});

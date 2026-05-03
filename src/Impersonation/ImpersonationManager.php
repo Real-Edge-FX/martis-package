@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace Martis\Impersonation;
 
+use Carbon\Carbon;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Session\Session;
+use Illuminate\Support\Facades\Event;
+use Martis\Contracts\NotImpersonable;
+use Martis\Impersonation\Events\ImpersonationStarted;
+use Martis\Impersonation\Events\ImpersonationStopped;
 use RuntimeException;
 
 /**
@@ -66,6 +71,14 @@ class ImpersonationManager
             throw new RuntimeException('Cannot impersonate yourself.');
         }
 
+        // Per-target opt-out (v1.8.8). Models that implement
+        // `NotImpersonable` are off-limits — system accounts, API users,
+        // super-admins, etc. The check runs before the session is
+        // mutated so a denied attempt has no side-effect.
+        if ($target instanceof NotImpersonable) {
+            throw new RuntimeException('This user cannot be impersonated.');
+        }
+
         $this->session()->put($this->sessionKey(), [
             'original' => $operator->getAuthIdentifier(),
             'target' => $target->getAuthIdentifier(),
@@ -73,6 +86,8 @@ class ImpersonationManager
         ]);
 
         $this->auth->guard($guard)->login($target);
+
+        Event::dispatch(new ImpersonationStarted($operator, $target));
     }
 
     /**
@@ -107,7 +122,44 @@ class ImpersonationManager
             return;
         }
 
+        $previousTarget = $this->auth->guard($guard)->user();
+
         $this->auth->guard($guard)->login($original);
+
+        if ($previousTarget !== null) {
+            Event::dispatch(new ImpersonationStopped($original, $previousTarget));
+        }
+    }
+
+    /**
+     * True when the current impersonation session has exceeded the
+     * configured `max_duration_minutes`. Used by the request-level
+     * middleware to auto-stop expired sessions.
+     */
+    public function isExpired(): bool
+    {
+        if (! $this->isActive()) {
+            return false;
+        }
+
+        $max = (int) config('martis.impersonation.max_duration_minutes', 0);
+        if ($max <= 0) {
+            return false;
+        }
+
+        $stashed = $this->session()->get($this->sessionKey());
+        $startedAt = is_array($stashed) ? ($stashed['started_at'] ?? null) : null;
+        if (! is_string($startedAt) || $startedAt === '') {
+            return false;
+        }
+
+        try {
+            $started = Carbon::parse($startedAt);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $started->addMinutes($max)->isPast();
     }
 
     /**

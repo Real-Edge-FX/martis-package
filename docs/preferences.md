@@ -1,8 +1,6 @@
 # User Preferences
 
-> Task 07.1 — ⭐ D2 User preferences persisted + shareable presets.
-
-Martis persists per-user UI preferences (theme, accent, density, locale, reduced-motion) so settings travel across devices and sessions. Exposed through a compact overlay in the topbar.
+> Per-user UI preferences (theme, accent, density, locale, reduced-motion) persisted server-side so they travel across devices and sessions. URL presets compose over the user row for shareable, link-driven layouts. Exposed through a compact overlay in the topbar.
 
 ---
 
@@ -12,10 +10,10 @@ Martis persists per-user UI preferences (theme, accent, density, locale, reduced
 |------------|--------|---------|
 | `theme` | `dark` · `light` · `system` | `dark` |
 | `accent` | `martis` · `blue` · `teal` · `violet` · `amber` · `custom` | `martis` |
-| `brandColor` | `#RGB` · `#RRGGBB` · `#RRGGBBAA` · `null` | `null` (⭐ D1, off by default) |
-| `density` | `comfortable` · `dense` | `comfortable` (⭐ D3) |
+| `brandColor` | `#RGB` · `#RGBA` · `#RRGGBB` · `#RRGGBBAA` · `null` | `null` (off by default — opt-in via `allowBrandColor`) |
+| `density` | `comfortable` · `dense` | `comfortable` |
 | `locale` | configured locale code | `en` |
-| `reducedMotion` | `true` · `false` | `false` (⭐ D3) |
+| `reducedMotion` | `true` · `false` | `false` |
 
 ---
 
@@ -144,7 +142,7 @@ The migration can safely remain applied — the resolver silently ignores the ta
         'pt_BR' => 'Português (BR)',
     ],
 
-    // ⭐ D1 — per-user custom brand hex (off by default).
+    // Per-user custom brand hex (off by default).
     // Turn on for multi-tenant apps where each tenant has its own colour.
     'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
 
@@ -169,17 +167,17 @@ The migration can safely remain applied — the resolver silently ignores the ta
 
 ---
 
-## Differentials
+## Highlights
 
-### ⭐ D1 — Arbitrary brand colour
+### Arbitrary brand colour
 
-When `allowBrandColor` is `true`, the preferences panel exposes a hex input. Any valid `#RGB`, `#RRGGBB`, or `#RRGGBBAA` value overrides the accent (`data-accent="custom"` on `<html>`, `--martis-accent` inline style). Ideal for multi-tenant branding.
+When `allowBrandColor` is `true`, the preferences panel exposes a hex input. Any valid `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA` value overrides the accent (`data-accent="custom"` on `<html>`, `--martis-accent` inline style). Ideal for multi-tenant branding.
 
-### ⭐ D2 — Persisted preferences + shareable presets
+### Persisted preferences + shareable presets
 
 User rows in `martis_user_preferences` replace session-only state. URL presets (`?preset=exec-comfort`) compose over the user row — recipients see the shared layout without overwriting their own defaults.
 
-### ⭐ D3 — Density per surface + reduced-motion enforcement
+### Density per surface + reduced-motion enforcement
 
 - `[data-density]` tokens (`--martis-row-h`, `--martis-nav-item-h`, …) propagate density through shell components. Any descendant can override via `data-density="dense"` on a local container.
 - `[data-reduced-motion="true"]` + `@media (prefers-reduced-motion: reduce)` clamp all `--martis-dur-*` tokens to `1ms`. Transitions still resolve — just instantly — so accessibility tools work without breaking focus-state logic.
@@ -201,4 +199,3 @@ php artisan migrate
 
 - [i18n.md](i18n.md) — adding new locales.
 - [theming.md](theming.md) — the 94-token design system that preferences drive.
-- [differentials.md](differentials.md) — full differentials list.

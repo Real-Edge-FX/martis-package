@@ -11,7 +11,7 @@ use Martis\Enums\UiDensity;
 use Martis\Preferences\PreferencesResolver;
 
 /**
- * Per-user UI preferences (Task 07.1 ⭐ D2).
+ * Per-user UI preferences.
  *
  * The model is intentionally small — all business logic lives in
  * {@see PreferencesResolver}. This class only

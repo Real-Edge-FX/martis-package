@@ -112,8 +112,13 @@ class ResourceController extends MartisController
             }
         }
 
-        // Apply indexQuery hook
+        // Apply declarative scopes (v1.8.8) BEFORE the imperative
+        // `indexQuery()` so the manual hook can override scope-applied
+        // predicates when the resource really needs to. Then the
+        // declarative static $with list.
+        $query = $resourceClass::applyScopes($request, $query);
         $query = $resourceClass::indexQuery($request, $query);
+        $query = $resourceClass::applyWith($query);
 
         // Apply filters
         $this->applyFilters($request, $query, $instance);
@@ -287,9 +292,15 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
+        $meta = ['message' => $resourceClass::createdMessage()];
+        $redirectTo = $res->redirectAfterCreate($model, $request);
+        if (is_string($redirectTo) && $redirectTo !== '') {
+            $meta['redirectTo'] = $redirectTo;
+        }
+
         return JsonResponse::make(
             $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
-            meta: ['message' => $resourceClass::createdMessage()],
+            meta: $meta,
         )->toResponse(201);
     }
 
@@ -366,9 +377,15 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
+        $meta = ['message' => $resourceClass::updatedMessage()];
+        $redirectTo = $res->redirectAfterUpdate($model, $request);
+        if (is_string($redirectTo) && $redirectTo !== '') {
+            $meta['redirectTo'] = $redirectTo;
+        }
+
         return JsonResponse::make(
             $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
-            meta: ['message' => $resourceClass::updatedMessage()],
+            meta: $meta,
         )->toResponse();
     }
 
@@ -985,6 +1002,17 @@ class ResourceController extends MartisController
             'icon' => $instance->icon(),
             'iconColor' => $instance->iconColor(),
             'titleAttribute' => $resourceClass::titleAttribute(),
+            // Per-resource accent override; null keeps the user's
+            // global preference. The frontend `useResourceAccent`
+            // hook reads this from the schema and writes data-accent
+            // on `<html>` while the resource is active.
+            'accentColor' => $resourceClass::accentColor(),
+            // Per-resource loader override. Merged on top of the global
+            // `config.loader` by the React shell before each render so a
+            // resource can have a bespoke spinner message / colour without
+            // touching the consumer's published config. Empty array means
+            // "no override; use global config".
+            'loaderConfig' => $resourceClass::loaderConfig(),
             'indexSearchable' => $resourceClass::indexSearchable(),
             'usesScout' => $resourceClass::usesScout(),
             'perPageOptions' => $resourceClass::perPageOptions(),
@@ -1247,6 +1275,10 @@ class ResourceController extends MartisController
             // No source context - apply only the target's generic relatableQuery
             $query = $relatedResourceClass::relatableQuery($request, $query);
         }
+
+        // The declarative static $with list applies to relatable lookups too,
+        // so the picker payload can include eager-loaded display fields.
+        $query = $relatedResourceClass::applyWith($query);
 
         // Apply search if provided
         $rawSearch = $request->query('search', '');
@@ -1736,7 +1768,19 @@ class ResourceController extends MartisController
         /** @var array<string, mixed> $data */
         $data = ['id' => $model->getKey()];
 
+        $request = request();
+
         foreach ($fields as $field) {
+            // v1.8.8 — per-model field authorization. When the field
+            // declared `canSeeForModel(...)` or `canSeeUsingPolicy(...)`,
+            // skip its serialization for rows where the closure returns
+            // false. Stripping at serialization time means the value
+            // never reaches the wire — the consumer cannot read it
+            // even if the React layer has stale state.
+            if (method_exists($field, 'isAuthorizedForModel') && ! $field->isAuthorizedForModel($request, $model)) {
+                continue;
+            }
+
             if ($forDisplay) {
                 /** @var FieldContract&Field $fieldInstance */
                 $fieldInstance = $field;
@@ -1748,7 +1792,7 @@ class ResourceController extends MartisController
 
         $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();
-        $data['_authorization'] = $resource->authorizationMetadata(request());
+        $data['_authorization'] = $resource->authorizationMetadata($request);
 
         // Include deleted_at for soft-delete resources so the frontend can show Archived badge
         if ($resource::softDeletes() && $model->getAttribute('deleted_at') !== null) {

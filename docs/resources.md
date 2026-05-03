@@ -64,7 +64,7 @@ public function fields(Request $request): array
 }
 ```
 
-See the [Fields Reference](fields.md) for all 31 available field types.
+See the [Fields Reference](fields.md) for all 50 available field types.
 
 ### detailSidebar() (⭐ Martis differential)
 
@@ -75,7 +75,7 @@ public function detailSidebar(Request $request): array
 {
     return [
         Status::make('status'),
-        BelongsTo::make('owner', 'owner', UserResource::class),
+        BelongsTo::make('owner', 'Owner', UserResource::class),
         DateTime::make('created_at'),
         DateTime::make('updated_at'),
     ];
@@ -83,6 +83,118 @@ public function detailSidebar(Request $request): array
 ```
 
 Fields rendered in the sidebar are automatically removed from the main `fieldsForDetail()` body so they only appear once. Below 1100px the layout collapses to a single column and the sidebar pushes to the bottom. Default: empty (single-column layout).
+
+### Context-specific field overrides
+
+Override any of `fieldsForIndex`, `fieldsForDetail`, `fieldsForCreate`, `fieldsForUpdate`, `fieldsForInlineCreate`, or `fieldsForPreview` to return a different field set per context. Each defaults to `fields($request)` so the override is opt-in.
+
+```php
+public function fieldsForIndex(Request $request): array
+{
+    return [
+        Id::make('id'),
+        Text::make('title')->sortable(),
+        // No body / cover_image columns on the listing.
+    ];
+}
+
+public function fieldsForDetail(Request $request): array
+{
+    return $this->fields($request); // include everything
+}
+```
+
+Useful when the listing wants only a few summary columns while the detail page renders the full editor.
+
+### filters() / lenses() / cards() / dashboards()
+
+Resources opt into the four extension subsystems by overriding these methods on the Resource class. Each returns a list of objects of the matching type.
+
+```php
+public function filters(Request $request): array  { return [new StatusFilter()]; }
+public function lenses(Request $request): array   { return [new HighValueClients()]; }
+public function cards(Request $request): array    { return [new RevenueTrend()]; }
+public static function dashboards(): array        { return [SalesDashboard::class]; }
+```
+
+See [Filters](filters.md), [Lenses](lenses.md), [Metrics](metrics.md), and [Dashboards](dashboards.md) for the per-class authoring guide.
+
+### Eager-load relations declaratively — `static $with`
+
+Add a `protected static array $with = [...]` to eager-load relations on every index, detail, and `relatableQuery` build. Saves the boilerplate `indexQuery` override that previously had to wrap `$query->with([...])`.
+
+```php
+class PostResource extends Resource
+{
+    /** @var list<string> */
+    protected static array $with = ['author', 'tags', 'comments.user'];
+}
+```
+
+The relations are loaded both on the listing query (`indexQuery`) and on the relationship-picker query (`relatableQuery`). For surgical control on a specific surface, override `indexQuery()` directly — the explicit override wins.
+
+Source: `src/Resource.php::applyWith()`.
+
+### Per-record title — `title()`
+
+`titleAttribute()` declares which column to read; `title()` is the per-instance override that builds the actual label string. Default reads `static::titleAttribute()` from the model and falls back to `"{Singular} #{id}"` when no attribute is set.
+
+```php
+public function title(): string
+{
+    if ($this->model === null) return parent::title();
+
+    return $this->model->name.' ('.$this->model->code.')';
+}
+```
+
+Used in breadcrumbs, the relationship picker, and the global search palette. Override when a single attribute is not enough.
+
+### Search bar configuration
+
+| Method | Default | Effect |
+|---|---|---|
+| `indexSearchable(): bool` | `true` | Whether the search input renders on the resource index. Return `false` to hide it (search-by-URL still works for resources that need it). |
+| `searchPlaceholder(): ?string` | `null` | Placeholder text shown inside the search input. Returns `null` to fall back to `martis::messages.search_placeholder`. |
+
+```php
+public static function indexSearchable(): bool       { return false; } // hide the bar
+public static function searchPlaceholder(): ?string  { return 'Search by SKU or barcode…'; }
+```
+
+### Sidebar count badges — `showMenuCount()` / `menuCount()`
+
+Render a small numeric badge next to the resource name in the sidebar. Useful for queues, inboxes, "needs review" lists.
+
+```php
+public static function showMenuCount(): bool { return true; }
+
+public static function menuCount(Request $request): ?int
+{
+    return static::newModel()->newQuery()->where('status', 'pending')->count();
+}
+```
+
+Returning `null` from `menuCount()` hides the badge for that user. Counts are formatted by the frontend with the `formatItemCount()` helper (compact `K` / `M` notation above the configured threshold).
+
+### Place a resource under "System" — `belongsToSystemSection()`
+
+Returns `true` to dock the resource under the sidebar's "System" group rather than the user-defined sections. Used internally by `ActionEventResource`. Override on consumer-side resources that should sit alongside the package's system tools.
+
+```php
+public function belongsToSystemSection(): bool { return true; }
+```
+
+### Custom search ordering — `searchOrderBy()`
+
+The global search applies `LIKE %term%` (or Scout) and returns the first N matches. Override `searchOrderBy()` to apply a custom `ORDER BY` to the search hits — for example, surface recently-active records first.
+
+```php
+public function searchOrderBy(Builder $query, string $term): Builder
+{
+    return $query->orderByDesc('updated_at');
+}
+```
 
 ### `$stickyView` (⭐ Martis differential)
 
@@ -459,7 +571,7 @@ Email::make('email')->required()->unique(['users', 'email'], 'This email is alre
 Password::make('password')->required()->rules(['min:8']),
 ```
 
-See the [Fields Reference](fields.md) for all validation methods available on fields.
+See the [Fields Reference](fields.md) for all 50 field types and validation methods.
 
 ### errorDisplay()
 
@@ -497,11 +609,38 @@ Translations live in `actions.php`:
 | `save_and_view_list` | Save & view list |
 | `reset_filters` | Reset filters |
 
+### Custom post-save destination — `redirectAfterCreate()` / `redirectAfterUpdate()`
+
+When the operator clicks the **primary** submit button (`Create {Resource}` or `Save changes`), the SPA navigates to the new record's detail page by default. Override these hooks to send the user somewhere else for that primary path:
+
+```php
+public function redirectAfterCreate(Model $model, Request $request): ?string
+{
+    // Land on the column the new card joined.
+    return "/resources/boards/{$model->board_id}";
+}
+
+public function redirectAfterUpdate(Model $model, Request $request): ?string
+{
+    // Stay on the parent resource when this row was edited from a panel.
+    if ($request->input('viaResource')) {
+        $via = $request->input('viaResource');
+        $viaId = $request->input('viaResourceId');
+        return "/resources/{$via}/{$viaId}";
+    }
+    return null; // fall through to default
+}
+```
+
+Return `null` (the default) to keep the standard behaviour. The two extra save variants — "Create & add another" / "Create & view list" / "Save & continue editing" / "Save & view list" — always win because they encode an explicit user intent. The hook is only consulted for the primary submit button.
+
+The string travels back to the SPA in the create/update response under `meta.redirectTo`.
+
 ## Index toolbar resets
 
 The index toolbar surfaces two reset affordances:
 
-- **Reset filters** — clears only the active filters and resets to page 1. Sort, search, pagination size, and the trashed-toggle are preserved. Visible whenever any filter is active. Phase 5 of Task 09.
+- **Reset filters** — clears only the active filters and resets to page 1. Sort, search, pagination size, and the trashed-toggle are preserved. Visible whenever any filter is active.
 - **Reset view** — the bigger hammer that clears filters + search + sort + per-page + trashed-toggle and forgets the [sticky view](sticky_views.md) for this resource. Visible whenever any of those drift away from the resource's defaults.
 
 Both buttons coexist on the toolbar — they target different aggressiveness levels so users can pick the right one for the moment.

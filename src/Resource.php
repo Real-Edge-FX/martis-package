@@ -196,6 +196,23 @@ abstract class Resource implements ResourceContract
     // -------------------------------------------------------------------------
 
     /**
+     * Eager-load relations on every index, detail, and relatableQuery build.
+     *
+     * Mirrors the Laravel `$with` convention but at the Resource layer:
+     * declare it once and Martis applies it on the listing query, the
+     * relationship-picker query, and any `findModel()` lookup. Saves the
+     * `indexQuery` / `relatableQuery` boilerplate that previously had to
+     * wrap `$query->with([...])` for every Resource that needed eager
+     * loading.
+     *
+     * Override `indexQuery()` directly when one surface needs a different
+     * relation set — the explicit override wins.
+     *
+     * @var list<string>
+     */
+    protected static array $with = [];
+
+    /**
      * Build a query for the resource index listing.
      *
      * Override this method to add tenant scoping, ownership filtering, or any
@@ -207,6 +224,64 @@ abstract class Resource implements ResourceContract
      */
     public static function indexQuery(Request $request, Builder $query): Builder
     {
+        return $query;
+    }
+
+    /**
+     * Declarative query scopes applied to every list-side query before
+     * `indexQuery()` runs. v1.8.8.
+     *
+     * Return an associative `[label => Closure]` map; each closure
+     * receives the `Builder` (and the `Request` if it declares the
+     * second parameter) and returns the (possibly mutated) builder.
+     *
+     * Common multi-tenant pattern:
+     *
+     *     public static function scopes(Request $request): array
+     *     {
+     *         return [
+     *             'tenant'  => fn (Builder $q) => $q->where('tenant_id', $request->user()->tenant_id),
+     *             'visible' => fn (Builder $q) => $q->where('archived', false),
+     *         ];
+     *     }
+     *
+     * The label is purely informational (used by future debug overlays
+     * and logging). The order is iteration order — array keys define a
+     * stable apply order across reloads.
+     *
+     * Default `[]` keeps the resource untouched. Use `indexQuery()` for
+     * one-off mutations that don't fit the declarative shape (joins,
+     * raw SQL, conditional ordering); use `scopes()` for invariants
+     * that should compose across every list endpoint.
+     *
+     * @return array<string, \Closure>
+     */
+    public static function scopes(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Apply every closure returned by `scopes()` to the given query
+     * in declaration order. Called by the controller before
+     * `indexQuery()` so the manual hook can override scope-applied
+     * predicates when really needed.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function applyScopes(Request $request, Builder $query): Builder
+    {
+        foreach (static::scopes($request) as $closure) {
+            if (! is_callable($closure)) {
+                continue;
+            }
+            $result = $closure($query, $request);
+            if ($result instanceof Builder) {
+                $query = $result;
+            }
+        }
+
         return $query;
     }
 
@@ -223,6 +298,25 @@ abstract class Resource implements ResourceContract
      */
     public static function relatableQuery(Request $request, Builder $query): Builder
     {
+        return $query;
+    }
+
+    /**
+     * Apply the declarative `static $with` eager-load list onto a query.
+     *
+     * Called by every entry point that builds a model query (index, detail,
+     * relatable selectors). Empty by default; overrides on consumer Resources
+     * fill `static::$with` with the relations they always want hydrated.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function applyWith(Builder $query): Builder
+    {
+        if (static::$with !== []) {
+            $query->with(static::$with);
+        }
+
         return $query;
     }
 
@@ -323,7 +417,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Schema foundation — task 1
+    // Schema foundation
     // -------------------------------------------------------------------------
 
     /** {@inheritdoc} */
@@ -351,7 +445,7 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
-    // Sticky Views (v0.8 — Task 15)
+    // Sticky Views
     // -------------------------------------------------------------------------
 
     /**
@@ -863,6 +957,28 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
+    /**
+     * Per-resource overrides for the loader (`MartisLoader`) on this resource's pages.
+     *
+     * Return a partial array that is merged on top of `config('martis.loader')`
+     * before the schema payload is shipped to the frontend. Use it to give a
+     * heavy resource a custom message ("Calibrating audit log…"), a brand
+     * spinner colour different from the global accent, or a per-resource
+     * `disableOn` toggle without touching global config.
+     *
+     * Recognised keys mirror `config/martis.php` `loader`:
+     * `message`, `icon`, `logo`, `spinnerColor`, `overlayOpacity`,
+     * `overlayColor`, `disabled`, `disableOn` (table | search | detail | components).
+     *
+     * Default: `[]` — no override; fall through to global config.
+     *
+     * @return array<string, mixed>
+     */
+    public static function loaderConfig(): array
+    {
+        return [];
+    }
+
     /** {@inheritdoc} */
     public static function tableShowGridlines(): bool
     {
@@ -981,6 +1097,10 @@ abstract class Resource implements ResourceContract
     public static function menuCount(Request $request): ?int
     {
         $query = static::newModel()->newQuery();
+
+        // v1.8.8 — apply declarative scopes before the imperative hook
+        // so the count badge agrees with the index-page row count.
+        $query = static::applyScopes($request, $query);
 
         /** @var Builder<Model> $scoped */
         $scoped = static::indexQuery($request, $query);
@@ -1116,7 +1236,42 @@ abstract class Resource implements ResourceContract
             'softDeletes' => static::softDeletes() && static::canViewTrashed(),
             'group' => $this->group(),
             'icon' => $this->icon(),
+            'accentColor' => static::accentColor(),
         ];
+    }
+
+    /**
+     * Optional per-resource accent override. The frontend sets this as
+     * `data-accent` on `<html>` when navigating to the resource and
+     * restores the user's global preference on unmount, so a resource
+     * can carry its own brand colour without polluting the rest of the
+     * panel.
+     *
+     * Two value shapes are accepted:
+     *
+     *   - A built-in accent name (`'martis'`, `'blue'`, `'teal'`,
+     *     `'violet'`, `'amber'`) — the matching `[data-accent]` rules
+     *     in the bundled theme already define five token overrides.
+     *   - A hex string (`'#DC143C'`) — the frontend assigns it to the
+     *     `--martis-accent` custom property as an inline style on
+     *     `<html>`, which wins over the `data-accent` selector. Use
+     *     this when none of the built-ins match your brand.
+     *
+     * Default `null` keeps the user's global accent.
+     *
+     * Example:
+     *
+     *     class PaymentResource extends Resource
+     *     {
+     *         public static function accentColor(): ?string
+     *         {
+     *             return 'teal';
+     *         }
+     *     }
+     */
+    public static function accentColor(): ?string
+    {
+        return null;
     }
 
     // -------------------------------------------------------------------------
@@ -1135,6 +1290,46 @@ abstract class Resource implements ResourceContract
         $msg = __('martis::messages.validation_failed');
 
         return is_string($msg) ? $msg : 'The given data was invalid.';
+    }
+
+    /**
+     * Optional override for the post-create destination URL.
+     *
+     * Returns the URL the SPA should navigate to after a successful create.
+     * Returning `null` (the default) keeps the save-variant behaviour: the
+     * primary "Create {Resource}" button lands on the new record's detail
+     * page, "Create & view list" jumps to the index, "Create & add another"
+     * stays on the create page. Override this hook when the post-save flow
+     * should land somewhere outside the standard three options.
+     *
+     * The string is shipped to the frontend in the create response under
+     * `meta.redirectTo`. The SPA only consults it when the operator clicked
+     * the primary submit; "view list" and "add another" still win because
+     * they encode an explicit user intent.
+     */
+    public function redirectAfterCreate(Model $model, Request $request): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Optional override for the post-update destination URL.
+     *
+     * Returns the URL the SPA should navigate to after a successful update.
+     * Returning `null` (the default) keeps the save-variant behaviour: the
+     * primary "Save changes" button lands on the record's detail page,
+     * "Save & view list" jumps to the index, "Save & continue editing"
+     * stays on the edit page. Override this hook when the post-save flow
+     * should land somewhere outside the standard three options.
+     *
+     * The string is shipped to the frontend in the update response under
+     * `meta.redirectTo`. The SPA only consults it when the operator clicked
+     * the primary submit; "view list" and "continue editing" still win
+     * because they encode an explicit user intent.
+     */
+    public function redirectAfterUpdate(Model $model, Request $request): ?string
+    {
+        return null;
     }
 
     /** {@inheritdoc} */
@@ -1259,6 +1454,14 @@ abstract class Resource implements ResourceContract
             return ['enabled' => false, 'view' => false, 'edit' => false, 'delete' => false];
         }
 
+        // Per-action global kill-switches (`config('martis.index.default_row_actions.view|edit|delete')`).
+        // Each defaults to true. Resource-level `defaultRowActions()` can
+        // subtract further but never force a globally-disabled action back
+        // on — the global flag wins via AND.
+        $globalView = (bool) config('martis.index.default_row_actions.view', true);
+        $globalEdit = (bool) config('martis.index.default_row_actions.edit', true);
+        $globalDelete = (bool) config('martis.index.default_row_actions.delete', true);
+
         $resourceOverride = $this->defaultRowActions($request);
 
         if ($resourceOverride === false) {
@@ -1268,13 +1471,18 @@ abstract class Resource implements ResourceContract
         if (is_array($resourceOverride)) {
             return [
                 'enabled' => true,
-                'view' => in_array(DefaultRowAction::View, $resourceOverride, true),
-                'edit' => in_array(DefaultRowAction::Edit, $resourceOverride, true),
-                'delete' => in_array(DefaultRowAction::Delete, $resourceOverride, true),
+                'view' => $globalView && in_array(DefaultRowAction::View, $resourceOverride, true),
+                'edit' => $globalEdit && in_array(DefaultRowAction::Edit, $resourceOverride, true),
+                'delete' => $globalDelete && in_array(DefaultRowAction::Delete, $resourceOverride, true),
             ];
         }
 
-        return ['enabled' => true, 'view' => true, 'edit' => true, 'delete' => true];
+        return [
+            'enabled' => true,
+            'view' => $globalView,
+            'edit' => $globalEdit,
+            'delete' => $globalDelete,
+        ];
     }
 
     // -------------------------------------------------------------------------
@@ -1447,6 +1655,84 @@ abstract class Resource implements ResourceContract
     public function searchSubtitle(Model $model): ?string
     {
         return null;
+    }
+
+    /**
+     * Image / avatar URL rendered to the left of the title in the
+     * Global Search palette. Returning `null` (the default) keeps the
+     * row icon-only, matching the legacy behaviour. Override per-
+     * resource to surface gravatars, file thumbnails, or any other
+     * visual cue that helps users disambiguate matches.
+     *
+     * Example:
+     *
+     *     public function searchImage(Model $model): ?string
+     *     {
+     *         return $model->avatar_url ?? gravatar($model->email);
+     *     }
+     */
+    public function searchImage(Model $model): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Per-resource result transformer. The default builds the bundled
+     * shape — id / title / subtitle / image / url. Override to add
+     * arbitrary fields (e.g. status tags, badges) the host frontend
+     * is prepared to render.
+     *
+     * Example:
+     *
+     *     public function globalSearchResult(Model $model): array
+     *     {
+     *         return [
+     *             'id'       => $model->getKey(),
+     *             'title'    => $this->title(),
+     *             'subtitle' => $this->searchSubtitle($model),
+     *             'image'    => $this->searchImage($model),
+     *             'url'      => '/resources/'.static::uriKey().'/'.$model->getKey(),
+     *             // Custom — pair with a frontend override that reads it.
+     *             'status'   => $model->status,
+     *         ];
+     *     }
+     *
+     * @return array<string, mixed>
+     */
+    public function globalSearchResult(Model $model): array
+    {
+        return [
+            'id' => $model->getKey(),
+            'title' => $this->title(),
+            'subtitle' => $this->searchSubtitle($model),
+            'image' => $this->searchImage($model),
+            'url' => '/resources/'.static::uriKey().'/'.$model->getKey(),
+        ];
+    }
+
+    /**
+     * Dot-notation relation paths searched alongside this resource's own
+     * fields when Global Search runs a LIKE pipeline. Each entry is a
+     * `relation.attribute` pair. The resolver joins (or falls back to a
+     * `whereHas`) so the parent resource shows up when a related model's
+     * attribute matches.
+     *
+     * Example — find an Order by its customer's name or email:
+     *
+     *     public static function searchableRelations(): array
+     *     {
+     *         return ['customer.name', 'customer.email'];
+     *     }
+     *
+     * Defaults to `[]` (own fields only). Scout-backed resources ignore
+     * this hook — Scout indexes whatever the model exposes via
+     * `toSearchableArray()`.
+     *
+     * @return list<string>
+     */
+    public static function searchableRelations(): array
+    {
+        return [];
     }
 
     /**
