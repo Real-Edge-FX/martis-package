@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.13] — 2026-05-03
+
+### Fixed
+
+- **Registration crashed with `Route [verification.verify] not defined` when the consumer's `User` model implemented `MustVerifyEmail`.** Laravel's bundled `VerifyEmail` notification builds its signed URL via `route('verification.verify', ...)`, but Martis registers the verification route under `martis.email.verify`. Registration would 500 before the verification email could be sent. Fixed by overriding `VerifyEmail::createUrlUsing()` from the service provider, mirroring the precedent set in v1.8.3 for `ResetPassword`. The override is gated on `martis.auth.email_verification.enabled` and probes the static `createUrlCallback` reflection slot so consumer-side callbacks are respected.
+- **`EmailVerifyNoticePage` rendered the literal string `{email}` instead of the user's address.** The `verify_sub` default value used i18next single-brace syntax, but the i18n instance is configured with the default `{{var}}` interpolation. The placeholder is now `{{email}}`, so the verify notice page reads "We sent a verification link to admin@example.com." correctly.
+
 ## [1.8.12] — 2026-05-03
 
 ### Fixed
