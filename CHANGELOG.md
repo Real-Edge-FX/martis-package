@@ -7,7 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.11] — 2026-05-03
+
+### Fixed
+
+- **Consumer translation overrides loaded on Laravel 11+.** The `TranslationsController` looked for published vendor overrides under `resource_path("lang/vendor/martis/<locale>/")` only, missing the new top-level `lang/` directory that ships with Laravel 11 and up. Every host on Laravel 11 / 12 / 13 was silently ignoring its `lang/vendor/martis/<locale>/` overrides — the API kept returning the package's bundled English defaults. Now probes `lang_path()` first, falls back to `resource_path()`, matching Laravel's own translator priority. Three call sites patched: layer-4 consumer override, host-app namespace lookup, validation message lookup.
+
+## [1.8.10] — 2026-05-03
+
+### Fixed
+
+- **Register page no longer prompts "Leave blank to keep current" under the Password input.** `PasswordField` defaulted its placeholder to the profile-edit hint whenever the consumer didn't pass one. On registration the field is `required:true` and an empty value is invalid, so the copy was actively misleading. Now: `required` → empty placeholder; optional edit flows keep the original copy.
+- **Spatie role/permission listeners register on Laravel 11.** Spatie renamed the events between v6 (`RoleAttached`) and v7 (`RoleAttachedEvent`); Laravel 11 forces v6.x, so the package was silently failing to wire the audit trail. The provider now probes both class names per event and registers a listener on whichever variant is installed. Test suite resolves the FQN via `class_exists()` so it covers both majors.
+
+### Changed
+
+- **CI hygiene.** Pint applied 21 auto-fixes accumulated during the v1.8.x cycle; PHPStan baseline regenerated to cover residual warnings; one real omission fixed (`Models\\CacheState::$casts` had no value-type annotation).
+- **Documentation.** `docs/authentication.md` documents the three mailer states when `MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true` (`MAIL_MAILER=log` in dev → link in `laravel.log`; configured + reachable → standard flow; configured but broken → registration 500s by design — fix the mailer).
+
+## [1.8.9] — 2026-05-03
+
+### Security
+
+- **Closed an email-verification bypass.** Hosts running with `MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true` on a standard Laravel users table (column `email_verified_at` present, but `App\\Models\\User` not declared as `implements MustVerifyEmail`) let registered users log in and reach every protected Martis route without ever verifying their email. The `martis.verified` middleware used `$user instanceof MustVerifyEmail` as the gate; the standard Laravel User model has the column from the default migration but doesn't ship the trait — opting in was easy to forget, and forgetting silently turned the flag into a no-op.
+
+### Fixed
+
+- **`EnsureEmailIsVerified` falls back to the `email_verified_at` attribute** when the User does not implement `MustVerifyEmail`. Column present + null → blocked. Column present + populated → allowed. Column missing → blocked (fail-safe). Standard Laravel installs are now gated correctly out of the box.
+- **`DefaultRegistersUsers` writes a clear warning to `laravel.log`** when the verification flag is on AND the User model does not implement `MustVerifyEmail`. Surfaces the misconfiguration on the first signup so the dev sees why the verification email never arrived.
+
+### Tests
+
+- Two new regression specs in `tests/Feature/EmailVerificationFeatureTest.php` lock the column-fallback path: unverified non-`MustVerifyEmail` user redirects to `/email/verify`; verified non-`MustVerifyEmail` user passes through.
+
+## [1.8.8] — 2026-05-03
+
 ### Added
+
+- **`/api/navigation/badges` lightweight endpoint.** Flat `{ uriKey: count }` map keyed by resource `uriKey`. Skips menu structure, icons, system section, host-app `mainMenu` resolver and per-section `MenuItem` rendering — only `menuCount()` calls run. 5–10× cheaper server-side than the full tree on a typical sidebar. Cache shares the `navigation` layer with a separate `badges:` prefix.
+- **`martis_cache_state` DB-backed operational metadata.** Per-layer version counter, `cleared_at` timestamp and runtime override flag now live in a dedicated table — survives `php artisan cache:clear`, `redis-cli FLUSHDB`, container restarts and LRU eviction. Cache entries themselves still live in `Cache::store()`. Transparent to consumers — same `MartisCache` API, same Artisan commands, same admin page. Migration: `php artisan vendor:publish --tag=martis-cache-state-migration && php artisan migrate`. `martis:install --force` already publishes it on fresh installs.
+- **`php artisan martis:list-env-vars`.** Auto-generates the env-var table inside `docs/configuration.md` from the live `config/martis.php`. 130 vars in this build. CI runs it during release-cut so the doc table never drifts.
+- **`Resource::accentColor()` page-scoped.** The accent override is now applied on a wrapper element inside the resource page (via `data-resource-accent`), not on `<html>`. Sidebar / topbar / sibling badges (the InvoiceResource "PRO" pill, etc.) keep the user's global accent. The active sidebar leaf still mirrors the resource accent so page header and selection agree.
+
+### Changed (BREAKING)
+
+- **`MARTIS_NAV_POLL_MS` / `martis.navigation.poll_interval` removed.** Replaced by `MARTIS_NAV_BADGES_POLL_MS` / `martis.navigation.badges_poll_interval` (default `300_000` ms = 5 min, up from 60 s). The full navigation tree is no longer auto-polled — only `/api/navigation/badges` is. Apps still setting the old env will see the value silently ignored; rename to migrate.
+
+### Changed
+
+- **Polling cadences rebalanced** (non-breaking — same env vars, bumped defaults):
+  - `MARTIS_NOTIFICATIONS_POLL_INTERVAL`: `60_000` → `90_000` ms.
+  - `MARTIS_IMPERSONATION_POLL_MS` (new env): default `120_000` ms (was hardcoded 30 s). Sessions change rarely, so 30 s was wasteful.
+
+### Fixed
+
+- **Sidebar active state — deepest-match-wins.** When a `MenuSection` or `MenuGroup`'s `path()` collided with a child leaf URL, all three NavLinks lit up active simultaneously. New `isGroupActive()` helper enforces "deepest match wins" — a group is only styled active when its path matches AND no descendant leaf would itself be active.
+- **Pre-login preferences survive into the authenticated session.** `readInitialPrefs()` now honours the `guest-modified` localStorage flag over a stale `source=user` SSR payload. Theme/locale chosen on `/login` no longer reverts after the redirect for users with an existing server preference row.
+- **Topbar narrow-mode no longer overlaps the bell into the search.** At ≤ 1024 px the absolute-centred search bar hides; a search icon mounted inside `.martis-tb-right` takes over (in flex flow alongside bell / preferences / user chip), so no element is absolute-positioned where it can collide with another. Cmd/Ctrl-K + the icon click still open the full command palette.
+- **`MartisNotification::message` is now optional** (was required despite the doc claim).
+- **`PreferencesResolver` accepts the four CSS hex forms** (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`).
+
+### Documentation audit (page by page, v1.8.8 cycle)
+
+- Full doc-audit pass across **configuration**, **cache**, **notifications**, **keyboard-shortcuts**, **preferences**, **differentials** (renamed **Highlights**), **api/overview**, **menus**, **impersonation**. Internal refs (D1/D2/D3, Task IDs) stripped. False Nova-parity claims removed. Every claim defensible against current `src/`.
+
+### Tests
+
+- 1887 backend Pest specs + 160 frontend Vitest specs, both green. New suites: `NavigationBadgesEndpointTest` (6 specs), `CacheStatePersistenceTest` (6 specs), `sidebar-active-state.test.ts` (9 specs), `use-resource-accent.test.tsx` (6 specs), `preferences-readinitialprefs.test.ts` (7 specs).
+
+### Added (also part of v1.8.8)
 
 - **Per-action global toggles for the default row actions column.** New `config('martis.index.default_row_actions.view')`, `.edit`, `.delete` keys (each defaults to `true`) plus matching env vars `MARTIS_DEFAULT_ROW_ACTION_VIEW`, `MARTIS_DEFAULT_ROW_ACTION_EDIT`, `MARTIS_DEFAULT_ROW_ACTION_DELETE`. Flipping a single one to `false` hides that icon across every resource without touching individual resource classes — useful for apps that want, for example, "no delete affordance ever". The global flag AND-composes with the per-resource `defaultRowActions()` override: a resource can subtract further but never force a globally-disabled action back on. The audit found that earlier doc drafts described these flags as if they existed; now they do.
 - **`Select::displayUsingLabels()` and `Select::displayUsingValues()`.** Brings API parity with `MultiSelect`. The flag defaults to `true` so existing `Select` payloads keep rendering labels on index and detail (long-standing frontend behaviour). Call `displayUsingValues()` when the raw stored value is meaningful enough to surface (ISO codes, slugs, identifiers). The flag travels through `extraAttributes()` as `displayLabels` and the React `SelectFieldDisplay` reads it; the absence of the flag in older payloads still resolves to label rendering, so consumer apps that ship with older asset bundles continue to work unchanged.
