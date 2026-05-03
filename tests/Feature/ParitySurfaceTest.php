@@ -25,12 +25,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 use Martis\Cache\MartisCache;
+use Martis\Contracts\NotImpersonable;
 use Martis\Contracts\ToolContract;
 use Martis\Facades\Martis;
 use Martis\Fields\Field;
 use Martis\Fields\Image;
 use Martis\Fields\Select;
 use Martis\Fields\Text;
+use Martis\Impersonation\Events\ImpersonationStarted;
+use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\Facades\Impersonation;
 use Martis\Impersonation\ImpersonationManager;
 use Martis\MartisManager;
@@ -402,15 +405,15 @@ it('ImpersonationManager exposes the documented public surface', function () {
 });
 
 it('NotImpersonable contract is a marker interface (no methods required)', function () {
-    expect(interface_exists(\Martis\Contracts\NotImpersonable::class))->toBeTrue();
-    $reflection = new ReflectionClass(\Martis\Contracts\NotImpersonable::class);
+    expect(interface_exists(NotImpersonable::class))->toBeTrue();
+    $reflection = new ReflectionClass(NotImpersonable::class);
     expect($reflection->getMethods())->toBeEmpty();
 });
 
 it('ImpersonationStarted + ImpersonationStopped events expose operator + target properties', function () {
     foreach ([
-        \Martis\Impersonation\Events\ImpersonationStarted::class,
-        \Martis\Impersonation\Events\ImpersonationStopped::class,
+        ImpersonationStarted::class,
+        ImpersonationStopped::class,
     ] as $event) {
         expect(class_exists($event))->toBeTrue();
         $reflection = new ReflectionClass($event);

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
@@ -88,7 +88,7 @@ it('audit denials listener writes a row when fed a denied GateEvaluated', functi
     $post = AuthzTestPost::create(['title' => 'admin', 'is_admin_only' => true]);
 
     $listener = new RecordAuthorizationDenial;
-    $listener->handle(new \Illuminate\Auth\Access\Events\GateEvaluated(
+    $listener->handle(new GateEvaluated(
         $user,
         'view-test-post',
         false,
@@ -110,7 +110,7 @@ it('audit denials listener skips when feature flag is off', function () {
     $user = AuthzTestUser::create(['email' => 'b@example.com']);
     $post = AuthzTestPost::create(['title' => 'admin', 'is_admin_only' => true]);
 
-    (new RecordAuthorizationDenial)->handle(new \Illuminate\Auth\Access\Events\GateEvaluated(
+    (new RecordAuthorizationDenial)->handle(new GateEvaluated(
         $user,
         'view-test-post',
         false,
@@ -126,7 +126,7 @@ it('audit denials listener skips allowed evaluations', function () {
     $user = AuthzTestUser::create(['email' => 'c@example.com']);
     $post = AuthzTestPost::create(['title' => 'public']);
 
-    (new RecordAuthorizationDenial)->handle(new \Illuminate\Auth\Access\Events\GateEvaluated(
+    (new RecordAuthorizationDenial)->handle(new GateEvaluated(
         $user,
         'view-test-post',
         true,
@@ -143,7 +143,7 @@ it('audit denials listener dedupes a repeat ability+model within one request', f
     $post = AuthzTestPost::create(['title' => 'admin', 'is_admin_only' => true]);
 
     $listener = new RecordAuthorizationDenial;
-    $event = new \Illuminate\Auth\Access\Events\GateEvaluated($user, 'view-test-post', false, [$post]);
+    $event = new GateEvaluated($user, 'view-test-post', false, [$post]);
 
     $listener->handle($event);
     $listener->handle($event);
@@ -170,7 +170,7 @@ it('request-scoped ability cache memoises Gate decisions when feature flag is on
     // event. The framework dispatch path is exercised by integration
     // / browser tests; here we lock the listener's contract: when fed
     // a deterministic event with a User, it caches the result.
-    $cache->handle(new \Illuminate\Auth\Access\Events\GateEvaluated(
+    $cache->handle(new GateEvaluated(
         $user,
         'view-test-post',
         true,

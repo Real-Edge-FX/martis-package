@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Martis\Contracts\ToolContract;
 use Martis\Dashboards\Dashboard;
 use Martis\Enums\MenuItemType;
+use Martis\Filters\Filter;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 
@@ -27,7 +28,7 @@ class MenuItem
     /** @var class-string<Lens>|null */
     protected ?string $lensClass = null;
 
-    /** @var class-string<\Martis\Filters\Filter>|null */
+    /** @var class-string<Filter>|null */
     protected ?string $filterClass = null;
 
     protected mixed $filterValue = null;
@@ -105,7 +106,7 @@ class MenuItem
      * or the Lens' `authorizedToSee()` denies the current user.
      *
      * @param  class-string<resource>  $resourceClass
-     * @param  class-string<Lens>      $lensClass
+     * @param  class-string<Lens>  $lensClass
      */
     public static function lens(string $resourceClass, string $lensClass): self
     {
@@ -138,7 +139,7 @@ class MenuItem
      * Pin the filter and value applied by a {@see static::filter()} item.
      * Has no effect on items built through any other factory.
      *
-     * @param  class-string<\Martis\Filters\Filter>  $filterClass
+     * @param  class-string<Filter>  $filterClass
      */
     public function applies(string $filterClass, mixed $value): self
     {
@@ -229,15 +230,13 @@ class MenuItem
         }
 
         $resolved = match (true) {
-            $this->tool !== null         => $this->resolveToolItem($request),
-            $this->dashboard !== null    => $this->resolveDashboardItem($request),
-            $this->lensClass !== null    => $this->resolveLensItem($request),
-            $this->filterClass !== null && $this->resourceClass !== null
-                                         => $this->resolveFilterItem($request),
+            $this->tool !== null => $this->resolveToolItem($request),
+            $this->dashboard !== null => $this->resolveDashboardItem($request),
+            $this->lensClass !== null => $this->resolveLensItem($request),
+            $this->filterClass !== null && $this->resourceClass !== null => $this->resolveFilterItem($request),
             $this->resourceClass !== null => $this->resolveResourceItem($request),
-            $this->label !== null && $this->url !== null
-                                         => $this->resolveLinkItem(),
-            default                      => null,
+            $this->label !== null && $this->url !== null => $this->resolveLinkItem(),
+            default => null,
         };
 
         if ($resolved === null) {

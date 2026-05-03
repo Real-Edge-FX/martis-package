@@ -175,7 +175,7 @@ class ListEnvVarsCommand extends Command
      * not balanced by a `(`. Tracks single/double quotes so a `)`
      * inside a string literal does not close the expression.
      *
-     * @return array{0: string, 1: int}  `[capturedString, nextCursor]`
+     * @return array{0: string, 1: int} `[capturedString, nextCursor]`
      */
     protected function captureBalancedExpression(string $source, int $start): array
     {

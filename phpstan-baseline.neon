@@ -1,6 +1,42 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Property Illuminate\\Auth\\Access\\Events\\GateEvaluated\:\:\$arguments \(array\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Auth/Listeners/RecordAuthorizationDenial.php
+
+		-
+			message: '#^Parameter \#1 \$greeting of method Illuminate\\Notifications\\Messages\\SimpleMessage\:\:greeting\(\) expects string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/MagicLinkNotification.php
+
+		-
+			message: '#^Parameter \#1 \$subject of method Illuminate\\Notifications\\Messages\\SimpleMessage\:\:subject\(\) expects string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/MagicLinkNotification.php
+
+		-
+			message: '#^Parameter \#1 \$text of method Illuminate\\Notifications\\Messages\\SimpleMessage\:\:action\(\) expects string, array\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/MagicLinkNotification.php
+
+		-
+			message: '#^Parameter \#3 \$arguments of method Martis\\Authorization\\RequestScopedAbilityCache\:\:makeKey\(\) expects array\<int, mixed\>, array\<int\|string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Authorization/RequestScopedAbilityCache.php
+
+		-
+			message: '#^Property Illuminate\\Auth\\Access\\Events\\GateEvaluated\:\:\$arguments \(array\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Authorization/RequestScopedAbilityCache.php
+
+		-
 			message: '#^Unsafe usage of new static\(\)\.$#'
 			identifier: new.static
 			count: 1
@@ -31,6 +67,18 @@ parameters:
 			path: src/Console/InstallCommand.php
 
 		-
+			message: '#^Parameter \#1 \$string of method Illuminate\\Console\\Command\:\:line\(\) expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Console/ListEnvVarsCommand.php
+
+		-
+			message: '#^Offset 1 on array\{0\: list\<string\>, 1\: list\<non\-empty\-string\>, 2\?\: list\<non\-empty\-string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: src/Console/ListOverridesCommand.php
+
+		-
 			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
 			identifier: cast.string
 			count: 1
@@ -47,6 +95,18 @@ parameters:
 			identifier: arrayValues.list
 			count: 1
 			path: src/Console/SsoMakeCommand.php
+
+		-
+			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Console/ThemeDiffCommand.php
+
+		-
+			message: '#^Offset 1 on array\{list\<string\>, list\<non\-falsy\-string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Console/ThemeDiffCommand.php
 
 		-
 			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
@@ -469,6 +529,18 @@ parameters:
 			path: src/Http/Controllers/LensController.php
 
 		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Auth\\Guard\:\:login\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Http/Controllers/MagicLinkController.php
+
+		-
+			message: '#^Cannot cast array\|string\|null to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: src/Http/Controllers/MagicLinkController.php
+
+		-
 			message: '#^Call to an undefined method Martis\\Contracts\\MetricContract\:\:resolve\(\)\.$#'
 			identifier: method.notFound
 			count: 2
@@ -769,10 +841,52 @@ parameters:
 			path: src/Menu/Menu.php
 
 		-
-			message: '#^Parameter \#2 \$items of static method Martis\\Menu\\MenuSection\:\:make\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuItem\>, array\{Martis\\Menu\\MenuItem\|string\} given\.$#'
+			message: '#^Parameter \#2 \$items of static method Martis\\Menu\\MenuSection\:\:make\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuGroup\|Martis\\Menu\\MenuItem\>, array\{Martis\\Menu\\MenuItem\|string\} given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Menu/Menu.php
+
+		-
+			message: '#^Method Martis\\Menu\\MenuGroup\:\:__construct\(\) has parameter \$items with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Menu/MenuGroup.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<Martis\\Menu\\MenuItem\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Menu/MenuGroup.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Menu/MenuGroup.php
+
+		-
+			message: '#^Parameter \#1 \$items of method Martis\\Menu\\MenuGroup\:\:normalizeItems\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuItem\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Menu/MenuGroup.php
+
+		-
+			message: '#^Parameter \#1 \$resourceClass of static method Martis\\Menu\\MenuItem\:\:resource\(\) expects class\-string\<Martis\\Resource\>, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Menu/MenuGroup.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Martis\\Filters\\Filter and ''uriKey'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Menu/MenuItem.php
+
+		-
+			message: '#^Class Martis\\Dashboards\\Dashboard constructor invoked with 0 parameters, 1\-2 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Menu/MenuItem.php
 
 		-
 			message: '#^Method Martis\\Menu\\MenuItem\:\:resourceClass\(\) should return class\-string\<Martis\\Resource\>\|null but returns string\|null\.$#'
@@ -787,7 +901,7 @@ parameters:
 			path: src/Menu/MenuSection.php
 
 		-
-			message: '#^Parameter \#1 \$array \(list\<Martis\\Menu\\MenuItem\>\) of array_values is already a list, call has no effect\.$#'
+			message: '#^Parameter \#1 \$array \(list\<Martis\\Menu\\MenuGroup\|Martis\\Menu\\MenuItem\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 1
 			path: src/Menu/MenuSection.php
@@ -799,7 +913,7 @@ parameters:
 			path: src/Menu/MenuSection.php
 
 		-
-			message: '#^Parameter \#1 \$items of method Martis\\Menu\\MenuSection\:\:normalizeItems\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuItem\>, array given\.$#'
+			message: '#^Parameter \#1 \$items of method Martis\\Menu\\MenuSection\:\:normalizeItems\(\) expects list\<class\-string\<Martis\\Resource\>\|Martis\\Menu\\MenuGroup\|Martis\\Menu\\MenuItem\>, array given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Menu/MenuSection.php
@@ -943,8 +1057,44 @@ parameters:
 			path: src/Preferences/PreferencesResolver.php
 
 		-
+			message: '#^Method Martis\\Profile\\BrowserSessionsService\:\:forUser\(\) should return array\{sessions\: list\<array\<string, mixed\>\>, supported\: bool, driver\: string\} but returns array\{sessions\: array\<int, array\{id\: string, ip_address\: string, user_agent\: string, last_active\: int, is_current\: bool\}\>, supported\: true, driver\: string\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Profile/BrowserSessionsService.php
+
+		-
+			message: '#^Call to function is_callable\(\) with Closure will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Resource.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\ConnectionInterface\:\:getQueryGrammar\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/SearchResolver.php
+
+		-
+			message: '#^Method Martis\\SearchResolver\:\:applyDatabaseSearch\(\) should return Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\> but returns Illuminate\\Database\\Query\\Builder\.$#'
+			identifier: return.type
+			count: 2
+			path: src/SearchResolver.php
+
+		-
+			message: '#^Offset ''quoted'' might not exist on array\{0\: non\-falsy\-string, field\: non\-falsy\-string, 1\: non\-falsy\-string, quoted\?\: string, 2\?\: string, bare\?\: non\-empty\-string, 3\?\: non\-empty\-string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: src/SearchResolver.php
+
+		-
 			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Query\\Builder\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
 			identifier: argument.type
+			count: 2
+			path: src/SearchResolver.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-empty\-list\<non\-falsy\-string\> and array\{\} will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: src/SearchResolver.php
 
@@ -1007,3 +1157,9 @@ parameters:
 			identifier: generics.notSubtype
 			count: 2
 			path: src/Sso/SsoManager.php
+
+		-
+			message: '#^Trait Martis\\Testing\\AssertsAuthorization is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Testing/AssertsAuthorization.php

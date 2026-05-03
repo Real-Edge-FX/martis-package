@@ -19,6 +19,7 @@ use Martis\Menu\MenuItem;
 use Martis\Menu\MenuSection;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Resources\ActionEventResource;
 
 class MenuFactoryModel extends Model
 {
@@ -315,7 +316,7 @@ it('suppresses System auto-injection when a resource is referenced in the custom
     app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu): Menu {
         return $menu->prepend(MenuSection::make('Audit', [
             MenuGroup::make('Activity', [
-                MenuItem::resource(\Martis\Resources\ActionEventResource::class),
+                MenuItem::resource(ActionEventResource::class),
             ]),
         ]));
     });

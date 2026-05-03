@@ -7,6 +7,7 @@ namespace Martis\Auth\Listeners;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martis\Models\ActionEvent;
@@ -113,7 +114,7 @@ class RecordRoleChange
         }
 
         $model = property_exists($event, 'model') ? $event->model : null;
-        if (! $model instanceof \Illuminate\Database\Eloquent\Model) {
+        if (! $model instanceof Model) {
             return;
         }
 
@@ -128,7 +129,7 @@ class RecordRoleChange
         }
 
         $table = (string) config('session.table', 'sessions');
-        if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return;
         }
 
@@ -136,7 +137,7 @@ class RecordRoleChange
         // session belongs to the OPERATOR (admin), not the demoted
         // user, so a wholesale delete is safe — the operator stays
         // signed in on their own session row.
-        \Illuminate\Support\Facades\DB::table($table)
+        DB::table($table)
             ->where('user_id', $userId)
             ->delete();
     }
@@ -166,7 +167,6 @@ class RecordRoleChange
     }
 
     /**
-     * @param  mixed  $rolesOrIds
      * @return list<int|string>
      */
     protected function normaliseIds(mixed $rolesOrIds): array

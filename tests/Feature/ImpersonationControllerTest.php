@@ -3,9 +3,13 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Martis\Contracts\NotImpersonable;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Impersonation\Events\ImpersonationStarted;
+use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\Facades\Impersonation;
 
 class ImpersonationTestUser extends Authenticatable
@@ -17,7 +21,7 @@ class ImpersonationTestUser extends Authenticatable
     public $timestamps = false;
 }
 
-class ProtectedImpersonationTestUser extends Authenticatable implements \Martis\Contracts\NotImpersonable
+class ProtectedImpersonationTestUser extends Authenticatable implements NotImpersonable
 {
     protected $table = 'impersonation_test_users';
 
@@ -214,20 +218,20 @@ it('the duration middleware auto-stops an expired impersonation session', functi
 
 it('start dispatches ImpersonationStarted and stop dispatches ImpersonationStopped', function () {
     Gate::define('martis-impersonate', fn () => true);
-    \Illuminate\Support\Facades\Event::fake([
-        \Martis\Impersonation\Events\ImpersonationStarted::class,
-        \Martis\Impersonation\Events\ImpersonationStopped::class,
+    Event::fake([
+        ImpersonationStarted::class,
+        ImpersonationStopped::class,
     ]);
 
     $this->actingAs($this->operator, 'web')
         ->postJson('/martis/api/impersonation/start/'.$this->target->id)
         ->assertStatus(200);
 
-    \Illuminate\Support\Facades\Event::assertDispatched(\Martis\Impersonation\Events\ImpersonationStarted::class);
+    Event::assertDispatched(ImpersonationStarted::class);
 
     $this->postJson('/martis/api/impersonation/stop')->assertStatus(200);
 
-    \Illuminate\Support\Facades\Event::assertDispatched(\Martis\Impersonation\Events\ImpersonationStopped::class);
+    Event::assertDispatched(ImpersonationStopped::class);
 });
 
 it('status reflects the original + target users while impersonation runs', function () {

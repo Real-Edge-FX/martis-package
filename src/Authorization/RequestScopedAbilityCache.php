@@ -49,8 +49,8 @@ class RequestScopedAbilityCache
     protected array $cache = [];
 
     /**
-     * @return bool|null  `null` when the call was not cacheable;
-     *                    otherwise the cached or fresh result.
+     * @return bool|null `null` when the call was not cacheable;
+     *                   otherwise the cached or fresh result.
      */
     public function lookup(int|string|null $userId, string $ability, mixed ...$arguments): ?bool
     {

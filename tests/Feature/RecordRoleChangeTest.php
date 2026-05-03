@@ -7,10 +7,60 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\Listeners\RecordRoleChange;
 use Martis\Models\ActionEvent;
-use Spatie\Permission\Events\PermissionAttachedEvent;
-use Spatie\Permission\Events\PermissionDetachedEvent;
-use Spatie\Permission\Events\RoleAttachedEvent;
-use Spatie\Permission\Events\RoleDetachedEvent;
+
+// Spatie renamed the role/permission events between majors:
+//   - v6.x:  Spatie\Permission\Events\RoleAttached       (no suffix)
+//   - v7.x:  Spatie\Permission\Events\RoleAttachedEvent  (with suffix)
+//
+// Resolve the FQN once per name and alias it to the un-suffixed
+// short name so the test bodies can stay version-agnostic. Skip the
+// suite when neither variant exists (no Spatie installed at all).
+$spatieEventMap = [
+    'RoleAttachedEvent' => [
+        'Spatie\\Permission\\Events\\RoleAttachedEvent',
+        'Spatie\\Permission\\Events\\RoleAttached',
+    ],
+    'RoleDetachedEvent' => [
+        'Spatie\\Permission\\Events\\RoleDetachedEvent',
+        'Spatie\\Permission\\Events\\RoleDetached',
+    ],
+    'PermissionAttachedEvent' => [
+        'Spatie\\Permission\\Events\\PermissionAttachedEvent',
+        'Spatie\\Permission\\Events\\PermissionAttached',
+    ],
+    'PermissionDetachedEvent' => [
+        'Spatie\\Permission\\Events\\PermissionDetachedEvent',
+        'Spatie\\Permission\\Events\\PermissionDetached',
+    ],
+];
+
+// Map of short alias → resolved FQN of the installed Spatie event.
+// The "resolves to" pair is the canonical class string used by both
+// `new RoleAttachedEvent(...)` (PHP resolves through the alias) and
+// `Event::getListeners($SPATIE_EVENT_FQN[...])` (we register the
+// listener against the FQN, not the alias, so the test must look
+// up listeners by FQN too).
+$SPATIE_EVENT_FQN = [];
+
+foreach ($spatieEventMap as $alias => $candidates) {
+    $resolved = null;
+    foreach ($candidates as $candidate) {
+        if (class_exists($candidate)) {
+            $resolved = $candidate;
+            break;
+        }
+    }
+    if ($resolved === null) {
+        test('role-change listener tests skipped — Spatie permission events not installed')
+            ->skip('Install spatie/laravel-permission to run the role-change suite.');
+
+        return;
+    }
+    $SPATIE_EVENT_FQN[$alias] = $resolved;
+    if (! class_exists($alias, false)) {
+        class_alias($resolved, $alias);
+    }
+}
 
 class RoleChangeTestUser extends Model
 {
@@ -136,11 +186,13 @@ it('skips the audit write when the rolesOrIds payload is empty', function () {
     expect(ActionEvent::query()->count())->toBe(0);
 });
 
-it('registers itself against the four Spatie event classes when registerRoleAuditListeners runs', function () {
+it('registers itself against the four Spatie event classes when registerRoleAuditListeners runs', function () use ($SPATIE_EVENT_FQN) {
     // The provider's boot() ran during the test app setup. Confirm
     // the four events have at least one listener whose class is the
-    // Martis recorder.
-    foreach ([RoleAttachedEvent::class, RoleDetachedEvent::class, PermissionAttachedEvent::class, PermissionDetachedEvent::class] as $event) {
+    // Martis recorder. Use the resolved FQN (not the short alias)
+    // because Event::getListeners keys by the actual class name the
+    // provider registered against.
+    foreach ($SPATIE_EVENT_FQN as $event) {
         $listeners = Event::getListeners($event);
         $hasRecorder = collect($listeners)->contains(function ($listener) {
             // Internally Laravel wraps the [Class, method] tuple in

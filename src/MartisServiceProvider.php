@@ -3,6 +3,7 @@
 namespace Martis;
 
 use Dedoc\Scramble\Scramble;
+use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -10,6 +11,7 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -17,6 +19,10 @@ use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
 use Martis\Auth\DefaultSendsPasswordResetLinks;
+use Martis\Auth\Listeners\RecordAuthorizationDenial;
+use Martis\Auth\Listeners\RecordImpersonation;
+use Martis\Auth\Listeners\RecordRoleChange;
+use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
@@ -37,6 +43,7 @@ use Martis\Console\ListOverridesCommand;
 use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ProgressMakeCommand;
+use Martis\Console\PublishAssetsCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\RolesScaffoldCommand;
 use Martis\Console\SsoMakeCommand;
@@ -47,7 +54,6 @@ use Martis\Console\ToolMakeCommand;
 use Martis\Console\TrendMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\ValueMakeCommand;
-use Martis\Console\PublishAssetsCommand;
 use Martis\Console\VendorPublishCommand;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
@@ -57,13 +63,20 @@ use Martis\Discovery\ResourceDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Facades\Martis;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
+use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Impersonation\Events\ImpersonationStarted;
+use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\ImpersonationManager;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
+use Spatie\Permission\Events\PermissionAttachedEvent;
+use Spatie\Permission\Events\PermissionDetachedEvent;
+use Spatie\Permission\Events\RoleAttachedEvent;
+use Spatie\Permission\Events\RoleDetachedEvent;
 
 class MartisServiceProvider extends ServiceProvider
 {
@@ -365,7 +378,7 @@ class MartisServiceProvider extends ServiceProvider
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);
         $router->aliasMiddleware(
             'martis.impersonation.duration',
-            \Martis\Http\Middleware\EnforceImpersonationDuration::class,
+            EnforceImpersonationDuration::class,
         );
     }
 
@@ -487,50 +500,68 @@ class MartisServiceProvider extends ServiceProvider
     {
         // v1.8.8 — impersonation audit is package-internal (no third-party
         // dependency), register unconditionally.
-        \Illuminate\Support\Facades\Event::listen(
-            \Martis\Impersonation\Events\ImpersonationStarted::class,
-            [\Martis\Auth\Listeners\RecordImpersonation::class, 'handleStarted'],
+        Event::listen(
+            ImpersonationStarted::class,
+            [RecordImpersonation::class, 'handleStarted'],
         );
-        \Illuminate\Support\Facades\Event::listen(
-            \Martis\Impersonation\Events\ImpersonationStopped::class,
-            [\Martis\Auth\Listeners\RecordImpersonation::class, 'handleStopped'],
+        Event::listen(
+            ImpersonationStopped::class,
+            [RecordImpersonation::class, 'handleStopped'],
         );
 
         // v1.8.8 — Gate denial audit. The listener carries per-request
         // dedup state, so register it as a request-scoped singleton so
         // the same instance handles every event in one request lifecycle.
-        $this->app->scoped(\Martis\Auth\Listeners\RecordAuthorizationDenial::class);
-        \Illuminate\Support\Facades\Event::listen(
-            \Illuminate\Auth\Access\Events\GateEvaluated::class,
-            [\Martis\Auth\Listeners\RecordAuthorizationDenial::class, 'handle'],
+        $this->app->scoped(RecordAuthorizationDenial::class);
+        Event::listen(
+            GateEvaluated::class,
+            [RecordAuthorizationDenial::class, 'handle'],
         );
 
         // v1.8.8 — Per-request Gate cache. Same scoped registration so
         // the cache state lives only for the current request lifecycle.
-        $this->app->scoped(\Martis\Authorization\RequestScopedAbilityCache::class);
-        \Illuminate\Support\Facades\Event::listen(
-            \Illuminate\Auth\Access\Events\GateEvaluated::class,
-            [\Martis\Authorization\RequestScopedAbilityCache::class, 'handle'],
+        $this->app->scoped(RequestScopedAbilityCache::class);
+        Event::listen(
+            GateEvaluated::class,
+            [RequestScopedAbilityCache::class, 'handle'],
         );
 
-        // Spatie listeners only register when the package is installed —
-        // the events themselves do not exist otherwise.
-        if (! class_exists(\Spatie\Permission\Events\RoleAttachedEvent::class)) {
-            return;
-        }
-
-        $events = [
-            \Spatie\Permission\Events\RoleAttachedEvent::class => 'handleRoleAttached',
-            \Spatie\Permission\Events\RoleDetachedEvent::class => 'handleRoleDetached',
-            \Spatie\Permission\Events\PermissionAttachedEvent::class => 'handlePermissionAttached',
-            \Spatie\Permission\Events\PermissionDetachedEvent::class => 'handlePermissionDetached',
+        // Spatie listeners only register when the package is installed.
+        // The class names diverged across major versions:
+        //   - spatie/laravel-permission v6.x: `RoleAttached`, `RoleDetached`,
+        //     `PermissionAttached`, `PermissionDetached` (no `Event` suffix).
+        //   - v7.x: same names with the `Event` suffix.
+        // Probe both so the listener wires regardless of the major the
+        // host has resolved (Laravel 11 forces 6.x; Laravel 12+ pulls 7.x).
+        $candidates = [
+            'handleRoleAttached' => [
+                RoleAttachedEvent::class,
+                'Spatie\\Permission\\Events\\RoleAttached',
+            ],
+            'handleRoleDetached' => [
+                RoleDetachedEvent::class,
+                'Spatie\\Permission\\Events\\RoleDetached',
+            ],
+            'handlePermissionAttached' => [
+                PermissionAttachedEvent::class,
+                'Spatie\\Permission\\Events\\PermissionAttached',
+            ],
+            'handlePermissionDetached' => [
+                PermissionDetachedEvent::class,
+                'Spatie\\Permission\\Events\\PermissionDetached',
+            ],
         ];
 
-        foreach ($events as $event => $method) {
-            \Illuminate\Support\Facades\Event::listen($event, [
-                \Martis\Auth\Listeners\RecordRoleChange::class,
-                $method,
-            ]);
+        foreach ($candidates as $method => $eventClasses) {
+            foreach ($eventClasses as $eventClass) {
+                if (! class_exists($eventClass)) {
+                    continue;
+                }
+                Event::listen($eventClass, [
+                    RecordRoleChange::class,
+                    $method,
+                ]);
+            }
         }
     }
 }

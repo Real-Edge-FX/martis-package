@@ -238,7 +238,7 @@ it('without --with-categories, PermissionResource stays at the baseline shape', 
     $body = (string) file_get_contents(app_path('Martis/Resources/PermissionResource.php'));
 
     expect($body)->not->toContain('Category')
-        ->and($body)->not->toContain("public function filters")
+        ->and($body)->not->toContain('public function filters')
         ->and($body)->not->toContain('SelectFilter');
 });
 
