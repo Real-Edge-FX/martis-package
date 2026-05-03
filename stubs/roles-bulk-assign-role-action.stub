@@ -69,7 +69,10 @@ class BulkAssignRole extends Action
     public function fields(Request $request): array
     {
         return [
-            Select::make(__('Role'), 'role_id')
+            // Field convention is `Field::make($attribute, $label)`, so
+            // the role row's primary key (`role_id`) goes first and the
+            // human-readable label second.
+            Select::make('role_id', __('Role'))
                 ->options(function () {
                     $query = Role::query();
                     if (\Illuminate\Support\Facades\Schema::hasColumn('roles', 'provider_group_name')) {

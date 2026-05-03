@@ -47,6 +47,7 @@ Spatie itself is intentionally a soft dependency. If you do not run `martis:role
 | `--no-install` | Assume Spatie is already installed. Skips the `composer require` step. |
 | `--no-migrate` | Publish migrations but do not run them. Useful when other migrations are pending review. |
 | `--no-publish-spatie` | Skip publishing Spatie's config + migrations. Use after a manual publish. |
+| `--with-categories` | Adds a `category` column to `permissions` (via published migration) and surfaces it as a field + filter on the generated PermissionResource. Useful for apps with 50+ permissions. v1.8.8. |
 | `--force` | Overwrite resource / policy files that already exist. |
 
 The command is idempotent — re-running it without `--force` skips files already on disk.
@@ -270,6 +271,26 @@ Text::make('SSO roles', fn ($user) => $user->roles
     ->onlyOnDetail()
     ->help('Synced from your IdP — managed via group claims, not editable here.'),
 ```
+
+## Permission categories (`--with-categories`)
+
+Apps with 50+ permissions get unwieldy in a flat index list. Run the generator with `--with-categories` to opt in to a tiny addition: a nullable `category` column on `permissions` plus a Field + SelectFilter on the generated `PermissionResource`.
+
+```bash
+php artisan martis:roles --with-categories
+```
+
+Effects:
+
+- Publishes `database/migrations/{ts}_add_category_column_to_permissions_table.php` (re-runs are idempotent — only the first publish writes; subsequent runs skip with a yellow `already published` row).
+- Renders `Text::make('Category', 'category')` inside the PermissionResource fields list.
+- Renders a `filters()` method on the resource that surfaces every distinct category currently in use as a SelectFilter on the index page.
+
+The column is **metadata only** — Martis never reads `permissions.category` for authorization. The string is just a UX label so the operator can group `posts.publish`, `posts.draft`, `posts.unpublish` under "Posts" and the admin index renders them grouped.
+
+To add categories to existing scaffolds without re-running the generator: copy the field + filter snippets from `vendor/martis/martis/stubs/roles-permission-resource.stub` and re-run `php artisan migrate` after publishing the migration with `php artisan martis:stubs` (you can also write the migration by hand against your existing schema — the column is `string('category', 64)->nullable()->index()`).
+
+To remove the feature: drop the column from `permissions`, remove the field + filter from your `PermissionResource`. No code reads the column.
 
 ## Audit log of role / permission changes
 

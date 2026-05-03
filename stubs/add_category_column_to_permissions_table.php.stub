@@ -1,0 +1,43 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Adds a nullable `category` column to the Spatie `permissions` table
+ * so the Martis admin UI (when scaffolded with `martis:roles
+ * --with-categories`) can group permissions by feature area in the
+ * index — handy when an app has 50+ permissions and a flat list gets
+ * unwieldy.
+ *
+ * The column is purely metadata. No code reads it for authorization;
+ * it only drives an index column + filter on the generated
+ * PermissionResource. Removing the column is safe at any time — just
+ * drop the field from your PermissionResource first.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('permissions')) {
+            return; // Spatie not installed yet
+        }
+        if (Schema::hasColumn('permissions', 'category')) {
+            return; // already added
+        }
+
+        Schema::table('permissions', function (Blueprint $table) {
+            $table->string('category', 64)->nullable()->index()->after('guard_name');
+        });
+    }
+
+    public function down(): void
+    {
+        if (Schema::hasColumn('permissions', 'category')) {
+            Schema::table('permissions', function (Blueprint $table) {
+                $table->dropColumn('category');
+            });
+        }
+    }
+};
