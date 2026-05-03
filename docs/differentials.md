@@ -349,8 +349,8 @@ vertical footprint.
 Text::make('name', 'Full name')
     ->help('Must be unique')
     ->tooltip(
-        '<strong>Full legal name</strong>.<br>Examples:<br>'
-        .'• John Smith<br>• Ana Pereira<br><br>'
+        '<strong>Full legal name</strong>.<br />Examples:<br />'
+        .'• John Smith<br />• Ana Pereira<br /><br />'
         .'<em>Avoid abbreviations.</em>'
     );
 ```

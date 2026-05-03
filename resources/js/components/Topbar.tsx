@@ -190,10 +190,27 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
       )}
 
       <div className="martis-tb-right">
+        {/* Search icon inside the right cluster.
+            - searchMode==="icon" shows it always (config picks icon-only).
+            - searchMode==="bar" shows it only at narrow viewports (CSS-gated
+              via .martis-tb-search-icon--narrow), so the absolute-centered
+              bar can hide without leaving a stranded search trigger.
+            v1.8.8 \u2014 fixes the overlap where the absolute search collapsed
+            to a 36px icon and visually clipped under the bell. */}
         {searchMode === "icon" && (
           <button
             type="button"
             className="martis-tb-icon-btn"
+            onClick={() => setSearchOpen(true)}
+            aria-label={t("search_placeholder", "Search")}
+          >
+            <MagnifyingGlassIcon size={16} />
+          </button>
+        )}
+        {searchMode === "bar" && (
+          <button
+            type="button"
+            className="martis-tb-icon-btn martis-tb-search-icon--narrow"
             onClick={() => setSearchOpen(true)}
             aria-label={t("search_placeholder", "Search")}
           >

@@ -169,7 +169,7 @@ Text::make('first_name', 'First Name') // explicit label
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
 | `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). Accepts a closure for request-time resolution. |
-| `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br>`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
+| `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br />`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
 | `withLabel` | `withLabel(string\|Closure $value): static` | `$this` | Override the constructor label after construction. Accepts a closure for request-time resolution. |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
 | `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). |
@@ -558,7 +558,7 @@ to permanent inline text.
 
 ```php
 Text::make('name', 'Full name')
-    ->tooltip('<strong>Full legal name</strong>.<br>Examples:<br>• John Smith<br>• Ana Pereira<br><br><em>Avoid abbreviations.</em>');
+    ->tooltip('<strong>Full legal name</strong>.<br />Examples:<br />• John Smith<br />• Ana Pereira<br /><br /><em>Avoid abbreviations.</em>');
 ```
 
 | Signature | Notes |
@@ -576,7 +576,7 @@ ResourceUpdate) **and** on detail labels rendered inside Sections/TabGroups.
 The frontend opts in via the `data-pr-tooltip-html="true"` attribute, so only
 field tooltips render as HTML — every other `data-pr-tooltip` trigger in the
 app keeps the default plain-text escape. Allowed markup: any inline HTML
-(`<br>`, `<strong>`, `<em>`, `<ul>`/`<li>`, `<code>`, `<a>`). The author is
+(`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`, `<code>`, `<a>`). The author is
 responsible for producing safe markup; prefer localised strings from
 `__()` / i18n dictionaries to keep content reviewable.
 
@@ -589,7 +589,7 @@ responsible for producing safe markup; prefer localised strings from
 | Multi-line rich guidance (bullet lists, bold headings) | `tooltip()` |
 | Validation hint that depends on input state | `help()` |
 
-Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>Uniqueness rules</strong><br>...')`.
+Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>Uniqueness rules</strong><br />...')`.
 
 ### Frontend behaviour
 
@@ -597,7 +597,7 @@ Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>
 - Hover delay is **500 ms** — long enough that a cursor skimming the form
   doesn't flash tooltips, short enough that intentional hover feels responsive.
 - Tooltip content falls back to `white-space: nowrap` for plain text and
-  `white-space: normal` for HTML content so `<br>` and wrapping actually work.
+  `white-space: normal` for HTML content so `<br />` and wrapping actually work.
 - Position respects the trigger's `data-pr-position` (defaults to `top`).
 
 ### Why NOT a `Tooltip` field class

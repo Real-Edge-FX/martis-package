@@ -1835,24 +1835,30 @@ html[data-reduced-motion="true"] .mwc-shimmer {
   }
 }
 
-/* Narrow topbars (≤1024px) — collapse to icon-only. The bar still
-   anchors the command palette via `position: absolute` but no longer
-   overlaps the right-cluster icons (notification bell, preferences,
-   user chip). v1.8.8 raised the breakpoint from 900 → 1024 because
-   the right cluster outgrew the previous reserve once the user chip
-   started carrying long human names (e.g. "Read-only Viewer" stretches
-   the cluster to ~310 px on its own). The full-width input lives
-   inside the palette modal. */
+/* Default: the right-cluster narrow-mode search icon is hidden when
+   the absolute-centered bar is shown. The bar is the canonical search
+   trigger at ≥1025 px. Specificity bumped to win over the generic
+   `.martis-tb-icon-btn { display: flex }` declaration that ships
+   later in this file. */
+.martis-tb-icon-btn.martis-tb-search-icon--narrow {
+  display: none;
+}
+
+/* Narrow topbars (≤1024px) — hide the absolute-centered bar entirely
+   (it would otherwise collapse to a 36 px icon at the geometric centre
+   of the topbar, where the right cluster's bell visually overlaps it).
+   Show the right-cluster search icon instead. v1.8.8 — the previous
+   "shrink to 36 px in place" approach kept the icon at the page
+   centre even as the right cluster expanded into the same x-range,
+   producing a visible icon-on-icon collision at 900-1024 px. The full
+   command palette modal still mounts on cmd/ctrl-K + on the icon
+   click, so the search affordance is preserved. */
 @media (max-width: 1024px) {
   .martis-tb-search {
-    /* Centre the icon visually instead of letting the now-empty bar
-       look unbalanced. Width shrinks to a 36px touch target. */
-    width: 36px;
-    padding: 0;
-    justify-content: center;
-  }
-  .martis-tb-search-placeholder {
     display: none;
+  }
+  .martis-tb-icon-btn.martis-tb-search-icon--narrow {
+    display: inline-flex;
   }
 }
 .martis-tb-search:hover {
