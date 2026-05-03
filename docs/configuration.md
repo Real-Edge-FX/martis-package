@@ -1,12 +1,16 @@
 # Configuration
 
-Martis is configured through `config/martis.php`. Publish it with:
+Martis is configured through `config/martis.php`. Publish it with the bundled wrapper (or the standard `vendor:publish` if you prefer):
 
 ```bash
-php artisan vendor:publish --tag=martis-config
+php artisan martis:vendor-publish --config
+# equivalent to:
+# php artisan vendor:publish --tag=martis-config
 ```
 
-This page documents every configuration option.
+This page documents every configuration option grouped by subsystem. The full env-var index lives at the bottom — that table is **generated** by `php artisan martis:list-env-vars` and reflects the live config surface (currently **129 env vars**).
+
+> **Single source of truth.** Whenever you suspect an env var is documented incorrectly here, run `php artisan martis:list-env-vars` and compare. The command parses `config/martis.php` directly, so its output cannot drift. CI calls it during release-cut to refresh the table at the bottom of this page.
 
 ## Base Path
 
@@ -901,56 +905,426 @@ See [Loader](loader.md) for the surface-by-surface behaviour matrix.
 
 The package ships **no default Gate**. Define `martis-impersonate` in your `AuthServiceProvider` to gate which users can start an impersonation session. See [Impersonation](impersonation.md).
 
-## Environment Variables
+## Audit (v1.8.8)
 
-| Variable | Config Key | Default |
-|----------|-----------|---------|
-| `MARTIS_PATH` | `path` | `martis` |
-| `MARTIS_GUARD` | `guard` | `null` |
-| `MARTIS_BRAND_NAME` | `brand.name` | `Martis` |
-| `MARTIS_BRAND_LOGO` | `brand.logo` | `null` |
-| `MARTIS_BRAND_LOGO_DARK` | `brand.logo_dark` | `null` (v1.7.0) |
-| `MARTIS_BRAND_ICON` | `brand.icon` | `null` |
-| `MARTIS_BRAND_ICON_DARK` | `brand.icon_dark` | `null` (v1.7.0) |
-| `MARTIS_BRAND_LOGO_HEIGHT_MENU` | `brand.logo_height.menu` | `40` (v1.7.0) |
-| `MARTIS_BRAND_LOGO_HEIGHT_AUTH` | `brand.logo_height.auth` | `48` (v1.7.0) |
-| `MARTIS_BRAND_VERSION` | `brand.version` | `null` |
-| `MARTIS_BRAND_DOCS_URL` | `brand.docs_url` | `null` |
-| `MARTIS_FAVICON` | `brand.favicon` | `null` |
-| `MARTIS_PAGE_TITLE` | `brand.page_title` | `null` (uses translation) |
-| `MARTIS_FOOTER_TEXT` | `footer.text` | `null` (uses translation) |
-| `MARTIS_WELCOME_HEADING` | `welcome.heading` | `null` (uses translation) |
-| `MARTIS_WELCOME_DESCRIPTION` | `welcome.description` | `null` (uses translation) |
-| `MARTIS_DEFAULT_THEME` | `preferences.defaults.theme` | `dark` (v1.7.0) |
-| `MARTIS_DEFAULT_ACCENT` | `preferences.defaults.accent` | `martis` (v1.7.0) |
-| `MARTIS_DEFAULT_DENSITY` | `preferences.defaults.density` | `comfortable` (v1.7.0) |
-| `MARTIS_CUSTOM_ACCENTS` | `preferences.custom_accents` | `null` (v1.7.0) |
-| `MARTIS_LAYOUT` | `layout.preset` | `sidebar` |
-| `MARTIS_NAV_COUNTS` | `navigation.counts.enabled` | `true` |
-| `MARTIS_NAV_POLL_MS` | `navigation.poll_interval` | `60000` |
-| `MARTIS_LOCALE` | `locale` | `en` |
-| `MARTIS_THROTTLE_ENABLED` | `throttle.enabled` | `true` |
-| `MARTIS_THROTTLE_MAX` | `throttle.max_attempts` | `120` |
-| `MARTIS_THROTTLE_DECAY` | `throttle.decay_minutes` | `1` |
-| `MARTIS_THEME` | `theme.default` | `dark` |
-| `MARTIS_THEME_NAME` | `theme.name` | `null` |
-| `MARTIS_SEARCH_MODE` | `search.mode` | `bar` |
-| `MARTIS_TOAST_POSITION` | `toast.position` | `bottom-right` |
-| `MARTIS_DEFAULT_TRASHED_FILTER` | `index.default_trashed_filter` | `active` |
-| `MARTIS_INDEX_COLUMN_DEFAULTS` | `index.column_defaults` | `true` |
-| `MARTIS_STORAGE_DISK` | `storage.disk` | `public` |
-| `MARTIS_ATTACHMENT_MIMES` | `attachments.allowed_mimes` | (see config) |
-| `MARTIS_ATTACHMENT_MAX_SIZE` | `attachments.max_size` | `10240` |
-| `MARTIS_ACTION_EVENTS_ENABLED` | `action_events.enabled` | `true` |
-| `MARTIS_ACTION_EVENTS_RESOURCE` | `action_events.resource` | `true` |
-| `MARTIS_PROFILE_ENABLED` | `profile.enabled` | `true` |
-| `MARTIS_AVATAR_ENABLED` | `profile.avatar.enabled` | `true` |
-| `MARTIS_AVATAR_DISK` | `profile.avatar.disk` | `public` |
-| `MARTIS_AVATAR_PATH` | `profile.avatar.path` | `avatars` |
-| `MARTIS_AVATAR_MAX_SIZE` | `profile.avatar.max_size_kb` | `2048` |
-| `MARTIS_AVATAR_COLUMN` | `profile.avatar.column` | `profile_picture` |
-| `MARTIS_2FA_ENABLED` | `profile.two_factor.enabled` | `true` |
-| `MARTIS_2FA_RECOVERY_CODES` | `profile.two_factor.recovery_codes` | `8` |
+The package can record three categories of administrative events into the `martis_action_events` table.
+
+```php
+'audit' => [
+    'role_changes'   => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+    'impersonation'  => env('MARTIS_AUDIT_IMPERSONATION', true),
+    'authz_denials'  => env('MARTIS_AUDIT_AUTHZ_DENIALS', false),
+    'authz_denials_include_viewany' => env('MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY', false),
+],
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `role_changes` | `true` | Logs `role.attached` / `role.detached` rows whenever Spatie attaches or detaches a role. |
+| `impersonation` | `true` | Logs `impersonation.started` / `impersonation.stopped`. |
+| `authz_denials` | `false` | Records denied gate decisions as `authz.denied`. Off by default — turning it on can be noisy on a busy app. |
+| `authz_denials_include_viewany` | `false` | When `authz_denials` is on, also record `viewAny` denials. Off by default because index pages probe `viewAny` on every request. |
+
+The denial listener dedupes the same `(ability, model_class, model_id)` tuple within one request, so a sidebar that probes the same gate three times only emits one row.
+
+## Authorization tuning (v1.8.8)
+
+```php
+'authz' => [
+    'request_cache'              => env('MARTIS_AUTHZ_REQUEST_CACHE', false),
+    'revoke_sessions_on_demote'  => env('MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE', false),
+],
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `request_cache` | `false` | Memoises `(user, ability, model)` gate results for the current request. Wins when a single request evaluates the same gate from many surfaces (sidebar, schema authorization block, action visibility). Per-request only — never crosses request boundaries. Closure gates with non-Model arguments are skipped. |
+| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. |
+
+## Magic-link sign-in (v1.8.8)
+
+Passwordless login via signed email links.
+
+```php
+'auth' => [
+    'magic_link' => [
+        'enabled'       => env('MARTIS_AUTH_MAGIC_LINK_ENABLED', false),
+        'ttl_minutes'   => (int) env('MARTIS_AUTH_MAGIC_LINK_TTL', 15),
+        'auto_register' => env('MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER', false),
+    ],
+],
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `enabled` | `false` | Master switch. When on, the login page exposes a "Send magic link" form. |
+| `ttl_minutes` | `15` | Validity window of the signed link. |
+| `auto_register` | `false` | When on, an unknown email triggers a fresh user creation. Combine with a custom user model that handles defaults. |
+
+## Email verification
+
+```php
+'auth' => [
+    'email_verification' => [
+        'enabled'    => env('MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED', false),
+        'notice_url' => env('MARTIS_AUTH_EMAIL_VERIFICATION_NOTICE_URL'),
+    ],
+],
+```
+
+When enabled, the package wires Laravel's `verified` middleware into the panel guards and exposes the verification notice page. `notice_url` lets you redirect to a custom page if you don't want the bundled one.
+
+## Auth screen copy (v1.8.5)
+
+Every auth surface (login, register, password forgot, password reset) lets you override the title and subtitle without touching translations.
+
+| Variable | Default | Surface |
+|---|---|---|
+| `MARTIS_AUTH_LOGIN_TITLE` | translation | Login title |
+| `MARTIS_AUTH_LOGIN_SUBTITLE` | translation | Login subtitle (password mode) |
+| `MARTIS_AUTH_LOGIN_SUBTITLE_SSO` | translation | Login subtitle (SSO-only mode) |
+| `MARTIS_AUTH_REGISTER_TITLE` | translation | Register title |
+| `MARTIS_AUTH_REGISTER_SUBTITLE` | translation | Register subtitle |
+| `MARTIS_AUTH_FORGOT_TITLE` | translation | Forgot password title |
+| `MARTIS_AUTH_FORGOT_SUBTITLE` | translation | Forgot password subtitle |
+| `MARTIS_AUTH_RESET_TITLE` | translation | Reset password title |
+| `MARTIS_AUTH_RESET_SUBTITLE` | translation | Reset password subtitle |
+
+Translations remain the recommended path for multi-locale apps. Use these env vars only when you want a single hard-coded string for every locale (e.g. an internal tool).
+
+## Auth controls
+
+```php
+'auth' => [
+    'controls' => [
+        'theme'  => env('MARTIS_AUTH_CONTROL_THEME', true),
+        'locale' => env('MARTIS_AUTH_CONTROL_LOCALE', true),
+    ],
+],
+```
+
+Toggles the theme switcher and locale picker that float on the auth pages.
+
+## Password reset
+
+```php
+'auth' => [
+    'password_reset' => [
+        'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
+        'url'     => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
+    ],
+    'password_broker' => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
+],
+```
+
+Off by default. Enable to expose the "Forgot your password?" flow. `password_broker` matches the broker name in `config/auth.php`.
+
+## Registration
+
+```php
+'auth' => [
+    'registration' => [
+        'enabled'      => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
+        'url'          => env('MARTIS_AUTH_REGISTRATION_URL'),
+        'default_role' => env('MARTIS_AUTH_REGISTRATION_DEFAULT_ROLE'),
+    ],
+],
+```
+
+Off by default. When on, exposes the register link and form. `default_role` (Spatie role name) is attached to fresh users.
+
+## Login throttle
+
+```php
+'auth' => [
+    'login_throttle' => [
+        'attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
+        'minutes'  => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
+    ],
+],
+```
+
+Independent from the global panel throttle (`MARTIS_THROTTLE_*`). Defaults to 20 attempts per minute on the login endpoint.
+
+## Impersonation extras
+
+In addition to `MARTIS_IMPERSONATION_ENABLED` (covered above), the impersonation subsystem exposes:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MARTIS_IMPERSONATION_GUARD` | `web` | Auth guard the impersonation operates on. |
+| `MARTIS_IMPERSONATION_SESSION_KEY` | `martis.impersonation` | Session bag where the operator's id is stashed. |
+| `MARTIS_IMPERSONATION_MAX_DURATION` | `0` | Maximum session length in minutes. `0` disables the timeout. |
+
+## API docs (Scramble)
+
+```php
+'api_docs' => [
+    'enabled' => env('MARTIS_API_DOCS_ENABLED', false),
+    'path'    => env('MARTIS_API_DOCS_PATH', 'api-docs'),
+],
+```
+
+Off by default. When enabled, mounts the Scramble-generated OpenAPI 3.1 surface at `/{path}` (default `/api-docs`). See [API → Overview](api/overview.md) for the worker-restart caveat: PHP-FPM caches parsed env in process memory, so flipping the env requires restarting workers (or the PHP container) before the gate sees the new value.
+
+## Notifications
+
+```php
+'notifications' => [
+    'enabled'            => env('MARTIS_NOTIFICATIONS_ENABLED', true),
+    'max_dropdown'       => (int) env('MARTIS_NOTIFICATIONS_MAX_DROPDOWN', 10),
+    'poll_interval_ms'   => (int) env('MARTIS_NOTIFICATIONS_POLL_INTERVAL', 60000),
+],
+```
+
+Controls the in-app notifications dropdown in the topbar.
+
+## Cache (per-type tuning)
+
+Beyond the global `MARTIS_CACHE_ENABLED` master switch, every surface that caches has its own enabled flag and TTL (in minutes; `null` = forever).
+
+| Variable | Default | Surface |
+|---|---|---|
+| `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` | Dashboard renders |
+| `MARTIS_CACHE_DASHBOARDS` / `MARTIS_CACHE_DASHBOARDS_TTL` | `null` | Dashboard TTL |
+| `MARTIS_CACHE_METRICS_ENABLED` | `true` | Metric cards |
+| `MARTIS_CACHE_METRICS` / `MARTIS_CACHE_METRICS_TTL` | `5` | Metrics TTL |
+| `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` | Sidebar navigation tree |
+| `MARTIS_CACHE_NAVIGATION` / `MARTIS_CACHE_NAVIGATION_TTL` | `1` | Navigation TTL |
+| `MARTIS_CACHE_SCHEMA_ENABLED` | `true` | Resource schema payload |
+| `MARTIS_CACHE_SCHEMA` / `MARTIS_CACHE_SCHEMA_TTL` | `null` | Schema TTL |
+| `MARTIS_CACHE_ADMIN_UI` | `true` | Cache admin UI in the System sidebar group |
+
+The shorter names (`MARTIS_CACHE_DASHBOARDS`, etc.) and the explicit `_TTL` variants resolve to the same value — the `_TTL` form just makes intent unambiguous. Pick whichever reads better in your `.env`.
+
+## Drawer
+
+```php
+'drawer' => [
+    'expandable' => env('MARTIS_DRAWER_EXPANDABLE', true),
+],
+```
+
+When on, the drawer that opens record detail can be expanded into a full overlay. Set to `false` to lock the drawer to its standard width.
+
+## Sticky views
+
+```php
+'sticky_views' => [
+    'enabled' => env('MARTIS_STICKY_VIEWS_ENABLED', true),
+    'scope'   => env('MARTIS_STICKY_VIEWS_SCOPE', 'session'),
+],
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `enabled` | `true` | Remember the last index URL (filter, sort, page) per resource so users return to where they left off. |
+| `scope` | `session` | `session` keeps the memory until the session expires; `request` is a no-op for one navigation only. |
+
+## Loader
+
+```php
+'loader' => [
+    'disabled' => env('MARTIS_LOADER_DISABLED', false),
+],
+```
+
+Hides the global pre-hydration loader. Useful when you embed Martis inside an outer shell that already shows its own splash screen.
+
+## Search defaults
+
+```php
+'search' => [
+    'mode'          => env('MARTIS_SEARCH_MODE', 'bar'),
+    'mobile_mode'   => env('MARTIS_SEARCH_MOBILE_MODE', 'icon'),
+    'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
+    'min_query'     => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
+],
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `mode` | `bar` | Topbar search mode on desktop. `bar`, `icon`, or `disabled`. |
+| `mobile_mode` | `icon` | Equivalent for mobile viewports. |
+| `default_limit` | `5` | Result rows per resource in the omnisearch dropdown. |
+| `min_query` | `2` | Don't trigger a search until the query has this many characters. |
+
+## Default row actions
+
+```php
+'index' => [
+    'default_row_actions' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+    'default_row_action_view'   => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+    'default_row_action_edit'   => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+    'default_row_action_delete' => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
+    'row_click_opens_detail'    => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
+],
+```
+
+The View / Edit / Delete row actions appear by default on every Resource. Toggle individual ones globally, or disable the whole `default_row_actions` block and re-add per Resource via `actions()`. `row_click_opens_detail` controls whether clicking a row opens detail (or just selects the row).
+
+## Locales and i18n
+
+```php
+'locale_fallback_chain' => env('MARTIS_LOCALE_FALLBACK_CHAIN', 'en'),
+'app_locale_namespaces' => env('MARTIS_APP_LOCALE_NAMESPACES', ''),
+'rtl_locales'           => env('MARTIS_RTL_LOCALES', 'ar,fa,he,ur'),
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `locale_fallback_chain` | `en` | Comma-separated chain consulted when a translation is missing in the active locale. |
+| `app_locale_namespaces` | `''` | Comma-separated list of consumer translation namespaces published into Martis surfaces (so your app can override package strings). |
+| `rtl_locales` | `ar,fa,he,ur` | Locales rendered right-to-left. |
+
+## Dev tools (v1.8.8)
+
+```php
+'dev_tools' => env('MARTIS_DEV_TOOLS', in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
+```
+
+Master switch for the Component Inspector overlay (Cmd/Ctrl+Shift+I) and other in-page debugging surfaces. Defaults to ON in `local` and `testing`, OFF in `production`. Force ON in production with `MARTIS_DEV_TOOLS=true` for short-lived diagnostic windows.
+
+## Environment variables (auto-generated)
+
+The table below is generated by `php artisan martis:list-env-vars` from the live `config/martis.php` and reflects **129 env vars** in the current build. Run the command yourself to refresh it; CI runs it during release-cut. The command also takes `--json` for machine consumption.
+
+```bash
+php artisan martis:list-env-vars             # markdown table
+php artisan martis:list-env-vars --json      # JSON array
+```
+
+| Variable | Default |
+|----------|---------|
+| `MARTIS_2FA_ENABLED` | `true` |
+| `MARTIS_2FA_RECOVERY_CODES` | `8` |
+| `MARTIS_ACTION_EVENTS_ENABLED` | `true` |
+| `MARTIS_ACTION_EVENTS_RESOURCE` | `true` |
+| `MARTIS_ALLOW_BRAND_COLOR` | `false` |
+| `MARTIS_API_DOCS_ENABLED` | `false` |
+| `MARTIS_API_DOCS_PATH` | `'api-docs'` |
+| `MARTIS_APP_LOCALE_NAMESPACES` | `''` |
+| `MARTIS_ATTACHMENT_MAX_SIZE` | `10240` |
+| `MARTIS_ATTACHMENT_MIMES` | `'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3'` |
+| `MARTIS_AUDIT_AUTHZ_DENIALS` | `false` |
+| `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY` | `false` |
+| `MARTIS_AUDIT_IMPERSONATION` | `true` |
+| `MARTIS_AUDIT_ROLE_CHANGES` | `true` |
+| `MARTIS_AUTHZ_REQUEST_CACHE` | `false` |
+| `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE` | `false` |
+| `MARTIS_AUTH_CONTROL_LOCALE` | `true` |
+| `MARTIS_AUTH_CONTROL_THEME` | `true` |
+| `MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED` | `false` |
+| `MARTIS_AUTH_EMAIL_VERIFICATION_NOTICE_URL` | `(no default)` |
+| `MARTIS_AUTH_FORGOT_SUBTITLE` | `(no default)` |
+| `MARTIS_AUTH_FORGOT_TITLE` | `(no default)` |
+| `MARTIS_AUTH_LOGIN_SUBTITLE` | `(no default)` |
+| `MARTIS_AUTH_LOGIN_SUBTITLE_SSO` | `(no default)` |
+| `MARTIS_AUTH_LOGIN_TITLE` | `(no default)` |
+| `MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER` | `false` |
+| `MARTIS_AUTH_MAGIC_LINK_ENABLED` | `false` |
+| `MARTIS_AUTH_MAGIC_LINK_TTL` | `15` |
+| `MARTIS_AUTH_PASSWORD_BROKER` | `'users'` |
+| `MARTIS_AUTH_PASSWORD_RESET_ENABLED` | `false` |
+| `MARTIS_AUTH_PASSWORD_RESET_URL` | `(no default)` |
+| `MARTIS_AUTH_REGISTER_SUBTITLE` | `(no default)` |
+| `MARTIS_AUTH_REGISTER_TITLE` | `(no default)` |
+| `MARTIS_AUTH_REGISTRATION_DEFAULT_ROLE` | `(no default)` |
+| `MARTIS_AUTH_REGISTRATION_ENABLED` | `false` |
+| `MARTIS_AUTH_REGISTRATION_URL` | `(no default)` |
+| `MARTIS_AUTH_RESET_SUBTITLE` | `(no default)` |
+| `MARTIS_AUTH_RESET_TITLE` | `(no default)` |
+| `MARTIS_AVATAR_COLUMN` | `'profile_picture'` |
+| `MARTIS_AVATAR_DISK` | `'public'` |
+| `MARTIS_AVATAR_ENABLED` | `true` |
+| `MARTIS_AVATAR_MAX_SIZE` | `2048` |
+| `MARTIS_AVATAR_PATH` | `'avatars'` |
+| `MARTIS_BRAND_DOCS_URL` | `(no default)` |
+| `MARTIS_BRAND_ICON` | `(no default)` |
+| `MARTIS_BRAND_ICON_DARK` | `(no default)` |
+| `MARTIS_BRAND_LOGO` | `(no default)` |
+| `MARTIS_BRAND_LOGO_DARK` | `(no default)` |
+| `MARTIS_BRAND_LOGO_HEIGHT_AUTH` | `(no default)` |
+| `MARTIS_BRAND_LOGO_HEIGHT_MENU` | `(no default)` |
+| `MARTIS_BRAND_NAME` | `'Martis'` |
+| `MARTIS_BRAND_VERSION` | `(no default)` |
+| `MARTIS_CACHE_ADMIN_UI` | `true` |
+| `MARTIS_CACHE_DASHBOARDS` | `null` |
+| `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` |
+| `MARTIS_CACHE_DASHBOARDS_TTL` | `env('MARTIS_CACHE_DASHBOARDS', null)` |
+| `MARTIS_CACHE_ENABLED` | `true` |
+| `MARTIS_CACHE_METRICS` | `5` |
+| `MARTIS_CACHE_METRICS_ENABLED` | `true` |
+| `MARTIS_CACHE_METRICS_TTL` | `env('MARTIS_CACHE_METRICS', 5)` |
+| `MARTIS_CACHE_NAVIGATION` | `1` |
+| `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` |
+| `MARTIS_CACHE_NAVIGATION_TTL` | `env('MARTIS_CACHE_NAVIGATION', 1)` |
+| `MARTIS_CACHE_SCHEMA` | `null` |
+| `MARTIS_CACHE_SCHEMA_ENABLED` | `true` |
+| `MARTIS_CACHE_SCHEMA_TTL` | `env('MARTIS_CACHE_SCHEMA', null)` |
+| `MARTIS_CUSTOM_ACCENTS` | `(no default)` |
+| `MARTIS_DASHBOARD_SHOW_GREETING` | `true` |
+| `MARTIS_DASHBOARD_SHOW_WELCOME` | `true` |
+| `MARTIS_DASHBOARD_SHOW_WELCOME_CARD` | `true` |
+| `MARTIS_DEFAULT_ACCENT` | `'martis'` |
+| `MARTIS_DEFAULT_DENSITY` | `'comfortable'` |
+| `MARTIS_DEFAULT_LOCALE` | `'en'` |
+| `MARTIS_DEFAULT_ROW_ACTIONS` | `true` |
+| `MARTIS_DEFAULT_ROW_ACTION_DELETE` | `true` |
+| `MARTIS_DEFAULT_ROW_ACTION_EDIT` | `true` |
+| `MARTIS_DEFAULT_ROW_ACTION_VIEW` | `true` |
+| `MARTIS_DEFAULT_THEME` | `'dark'` |
+| `MARTIS_DEFAULT_TRASHED_FILTER` | `'active'` |
+| `MARTIS_DEV_TOOLS` | `in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)` |
+| `MARTIS_DRAWER_EXPANDABLE` | `true` |
+| `MARTIS_EXTENSIONS_PATH` | `'martis-extensions'` |
+| `MARTIS_FAVICON` | `null` |
+| `MARTIS_FOOTER_TEXT` | `(no default)` |
+| `MARTIS_GUARD` | `null` |
+| `MARTIS_IMPERSONATION_ENABLED` | `false` |
+| `MARTIS_IMPERSONATION_GUARD` | `'web'` |
+| `MARTIS_IMPERSONATION_MAX_DURATION` | `0` |
+| `MARTIS_IMPERSONATION_SESSION_KEY` | `'martis.impersonation'` |
+| `MARTIS_INDEX_COLUMN_DEFAULTS` | `true` |
+| `MARTIS_KEYBOARD_SHORTCUTS_ENABLED` | `true` |
+| `MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY` | `true` |
+| `MARTIS_LAYOUT` | `'sidebar'` |
+| `MARTIS_LOADER_DISABLED` | `false` |
+| `MARTIS_LOCALE` | `env('APP_LOCALE', 'en')` |
+| `MARTIS_LOCALE_FALLBACK_CHAIN` | `'en'` |
+| `MARTIS_LOGIN_THROTTLE_ATTEMPTS` | `20` |
+| `MARTIS_LOGIN_THROTTLE_MINUTES` | `1` |
+| `MARTIS_NAV_COUNTS` | `true` |
+| `MARTIS_NAV_COUNT_COMPACT_THRESHOLD` | `10000` |
+| `MARTIS_NAV_POLL_MS` | `60000` |
+| `MARTIS_NOTIFICATIONS_ENABLED` | `true` |
+| `MARTIS_NOTIFICATIONS_MAX_DROPDOWN` | `10` |
+| `MARTIS_NOTIFICATIONS_POLL_INTERVAL` | `60000` |
+| `MARTIS_PAGE_TITLE` | `(no default)` |
+| `MARTIS_PATH` | `'martis'` |
+| `MARTIS_PREFERENCES_ENABLED` | `true` |
+| `MARTIS_PROFILE_ENABLED` | `true` |
+| `MARTIS_ROW_CLICK_OPENS_DETAIL` | `true` |
+| `MARTIS_RTL_LOCALES` | `'ar,fa,he,ur'` |
+| `MARTIS_SEARCH_DEFAULT_LIMIT` | `5` |
+| `MARTIS_SEARCH_MIN_QUERY` | `2` |
+| `MARTIS_SEARCH_MOBILE_MODE` | `'icon'` |
+| `MARTIS_SEARCH_MODE` | `'bar'` |
+| `MARTIS_SHOW_PROFILE_MENU` | `true` |
+| `MARTIS_SSO_AZURE_ENABLED` | `false` |
+| `MARTIS_SSO_AZURE_LOGOUT_URL` | `(no default)` |
+| `MARTIS_SSO_ENABLED` | `false` |
+| `MARTIS_STICKY_VIEWS_ENABLED` | `true` |
+| `MARTIS_STICKY_VIEWS_SCOPE` | `'session'` |
+| `MARTIS_STORAGE_DISK` | `'public'` |
+| `MARTIS_THEME` | `'dark'` |
+| `MARTIS_THEME_NAME` | `null` |
+| `MARTIS_THROTTLE_DECAY` | `1` |
+| `MARTIS_THROTTLE_ENABLED` | `true` |
+| `MARTIS_THROTTLE_MAX` | `120` |
+| `MARTIS_TOAST_POSITION` | `'bottom-right'` |
+| `MARTIS_WELCOME_DESCRIPTION` | `(no default)` |
+| `MARTIS_WELCOME_HEADING` | `(no default)` |
 
 ## Next Steps
 

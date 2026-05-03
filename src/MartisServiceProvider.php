@@ -32,6 +32,7 @@ use Martis\Console\FieldMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\InstallCommand;
 use Martis\Console\LensMakeCommand;
+use Martis\Console\ListEnvVarsCommand;
 use Martis\Console\ListOverridesCommand;
 use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
@@ -189,6 +190,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,
+                ListEnvVarsCommand::class,
                 SsoMakeCommand::class,
                 RolesScaffoldCommand::class,
                 StubsCommand::class,
