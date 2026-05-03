@@ -72,6 +72,13 @@ class BulkAssignRole extends Action
             // Field convention is `Field::make($attribute, $label)`, so
             // the role row's primary key (`role_id`) goes first and the
             // human-readable label second.
+            //
+            // `Select::options()` reads each entry as
+            //   - string key → key is the label, value is the option value
+            //   - int key    → value is BOTH the label and the option value
+            // We want the role name visible to the operator and the role
+            // id sent on submit, so flip the pluck order: keys are names
+            // (strings — labels), values are ids.
             Select::make('role_id', __('Role'))
                 ->options(function () {
                     $query = Role::query();
@@ -79,7 +86,7 @@ class BulkAssignRole extends Action
                         $query->whereNull('provider_group_name');
                     }
 
-                    return $query->orderBy('name')->pluck('name', 'id')->all();
+                    return $query->orderBy('name')->pluck('id', 'name')->all();
                 })
                 ->required()
                 ->help(__('Roles tied to an SSO provider are excluded — they are managed by group sync.')),
