@@ -155,7 +155,7 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
           disabled={field.readonly}
           className="w-full"
           style={{ paddingRight: showClear ? '4rem' : '2rem' }}
-          placeholder={field.placeholder ?? t('password_leave_blank_hint')}
+          placeholder={field.placeholder ?? (field.required ? '' : t('password_leave_blank_hint'))}
           data-testid={`password-input-${field.attribute}`}
         />
         <ClearButton
