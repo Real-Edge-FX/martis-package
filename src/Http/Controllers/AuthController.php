@@ -3,6 +3,7 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -55,6 +56,17 @@ class AuthController extends MartisController
             return response()->json([
                 'two_factor_pending' => true,
                 'message' => 'Two-factor authentication required.',
+            ]);
+        }
+
+        // Indicate pending email verification so the SPA can redirect to
+        // /email/verify on bootstrap (post-login refresh, deep-link reload).
+        // Mirrors the two_factor_pending shape so the frontend handles both
+        // gates the same way. v1.8.14+.
+        if ($this->emailVerificationRequired($user)) {
+            return response()->json([
+                'email_verification_pending' => true,
+                'message' => 'Email verification required.',
             ]);
         }
 
@@ -121,6 +133,21 @@ class AuthController extends MartisController
             return response()->json([
                 'two_factor_required' => true,
                 'message' => 'Two-factor authentication required.',
+            ]);
+        }
+
+        // Email verification gate — when the workspace requires verification
+        // and this user has not confirmed yet, return early with a
+        // dedicated flag instead of the user payload. The session is still
+        // alive (so the resend-link endpoint behind `auth:` works), but
+        // the SPA navigates straight to /email/verify rather than
+        // /martis/. Without this the user lands on the dashboard, every
+        // protected API call 409s, and the experience reads as "the
+        // gate doesn't work". v1.8.14+.
+        if ($user && $this->emailVerificationRequired($user)) {
+            return response()->json([
+                'email_verification_required' => true,
+                'message' => 'Email verification required.',
             ]);
         }
 
@@ -330,6 +357,51 @@ class AuthController extends MartisController
      *
      * @return array<string, mixed>
      */
+    /**
+     * Whether the workspace requires email verification AND this user
+     * has not yet confirmed.
+     *
+     * Mirrors the resolution chain in
+     * `Martis\Http\Middleware\EnsureEmailIsVerified::emailIsVerified()`
+     * so the login + user endpoints gate on the same conditions as the
+     * post-auth route guard. Two paths:
+     *
+     *   1. User implements `MustVerifyEmail` → call `hasVerifiedEmail()`.
+     *   2. User exposes the `email_verified_at` column (default Laravel
+     *      users table) → check it directly. Column null = pending.
+     *      Column missing = treat as pending (fail-safe).
+     */
+    private function emailVerificationRequired(Authenticatable $user): bool
+    {
+        if (! (bool) config('martis.auth.email_verification.enabled', false)) {
+            return false;
+        }
+
+        if ($user instanceof MustVerifyEmail) {
+            return ! $user->hasVerifiedEmail();
+        }
+
+        if (method_exists($user, 'getAttribute')) {
+            $value = $user->getAttribute('email_verified_at');
+            if ($value !== null) {
+                return false;
+            }
+
+            if (method_exists($user, 'getAttributes')) {
+                /** @var array<string, mixed> $attrs */
+                $attrs = $user->getAttributes();
+                if (array_key_exists('email_verified_at', $attrs)) {
+                    return true;
+                }
+            }
+        }
+
+        // Column missing AND no contract — fail-safe so a misconfigured
+        // app doesn't accidentally let unverified accounts through with
+        // the flag on.
+        return true;
+    }
+
     private function safeUserArray(Model&Authenticatable $user): array
     {
         return array_diff_key(

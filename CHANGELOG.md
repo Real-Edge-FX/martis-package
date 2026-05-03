@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.14] — 2026-05-03
+
+### Changed
+
+- **Login + user-bootstrap endpoints now gate on email verification.** Previously `POST /api/auth/login` returned the full user payload regardless of verification status, the SPA navigated to `/martis/`, and the dashboard would only redirect on the next API 409. To users it read as "I logged in without verifying." Now, when `martis.auth.email_verification.enabled=true` AND the user has not confirmed their email (column null on the standard table OR `hasVerifiedEmail()=false` for a `MustVerifyEmail` model), `POST /api/auth/login` returns `200 { email_verification_required: true }` and `GET /api/auth/user` returns `200 { email_verification_pending: true }`. The session is still established so the resend-link endpoint behind `auth:` keeps working — only the post-login destination changes. The SPA `AuthContext` raises `EmailVerificationRequiredError` (mirroring `TwoFactorRequiredError`); `Login.tsx` catches it and routes to `/email/verify`. The bootstrap branch in `useEffect` mirrors the existing `two_factor_pending` redirect for refresh / deep-link reload. Resolution chain matches `EnsureEmailIsVerified` so login, bootstrap, and middleware never disagree.
+
 ## [1.8.13] — 2026-05-03
 
 ### Fixed

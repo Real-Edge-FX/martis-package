@@ -17,6 +17,21 @@ export class TwoFactorRequiredError extends Error {
   }
 }
 
+/**
+ * Thrown by `login()` when the workspace requires email verification
+ * AND the user has not confirmed yet. The session is still alive on
+ * the server (so the resend-link endpoint works), but the SPA must
+ * route to /email/verify instead of the dashboard.
+ *
+ * Mirrors the TwoFactorRequiredError pattern.
+ */
+export class EmailVerificationRequiredError extends Error {
+  constructor() {
+    super('email_verification_required')
+    this.name = 'EmailVerificationRequiredError'
+  }
+}
+
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
@@ -33,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     api
-      .get<User & { two_factor_pending?: boolean } | null>('/api/auth/user')
+      .get<User & { two_factor_pending?: boolean; email_verification_pending?: boolean } | null>('/api/auth/user')
       .then((u) => {
         if (u && typeof u === 'object' && u.two_factor_pending) {
           // Session is authenticated but 2FA challenge is pending.
@@ -44,6 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           return
         }
+        if (u && typeof u === 'object' && u.email_verification_pending) {
+          // Session is authenticated but the user has not verified their
+          // email. Bounce to /email/verify on every bootstrap (refresh,
+          // deep-link reload) so the dashboard never paints behind the
+          // gate. Skip if already on the verify page to avoid loops.
+          const verifyPath = BASE_PATH + '/email/verify'
+          if (!window.location.pathname.startsWith(verifyPath)) {
+            window.location.href = verifyPath
+          }
+          return
+        }
         setUser(u && typeof u === 'object' && 'id' in u ? u : null)
       })
       .catch(() => {})
@@ -51,10 +77,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post<User & { two_factor_required?: boolean }>('/api/auth/login', { email, password })
+    const res = await api.post<User & {
+      two_factor_required?: boolean
+      email_verification_required?: boolean
+    }>('/api/auth/login', { email, password })
     if (res && typeof res === 'object' && res.two_factor_required) {
       // Backend signals that 2FA challenge is required before full session
       throw new TwoFactorRequiredError()
+    }
+    if (res && typeof res === 'object' && res.email_verification_required) {
+      // Backend signals that the user must verify their email before any
+      // protected surface paints. Session is alive (so the resend-link
+      // endpoint behind `auth:` works); only the post-login destination
+      // changes.
+      throw new EmailVerificationRequiredError()
     }
     setUser(res)
   }, [])

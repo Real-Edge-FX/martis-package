@@ -273,3 +273,84 @@ it('consumer can override the SendsEmailVerification contract', function () {
 
     expect($captured)->toBe(['custom@example.com']);
 });
+
+// ---------------------------------------------------------------------------
+// Login + bootstrap gates (v1.8.14)
+// ---------------------------------------------------------------------------
+
+it('POST /api/auth/login returns email_verification_required for an unverified user when the flag is on', function () {
+    config(['martis.auth.email_verification.enabled' => true]);
+
+    VerifiableUser::create([
+        'name' => 'Pending',
+        'email' => 'pending@example.com',
+        'password' => Hash::make('secret-1234'),
+        'email_verified_at' => null,
+    ]);
+
+    $response = $this->postJson('/martis/api/auth/login', [
+        'email' => 'pending@example.com',
+        'password' => 'secret-1234',
+    ]);
+
+    $response->assertStatus(200)
+        ->assertJson(['email_verification_required' => true]);
+
+    // Session is still authenticated so the resend endpoint works.
+    expect(auth()->check())->toBeTrue();
+});
+
+it('POST /api/auth/login returns the user payload when verified', function () {
+    config(['martis.auth.email_verification.enabled' => true]);
+
+    VerifiableUser::create([
+        'name' => 'Done',
+        'email' => 'done@example.com',
+        'password' => Hash::make('secret-1234'),
+        'email_verified_at' => now(),
+    ]);
+
+    $this->postJson('/martis/api/auth/login', [
+        'email' => 'done@example.com',
+        'password' => 'secret-1234',
+    ])
+        ->assertStatus(200)
+        ->assertJsonMissing(['email_verification_required' => true])
+        ->assertJsonPath('email', 'done@example.com');
+});
+
+it('GET /api/auth/user returns email_verification_pending so the SPA can bootstrap on /email/verify', function () {
+    config(['martis.auth.email_verification.enabled' => true]);
+
+    $user = VerifiableUser::create([
+        'name' => 'Pending',
+        'email' => 'pending2@example.com',
+        'password' => Hash::make('secret-1234'),
+        'email_verified_at' => null,
+    ]);
+
+    $this->actingAs($user)->getJson('/martis/api/auth/user')
+        ->assertStatus(200)
+        ->assertJson(['email_verification_pending' => true]);
+});
+
+it('login + user gates stay off when email_verification.enabled is false', function () {
+    config(['martis.auth.email_verification.enabled' => false]);
+
+    $user = VerifiableUser::create([
+        'name' => 'Free',
+        'email' => 'free@example.com',
+        'password' => Hash::make('secret-1234'),
+        'email_verified_at' => null,
+    ]);
+
+    $this->postJson('/martis/api/auth/login', [
+        'email' => 'free@example.com',
+        'password' => 'secret-1234',
+    ])
+        ->assertStatus(200)
+        ->assertJsonMissing(['email_verification_required' => true]);
+
+    $this->actingAs($user)->getJson('/martis/api/auth/user')
+        ->assertJsonMissing(['email_verification_pending' => true]);
+});

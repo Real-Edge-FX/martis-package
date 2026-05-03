@@ -30,6 +30,7 @@ Content-Type: application/json
 |--------|------|-------------|
 | `200` | `{ "id": 1, "name": "Maria", "email": "...", "avatar_url": "...", ... }` | Successful login. The user object is returned flat (no `user` wrapper). Authentication is session-cookie based, so there is no `token` to track. |
 | `200` | `{ "two_factor_required": true, "message": "..." }` | 2FA enabled on the account — the frontend redirects to the challenge screen. |
+| `200` | `{ "email_verification_required": true, "message": "..." }` | (v1.8.14+) Email verification is enabled (`MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true`) and the user has not confirmed yet. The session is still established so the resend-link endpoint behind `auth:` works — the frontend redirects to `/{martis-path}/email/verify` instead of the dashboard. The same gate appears on `GET /api/auth/user` as `email_verification_pending: true` so a refresh / deep-link reload bootstraps on the verify page rather than the SPA shell. |
 | `422` | `{ "message": "...", "errors": {...} }` | Validation error. |
 | `429` | `{ "message": "Too many attempts" }` | Rate limited. Default: `MARTIS_LOGIN_THROTTLE_ATTEMPTS=20` per `MARTIS_LOGIN_THROTTLE_MINUTES=1`. The same envelope applies to register, password-reset and 2FA challenge endpoints. Per-email throttle in addition to per-IP — see [Per-email throttle](#per-email-throttle) below. |
 
