@@ -264,6 +264,11 @@ return [
         // to silence the Martis-side audit row (your own listeners
         // keep firing — Martis only stops writing into action_events).
         'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+
+        // Impersonation start / stop events. Default on. Flip to
+        // false to silence the audit-table writes; the events still
+        // fire so your own listeners keep working. v1.8.8.
+        'impersonation' => env('MARTIS_AUDIT_IMPERSONATION', true),
     ],
 
     'navigation' => [
@@ -1220,6 +1225,11 @@ return [
         'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
         'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
         'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
+        // Auto-stop after N minutes of impersonation (prevents
+        // forgotten sessions from leaking access). 0 / null disables
+        // the timer — the operator stays in the impersonated session
+        // until they click Stop or the browser session ends. v1.8.8.
+        'max_duration_minutes' => (int) env('MARTIS_IMPERSONATION_MAX_DURATION', 0),
     ],
 
 ];

@@ -17,6 +17,15 @@ class ImpersonationTestUser extends Authenticatable
     public $timestamps = false;
 }
 
+class ProtectedImpersonationTestUser extends Authenticatable implements \Martis\Contracts\NotImpersonable
+{
+    protected $table = 'impersonation_test_users';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
@@ -149,6 +158,76 @@ it('stop is idempotent when no impersonation is active', function () {
         ->postJson('/martis/api/impersonation/stop');
 
     $response->assertStatus(200)->assertJson(['active' => false]);
+});
+
+it('start rejects targets that implement NotImpersonable with a 422', function () {
+    Gate::define('martis-impersonate', fn () => true);
+
+    // Same physical row as the target, but rebound to a class that
+    // implements NotImpersonable so the manager rejects it.
+    config()->set('auth.providers.users.model', ProtectedImpersonationTestUser::class);
+
+    $response = $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id);
+
+    $response->assertStatus(422);
+    expect($response->json('message'))->toContain('cannot be impersonated');
+});
+
+it('isExpired returns true once max_duration_minutes has elapsed', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    config()->set('martis.impersonation.max_duration_minutes', 1);
+
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id)
+        ->assertStatus(200);
+
+    expect(Impersonation::isExpired())->toBeFalse();
+
+    // Backdate the marker so the elapsed window is exceeded.
+    $store = app('session.store');
+    $stash = $store->get('martis.impersonation');
+    $stash['started_at'] = now()->subMinutes(2)->toIso8601String();
+    $store->put('martis.impersonation', $stash);
+
+    expect(Impersonation::isExpired())->toBeTrue();
+});
+
+it('the duration middleware auto-stops an expired impersonation session', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    config()->set('martis.impersonation.max_duration_minutes', 1);
+
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id)
+        ->assertStatus(200);
+
+    $store = app('session.store');
+    $stash = $store->get('martis.impersonation');
+    $stash['started_at'] = now()->subMinutes(5)->toIso8601String();
+    $store->put('martis.impersonation', $stash);
+
+    $response = $this->getJson('/martis/api/impersonation/status');
+    $response->assertStatus(200)->assertJson(['active' => false]);
+
+    expect(Impersonation::isActive())->toBeFalse();
+});
+
+it('start dispatches ImpersonationStarted and stop dispatches ImpersonationStopped', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    \Illuminate\Support\Facades\Event::fake([
+        \Martis\Impersonation\Events\ImpersonationStarted::class,
+        \Martis\Impersonation\Events\ImpersonationStopped::class,
+    ]);
+
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id)
+        ->assertStatus(200);
+
+    \Illuminate\Support\Facades\Event::assertDispatched(\Martis\Impersonation\Events\ImpersonationStarted::class);
+
+    $this->postJson('/martis/api/impersonation/stop')->assertStatus(200);
+
+    \Illuminate\Support\Facades\Event::assertDispatched(\Martis\Impersonation\Events\ImpersonationStopped::class);
 });
 
 it('status reflects the original + target users while impersonation runs', function () {

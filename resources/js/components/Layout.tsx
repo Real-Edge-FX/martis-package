@@ -6,7 +6,7 @@ import { componentRegistry } from "@/lib/componentRegistry"
 import { Sidebar } from "@/components/Sidebar"
 import { Topbar } from "@/components/Topbar"
 import { Footer } from "@/components/Footer"
-import { ImpersonationBanner } from "@/components/ImpersonationBanner"
+import { ImpersonationBanner as BundledImpersonationBanner } from "@/components/ImpersonationBanner"
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp"
 import { TopnavLayout } from "@/components/layouts/TopnavLayout"
 import { MinimalLayout } from "@/components/layouts/MinimalLayout"
@@ -115,7 +115,16 @@ function SidebarLayout() {
       />
 
       <main className="martis-shell-content">
-        <ImpersonationBanner />
+        {(() => {
+          // Allow consumer override under the canonical registry key
+          // `impersonation:banner`. When unset the bundled banner
+          // renders. Same pattern as `martis:profile-sessions`.
+          const Override = componentRegistry.has('impersonation:banner')
+            ? (componentRegistry.resolve('impersonation:banner') as React.ComponentType | undefined)
+            : undefined
+          const Banner = Override ?? BundledImpersonationBanner
+          return <Banner />
+        })()}
         <div className="martis-page">
           <Outlet />
         </div>

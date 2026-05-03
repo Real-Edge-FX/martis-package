@@ -340,6 +340,10 @@ class MartisServiceProvider extends ServiceProvider
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);
+        $router->aliasMiddleware(
+            'martis.impersonation.duration',
+            \Martis\Http\Middleware\EnforceImpersonationDuration::class,
+        );
     }
 
     /**
@@ -458,6 +462,19 @@ class MartisServiceProvider extends ServiceProvider
      */
     protected function registerRoleAuditListeners(): void
     {
+        // v1.8.8 — impersonation audit is package-internal (no third-party
+        // dependency), register unconditionally.
+        \Illuminate\Support\Facades\Event::listen(
+            \Martis\Impersonation\Events\ImpersonationStarted::class,
+            [\Martis\Auth\Listeners\RecordImpersonation::class, 'handleStarted'],
+        );
+        \Illuminate\Support\Facades\Event::listen(
+            \Martis\Impersonation\Events\ImpersonationStopped::class,
+            [\Martis\Auth\Listeners\RecordImpersonation::class, 'handleStopped'],
+        );
+
+        // Spatie listeners only register when the package is installed —
+        // the events themselves do not exist otherwise.
         if (! class_exists(\Spatie\Permission\Events\RoleAttachedEvent::class)) {
             return;
         }

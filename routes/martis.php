@@ -163,8 +163,15 @@ Route::middleware(config('martis.middleware', ['web']))
             ? 'throttle:'.config('martis.throttle.max_attempts', 120).','.config('martis.throttle.decay_minutes', 1)
             : [];
 
-        // Protected routes — require martis.auth middleware
-        Route::middleware(config('martis.auth_middleware', ['martis.auth']))
+        // Protected routes — require martis.auth middleware. The
+        // `martis.impersonation.duration` middleware sits inside the
+        // auth group so it can read the impersonation session bag —
+        // it auto-stops impersonation that has run past the configured
+        // `max_duration_minutes` (default disabled).
+        Route::middleware([
+            ...config('martis.auth_middleware', ['martis.auth']),
+            'martis.impersonation.duration',
+        ])
             ->group(function () use ($throttle) {
                 // ── 2FA challenge — auth only, NO martis.2fa (this is how you complete 2FA) ──
                 Route::prefix('api')
