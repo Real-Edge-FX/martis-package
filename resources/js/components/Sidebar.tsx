@@ -161,6 +161,16 @@ function renderLeafItem(
   const active = isLeafActive(item, ctx.location)
   const className = "martis-sb-item" + (active ? " active" : "")
 
+  // Mirror the resource's per-resource accent on the active leaf so
+  // the sidebar selection lines up visually with the page header.
+  // The accent var is set on this single element only — siblings on
+  // the sidebar keep the user's global accent. See useResourceAccent
+  // for the same pattern applied to the page wrapper.
+  const accentProps =
+    active && item.type === 'resource' && item.accentColor
+      ? buildAccentProps(item.accentColor)
+      : null
+
   return (
     <NavLink
       key={key}
@@ -170,10 +180,29 @@ function renderLeafItem(
       data-pr-tooltip={showTooltip}
       data-pr-position="right"
       onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
+      {...accentProps}
     >
       {inner}
     </NavLink>
   )
+}
+
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
+/**
+ * Build the `data-resource-accent` / inline-style props that pin a
+ * single sidebar leaf to a resource's accent. Mirrors the contract
+ * of `useResourceAccent` (which targets the page wrapper) so the
+ * two surfaces stay in lockstep.
+ */
+function buildAccentProps(accent: string): {
+  'data-resource-accent'?: string
+  style?: React.CSSProperties
+} {
+  if (HEX_RE.test(accent)) {
+    return { style: { '--martis-accent': accent } as React.CSSProperties }
+  }
+  return { 'data-resource-accent': accent }
 }
 
 /**
