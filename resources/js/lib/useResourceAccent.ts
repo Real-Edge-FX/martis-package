@@ -1,58 +1,59 @@
-import { useEffect } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 
-const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 
 /**
- * Override the panel's accent colour while a resource view is mounted.
+ * Wrapper-scoped accent override for a resource view.
  *
- * Matches the contract documented for `Resource::accentColor()`:
+ * The Resource API lets each resource declare an accent that should
+ * recolour its surfaces while it is open:
  *
- *   - A built-in accent name (`martis | blue | teal | violet | amber`,
- *     or any custom one the host theme registered) is written to the
- *     `data-accent` attribute on `<html>`.
- *   - A hex string is written as an inline `--martis-accent` property
- *     on `<html>` (wins over the `[data-accent]` selector for the
- *     duration of the override).
- *   - `null` / `undefined` is a no-op, keeping the user's global
- *     preference active.
+ *     class ProjectResource extends Resource
+ *     {
+ *         public static function accentColor(): ?string
+ *         {
+ *             return 'violet';   // or '#7C3AED' for a custom hex
+ *         }
+ *     }
  *
- * On unmount (or accent change), the hook restores whatever the
- * `<html>` element had before — including any preference written by
- * `PreferencesContext`. A tiny wins ref tracks the last value we
- * applied so an accidental tab-switch doesn't double-restore.
+ * Pre-v1.8.8 the override was applied to the root `<html>` element,
+ * which made the accent leak everywhere — including the sidebar,
+ * topbar and any badges sitting outside the resource page (the
+ * "PRO" pill on a sibling resource's nav row, for example, would
+ * adopt the active resource's accent because it referenced
+ * `var(--martis-accent)`).
+ *
+ * v1.8.8 returns props for a wrapper element instead. Spread the
+ * result onto the outermost div the page renders; the override is
+ * scoped to descendants only, leaving sidebar / topbar / sibling
+ * chrome on the user's global accent.
+ *
+ * Two forms accepted:
+ *
+ *   - **Named accent** (`'martis' | 'blue' | 'teal' | 'violet' |
+ *     'amber'`, or any custom name the host theme registered) →
+ *     emits `data-resource-accent="<name>"`. CSS rules in the
+ *     bundled stylesheet map the name to its 6 token values.
+ *   - **Hex string** (`'#RGB' | '#RRGGBB' | '#RRGGBBAA'`) → emits
+ *     an inline `--martis-accent` custom property only. Hover /
+ *     active / bg / focus tokens stay on the global value, which
+ *     keeps the visual surface coherent without forcing the
+ *     consumer to declare a full palette per hex.
+ *   - `null` / `undefined` → returns an empty object, keeping
+ *     the user's preference active everywhere.
  */
-export function useResourceAccent(accent: string | null | undefined): void {
-  useEffect(() => {
-    if (!accent) return
-
-    const root = document.documentElement
-    const previousAccent = root.getAttribute('data-accent')
-    const previousInline = root.style.getPropertyValue('--martis-accent')
+export function useResourceAccent(
+  accent: string | null | undefined,
+): { 'data-resource-accent'?: string; style?: CSSProperties } {
+  return useMemo(() => {
+    if (!accent) return {}
 
     if (HEX_RE.test(accent)) {
-      // Hex value — set as inline custom property to override the
-      // [data-accent] selector for the duration of this view.
-      root.style.setProperty('--martis-accent', accent)
-    } else {
-      // Named accent — flip the data-accent attribute. CSS rules in
-      // the bundled theme map known names to their token sets.
-      root.setAttribute('data-accent', accent)
+      // Inline custom property — narrow CSSProperties cast handles
+      // the `--martis-*` keys React's typings don't model.
+      return { style: { '--martis-accent': accent } as CSSProperties }
     }
 
-    return () => {
-      if (HEX_RE.test(accent)) {
-        if (previousInline) {
-          root.style.setProperty('--martis-accent', previousInline)
-        } else {
-          root.style.removeProperty('--martis-accent')
-        }
-      } else {
-        if (previousAccent) {
-          root.setAttribute('data-accent', previousAccent)
-        } else {
-          root.removeAttribute('data-accent')
-        }
-      }
-    }
+    return { 'data-resource-accent': accent }
   }, [accent])
 }

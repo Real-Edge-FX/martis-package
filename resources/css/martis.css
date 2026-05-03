@@ -475,6 +475,101 @@ html:not(.dark)[data-accent="amber"] {
 }
 
 /* ============================================================
+   PER-RESOURCE ACCENT OVERRIDE (v1.8.8)
+   Applied as `data-resource-accent` on a wrapper inside the
+   resource page (NOT on <html>) so the override is scoped to
+   the page content. Sidebar/topbar/badges sitting outside the
+   wrapper keep the user's global accent.
+   ============================================================ */
+
+html.dark [data-resource-accent="blue"] {
+  --martis-accent:          #3B82F6;
+  --martis-accent-hover:    #2563EB;
+  --martis-accent-active:   #1D4ED8;
+  --martis-accent-bg-light: rgba(59, 130, 246, 0.12);
+  --martis-accent-bg:       rgba(59, 130, 246, 0.20);
+  --martis-focus-ring:      rgba(59, 130, 246, 0.45);
+}
+html:not(.dark) [data-resource-accent="blue"] {
+  --martis-accent:          #2563EB;
+  --martis-accent-hover:    #1D4ED8;
+  --martis-accent-active:   #1E40AF;
+  --martis-accent-bg-light: #EFF4FF;
+  --martis-accent-bg:       #DBE7FE;
+  --martis-focus-ring:      rgba(37, 99, 235, 0.35);
+}
+
+html.dark [data-resource-accent="teal"] {
+  --martis-accent:          #14B8A6;
+  --martis-accent-hover:    #0D9488;
+  --martis-accent-active:   #0F766E;
+  --martis-accent-bg-light: rgba(20, 184, 166, 0.12);
+  --martis-accent-bg:       rgba(20, 184, 166, 0.22);
+  --martis-focus-ring:      rgba(20, 184, 166, 0.45);
+}
+html:not(.dark) [data-resource-accent="teal"] {
+  --martis-accent:          #0D9488;
+  --martis-accent-hover:    #0F766E;
+  --martis-accent-active:   #115E59;
+  --martis-accent-bg-light: #E6FBF6;
+  --martis-accent-bg:       #CCF6EC;
+  --martis-focus-ring:      rgba(13, 148, 136, 0.35);
+}
+
+html.dark [data-resource-accent="violet"] {
+  --martis-accent:          #8B5CF6;
+  --martis-accent-hover:    #7C3AED;
+  --martis-accent-active:   #6D28D9;
+  --martis-accent-bg-light: rgba(139, 92, 246, 0.14);
+  --martis-accent-bg:       rgba(139, 92, 246, 0.24);
+  --martis-focus-ring:      rgba(139, 92, 246, 0.45);
+}
+html:not(.dark) [data-resource-accent="violet"] {
+  --martis-accent:          #7C3AED;
+  --martis-accent-hover:    #6D28D9;
+  --martis-accent-active:   #5B21B6;
+  --martis-accent-bg-light: #F3EEFF;
+  --martis-accent-bg:       #E4D8FE;
+  --martis-focus-ring:      rgba(124, 58, 237, 0.35);
+}
+
+html.dark [data-resource-accent="amber"] {
+  --martis-accent:          #F59E0B;
+  --martis-accent-hover:    #D97706;
+  --martis-accent-active:   #B45309;
+  --martis-accent-bg-light: rgba(245, 158, 11, 0.14);
+  --martis-accent-bg:       rgba(245, 158, 11, 0.24);
+  --martis-focus-ring:      rgba(245, 158, 11, 0.45);
+}
+html:not(.dark) [data-resource-accent="amber"] {
+  --martis-accent:          #D97706;
+  --martis-accent-hover:    #B45309;
+  --martis-accent-active:   #92400E;
+  --martis-accent-bg-light: #FEF3DB;
+  --martis-accent-bg:       #FDE6B5;
+  --martis-focus-ring:      rgba(217, 119, 6, 0.35);
+}
+
+/* "martis" (default) — explicitly scoped so a resource can
+   force the bundled brand accent on top of a user preference. */
+html.dark [data-resource-accent="martis"] {
+  --martis-accent:          #4F7BF9;
+  --martis-accent-hover:    #3B6AF0;
+  --martis-accent-active:   #2C57D8;
+  --martis-accent-bg-light: rgba(79, 123, 249, 0.14);
+  --martis-accent-bg:       rgba(79, 123, 249, 0.24);
+  --martis-focus-ring:      rgba(79, 123, 249, 0.45);
+}
+html:not(.dark) [data-resource-accent="martis"] {
+  --martis-accent:          #3B6AF0;
+  --martis-accent-hover:    #2C57D8;
+  --martis-accent-active:   #1E44BE;
+  --martis-accent-bg-light: #ECF1FE;
+  --martis-accent-bg:       #D7E1FD;
+  --martis-focus-ring:      rgba(59, 106, 240, 0.35);
+}
+
+/* ============================================================
    DENSITY TOKENS
    Global scaffolding para Martis components. Override per-surface
    via [data-density] em qualquer elemento ancestor.

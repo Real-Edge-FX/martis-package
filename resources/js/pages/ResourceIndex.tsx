@@ -226,7 +226,7 @@ export function ResourceIndexPage() {
   }, [schema?.defaultSort, schema?.defaultSortDirection, sortBy])
 
   usePageTitle(schema?.label ?? null)
-  useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
+  const accentProps = useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
   useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
   // Sticky view writer — every meaningful state change rolls into
@@ -544,7 +544,7 @@ export function ResourceIndexPage() {
   ) : null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" {...accentProps}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -107,7 +107,7 @@ export function ResourceDetailPage() {
     ? String(record[schema.titleAttribute] ?? '')
     : ''
   usePageTitle(schema ? `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ''}` : null)
-  useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
+  const accentProps = useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
   useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
   if (schemaQuery.isLoading || recordQuery.isLoading) {
@@ -273,7 +273,7 @@ export function ResourceDetailPage() {
   const canReplicate = auth?.authorizedToReplicate !== false
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" {...accentProps}>
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <Link
