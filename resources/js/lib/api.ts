@@ -94,6 +94,31 @@ function normalizeErrors(raw: unknown): ValidationError[] | undefined {
 function redirectOnSessionExpiry(): void {
   window.location.href = BASE_PATH + '/login?expired=1'
 }
+
+/**
+ * Redirect to the email-verify notice when the server signals 409 +
+ * "Your email address is not verified." (the response shape emitted by
+ * `EnsureEmailIsVerified` for `Accept: application/json` requests).
+ *
+ * Without this, a logged-in but unverified user lands on the dashboard
+ * shell after client-side navigation, sees every API call return 409,
+ * and the SPA renders zero-state widgets with no actionable guidance.
+ * The middleware itself only redirects HTML requests; XHR/fetch traffic
+ * is JSON-shaped and stays in-page until we react here.
+ */
+function redirectOnEmailUnverified(): void {
+  // Avoid loops on the verify page itself (the resend endpoint also
+  // sits behind `martis.verified` would be a misconfig — but defensive).
+  if (window.location.pathname.endsWith('/email/verify')) return
+  window.location.href = BASE_PATH + '/email/verify'
+}
+
+/** Match the canonical envelope produced by `EnsureEmailIsVerified`. */
+function isEmailUnverifiedResponse(status: number, payload: unknown): boolean {
+  if (status !== 409) return false
+  const msg = (payload as { message?: string } | null)?.message
+  return typeof msg === 'string' && /email.*not.*verified/i.test(msg)
+}
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const csrfToken = getCsrfToken()
 
@@ -140,6 +165,9 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     const publicProbes = ['/api/auth/user', '/api/preferences', '/api/navigation']
     if (res.status === 401 && !publicProbes.includes(path)) {
       redirectOnSessionExpiry()
+    }
+    if (isEmailUnverifiedResponse(res.status, json)) {
+      redirectOnEmailUnverified()
     }
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // 403: surface a distinct "not authorized" message so the UI can show a
