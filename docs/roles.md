@@ -291,7 +291,7 @@ Effects:
 
 - Publishes `database/migrations/{ts}_add_category_column_to_permissions_table.php` (re-runs are idempotent — only the first publish writes; subsequent runs skip with a yellow `already published` row).
 - Renders `Text::make('Category', 'category')` inside the PermissionResource fields list.
-- Renders a `filters()` method on the resource that surfaces every distinct category currently in use as a SelectFilter on the index page.
+- Scaffolds `app/Martis/Filters/PermissionCategoryFilter.php` — a concrete `SelectFilter` subclass that pulls every distinct category currently in use as the dropdown options. The PermissionResource's `filters()` method references it. Customise the column / source freely; the file is yours, not the package's. (v1.8.17+)
 
 The column is **metadata only** — Martis never reads `permissions.category` for authorization. The string is just a UX label so the operator can group `posts.publish`, `posts.draft`, `posts.unpublish` under "Posts" and the admin index renders them grouped.
 
