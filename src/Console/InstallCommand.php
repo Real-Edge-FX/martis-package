@@ -205,6 +205,18 @@ class InstallCommand extends Command
             StubResolver::path('create_martis_notifications_table.php.stub'),
             'create_notifications_table'
         );
+
+        // Cache subsystem operational metadata. The version counter,
+        // `cleared_at` timestamp, and runtime override flag live in a
+        // dedicated table so they survive Cache::flush(),
+        // redis-cli FLUSHDB, container restarts, and LRU eviction.
+        // v1.8.8 — fixes a long-standing visibility bug where the
+        // admin UI lost its "V N · cleared at Y" trail every time
+        // the cache backend was wiped. Idempotent.
+        $this->publishMigrationStub(
+            StubResolver::path('create_martis_cache_state_table.php.stub'),
+            'create_martis_cache_state_table'
+        );
     }
 
     /**

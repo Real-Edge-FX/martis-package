@@ -96,8 +96,11 @@ class MartisServiceProvider extends ServiceProvider
 
         // Cache facade is bound during boot, but Cache::store() resolves
         // through the manager which itself depends on config — safe to
-        // call lazily inside the closure.
-        $this->app->singleton(MartisCache::class, function (): MartisCache {
+        // call lazily inside the closure. v1.8.8: bound as scoped()
+        // (per-request) so the in-instance state cache is reset between
+        // requests — operational metadata read from `martis_cache_state`
+        // stays at most one request stale.
+        $this->app->scoped(MartisCache::class, function (): MartisCache {
             return new MartisCache(Cache::store());
         });
 
@@ -236,6 +239,24 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
             ], 'martis-preferences-migration');
+
+            // Cache subsystem operational metadata. Lives in a
+            // dedicated table so the version counter / cleared_at /
+            // runtime override flag survive Cache::flush(),
+            // redis-cli FLUSHDB, container restarts, and LRU
+            // eviction. v1.8.8.
+            $this->publishes([
+                __DIR__.'/../stubs/create_martis_cache_state_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000005_create_martis_cache_state_table.php'),
+            ], 'martis-cache-state-migration');
+
+            // Bundle this into `martis-migrations` too so apps doing
+            // `vendor:publish --tag=martis-migrations` pick up every
+            // package-owned table at once.
+            $this->publishes([
+                __DIR__.'/../stubs/create_martis_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_martis_action_events_table.php'),
+                __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
+                __DIR__.'/../stubs/create_martis_cache_state_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000005_create_martis_cache_state_table.php'),
+            ], 'martis-migrations');
 
             // Host-app MartisServiceProvider stub. Holds main menu /
             // dashboards / cache layers / gate definitions — anything
