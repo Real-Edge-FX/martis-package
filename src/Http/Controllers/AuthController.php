@@ -402,6 +402,14 @@ class AuthController extends MartisController
         return true;
     }
 
+    /**
+     * Return a sanitised user array safe for client responses.
+     *
+     * Strips sensitive fields (password hash, 2FA secret, recovery codes,
+     * remember token) that must never be sent to the browser.
+     *
+     * @return array<string, mixed>
+     */
     private function safeUserArray(Model&Authenticatable $user): array
     {
         return array_diff_key(

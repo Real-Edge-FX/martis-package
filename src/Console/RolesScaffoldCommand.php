@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Process\Process;
@@ -39,6 +40,8 @@ class RolesScaffoldCommand extends Command
                             {--no-migrate : Skip running migrations after publishing them}
                             {--no-publish-spatie : Skip publishing Spatie config + migrations}
                             {--with-categories : Add a `category` column on permissions and surface it as a field + filter on PermissionResource (handy for apps with 50+ permissions)}
+                            {--promote= : Email of the user to seed + promote to admin (skips the post-install manual step). Pass `first` to auto-pick the lowest-id existing user.}
+                            {--no-seed : Skip running MartisRolesSeeder after scaffolding (default: seed runs automatically when the seeder file lands)}
                             {--force : Overwrite existing resource / policy files}';
 
     protected $description = 'Scaffold a Spatie-backed admin UI for users, roles, and permissions.';
@@ -101,13 +104,107 @@ class RolesScaffoldCommand extends Command
         // 8. Emit the admin-role seeder.
         $this->scaffoldSeeder($files);
 
+        // 8b. Run the seeder so the `admin` role exists immediately. The
+        // seeder is idempotent (firstOrCreate), so re-running martis:roles
+        // doesn't create duplicates. Skip when `--no-seed` is passed for
+        // CI / scripted setups that handle seeding separately.
+        if (! $this->option('no-seed')) {
+            $this->runRolesSeeder();
+        }
+
+        // 8c. Promote a user to admin so the operator can immediately
+        // see the System sidebar without dropping into tinker. `--promote=`
+        // accepts an email (exact match, case-insensitive) or the literal
+        // `first` to grab the lowest-id user — handy for fresh installs
+        // where there's exactly one account.
+        $promote = $this->option('promote');
+        if (is_string($promote) && $promote !== '') {
+            /** @var class-string $userClass */
+            $this->promoteUserToAdmin($userClass, $promote);
+        }
+
         $this->newLine();
         $this->components->info('Done. Next steps:');
-        $this->line('  • <fg=cyan>php artisan db:seed --class=MartisRolesSeeder</> — create the "admin" role');
-        $this->line('  • Promote yourself: <fg=cyan>User::where(\'email\', \'you@example.com\')->first()->assignRole(\'admin\');</>');
+        if ($this->option('no-seed')) {
+            $this->line('  • <fg=cyan>php artisan db:seed --class=MartisRolesSeeder</> — create the "admin" role');
+        }
+        if ($promote === null || $promote === '') {
+            $this->line('  • Promote yourself: <fg=cyan>User::where(\'email\', \'you@example.com\')->first()->assignRole(\'admin\');</>');
+            $this->line('    (or re-run <fg=cyan>php artisan martis:roles --promote=you@example.com</>)');
+        }
         $this->line('  • Visit <fg=green>/martis/system</> in the sidebar — Users / Roles / Permissions live there.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Run the just-scaffolded `MartisRolesSeeder` so the `admin` role
+     * exists in the database without an extra step. Idempotent: the
+     * seeder uses `firstOrCreate`.
+     */
+    protected function runRolesSeeder(): void
+    {
+        try {
+            $this->callSilent('db:seed', ['--class' => 'MartisRolesSeeder', '--force' => true]);
+            $this->components->twoColumnDetail('<fg=green>Seeded</> role', '"admin" via MartisRolesSeeder');
+        } catch (\Throwable $e) {
+            $this->components->warn('Could not auto-run MartisRolesSeeder: '.$e->getMessage());
+            $this->components->warn('Run it manually: php artisan db:seed --class=MartisRolesSeeder');
+        }
+    }
+
+    /**
+     * Promote a user model to the `admin` role.
+     *
+     * The `--promote` option accepts an email or the literal `first`,
+     * which pulls the lowest-id user (typical fresh-install scenario:
+     * one account exists). When the user is missing or the role hasn't
+     * been seeded yet, the command warns but does not fail — the
+     * operator can re-run with the right value later.
+     *
+     * @param  class-string  $userClass
+     */
+    protected function promoteUserToAdmin(string $userClass, string $hint): void
+    {
+        if (! class_exists($userClass)) {
+            $this->components->warn("--promote skipped: User class {$userClass} not found.");
+
+            return;
+        }
+
+        try {
+            /** @var Model|null $user */
+            $user = $hint === 'first'
+                ? $userClass::query()->orderBy('id')->first()
+                : $userClass::query()->whereRaw('LOWER(email) = ?', [mb_strtolower($hint)])->first();
+        } catch (\Throwable $e) {
+            $this->components->warn('--promote skipped: '.$e->getMessage());
+
+            return;
+        }
+
+        if ($user === null) {
+            $hintLabel = $hint === 'first' ? 'no users in the database' : "user with email \"{$hint}\" not found";
+            $this->components->warn("--promote skipped: {$hintLabel}.");
+
+            return;
+        }
+
+        if (! method_exists($user, 'assignRole')) {
+            $this->components->warn('--promote skipped: User model does not use Spatie\\Permission\\Traits\\HasRoles.');
+
+            return;
+        }
+
+        try {
+            /** @phpstan-ignore-next-line dynamic Spatie trait method */
+            $user->assignRole('admin');
+            $email = (string) ($user->getAttribute('email') ?? '#'.$user->getKey());
+            $this->components->twoColumnDetail('<fg=green>Promoted</> to admin', $email);
+        } catch (\Throwable $e) {
+            $this->components->warn('--promote: assignRole failed — '.$e->getMessage());
+            $this->components->warn('Make sure the seeder ran (admin role must exist) and the User model uses HasRoles.');
+        }
     }
 
     protected function ensureSpatieInstalled(): void

@@ -17,14 +17,19 @@ The command:
 5. Generates three policies: `UserPolicy`, `RolePolicy`, `PermissionPolicy` (admin-only by default).
 6. Registers the policies in `App\Providers\AuthServiceProvider`.
 7. Emits a seeder (`MartisRolesSeeder`) that creates the `admin` role.
+8. **Auto-runs the seeder** so the `admin` role exists immediately (v1.8.15+ — opt out with `--no-seed`).
 
-After it finishes:
+To promote yourself in the same call, pass `--promote=`:
 
 ```bash
-php artisan db:seed --class=MartisRolesSeeder
+# Promote a known email
+php artisan martis:roles --promote=you@example.com
+
+# Or promote the lowest-id user (typical fresh-install scenario)
+php artisan martis:roles --promote=first
 ```
 
-Then promote yourself in `tinker`:
+Without the flag, you still get the manual fallback in `tinker`:
 
 ```php
 \App\Models\User::where('email', 'you@example.com')->first()->assignRole('admin');
@@ -48,6 +53,8 @@ Spatie itself is intentionally a soft dependency. If you do not run `martis:role
 | `--no-migrate` | Publish migrations but do not run them. Useful when other migrations are pending review. |
 | `--no-publish-spatie` | Skip publishing Spatie's config + migrations. Use after a manual publish. |
 | `--with-categories` | Adds a `category` column to `permissions` (via published migration) and surfaces it as a field + filter on the generated PermissionResource. Useful for apps with 50+ permissions. v1.8.8. |
+| `--promote=` | Email of the user to seed + promote to admin in the same call. Pass `first` to grab the lowest-id user. Skips the manual `assignRole('admin')` step. v1.8.15. |
+| `--no-seed` | Skip running `MartisRolesSeeder` after scaffolding. Default behaviour: seed runs automatically. v1.8.15. |
 | `--force` | Overwrite resource / policy files that already exist. |
 
 The command is idempotent — re-running it without `--force` skips files already on disk.
