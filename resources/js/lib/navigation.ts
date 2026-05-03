@@ -14,6 +14,74 @@ export function isNestedGroup(child: NavigationGroupChild): child is NavigationN
 }
 
 /**
+ * Whether a leaf navigation item should render as active given the
+ * current location.
+ *
+ * NavLink's default `end={false}` prefix-matches paths, which would
+ * make a "Invoices" resource link bleed into its "Overdue Invoices"
+ * lens or filter children — clicking any descendant lights them all
+ * up at once. We tighten the rule:
+ *
+ *   - Filter factory items (URL carries `?filters=…`): pathname must
+ *     match exactly AND the current `?filters=` payload must equal
+ *     the item's payload.
+ *   - Every other item: pathname exact match. Resource items also
+ *     require the absence of a `?filters=` query so that, while the
+ *     filter sibling is briefly active during deep-link hydration,
+ *     the bare resource link does not steal the active state.
+ */
+export function isLeafActive(
+  item: NavigationItem,
+  location: { pathname: string; search: string },
+): boolean {
+  const [itemPath, itemQuery = ''] = item.url.split('?')
+  if (location.pathname !== itemPath) return false
+
+  if (item.type === 'filter') {
+    const itemFilter = new URLSearchParams(itemQuery).get('filters')
+    const currentFilter = new URLSearchParams(location.search).get('filters')
+    return itemFilter !== null && itemFilter === currentFilter
+  }
+
+  if (item.type === 'resource') {
+    return !new URLSearchParams(location.search).has('filters')
+  }
+
+  return true
+}
+
+/**
+ * Whether a `MenuSection` / `MenuGroup` header NavLink should render
+ * as active given the current location AND its descendants.
+ *
+ * Enforces the "deepest match wins" rule: the group is only active
+ * when its `path` matches the current pathname AND no descendant
+ * leaf would itself be active at the same pathname. Without this
+ * rule a config that points a section's `path()` at the same URL
+ * as a leaf inside it (e.g. `Library->path('/notes')` containing
+ * `Notas` at `/notes`) lights up *every* ancestor when the user
+ * lands on `/notes`. The leaf takes precedence; the group reflects
+ * "an active item lives inside me" via expanded state instead.
+ */
+export function isGroupActive(
+  groupPath: string | null | undefined,
+  items: NavigationGroupChild[],
+  location: { pathname: string; search: string },
+): boolean {
+  if (!groupPath) return false
+  if (location.pathname !== groupPath.split('?')[0]) return false
+
+  const hasActiveLeaf = items.some((item) => {
+    if (isNestedGroup(item)) {
+      return item.items.some((leaf) => isLeafActive(leaf, location))
+    }
+    return isLeafActive(item, location)
+  })
+
+  return !hasActiveLeaf
+}
+
+/**
  * Flatten a navigation group's heterogeneous children into the leaf
  * items only — nested MenuGroup containers are preserved in `getNavigationItems`
  * but stripped here for callers that just want the resource/link entries.

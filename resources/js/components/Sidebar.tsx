@@ -13,7 +13,9 @@ import {
   getNavigationItems,
   getItemCount,
   formatItemCount,
+  isLeafActive,
   isNestedGroup,
+  isGroupActive,
   mergeBadgeCounts,
   useNavigationRefreshOnNavigate,
 } from "@/lib/navigation"
@@ -86,43 +88,6 @@ interface RenderItemContext {
   location: { pathname: string; search: string }
 }
 
-/**
- * Whether a navigation item should light up as active given the current
- * `react-router` `location`.
- *
- * NavLink's default `end={false}` prefix-matches paths, which would
- * make a "Invoices" resource link bleed into its "Overdue Invoices"
- * lens or filter children — clicking any descendant lights them all
- * up at once. We tighten the rule:
- *
- *   - Filter factory items (URL carries `?filters=…`): pathname must
- *     match exactly AND the current `?filters=` payload must equal
- *     the item's payload. The filter param is short-lived in the URL
- *     (stripped on hydration), so these items go quiet quickly.
- *   - Every other item: pathname exact match. Resource items also
- *     require the absence of a `?filters=` query so that, while the
- *     filter sibling is briefly active during deep-link hydration,
- *     the bare resource link does not steal the active state.
- */
-function isLeafActive(item: NavigationItem, location: { pathname: string; search: string }): boolean {
-  // react-router routes are mounted under `/martis` via basename; both
-  // `location.pathname` and `item.url` already include the basename, so
-  // a direct string comparison is correct here.
-  const [itemPath, itemQuery = ''] = item.url.split('?')
-  if (location.pathname !== itemPath) return false
-
-  if (item.type === 'filter') {
-    const itemFilter = new URLSearchParams(itemQuery).get('filters')
-    const currentFilter = new URLSearchParams(location.search).get('filters')
-    return itemFilter !== null && itemFilter === currentFilter
-  }
-
-  if (item.type === 'resource') {
-    return !new URLSearchParams(location.search).has('filters')
-  }
-
-  return true
-}
 
 /**
  * Render a single leaf navigation item (resource / link / tool / dashboard /
@@ -247,9 +212,9 @@ function NestedGroupBlock({
             <NavLink
               to={group.path}
               end
-              className={({ isActive }) =>
+              className={() =>
                 "martis-sb-subgroup-label martis-sb-subgroup-label--link" +
-                (isActive ? " active" : "")
+                (isGroupActive(group.path, group.items, ctx.location) ? " active" : "")
               }
             >
               {iconNode}
@@ -433,9 +398,9 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                       <NavLink
                         to={group.path}
                         end
-                        className={({ isActive }) =>
+                        className={() =>
                           "martis-sb-group-label martis-sb-group-label--link" +
-                          (isActive ? " active" : "")
+                          (isGroupActive(group.path, group.items, { pathname: location.pathname, search: location.search }) ? " active" : "")
                         }
                       >
                         {groupIcon}
