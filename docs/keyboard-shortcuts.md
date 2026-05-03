@@ -11,7 +11,11 @@ import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShort
 
 // Or, from a consumer's boot.ts (no module imports needed):
 window.Martis.shortcuts.add('mod+s', handler)
+window.Martis.shortcuts.remove('mod+s')   // alias for disableShortcut
+window.Martis.shortcuts.list()            // alias for listShortcuts
 ```
+
+The window binding (`window.Martis.shortcuts`) exposes exactly three methods — `add`, `remove`, `list` — mapping 1:1 to the three exports above. Use it from `boot.ts` or any non-module surface where importing from `@/lib/...` is awkward.
 
 ### `addShortcut(combo, handler, options?)`
 
@@ -192,4 +196,4 @@ it('fires on cmd+k', () => {
 })
 ```
 
-See `resources/js/keyboardShortcuts.test.ts` for the full suite (11 specs covering single keys, modifiers, sequences, input-focus suppression, listing, dispose semantics).
+See `resources/js/keyboardShortcuts.test.ts` for the full suite (16 specs covering single keys, modifiers, sequences, input-focus suppression, listing, dispose semantics, and the master-switch behaviour).
