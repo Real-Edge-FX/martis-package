@@ -179,7 +179,8 @@ class PreferencesResolver
         if (! is_string($value) || $value === '') {
             return null;
         }
-        if (! preg_match('/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $value)) {
+        // Accept the four CSS hex forms: #RGB, #RGBA, #RRGGBB, #RRGGBBAA.
+        if (! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $value)) {
             return null;
         }
 
