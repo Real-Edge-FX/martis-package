@@ -4,9 +4,11 @@ namespace Martis\Auth;
 
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 use Martis\Contracts\RegistersUsers;
 
@@ -48,6 +50,31 @@ class DefaultRegistersUsers implements RegistersUsers
         $defaultRole = config('martis.auth.registration.default_role');
         if ($defaultRole !== null && method_exists($user, 'assignRole')) {
             $user->assignRole($defaultRole);
+        }
+
+        // When email verification is enabled but the User model does
+        // NOT implement `MustVerifyEmail`, Laravel's default
+        // `SendEmailVerificationNotification` listener silently
+        // skips the send — the user gets created with a null
+        // `email_verified_at` column AND no email. The
+        // `martis.verified` middleware (v1.8.9+) blocks access until
+        // the column is populated, but the verification link itself
+        // depends on the trait being present. Surface that
+        // misconfiguration loudly so the dev fixes it instead of
+        // wondering why the verification email never arrives.
+        if (
+            config('martis.auth.email_verification.enabled', false)
+            && ! $user instanceof MustVerifyEmail
+        ) {
+            Log::warning(
+                'Martis email verification is enabled but '.$user::class
+                .' does not implement Illuminate\\Contracts\\Auth\\MustVerifyEmail. '
+                .'The verification email cannot be sent and the user will be '
+                .'blocked from the panel until `email_verified_at` is set '
+                .'manually. Add the interface to your User model to enable '
+                .'the full flow.',
+                ['user_id' => $user->getKey()]
+            );
         }
 
         event(new Registered($user));

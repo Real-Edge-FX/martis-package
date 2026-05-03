@@ -481,6 +481,14 @@ The Martis-shipped `DefaultRegistersUsers` fires `Registered` on every successfu
 
 Martis intentionally does not force the contract on the consumer's User model. Some apps do not want email verification at all; others have their own delivery flow (magic links, SSO-only, etc.).
 
+> **Block-on-misconfiguration (v1.8.9+).** When `MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true` AND your User model does NOT implement `MustVerifyEmail`, the `martis.verified` middleware now falls back to checking the `email_verified_at` column directly. The standard Laravel `users` migration ships that column, so on a default install:
+>
+> - The user is **blocked** from the panel after registration (column is null).
+> - But no verification email is sent (Laravel's listener is keyed on the contract).
+> - `DefaultRegistersUsers` writes a clear warning to `laravel.log` so the dev sees the misconfiguration on the first signup.
+>
+> Pre-v1.8.9 the middleware silently let unverified non-`MustVerifyEmail` users in — a security regression closed by this change. Add `implements MustVerifyEmail` to `App\Models\User` to unblock the email send + verify-link flow.
+
 ### Enable the full Martis verification flow
 
 Three steps:
