@@ -224,6 +224,33 @@ it('registers the policies in AuthServiceProvider', function () {
         ->toContain('PermissionPolicy::class');
 });
 
+it('scaffolds the BulkAssignRole action wired into UserResource', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    $this->artisan('martis:roles', [
+        '--no-install' => true,
+        '--no-publish-spatie' => true,
+        '--no-migrate' => true,
+    ])->run();
+
+    $actionPath = app_path('Martis/Resources/Actions/BulkAssignRole.php');
+    $userResourcePath = app_path('Martis/Resources/UserResource.php');
+
+    expect(file_exists($actionPath))->toBeTrue();
+
+    $action = (string) file_get_contents($actionPath);
+    expect($action)->toContain('class BulkAssignRole')
+        ->and($action)->toContain('Role::query()->find')
+        ->and($action)->toContain('assignRole($role)');
+
+    $userResource = (string) file_get_contents($userResourcePath);
+    expect($userResource)->toContain('use App\\Martis\\Resources\\Actions\\BulkAssignRole;')
+        ->and($userResource)->toContain('public function actions(Request $request): array')
+        ->and($userResource)->toContain('new BulkAssignRole');
+});
+
 it('is idempotent — re-running without --force skips existing files', function () {
     if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
         $this->markTestSkipped('spatie/laravel-permission not installed');

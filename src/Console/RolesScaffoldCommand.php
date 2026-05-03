@@ -79,6 +79,10 @@ class RolesScaffoldCommand extends Command
             $this->scaffoldResource($files, $namespace, $name, $userClass);
         }
 
+        // 5b. Scaffold the BulkAssignRole action wired into the
+        // generated UserResource. v1.8.8.
+        $this->scaffoldBulkAssignRoleAction($files, $namespace);
+
         // 6. Scaffold the three policies (User / Role / Permission).
         $this->scaffoldPolicies($files, $userClass);
 
@@ -229,6 +233,39 @@ class RolesScaffoldCommand extends Command
 
         file_put_contents($userPath, $patched);
         $this->components->twoColumnDetail('<fg=green>Patched</> User model', $userPath);
+    }
+
+    /**
+     * v1.8.8 — emit the `BulkAssignRole` action used by the generated
+     * UserResource. Lives under `{namespace}\Actions\BulkAssignRole`,
+     * idempotent under `--force` like every other scaffold step.
+     */
+    protected function scaffoldBulkAssignRoleAction(Filesystem $files, string $namespace): void
+    {
+        $stubFile = StubResolver::path('roles-bulk-assign-role-action.stub');
+        if (! file_exists($stubFile)) {
+            return;
+        }
+
+        $actionsNamespace = $namespace.'\\Actions';
+        $namespacePath = str_replace('\\', '/', $actionsNamespace);
+        $targetDir = base_path(str_replace('App/', 'app/', $namespacePath));
+        $files->ensureDirectoryExists($targetDir);
+
+        $targetFile = $targetDir.'/BulkAssignRole.php';
+        if (file_exists($targetFile) && ! $this->option('force')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> BulkAssignRole', 'already exists (use --force to overwrite)');
+
+            return;
+        }
+
+        $stub = (string) file_get_contents($stubFile);
+        $rendered = strtr($stub, [
+            '{{ namespace }}' => $actionsNamespace,
+        ]);
+
+        $files->put($targetFile, $rendered);
+        $this->components->twoColumnDetail('<fg=green>Created</> BulkAssignRole', $targetFile);
     }
 
     protected function scaffoldResource(Filesystem $files, string $namespace, string $name, string $userClass): void

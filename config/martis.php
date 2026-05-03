@@ -249,6 +249,23 @@ return [
         ),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Audit log (martis_action_events)
+    |--------------------------------------------------------------------------
+    | Toggles for the side-effect listeners that write into the
+    | `martis_action_events` audit table. Each one is independently
+    | togglable so an app that does not need a particular signal can
+    | drop the listener without touching the rest of the package.
+    */
+    'audit' => [
+        // Spatie role / permission attach + detach events. Default on
+        // when `spatie/laravel-permission` is installed. Flip to false
+        // to silence the Martis-side audit row (your own listeners
+        // keep firing — Martis only stops writing into action_events).
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+    ],
+
     'navigation' => [
         'counts' => [
             'enabled' => env('MARTIS_NAV_COUNTS', true),

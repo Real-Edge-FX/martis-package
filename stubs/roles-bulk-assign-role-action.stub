@@ -1,0 +1,85 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Contracts\FieldContract;
+use Martis\Fields\Select;
+use Spatie\Permission\Models\Role;
+
+/**
+ * Bulk-assign a Spatie role to a selection of users.
+ *
+ * Scaffolded by `php artisan martis:roles` and registered as a row /
+ * bulk action on the generated `UserResource`. The confirmation modal
+ * exposes a single Role dropdown populated from the local `roles`
+ * table (excluding any role tied to an SSO provider — those are
+ * managed by group sync and editing them here would be overwritten
+ * on next sign-in).
+ *
+ * Customise freely. This file is yours.
+ */
+class BulkAssignRole extends Action
+{
+    public function name(): string
+    {
+        return __('Assign role');
+    }
+
+    /**
+     * @param  Collection<int, \Illuminate\Database\Eloquent\Model>  $models
+     */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        $roleId = $fields->get('role_id');
+        if ($roleId === null) {
+            return ActionResponse::danger(__('Select a role to assign.'));
+        }
+
+        /** @var Role|null $role */
+        $role = Role::query()->find($roleId);
+        if ($role === null) {
+            return ActionResponse::danger(__('That role no longer exists.'));
+        }
+
+        $assigned = 0;
+        foreach ($models as $user) {
+            // `assignRole` is idempotent (`syncRoles` would clear other
+            // roles). Spatie fires `RoleAttachedEvent` which Martis
+            // captures into the audit log — see Auth\Listeners\
+            // RecordRoleChange.
+            $user->assignRole($role);
+            $assigned++;
+        }
+
+        return ActionResponse::message(
+            __(':count user(s) assigned to :role', ['count' => $assigned, 'role' => $role->name]),
+        );
+    }
+
+    /**
+     * @return list<FieldContract>
+     */
+    public function fields(Request $request): array
+    {
+        return [
+            Select::make(__('Role'), 'role_id')
+                ->options(function () {
+                    $query = Role::query();
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('roles', 'provider_group_name')) {
+                        $query->whereNull('provider_group_name');
+                    }
+
+                    return $query->orderBy('name')->pluck('name', 'id')->all();
+                })
+                ->required()
+                ->help(__('Roles tied to an SSO provider are excluded — they are managed by group sync.')),
+        ];
+    }
+}

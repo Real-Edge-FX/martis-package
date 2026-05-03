@@ -147,6 +147,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
         $this->registerRateLimiters();
+        $this->registerRoleAuditListeners();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -443,5 +444,36 @@ class MartisServiceProvider extends ServiceProvider
                 Limit::perMinutes($minutes, $attempts)->by($key),
             ];
         });
+    }
+
+    /**
+     * Subscribe Spatie role / permission attach + detach events to
+     * the Martis audit log when the package is installed.
+     *
+     * Defensive: skips silently when Spatie's event classes are not
+     * loaded (consumer never ran `martis:roles`) or when the audit
+     * table is missing (consumer skipped the `martis:install` migrations).
+     * The listener itself probes both at dispatch time, so the
+     * registration is cheap regardless.
+     */
+    protected function registerRoleAuditListeners(): void
+    {
+        if (! class_exists(\Spatie\Permission\Events\RoleAttachedEvent::class)) {
+            return;
+        }
+
+        $events = [
+            \Spatie\Permission\Events\RoleAttachedEvent::class => 'handleRoleAttached',
+            \Spatie\Permission\Events\RoleDetachedEvent::class => 'handleRoleDetached',
+            \Spatie\Permission\Events\PermissionAttachedEvent::class => 'handlePermissionAttached',
+            \Spatie\Permission\Events\PermissionDetachedEvent::class => 'handlePermissionDetached',
+        ];
+
+        foreach ($events as $event => $method) {
+            \Illuminate\Support\Facades\Event::listen($event, [
+                \Martis\Auth\Listeners\RecordRoleChange::class,
+                $method,
+            ]);
+        }
     }
 }
