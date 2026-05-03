@@ -294,7 +294,7 @@ Resolution precedence (highest first):
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to hide the footer entirely. |
-| `text` | `?string` | `null` | Custom footer text. When `null`, the bundled translation renders ("© {brand.name} · Powered by Martis"). |
+| `text` | `?string` | `null` | Custom footer text. When `null`, the bundled translation renders (`© {brand.name} · Powered by Martis`). |
 
 > **i18n trade-off.** `MARTIS_FOOTER_TEXT` is a single string that overrides every locale. For per-locale footer copy, leave the env var unset and publish the lang files with `php artisan vendor:publish --tag=martis-lang`, then edit each locale file directly.
 
