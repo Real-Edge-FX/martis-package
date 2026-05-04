@@ -9,7 +9,9 @@ use Martis\Stubs\StubResolver;
 
 class FieldMakeCommand extends Command
 {
-    protected $signature = 'martis:field {name : The field class name (e.g. Rating)}';
+    protected $signature = 'martis:field
+        {name : The field class name (e.g. Rating)}
+        {--force : Overwrite the TSX component if it already exists}';
 
     protected $description = 'Create a new Martis field (PHP class + React TSX component)';
 
@@ -20,7 +22,14 @@ class FieldMakeCommand extends Command
     }
 
     /**
-     * Handle.
+     * Generate the PHP field class and the matching TSX component.
+     *
+     * The TSX lives at `resources/js/martis-extensions/fields/{Name}.tsx`
+     * (v1.9.0+ auto-discovery convention). The bundle's entry index
+     * derives the registry key from the filename via PascalCase →
+     * kebab: `Rating.tsx` → `field:rating`. The PHP class binds to the
+     * same key implicitly because `Field::component()` defaults to
+     * `Str::kebab($name)`. No manual registration anywhere.
      */
     public function handle(): int
     {
@@ -28,21 +37,31 @@ class FieldMakeCommand extends Command
         $rawName = $this->argument('name');
         $name = Str::studly($rawName);
 
-        // Ensure "Field" suffix
         if (! Str::endsWith($name, 'Field')) {
             $name .= 'Field';
         }
 
-        $typeKey = Str::kebab(Str::before($name, 'Field'));
+        // Bare class basename (without the `Field` suffix) is what the
+        // auto-discovery filename uses, so the derived registry key
+        // matches what `Field::component()` produces by default.
+        $tsxBaseName = Str::before($name, 'Field') !== '' ? Str::before($name, 'Field') : $name;
+        $typeKey = Str::kebab($tsxBaseName);
 
         $this->generatePhpClass($name, $typeKey);
-        $this->generateTsxComponent($name, $typeKey);
+
+        if (! $this->generateTsxComponent($name, $tsxBaseName, $typeKey)) {
+            // TSX scaffold aborted (collision without --force in
+            // non-interactive shells) — exit early but leave the PHP
+            // file in place. The dev can rerun with --force once
+            // they're ready to overwrite.
+            return self::SUCCESS;
+        }
 
         $this->newLine();
         $this->components->info("Martis field [{$name}] created successfully.");
         $this->newLine();
-        $this->line('  Remember to register the React component in your field registry:');
-        $this->line("  <fg=cyan>componentRegistry.register('{$typeKey}', {$name}Display, {$name}Input)</>");
+        $this->line('  Run <fg=cyan>npm run build:extensions</> to compile the field bundle');
+        $this->line('  (or just deploy — the build runs in <fg=cyan>deploy.sh</>).');
         $this->newLine();
 
         return self::SUCCESS;
@@ -73,27 +92,44 @@ class FieldMakeCommand extends Command
         $this->components->twoColumnDetail('<fg=green>PHP class</>', "app/Martis/Fields/{$name}.php");
     }
 
-    protected function generateTsxComponent(string $name, string $typeKey): void
+    /**
+     * Drop the TSX component into the auto-discovery `fields/` bucket.
+     *
+     * Returns false when the destination exists and the dev declines
+     * to overwrite (or the shell is non-interactive without `--force`).
+     */
+    protected function generateTsxComponent(string $name, string $tsxBaseName, string $typeKey): bool
     {
-        $path = resource_path("js/martis/fields/{$typeKey}.tsx");
+        $relative = "resources/js/martis-extensions/fields/{$tsxBaseName}.tsx";
+        $path = base_path($relative);
 
         if ($this->files->exists($path)) {
-            $this->components->warn("TSX component already exists: resources/js/martis/fields/{$typeKey}.tsx");
+            if ($this->option('force') !== true) {
+                if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
+                    $this->components->warn("TSX component already exists: {$relative}");
+                    $this->line('  Pass <fg=cyan>--force</> to overwrite.');
 
-            return;
+                    return false;
+                }
+                if (! $this->confirm("{$relative} already exists. Overwrite?", false)) {
+                    return false;
+                }
+            }
         }
 
         $stub = $this->files->get(StubResolver::path('field.tsx.stub'));
 
         $content = str_replace(
-            ['{{ class }}', '{{ type }}'],
-            [$name, $typeKey],
+            ['{{ class }}', '{{ type }}', '{{ kebab }}'],
+            [$name, $typeKey, $typeKey],
             $stub
         );
 
         $this->files->ensureDirectoryExists(dirname($path));
         $this->files->put($path, $content);
 
-        $this->components->twoColumnDetail('<fg=green>TSX component</>', "resources/js/martis/fields/{$typeKey}.tsx");
+        $this->components->twoColumnDetail('<fg=green>TSX component</>', $relative);
+
+        return true;
     }
 }

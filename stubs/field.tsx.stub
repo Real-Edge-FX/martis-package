@@ -1,20 +1,41 @@
-import type { FieldProps } from '@martis/types'
+/**
+ * {{ class }} — Martis custom field component.
+ *
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/fields/{ClassBase}.tsx` and the
+ * bundle's entry index registers it under the key derived from the
+ * filename: `{ClassBase}.tsx` → `field:{ClassBase as kebab}`.
+ *
+ * Two named exports are required: `Display` (rendered on index and
+ * detail views) and `Input` (rendered on create and edit forms). The
+ * auto-discovery loop wires both into the registry as the display
+ * and input pair for the same key.
+ */
+
+interface FieldProps {
+  field: {
+    attribute: string
+    name: string
+    [key: string]: unknown
+  }
+  value: unknown
+}
 
 /**
  * {{ class }} — display component (shown on index and detail views).
  */
-export function {{ class }}Display({ value }: FieldProps) {
+export function Display({value}: FieldProps) {
   return <span>{String(value ?? '')}</span>
 }
 
 /**
  * {{ class }} — input component (shown on create and edit forms).
  */
-export function {{ class }}Input({
+export function Input({
   field,
   value,
   onChange,
-}: FieldProps & { onChange: (v: unknown) => void }) {
+}: FieldProps & {onChange: (v: unknown) => void}) {
   return (
     <input
       type="text"

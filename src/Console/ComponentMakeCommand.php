@@ -7,39 +7,62 @@ use Illuminate\Support\Str;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
+/**
+ * Scaffold a React override (TSX) into the consumer-extension
+ * `overrides/` bucket (v1.9.0+ zero-config convention).
+ *
+ * The bundle's auto-discovery entry — published by `martis:install`
+ * at `resources/js/martis-extensions/index.ts` — walks
+ * `overrides/*.tsx` and registers each component against
+ * `window.Martis.componentRegistry` under a fixed key map keyed by
+ * filename (Sidebar → `layout:sidebar`, LoginPage → `auth:login`,
+ * etc.). For `--type=generic` and `--type=field` the key is derived
+ * directly from the filename's kebab-case form.
+ *
+ * **No boot.ts editing.** The command just drops the TSX. The next
+ * `npm run build:extensions` (or deploy) wires it up.
+ */
 #[AsCommand(name: 'martis:component', aliases: ['martis:override'])]
 class ComponentMakeCommand extends Command
 {
     protected $signature = 'martis:component
-        {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout.}
+        {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout, ignored when --type maps to a fixed-name shell/auth piece.}
         {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | generic}
         {--force : Overwrite the file if it already exists}';
 
     protected $aliases = ['martis:override'];
 
-    protected $description = 'Scaffold a React override component (TSX) and auto-register it in resources/js/martis/boot.ts';
+    protected $description = 'Scaffold a React override component (TSX) into the consumer-extension overrides/ bucket';
 
-    /** @var array<string, array{key: string, stub: string}> */
+    /**
+     * Shell pieces: filename and registry key are fixed per type. The
+     * auto-discovery entry's OVERRIDE_KEYS map looks up exactly these
+     * filenames.
+     *
+     * @var array<string, array{filename: string, key: string, stub: string}>
+     */
     private const SHELL_PIECES = [
-        'shell' => ['key' => 'layout:shell',   'stub' => 'component-shell.tsx.stub'],
-        'sidebar' => ['key' => 'layout:sidebar', 'stub' => 'component-sidebar.tsx.stub'],
-        'topbar' => ['key' => 'layout:topbar',  'stub' => 'component-topbar.tsx.stub'],
-        'footer' => ['key' => 'layout:footer',  'stub' => 'component-footer.tsx.stub'],
+        'shell' => ['filename' => 'Shell', 'key' => 'layout:shell', 'stub' => 'component-shell.tsx.stub'],
+        'sidebar' => ['filename' => 'Sidebar', 'key' => 'layout:sidebar', 'stub' => 'component-sidebar.tsx.stub'],
+        'topbar' => ['filename' => 'Topbar', 'key' => 'layout:topbar', 'stub' => 'component-topbar.tsx.stub'],
+        'footer' => ['filename' => 'Footer', 'key' => 'layout:footer', 'stub' => 'component-footer.tsx.stub'],
     ];
 
     /**
-     * Auth-page overrides. Each --type writes a single TSX file and registers
-     * it under a fixed `auth:{flow}` key that the SPA router consults via
-     * `resolveAuthPage()`. Same single-export pattern as SHELL_PIECES.
+     * Auth-page overrides. Same fixed-filename convention as
+     * SHELL_PIECES. `--type=email-verify-notice-page` writes
+     * `EmailVerifyNoticePage.tsx` under key `auth:email-verify`
+     * (the index.ts mapping uses `auth:email-verify`, matching what
+     * the SPA router resolves).
      *
-     * @var array<string, array{key: string, stub: string}>
+     * @var array<string, array{filename: string, key: string, stub: string}>
      */
     private const AUTH_PAGES = [
-        'login-page' => ['key' => 'auth:login', 'stub' => 'component-login-page.tsx.stub'],
-        'register-page' => ['key' => 'auth:register', 'stub' => 'component-register-page.tsx.stub'],
-        'forgot-password-page' => ['key' => 'auth:forgot-password', 'stub' => 'component-forgot-password-page.tsx.stub'],
-        'reset-password-page' => ['key' => 'auth:reset-password', 'stub' => 'component-reset-password-page.tsx.stub'],
-        'email-verify-notice-page' => ['key' => 'auth:email-verify-notice', 'stub' => 'component-email-verify-notice-page.tsx.stub'],
+        'login-page' => ['filename' => 'LoginPage', 'key' => 'auth:login', 'stub' => 'component-login-page.tsx.stub'],
+        'register-page' => ['filename' => 'RegisterPage', 'key' => 'auth:register', 'stub' => 'component-register-page.tsx.stub'],
+        'forgot-password-page' => ['filename' => 'ForgotPasswordPage', 'key' => 'auth:forgot-password', 'stub' => 'component-forgot-password-page.tsx.stub'],
+        'reset-password-page' => ['filename' => 'ResetPasswordPage', 'key' => 'auth:reset-password', 'stub' => 'component-reset-password-page.tsx.stub'],
+        'email-verify-notice-page' => ['filename' => 'EmailVerifyNoticePage', 'key' => 'auth:email-verify-notice', 'stub' => 'component-email-verify-notice-page.tsx.stub'],
     ];
 
     public function handle(): int
@@ -64,54 +87,101 @@ class ComponentMakeCommand extends Command
             return $this->generateCompleteLayout();
         }
 
+        if (isset(self::SHELL_PIECES[$type]) || isset(self::AUTH_PAGES[$type])) {
+            // Fixed-filename types: ignore the user's name argument
+            // because the auto-discovery key map only looks at the
+            // canonical filename (Sidebar.tsx → "layout:sidebar").
+            return $this->generateFixedPiece($type);
+        }
+
         if ($name === null || $name === '') {
             $this->error("Missing name. Usage: php artisan martis:component <Name> --type={$type}");
 
             return self::FAILURE;
         }
 
-        return $this->generateSingle($type, $name);
+        return $this->generateUserNamed($type, $name);
     }
 
-    protected function generateSingle(string $type, string $name): int
+    /**
+     * Generate a shell piece or auth page using its canonical
+     * filename. The `name` argument is ignored — these slots have
+     * exactly one component each.
+     */
+    protected function generateFixedPiece(string $type): int
     {
-        $className = Str::studly($name);
-        $kebabName = Str::kebab($name);
+        $piece = self::SHELL_PIECES[$type] ?? self::AUTH_PAGES[$type];
+        $filename = $piece['filename'];
+        $relative = "resources/js/martis-extensions/overrides/{$filename}.tsx";
+        $absolutePath = base_path($relative);
 
-        [$baseDir, $componentDir, $bootPath, $extensionsPath] = $this->resolvePaths();
-        $componentPath = $componentDir.'/'.$className.'.tsx';
-
-        if (! is_dir($componentDir)) {
-            mkdir($componentDir, 0755, true);
-        }
-        if (! is_dir(dirname($bootPath))) {
-            mkdir(dirname($bootPath), 0755, true);
-        }
-
-        if (file_exists($componentPath) && ! $this->option('force')) {
-            $this->error("Component already exists: {$componentPath}  (re-run with --force to overwrite)");
-
+        if (! $this->confirmCollision($relative, $absolutePath)) {
             return self::FAILURE;
         }
 
-        $stub = $this->getStub($type);
-        $content = str_replace(
-            ['{{ class }}', '{{ kebab }}'],
-            [$className, $kebabName],
-            $stub,
-        );
+        $this->writeStub($piece['stub'], $absolutePath, [
+            '{{ class }}' => $filename,
+            '{{ kebab }}' => Str::kebab($filename),
+        ]);
 
-        file_put_contents($componentPath, $content);
+        $this->info("Component created: {$relative}");
+        $this->info("Auto-registered as '{$piece['key']}' on next `npm run build:extensions`.");
+        $this->newLine();
 
-        $registryKey = $this->resolveRegistryKey($type, $kebabName);
-        $this->updateBootFile($bootPath, $className, $registryKey, $type);
+        if (isset(self::SHELL_PIECES[$type])) {
+            $this->line('This component plugs into the shell — no further wiring needed.');
+            $this->line('Optional: pin it explicitly from PHP by setting');
+            $this->line("  <comment>'layout' => ['components' => ['{$type}' => '{$piece['key']}']]</comment>");
+        } else {
+            $this->line('This component plugs into the auth router — no further wiring needed.');
+            $this->line('Visiting the corresponding URL renders your override instead of the bundled page.');
+            $this->line('Reference impl in: <comment>vendor/martis/martis/resources/js/pages/</comment>');
+        }
 
-        $this->info("Component created: {$componentPath}");
+        $this->newLine();
+        $this->line('Build:');
+        $this->line('  <comment>npm run build:extensions</comment>');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Generate a user-named override (`--type=generic` or `--type=field`).
+     * The component lives at `overrides/{ClassName}.tsx`; the
+     * auto-discovery entry skips it from the OVERRIDE_KEYS lookup
+     * (only fixed filenames live there) and emits a console warning
+     * unless the consumer extends the keymap.
+     *
+     * For most cases you actually want a Tool / Field / Card
+     * generator instead — those have their own dedicated buckets.
+     * Generic component overrides remain a power-user tool.
+     */
+    protected function generateUserNamed(string $type, string $name): int
+    {
+        $className = Str::studly($name);
+        $kebabName = Str::kebab($className);
 
         if ($type === 'field') {
-            $this->info("Display registered as '{$registryKey}' in {$bootPath}");
-            $this->info("Input registered as '{$registryKey}-input' in {$bootPath}");
-            $this->newLine();
+            $this->components->warn('--type=field is now better served by `martis:field` (writes to fields/).');
+            $this->line('  Continuing with the legacy override behaviour for backwards compatibility.');
+        }
+
+        $relative = "resources/js/martis-extensions/overrides/{$className}.tsx";
+        $absolutePath = base_path($relative);
+
+        if (! $this->confirmCollision($relative, $absolutePath)) {
+            return self::FAILURE;
+        }
+
+        $this->writeStub("component-{$type}.tsx.stub", $absolutePath, [
+            '{{ class }}' => $className,
+            '{{ kebab }}' => $kebabName,
+        ], fallbackStub: 'component-generic.tsx.stub');
+
+        $this->info("Component created: {$relative}");
+        $this->newLine();
+
+        if ($type === 'field') {
             $this->line('Usage in PHP (display — index/detail):');
             $this->line("  ->overrideIndex(new Override('{$kebabName}'))");
             $this->line("  ->overrideDetail(new Override('{$kebabName}'))");
@@ -120,74 +190,44 @@ class ComponentMakeCommand extends Command
             $this->line("  ->overrideCreate(new Override('{$kebabName}-input'))");
             $this->line("  ->overrideUpdate(new Override('{$kebabName}-input'))");
         } else {
-            $this->info("Registered as '{$registryKey}' in {$bootPath}");
-            $this->newLine();
-
-            if (in_array($type, ['sidebar', 'topbar', 'footer', 'shell'], true)) {
-                $this->line('This component plugs into the shell — no further wiring needed.');
-                $this->line('Optional: pin it explicitly from PHP by setting');
-                $this->line("  <comment>'layout' => ['components' => ['{$type}' => '{$registryKey}']]</comment>");
-            } elseif (isset(self::AUTH_PAGES[$type])) {
-                $this->line('This component plugs into the auth router — no further wiring needed.');
-                $this->line('Visiting the corresponding URL renders your override instead of the bundled page.');
-                $this->line('Reference impl in: <comment>vendor/martis/martis/resources/js/pages/</comment>');
-            } else {
-                $this->line('Usage in PHP (field type):');
-                $this->line("  Text::make('field_name')->component('{$kebabName}')");
-            }
+            $this->line('Generic overrides are not in the auto-discovery key map — extend `OVERRIDE_KEYS`');
+            $this->line("in resources/js/martis-extensions/index.ts to map '{$className}' to your registry key,");
+            $this->line('or migrate the component into the canonical Tool / Field / Card bucket.');
         }
 
         $this->newLine();
-        $this->line('Rebuild assets with:');
-        $this->line('  <comment>MARTIS_USER_DIR='.resource_path($extensionsPath).' npm run build</comment>');
+        $this->line('Build:');
+        $this->line('  <comment>npm run build:extensions</comment>');
 
         return self::SUCCESS;
     }
 
     /**
-     * Scaffold all four shell pieces at once (shell + sidebar + topbar + footer).
-     * Each lands under its default registry key so the pieces work out of
-     * the box. Names default to CustomShell / CustomSidebar / …; pass the
-     * `name` argument to use a project-specific prefix (e.g. "Acme"
-     * generates AcmeShell, AcmeSidebar, AcmeTopbar, AcmeFooter).
+     * Scaffold all four shell pieces at once. Keeps backwards
+     * compatibility with the v1.8 behaviour but uses the new
+     * `overrides/` bucket. The `name` argument, when supplied, used
+     * to act as a class prefix; in v1.9 the canonical filenames
+     * always win because the OVERRIDE_KEYS map is keyed on them.
      */
     protected function generateCompleteLayout(): int
     {
-        /** @var string|null $prefixArg */
-        $prefixArg = $this->argument('name');
-        $prefix = $prefixArg !== null && $prefixArg !== '' ? Str::studly($prefixArg) : 'Custom';
-
-        [$baseDir, $componentDir, $bootPath, $extensionsPath] = $this->resolvePaths();
-
-        if (! is_dir($componentDir)) {
-            mkdir($componentDir, 0755, true);
-        }
-        if (! is_dir(dirname($bootPath))) {
-            mkdir(dirname($bootPath), 0755, true);
-        }
-
         $created = [];
-        foreach (self::SHELL_PIECES as $piece => $meta) {
-            $className = $prefix.Str::studly($piece);
-            $kebabName = Str::kebab($className);
-            $componentPath = $componentDir.'/'.$className.'.tsx';
+        foreach (self::SHELL_PIECES as $type => $piece) {
+            $relative = "resources/js/martis-extensions/overrides/{$piece['filename']}.tsx";
+            $absolutePath = base_path($relative);
 
-            if (file_exists($componentPath) && ! $this->option('force')) {
-                $this->warn("Skipped {$componentPath} (already exists, use --force to overwrite)");
+            if (file_exists($absolutePath) && $this->option('force') !== true) {
+                $this->warn("Skipped {$relative} (already exists, use --force to overwrite)");
 
                 continue;
             }
 
-            $stub = $this->getStub($piece);
-            $content = str_replace(
-                ['{{ class }}', '{{ kebab }}'],
-                [$className, $kebabName],
-                $stub,
-            );
-            file_put_contents($componentPath, $content);
-            $this->updateBootFile($bootPath, $className, $meta['key'], $piece);
+            $this->writeStub($piece['stub'], $absolutePath, [
+                '{{ class }}' => $piece['filename'],
+                '{{ kebab }}' => Str::kebab($piece['filename']),
+            ]);
 
-            $created[] = [$className, $meta['key'], $componentPath];
+            $created[] = [$piece['filename'], $piece['key'], $relative];
         }
 
         if ($created === []) {
@@ -203,123 +243,47 @@ class ComponentMakeCommand extends Command
         }
 
         $this->newLine();
-        $this->line('Edit the generated files to match your brand, then rebuild:');
-        $this->line('  <comment>MARTIS_USER_DIR='.resource_path($extensionsPath).' npm run build</comment>');
-        $this->newLine();
-        $this->line('No config change required — the pieces are registered under the default');
-        $this->line("`layout:*` keys. Set <comment>config('martis.layout.preset') = 'custom'</comment> if you");
-        $this->line('want the shell to skip the bundled fallback and require your override.');
+        $this->line('Build:');
+        $this->line('  <comment>npm run build:extensions</comment>');
 
         return self::SUCCESS;
     }
 
     /**
-     * @return array{0:string, 1:string, 2:string, 3:string}
+     * Detect collisions before writing. Honours `--force` and aborts
+     * non-interactive shells without prompting.
      */
-    protected function resolvePaths(): array
+    protected function confirmCollision(string $relative, string $absolutePath): bool
     {
-        $extensionsPath = config('martis.extensions_path', 'martis-extensions');
-        $baseDir = resource_path($extensionsPath.'/martis');
+        if (! file_exists($absolutePath)) {
+            return true;
+        }
+        if ($this->option('force') === true) {
+            return true;
+        }
+        if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
+            $this->error("Component already exists: {$relative}  (re-run with --force to overwrite)");
 
-        return [$baseDir, $baseDir.'/components', $baseDir.'/boot.ts', $extensionsPath];
-    }
-
-    protected function resolveRegistryKey(string $type, string $kebabName): string
-    {
-        if (isset(self::AUTH_PAGES[$type])) {
-            return self::AUTH_PAGES[$type]['key'];
+            return false;
         }
 
-        return match ($type) {
-            'footer' => 'layout:footer',
-            'shell' => 'layout:shell',
-            'sidebar' => 'layout:sidebar',
-            'topbar' => 'layout:topbar',
-            default => $kebabName,
-        };
+        return $this->confirm("{$relative} already exists. Overwrite?", false);
     }
 
     /**
-     * Get the stub file contents for the given component type.
+     * @param  array<string, string>  $replacements
      */
-    protected function getStub(string $type): string
+    protected function writeStub(string $stubName, string $absolutePath, array $replacements, ?string $fallbackStub = null): void
     {
-        $stubPath = StubResolver::path('component-'.$type.'.tsx.stub');
-
-        if (! file_exists($stubPath)) {
-            $stubPath = StubResolver::path('component-generic.tsx.stub');
+        $stubPath = StubResolver::path($stubName);
+        if (! file_exists($stubPath) && $fallbackStub !== null) {
+            $stubPath = StubResolver::path($fallbackStub);
         }
 
-        return (string) file_get_contents($stubPath);
-    }
+        $stub = (string) file_get_contents($stubPath);
+        $content = strtr($stub, $replacements);
 
-    /**
-     * Register the component in the user boot file.
-     */
-    protected function updateBootFile(string $bootPath, string $className, string $registryKey, string $type): void
-    {
-        if ($type === 'field') {
-            $importLine = "import { {$className}Display, {$className}Input } from './components/{$className}'";
-            $registerLines = [
-                "componentRegistry.register('{$registryKey}', {$className}Display as never)",
-                "componentRegistry.register('{$registryKey}-input', {$className}Input as never)",
-            ];
-        } else {
-            $importLine = "import { {$className} } from './components/{$className}'";
-            $registerLines = [
-                "componentRegistry.register('{$registryKey}', {$className} as never)",
-            ];
-        }
-
-        if (file_exists($bootPath)) {
-            $content = (string) file_get_contents($bootPath);
-
-            if (! str_contains($content, "import { componentRegistry } from '@/lib/componentRegistry'")) {
-                $content = "import { componentRegistry } from '@/lib/componentRegistry'\n".$content;
-            }
-
-            if (! str_contains($content, $importLine)) {
-                $lines = explode("\n", $content);
-                $lastImportIndex = -1;
-
-                foreach ($lines as $i => $line) {
-                    if (str_starts_with(trim($line), 'import ')) {
-                        $lastImportIndex = $i;
-                    }
-                }
-
-                if ($lastImportIndex >= 0) {
-                    array_splice($lines, $lastImportIndex + 1, 0, [$importLine]);
-                } else {
-                    array_unshift($lines, $importLine);
-                }
-
-                $content = implode("\n", $lines);
-            }
-
-            if (! str_contains($content, '// Auto-registered by martis:component')) {
-                $content = rtrim($content)."\n\n// Auto-registered by martis:component\n";
-            }
-
-            foreach ($registerLines as $registerLine) {
-                if (! str_contains($content, $registerLine)) {
-                    $content = rtrim($content)."\n".$registerLine."\n";
-                }
-            }
-
-            file_put_contents($bootPath, $content);
-
-            return;
-        }
-
-        $content = "import { componentRegistry } from '@/lib/componentRegistry'\n";
-        $content .= $importLine."\n";
-        $content .= "\n// Auto-registered by martis:component\n";
-
-        foreach ($registerLines as $registerLine) {
-            $content .= $registerLine."\n";
-        }
-
-        file_put_contents($bootPath, $content);
+        @mkdir(dirname($absolutePath), 0755, true);
+        file_put_contents($absolutePath, $content);
     }
 }

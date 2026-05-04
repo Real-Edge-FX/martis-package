@@ -10,15 +10,23 @@ use Symfony\Component\Console\Attribute\AsCommand;
 /**
  * Generate a custom Martis dashboard card (PHP class + React component).
  *
- * Creates:
- *  1. PHP class in app/Martis/Cards/{Name}.php
- *  2. React component in resources/{extensions_path}/martis/components/{Name}.tsx
- *  3. Auto-registers the component in the boot.ts file
+ * Outputs (v1.9.0+ zero-config convention):
+ *  1. PHP class at `app/Martis/Cards/{Name}.php`.
+ *  2. React component at `resources/js/martis-extensions/cards/{Name}.tsx`.
+ *
+ * **No boot.ts editing.** The auto-discovery entry shipped by
+ * `martis:install` (`resources/js/martis-extensions/index.ts`) walks
+ * the `cards/` bucket via `import.meta.glob` and registers every
+ * `.tsx` against `window.Martis.componentRegistry` under the key
+ * derived from the filename: `RevenueGauge.tsx` → `card:revenue-gauge`.
+ * The PHP `Card` binds to the same key implicitly via its kebab name.
  */
 #[AsCommand(name: 'martis:card')]
 class CardMakeCommand extends GeneratorCommand
 {
-    protected $signature = 'martis:card {name : The card class name (e.g. WelcomeCard)}';
+    protected $signature = 'martis:card
+        {name : The card class name (e.g. WelcomeCard)}
+        {--force : Overwrite the TSX component if it already exists}';
 
     protected $description = 'Create a custom dashboard card (PHP + React component)';
 
@@ -47,18 +55,17 @@ class CardMakeCommand extends GeneratorCommand
             return false;
         }
 
-        // 2. Generate the React component
-        $this->generateReactComponent($className, $kebabName);
-
-        // 3. Register in boot.ts
-        $this->registerInBootFile($className, $kebabName);
+        // 2. Generate the React component into the auto-discovery bucket.
+        $tsxWritten = $this->generateReactComponent($className, $kebabName);
 
         $this->newLine();
         $this->components->info('Card created successfully.');
         $this->newLine();
 
         $this->line('  <fg=green>PHP class</>:  app/Martis/Cards/'.$className.'.php');
-        $this->line('  <fg=green>React</>:      resources/'.config('martis.extensions_path', 'martis-extensions').'/martis/components/'.$className.'.tsx');
+        if ($tsxWritten) {
+            $this->line('  <fg=green>React</>:      resources/js/martis-extensions/cards/'.$className.'.tsx');
+        }
         $this->newLine();
 
         $this->line('  Usage — add to a Dashboard\'s cards() method:');
@@ -69,9 +76,9 @@ class CardMakeCommand extends GeneratorCommand
         $this->line("    <comment>(new {$className}())->withMeta(['key' => 'value']),</comment>");
         $this->newLine();
 
-        $extensionsPath = config('martis.extensions_path', 'martis-extensions');
-        $this->line('  Rebuild assets:');
-        $this->line('    <comment>MARTIS_USER_DIR='.resource_path($extensionsPath).' npm run build</comment>');
+        $this->line('  Build the extension bundle:');
+        $this->line('    <comment>npm run build:extensions</comment>');
+        $this->line('    (or just deploy — the build also runs in deploy.sh)');
 
         return $result;
     }
@@ -94,22 +101,27 @@ class CardMakeCommand extends GeneratorCommand
     }
 
     /**
-     * Generate the React TSX component file.
+     * Generate the React TSX component file at the auto-discovery
+     * path. Returns false when the file exists and the dev declines
+     * to overwrite.
      */
-    protected function generateReactComponent(string $className, string $kebabName): void
+    protected function generateReactComponent(string $className, string $kebabName): bool
     {
-        $extensionsPath = config('martis.extensions_path', 'martis-extensions');
-        $componentDir = resource_path($extensionsPath.'/martis/components');
-        $componentPath = $componentDir.'/'.$className.'.tsx';
-
-        if (! is_dir($componentDir)) {
-            mkdir($componentDir, 0755, true);
-        }
+        $relative = "resources/js/martis-extensions/cards/{$className}.tsx";
+        $componentPath = base_path($relative);
 
         if (file_exists($componentPath)) {
-            $this->components->warn("React component already exists: {$componentPath}");
+            if ($this->option('force') !== true) {
+                if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
+                    $this->components->warn("React component already exists: {$relative}");
+                    $this->line('  Pass <fg=cyan>--force</> to overwrite.');
 
-            return;
+                    return false;
+                }
+                if (! $this->confirm("{$relative} already exists. Overwrite?", false)) {
+                    return false;
+                }
+            }
         }
 
         $stub = (string) file_get_contents(StubResolver::path('component-card.tsx.stub'));
@@ -120,64 +132,9 @@ class CardMakeCommand extends GeneratorCommand
             $stub,
         );
 
+        @mkdir(dirname($componentPath), 0755, true);
         file_put_contents($componentPath, $content);
-    }
 
-    /**
-     * Register the component in the user boot.ts file.
-     */
-    protected function registerInBootFile(string $className, string $kebabName): void
-    {
-        $extensionsPath = config('martis.extensions_path', 'martis-extensions');
-        $bootPath = resource_path($extensionsPath.'/martis/boot.ts');
-
-        $bootDir = dirname($bootPath);
-        if (! is_dir($bootDir)) {
-            mkdir($bootDir, 0755, true);
-        }
-
-        $importLine = "import { {$className} } from './components/{$className}'";
-        $registerLine = "componentRegistry.register('{$kebabName}', {$className} as never)";
-
-        if (file_exists($bootPath)) {
-            $content = (string) file_get_contents($bootPath);
-
-            if (! str_contains($content, "import { componentRegistry } from '@/lib/componentRegistry'")) {
-                $content = "import { componentRegistry } from '@/lib/componentRegistry'\n".$content;
-            }
-
-            if (! str_contains($content, $importLine)) {
-                $lines = explode("\n", $content);
-                $lastImportIndex = -1;
-
-                foreach ($lines as $i => $line) {
-                    if (str_starts_with(trim($line), 'import ')) {
-                        $lastImportIndex = $i;
-                    }
-                }
-
-                if ($lastImportIndex >= 0) {
-                    array_splice($lines, $lastImportIndex + 1, 0, [$importLine]);
-                } else {
-                    array_unshift($lines, $importLine);
-                }
-
-                $content = implode("\n", $lines);
-            }
-
-            if (! str_contains($content, $registerLine)) {
-                $content = rtrim($content)."\n".$registerLine."\n";
-            }
-
-            file_put_contents($bootPath, $content);
-
-            return;
-        }
-
-        $content = "import { componentRegistry } from '@/lib/componentRegistry'\n";
-        $content .= $importLine."\n";
-        $content .= "\n".$registerLine."\n";
-
-        file_put_contents($bootPath, $content);
+        return true;
     }
 }

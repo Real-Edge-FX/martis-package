@@ -1,24 +1,21 @@
 <?php
 
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Str;
 use Martis\Console\ComponentMakeCommand;
 
 // ---------------------------------------------------------------------------
-// Each --type for an auth page must:
-//   1. Write a TSX file at resources/martis-extensions/martis/components/{Name}.tsx
-//   2. Add the matching import + componentRegistry.register() to boot.ts
-//   3. Use the right registry key: auth:login / auth:register / auth:forgot-password
-//      / auth:reset-password / auth:email-verify-notice
-//
-// Tests mirror PolicyMakeCommandTest's pattern: scratch dir, run command,
-// assert file system state, clean up.
+// Each --type for an auth page must (v1.9.0+ zero-config convention):
+//   1. Write a TSX file at resources/js/martis-extensions/overrides/{FixedFilename}.tsx.
+//   2. Use the canonical filename per type (LoginPage / RegisterPage /
+//      ForgotPasswordPage / ResetPasswordPage / EmailVerifyNoticePage).
+//   3. The auto-discovery entry index.ts maps each filename to the
+//      auth:{flow} registry key — no manual register call, no boot.ts.
 // ---------------------------------------------------------------------------
 
 beforeEach(function () {
     /** @var Filesystem $fs */
     $fs = new Filesystem;
-    $extensionsDir = resource_path('martis-extensions');
+    $extensionsDir = base_path('resources/js/martis-extensions');
     if ($fs->exists($extensionsDir)) {
         $fs->deleteDirectory($extensionsDir);
     }
@@ -27,51 +24,49 @@ beforeEach(function () {
 afterAll(function () {
     /** @var Filesystem $fs */
     $fs = new Filesystem;
-    $extensionsDir = resource_path('martis-extensions');
+    $extensionsDir = base_path('resources/js/martis-extensions');
     if ($fs->exists($extensionsDir)) {
         $fs->deleteDirectory($extensionsDir);
     }
 });
 
 dataset('auth_pages', [
-    ['login-page', 'auth:login'],
-    ['register-page', 'auth:register'],
-    ['forgot-password-page', 'auth:forgot-password'],
-    ['reset-password-page', 'auth:reset-password'],
-    ['email-verify-notice-page', 'auth:email-verify-notice'],
+    ['login-page', 'LoginPage', 'auth:login'],
+    ['register-page', 'RegisterPage', 'auth:register'],
+    ['forgot-password-page', 'ForgotPasswordPage', 'auth:forgot-password'],
+    ['reset-password-page', 'ResetPasswordPage', 'auth:reset-password'],
+    ['email-verify-notice-page', 'EmailVerifyNoticePage', 'auth:email-verify-notice'],
 ]);
 
-it('scaffolds the override TSX file', function (string $type, string $expectedKey) {
-    $name = 'My'.Str::studly($type);
-
+it('scaffolds the auth-page override TSX in the overrides bucket', function (string $type, string $expectedFilename, string $expectedKey) {
+    // The user-supplied `name` is intentionally ignored for fixed
+    // pieces — the canonical filename ALWAYS wins so the
+    // auto-discovery key map (filename → key) stays consistent.
     $exitCode = $this->artisan('martis:component', [
-        'name' => $name,
+        'name' => 'IgnoredName',
         '--type' => $type,
     ])->run();
 
     expect($exitCode)->toBe(0);
 
-    $componentPath = resource_path("martis-extensions/martis/components/{$name}.tsx");
+    $componentPath = base_path("resources/js/martis-extensions/overrides/{$expectedFilename}.tsx");
     expect(file_exists($componentPath))->toBeTrue();
 
     $content = (string) file_get_contents($componentPath);
-    expect($content)->toContain("export function {$name}()");
+    // Stub still uses the {{ class }} placeholder, replaced with the
+    // canonical filename.
+    expect($content)->toContain("export function {$expectedFilename}");
 })->with('auth_pages');
 
-it('registers the component under the right registry key', function (string $type, string $expectedKey) {
-    $name = 'My'.Str::studly($type);
-
+it('does NOT touch boot.ts or any legacy registration file', function (string $type) {
     $this->artisan('martis:component', [
-        'name' => $name,
+        'name' => 'IgnoredName',
         '--type' => $type,
     ])->run();
 
-    $bootPath = resource_path('martis-extensions/martis/boot.ts');
-    expect(file_exists($bootPath))->toBeTrue();
-
-    $boot = (string) file_get_contents($bootPath);
-    expect($boot)->toContain("import { {$name} } from './components/{$name}'");
-    expect($boot)->toContain("componentRegistry.register('{$expectedKey}', {$name} as never)");
+    // boot.ts is the pre-v1.9 mechanism. v1.9 must not create it.
+    expect(file_exists(base_path('resources/js/martis-extensions/martis/boot.ts')))->toBeFalse();
+    expect(file_exists(resource_path('martis-extensions/martis/boot.ts')))->toBeFalse();
 })->with('auth_pages');
 
 it('rejects unknown --type values', function () {
@@ -80,13 +75,10 @@ it('rejects unknown --type values', function () {
         '--type' => 'not-a-real-type',
     ])->run();
 
-    // Symfony Console returns 1 (FAILURE) when our handle() returns FAILURE.
     expect($exitCode)->not->toBe(0);
 });
 
 it('the auth-page key constants stay in sync with the type list', function () {
-    // Use reflection so a typo in either AUTH_PAGES or $allowedTypes
-    // surfaces during CI rather than at runtime in a consumer app.
     $reflection = new ReflectionClass(ComponentMakeCommand::class);
     $authPages = $reflection->getReflectionConstant('AUTH_PAGES')->getValue();
 
@@ -97,4 +89,11 @@ it('the auth-page key constants stay in sync with the type list', function () {
         'reset-password-page',
         'email-verify-notice-page',
     ]);
+
+    // The fixed-filename convention is structural — each entry must
+    // expose `filename` + `key` + `stub` so the dispatcher in
+    // ComponentMakeCommand::generateFixedPiece() can rely on them.
+    foreach ($authPages as $type => $meta) {
+        expect($meta)->toHaveKeys(['filename', 'key', 'stub']);
+    }
 });
