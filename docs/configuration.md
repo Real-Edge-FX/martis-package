@@ -641,6 +641,18 @@ Directory where auto-discovery looks for resource classes. Martis scans this pat
 
 Namespace for auto-discovery of resource policies. When a resource does not define an explicit `$policy` property, Martis looks for `{policy_namespace}\{ResourceBaseName}Policy`.
 
+## Tools Auto-Discovery
+
+```php
+'tools_path' => app_path('Martis/Tools'),
+'tools_namespace' => 'App\\Martis\\Tools',
+'discovery' => [
+    'tools' => env('MARTIS_DISCOVERY_TOOLS', true),
+],
+```
+
+Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). Discovery merges with any `Martis::tools([...])` registration via dedup by class-string, so adopting it does not break apps that already registered Tools manually. Set `discovery.tools` to `false` (or `MARTIS_DISCOVERY_TOOLS=false`) to opt out and keep manual registration.
+
 ## Attachments
 
 ```php

@@ -11,6 +11,7 @@ use Martis\MartisManager;
  * @method static MartisManager dashboards(array $dashboards)
  * @method static list<\Martis\Contracts\DashboardContract> resolveDashboards(\Illuminate\Http\Request $request)
  * @method static MartisManager tools(array $tools)
+ * @method static MartisManager mergeTools(list<class-string<\Martis\Contracts\ToolContract>|\Martis\Contracts\ToolContract> $tools)
  * @method static list<\Martis\Contracts\ToolContract> resolveTools(\Illuminate\Http\Request $request)
  * @method static \Martis\Contracts\ToolContract|null findTool(\Illuminate\Http\Request $request, string $uriKey)
  * @method static MartisManager pageTitleUsing(\Closure $resolver)

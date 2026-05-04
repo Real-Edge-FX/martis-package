@@ -190,6 +190,15 @@ class NavigationController extends MartisController
             $sections[] = MenuSection::make($key === '' ? null : $key, $resources);
         }
 
+        // Tools auto-grouped into sidebar sections — same ergonomics
+        // as Resources. A Tool's `menuSection()` (string|null) decides
+        // its bucket; tools without one fall under the localised
+        // "Tools" header. Hosts that build a fully custom main menu
+        // via `Martis::mainMenu(...)` and place tools manually with
+        // `MenuItem::tool(...)` are honoured: the dedup pass below
+        // suppresses duplicates by uriKey.
+        $sections = array_merge($sections, $this->buildToolSections($request));
+
         $resolved = $this->martis->resolveMainMenu($request, $sections);
 
         // Suppress auto-injection for system-section resources the host-app
@@ -219,6 +228,51 @@ class NavigationController extends MartisController
         // section appears whenever there is at least one item visible
         // to this user (cache admin link + any system-grouped resources).
         return $this->appendSystemSection($resolved, $request, $systemResources);
+    }
+
+    /**
+     * Build sidebar sections for every registered Tool the current
+     * user is authorised to see, grouped by the Tool's
+     * `menuSection()`. Tools without a section land under the
+     * localised "Tools" header (translation key
+     * `martis::messages.menu.tools_section`, with the literal
+     * fallback "Tools").
+     *
+     * Returns an empty list when no Tool is registered or when every
+     * registered Tool fails the auth gate. Hosts that prefer fully
+     * custom placement override via `Martis::mainMenu(...)`.
+     *
+     * @return list<MenuSection>
+     */
+    protected function buildToolSections(Request $request): array
+    {
+        $tools = $this->martis->resolveTools($request);
+
+        if ($tools === []) {
+            return [];
+        }
+
+        $translated = trans('martis::messages.tools_section');
+        $defaultLabel = is_string($translated) && $translated !== 'martis::messages.tools_section'
+            ? $translated
+            : 'Tools';
+
+        /** @var array<string, list<MenuItem>> $grouped */
+        $grouped = [];
+        foreach ($tools as $tool) {
+            $section = $tool->menuSection() ?? $defaultLabel;
+            if (! array_key_exists($section, $grouped)) {
+                $grouped[$section] = [];
+            }
+            $grouped[$section][] = MenuItem::tool($tool);
+        }
+
+        $sections = [];
+        foreach ($grouped as $label => $items) {
+            $sections[] = MenuSection::make($label, $items);
+        }
+
+        return $sections;
     }
 
     /**

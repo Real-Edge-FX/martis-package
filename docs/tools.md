@@ -26,10 +26,13 @@ A Tool spans four layers. You write code at each, glued together by the framewor
 │                              section, canSee(), and the lifecycle hooks   │
 │                              (boot, publishes, ...).                      │
 ├───────────────────────────────────────────────────────────────────────────┤
-│ 2. Registration              `Martis::tools([X::class])` from your        │
-│    (ServiceProvider)          MartisServiceProvider, OR via a packaged    │
-│                              `ToolServiceProvider` (Composer-distributed  │
-│                              tools).                                      │
+│ 2. Registration              Auto-discovered from `app/Martis/Tools/`     │
+│    (ServiceProvider)          (since v1.8.20). Manual registration via    │
+│                              `Martis::tools([X::class])` is still         │
+│                              supported and merges with discovery (dedup   │
+│                              by class-string). Composer-distributed       │
+│                              tools may also self-register through their   │
+│                              own `ToolServiceProvider`.                   │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ 3. HTTP / Backend            Auto-mounted REST endpoints                  │
 │    (Martis package)           (`/martis/api/tools` + `/martis/api/tools/  │
@@ -54,23 +57,24 @@ The fastest way from "I want a System Status page" to a working tool is the arti
 php artisan martis:tool SystemStatus --use-bundled --menu-section="Operations" --icon=pulse
 ```
 
-This produces `app/Martis/Tools/SystemStatus.php`. Register it in your `MartisServiceProvider`:
+This produces `app/Martis/Tools/SystemStatus.php`. **No registration step required**: any concrete `Martis\Tools\Tool` subclass under `app/Martis/Tools/` is auto-discovered at boot (v1.8.20+) and added to `Martis::tools(...)` with dedup by class-string.
 
-```php
-use App\Martis\Tools\SystemStatus;
-
-Martis::tools([SystemStatus::class]);
-```
-
-Add a menu entry next to your resources:
-
-```php
-MenuSection::make('Tools', [
-    MenuItem::tool(SystemStatus::class),
-])->icon('wrench');
-```
+The Tool also surfaces in the sidebar by default — auto-grouped under the localised "Tools" header, or under whatever you pass to `withMenuSection('Operations')` inside the constructor. Manual placement via `MenuItem::tool(SystemStatus::class)` is still available when you build a fully custom main menu via `Martis::mainMenu(...)`.
 
 Done. Navigate to `/martis/tools/system-status`. The bundled `martis:tool:system-status-demo` React component renders the page inside the standard layout.
+
+### Disabling auto-discovery
+
+Set `martis.discovery.tools = false` (or `MARTIS_DISCOVERY_TOOLS=false`) when you prefer the pre-v1.8.20 behaviour and want to register every Tool by hand from your `MartisServiceProvider`:
+
+```php
+Martis::tools([
+    SystemStatus::class,
+    ImportWizard::class,
+]);
+```
+
+Override the discovery path or namespace via `martis.tools_path` and `martis.tools_namespace` if your app keeps Tools outside the conventional location.
 
 ## Anatomy of a Tool class
 
