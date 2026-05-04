@@ -1,4 +1,24 @@
-import { useTranslation } from 'react-i18next'
+/**
+ * {{ display_name }} — Custom Tool React component.
+ *
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/tools/{{ class_short }}.tsx` and is
+ * registered automatically against `window.Martis.componentRegistry`
+ * by the bundle entry. The component key is derived from the
+ * filename:
+ *
+ *   {{ class_short }}.tsx → "{{ component_key }}"
+ *
+ * The PHP Tool class binds to the same key via
+ * `withComponent('{{ component_key }}')`. No manual registration
+ * needed — drop the file in this folder, run
+ * `npm run build:extensions`, and the Tool renders.
+ *
+ * The Martis `ToolPage` shell fetches `/api/tools/{uriKey}` and
+ * resolves this component by key. The descriptor matches the JSON
+ * shape returned by that endpoint — read `tool.meta` to access the
+ * `withMeta(...)` bag set on the PHP side.
+ */
 
 interface ToolDescriptor {
   name: string
@@ -9,35 +29,13 @@ interface ToolDescriptor {
   meta: Record<string, unknown>
 }
 
-/**
- * {{ display_name }} — Custom Tool React component.
- *
- * Bound to the PHP Tool by registering this component in
- * `resources/js/martis/boot.ts` (or wherever your consumer-side
- * componentRegistry initialisation lives):
- *
- *   import { componentRegistry } from '@martis/admin'
- *   import { {{ component_name }} } from '@/tools/{{ component_name }}'
- *
- *   componentRegistry.register('{{ component_key }}', {{ component_name }})
- *
- * The package's `ToolPage` shell (router path `/tools/:uriKey`)
- * fetches `/api/tools/{uriKey}` and resolves this component by key.
- * The descriptor below matches the JSON shape returned by that
- * endpoint — read meta to access the `withMeta(...)` bag set on the
- * PHP side.
- */
-export function {{ component_name }}({ tool }: { tool: ToolDescriptor }) {
-  const { t } = useTranslation('messages')
-
+export default function {{ component_name }}({ tool }: { tool: ToolDescriptor }) {
   return (
     <div className="martis-tool-page">
       <header className="martis-tool-header">
         <div>
           <h1>{tool.name}</h1>
-          <p className="martis-tool-subtitle">
-            {t('{{ component_key }}_subtitle', '{{ display_name }} page.')}
-          </p>
+          <p className="martis-tool-subtitle">{{ display_name }} page.</p>
         </div>
       </header>
 

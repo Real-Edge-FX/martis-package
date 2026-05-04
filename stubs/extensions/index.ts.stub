@@ -1,0 +1,117 @@
+/**
+ * Consumer-extension bundle entry — auto-discovery edition (v1.9.0+).
+ *
+ * Built into `public/vendor/martis-user/extensions.js`. Martis loads
+ * this bundle at runtime when `MARTIS_EXTENSIONS` lists the URL.
+ *
+ * Convention: every `.tsx` under one of the four buckets gets imported
+ * eagerly via `import.meta.glob` and registered on
+ * `window.Martis.componentRegistry` with a derived key:
+ *
+ *   tools/Charts.tsx        → "tool:charts"
+ *   tools/SystemHealth.tsx  → "tool:system-health"
+ *   cards/RevenueGauge.tsx  → "card:revenue-gauge"
+ *   fields/PriceTag.tsx     → "field:price-tag"   (display + input via named exports)
+ *   overrides/Sidebar.tsx   → "layout:sidebar"    (mapped via OVERRIDE_KEYS below)
+ *   overrides/LoginPage.tsx → "auth:login"
+ *
+ * The PHP side binds Tools/Fields/Cards to these keys via
+ * `withComponent('tool:charts')` etc., so filename and key stay in
+ * lock-step. No manual `componentRegistry.register(...)` calls — the
+ * generator drops the `.tsx` in the right bucket and the loop below
+ * picks it up at the next `npm run build:extensions`.
+ */
+
+declare global {
+  interface Window {
+    Martis?: {
+      componentRegistry?: {
+        register: (key: string, component: unknown, secondary?: unknown) => void
+      }
+    }
+  }
+}
+
+interface FieldModule {
+  default?: unknown
+  Display?: unknown
+  Input?: unknown
+}
+
+/**
+ * Fixed mapping for layout/auth overrides. The filename selects the
+ * registry key — all keys live under stable namespaces the Martis SPA
+ * looks up by hard-coded string, so we cannot derive them from the
+ * filename alone.
+ */
+const OVERRIDE_KEYS: Record<string, string> = {
+  Shell: 'layout:shell',
+  Sidebar: 'layout:sidebar',
+  Topbar: 'layout:topbar',
+  Footer: 'layout:footer',
+  LoginPage: 'auth:login',
+  RegisterPage: 'auth:register',
+  ForgotPasswordPage: 'auth:forgot-password',
+  ResetPasswordPage: 'auth:reset-password',
+  EmailVerifyNoticePage: 'auth:email-verify',
+}
+
+function pascalToKebab(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase()
+}
+
+function basename(path: string): string {
+  const segments = path.split('/')
+  return (segments[segments.length - 1] ?? '').replace(/\.tsx$/, '')
+}
+
+const registry = window.Martis?.componentRegistry
+
+if (registry === undefined) {
+  // eslint-disable-next-line no-console
+  console.error('[martis-extensions] window.Martis.componentRegistry not available — Martis app.tsx must run before this bundle.')
+} else {
+  // Tools — `tools/Charts.tsx` → "tool:charts"
+  const tools = import.meta.glob<{default: unknown}>('./tools/*.tsx', {eager: true})
+  for (const [path, mod] of Object.entries(tools)) {
+    const name = basename(path)
+    const key = `tool:${pascalToKebab(name)}`
+    if (mod.default !== undefined) registry.register(key, mod.default)
+  }
+
+  // Cards — `cards/RevenueGauge.tsx` → "card:revenue-gauge"
+  const cards = import.meta.glob<{default: unknown}>('./cards/*.tsx', {eager: true})
+  for (const [path, mod] of Object.entries(cards)) {
+    const name = basename(path)
+    const key = `card:${pascalToKebab(name)}`
+    if (mod.default !== undefined) registry.register(key, mod.default)
+  }
+
+  // Fields — `fields/PriceTag.tsx` → "field:price-tag" with optional Display/Input named exports.
+  const fields = import.meta.glob<FieldModule>('./fields/*.tsx', {eager: true})
+  for (const [path, mod] of Object.entries(fields)) {
+    const name = basename(path)
+    const key = `field:${pascalToKebab(name)}`
+    const display = mod.Display ?? mod.default
+    const input = mod.Input ?? mod.default
+    if (display !== undefined) registry.register(key, display, input)
+  }
+
+  // Overrides — fixed key map per filename.
+  const overrides = import.meta.glob<{default: unknown}>('./overrides/*.tsx', {eager: true})
+  for (const [path, mod] of Object.entries(overrides)) {
+    const name = basename(path)
+    const key = OVERRIDE_KEYS[name]
+    if (key === undefined) {
+      // eslint-disable-next-line no-console
+      console.warn(`[martis-extensions] overrides/${name}.tsx has no key mapping; rename to one of: ${Object.keys(OVERRIDE_KEYS).join(', ')}`)
+      continue
+    }
+    if (mod.default !== undefined) registry.register(key, mod.default)
+  }
+}
+
+export {}

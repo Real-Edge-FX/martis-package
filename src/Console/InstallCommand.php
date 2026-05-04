@@ -32,6 +32,7 @@ class InstallCommand extends Command
         $this->publishTranslations();
         $this->publishOptionalMigrations($options);
         $this->publishServiceProvider();
+        $this->publishExtensionsScaffold();
         $this->writeEnvironmentConfiguration($options);
         $this->clearConfigCache();
         $this->runMigrations();
@@ -120,6 +121,7 @@ class InstallCommand extends Command
         $dirs = [
             '',
             '/Resources',
+            '/Tools',
             '/Fields',
             '/Actions',
             '/Filters',
@@ -456,6 +458,10 @@ class InstallCommand extends Command
             'MARTIS_AVATAR_COLUMN' => $options['avatar_column'],
             'MARTIS_2FA_ENABLED' => $options['two_factor_enabled'] ? 'true' : 'false',
             'MARTIS_SHOW_PROFILE_MENU' => $options['profile_enabled'] ? 'true' : 'false',
+            // v1.9.0+ runtime extension loader. The default URL points
+            // at the bundle `npm run build:extensions` produces in
+            // `public/vendor/martis-user/extensions.js`.
+            'MARTIS_EXTENSIONS' => '/vendor/martis-user/extensions.js',
         ];
 
         foreach ($pairs as $key => $value) {
@@ -503,6 +509,117 @@ class InstallCommand extends Command
         }
 
         return $value;
+    }
+
+    /**
+     * Publish the consumer-extension build scaffold (v1.9.0+).
+     *
+     * Drops `vite.extensions.config.ts`, `tsconfig.extensions.json`,
+     * `resources/js/martis-extensions/index.ts`, and the four bucket
+     * directories (`tools/`, `fields/`, `cards/`, `overrides/`) into
+     * the consumer app. Also adds the `build:extensions` script to
+     * `package.json` if a `package.json` exists in the project root.
+     *
+     * Idempotent: every existing file is left in place unless the
+     * dev passes `--force`. Detection of a stale legacy `boot.ts`
+     * (pre-v1.9 mechanism) emits a warning so the dev knows the file
+     * is now ignored.
+     */
+    protected function publishExtensionsScaffold(): void
+    {
+        $filesystem = new Filesystem;
+        $force = (bool) $this->option('force');
+
+        // Legacy boot.ts detector — pre-v1.9 hook removed in v1.8.19.
+        // We don't touch the file; we just warn the dev so they can
+        // delete or migrate it.
+        $legacyBoot = base_path('resources/js/martis/boot.ts');
+        if ($filesystem->exists($legacyBoot)) {
+            $this->components->warn('Detected legacy resources/js/martis/boot.ts — that mechanism was removed in v1.8.19.');
+            $this->line('  The new auto-discovery loader picks up TSX from <fg=cyan>resources/js/martis-extensions/</> instead.');
+            $this->line('  Move your component registrations there or delete boot.ts when ready.');
+        }
+
+        // Use packagePath() directly: the extension scaffold ships
+        // as a tree (vite config, tsconfig, index entry, bucket
+        // .gitkeeps), and `StubResolver::path()` only resolves single
+        // files. Override individual stubs by publishing them under
+        // `stubs/martis/extensions/<file>` per consumer if needed.
+        $stubBase = StubResolver::packagePath('extensions');
+
+        $files = [
+            'vite.extensions.config.ts.stub' => 'vite.extensions.config.ts',
+            'tsconfig.extensions.json.stub' => 'tsconfig.extensions.json',
+            'index.ts.stub' => 'resources/js/martis-extensions/index.ts',
+        ];
+
+        foreach ($files as $stubName => $relativeTarget) {
+            $source = $stubBase.'/'.$stubName;
+            if (! $filesystem->exists($source)) {
+                continue;
+            }
+            $target = base_path($relativeTarget);
+
+            if ($filesystem->exists($target) && ! $force) {
+                $this->components->twoColumnDetail('<fg=yellow>Skipping</> '.$relativeTarget, 'already exists (use --force to overwrite)');
+
+                continue;
+            }
+
+            $filesystem->ensureDirectoryExists(dirname($target), 0755);
+            $filesystem->put($target, (string) $filesystem->get($source));
+            $this->components->twoColumnDetail('<fg=green>Published</> '.$relativeTarget, $stubName);
+        }
+
+        $buckets = ['tools', 'fields', 'cards', 'overrides'];
+        foreach ($buckets as $bucket) {
+            $bucketPath = base_path('resources/js/martis-extensions/'.$bucket);
+            if (! is_dir($bucketPath)) {
+                $filesystem->ensureDirectoryExists($bucketPath, 0755);
+                $filesystem->put($bucketPath.'/.gitkeep', '');
+                $this->components->twoColumnDetail('<fg=green>Creating</> directory', 'resources/js/martis-extensions/'.$bucket);
+            }
+        }
+
+        $this->updatePackageJsonScripts($filesystem);
+    }
+
+    /**
+     * Add the `build:extensions` script to the consumer's
+     * `package.json` if not already present. Skipped when there is no
+     * `package.json` (some setups do without npm) or when the script
+     * is already wired up.
+     */
+    protected function updatePackageJsonScripts(Filesystem $filesystem): void
+    {
+        $path = base_path('package.json');
+        if (! $filesystem->exists($path)) {
+            return;
+        }
+
+        $contents = (string) $filesystem->get($path);
+        /** @var array<string, mixed>|null $decoded */
+        $decoded = json_decode($contents, true);
+        if (! is_array($decoded)) {
+            $this->components->warn('Could not parse package.json — skipping the build:extensions script update.');
+
+            return;
+        }
+
+        /** @var array<string, mixed> $scripts */
+        $scripts = is_array($decoded['scripts'] ?? null) ? $decoded['scripts'] : [];
+
+        if (isset($scripts['build:extensions'])) {
+            return;
+        }
+
+        $scripts['build:extensions'] = 'vite build --config vite.extensions.config.ts';
+        ksort($scripts);
+        $decoded['scripts'] = $scripts;
+
+        $filesystem->put($path, json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->components->twoColumnDetail('<fg=green>Updated</> package.json', 'added build:extensions script');
     }
 
     protected function clearConfigCache(): void

@@ -1,0 +1,52 @@
+/**
+ * Consumer-extension bundle config for Martis (v1.9.0+).
+ *
+ * Built by `npm run build:extensions`. Output lands at
+ * `public/vendor/martis-user/extensions.js`, which Martis loads at
+ * runtime via the URL listed in `MARTIS_EXTENSIONS` (set in `.env`).
+ *
+ * The bundle's entry — `resources/js/martis-extensions/index.ts` —
+ * auto-discovers every `.tsx` file under the four buckets
+ * (`tools/`, `fields/`, `cards/`, `overrides/`) using
+ * `import.meta.glob` and registers the components on
+ * `window.Martis.componentRegistry`. You normally don't edit this
+ * config; the `martis:tool|field|card|component` generators do all
+ * the wiring.
+ *
+ * `react`, `react-dom`, and `react/jsx-runtime` are externalised to
+ * `window.Martis.react` so the consumer bundle shares the JSX runtime
+ * with the Martis SPA — no duplicate React instances, no double-event
+ * hazards.
+ */
+
+import {defineConfig} from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'node:path'
+
+export default defineConfig({
+  plugins: [react()],
+  // outDir lives inside public/, so leaving publicDir on its default
+  // (`public`) would trigger an infinite copy loop into
+  // public/vendor/martis-user/. Disable it here.
+  publicDir: false,
+  build: {
+    lib: {
+      entry: path.resolve(__dirname, 'resources/js/martis-extensions/index.ts'),
+      formats: ['es'],
+      fileName: () => 'extensions.js',
+    },
+    outDir: 'public/vendor/martis-user',
+    emptyOutDir: true,
+    sourcemap: true,
+    rollupOptions: {
+      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      output: {
+        globals: {
+          'react': 'window.Martis.react',
+          'react-dom': 'window.Martis.react',
+          'react/jsx-runtime': 'window.Martis.react',
+        },
+      },
+    },
+  },
+})

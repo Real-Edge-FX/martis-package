@@ -42,7 +42,7 @@ A Tool spans four layers. You write code at each, glued together by the framewor
 │                              register its own routes / listeners / gates. │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ 4. React component           A `.tsx` you register in your boot.ts under  │
-│    (resources/js/tools/)      the same component key the PHP tool         │
+│    (resources/js/martis-extensions/tools/)      the same component key the PHP tool         │
 │                              binds via `withComponent('tool:foo')`.       │
 │                              The Martis ToolPage shell renders it inside  │
 │                              the standard layout.                         │
@@ -309,7 +309,7 @@ php artisan martis:tool SystemStatus [flags]
 
 | Flag | Effect |
 |---|---|
-| `--with-component` | Also drop a TSX stub at `resources/js/tools/{Name}Tool.tsx` with the `componentRegistry.register` call wired up. |
+| `--with-component` | Also drop a TSX stub at `resources/js/martis-extensions/tools/{Name}.tsx` (no `Tool` filename suffix). The auto-discovery entry registers it against the derived key automatically; no manual `componentRegistry.register` call required. |
 | `--component-key=foo` | Use `foo` as the React component key instead of the auto-generated `tool:{kebab-name}`. |
 | `--use-bundled` | Bind to the package-bundled `martis:tool:system-status-demo` component so the Tool renders out of the box without writing TSX. |
 | `--menu-section="Operations"` | Embed `withMenuSection('Operations')` in the generated stub. |
@@ -400,7 +400,7 @@ php artisan martis:tool SystemStatus --with-component --menu-section="System" --
 
 The generator drops:
 - `app/Martis/Tools/SystemStatus.php`
-- `resources/js/tools/SystemStatusTool.tsx`
+- `resources/js/martis-extensions/tools/SystemStatus.tsx`
 
 In the PHP class, restrict to admins:
 
