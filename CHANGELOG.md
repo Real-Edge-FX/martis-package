@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] — 2026-05-04
+
+### Changed
+
+- **Generic and field-shape overrides auto-register** — no manual `OVERRIDE_KEYS` extension required. The bundle's auto-discovery loop in `resources/js/martis-extensions/index.ts` now derives the registry key from the filename for any override that is not a canonical layout/auth slot. Field-shape overrides (modules with `Display` + `Input` named exports) register under both `{kebab}` (display) and `{kebab}-input` (input). Single-default-export overrides register under `{kebab}` alone. Layout/auth slots continue to use the fixed key map. v1.10.0 required an explicit `OVERRIDE_KEYS` table edit per override; v1.10.1 retires that wart.
+
+- **`martis:component --type=field` stub** rewritten to use `Display` and `Input` as the canonical named exports (instead of `{ClassName}Display` / `{ClassName}Input`). Matches what the new auto-discovery loop reads. The PHP-side bind shape is unchanged: `Override('{kebab}')` for display, `Override('{kebab}-input')` for input.
+
+- **`martis:component --type=field` and `--type=generic` output messages** updated to print "Auto-registered as '{key}' on next `npm run build:extensions`" instead of the previous "extend `OVERRIDE_KEYS` manually" guidance. The stubs themselves drop that guidance from their docblock too.
+
+- **`martis:list-overrides --frontend`** now derives keys for arbitrary override filenames (mirrors the bundle loop's logic). Generic and field-shape overrides show as registered when the matching TSX file exists.
+
+### Migration notes
+
+If you upgraded to v1.10.0 and manually extended `OVERRIDE_KEYS` in `resources/js/martis-extensions/index.ts`, you can remove your additions on the next `martis:install --force` (the published `index.ts` already covers the canonical keys, and the auto-discovery loop covers everything else). The legacy `OVERRIDE_KEYS` extensions still work — the loop checks the map first before falling back to the filename derivation.
+
+If your existing `--type=field` stubs use `{ClassName}Display` / `{ClassName}Input` named exports, rename them to `Display` / `Input` (or re-run `martis:component --type=field <Name> --force` to overwrite with the new shape).
+
 ## [1.10.0] — 2026-05-04
 
 ### Added

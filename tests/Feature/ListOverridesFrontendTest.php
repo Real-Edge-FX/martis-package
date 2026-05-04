@@ -75,11 +75,11 @@ it('--frontend discovers tool/field/card filenames in their respective buckets',
         ->toContain('auth:login');
 });
 
-it('--frontend ignores unknown override filenames (not in OVERRIDE_KEYS map)', function () {
+it('--frontend derives keys for arbitrary override filenames (v1.10.1+)', function () {
     $fs = new Filesystem;
     $fs->ensureDirectoryExists(base_path('resources/js/martis-extensions/overrides'));
     file_put_contents(
-        base_path('resources/js/martis-extensions/overrides/RandomThing.tsx'),
+        base_path('resources/js/martis-extensions/overrides/StatusBadge.tsx'),
         '// stub',
     );
 
@@ -89,9 +89,13 @@ it('--frontend ignores unknown override filenames (not in OVERRIDE_KEYS map)', f
     /** @var list<string> $keys */
     $keys = $reflection->invoke($command, base_path('resources/js/martis-extensions'));
 
-    // RandomThing.tsx has no entry in the bundle's OVERRIDE_KEYS map,
-    // so the discovery returns nothing for the overrides bucket.
-    expect($keys)->toBe([]);
+    // v1.10.1+ derives `{kebab}` + `{kebab}-input` for any
+    // non-canonical override filename. The bundle's auto-discovery
+    // loop binds Display + Input named exports to those keys, and
+    // single-default-export overrides to `{kebab}` alone.
+    expect($keys)
+        ->toContain('status-badge')
+        ->toContain('status-badge-input');
 });
 
 it('--frontend supports a custom --extensions-dir path', function () {

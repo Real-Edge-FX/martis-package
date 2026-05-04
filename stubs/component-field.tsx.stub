@@ -2,22 +2,29 @@
  * {{ class }} — field display + input override (v1.9.0+ convention).
  *
  * Lives at `resources/js/martis-extensions/overrides/{{ class }}.tsx`.
- * Generic field-shape overrides do NOT auto-register through the
- * bundle's filename → key map (which only knows the canonical
- * layout/auth slots). To bind:
  *
- *   1. PREFERRED: use `martis:field {{ class }}` instead. That generator
- *      drops a TSX file in `martis-extensions/fields/` and the
- *      auto-discovery loop picks it up against `field:{kebab}` —
- *      no extra wiring; AND
- *   2. The PHP-side override stays the same:
- *        `->overrideIndex(new Override('{{ kebab }}'))`
- *        `->overrideCreate(new Override('{{ kebab }}-input'))`
+ * Auto-registered on next `npm run build:extensions` (v1.10.1+):
  *
- * If you do keep this file under `overrides/`, extend `OVERRIDE_KEYS`
- * in `resources/js/martis-extensions/index.ts` so the loop knows how
- * to register `{{ class }}Display` and `{{ class }}Input` against the
- * `{{ kebab }}` / `{{ kebab }}-input` keys.
+ *   - `Display` named export → `componentRegistry.register('{{ kebab }}', Display)`
+ *   - `Input`   named export → `componentRegistry.register('{{ kebab }}-input', Input)`
+ *
+ * The bundle's auto-discovery loop derives the registry key from
+ * the filename (`{{ class }}.tsx` → `{{ kebab }}`) and binds both halves
+ * automatically. No manual `OVERRIDE_KEYS` extension required.
+ *
+ * Bind from PHP:
+ *
+ *   Text::make('status')
+ *       ->overrideIndex(new Override('{{ kebab }}'))
+ *       ->overrideDetail(new Override('{{ kebab }}'))
+ *       ->overrideCreate(new Override('{{ kebab }}-input'))
+ *       ->overrideUpdate(new Override('{{ kebab }}-input'));
+ *
+ * Tip: when you want a brand-new field type with matching PHP class,
+ * use `php artisan martis:field {{ class }}` instead — that
+ * generator writes the PHP Field subclass too and routes the override
+ * through the bundle's `fields/` bucket (slightly different key
+ * namespace `field:{{ kebab }}`).
  */
 
 interface FieldProps {
@@ -34,14 +41,14 @@ interface FieldProps {
 /**
  * {{ class }} — Display variant (index/detail contexts).
  */
-export function {{ class }}Display({value}: FieldProps) {
+export function Display({value}: FieldProps) {
   return <span>{String(value ?? '')}</span>
 }
 
 /**
  * {{ class }} — Input variant (create/update contexts).
  */
-export function {{ class }}Input({value, onChange, error}: FieldProps & {onChange: (v: unknown) => void}) {
+export function Input({value, onChange, error}: FieldProps & {onChange: (v: unknown) => void}) {
   return (
     <div>
       <input

@@ -972,16 +972,15 @@ See [Theming Guide](theming.md) for the complete variable reference.
 # auto-discovery binds card:welcome-card to RevenueGauge.tsx).
 php artisan martis:card WelcomeCard
 
-# Visual override — creates TSX component. For shell pieces and auth
-# pages (--type=shell/sidebar/topbar/footer/login-page/...) the bundle's
-# OVERRIDE_KEYS map auto-registers it. For --type=field and
-# --type=generic the consumer must extend OVERRIDE_KEYS in
-# resources/js/martis-extensions/index.ts (the stub repeats this in its
-# header docblock).
+# Visual override — creates TSX component. Every --type value
+# auto-registers since v1.10.1: shell pieces and auth pages bind to
+# fixed registry keys via the OVERRIDE_KEYS map; --type=field and
+# --type=generic derive {kebab(filename)} (and -input for the
+# field-shape pair) automatically.
 php artisan martis:override StatusBadge --type=field
 ```
 
-`martis:card` writes both the PHP class (`app/Martis/Cards/`) and the React component (`resources/js/martis-extensions/cards/{Name}.tsx`); the bundle's filename → key auto-discovery (`{Name}.tsx` → `card:{kebab-name}`) registers it on the next `npm run build:extensions`. `martis:override` writes a TSX-only file under `resources/js/martis-extensions/overrides/`. See [Override System: Auto-registration scope](overrides.md#6-creating-custom-components-artisan) for which `--type` values auto-register and which require a manual `OVERRIDE_KEYS` extension.
+`martis:card` writes both the PHP class (`app/Martis/Cards/`) and the React component (`resources/js/martis-extensions/cards/{Name}.tsx`); the bundle's filename → key auto-discovery (`{Name}.tsx` → `card:{kebab-name}`) registers it on the next `npm run build:extensions`. `martis:override` writes a TSX-only file under `resources/js/martis-extensions/overrides/` and the bundle auto-registers it on the next build. See [Override System: Auto-registration scope](overrides.md#6-creating-custom-components-artisan) for the full filename → key table.
 
 ---
 
@@ -995,7 +994,7 @@ php artisan martis:override StatusBadge --type=field
 | `martis:action` | Generate an action (`--destructive` for destructive variant) |
 | `martis:filter` | Generate a filter (`--boolean`, `--date` variants) |
 | `martis:card` | Generate a custom dashboard card (PHP + React TSX; auto-discovers via filename → `card:{kebab}`) |
-| `martis:override` | Scaffold a React override component (TSX only; auto-registers for canonical `--type` values, manual `OVERRIDE_KEYS` extension for `generic` / `field`) |
+| `martis:override` | Scaffold a React override component (TSX only; auto-registers for every `--type` value via filename → key derivation since v1.10.1) |
 | `martis:policy` | Generate a resource policy |
 | `martis:theme` | Scaffold a custom theme with all CSS variables (dark + light) |
 | `martis:value` | Generate a value metric |

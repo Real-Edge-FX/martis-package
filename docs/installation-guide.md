@@ -510,7 +510,7 @@ The package ships 28 commands. The full list:
 
 | Command | Description |
 |---|---|
-| `martis:component` | Scaffold a React override (TSX) under `resources/js/martis-extensions/overrides/`. Shell pieces and auth pages auto-register via the filename → key map; `--type=generic` and `--type=field` require extending `OVERRIDE_KEYS` in `index.ts`. See [Overrides](overrides.md#6-creating-custom-components-artisan) |
+| `martis:component` | Scaffold a React override (TSX) under `resources/js/martis-extensions/overrides/`. Every `--type` auto-registers on the next `npm run build:extensions`. See [Overrides](overrides.md#6-creating-custom-components-artisan) for the filename → key table |
 | `martis:theme` | Scaffold a custom theme override |
 | `martis:sso` | Scaffold an SSO provider configuration block |
 
