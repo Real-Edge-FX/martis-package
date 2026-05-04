@@ -112,26 +112,32 @@ Mid-level cluster nested **inside** a `MenuSection`. See [Nested MenuGroup](#nes
 
 ### Tool menu items
 
-`MenuItem::tool()` builds a navigation entry from a registered Martis Tool.
-The factory accepts either a class-string or a tool instance, and reads
-`name()`, `uriKey()`, `icon()`, and `authorizedToSee()` lazily at request
-time, so the rendered menu always reflects the live state of the tool —
-including authorization checks, which silently drop the item when the user
-is not allowed to see it.
+Since v1.8.20, every registered Tool is auto-grouped into the sidebar by default. A Tool that declares `withMenuSection('Operations')` lands in the "Operations" section; everything else goes under the localised "Tools" header (translation key `martis::messages.tools_section`, default English label `Tools`). You only need to call `MenuItem::tool(...)` when you build a fully custom main menu via `Martis::mainMenu(...)` and want a Tool placed alongside hand-rolled links.
 
 ```php
 use App\Martis\Tools\HealthCheck;
 use Martis\Menu\MenuItem;
 use Martis\Menu\MenuSection;
 
-MenuSection::make('Operations', [
-    MenuItem::tool(HealthCheck::class),
-    MenuItem::tool(HealthCheck::class)->label('Status')->icon('pulse'),
-]);
+// Custom main menu — auto-Tools sections are produced upstream and
+// passed in via `$menu`. `MenuItem::tool(...)` lets you cherry-pick.
+Martis::mainMenu(function ($request, $menu) {
+    return $menu->prepend(
+        MenuSection::make('Pinned', [
+            MenuItem::tool(HealthCheck::class),
+            MenuItem::tool(HealthCheck::class)->label('Status')->icon('pulse'),
+        ])
+    );
+});
 ```
 
-Any combination of `label()`, `icon()`, and `path()` overrides the tool's
-defaults. Otherwise the item resolves to `/tools/<uriKey>` automatically.
+`MenuItem::tool()` accepts either a class-string or a tool instance, and reads `name()`, `uriKey()`, `icon()`, and `authorizedToSee()` lazily at request time. The rendered menu always reflects the live state of the tool — including authorization checks, which silently drop the item when the user is not allowed to see it.
+
+Any combination of `label()`, `icon()`, and `path()` overrides the tool's defaults. Otherwise the item resolves to `/tools/<uriKey>` automatically.
+
+#### Default Tools section
+
+The auto-grouping pass runs **before** your custom `Martis::mainMenu(...)` resolver, so the resolver receives both the resource sections and the Tool sections in `$menu`. You can mutate, reorder, or filter them — same ergonomics as Resources. Manually placing a Tool with `MenuItem::tool(...)` after the auto-grouping ran will produce a duplicate entry; either drop the manual placement, or build sections from scratch and rely on `MenuItem::tool(...)` exclusively.
 
 ### Dashboard, Lens & Filter items
 

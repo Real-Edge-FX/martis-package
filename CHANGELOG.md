@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.20] — 2026-05-04
+
+### Added
+
+- **Auto-discovery of Tools.** Concrete `Martis\Tools\Tool` subclasses placed under `app/Martis/Tools/` are now registered automatically at boot, mirroring the ergonomics Resources have had since v0.7. No more `Martis::tools([X::class])` boilerplate in `MartisServiceProvider` for the conventional case. Manual registration still works and merges with discovery (dedup by class-string), so existing apps adopt the feature with zero code changes. New config knobs: `martis.tools_path`, `martis.tools_namespace`, `martis.discovery.tools` (toggle via `MARTIS_DISCOVERY_TOOLS`). New `Martis\Discovery\ToolDiscovery` class (espelho de `ResourceDiscovery`) with 8 unit specs.
+- **Tools auto-grouped into the sidebar by default.** The default navigation builder now emits one section per `withMenuSection(...)` value (or a localised "Tools" header when no section is declared) for every Tool the current user is authorised to see. `MenuItem::tool(...)` is no longer required for the conventional "Tools live in their own sidebar group" use case — only when building a fully custom main menu via `Martis::mainMenu(...)`. New translation key `martis::messages.tools_section` (en: "Tools", pt_PT/pt_BR: "Ferramentas"). 4 new feature specs in `NavigationControllerTest`.
+- `Martis::mergeTools(array $tools)` — append-with-dedup variant of `tools()`. Used internally by auto-discovery, available to packages that ship Composer-distributed Tools.
+
 ## [1.8.19] — 2026-05-04
 
 ### Added

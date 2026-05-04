@@ -204,6 +204,9 @@ return [
     // Cache admin (Task 17)
     'cache_unknown_type' => 'Unknown cache type.',
     'system' => 'System',
+    // Default sidebar header for auto-discovered Tools without an
+    // explicit `withMenuSection()` placement.
+    'tools_section' => 'Tools',
     'cache_admin_title' => 'System cache',
     'cache_admin_subtitle' => 'Inspect, clear and toggle Martis cache layers without redeploying.',
     'cache_master_on' => 'Master cache is ON',

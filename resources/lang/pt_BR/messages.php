@@ -204,6 +204,9 @@ return [
     // Cache admin (Task 17)
     'cache_unknown_type' => 'Tipo de cache desconhecido.',
     'system' => 'Sistema',
+    // Cabeçalho padrão da sidebar para Tools auto-descobertas sem
+    // `withMenuSection()` explícito.
+    'tools_section' => 'Ferramentas',
     'cache_admin_title' => 'Cache do sistema',
     'cache_admin_subtitle' => 'Inspecione, limpe e ative/desative camadas de cache do Martis sem redeploy.',
     'cache_master_on' => 'Cache global ativada',

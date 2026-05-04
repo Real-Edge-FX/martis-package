@@ -1099,6 +1099,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tools auto-discovery
+    |--------------------------------------------------------------------------
+    | Where auto-discovery looks for Martis Tool classes (sidebar pages),
+    | the matching namespace, and a switch to disable discovery entirely.
+    |
+    | Defaults assume the convention `app/Martis/Tools/` under the
+    | `App\Martis\Tools` namespace. When disabled, register Tools
+    | manually via `Martis::tools([...])` in your `MartisServiceProvider`.
+    */
+    'tools_path' => app_path('Martis/Tools'),
+    'tools_namespace' => 'App\\Martis\\Tools',
+    'discovery' => [
+        'tools' => env('MARTIS_DISCOVERY_TOOLS', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Policy Namespace
     |--------------------------------------------------------------------------
     | Namespace for auto-discovery of Martis resource policies.

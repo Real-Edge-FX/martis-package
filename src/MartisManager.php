@@ -108,6 +108,37 @@ class MartisManager
     }
 
     /**
+     * Append Tools to the registered list with dedup by class-string.
+     *
+     * Used by `ToolDiscovery` (auto-registration) so manual
+     * `Martis::tools([...])` calls and discovery can coexist without
+     * stomping each other. Pass either class-strings or instances —
+     * dedup is keyed on `is_string($t) ? $t : $t::class`.
+     *
+     * @param  list<class-string<ToolContract>|ToolContract>  $tools
+     */
+    public function mergeTools(array $tools): static
+    {
+        $known = [];
+        foreach ($this->tools as $existing) {
+            $known[is_string($existing) ? $existing : $existing::class] = true;
+        }
+
+        foreach ($tools as $candidate) {
+            $key = is_string($candidate) ? $candidate : $candidate::class;
+            if (isset($known[$key])) {
+                continue;
+            }
+            $this->tools[] = $candidate;
+            $known[$key] = true;
+        }
+
+        $this->bootedTools = false;
+
+        return $this;
+    }
+
+    /**
      * Resolve all registered tools the current user is authorised to see.
      *
      * @return list<ToolContract>

@@ -63,6 +63,7 @@ use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsEmailVerification;
 use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Discovery\ResourceDiscovery;
+use Martis\Discovery\ToolDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Facades\Martis;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
@@ -158,6 +159,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerExceptionHandling();
         $this->registerCacheGate();
         $this->discoverResources();
+        $this->discoverTools();
         $this->registerApiDocs();
 
         $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
@@ -400,6 +402,40 @@ class MartisServiceProvider extends ServiceProvider
         if ($classes !== []) {
             $this->app->make(ResourceRegistry::class)->registerMany($classes);
         }
+    }
+
+    /**
+     * Auto-discover and register Tool classes from `app/Martis/Tools/`.
+     *
+     * Runs inside `Application::booted` so host providers that call
+     * `Martis::tools([...])` manually have already executed — the
+     * discovery's `mergeTools()` then appends with dedup, never
+     * stomping the host's explicit registration.
+     *
+     * Disable per-app via `martis.discovery.tools = false` (defaults to
+     * true) when full manual control is desired.
+     */
+    protected function discoverTools(): void
+    {
+        if (config('martis.discovery.tools', true) === false) {
+            return;
+        }
+
+        /** @var string $toolsPath */
+        $toolsPath = config(
+            'martis.tools_path',
+            rtrim((string) config('martis.resources_path', app_path('Martis')), '/').'/Tools'
+        );
+
+        $namespace = (string) config('martis.tools_namespace', 'App\\Martis\\Tools');
+
+        $this->app->booted(function () use ($toolsPath, $namespace): void {
+            $classes = (new ToolDiscovery($toolsPath, $namespace))->discover();
+
+            if ($classes !== []) {
+                Martis::mergeTools($classes);
+            }
+        });
     }
 
     /**
