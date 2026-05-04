@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.3] — 2026-05-04
+
+### Fixed
+
+- **Consumer extension bundles can now actually load React.** v1.9.0–v1.9.2 told consumer apps to externalise `react` / `react-dom` / `react/jsx-runtime` and map them via `rollupOptions.output.globals` to `window.Martis.react`. That works for UMD/IIFE output but is **silently ignored for ES module output** — and the consumer-extension bundle is built as ES module by design. The published `extensions.js` ended up with bare `import { useEffect } from "react"` statements which the browser refused to load with `TypeError: Failed to resolve module specifier "react"`. The dynamic import threw, the Tools never registered, and the user saw the placeholder forever. v1.9.3 ships **vite alias shims**: `martis:install` now publishes `resources/js/martis-extensions/.shims/react.mjs` and `react-jsx-runtime.mjs` (small files that re-export from `window.Martis.react` / `window.Martis.reactJsxRuntime`), the rewritten `vite.extensions.config.ts.stub` aliases `react` → those shims, and Vite inlines the shim into the bundle at build time. The compiled `extensions.js` now reads React off the global instead of trying to resolve a bare specifier — no duplicate runtime, no module-resolution error.
+
+### Added
+
+- **`window.Martis.reactJsxRuntime`** is now exposed alongside `window.Martis.react`. The JSX runtime (`jsx`, `jsxs`, `Fragment`) is a separate module from React itself, and the v1.9.3 jsx-runtime shim re-exports from this handle. Older shims silently fall back to the React object's own `jsx`/`jsxs` (React 18+ inlines them) so consumers using a pre-v1.9.3 shim against a v1.9.3 host still work.
+
+### Migration notes
+
+Consumers on v1.9.0–v1.9.2 with a custom `vite.extensions.config.ts`: re-run `php artisan martis:install --force` to publish the new vite config + shim files, then `npm run build:extensions`. Consumers that never customised the vite config get the new behaviour automatically on the next install. The `MARTIS_EXTENSIONS` env line and the auto-discovery `index.ts` entry are unchanged.
+
 ## [1.9.2] — 2026-05-04
 
 ### Fixed

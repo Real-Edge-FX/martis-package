@@ -1,6 +1,7 @@
 import '../css/martis.css'
 import * as React from 'react'
 import { StrictMode } from 'react'
+import * as ReactJsxRuntime from 'react/jsx-runtime'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -61,6 +62,12 @@ window.Martis = {
   ...(window.Martis ?? {}),
   componentRegistry,
   react: React,
+  // The JSX runtime is a separate module from React itself
+  // (`react/jsx-runtime`) and the consumer-extension shim re-exports
+  // from this handle. Exposing it here lets the v1.9.3+ shim resolve
+  // jsx/jsxs/Fragment without the consumer needing to bundle a
+  // second React copy.
+  reactJsxRuntime: ReactJsxRuntime,
   version: __MARTIS_VERSION__,
 }
 

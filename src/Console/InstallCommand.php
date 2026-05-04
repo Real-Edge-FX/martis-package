@@ -551,6 +551,12 @@ class InstallCommand extends Command
             'vite.extensions.config.ts.stub' => 'vite.extensions.config.ts',
             'tsconfig.extensions.json.stub' => 'tsconfig.extensions.json',
             'index.ts.stub' => 'resources/js/martis-extensions/index.ts',
+            // v1.9.3+ React shims that the consumer's vite alias
+            // resolves at build time so the bundle does not emit
+            // bare `import "react"` (which the browser refuses to
+            // load with "Failed to resolve module specifier 'react'").
+            'react-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/react.mjs',
+            'react-jsx-runtime-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/react-jsx-runtime.mjs',
         ];
 
         foreach ($files as $stubName => $relativeTarget) {
