@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.18] — 2026-05-04
+
+### Fixed
+
+- **`Metric::help($text)` now actually renders a tooltip in the dashboard.** The PHP side had been complete since v0.x — `Metric::help()` writes to `$helpText`, `toArray()` exposes `'help' => $this->helpText` — but the React `MetricCard` component never consumed the property. Setting `help()` on a `ValueMetric` / `PartitionMetric` / `TrendMetric` produced a tooltip-less card; only field-level help was rendered. `MetricCard.tsx` now mounts the same `FieldLabelTooltip` "?" affordance next to the metric title (HTML allowed for line breaks + bold), the `MetricDefinition` TS interface gained `help?: string | null`, and a vitest spec locks the contract.
+
+  Affected dashboards: any custom Metric or framed Card whose author called `->help(...)` and noticed the tooltip never appeared. After upgrading, those tooltips show without code changes.
+
 ## [1.8.17] — 2026-05-03
 
 ### Fixed

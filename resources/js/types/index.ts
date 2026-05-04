@@ -159,6 +159,13 @@ export interface MetricDefinition {
   color?: string | null
   /** Wrap custom component inside the default MetricCard chrome. */
   framed?: boolean
+  /**
+   * Tooltip rendered next to the metric title. Set on the PHP side via
+   * `Metric::help($text)`. HTML is allowed (line breaks, bold) and
+   * rendered through the same `data-pr-tooltip-html` channel that
+   * field tooltips use. v1.8.18+.
+   */
+  help?: string | null
   meta: Record<string, unknown>
 }
 
