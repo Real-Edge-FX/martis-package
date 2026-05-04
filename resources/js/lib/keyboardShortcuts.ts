@@ -320,6 +320,13 @@ declare global {
        * (no duplicate-instance hazards). v1.8.19+.
        */
       react?: unknown
+      /**
+       * React's `jsx-runtime` module exports (`jsx`, `jsxs`, `Fragment`)
+       * the JSX transform compiles into. Mirrors `react?: unknown`
+       * but for the separate `react/jsx-runtime` import surface that
+       * consumer extension bundles need to resolve. v1.9.3+.
+       */
+      reactJsxRuntime?: unknown
       /** Package version (semver string). v1.8.19+. */
       version?: string
     } & Record<string, unknown>

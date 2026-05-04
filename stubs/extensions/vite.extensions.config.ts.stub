@@ -1,5 +1,5 @@
 /**
- * Consumer-extension bundle config for Martis (v1.9.0+).
+ * Consumer-extension bundle config for Martis (v1.9.3+).
  *
  * Built by `npm run build:extensions`. Output lands at
  * `public/vendor/martis-user/extensions.js`, which Martis loads at
@@ -13,15 +13,30 @@
  * config; the `martis:tool|field|card|component` generators do all
  * the wiring.
  *
- * `react`, `react-dom`, and `react/jsx-runtime` are externalised to
- * `window.Martis.react` so the consumer bundle shares the JSX runtime
- * with the Martis SPA — no duplicate React instances, no double-event
- * hazards.
+ * React handling (v1.9.3+):
+ *
+ * `react`, `react-dom` and `react/jsx-runtime` are aliased to small
+ * shim modules under `resources/js/martis-extensions/.shims/` that
+ * re-export from `window.Martis.react` / `window.Martis.reactJsxRuntime`.
+ * Vite inlines those shims into the bundle at build time, so the
+ * compiled `extensions.js` reads React off the global instead of
+ * shipping a duplicate copy.
+ *
+ * The earlier v1.9.0–v1.9.2 stub used `rollupOptions.external` +
+ * `output.globals` for the same goal, but `globals` only works for
+ * UMD/IIFE; ES module output kept the bare `import "react"`, which
+ * the browser refused with "Failed to resolve module specifier
+ * 'react'". The alias approach makes the bundle self-contained while
+ * still sharing the host's React instance — no duplicate runtime,
+ * no module-resolution error.
  */
 
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
+
+const reactShim = path.resolve(__dirname, 'resources/js/martis-extensions/.shims/react.mjs')
+const jsxRuntimeShim = path.resolve(__dirname, 'resources/js/martis-extensions/.shims/react-jsx-runtime.mjs')
 
 export default defineConfig({
   plugins: [react()],
@@ -29,6 +44,13 @@ export default defineConfig({
   // (`public`) would trigger an infinite copy loop into
   // public/vendor/martis-user/. Disable it here.
   publicDir: false,
+  resolve: {
+    alias: {
+      'react': reactShim,
+      'react-dom': reactShim,
+      'react/jsx-runtime': jsxRuntimeShim,
+    },
+  },
   build: {
     lib: {
       entry: path.resolve(__dirname, 'resources/js/martis-extensions/index.ts'),
@@ -38,15 +60,5 @@ export default defineConfig({
     outDir: 'public/vendor/martis-user',
     emptyOutDir: true,
     sourcemap: true,
-    rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
-      output: {
-        globals: {
-          'react': 'window.Martis.react',
-          'react-dom': 'window.Martis.react',
-          'react/jsx-runtime': 'window.Martis.react',
-        },
-      },
-    },
   },
 })
