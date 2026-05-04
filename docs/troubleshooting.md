@@ -17,10 +17,25 @@ If you are on Laravel 10, upgrade first or pin Martis to a compatible older rele
 
 ### `php artisan martis:install` fails on `martis-config` publish
 
-Vendor publishing skips files that already exist. If a previous (incomplete) install left `config/martis.php` in place, the command exits without overwriting. Use `--force`:
+Vendor publishing skips files that already exist. If a previous (incomplete) install left `config/martis.php` in place, the command exits without overwriting.
+
+The `--force` flag refreshes the extension scaffold (Vite config, shim files, generator stubs) but **does not** republish `config/martis.php` or `app/Providers/MartisServiceProvider.php` — those are split behind separate flags so refreshing the scaffold cannot destroy host-app customisations:
+
+| Flag | Republishes |
+|------|-------------|
+| `--force` | Extension scaffold (Vite config, shims, stubs, index entry) |
+| `--force-config` | `config/martis.php` |
+| `--force-provider` (v1.10.2+) | `app/Providers/MartisServiceProvider.php` |
 
 ```bash
+# Refresh just the extension scaffold (safe, default).
 php artisan martis:install --force
+
+# Re-publish config/martis.php (destroys consumer customisations).
+php artisan martis:install --force-config
+
+# Re-publish the host provider (destroys registered dashboards/menus/gates).
+php artisan martis:install --force-provider
 ```
 
 To re-run the full installer including the optional avatar + 2FA migrations:

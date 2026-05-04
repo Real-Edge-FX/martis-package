@@ -279,6 +279,14 @@ php artisan vendor:publish --tag=martis-provider
 
 Without this provider, you can still ship a working Martis install relying purely on `config/martis.php` and auto-discovered resources, but every closure-driven feature will be unavailable.
 
+> **`martis:install --force` does not touch this file (v1.10.2+).** The default `--force` flag refreshes the extension scaffold (Vite config, shim files, generator stubs) but never overwrites the host provider, where dashboards, menus, gates, and cache-layer registrations live. To republish the stub on top of your customisations, opt in explicitly with `--force-provider`:
+>
+> ```bash
+> php artisan martis:install --force-provider
+> ```
+>
+> The same split applies to `config/martis.php` (`--force-config`). Each flag is independent, so refreshing the extension scaffold never destroys host-app customisations by accident.
+
 ## Custom React extensions (zero-config, v1.9.0+)
 
 Custom React components — Tools, override components, field renderers, custom Cards — register at runtime through the **runtime extension loader** (v1.8.19+) wired up to a **filesystem auto-discovery convention** (v1.9.0+). The dev runs a generator and a build; everything else is plumbing the package handles.

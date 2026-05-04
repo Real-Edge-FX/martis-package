@@ -11,6 +11,7 @@ import { queryClient } from '@/lib/query'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { PreferencesProvider } from '@/contexts/PreferencesContext'
+import { DynamicCrumbProvider } from '@/contexts/DynamicCrumbContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
@@ -132,8 +133,10 @@ function App() {
               <PreferencesProvider>
                 <ThemeProvider>
                   <ToastProvider>
-                    <RouterProvider router={router} />
-                    <ToastContainer />
+                    <DynamicCrumbProvider>
+                      <RouterProvider router={router} />
+                      <ToastContainer />
+                    </DynamicCrumbProvider>
                   </ToastProvider>
                 </ThemeProvider>
               </PreferencesProvider>

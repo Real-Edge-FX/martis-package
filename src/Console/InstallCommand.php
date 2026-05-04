@@ -11,8 +11,9 @@ use RuntimeException;
 class InstallCommand extends Command
 {
     protected $signature = 'martis:install
-                            {--force : Overwrite existing scaffold files (vite config, shim files, index entry, generator stubs). Does NOT republish config/martis.php — pass --force-config for that.}
+                            {--force : Overwrite existing scaffold files (vite config, shim files, index entry, generator stubs). Does NOT republish config/martis.php or app/Providers/MartisServiceProvider.php — pass --force-config and --force-provider for those.}
                             {--force-config : Republish config/martis.php, overwriting any consumer customisations. Separated from --force so refreshing the extension scaffold does not destroy the host app config.}
+                            {--force-provider : Republish app/Providers/MartisServiceProvider.php, overwriting any consumer customisations (registered dashboards, menu, gates, cache layers). Separated from --force so refreshing the extension scaffold does not wipe host app dashboard wiring.}
                             {--with-profile : Enable profile support}
                             {--with-2fa : Enable two-factor authentication support}
                             {--avatar-column= : Column on the users table that stores avatar paths}
@@ -335,16 +336,26 @@ class InstallCommand extends Command
         }
 
         $target = app_path('Providers/MartisServiceProvider.php');
-        $force = (bool) $this->option('force');
+        $forceProvider = (bool) $this->option('force-provider');
 
-        if (file_exists($target) && ! $force) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> provider', 'app/Providers/MartisServiceProvider.php already exists');
+        if (file_exists($target) && ! $forceProvider) {
+            // v1.10.2+ separates --force (scaffold) from --force-provider
+            // (provider). The default --force flag refreshes the
+            // extension scaffold but never overwrites the host app's
+            // provider, where dashboards, menu, gates, and cache
+            // layers are registered. Re-publish only when the consumer
+            // explicitly opts in with --force-provider.
+            $this->components->twoColumnDetail(
+                '<fg=yellow>Skipping</> provider',
+                'app/Providers/MartisServiceProvider.php already exists (use --force-provider to overwrite — destroys customisations)',
+            );
         } else {
+            $existed = file_exists($target);
             $filesystem = new Filesystem;
             $filesystem->ensureDirectoryExists(dirname($target));
             $filesystem->put($target, (string) file_get_contents($stubPath));
 
-            $action = file_exists($target) && $force ? '<fg=green>Updated</>' : '<fg=green>Created</>';
+            $action = $existed && $forceProvider ? '<fg=green>Updated</>' : '<fg=green>Created</>';
             $this->components->twoColumnDetail($action.' provider', 'app/Providers/MartisServiceProvider.php');
         }
 

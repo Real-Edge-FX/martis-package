@@ -22,6 +22,8 @@ return [
     'index' => 'Index',
     'profile' => 'Profile',
     'system_cache' => 'System cache',
+    'tool' => 'Tool',
+    'dev_components' => 'Component inspector',
     'open_sidebar' => 'Open menu',
     'search_resources' => 'Search resources...',
     'search_placeholder' => 'Search everything…',
