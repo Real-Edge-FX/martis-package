@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.4] — 2026-05-04
+
+### Fixed
+
+- **vite alias resolution order in the extension config.** v1.9.3 published `vite.extensions.config.ts` with the alias map in record form: `{ react, 'react-dom', 'react/jsx-runtime' }`. Vite/rollup resolves record aliases by prefix in iteration order, so a bundle's `import "react/jsx-runtime"` matched the bare `react` alias FIRST and got rewritten to `<react-shim>/jsx-runtime` — a path that does not exist on disk, failing the build with `Not a directory (os error 20)`. v1.9.4 publishes the alias as an array with the more-specific `react/jsx-runtime` entry first and uses regex anchors (`^react$`, `^react-dom$`) for the bare module names, so resolution is unambiguous regardless of declaration order.
+
 ## [1.9.3] — 2026-05-04
 
 ### Fixed

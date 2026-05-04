@@ -45,11 +45,16 @@ export default defineConfig({
   // public/vendor/martis-user/. Disable it here.
   publicDir: false,
   resolve: {
-    alias: {
-      'react': reactShim,
-      'react-dom': reactShim,
-      'react/jsx-runtime': jsxRuntimeShim,
-    },
+    // Array form so we can pin the more-specific `react/jsx-runtime`
+    // alias FIRST. Vite/rollup resolves aliases in declaration order;
+    // with the record form, `react` would otherwise prefix-match
+    // `react/jsx-runtime` and rewrite it as `<react-shim>/jsx-runtime`,
+    // which fails the build with "Not a directory".
+    alias: [
+      {find: 'react/jsx-runtime', replacement: jsxRuntimeShim},
+      {find: /^react$/, replacement: reactShim},
+      {find: /^react-dom$/, replacement: reactShim},
+    ],
   },
   build: {
     lib: {

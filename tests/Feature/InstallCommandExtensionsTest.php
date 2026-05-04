@@ -68,9 +68,12 @@ it('martis:install publishes the extension scaffold tree', function () {
         // v1.9.3 swapped rollup `external`+`globals` for vite alias
         // shims because ES module output ignores `globals`. The
         // bundle now resolves React via window.Martis.react at build
-        // time through the published .shims/ files.
+        // time through the published .shims/ files. v1.9.4 pins the
+        // alias array order so react/jsx-runtime is matched before
+        // the bare `react` prefix.
         ->toContain('react.mjs')
-        ->toContain('react-jsx-runtime.mjs');
+        ->toContain('react-jsx-runtime.mjs')
+        ->toContain("find: 'react/jsx-runtime'");
 
     expect($this->fs->exists(base_path('resources/js/martis-extensions/.shims/react.mjs')))->toBeTrue();
     expect($this->fs->exists(base_path('resources/js/martis-extensions/.shims/react-jsx-runtime.mjs')))->toBeTrue();
