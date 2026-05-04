@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] — 2026-05-04
+
+### Changed
+
+- **`martis:field`** now drops the TSX at `resources/js/martis-extensions/fields/{ClassBase}.tsx` (no `Field` filename suffix) instead of the legacy `resources/js/martis/fields/{kebab}.tsx`. The auto-discovery entry derives the registry key from the filename: `Rating.tsx` → `field:rating`, matching what `Field::component()` produces by default. The TSX stub now exports `Display` and `Input` as named exports (instead of class-prefixed names) so the auto-discovery loop registers both halves of the field as a single pair. No more `@martis/types` import — the stub is self-contained.
+- **`martis:card`** now drops the TSX at `resources/js/martis-extensions/cards/{Name}.tsx` instead of the legacy `resources/{extensions_path}/martis/components/{Name}.tsx`. The `registerInBootFile()` step that mutated a host `boot.ts` was removed entirely — auto-discovery handles registration. The card stub now uses `export default` and dropped the `react-i18next` runtime dependency (subtitle falls back to a literal "Details").
+- **`martis:component`** lays its TSX into `resources/js/martis-extensions/overrides/{FixedFilename}.tsx` for shell pieces (`Shell`, `Sidebar`, `Topbar`, `Footer`) and auth pages (`LoginPage`, `RegisterPage`, `ForgotPasswordPage`, `ResetPasswordPage`, `EmailVerifyNoticePage`). The user-supplied name is ignored for these fixed-name slots so the auto-discovery `OVERRIDE_KEYS` map stays in sync. Generic and field-override types still take a custom name; the index.ts entry warns when a generic override does not have a registry key mapped, with a pointer to the canonical Tool/Field/Card buckets. The `updateBootFile()` method that edited the host `boot.ts` was removed — auto-discovery handles registration.
+- **Collision detection** uniformly applied: every TSX-producing generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks the destination before writing and either prompts `[y/N]`, honours `--force`, or aborts cleanly in non-interactive shells.
+
+### Migration notes
+
+Same migration pattern as v1.9.0 (which covered Tools): re-run `php artisan martis:install --force` to refresh the scaffold and move any custom TSX from the legacy paths into the matching bucket under `resources/js/martis-extensions/`. Apps that do not use `martis:field`, `martis:card`, or `martis:component` keep working unchanged.
+
 ## [1.9.0] — 2026-05-04
 
 ### Added

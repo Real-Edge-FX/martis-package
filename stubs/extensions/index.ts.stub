@@ -53,7 +53,7 @@ const OVERRIDE_KEYS: Record<string, string> = {
   RegisterPage: 'auth:register',
   ForgotPasswordPage: 'auth:forgot-password',
   ResetPasswordPage: 'auth:reset-password',
-  EmailVerifyNoticePage: 'auth:email-verify',
+  EmailVerifyNoticePage: 'auth:email-verify-notice',
 }
 
 function pascalToKebab(name: string): string {

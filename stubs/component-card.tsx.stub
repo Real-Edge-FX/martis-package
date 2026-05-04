@@ -1,4 +1,11 @@
-import { useTranslation } from 'react-i18next'
+/**
+ * {{ class }} — Martis custom dashboard card.
+ *
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/cards/{{ class }}.tsx` and the
+ * bundle entry registers it under `card:{{ kebab }}`. The PHP Card
+ * binds to the same key implicitly.
+ */
 
 interface {{ class }}Props {
   card: {
@@ -41,9 +48,9 @@ interface {{ class }}Props {
  * the PHP descriptor — `width()` and `framed()` calls flow through
  * to the wrapper here automatically.
  */
-export function {{ class }}({ card }: {{ class }}Props) {
-  const { t } = useTranslation('messages')
-  const subtitle = card.meta.subtitle ?? t('details', 'Details')
+export default function {{ class }}({card}: {{ class }}Props) {
+  const subtitle =
+    typeof card.meta.subtitle === 'string' ? card.meta.subtitle : 'Details'
   const span = Math.max(1, Math.min(12, card.width ?? 4))
 
   // Body content — this is what you replace with your custom UI.

@@ -285,23 +285,31 @@ it('martis:field generates a PHP Field class', function () {
         ->toContain("return 'rating'");
 })->afterEach(function () {
     (new Filesystem)->delete(app_path('Martis/Fields/RatingField.php'));
-    (new Filesystem)->delete(resource_path('js/martis/fields/rating.tsx'));
+    (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Rating.tsx'));
 });
 
-it('martis:field generates a TSX component file', function () {
-    $tsxPath = resource_path('js/martis/fields/rating.tsx');
+it('martis:field drops the TSX in the auto-discovery fields/ bucket', function () {
+    // v1.9 convention: filename is the bare class basename (no
+    // "Field" suffix) inside resources/js/martis-extensions/fields/.
+    // Auto-discovery derives the registry key from the filename:
+    // Rating.tsx → "field:rating".
+    $tsxPath = base_path('resources/js/martis-extensions/fields/Rating.tsx');
 
     $this->artisan('martis:field', ['name' => 'Rating'])->assertSuccessful();
 
     expect(file_exists($tsxPath))->toBeTrue();
 
-    $contents = file_get_contents($tsxPath);
+    $contents = (string) file_get_contents($tsxPath);
     expect($contents)
-        ->toContain('RatingFieldDisplay')
-        ->toContain('RatingFieldInput');
+        // Auto-discovery looks for named exports `Display` / `Input`.
+        ->toContain('export function Display')
+        ->toContain('export function Input')
+        // Stub is now self-contained — no @martis/types import.
+        ->not->toContain('@martis/types')
+        ->not->toContain('componentRegistry.register');
 })->afterEach(function () {
     (new Filesystem)->delete(app_path('Martis/Fields/RatingField.php'));
-    (new Filesystem)->delete(resource_path('js/martis/fields/rating.tsx'));
+    (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Rating.tsx'));
 });
 
 it('martis:field does not duplicate Field suffix', function () {
@@ -313,7 +321,7 @@ it('martis:field does not duplicate Field suffix', function () {
     expect(file_exists(app_path('Martis/Fields/ColorFieldField.php')))->toBeFalse();
 })->afterEach(function () {
     (new Filesystem)->delete(app_path('Martis/Fields/ColorField.php'));
-    (new Filesystem)->delete(resource_path('js/martis/fields/color.tsx'));
+    (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Color.tsx'));
 });
 
 it('FieldMakeCommand is registered in the service provider', function () {
@@ -522,13 +530,26 @@ it('martis:tool --with-component drops the TSX stub in the auto-discovery bucket
     // v1.9 convention: filename is the bare class basename (no "Tool"
     // suffix), bucket lives under resources/js/martis-extensions/.
     $tsx = base_path('resources/js/martis-extensions/tools/StubAutoDiscoveryTool.tsx');
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    // Wipe both potential leftovers from a prior failing run before
+    // running the artisan command. parent::handle() returns false
+    // when the destination PHP class already exists, which would
+    // cascade into "TSX never scaffolded" and confuse the assertion.
+    if ($fs->exists($php)) {
+        $fs->delete($php);
+    }
+    if ($fs->exists($tsx)) {
+        $fs->delete($tsx);
+    }
 
     $this->artisan('martis:tool', [
         'name' => 'StubAutoDiscoveryTool',
         '--with-component' => true,
     ])->assertSuccessful();
 
+    clearstatcache();
     expect(file_exists($php))->toBeTrue();
     expect(file_exists($tsx))->toBeTrue();
 
@@ -555,14 +576,17 @@ it('martis:tool --with-component drops the TSX stub in the auto-discovery bucket
 });
 
 it('martis:tool --with-component aborts on TSX collision when not interactive and --force is missing', function () {
-    // Use a unique class name to avoid colliding with other tests
-    // that also seed PHP under app/Martis/Tools/.
     $tsx = base_path('resources/js/martis-extensions/tools/CollisionAbortTool.tsx');
     $fs = new Filesystem;
 
     $fs->ensureDirectoryExists(dirname($tsx));
     $fs->put($tsx, '// custom content I do not want overwritten');
     $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+    // Pre-wipe stale PHP from a prior run so parent::handle() does
+    // not short-circuit before scaffoldReactComponent runs.
+    if ($fs->exists(app_path('Martis/Tools/CollisionAbortTool.php'))) {
+        $fs->delete(app_path('Martis/Tools/CollisionAbortTool.php'));
+    }
 
     $this->artisan('martis:tool', [
         'name' => 'CollisionAbortTool',
@@ -591,6 +615,9 @@ it('martis:tool --with-component --force overwrites an existing TSX', function (
     $fs->ensureDirectoryExists(dirname($tsx));
     $fs->put($tsx, '// stale content that should be replaced');
     $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+    if ($fs->exists(app_path('Martis/Tools/CollisionForceTool.php'))) {
+        $fs->delete(app_path('Martis/Tools/CollisionForceTool.php'));
+    }
 
     $this->artisan('martis:tool', [
         'name' => 'CollisionForceTool',
