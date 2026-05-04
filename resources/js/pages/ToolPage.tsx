@@ -24,6 +24,22 @@ interface ToolPageProps {
 }
 
 /**
+ * Map a registry key like `tool:my-charts-tool` to the canonical
+ * filename `MyChartsTool` the v1.9 auto-discovery entry expects under
+ * `resources/js/martis-extensions/tools/`. Keys without a `tool:`
+ * prefix or with an unknown shape fall back to literal `<Component>`
+ * so the placeholder never renders an empty placeholder.
+ */
+function filenameHintFor(componentKey: string): string {
+  const stripped = componentKey.startsWith('tool:') ? componentKey.slice('tool:'.length) : componentKey
+  if (stripped === '' || /[^a-z0-9-]/.test(stripped)) return '<Component>'
+  return stripped
+    .split('-')
+    .map((part) => (part.length > 0 ? part[0]!.toUpperCase() + part.slice(1) : part))
+    .join('')
+}
+
+/**
  * Custom Tools shell (v0.10).
  *
  * Renders a free-form admin page registered through `Martis::tools([...])`.
@@ -98,9 +114,11 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
   const Component = componentKey ? componentRegistry.resolve(componentKey) : null
 
   if (componentKey && !Component) {
-    // Developer ergonomics — distinct from "tool denied". This means
-    // the PHP side ships the tool but the boot.ts forgot the
-    // componentRegistry.register() call.
+    // Developer ergonomics — distinct from "tool denied". The PHP
+    // side ships the tool but the consumer-extension bundle did not
+    // register the matching React component. v1.9 message points at
+    // the canonical bucket + build script (boot.ts is gone since
+    // v1.8.19).
     return (
       <div className="martis-tool-missing-component" role="alert">
         <WrenchIcon size={36} weight="duotone" />
@@ -108,8 +126,9 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
         <p>
           {t('tool_component_missing', {
             defaultValue:
-              'No React component is registered for the key "{{key}}". Add componentRegistry.register("{{key}}", YourComponent) in boot.ts.',
+              'No React component is registered for the key "{{key}}". Drop a default-exported component at resources/js/martis-extensions/tools/{{filenameHint}}.tsx and run `npm run build:extensions`.',
             key: componentKey,
+            filenameHint: filenameHintFor(componentKey),
           })}
         </p>
       </div>

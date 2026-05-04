@@ -64,15 +64,47 @@ window.Martis = {
   version: __MARTIS_VERSION__,
 }
 
-const extensionUrls = window.MartisConfig?.extensions ?? []
-for (const url of extensionUrls) {
-  if (typeof url !== 'string' || url === '') continue
-  // /* @vite-ignore */ tells Vite NOT to pre-resolve the URL at build
-  // time; the import target is supplied at runtime by the consumer.
-  import(/* @vite-ignore */ url).catch((err: unknown) => {
-    // eslint-disable-next-line no-console
-    console.error('[martis] failed to load extension', url, err)
-  })
+/**
+ * Load every extension bundle listed in `window.MartisConfig.extensions`
+ * (sourced from the `MARTIS_EXTENSIONS` env, comma-separated).
+ *
+ * v1.8.19 shipped this as fire-and-forget: imports started, React
+ * mounted, the SPA raced the network. On a cold-cache navigation
+ * straight to `/martis/tools/{key}` the ToolPage queried the registry
+ * before the bundle had registered the component, the placeholder
+ * fired, and a subsequent registry write never re-rendered the page —
+ * so the user saw "No React component is registered…" forever.
+ *
+ * v1.9.2 awaits every import (with a 5s per-URL timeout safety net so
+ * a hung extension cannot keep the whole panel hidden forever) before
+ * mounting React. Failures stay isolated — one broken bundle logs and
+ * the rest still load — and the slowest case is a single round-trip
+ * for the cached extensions.js, which is well under the i18n init
+ * cost we already wait on below.
+ */
+const EXTENSION_LOAD_TIMEOUT_MS = 5_000
+
+async function loadConsumerExtensions(): Promise<void> {
+  const extensionUrls = window.MartisConfig?.extensions ?? []
+
+  await Promise.all(
+    extensionUrls
+      .filter((url): url is string => typeof url === 'string' && url !== '')
+      .map((url) => {
+        const load = import(/* @vite-ignore */ url).catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error('[martis] failed to load extension', url, err)
+        })
+        const timeout = new Promise<void>((resolve) =>
+          setTimeout(() => {
+            // eslint-disable-next-line no-console
+            console.warn('[martis] extension load exceeded', EXTENSION_LOAD_TIMEOUT_MS, 'ms; mounting without it', url)
+            resolve()
+          }, EXTENSION_LOAD_TIMEOUT_MS),
+        )
+        return Promise.race([load, timeout])
+      }),
+  )
 }
 
 function App() {
@@ -101,12 +133,15 @@ function App() {
 const container = document.getElementById('martis-root')
 
 if (container) {
-  initI18n()
-    .then(() => {
-      createRoot(container).render(<App />)
-    })
-    .catch(() => {
-      // If i18n fails to init, render anyway without translations
-      createRoot(container).render(<App />)
-    })
+  // Order matters: i18n + extensions both need to be in place before
+  // the first render so ToolPage / FieldRenderer / Card resolvers
+  // find their registrations on the very first lookup. Anything that
+  // throws/times-out short-circuits to a render so a slow CDN cannot
+  // black-hole the panel.
+  Promise.all([
+    initI18n().catch(() => undefined),
+    loadConsumerExtensions().catch(() => undefined),
+  ]).then(() => {
+    createRoot(container).render(<App />)
+  })
 }
