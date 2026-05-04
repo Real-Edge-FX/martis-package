@@ -165,20 +165,49 @@ jobs:
           npm install --no-progress --no-audit --no-fund --no-package-lock
           npm run build:extensions
 
-      - name: Bundle assertion — register calls for every key
+      - name: Bundle assertion — every TSX is bundled and every key static
         run: |
           cd test-app
           BUNDLE=public/vendor/martis-user/extensions.js
           test -f "$BUNDLE" || (echo "bundle missing"; exit 1)
-          # The bundle is minified; identifiers are renamed but string
-          # literals survive. Each key below MUST appear in the
-          # bundle exactly once for the corresponding generator's
-          # output to register at runtime.
-          for key in 'tool:charts' 'field:rating' 'card:revenue-gauge' \
-                     'layout:shell' 'layout:sidebar' 'layout:topbar' 'layout:footer' \
+
+          # The bundle is minified. Tool / Card / Field keys are
+          # COMPUTED at runtime by the auto-discovery loop (template
+          # literal: `tool:${pascalToKebab(filename)}`), so the literal
+          # string `tool:charts` is NOT in the bundle — only the bare
+          # `tool:` prefix and the source filename are. Override keys
+          # ARE static (fixed map per filename in OVERRIDE_KEYS), so
+          # each `layout:*` / `auth:*` literal appears verbatim.
+          #
+          # The two assertions below cover both cases:
+          #   1. Every generated TSX filename appears in the bundle's
+          #      `import.meta.glob` map. If a stub fails to compile or
+          #      Vite drops it, this catches it.
+          #   2. Every static override key literal is present.
+
+          # 1. Filename presence (proves Vite bundled the TSX module).
+          for path in tools/Charts.tsx fields/Rating.tsx cards/RevenueGauge.tsx \
+                     overrides/Shell.tsx overrides/Sidebar.tsx \
+                     overrides/Topbar.tsx overrides/Footer.tsx \
+                     overrides/LoginPage.tsx overrides/RegisterPage.tsx \
+                     overrides/ForgotPasswordPage.tsx \
+                     overrides/ResetPasswordPage.tsx \
+                     overrides/EmailVerifyNoticePage.tsx; do
+            grep -q "\"./$path\"" "$BUNDLE" \
+              || (echo "✗ bundle missing TSX path: ./$path"; exit 1)
+          done
+
+          # 2. Static override keys present in the bundle.
+          for key in 'layout:shell' 'layout:sidebar' 'layout:topbar' 'layout:footer' \
                      'auth:login' 'auth:register' 'auth:forgot-password' \
                      'auth:reset-password' 'auth:email-verify-notice'; do
-            grep -q "\`$key\`\|\"$key\"\|'$key'" "$BUNDLE" \
-              || (echo "✗ bundle missing key: $key"; exit 1)
+            grep -q "\"$key\"\|'$key'" "$BUNDLE" \
+              || (echo "✗ bundle missing override key: $key"; exit 1)
           done
-          echo "✓ bundle has every expected key"
+
+          # 3. Tool / card / field key prefixes present (the runtime
+          # template uses these as the literal prefix).
+          grep -q '"tool:"\|`tool:`\|tool:${' "$BUNDLE" || grep -q "tool:" "$BUNDLE" \
+            || (echo "✗ bundle missing tool: prefix"; exit 1)
+
+          echo "✓ bundle contains every TSX module + every static key"
