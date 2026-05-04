@@ -303,11 +303,25 @@ export const listShortcuts = (): readonly Shortcut[] => keyboardShortcuts.list()
 declare global {
   interface Window {
     Martis?: {
-      shortcuts: {
+      shortcuts?: {
         add: typeof addShortcut
         remove: typeof disableShortcut
         list: typeof listShortcuts
       }
+      /**
+       * Component registry exposed by `app.tsx` at boot so consumer
+       * extension bundles can register Tools / overrides without
+       * shipping their own copy of the registry. v1.8.19+.
+       */
+      componentRegistry?: unknown
+      /**
+       * React module instance bundled by the package. Consumer
+       * extensions external `react` to this to share the JSX runtime
+       * (no duplicate-instance hazards). v1.8.19+.
+       */
+      react?: unknown
+      /** Package version (semver string). v1.8.19+. */
+      version?: string
     } & Record<string, unknown>
   }
 }

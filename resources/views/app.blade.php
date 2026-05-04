@@ -187,6 +187,7 @@
                     'enabled' => (bool) config('martis.profile.two_factor.enabled', true),
                 ],
             ]) !!},
+            extensions: {!! json_encode((array) config('martis.extensions', [])) !!},
             impersonation: {!! json_encode([
                 // Master switch surfaced at boot so the React banner
                 // can short-circuit its `/api/impersonation/status`

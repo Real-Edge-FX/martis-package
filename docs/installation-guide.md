@@ -281,58 +281,98 @@ Without this provider, you can still ship a working Martis install relying purel
 
 ## Customizing the Boot File (React extensions)
 
-When you create custom React components using `martis:component`, a `boot.ts` file is generated at `resources/martis-extensions/martis/boot.ts`. This file imports and registers your custom components into the Martis component registry.
+Custom React components — Tools, override components, field renderers — register at runtime through the **runtime extension loader** (v1.8.19+). The consumer ships their own ESM bundle at a stable URL; Martis dynamically imports each URL in `config('martis.extensions')` at SPA boot AFTER the bundled `componentRegistry` is exposed on `window.Martis`.
 
-The base directory `resources/martis-extensions` is configurable:
+No package rebuild is required. The published `vendor/martis/martis/public/assets/` bundle reads the URL list at runtime, so consumers iterate on their extensions independently of Martis releases.
+
+### How the registry is exposed
+
+At SPA boot, `app.tsx` writes:
+
+```js
+window.Martis = {
+  componentRegistry,   // import('@/lib/componentRegistry') equivalent
+  react,               // the React module instance bundled with Martis
+  version,             // "1.8.19" etc.
+  shortcuts,           // global keyboard-shortcut helpers
+}
+```
+
+A consumer extension reads this global to register components without bundling its own copy of `componentRegistry` or React.
+
+### Wiring an extension in the consumer app
+
+**1. Configure the URL** in the consumer's `.env`:
 
 ```env
-MARTIS_EXTENSIONS_PATH=martis-extensions   # default; relative to resources/
+MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js
 ```
 
-Or in `config/martis.php`:
+Multiple URLs comma-separated:
+
+```env
+MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js
+```
+
+The blade view emits the resolved array as `window.MartisConfig.extensions`. The SPA loops over it and dynamic-imports each via `import(url)`. Failures are isolated — one broken extension can't take down the whole panel; the error is logged with the URL.
+
+**2. Build the consumer ESM bundle.** Any bundler works; Vite is simplest. Mark `react` external so the JSX runtime is shared with the package:
+
+```ts
+// consumer-app/vite.extensions.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    lib: {
+      entry: 'resources/js/martis-extensions/index.ts',
+      formats: ['es'],
+      fileName: () => 'extensions.js',
+    },
+    outDir: 'public/vendor/martis-user',
+    emptyOutDir: true,
+    rollupOptions: {
+      external: ['react'],
+      output: {
+        globals: {react: 'window.Martis.react'},
+      },
+    },
+  },
+})
+```
+
+**3. Register components** from the entry file:
+
+```ts
+// resources/js/martis-extensions/index.ts
+import { ChartsTool } from './tools/ChartsTool'
+
+declare global {
+  interface Window {
+    Martis?: {
+      componentRegistry: {
+        register(key: string, component: unknown): void
+      }
+    }
+  }
+}
+
+window.Martis?.componentRegistry.register('tool:edgeflow-charts', ChartsTool)
+```
+
+The corresponding PHP-side Tool binds the same key:
 
 ```php
-'extensions_path' => env('MARTIS_EXTENSIONS_PATH', 'martis-extensions'),
+$this->withComponent('tool:edgeflow-charts');
 ```
 
-The boot file is auto-loaded by the Martis frontend at startup. It is created the first time you run:
+**4. Build & deploy.** `npm run -- build --config vite.extensions.config.ts` writes `public/vendor/martis-user/extensions.js`. The deploy script copies `public/` as usual; no Martis package rebuild involved.
 
-```bash
-php artisan martis:component MyComponent
-```
+### Why the previous build-time alias was removed
 
-If `boot.ts` already exists, subsequent component commands append new registrations to it.
-
-### Boot File Structure
-
-```typescript
-import { componentRegistry } from '@/lib/componentRegistry'
-import { MyComponent } from './components/MyComponent'
-
-// Auto-registered by martis:component
-componentRegistry.register('my-component', MyComponent)
-```
-
-The `@/lib/componentRegistry` import resolves through the Vite alias used inside the package build — when the published bundle loads your `boot.ts` at runtime, the `componentRegistry` symbol is already exposed.
-
-### How the Boot File Is Found
-
-The Martis SPA tries to dynamically import `@user/martis/boot` at startup. `@user` is a Vite alias resolved at **build time** in this priority order:
-
-1. **`MARTIS_USER_DIR` env var** — explicit override (CI / Docker).
-2. **Auto-discovery**: walks up from the package directory looking for the consumer's Laravel root (presence of an `artisan` file) AND a `resources/martis-extensions/` folder. When the package lives inside `vendor/martis/martis/` of a Laravel app, the walk finds the consumer's extensions folder without any env var.
-3. **Fallback**: the package's own empty `resources/js/user/`. Used when the package itself is built standalone (no consumer involved).
-
-**Consumer apps using the published assets**: You do **not** need to rebuild the package. The precompiled bundle that `vendor:publish --tag=martis-assets` copies already handles runtime component registration — use `martis:component`, commit the generated `resources/martis-extensions/martis/boot.ts`, and the next asset publish picks it up.
-
-**Developing custom components against this repo locally (monorepo setup)**: Point `@user` at your app's component folder by running the build with `MARTIS_USER_DIR` set:
-
-```bash
-cd vendor/martis/martis-package   # or wherever the package lives
-MARTIS_USER_DIR=/absolute/path/to/your-app/resources/martis-extensions npm run build
-```
-
-This only matters for local development of the Martis package itself. End users of a released Martis version never touch the package build — they consume the precompiled assets copied by `vendor:publish --tag=martis-assets`.
+v1.8.18 and earlier documented a `@user/martis/boot` Vite alias resolved at the package's build time. That mechanism never actually worked on the published bundle — Vite tree-shook the dynamic import because the package's own fallback boot module was `export {}`. The runtime mechanism described above replaces it. v1.8.19 is the first release where consumer extensions reliably load on the published bundle.
 
 ## Directory Structure After Installation
 
