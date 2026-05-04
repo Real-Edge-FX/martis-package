@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] — 2026-05-04
+
+### Fixed
+
+- **Extension loader timing race.** v1.8.19 shipped the consumer-extension loader as fire-and-forget: `import(url)` ran in parallel with `createRoot(...).render(<App />)`, so on a cold-cache navigation straight to `/martis/tools/{key}` the ToolPage queried the registry **before** the bundle had finished registering the React component. The placeholder ("No React component is registered for the key …") fired and a subsequent registry write never re-rendered the page — the user saw the placeholder forever even after the bundle eventually arrived. v1.9.2 awaits every extension URL (with a 5s per-URL timeout safety net so a hung extension cannot black-hole the panel) before mounting React.
+
+### Changed
+
+- **`tool_component_missing` placeholder text** updated. The previous message asked the user to "Add `componentRegistry.register('tool:foo', YourComponent)` in `boot.ts`" — both the manual-register call and `boot.ts` were retired in v1.8.19 / v1.9.0. The new copy points at the canonical bucket: "Drop a default-exported component at `resources/js/martis-extensions/tools/{Filename}.tsx` and run `npm run build:extensions`." The filename hint is derived from the registry key by stripping the `tool:` prefix and PascalCasing the remainder.
+
 ## [1.9.1] — 2026-05-04
 
 ### Changed
