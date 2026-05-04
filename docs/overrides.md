@@ -488,7 +488,31 @@ If you opted out of the Tailwind preset, the same effect works with inline style
 
 ## 6. Creating Custom Components (Artisan)
 
-Use the `martis:component` artisan command to scaffold and auto-register a component (alias: `martis:override`, kept for back-compat). Each `--type` option writes a different starter — see the [stubs directory on GitHub](https://github.com/Real-Edge-FX/martis-package/tree/main/stubs) for the full source of every scaffold:
+Use the `martis:component` artisan command to scaffold an override TSX (alias: `martis:override`, kept for back-compat). Each `--type` option writes a different starter — see the [stubs directory on GitHub](https://github.com/Real-Edge-FX/martis-package/tree/main/stubs) for the full source of every scaffold.
+
+> **Auto-registration scope (v1.10+)**
+>
+> The bundle's auto-discovery loop registers an override **only when the filename appears in the canonical `OVERRIDE_KEYS` map** in the published `resources/js/martis-extensions/index.ts`. That map is fixed:
+>
+> | Filename | Registered key |
+> |---|---|
+> | `Shell.tsx` | `layout:shell` |
+> | `Sidebar.tsx` | `layout:sidebar` |
+> | `Topbar.tsx` | `layout:topbar` |
+> | `Footer.tsx` | `layout:footer` |
+> | `LoginPage.tsx` | `auth:login` |
+> | `RegisterPage.tsx` | `auth:register` |
+> | `ForgotPasswordPage.tsx` | `auth:forgot-password` |
+> | `ResetPasswordPage.tsx` | `auth:reset-password` |
+> | `EmailVerifyNoticePage.tsx` | `auth:email-verify-notice` |
+>
+> So **`--type=shell|sidebar|topbar|footer|login-page|register-page|forgot-password-page|reset-password-page|email-verify-notice-page`** are zero-config: drop the file, run `npm run build:extensions`, done.
+>
+> **`--type=generic <Name>` and `--type=field <Name>`** scaffold a TSX with an arbitrary filename that the `OVERRIDE_KEYS` map does not know. Build picks the file up but the auto-discovery loop emits a `console.warn` and skips registration. To bind these, either:
+> 1. Use a canonical generator instead — `martis:tool` for tools, `martis:field` for fields, `martis:card` for cards (each auto-registers via filename → key in its own bucket); or
+> 2. Edit `resources/js/martis-extensions/index.ts` and add an entry to `OVERRIDE_KEYS` mapping your filename to the registry key the PHP `Override::*` attribute expects.
+>
+> The generated stubs for `--type=generic` and `--type=field` repeat this guidance in their header docblock.
 
 | `--type` | Stub source |
 |----------|-------------|
@@ -523,10 +547,10 @@ php artisan martis:component Acme --type=complete-layout
 ```
 
 The command:
-1. Creates the React component file(s) at `resources/js/martis/components/`.
-2. Generates or updates `resources/js/martis-extensions/index.ts` with the import and registration.
-3. For `field`, registers both display and input components.
-4. For shell types, uses stubs that document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
+1. Creates the React component file at `resources/js/martis-extensions/overrides/{ClassName}.tsx`.
+2. For shell pieces and auth pages, the file is published with the canonical fixed filename (`Shell.tsx`, `Sidebar.tsx`, `LoginPage.tsx`, etc.) so the bundle's `OVERRIDE_KEYS` map registers it automatically. The user-supplied `name` argument is ignored for these fixed slots — they exist exactly once each.
+3. For `--type=generic` and `--type=field` the user-supplied name becomes the filename and the consumer must extend `OVERRIDE_KEYS` themselves (see the auto-registration scope note above).
+4. Shell stubs document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
 
 > **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead — that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis/fields/<name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
 
