@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.2] — 2026-05-04
+
+### Fixed
+
+- **`martis:install --force` no longer overwrites `app/Providers/MartisServiceProvider.php`.** v1.10.0 introduced the same split for `config/martis.php` (`--force` vs `--force-config`); v1.10.1 left the host provider unprotected, so consumers refreshing the extension scaffold lost their `Martis::dashboards([...])`, `Martis::mainMenu(...)`, gate, and cache-layer wiring. v1.10.2 splits provider republishing behind a new `--force-provider` flag — `--force` alone is now safe to run on a customised host.
+
+- **Tool breadcrumb shows the actual tool name** (e.g. "Charts") instead of the literal route handle key "tool". Pages can publish a runtime label via the new `useDynamicCrumb(label)` hook from `@/contexts/DynamicCrumbContext`; `ToolPage` calls it with the resolved descriptor name. The breadcrumb still falls back to the static i18n key (`navigation.tool`, "Tool") while the descriptor is loading. Same hook is available for future dynamic breadcrumbs.
+
+### Added
+
+- `--force-provider` install flag — opt-in republish of `app/Providers/MartisServiceProvider.php` for consumers who want to refresh the stub on top of their customisations.
+- `navigation.tool` and `navigation.dev_components` translation keys (en, pt_PT, pt_BR) — fallback labels for breadcrumbs while pages resolve their dynamic title.
+- `DynamicCrumbProvider` mounted around `<RouterProvider>` in `app.tsx`. Pages opt in via `useDynamicCrumb(label)`. The provider resets on unmount, so navigating away never leaks a stale label into the next page's crumb.
+
+### Migration notes
+
+If you previously relied on `martis:install --force` to refresh the host provider stub (rare — most consumers customise it after install), pass `--force-provider` instead. The old behaviour silently destroyed `registerDashboards()`, `registerMainMenu()`, gate definitions, and cache-layer registrations, which was the wrong default. No action needed for the common case where `--force` is used to refresh the extension scaffold.
+
 ## [1.10.1] — 2026-05-04
 
 ### Changed

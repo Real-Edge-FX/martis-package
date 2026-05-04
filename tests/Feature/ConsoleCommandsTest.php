@@ -192,12 +192,28 @@ it('martis:install does not overwrite an existing host MartisServiceProvider', f
     cleanupMartisInstallArtifacts();
 });
 
-it('martis:install --force overwrites an existing host MartisServiceProvider', function () {
+it('martis:install --force preserves an existing host MartisServiceProvider (v1.10.2+)', function () {
+    // v1.10.2 split: `--force` refreshes the extension scaffold but no
+    // longer overwrites the host app's provider, where dashboards,
+    // menus, gates, and cache layers are registered. Republishing the
+    // provider now requires `--force-provider`.
     $providerPath = app_path('Providers/MartisServiceProvider.php');
     (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
     (new Filesystem)->put($providerPath, '<?php // custom user content');
 
     $this->artisan('martis:install', ['--no-interaction' => true, '--force' => true])->assertSuccessful();
+
+    expect(file_get_contents($providerPath))->toBe('<?php // custom user content');
+})->afterEach(function () {
+    cleanupMartisInstallArtifacts();
+});
+
+it('martis:install --force-provider overwrites an existing host MartisServiceProvider', function () {
+    $providerPath = app_path('Providers/MartisServiceProvider.php');
+    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+    (new Filesystem)->put($providerPath, '<?php // custom user content');
+
+    $this->artisan('martis:install', ['--no-interaction' => true, '--force-provider' => true])->assertSuccessful();
 
     expect(file_get_contents($providerPath))->toContain('class MartisServiceProvider');
 })->afterEach(function () {

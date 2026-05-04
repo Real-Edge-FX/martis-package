@@ -22,6 +22,8 @@ return [
     'index' => 'Listagem',
     'profile' => 'Perfil',
     'system_cache' => 'Cache do sistema',
+    'tool' => 'Ferramenta',
+    'dev_components' => 'Inspector de componentes',
     'open_sidebar' => 'Abrir menu',
     'search_resources' => 'Pesquisar recursos...',
     'search_placeholder' => 'Pesquisar tudo…',

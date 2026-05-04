@@ -6,6 +6,7 @@ import { api, ApiError } from '@/lib/api'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 import { MartisLoader } from '@/components/Loader'
 
 interface ToolDescriptor {
@@ -68,6 +69,11 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
   const [error, setError] = useState<'not-found' | 'unknown-component' | null>(null)
 
   usePageTitle(descriptor?.name ?? t('tool_page_title', 'Tool'))
+  // Publish the resolved tool name to the breadcrumb so the trail reads
+  // "Home › Charts" instead of the literal route handle key "tool". The
+  // hook resets to null on unmount; static i18n key is the fallback while
+  // the descriptor is still loading.
+  useDynamicCrumb(descriptor?.name)
 
   useEffect(() => {
     if (!uriKey || prefilled) return
