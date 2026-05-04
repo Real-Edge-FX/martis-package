@@ -100,17 +100,45 @@ if (registry === undefined) {
     if (display !== undefined) registry.register(key, display, input)
   }
 
-  // Overrides — fixed key map per filename.
-  const overrides = import.meta.glob<{default: unknown}>('./overrides/*.tsx', {eager: true})
+  // Overrides — two paths:
+  //
+  //   (a) Layout / auth slots: filename matches a fixed entry in
+  //       OVERRIDE_KEYS above and registers under the canonical key
+  //       the SPA router looks up by hard-coded string.
+  //
+  //   (b) Generic / field-shape overrides: filename is the consumer's
+  //       choice. The registry key derives from the filename
+  //       (`StatusBadge.tsx` → `status-badge`). When the module ships
+  //       both a `Display` and an `Input` named export, both halves
+  //       are registered (`status-badge` + `status-badge-input`) so a
+  //       PHP `Override('status-badge')` / `Override('status-badge-input')`
+  //       pair resolves end-to-end. Otherwise the default export is
+  //       registered alone under the derived key.
+  //
+  // No manual OVERRIDE_KEYS extension or hand-rolled register
+  // calls in this file. v1.10.1+ makes `--type=field` and
+  // `--type=generic` zero-config too.
+  const overrides = import.meta.glob<FieldModule>('./overrides/*.tsx', {eager: true})
   for (const [path, mod] of Object.entries(overrides)) {
     const name = basename(path)
-    const key = OVERRIDE_KEYS[name]
-    if (key === undefined) {
-      // eslint-disable-next-line no-console
-      console.warn(`[martis-extensions] overrides/${name}.tsx has no key mapping; rename to one of: ${Object.keys(OVERRIDE_KEYS).join(', ')}`)
+    const fixedKey = OVERRIDE_KEYS[name]
+
+    if (fixedKey !== undefined) {
+      // (a) Layout / auth slot — registry key is fixed.
+      if (mod.default !== undefined) registry.register(fixedKey, mod.default)
       continue
     }
-    if (mod.default !== undefined) registry.register(key, mod.default)
+
+    // (b) Generic / field-shape override — derive key from filename.
+    const derivedKey = pascalToKebab(name)
+    if (mod.Display !== undefined || mod.Input !== undefined) {
+      // Field-shape: `Display` + `Input` named exports.
+      if (mod.Display !== undefined) registry.register(derivedKey, mod.Display)
+      if (mod.Input !== undefined) registry.register(`${derivedKey}-input`, mod.Input)
+    } else if (mod.default !== undefined) {
+      // Single-component override.
+      registry.register(derivedKey, mod.default)
+    }
   }
 }
 

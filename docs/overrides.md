@@ -490,9 +490,11 @@ If you opted out of the Tailwind preset, the same effect works with inline style
 
 Use the `martis:component` artisan command to scaffold an override TSX (alias: `martis:override`, kept for back-compat). Each `--type` option writes a different starter — see the [stubs directory on GitHub](https://github.com/Real-Edge-FX/martis-package/tree/main/stubs) for the full source of every scaffold.
 
-> **Auto-registration scope (v1.10+)**
+> **Auto-registration scope (v1.10.1+)**
 >
-> The bundle's auto-discovery loop registers an override **only when the filename appears in the canonical `OVERRIDE_KEYS` map** in the published `resources/js/martis-extensions/index.ts`. That map is fixed:
+> Every `--type` value is now zero-config. The bundle's auto-discovery loop covers two paths:
+>
+> **(a) Canonical layout / auth slots** — fixed filename → key map:
 >
 > | Filename | Registered key |
 > |---|---|
@@ -506,13 +508,19 @@ Use the `martis:component` artisan command to scaffold an override TSX (alias: `
 > | `ResetPasswordPage.tsx` | `auth:reset-password` |
 > | `EmailVerifyNoticePage.tsx` | `auth:email-verify-notice` |
 >
-> So **`--type=shell|sidebar|topbar|footer|login-page|register-page|forgot-password-page|reset-password-page|email-verify-notice-page`** are zero-config: drop the file, run `npm run build:extensions`, done.
+> The SPA router resolves these hard-coded strings, so the map cannot be filename-derived.
 >
-> **`--type=generic <Name>` and `--type=field <Name>`** scaffold a TSX with an arbitrary filename that the `OVERRIDE_KEYS` map does not know. Build picks the file up but the auto-discovery loop emits a `console.warn` and skips registration. To bind these, either:
-> 1. Use a canonical generator instead — `martis:tool` for tools, `martis:field` for fields, `martis:card` for cards (each auto-registers via filename → key in its own bucket); or
-> 2. Edit `resources/js/martis-extensions/index.ts` and add an entry to `OVERRIDE_KEYS` mapping your filename to the registry key the PHP `Override::*` attribute expects.
+> **(b) Generic / field-shape overrides** — filename derives the key:
 >
-> The generated stubs for `--type=generic` and `--type=field` repeat this guidance in their header docblock.
+> | Filename | Registered key(s) | Export shape |
+> |---|---|---|
+> | `StatusBadge.tsx` | `status-badge` | default export → single component |
+> | `StatusBadge.tsx` (with named `Display` + `Input`) | `status-badge` + `status-badge-input` | field-shape pair |
+> | `RichBio.tsx` | `rich-bio` | default export → single component |
+>
+> The PHP `Override('status-badge')` / `Override('status-badge-input')` strings match what `martis:component --type=field StatusBadge` produces. No manual `OVERRIDE_KEYS` extension required since v1.10.1.
+>
+> **Recommendation**: when you want a brand-new field type with matching PHP class, prefer `martis:field <Name>` — that generator writes the PHP Field subclass too and routes the override through the bundle's `fields/` bucket (key namespace `field:{kebab}` instead of the bare `{kebab}`). Use `martis:component --type=field` only when you want to override the visual of an existing field (Text, Select, etc.) without introducing a new PHP field.
 
 | `--type` | Stub source |
 |----------|-------------|
@@ -549,7 +557,7 @@ php artisan martis:component Acme --type=complete-layout
 The command:
 1. Creates the React component file at `resources/js/martis-extensions/overrides/{ClassName}.tsx`.
 2. For shell pieces and auth pages, the file is published with the canonical fixed filename (`Shell.tsx`, `Sidebar.tsx`, `LoginPage.tsx`, etc.) so the bundle's `OVERRIDE_KEYS` map registers it automatically. The user-supplied `name` argument is ignored for these fixed slots — they exist exactly once each.
-3. For `--type=generic` and `--type=field` the user-supplied name becomes the filename and the consumer must extend `OVERRIDE_KEYS` themselves (see the auto-registration scope note above).
+3. For `--type=generic` and `--type=field` the user-supplied name becomes the filename; the bundle's auto-discovery loop derives `{kebab(name)}` (and `{kebab(name)}-input` for the field-shape pair) and registers each half automatically. v1.10.1+.
 4. Shell stubs document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
 
 > **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead — that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis/fields/<name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.

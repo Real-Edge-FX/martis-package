@@ -131,6 +131,9 @@ jobs:
           php artisan martis:component --type=forgot-password-page
           php artisan martis:component --type=reset-password-page
           php artisan martis:component --type=email-verify-notice-page
+          # v1.10.1: generic + field-shape overrides auto-register too.
+          php artisan martis:component StatusBadge --type=field
+          php artisan martis:component InfoPanel --type=generic
 
       - name: Verify generator outputs landed in the right buckets
         run: |
@@ -147,16 +150,26 @@ jobs:
           test -f resources/js/martis-extensions/overrides/ForgotPasswordPage.tsx
           test -f resources/js/martis-extensions/overrides/ResetPasswordPage.tsx
           test -f resources/js/martis-extensions/overrides/EmailVerifyNoticePage.tsx
-          # B1 regression check: every override TSX must default-export
-          # so the auto-discovery loop registers it. Field is the one
-          # exception (Display + Input named exports).
+          test -f resources/js/martis-extensions/overrides/StatusBadge.tsx
+          test -f resources/js/martis-extensions/overrides/InfoPanel.tsx
+          # B1 regression check: every single-component override TSX
+          # must default-export so the auto-discovery loop registers
+          # it. Field-shape overrides (StatusBadge.tsx, fields/Rating.tsx)
+          # use named Display/Input exports — checked separately below.
           for f in overrides/Shell.tsx overrides/Sidebar.tsx overrides/Topbar.tsx \
                    overrides/Footer.tsx overrides/LoginPage.tsx overrides/RegisterPage.tsx \
                    overrides/ForgotPasswordPage.tsx overrides/ResetPasswordPage.tsx \
-                   overrides/EmailVerifyNoticePage.tsx \
+                   overrides/EmailVerifyNoticePage.tsx overrides/InfoPanel.tsx \
                    tools/Charts.tsx cards/RevenueGauge.tsx; do
             grep -q "^export default function" "resources/js/martis-extensions/$f" \
               || (echo "✗ $f missing export default"; exit 1)
+          done
+          # v1.10.1 — field-shape overrides export Display + Input.
+          for f in overrides/StatusBadge.tsx fields/Rating.tsx; do
+            grep -q "^export function Display" "resources/js/martis-extensions/$f" \
+              || (echo "✗ $f missing export function Display"; exit 1)
+            grep -q "^export function Input" "resources/js/martis-extensions/$f" \
+              || (echo "✗ $f missing export function Input"; exit 1)
           done
 
       - name: npm install + build:extensions
@@ -192,7 +205,8 @@ jobs:
                      overrides/LoginPage.tsx overrides/RegisterPage.tsx \
                      overrides/ForgotPasswordPage.tsx \
                      overrides/ResetPasswordPage.tsx \
-                     overrides/EmailVerifyNoticePage.tsx; do
+                     overrides/EmailVerifyNoticePage.tsx \
+                     overrides/StatusBadge.tsx overrides/InfoPanel.tsx; do
             grep -q "\"./$path\"" "$BUNDLE" \
               || (echo "✗ bundle missing TSX path: ./$path"; exit 1)
           done

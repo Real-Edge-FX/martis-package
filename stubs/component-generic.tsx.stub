@@ -1,22 +1,23 @@
 /**
  * {{ class }} — Custom Martis component override.
  *
- * Auto-discovery convention (v1.9.0+): this file lives under
- * `resources/js/martis-extensions/overrides/{{ class }}.tsx`.
+ * Lives at `resources/js/martis-extensions/overrides/{{ class }}.tsx`.
  *
- * Generic overrides do NOT auto-register through the bundle's key
- * map (which only knows the canonical layout/auth filenames like
- * `Sidebar.tsx` → `layout:sidebar`). To bind a generic override
- * either:
+ * Auto-registered on next `npm run build:extensions` (v1.10.1+):
+ * the bundle's auto-discovery loop derives the registry key from
+ * the filename — `{{ class }}.tsx` → `{{ kebab }}` — and registers
+ * the default export against `componentRegistry.register('{{ kebab }}', X)`.
  *
- *   1. Use a Tool / Field / Card generator instead — those have
- *      their own buckets with auto-derived keys; OR
- *   2. Extend `OVERRIDE_KEYS` in `resources/js/martis-extensions/index.ts`
- *      to map this filename to the registry key the PHP `Override::*`
- *      attribute uses.
+ * Bind from PHP via the matching `Override::class` reference:
  *
- * The default export below is what `componentRegistry.register('{{ kebab }}', X)`
- * receives once you wire the key.
+ *   Text::make('field_name')
+ *       ->overrideIndex(new Override('{{ kebab }}'));
+ *
+ * For canonical layout / auth slots use the dedicated `--type` values
+ * (`shell`, `sidebar`, `topbar`, `footer`, `login-page`,
+ * `register-page`, `forgot-password-page`, `reset-password-page`,
+ * `email-verify-notice-page`); their fixed-key map lives in
+ * `resources/js/martis-extensions/index.ts`.
  */
 
 export default function {{ class }}() {

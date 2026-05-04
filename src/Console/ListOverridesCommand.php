@@ -248,9 +248,10 @@ class ListOverridesCommand extends Command
             }
         }
 
-        // Overrides — fixed key map per filename. Mirrors OVERRIDE_KEYS
-        // in the published `stubs/extensions/index.ts.stub`. Keep the
-        // table here in sync with that file.
+        // Overrides — fixed key map first, then filename-derived
+        // fallback for generic / field-shape overrides. Mirrors the
+        // logic in `stubs/extensions/index.ts.stub` (v1.10.1+). Keep
+        // the fixed table here in sync with that file.
         $overrideKeys = [
             'Shell' => 'layout:shell',
             'Sidebar' => 'layout:sidebar',
@@ -266,9 +267,24 @@ class ListOverridesCommand extends Command
         if (is_dir($overridesPath)) {
             foreach (glob($overridesPath.'/*.tsx') ?: [] as $file) {
                 $base = basename($file, '.tsx');
+                if ($base === '' || $base[0] === '.') {
+                    continue;
+                }
                 if (isset($overrideKeys[$base])) {
                     $keys[] = $overrideKeys[$base];
+
+                    continue;
                 }
+                // Generic / field-shape override — derive `{kebab}`
+                // and emit both halves of the field-shape pair so the
+                // cross-check reports either as registered when the
+                // PHP layer asks for it. Field-only TSX without an
+                // Input export still registers under `{kebab}`; the
+                // `-input` row tags as registered if the dev follows
+                // the convention.
+                $derived = $kebab($base);
+                $keys[] = $derived;
+                $keys[] = $derived.'-input';
             }
         }
 

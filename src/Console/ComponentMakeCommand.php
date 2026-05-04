@@ -152,19 +152,15 @@ class ComponentMakeCommand extends Command
      * (only fixed filenames live there) and emits a console warning
      * unless the consumer extends the keymap.
      *
-     * For most cases you actually want a Tool / Field / Card
-     * generator instead — those have their own dedicated buckets.
-     * Generic component overrides remain a power-user tool.
+     * v1.10.1+ auto-registers both `--type=field` (Display + Input
+     * named exports under `{kebab}` / `{kebab}-input`) and
+     * `--type=generic` (default export under `{kebab}`) — no manual
+     * `OVERRIDE_KEYS` extension required.
      */
     protected function generateUserNamed(string $type, string $name): int
     {
         $className = Str::studly($name);
         $kebabName = Str::kebab($className);
-
-        if ($type === 'field') {
-            $this->components->warn('--type=field is now better served by `martis:field` (writes to fields/).');
-            $this->line('  Continuing with the legacy override behaviour for backwards compatibility.');
-        }
 
         $relative = "resources/js/martis-extensions/overrides/{$className}.tsx";
         $absolutePath = base_path($relative);
@@ -182,6 +178,8 @@ class ComponentMakeCommand extends Command
         $this->newLine();
 
         if ($type === 'field') {
+            $this->info("Auto-registered as '{$kebabName}' (display) + '{$kebabName}-input' (input) on next `npm run build:extensions`.");
+            $this->newLine();
             $this->line('Usage in PHP (display — index/detail):');
             $this->line("  ->overrideIndex(new Override('{$kebabName}'))");
             $this->line("  ->overrideDetail(new Override('{$kebabName}'))");
@@ -189,10 +187,14 @@ class ComponentMakeCommand extends Command
             $this->line('Usage in PHP (input — create/update):');
             $this->line("  ->overrideCreate(new Override('{$kebabName}-input'))");
             $this->line("  ->overrideUpdate(new Override('{$kebabName}-input'))");
+            $this->newLine();
+            $this->line('Tip: for a brand-new field type with matching PHP class, use');
+            $this->line("  <comment>php artisan martis:field {$className}</comment>");
         } else {
-            $this->line('Generic overrides are not in the auto-discovery key map — extend `OVERRIDE_KEYS`');
-            $this->line("in resources/js/martis-extensions/index.ts to map '{$className}' to your registry key,");
-            $this->line('or migrate the component into the canonical Tool / Field / Card bucket.');
+            $this->info("Auto-registered as '{$kebabName}' on next `npm run build:extensions`.");
+            $this->newLine();
+            $this->line('Usage in PHP (any field type):');
+            $this->line("  Text::make('field_name')->overrideIndex(new Override('{$kebabName}'))");
         }
 
         $this->newLine();
