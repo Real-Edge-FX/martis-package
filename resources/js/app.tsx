@@ -1,4 +1,5 @@
 import '../css/martis.css'
+import * as React from 'react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
@@ -36,14 +37,42 @@ componentRegistry.register('demo-custom-action', DemoCustomAction as never)
 // "system overview" page can ship a Tool subclass binding to this key.
 componentRegistry.register('martis:tool:system-status-demo', SystemStatusDemo as never)
 
-// Load user-defined component overrides (if any)
-try {
-  // @ts-expect-error — @user alias may not exist in all consumer apps
-  import('@user/martis/boot').catch(() => {
-    // No user boot module — that's fine, use only defaults
+// -----------------------------------------------------------------------------
+// Runtime extension surface (v1.8.19)
+//
+// Expose a stable global so consumer-built ESM bundles can register
+// components, override fields, etc. without rebuilding the Martis
+// package.
+//
+// Consumers ship their own Vite/Rollup/esbuild bundle that:
+//   1. Marks `react` external mapped to `window.Martis.react` to avoid
+//      duplicating React (size + duplicate-instance hazards).
+//   2. Reads `componentRegistry` via `window.Martis.componentRegistry`.
+//   3. Calls `componentRegistry.register('tool:my-key', MyComponent)`.
+//
+// Bundle URLs are listed in `config('martis.extensions')` (sourced
+// from the `MARTIS_EXTENSIONS` env, comma-separated). app.blade.php
+// emits the resolved array as `window.MartisConfig.extensions` and
+// the loader below dynamic-imports each one. Failures are isolated:
+// one broken extension cannot take down the whole panel.
+// -----------------------------------------------------------------------------
+
+window.Martis = {
+  ...(window.Martis ?? {}),
+  componentRegistry,
+  react: React,
+  version: __MARTIS_VERSION__,
+}
+
+const extensionUrls = window.MartisConfig?.extensions ?? []
+for (const url of extensionUrls) {
+  if (typeof url !== 'string' || url === '') continue
+  // /* @vite-ignore */ tells Vite NOT to pre-resolve the URL at build
+  // time; the import target is supplied at runtime by the consumer.
+  import(/* @vite-ignore */ url).catch((err: unknown) => {
+    // eslint-disable-next-line no-console
+    console.error('[martis] failed to load extension', url, err)
   })
-} catch {
-  // Static analysis fallback
 }
 
 function App() {

@@ -394,6 +394,14 @@ export interface MartisConfigShape {
   impersonation?: MartisImpersonationConfig
   keyboardShortcuts?: MartisKeyboardShortcutsConfig
   /**
+   * Runtime extension URLs (v1.8.19+). Each entry is dynamically
+   * imported as an ESM module after the bundled `componentRegistry`
+   * is exposed on `window.Martis`. Consumer-built bundles register
+   * their components from inside these scripts. Sourced from the
+   * `MARTIS_EXTENSIONS` env (comma-separated) → `config.martis.extensions`.
+   */
+  extensions?: string[]
+  /**
    * Developer tooling switches. Today this only carries the gate
    * for the Component Inspector at `/dev/components`; future dev
    * surfaces (route inspector, schema browser, etc.) hang here too.

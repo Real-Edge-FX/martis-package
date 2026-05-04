@@ -1118,6 +1118,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Runtime extensions
+    |--------------------------------------------------------------------------
+    | Comma-separated list of ESM URLs the SPA dynamically imports at boot,
+    | AFTER the bundled `componentRegistry` is exposed on `window.Martis`.
+    | Each URL is loaded via a runtime `import(url)` call from the
+    | browser, so the consumer's own Vite / Rollup / esbuild build can
+    | publish a single JS file (e.g. `public/vendor/martis-user/extensions.js`)
+    | and register components with no need to rebuild the Martis package.
+    |
+    | Example .env:
+    |     MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js
+    |
+    | The consumer's extension script typically does:
+    |
+    |     window.Martis.componentRegistry.register('tool:my-tool', MyTool)
+    |
+    | And marks `react` external mapped to `window.Martis.react` to
+    | avoid duplicating the runtime. v1.8.19+.
+    */
+    'extensions' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_EXTENSIONS', ''))))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Attachments
     |--------------------------------------------------------------------------
     | Configure allowed MIME types and disks for Trix/Markdown file uploads.

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.19] — 2026-05-04
+
+### Added
+
+- **Runtime extension loader.** Consumer apps can now register custom React components (Tools, override components, field renderers) without rebuilding the Martis package. The SPA exposes `window.Martis = { componentRegistry, react, version }` at boot and dynamically imports every URL listed in `config('martis.extensions')` (sourced from `MARTIS_EXTENSIONS` env, comma-separated). Each URL is loaded via `import(url)` from the browser, so the consumer ships their own ESM bundle (Vite / Rollup / esbuild) that calls `window.Martis.componentRegistry.register('tool:my-tool', MyTool)`. Marking `react` external to `window.Martis.react` in the consumer config avoids duplicating the runtime. New `MartisConfigShape.extensions?: string[]` TS field, new `extensions: [...]` key in the `MartisConfig` payload emitted by `app.blade.php`. 4 new vitest specs lock the load-each-URL / skip-empty / failure-isolation contract.
+
+### Changed
+
+- **BREAKING.** Removed the build-time `@user/martis/boot` alias and the `@user` Vite alias resolution. The `resolveUserDir()` walker in `vite.config.ts` is gone, as is the package's own empty `resources/js/user/` fallback. Consumers that were setting `MARTIS_USER_DIR` to drive a monorepo-style extension build switch to the runtime mechanism (`MARTIS_EXTENSIONS`). The documentation in `docs/installation-guide.md` previously promised the build-time alias would survive package upgrades, but that promise was never deliverable on the published bundle — Vite tree-shook `import('@user/martis/boot')` because the package's own fallback was `export {}`, so the runtime behaviour was a no-op even before this commit. v1.8.19 makes the runtime path the only way and documents it.
+
 ## [1.8.18] — 2026-05-04
 
 ### Fixed
