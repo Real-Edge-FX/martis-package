@@ -91,7 +91,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 6.10 | **[Sticky Views](sticky_views.md)** | Per-resource session state for search / sort / filters / pagination / trashed / `filtersOpen` (v0.8) |
 | 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
 | 7.5 | **[Default Row Actions](default_row_actions.md)** | Built-in inline action set per relation panel and index row |
-| 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, `boot.ts` registration |
+| 8 | **[Override System](overrides.md)** | Component customization — 4-tier resolution (explicit key → per-resource → per-type → global), componentRegistry, layoutRegistry, drawer overrides, filename auto-discovery (drop a default-exported component under `resources/js/martis-extensions/`) |
 | 8.5 | **[Menus](menus.md)** | Declarative navigation — `Martis::mainMenu(...)`, `Menu`, `MenuSection`, `MenuItem`, resource-level `menuItem()`, and `/api/navigation` |
 | 9 | **[Built-in Components](components.md)** | Every UI component in the frontend — DataTable, ResourceForm, DetailView, modals, search bar, sidebar, breadcrumbs, navigation, theme toggle, toast notifications |
 | 9.1 | **[Loader](loader.md)** | Global loader and per-surface skeletons — when each one fires, accessibility behaviour |

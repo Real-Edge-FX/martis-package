@@ -123,7 +123,7 @@ All options are optional. Omitted keys use the built-in defaults.
 
 ## Customization via Component Registry
 
-For full control, replace `MartisLoader` with your own component. Register the override from your consumer `boot.ts` (typically `resources/martis-extensions/martis/boot.ts`):
+For full control, replace `MartisLoader` with your own component. Register the override from your consumer extension bundle (`resources/js/martis-extensions/`) (typically `resources/js/martis-extensions/index.ts`):
 
 ```typescript
 import { componentRegistry } from '@/lib/componentRegistry'

@@ -1,0 +1,184 @@
+name: Fresh-Laravel smoke
+
+# Catches the "the package's tests pass against testbench fixtures but
+# a real consumer crashes on first install" bug class (B1/B2/B3 in the
+# v1.10 rollout-debt audit). Composer-creates a fresh laravel app,
+# requires martis via path repo, runs `martis:install`, exercises
+# every TSX-producing generator, runs `npm install` and
+# `npm run build:extensions`, and asserts the bundle contains the
+# expected register calls.
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+    paths:
+      # Only re-run on changes that could affect the consumer-facing
+      # surface. Skips re-running for pure docs / refactor PRs that
+      # don't touch the install / generator / shim path.
+      - "src/Console/**"
+      - "stubs/**"
+      - "resources/js/app.tsx"
+      - "resources/js/lib/martisRuntime.ts"
+      - "resources/js/lib/componentRegistry.ts"
+      - "resources/js/lib/keyboardShortcuts.ts"
+      - "resources/js/lib/i18n.ts"
+      - "resources/js/lib/config.ts"
+      - "resources/js/lib/api.ts"
+      - "resources/js/contexts/**"
+      - "resources/js/components/**"
+      - "resources/js/hooks/**"
+      - "config/martis.php"
+      - "composer.json"
+      - "package.json"
+      - "vite.config.ts"
+      - ".github/workflows/smoke-fresh-laravel.yml"
+
+jobs:
+  smoke:
+    name: Smoke (fresh laravel + every generator)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out martis-package
+        uses: actions/checkout@v4
+        with:
+          path: martis-package
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: smoke-composer-${{ hashFiles('martis-package/composer.json') }}
+          restore-keys: smoke-composer-
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: smoke-npm-${{ hashFiles('martis-package/package.json') }}
+          restore-keys: smoke-npm-
+
+      - name: Build the package's frontend bundle (so martis:install can publish it)
+        run: |
+          cd martis-package
+          npm install --no-progress --no-audit --no-fund
+          npm run build
+
+      - name: Composer create-project laravel/laravel test-app
+        run: composer create-project laravel/laravel test-app --no-interaction --quiet --prefer-dist
+
+      - name: Wire test-app to local martis-package via path repo
+        run: |
+          cd test-app
+          composer config repositories.martis path "$GITHUB_WORKSPACE/martis-package"
+          composer require martis/martis:@dev --no-interaction --no-update
+          composer update --with-all-dependencies --no-interaction --quiet
+
+      - name: Run martis:install (publishes scaffold + npm deps)
+        run: |
+          cd test-app
+          touch database/database.sqlite
+          php artisan martis:install --force --no-interaction
+
+      - name: Verify martis:install published the scaffold tree
+        run: |
+          cd test-app
+          test -f vite.extensions.config.ts || (echo "missing vite config"; exit 1)
+          test -f tsconfig.extensions.json || (echo "missing tsconfig"; exit 1)
+          test -f resources/js/martis-extensions/index.ts || (echo "missing index"; exit 1)
+          test -d resources/js/martis-extensions/.shims || (echo "missing shims dir"; exit 1)
+          test -f resources/js/martis-extensions/.shims/react.mjs
+          test -f resources/js/martis-extensions/.shims/react-jsx-runtime.mjs
+          test -f resources/js/martis-extensions/.shims/runtime.mjs
+          test -f resources/js/martis-extensions/.shims/react-router-dom.mjs
+          test -f resources/js/martis-extensions/.shims/react-i18next.mjs
+          test -f resources/js/martis-extensions/.shims/tanstack-react-query.mjs
+          test -d resources/js/martis-extensions/tools
+          test -d resources/js/martis-extensions/fields
+          test -d resources/js/martis-extensions/cards
+          test -d resources/js/martis-extensions/overrides
+          # package.json must have build:extensions script + the npm deps.
+          grep -q '"build:extensions"' package.json
+          grep -q '"@vitejs/plugin-react"' package.json
+          grep -q '"react"' package.json
+
+      - name: Run every TSX-producing generator
+        run: |
+          cd test-app
+          php artisan martis:tool Charts --with-component
+          php artisan martis:field Rating
+          php artisan martis:card RevenueGauge
+          php artisan martis:component --type=shell
+          php artisan martis:component --type=sidebar
+          php artisan martis:component --type=topbar
+          php artisan martis:component --type=footer
+          php artisan martis:component --type=login-page
+          php artisan martis:component --type=register-page
+          php artisan martis:component --type=forgot-password-page
+          php artisan martis:component --type=reset-password-page
+          php artisan martis:component --type=email-verify-notice-page
+
+      - name: Verify generator outputs landed in the right buckets
+        run: |
+          cd test-app
+          test -f resources/js/martis-extensions/tools/Charts.tsx
+          test -f resources/js/martis-extensions/fields/Rating.tsx
+          test -f resources/js/martis-extensions/cards/RevenueGauge.tsx
+          test -f resources/js/martis-extensions/overrides/Shell.tsx
+          test -f resources/js/martis-extensions/overrides/Sidebar.tsx
+          test -f resources/js/martis-extensions/overrides/Topbar.tsx
+          test -f resources/js/martis-extensions/overrides/Footer.tsx
+          test -f resources/js/martis-extensions/overrides/LoginPage.tsx
+          test -f resources/js/martis-extensions/overrides/RegisterPage.tsx
+          test -f resources/js/martis-extensions/overrides/ForgotPasswordPage.tsx
+          test -f resources/js/martis-extensions/overrides/ResetPasswordPage.tsx
+          test -f resources/js/martis-extensions/overrides/EmailVerifyNoticePage.tsx
+          # B1 regression check: every override TSX must default-export
+          # so the auto-discovery loop registers it. Field is the one
+          # exception (Display + Input named exports).
+          for f in overrides/Shell.tsx overrides/Sidebar.tsx overrides/Topbar.tsx \
+                   overrides/Footer.tsx overrides/LoginPage.tsx overrides/RegisterPage.tsx \
+                   overrides/ForgotPasswordPage.tsx overrides/ResetPasswordPage.tsx \
+                   overrides/EmailVerifyNoticePage.tsx \
+                   tools/Charts.tsx cards/RevenueGauge.tsx; do
+            grep -q "^export default function" "resources/js/martis-extensions/$f" \
+              || (echo "✗ $f missing export default"; exit 1)
+          done
+
+      - name: npm install + build:extensions
+        run: |
+          cd test-app
+          npm install --no-progress --no-audit --no-fund --no-package-lock
+          npm run build:extensions
+
+      - name: Bundle assertion — register calls for every key
+        run: |
+          cd test-app
+          BUNDLE=public/vendor/martis-user/extensions.js
+          test -f "$BUNDLE" || (echo "bundle missing"; exit 1)
+          # The bundle is minified; identifiers are renamed but string
+          # literals survive. Each key below MUST appear in the
+          # bundle exactly once for the corresponding generator's
+          # output to register at runtime.
+          for key in 'tool:charts' 'field:rating' 'card:revenue-gauge' \
+                     'layout:shell' 'layout:sidebar' 'layout:topbar' 'layout:footer' \
+                     'auth:login' 'auth:register' 'auth:forgot-password' \
+                     'auth:reset-password' 'auth:email-verify-notice'; do
+            grep -q "\`$key\`\|\"$key\"\|'$key'" "$BUNDLE" \
+              || (echo "✗ bundle missing key: $key"; exit 1)
+          done
+          echo "✓ bundle has every expected key"

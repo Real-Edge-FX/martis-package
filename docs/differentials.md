@@ -31,7 +31,7 @@ Text::make('bio')->component('rich-bio-display')
 ```
 
 ```typescript
-// TypeScript: register a custom component in boot.ts
+// TypeScript: register a custom component under `resources/js/martis-extensions/`
 import { componentRegistry } from '@/lib/componentRegistry'
 import { RichBioDisplay } from './components/RichBioDisplay'
 
@@ -784,8 +784,8 @@ php artisan martis:card RevenueChart
 Creates:
 
 1. `app/Martis/Cards/RevenueChart.php` — with `componentKey()` pre-configured.
-2. `resources/martis-extensions/martis/components/RevenueChart.tsx` — starter React component.
-3. Auto-registers in `boot.ts`.
+2. `resources/js/martis-extensions/overrides/RevenueChart.tsx` — starter React component.
+3. Auto-registers via `resources/js/martis-extensions/cards/{Name}.tsx` filename auto-discovery.
 
 Usage in a Dashboard:
 

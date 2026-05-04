@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Filesystem\Filesystem;
+use Martis\Console\ListOverridesCommand;
 
 /**
  * `martis:list-overrides --frontend` smoke specs (v1.10+ rewrite).
@@ -13,7 +14,6 @@ use Illuminate\Filesystem\Filesystem;
  * the bundle entry's `import.meta.glob` loop. These specs cover the
  * happy path + the missing-directory case + the override key map.
  */
-
 beforeEach(function () {
     $fs = new Filesystem;
     $extensionsRoot = base_path('resources/js/martis-extensions');
@@ -61,7 +61,7 @@ it('--frontend discovers tool/field/card filenames in their respective buckets',
     // Reflect into the command to exercise the discovery method
     // directly. Robust against future test-app additions that might
     // pollute the rows table.
-    $command = new \Martis\Console\ListOverridesCommand;
+    $command = new ListOverridesCommand;
     $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
     $reflection->setAccessible(true);
     /** @var list<string> $keys */
@@ -83,7 +83,7 @@ it('--frontend ignores unknown override filenames (not in OVERRIDE_KEYS map)', f
         '// stub',
     );
 
-    $command = new \Martis\Console\ListOverridesCommand;
+    $command = new ListOverridesCommand;
     $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
     $reflection->setAccessible(true);
     /** @var list<string> $keys */
@@ -106,7 +106,7 @@ it('--frontend supports a custom --extensions-dir path', function () {
             '--extensions-dir' => $alt,
         ])->run();
 
-        $command = new \Martis\Console\ListOverridesCommand;
+        $command = new ListOverridesCommand;
         $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
         $reflection->setAccessible(true);
         /** @var list<string> $keys */
