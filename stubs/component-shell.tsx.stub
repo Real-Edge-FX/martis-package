@@ -1,33 +1,31 @@
-/*
- * Custom Martis shell.
+/**
+ * {{ class }} — Custom Martis shell.
  *
- * Registered automatically under `layout:shell` in boot.ts. When this
- * key is resolved, Martis skips the bundled shell entirely — you are
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/overrides/Shell.tsx` and the
+ * bundle entry registers it under `layout:shell`. When that key
+ * resolves, Martis skips the bundled shell entirely — you are
  * responsible for composing the sidebar, topbar, content and footer.
- *
- * PROPS: none. Use hooks to get everything you need:
- *   • `useAuth()`       — authenticated user + logout().
- *   • `useIsMobile()`   — viewport ≤ 768px (breakpoint).
- *   • `useState`        — local collapse state; persist with localStorage
- *                          if you want it to survive reloads (Martis uses
- *                          the key `martis-sidebar-collapsed`).
  *
  * THE DEFAULT CSS GRID
  * --------------------
- * If you keep the `.martis-shell` class + the `data-*` attributes below,
- * Martis's bundled CSS handles the mobile drawer animation, collapse
- * rail, content frame, and backdrop. Drop them all and ship your own
- * layout CSS for full control.
+ * If you keep the `.martis-shell` class + the `data-*` attributes
+ * below, Martis's bundled CSS handles the mobile drawer animation,
+ * collapse rail, content frame, and backdrop. Drop them all and
+ * ship your own layout CSS for full control.
+ *
+ * IMPORTS
+ * -------
+ * Everything comes from `@martis/runtime` — the package's public
+ * runtime surface (v1.10+). The bundle's vite alias rewrites the
+ * import to read from `window.Martis.runtime` at runtime, so there
+ * is no second copy of React, react-router-dom, etc.
  */
 
-import { Outlet } from 'react-router-dom'
-import { useState } from 'react'
-import { useIsMobile } from '@martis/martis/hooks/useIsMobile'
-import { Sidebar } from '@martis/martis/components/Sidebar'
-import { Topbar } from '@martis/martis/components/Topbar'
-import { Footer } from '@martis/martis/components/Footer'
+import {useState} from 'react'
+import {Outlet, useIsMobile, Sidebar, Topbar, Footer} from '@martis/runtime'
 
-export function {{ class }}() {
+export default function {{ class }}() {
   const isMobile = useIsMobile()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(
@@ -47,12 +45,16 @@ export function {{ class }}() {
       />
 
       <Topbar
-        onToggleSidebar={isMobile ? () => setMobileOpen(v => !v) : undefined}
-        onToggleCollapse={!isMobile ? () => {
-          const next = !collapsed
-          setCollapsed(next)
-          localStorage.setItem('martis-sidebar-collapsed', String(next))
-        } : undefined}
+        onToggleSidebar={isMobile ? () => setMobileOpen((v) => !v) : undefined}
+        onToggleCollapse={
+          !isMobile
+            ? () => {
+                const next = !collapsed
+                setCollapsed(next)
+                localStorage.setItem('martis-sidebar-collapsed', String(next))
+              }
+            : undefined
+        }
         sidebarCollapsed={collapsed}
       />
 

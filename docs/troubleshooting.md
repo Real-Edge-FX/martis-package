@@ -185,18 +185,19 @@ If you scaffolded a custom theme via `php artisan martis:theme`, regenerate the 
 
 ### Custom override not picked up
 
-Almost always a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and your frontend `boot.ts` (which registers the actual React component under that key). The `martis:list-overrides` command shows every key the PHP layer expects:
+Almost always a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and your consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` command shows every key the PHP layer expects:
 
 ```bash
 php artisan martis:list-overrides
 ```
 
-Confirm that every key in the output is registered in your `resources/martis-extensions/martis/boot.ts`. The `componentRegistry` is exported as a module from `@/lib/componentRegistry` — there is no `window.componentRegistry`, so to inspect at runtime add a temporary `import { componentRegistry } from '@/lib/componentRegistry'; (window as any).componentRegistry = componentRegistry;` to your `boot.ts`, rebuild, and read `componentRegistry.keys()` from devtools.
+Confirm that every key in the output is registered in your `resources/js/martis-extensions/index.ts`. The `componentRegistry` is exported as a module from `@/lib/componentRegistry` — there is no `window.componentRegistry`, so to inspect at runtime add a temporary `import { componentRegistry } from '@/lib/componentRegistry'; (window as any).componentRegistry = componentRegistry;` to your extension entry, rebuild, and read `componentRegistry.keys()` from devtools.
 
 Common culprits when an override is missing:
 
-- **`boot.ts` not loaded.** The generated `boot.ts` is auto-imported only when the consumer's `resources/martis-extensions/` folder is found at build time. See [Override System](overrides.md) for the resolution chain and the `MARTIS_USER_DIR` opt-in for monorepo setups.
-- **Wrong build directory.** If you develop the package and your app side by side, set `MARTIS_USER_DIR=/absolute/path/to/your-app/resources/martis-extensions` before running `npm run build` inside `martis-package`.
+- **`MARTIS_EXTENSIONS` env var unset.** v1.8.19+ loads the consumer extension bundle dynamically from the URL listed in `MARTIS_EXTENSIONS` (defaults to `/vendor/martis-user/extensions.js`). Confirm it is set in `.env` and that the URL returns 200.
+- **Bundle not built.** Re-run `npm run build:extensions` and check `public/vendor/martis-user/extensions.js` exists. The deploy script runs this automatically; local dev iterations need it manually.
+- **TSX file in the wrong bucket.** Auto-discovery only walks `resources/js/martis-extensions/{tools,fields,cards,overrides}/`. A file in any other folder is invisible to the loop.
 - **Slug typo.** Keys are case-sensitive. `field.text` and `Field.Text` are different.
 
 ## Performance

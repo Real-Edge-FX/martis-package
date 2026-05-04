@@ -1,7 +1,9 @@
-/*
- * Custom Martis sidebar.
+/**
+ * {{ class }} — Custom Martis sidebar.
  *
- * Registered automatically under `layout:sidebar` in boot.ts.
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/overrides/Sidebar.tsx` and the
+ * bundle entry registers it under `layout:sidebar`.
  *
  * WHAT MARTIS PASSES AS PROPS
  * ---------------------------
@@ -15,17 +17,36 @@
  *
  * WHERE THE NAVIGATION TREE COMES FROM
  * ------------------------------------
- * `/api/navigation` returns groups of resources. The grouping, per-item
- * authorization, icons and labels are built server-side from the
- * resources you defined under `app/Martis/Resources/`. Customise via:
+ * `/api/navigation` returns groups of resources. The grouping,
+ * per-item authorization, icons and labels are built server-side
+ * from the resources you defined under `app/Martis/Resources/`.
+ * Customise via:
  *   • Resource::label() / group() / icon()
  *   • Martis::mainMenu(fn($request, $menu) => ...)  in a service provider
+ *
+ * IMPORTS
+ * -------
+ * Everything comes from `@martis/runtime` — the package's public
+ * runtime surface (v1.10+). The bundle's vite alias rewrites the
+ * import to read from `window.Martis.runtime` at runtime, so there
+ * is no second copy of react-router-dom, react-query, or the API
+ * client.
  */
 
-import { NavLink } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@martis/martis/lib/api'
-import type { NavigationGroup } from '@martis/martis/types'
+import {NavLink, useQuery, api} from '@martis/runtime'
+
+interface NavigationItem {
+  type?: 'resource' | 'link'
+  uriKey?: string
+  label: string
+  url: string
+  external?: boolean
+}
+
+interface NavigationGroup {
+  label: string | null
+  items: NavigationItem[]
+}
 
 interface {{ class }}Props {
   mobileOpen?: boolean
@@ -33,36 +54,37 @@ interface {{ class }}Props {
   collapsed?: boolean
 }
 
-export function {{ class }}({ mobileOpen, onMobileClose, collapsed }: {{ class }}Props) {
+export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ class }}Props) {
   const isMobile = mobileOpen !== undefined
 
-  const { data: groups = [] } = useQuery<NavigationGroup[]>({
+  const {data: groups = []} = useQuery<NavigationGroup[]>({
     queryKey: ['navigation'],
     queryFn: () => api.get('/api/navigation'),
     staleTime: 60_000,
   })
 
   // Keep the `.martis-sb` class + `data-mobile` / `data-collapsed`
-  // attributes if you want Martis's bundled mobile drawer animation and
-  // collapsed-rail styling. Drop them and ship your own CSS if not.
+  // attributes if you want Martis's bundled mobile drawer animation
+  // and collapsed-rail styling. Drop them and ship your own CSS if
+  // not.
   return (
     <aside
       className="martis-sb"
       data-mobile={isMobile ? (mobileOpen ? 'open' : 'true') : undefined}
       data-collapsed={!isMobile && collapsed ? 'true' : 'false'}
     >
-      <div className="martis-sb-logo">
-        {/* brand / logo */}
-      </div>
+      <div className="martis-sb-logo">{/* brand / logo */}</div>
 
       <div className="martis-sb-scroll">
         {groups.map((group, i) => (
           <div className="martis-sb-group" key={group.label ?? `group-${i}`}>
-            {group.label && (
-              <div className="martis-sb-group-label"><span>{group.label}</span></div>
+            {group.label !== null && (
+              <div className="martis-sb-group-label">
+                <span>{group.label}</span>
+              </div>
             )}
-            {group.items.map(item => (
-              item.external ? (
+            {group.items.map((item) =>
+              item.external === true ? (
                 <a
                   key={`${group.label ?? ''}-${item.label}-${item.url}`}
                   href={item.url}
@@ -75,15 +97,21 @@ export function {{ class }}({ mobileOpen, onMobileClose, collapsed }: {{ class }
                 </a>
               ) : (
                 <NavLink
-                  key={item.type === 'resource' ? item.uriKey : `${group.label ?? ''}-${item.label}-${item.url}`}
+                  key={
+                    item.type === 'resource'
+                      ? (item.uriKey ?? `${item.label}-${item.url}`)
+                      : `${group.label ?? ''}-${item.label}-${item.url}`
+                  }
                   to={item.url}
-                  className={({ isActive }) => 'martis-sb-item' + (isActive ? ' active' : '')}
+                  className={({isActive}) =>
+                    'martis-sb-item' + (isActive ? ' active' : '')
+                  }
                   onClick={isMobile ? onMobileClose : undefined}
                 >
                   <span className="martis-sb-item-label">{item.label}</span>
                 </NavLink>
-              )
-            ))}
+              ),
+            )}
           </div>
         ))}
       </div>

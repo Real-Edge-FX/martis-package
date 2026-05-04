@@ -1125,16 +1125,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Extensions Path
-    |--------------------------------------------------------------------------
-    | Directory where custom React components are created by martis:component.
-    | Relative to the application's resource_path().
-    | The vite build must point MARTIS_USER_DIR to this same directory.
-    */
-    'extensions_path' => env('MARTIS_EXTENSIONS_PATH', 'martis-extensions'),
-
-    /*
-    |--------------------------------------------------------------------------
     | Runtime extensions
     |--------------------------------------------------------------------------
     | Comma-separated list of ESM URLs the SPA dynamically imports at boot,

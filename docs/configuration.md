@@ -401,7 +401,7 @@ Pick the preset via `MARTIS_LAYOUT` env or `config('martis.layout.preset')`. The
     'components' => [
         'shell'   => null,              // whole shell override; skips the grid + mobile drawer
         'sidebar' => null,              // only the left column
-        'topbar'  => 'tenant-topbar',   // custom topbar registered in boot.ts
+        'topbar'  => 'tenant-topbar',   // custom topbar auto-discovered from `resources/js/martis-extensions/overrides/`
         'footer'  => 'tenant-footer',
     ],
 ],

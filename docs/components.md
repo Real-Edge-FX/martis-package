@@ -296,7 +296,7 @@ Names that don't match any Phosphor export fall back silently to `DatabaseIcon` 
 For icons outside Phosphor (custom SVGs) or to skip the dynamic-import roundtrip on a hot path, register synchronously from a consumer boot file:
 
 ```ts
-// resources/martis-extensions/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { iconRegistry } from '@/lib/iconRegistry'
 import { CrownIcon } from '@phosphor-icons/react'
 

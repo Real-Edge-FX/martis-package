@@ -20,7 +20,7 @@ Martis provides a 4-tier component resolution system that allows you to replace 
 Replace the component for **all fields** of a given type across every resource.
 
 ```typescript
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MyRatingDisplay, MyRatingInput } from './components/RatingField'
 
@@ -34,7 +34,7 @@ componentRegistry.registerFieldInput('number', MyRatingInput)
 Replace the component only for a specific field in a specific resource.
 
 ```typescript
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { componentRegistry } from '@/lib/componentRegistry'
 import { StatusBadgeDisplay } from './components/StatusBadge'
 
@@ -62,7 +62,7 @@ public function fields(Request $request): array
 
 **TypeScript:**
 ```typescript
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { componentRegistry } from '@/lib/componentRegistry'
 import { StatusBadge } from './components/StatusBadge'
 import { StarRating } from './components/StarRating'
@@ -88,7 +88,7 @@ Text::make('status')
 Each resource can use a custom page layout shell.
 
 ```typescript
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { UserResourceLayout } from './layouts/UserResourceLayout'
 
@@ -142,7 +142,7 @@ public function overrides(): array
 Register a custom component to handle a CRUD action:
 
 ```typescript
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MyPostCreator } from './components/MyPostCreator'
 
@@ -524,7 +524,7 @@ php artisan martis:component Acme --type=complete-layout
 
 The command:
 1. Creates the React component file(s) at `resources/js/martis/components/`.
-2. Generates or updates `resources/js/martis/boot.ts` with the import and registration.
+2. Generates or updates `resources/js/martis-extensions/index.ts` with the import and registration.
 3. For `field`, registers both display and input components.
 4. For shell types, uses stubs that document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
 
@@ -557,22 +557,13 @@ The command:
 
 The five auth-page types follow the same wiring as the shell pieces — generate the TSX, build, and the bundled login / register / password-reset / email-verify pages are automatically replaced. See [authentication.md](authentication.md) for the broader auth customisation surface (backend handlers, blade templates, OAuth providers).
 
-After creating a component, rebuild assets:
-```bash
-# v0.8+ — auto-discovery picks up `resources/martis-extensions/`
-# automatically when the package lives in `vendor/martis/martis/`:
-npm run build
+After creating a component, rebuild the consumer extension bundle:
 
-# Override the discovered directory (or set it explicitly when working
-# in dev mode where the package is symlinked outside vendor/):
-MARTIS_USER_DIR=$(pwd)/resources/martis-extensions npm run build
+```bash
+npm run build:extensions
 ```
 
-The `@user` Vite alias resolves in this order:
-
-1. **`MARTIS_USER_DIR` env var** — explicit override always wins.
-2. **Auto-discovery** — walks up from the package directory looking for a Laravel app root (`artisan` file) that ships a `resources/martis-extensions/` folder.
-3. **Fallback** — the package's own empty `resources/js/user/` so the package can build standalone.
+That runs `vite build --config vite.extensions.config.ts`, which is published into your app by `martis:install`. The bundle is emitted at `public/vendor/martis-user/extensions.js` and Martis loads it at runtime through the URL listed in `MARTIS_EXTENSIONS` (also set by `martis:install`). The auto-discovery entry walks the four buckets under `resources/js/martis-extensions/` and registers every `.tsx` against `window.Martis.componentRegistry` — no manual `boot.ts`, no `MARTIS_USER_DIR`, no symlink.
 
 ### Shell piece-by-piece overrides
 
@@ -581,7 +572,7 @@ Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without to
 **Option A — JS boot file** (register directly under the default key):
 
 ```typescript
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MyTopbar } from './components/MyTopbar'
 import { MyFooter } from './components/MyFooter'
@@ -593,7 +584,7 @@ componentRegistry.register('layout:footer', MyFooter)
 **Option B — PHP config + any registry key** (useful when multiple candidates are registered and PHP owns the selection, e.g. for feature-flagged deploys):
 
 ```typescript
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 componentRegistry.register('my-topbar', MyTopbar)
 componentRegistry.register('my-footer', MyFooter)
 ```
@@ -605,7 +596,7 @@ componentRegistry.register('my-footer', MyFooter)
     'components' => [
         'shell'   => null,         // whole shell; skips grid + drawer
         'sidebar' => null,
-        'topbar'  => 'my-topbar',  // the key from boot.ts
+        'topbar'  => 'my-topbar',  // the auto-discovered key
         'footer'  => 'my-footer',
     ],
 ],
@@ -656,7 +647,7 @@ componentRegistry.keys()
 
 ## Debugging — `martis:list-overrides`
 
-When an override does not pick up, the most common cause is a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and the frontend `boot.ts` (which registers the actual React component under that key). The `martis:list-overrides` artisan command prints every component key the PHP layer expects:
+When an override does not pick up, the most common cause is a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and the consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` artisan command prints every component key the PHP layer expects:
 
 ```bash
 php artisan martis:list-overrides
@@ -664,12 +655,12 @@ php artisan martis:list-overrides --kind=tool       # only Tools
 php artisan martis:list-overrides --kind=action     # only Actions with Action::component()
 php artisan martis:list-overrides --kind=resource   # only Resources (uri keys)
 php artisan martis:list-overrides --filter=order    # substring filter on the key
-php artisan martis:list-overrides --frontend        # ⭐ cross-check vs boot.ts and flag missing registrations
+php artisan martis:list-overrides --frontend        # ⭐ cross-check vs `resources/js/martis-extensions/` and flag missing registrations
 ```
 
 ### ⭐ `--frontend` cross-check
 
-The `--frontend` flag adds a **Frontend** column to the table that statically parses your `resources/js/martis/boot.ts` for `componentRegistry.register/registerFieldDisplay/registerFieldInput/registerResourceFieldDisplay/registerResourceFieldInput` calls and shows whether each PHP-declared key is registered:
+The `--frontend` flag adds a **Frontend** column to the table that statically parses your `resources/js/martis-extensions/index.ts` for `componentRegistry.register/registerFieldDisplay/registerFieldInput/registerResourceFieldDisplay/registerResourceFieldInput` calls and shows whether each PHP-declared key is registered:
 
 ```
 +----------+--------------------------+------------------------+----------------+
@@ -696,8 +687,8 @@ Sample output:
 | tool     | system-status            | App\Martis\Tools\SystemStatus            |
 | action   | order-bulk-publish       | App\Martis\OrderResource → PublishOrders |
 +----------+--------------------------+------------------------------------------+
-4 component key(s) declared. Verify each one is registered in your frontend
-boot file (e.g. resources/js/boot.ts) via componentRegistry.register('<key>', Component).
+4 component key(s) declared. Verify each one is backed by a TSX file under
+resources/js/martis-extensions/{tools,fields,cards,overrides}/ (v1.9+ filename → key auto-discovery).
 ```
 
 The command lists what is **expected**, not what is **registered** — the actual override registry lives in the browser and cannot be introspected from PHP. Check the matching list in your frontend by running this in the browser devtools console after the SPA boots:
@@ -706,7 +697,7 @@ The command lists what is **expected**, not what is **registered** — the actua
 window.componentRegistry.keys()
 ```
 
-Any key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is a missing registration in your `boot.ts` — the most common reason an override fails to resolve.
+Any key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is a missing TSX file under `resources/js/martis-extensions/` — the most common reason an override fails to resolve.
 
 ## ⭐ Component Inspector — `/dev/components`
 

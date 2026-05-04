@@ -11,7 +11,8 @@ use RuntimeException;
 class InstallCommand extends Command
 {
     protected $signature = 'martis:install
-                            {--force : Overwrite existing assets}
+                            {--force : Overwrite existing scaffold files (vite config, shim files, index entry, generator stubs). Does NOT republish config/martis.php — pass --force-config for that.}
+                            {--force-config : Republish config/martis.php, overwriting any consumer customisations. Separated from --force so refreshing the extension scaffold does not destroy the host app config.}
                             {--with-profile : Enable profile support}
                             {--with-2fa : Enable two-factor authentication support}
                             {--avatar-column= : Column on the users table that stores avatar paths}
@@ -144,15 +145,27 @@ class InstallCommand extends Command
 
     protected function publishConfig(): void
     {
-        if (file_exists(config_path('martis.php')) && ! $this->option('force')) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> config', 'already published (use --force to overwrite)');
+        $configExists = file_exists(config_path('martis.php'));
+        $forceConfig = (bool) $this->option('force-config');
+
+        if ($configExists && ! $forceConfig) {
+            // v1.10+ separates --force (scaffold) from --force-config
+            // (destructive config rewrite). The previous behaviour
+            // had `--force` republish config too, which silently
+            // stomped consumer customisations like `accent`,
+            // `brandColor`, `theme`, etc. when the dev only wanted
+            // to refresh the extension scaffold.
+            $this->components->twoColumnDetail(
+                '<fg=yellow>Skipping</> config',
+                'already published (use --force-config to overwrite — destroys customisations)',
+            );
 
             return;
         }
 
         $this->callSilent('vendor:publish', [
             '--tag' => 'martis-config',
-            '--force' => (bool) $this->option('force'),
+            '--force' => $forceConfig,
         ]);
 
         $this->components->twoColumnDetail('<fg=green>Published</> config', 'config/martis.php');
@@ -557,6 +570,17 @@ class InstallCommand extends Command
             // load with "Failed to resolve module specifier 'react'").
             'react-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/react.mjs',
             'react-jsx-runtime-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/react-jsx-runtime.mjs',
+            // v1.10.0+ runtime shims. Together they let override
+            // stubs `import {useAuth, AuthFrame, useNavigate, ...}`
+            // from any of `@martis/runtime`, `react-router-dom`,
+            // `react-i18next`, `@tanstack/react-query` without the
+            // consumer needing to npm install those modules — the
+            // host SPA bundles them and exposes the runtime surface
+            // on `window.Martis.runtime`.
+            'runtime-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/runtime.mjs',
+            'react-router-dom-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/react-router-dom.mjs',
+            'react-i18next-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/react-i18next.mjs',
+            'tanstack-react-query-shim.mjs.stub' => 'resources/js/martis-extensions/.shims/tanstack-react-query.mjs',
         ];
 
         foreach ($files as $stubName => $relativeTarget) {
@@ -588,6 +612,8 @@ class InstallCommand extends Command
         }
 
         $this->updatePackageJsonScripts($filesystem);
+        $this->updatePackageJsonDeps($filesystem);
+        $this->detectLegacyViteConfig($filesystem);
     }
 
     /**
@@ -626,6 +652,131 @@ class InstallCommand extends Command
         $filesystem->put($path, json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
 
         $this->components->twoColumnDetail('<fg=green>Updated</> package.json', 'added build:extensions script');
+    }
+
+    /**
+     * Minimum npm dependencies the consumer-extension build needs
+     * (v1.10.0+). Versions track what the host package itself ships
+     * to keep peer-dep compat predictable.
+     *
+     * `react-router-dom`, `react-i18next` and `@tanstack/react-query`
+     * are intentionally NOT in this list — the package re-exposes
+     * them via `window.Martis.runtime` and the consumer's vite
+     * shims resolve bare imports without npm-installing them. See
+     * `vite.extensions.config.ts.stub` for the alias map.
+     *
+     * @var array{dependencies: array<string, string>, devDependencies: array<string, string>}
+     */
+    private const EXTENSION_NPM_DEPS = [
+        'dependencies' => [
+            'react' => '^18 || ^19',
+            'react-dom' => '^18 || ^19',
+        ],
+        'devDependencies' => [
+            '@vitejs/plugin-react' => '^4 || ^5 || ^6',
+            'vite' => '^5 || ^6 || ^7 || ^8',
+            'typescript' => '^5 || ^6',
+            '@types/react' => '^18 || ^19',
+            '@types/react-dom' => '^18 || ^19',
+            '@types/node' => '^20 || ^22 || ^25',
+            '@phosphor-icons/react' => '^2',
+        ],
+    ];
+
+    /**
+     * Add the consumer-extension npm packages (`react`, `react-dom`,
+     * `@vitejs/plugin-react`, `vite`, etc.) to `package.json` if they
+     * are not already declared. Only writes the entries the consumer
+     * lacks — never bumps an existing version, never touches an
+     * unrelated key.
+     *
+     * Why this exists: prior to v1.10 `martis:install` published a
+     * `vite.extensions.config.ts` that imports `@vitejs/plugin-react`
+     * but did not add it as a devDependency. Fresh laravel apps
+     * therefore failed the very first `npm run build:extensions` with
+     * `Cannot find package '@vitejs/plugin-react'`. This method
+     * closes that gap.
+     */
+    protected function updatePackageJsonDeps(Filesystem $filesystem): void
+    {
+        $path = base_path('package.json');
+        if (! $filesystem->exists($path)) {
+            return;
+        }
+
+        $contents = (string) $filesystem->get($path);
+        /** @var array<string, mixed>|null $decoded */
+        $decoded = json_decode($contents, true);
+        if (! is_array($decoded)) {
+            $this->components->warn('Could not parse package.json — skipping dependency updates.');
+
+            return;
+        }
+
+        $added = [];
+
+        foreach (self::EXTENSION_NPM_DEPS as $section => $entries) {
+            /** @var array<string, mixed> $current */
+            $current = is_array($decoded[$section] ?? null) ? $decoded[$section] : [];
+
+            foreach ($entries as $name => $constraint) {
+                if (isset($current[$name])) {
+                    continue;
+                }
+                $current[$name] = $constraint;
+                $added[] = "{$section}:{$name}";
+            }
+
+            ksort($current);
+            $decoded[$section] = $current;
+        }
+
+        if ($added === []) {
+            return;
+        }
+
+        $filesystem->put($path, json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->components->twoColumnDetail(
+            '<fg=green>Updated</> package.json',
+            'added '.count($added).' npm dep(s) for the extension build',
+        );
+        $this->line('  Run <fg=cyan>npm install</> to materialise them before the next <fg=cyan>npm run build:extensions</>.');
+    }
+
+    /**
+     * Detect a legacy `vite.extensions.config.ts` that still uses the
+     * v1.9.0–v1.9.2 broken approach (`rollupOptions.external` +
+     * `output.globals`) and warn the dev to re-run install with
+     * `--force` so the v1.9.3+ shim-based config replaces it.
+     *
+     * Skipped silently when no config exists yet, when `--force` is
+     * passed (which already overwrote it), or when the config is
+     * already on the new shape.
+     */
+    protected function detectLegacyViteConfig(Filesystem $filesystem): void
+    {
+        $configPath = base_path('vite.extensions.config.ts');
+        if (! $filesystem->exists($configPath) || (bool) $this->option('force')) {
+            return;
+        }
+
+        $contents = (string) $filesystem->get($configPath);
+
+        // The v1.9.0–v1.9.2 stub used `external: ['react'`. The v1.9.3+
+        // stub uses `alias: [` and a `reactShim` const. If we see the
+        // legacy shape and not the new one, warn.
+        $isLegacy = str_contains($contents, "external: ['react'") && ! str_contains($contents, 'reactShim');
+
+        if (! $isLegacy) {
+            return;
+        }
+
+        $this->components->warn('Detected legacy v1.9.0–v1.9.2 vite.extensions.config.ts.');
+        $this->line('  The previous shape used `rollupOptions.output.globals` to externalise React, but');
+        $this->line('  `globals` is silently ignored for ES module output — the resulting bundle ships');
+        $this->line('  bare `import "react"` and the browser refuses to load it.');
+        $this->line('  Re-run <fg=cyan>php artisan martis:install --force</> to publish the v1.10+ shim-based config.');
     }
 
     protected function clearConfigCache(): void

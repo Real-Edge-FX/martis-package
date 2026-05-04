@@ -1,7 +1,9 @@
-/*
- * Custom Martis topbar.
+/**
+ * {{ class }} — Custom Martis topbar.
  *
- * Registered automatically under `layout:topbar` in boot.ts.
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/overrides/Topbar.tsx` and the
+ * bundle entry registers it under `layout:topbar`.
  *
  * WHAT MARTIS PASSES AS PROPS
  * ---------------------------
@@ -13,18 +15,16 @@
  * • `sidebarCollapsed`  — current collapsed state, used to pick the
  *                         chevron direction on the toggle button.
  *
- * DATA SOURCES
- * ------------
- * • Breadcrumbs — computed client-side from `useLocation()` +
- *   `/api/navigation`. Wrap <Breadcrumbs /> or reimplement.
- * • Auth user — `useAuth()` from `@martis/martis/contexts/AuthContext`.
- *   Logout with `useAuth().logout()`.
- * • Search — opens `<GlobalSearch onClose={…} />` imperatively.
+ * IMPORTS
+ * -------
+ * `useAuth` and `useTranslation` come from `@martis/runtime` (v1.10+),
+ * read at runtime from the host SPA's React tree. `@phosphor-icons/react`
+ * is added to your `package.json` by `martis:install` so this stub
+ * compiles out of the box.
  */
 
-import { useAuth } from '@martis/martis/contexts/AuthContext'
-import { useTranslation } from 'react-i18next'
-import { ListIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon } from '@phosphor-icons/react'
+import {useAuth, useTranslation} from '@martis/runtime'
+import {ListIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon} from '@phosphor-icons/react'
 
 interface {{ class }}Props {
   onToggleSidebar?: () => void
@@ -32,17 +32,17 @@ interface {{ class }}Props {
   sidebarCollapsed?: boolean
 }
 
-export function {{ class }}({
+export default function {{ class }}({
   onToggleSidebar,
   onToggleCollapse,
   sidebarCollapsed = false,
 }: {{ class }}Props) {
-  const { user, logout } = useAuth()
-  const { t } = useTranslation('navigation')
+  const {user} = useAuth()
+  const {t} = useTranslation('navigation')
 
   return (
-    <header className="martis-tb" data-mobile={onToggleSidebar ? 'true' : undefined}>
-      {onToggleSidebar && (
+    <header className="martis-tb" data-mobile={onToggleSidebar !== undefined ? 'true' : undefined}>
+      {onToggleSidebar !== undefined && (
         <button
           type="button"
           className="martis-tb-menu-btn"
@@ -54,7 +54,7 @@ export function {{ class }}({
         </button>
       )}
 
-      {onToggleCollapse && (
+      {onToggleCollapse !== undefined && (
         <button
           type="button"
           className="martis-tb-collapse-btn"
@@ -72,7 +72,7 @@ export function {{ class }}({
 
       <div className="martis-tb-right">
         <div className="martis-tb-user">
-          <span className="martis-tb-user-name">{user?.name ?? user?.email}</span>
+          <span className="martis-tb-user-name">{user?.name ?? user?.email ?? ''}</span>
         </div>
       </div>
     </header>

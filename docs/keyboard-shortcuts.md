@@ -9,13 +9,13 @@ No 3rd-party dependency: implementation lives in `resources/js/lib/keyboardShort
 ```ts
 import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
 
-// Or, from a consumer's boot.ts (no module imports needed):
+// Or, from a consumer's extension bundle entry (no module imports needed):
 window.Martis.shortcuts.add('mod+s', handler)
 window.Martis.shortcuts.remove('mod+s')   // alias for disableShortcut
 window.Martis.shortcuts.list()            // alias for listShortcuts
 ```
 
-The window binding (`window.Martis.shortcuts`) exposes exactly three methods — `add`, `remove`, `list` — mapping 1:1 to the three exports above. Use it from `boot.ts` or any non-module surface where importing from `@/lib/...` is awkward.
+The window binding (`window.Martis.shortcuts`) exposes exactly three methods — `add`, `remove`, `list` — mapping 1:1 to the three exports above. Use it from your extension entry or any non-module surface where importing from `@/lib/...` is awkward.
 
 ### `addShortcut(combo, handler, options?)`
 
@@ -151,7 +151,7 @@ export function MyDeploymentsTool() {
 
 ### Replace the bundled palette shortcut
 
-If you want to bind the palette to `mod+/` instead of `mod+k`, run this at app boot (e.g. in your `boot.ts`):
+If you want to bind the palette to `mod+/` instead of `mod+k`, run this at app boot (e.g. in your extension bundle entry):
 
 ```ts
 import { disableShortcut, addShortcut } from '@/lib/keyboardShortcuts'

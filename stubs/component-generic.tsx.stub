@@ -1,4 +1,25 @@
-export function {{ class }}() {
+/**
+ * {{ class }} — Custom Martis component override.
+ *
+ * Auto-discovery convention (v1.9.0+): this file lives under
+ * `resources/js/martis-extensions/overrides/{{ class }}.tsx`.
+ *
+ * Generic overrides do NOT auto-register through the bundle's key
+ * map (which only knows the canonical layout/auth filenames like
+ * `Sidebar.tsx` → `layout:sidebar`). To bind a generic override
+ * either:
+ *
+ *   1. Use a Tool / Field / Card generator instead — those have
+ *      their own buckets with auto-derived keys; OR
+ *   2. Extend `OVERRIDE_KEYS` in `resources/js/martis-extensions/index.ts`
+ *      to map this filename to the registry key the PHP `Override::*`
+ *      attribute uses.
+ *
+ * The default export below is what `componentRegistry.register('{{ kebab }}', X)`
+ * receives once you wire the key.
+ */
+
+export default function {{ class }}() {
   return (
     <div>
       <p>{{ class }} component</p>

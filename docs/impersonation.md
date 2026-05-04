@@ -97,7 +97,7 @@ The poll cadence is configurable via `martis.impersonation.poll_interval` (env `
 
 ### Overriding the banner
 
-Register a custom React component under the canonical registry key from your consumer `boot.ts`:
+Register a custom React component under the canonical registry key from your consumer extension bundle (`resources/js/martis-extensions/`):
 
 ```ts
 import { componentRegistry } from '@/lib/componentRegistry'

@@ -198,13 +198,13 @@ MARTIS_AUTH_REGISTRATION_URL=https://app.example.com/signup
 
 ### Layer 2 — replace the React page (component override)
 
-Use the Martis component override system to swap any of the auth pages. The artisan generator scaffolds a TSX file, registers it under a fixed key in the consumer's boot.ts, and the SPA router (`router.tsx`) resolves the override before the bundled default — exactly the same mechanism that already works for `--type=shell` / `--type=topbar` / etc.
+Use the Martis component override system to swap any of the auth pages. The artisan generator scaffolds a TSX file, registers it under a fixed key under `resources/js/martis-extensions/overrides/`, and the SPA router (`router.tsx`) resolves the override before the bundled default — exactly the same mechanism that already works for `--type=shell` / `--type=topbar` / etc.
 
 ```bash
 php artisan martis:component MyLogin --type=login-page
 ```
 
-Generates `resources/martis-extensions/martis/components/MyLogin.tsx` (a working starting point that calls `useAuth().login()` and renders inside `AuthFrame`), and adds these two lines to `resources/martis-extensions/martis/boot.ts`:
+Generates `resources/js/martis-extensions/overrides/MyLogin.tsx` (a working starting point that calls `useAuth().login()` and renders inside `AuthFrame`), and adds these two lines to `resources/js/martis-extensions/index.ts`:
 
 ```typescript
 import { MyLogin } from './components/MyLogin'
@@ -225,7 +225,7 @@ After generating the override, rebuild assets so the bundle picks up the new com
 
 ```bash
 cd vendor/martis/martis
-MARTIS_USER_DIR=$(pwd)/../../../resources/martis-extensions npm run build
+npm run build:extensions
 ```
 
 The build copies the rebuilt `public/` back to your app via `php artisan martis:publish-assets` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
@@ -659,7 +659,7 @@ The host app must use Laravel's `database` session driver for the panel to popul
 ### Customisation
 
 - **Backend**: bind your own subclass of `Martis\Profile\BrowserSessionsService` against the FQCN to extend with geo-IP enrichment, audit logging, or cross-device push notifications. The service exposes `forUser(Authenticatable, Request)`, `revokeOthers(Authenticatable, Request)`, and `revoke(Authenticatable, Request, string $id)`.
-- **UI**: register a custom React component under the `martis:profile-sessions` registry key from your consumer `boot.ts` to swap the bundled `BrowserSessionsSection`. When unset, the bundled component renders.
+- **UI**: register a custom React component under the `martis:profile-sessions` registry key from your consumer extension bundle (`resources/js/martis-extensions/`) to swap the bundled `BrowserSessionsSection`. When unset, the bundled component renders.
 - **Translations**: keys live under the `profile` namespace — `sessions_title`, `sessions_subtitle`, `sessions_loading`, `sessions_empty`, `sessions_unsupported`, `sessions_current_badge`, `sessions_unknown_ip`, `sessions_revoke`, `sessions_revoke_success`, `sessions_revoke_others`, `sessions_revoke_others_confirm`, `sessions_revoke_others_success`, `sessions_revoking`. All shipped in en, pt_PT, pt_BR.
 
 ## Error pages

@@ -76,9 +76,15 @@ it('martis:sso azure --no-composer --no-listener --no-migrate runs cleanly', fun
 });
 
 it('martis:sso azure is idempotent — running twice does not duplicate the config block', function () {
-    if (! file_exists(config_path('martis.php'))) {
-        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+    // Force a clean config every run. Cross-file pollution (the
+    // previous test adds an azure block; afterEach only strips env
+    // lines) used to make the second `expectsOutputToContain` racy
+    // because both sso calls would short-circuit with "already
+    // declared". Wiping config here makes the assertion deterministic.
+    if (file_exists(config_path('martis.php'))) {
+        $this->filesystem->delete(config_path('martis.php'));
     }
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
     $this->artisan('martis:sso', [
         'provider' => 'azure',

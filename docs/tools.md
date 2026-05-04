@@ -41,7 +41,7 @@ A Tool spans four layers. You write code at each, glued together by the framewor
 │                              Per-tool `boot()` hook lets your tool        │
 │                              register its own routes / listeners / gates. │
 ├───────────────────────────────────────────────────────────────────────────┤
-│ 4. React component           A `.tsx` you register in your boot.ts under  │
+│ 4. React component           A `.tsx` you drop under `resources/js/martis-extensions/` under  │
 │    (resources/js/martis-extensions/tools/)      the same component key the PHP tool         │
 │                              binds via `withComponent('tool:foo')`.       │
 │                              The Martis ToolPage shell renders it inside  │
@@ -270,7 +270,7 @@ Martis::mainMenu(function ($request, $menu) {
 Bind a React component to the key your PHP tool declared:
 
 ```ts
-// resources/js/martis/boot.ts
+// resources/js/martis-extensions/index.ts
 import { componentRegistry } from '@/lib/componentRegistry'
 import { FinanceImportsTool } from './tools/FinanceImportsTool'
 
@@ -320,7 +320,7 @@ After the command finishes, the CLI prints a "next steps" block with:
 
 1. The exact `Martis::tools([...])` registration snippet for your service provider.
 2. The `MenuItem::tool(...)` line to copy into your menu.
-3. The `componentRegistry.register('...', ...)` call to add to `boot.ts` (or a note that you used `--use-bundled`).
+3. The `componentRegistry.register('...', ...)` call to add under `resources/js/martis-extensions/` (auto-discovered) (or a note that you used `--use-bundled`).
 
 You should not need to alt-tab to the docs after running it.
 
