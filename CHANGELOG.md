@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-05-04
+
+### Added
+
+- **Zero-config extension scaffold.** `php artisan martis:install` now publishes a complete consumer-extension build setup — `vite.extensions.config.ts`, `tsconfig.extensions.json`, `resources/js/martis-extensions/index.ts` (auto-discovery entry), the four bucket directories (`tools/`, `fields/`, `cards/`, `overrides/`), the `build:extensions` script in `package.json`, and the `MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js` env line. The dev runs the generator and the build; nothing else.
+- **Filename-derived component keys.** The published `index.ts` uses `import.meta.glob` to walk the four buckets and register every `.tsx` against `window.Martis.componentRegistry` automatically. Convention: `tools/Charts.tsx` → `tool:charts`, `cards/RevenueGauge.tsx` → `card:revenue-gauge`, `fields/PriceTag.tsx` → `field:price-tag` (display/input via named exports), `overrides/Sidebar.tsx` → `layout:sidebar` (fixed key map). No manual `componentRegistry.register(...)` calls anywhere.
+- **Collision detection** in `martis:tool --with-component`. Before writing, the generator checks both the destination PHP class file and the TSX file across every extension bucket; on conflict, it lists the paths and asks `[y/N]` (or aborts in non-interactive shells without `--force`).
+
+### Changed
+
+- **`martis:tool --with-component`** now drops the TSX at `resources/js/martis-extensions/tools/{Name}.tsx` (no `Tool` filename suffix) instead of the legacy `resources/js/tools/{Name}Tool.tsx`. The bare class basename matches the auto-discovery's filename → key derivation.
+- **`tool-component.tsx.stub`** rewritten: `export default` instead of named export, no `@martis/admin` import, no `componentRegistry.register(...)` call. The stub is now self-contained — drop it in the bucket and the build picks it up.
+- **`ToolMakeCommand::printNextSteps()`** simplified to a single line ("Run `npm run build:extensions`"). The previous "Register the Tool in your service provider" and "Register your component in `boot.ts`" steps were removed — auto-discovery (v1.8.20+) and the auto-discovery entry handle both.
+- **`InstallCommand` legacy `boot.ts` detector**: when the consumer app still has `resources/js/martis/boot.ts` from the pre-v1.8.19 mechanism, the install command prints a one-time warning explaining the file is now ignored and pointing at the new bucket convention.
+
+### Migration notes
+
+Apps upgrading from v1.8.x:
+
+1. Run `php artisan martis:install --force` to publish the new scaffold. Existing TSX files in the buckets are not touched.
+2. If you have a legacy `resources/js/martis/boot.ts`, move each `componentRegistry.register('tool:foo', FooTool)` body into `resources/js/martis-extensions/tools/Foo.tsx` (filename → key in PascalCase) and delete the `register(...)` call. The auto-discovery entry will pick it up at the next build.
+3. Drop the file path `resources/js/tools/` if it only contained TSX from the old `martis:tool --with-component`. The bucket is now `resources/js/martis-extensions/tools/`.
+
+Existing apps that don't use any custom React components keep working unchanged.
+
 ## [1.8.20] — 2026-05-04
 
 ### Added

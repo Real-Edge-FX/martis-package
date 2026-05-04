@@ -1,0 +1,25 @@
+{
+  "//": "TypeScript config for the Martis consumer-extension bundle (v1.9.0+). Used by vite.extensions.config.ts. The generators drop TSX into the four buckets under resources/js/martis-extensions/.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ext/*": ["resources/js/martis-extensions/*"]
+    },
+    "types": ["vite/client", "node"]
+  },
+  "include": [
+    "resources/js/martis-extensions/**/*",
+    "vite.extensions.config.ts"
+  ]
+}

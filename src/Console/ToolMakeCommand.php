@@ -69,6 +69,11 @@ class ToolMakeCommand extends GeneratorCommand
         $stub = parent::buildClass($name);
 
         $shortName = class_basename($name);
+        // Convention: TSX filename is the bare class basename (e.g.
+        // `Charts.tsx`, NOT `ChartsTool.tsx`). The auto-discovery
+        // entry derives the registry key from the filename — keeping
+        // the filename and uriKey aligned avoids a key-vs-uriKey
+        // mismatch surprise later.
         $uriKey = Str::kebab($shortName);
 
         $componentKey = (string) $this->option('component-key');
@@ -120,22 +125,30 @@ class ToolMakeCommand extends GeneratorCommand
     }
 
     /**
-     * Drop a TSX stub at `resources/js/tools/{Name}Tool.tsx`. The
-     * generated component is a small "hello world" with the Tool
-     * descriptor wired up — enough that the user can build on top of
-     * it without reading the docs first.
+     * Drop a TSX stub at `resources/js/martis-extensions/tools/{Name}.tsx`.
+     *
+     * Filename convention is the bare class basename (no "Tool"
+     * suffix) so the auto-discovery entry — which lives at
+     * `resources/js/martis-extensions/index.ts` and ships from
+     * `martis:install` — derives the registry key directly from the
+     * filename: `Charts.tsx` → `tool:charts`, matching the PHP Tool's
+     * `withComponent('tool:charts')`.
+     *
+     * Aborts with a `[y/N]` confirmation when the destination file
+     * already exists or when the derived component key is already
+     * occupied by another bucket file. `--force` skips the
+     * confirmation; otherwise the command exits without touching the
+     * filesystem.
      */
     protected function scaffoldReactComponent(): void
     {
         $shortName = class_basename($this->getNameInput());
         $componentKey = (string) ($this->option('component-key') ?: 'tool:'.Str::kebab($shortName));
         $componentName = $shortName.'Tool';
-        $relativePath = 'resources/js/tools/'.$componentName.'.tsx';
+        $relativePath = 'resources/js/martis-extensions/tools/'.$shortName.'.tsx';
         $absolutePath = base_path($relativePath);
 
-        if (file_exists($absolutePath) && ! $this->option('force')) {
-            $this->components->warn("[{$relativePath}] already exists; pass --force to overwrite.");
-
+        if (! $this->confirmCollisionForExtension($absolutePath, $componentKey, $relativePath)) {
             return;
         }
 
@@ -145,6 +158,8 @@ class ToolMakeCommand extends GeneratorCommand
             '{{component_name}}' => $componentName,
             '{{ component_key }}' => $componentKey,
             '{{component_key}}' => $componentKey,
+            '{{ class_short }}' => $shortName,
+            '{{class_short}}' => $shortName,
             '{{ display_name }}' => $this->humanize($shortName),
             '{{display_name}}' => $this->humanize($shortName),
         ]);
@@ -156,37 +171,98 @@ class ToolMakeCommand extends GeneratorCommand
     }
 
     /**
-     * Print a small "what to do next" block so the user does not need
-     * to alt-tab to the docs after running the command.
+     * Detect collisions with previously-generated extension files
+     * before writing anything. Two cases produce a prompt:
+     *
+     *   1. The destination TSX path already exists.
+     *   2. Another `.tsx` under `resources/js/martis-extensions/`
+     *      derives the same component key (e.g. another bucket has
+     *      a same-named file). The auto-discovery loop would then
+     *      register the second module against an already-taken key
+     *      and the first registration would silently win — easier
+     *      to surface the conflict at scaffold time.
+     *
+     * Returns false when the user declines to overwrite. `--force`
+     * skips the prompt.
+     */
+    protected function confirmCollisionForExtension(string $absolutePath, string $componentKey, string $relativePath): bool
+    {
+        $force = (bool) $this->option('force');
+        $conflicts = [];
+
+        if (file_exists($absolutePath)) {
+            $conflicts[] = $relativePath;
+        }
+
+        // Search every extension bucket for a file that derives the
+        // same key. Keys are scoped by bucket prefix in the auto-
+        // discovery entry, so cross-bucket "collisions" are technically
+        // safe — we still flag them because the operator probably
+        // does not intend two TSX files with the same basename
+        // scattered across `tools/` and, say, `cards/`.
+        $extensionsRoot = base_path('resources/js/martis-extensions');
+        if (is_dir($extensionsRoot)) {
+            $shortName = class_basename($this->getNameInput());
+            $patterns = [
+                $extensionsRoot.'/tools/'.$shortName.'.tsx',
+                $extensionsRoot.'/fields/'.$shortName.'.tsx',
+                $extensionsRoot.'/cards/'.$shortName.'.tsx',
+                $extensionsRoot.'/overrides/'.$shortName.'.tsx',
+            ];
+            foreach ($patterns as $candidate) {
+                if (file_exists($candidate) && realpath($candidate) !== realpath($absolutePath)) {
+                    $conflicts[] = ltrim(str_replace(base_path(), '', $candidate), '/\\');
+                }
+            }
+        }
+
+        if ($conflicts === []) {
+            return true;
+        }
+
+        $this->components->warn('Conflict detected for component key '.$componentKey.':');
+        foreach ($conflicts as $path) {
+            $this->line("  - <fg=yellow>{$path}</>");
+        }
+
+        if ($force) {
+            $this->components->info('--force was passed; overwriting.');
+
+            return true;
+        }
+
+        if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
+            $this->components->error('Aborting (non-interactive). Pass --force to overwrite.');
+
+            return false;
+        }
+
+        return (bool) $this->confirm('Overwrite the existing file(s) and continue?', false);
+    }
+
+    /**
+     * Print the post-scaffold one-liner. The v1.9 zero-config flow
+     * removed the manual "Register in MartisServiceProvider" and
+     * "Register in boot.ts" steps — auto-discovery now covers both.
+     * Only the build reminder remains.
      */
     protected function printNextSteps(): void
     {
         $shortName = class_basename($this->getNameInput());
-        $namespace = trim($this->getDefaultNamespace($this->rootNamespace()), '\\');
-        $fullClass = "{$namespace}\\{$shortName}";
         $componentKey = (string) ($this->option('component-key') ?: 'tool:'.Str::kebab($shortName));
 
         $this->newLine();
         $this->components->info('Next steps:');
-        $this->line('  <fg=gray>1.</> Register the Tool in your service provider:');
-        $this->line('');
-        $this->line("     <fg=cyan>use {$fullClass};</>");
-        $this->line("     <fg=cyan>Martis::tools([{$shortName}::class]);</>");
-        $this->line('');
-        $this->line('  <fg=gray>2.</> Surface it in the menu (optional):');
-        $this->line('');
-        $this->line("     <fg=cyan>MenuItem::tool({$shortName}::class)</>");
-        $this->line('');
 
         if ($this->option('use-bundled')) {
-            $this->line('  <fg=gray>3.</> The bundled `martis:tool:system-status-demo` React component renders this Tool as-is.');
+            $this->line('  Bound to bundled component <fg=yellow>martis:tool:system-status-demo</> — no build required.');
         } elseif ($this->option('with-component')) {
-            $this->line('  <fg=gray>3.</> Register your component in `resources/js/martis/boot.ts`:');
-            $this->line('');
-            $this->line("     <fg=cyan>componentRegistry.register('{$componentKey}', {$shortName}Tool)</>");
+            $this->line("  Run <fg=cyan>npm run build:extensions</> to compile the component (key <fg=yellow>{$componentKey}</>),");
+            $this->line('  or just deploy — the build step also runs in <fg=cyan>deploy.sh</>.');
         } else {
-            $this->line("  <fg=gray>3.</> Bind a React component to the key <fg=yellow>'{$componentKey}'</> in `boot.ts`,");
-            $this->line('     <fg=gray>   </> or rerun with <fg=yellow>--with-component</> to scaffold a TSX stub.');
+            $this->line("  Bind a component to the key <fg=yellow>{$componentKey}</> by either:");
+            $this->line('  - Re-running with <fg=cyan>--with-component</> to scaffold the TSX stub, or');
+            $this->line('  - Pointing at a bundled component via <fg=cyan>--use-bundled</>.');
         }
 
         $this->newLine();

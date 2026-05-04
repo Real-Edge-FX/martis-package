@@ -515,13 +515,17 @@ it('martis:tool --menu-section embeds the section call in the Tool stub', functi
     (new Filesystem)->delete(app_path('Martis/Tools/Backups.php'));
 });
 
-it('martis:tool --with-component drops a paired TSX stub', function () {
-    $php = app_path('Martis/Tools/Imports.php');
-    $tsx = base_path('resources/js/tools/ImportsTool.tsx');
+it('martis:tool --with-component drops the TSX stub in the auto-discovery bucket', function () {
+    // Use a unique class name not present in the testbench fixtures
+    // (Imports/Backups/Reports/Quick/SystemHealth all ship pre-baked).
+    $php = app_path('Martis/Tools/StubAutoDiscoveryTool.php');
+    // v1.9 convention: filename is the bare class basename (no "Tool"
+    // suffix), bucket lives under resources/js/martis-extensions/.
+    $tsx = base_path('resources/js/martis-extensions/tools/StubAutoDiscoveryTool.tsx');
     (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
 
     $this->artisan('martis:tool', [
-        'name' => 'Imports',
+        'name' => 'StubAutoDiscoveryTool',
         '--with-component' => true,
     ])->assertSuccessful();
 
@@ -530,14 +534,85 @@ it('martis:tool --with-component drops a paired TSX stub', function () {
 
     $contents = (string) file_get_contents($tsx);
     expect($contents)
-        ->toContain('export function ImportsTool')
-        ->toContain("componentRegistry.register('tool:imports'");
+        ->toContain('export default function StubAutoDiscoveryToolTool')
+        // Auto-discovery uses `import.meta.glob` + filename → key
+        // mapping; the stub no longer contains a manual register call.
+        ->not->toContain('componentRegistry.register')
+        ->not->toContain('@martis/admin')
+        ->toContain('"tool:stub-auto-discovery-tool"');
 })->afterEach(function () {
     $fs = new Filesystem;
-    $fs->delete(app_path('Martis/Tools/Imports.php'));
-    $fs->delete(base_path('resources/js/tools/ImportsTool.tsx'));
-    if (is_dir(base_path('resources/js/tools')) && count(scandir(base_path('resources/js/tools'))) === 2) {
-        rmdir(base_path('resources/js/tools'));
+    $fs->delete(app_path('Martis/Tools/StubAutoDiscoveryTool.php'));
+    $fs->delete(base_path('resources/js/martis-extensions/tools/StubAutoDiscoveryTool.tsx'));
+    $bucketDir = base_path('resources/js/martis-extensions/tools');
+    if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
+        rmdir($bucketDir);
+    }
+    $rootDir = base_path('resources/js/martis-extensions');
+    if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
+        rmdir($rootDir);
+    }
+});
+
+it('martis:tool --with-component aborts on TSX collision when not interactive and --force is missing', function () {
+    // Use a unique class name to avoid colliding with other tests
+    // that also seed PHP under app/Martis/Tools/.
+    $tsx = base_path('resources/js/martis-extensions/tools/CollisionAbortTool.tsx');
+    $fs = new Filesystem;
+
+    $fs->ensureDirectoryExists(dirname($tsx));
+    $fs->put($tsx, '// custom content I do not want overwritten');
+    $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    $this->artisan('martis:tool', [
+        'name' => 'CollisionAbortTool',
+        '--with-component' => true,
+    ])->assertSuccessful(); // PHP class still scaffolds; TSX scaffold aborts with a non-fatal error.
+
+    expect((string) $fs->get($tsx))->toBe('// custom content I do not want overwritten');
+})->afterEach(function () {
+    $fs = new Filesystem;
+    $fs->delete(app_path('Martis/Tools/CollisionAbortTool.php'));
+    $fs->delete(base_path('resources/js/martis-extensions/tools/CollisionAbortTool.tsx'));
+    $bucketDir = base_path('resources/js/martis-extensions/tools');
+    if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
+        rmdir($bucketDir);
+    }
+    $rootDir = base_path('resources/js/martis-extensions');
+    if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
+        rmdir($rootDir);
+    }
+});
+
+it('martis:tool --with-component --force overwrites an existing TSX', function () {
+    $tsx = base_path('resources/js/martis-extensions/tools/CollisionForceTool.tsx');
+    $fs = new Filesystem;
+
+    $fs->ensureDirectoryExists(dirname($tsx));
+    $fs->put($tsx, '// stale content that should be replaced');
+    $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+
+    $this->artisan('martis:tool', [
+        'name' => 'CollisionForceTool',
+        '--with-component' => true,
+        '--force' => true,
+    ])->assertSuccessful();
+
+    $contents = (string) $fs->get($tsx);
+    expect($contents)
+        ->toContain('export default function CollisionForceToolTool')
+        ->not->toContain('stale content');
+})->afterEach(function () {
+    $fs = new Filesystem;
+    $fs->delete(app_path('Martis/Tools/CollisionForceTool.php'));
+    $fs->delete(base_path('resources/js/martis-extensions/tools/CollisionForceTool.tsx'));
+    $bucketDir = base_path('resources/js/martis-extensions/tools');
+    if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
+        rmdir($bucketDir);
+    }
+    $rootDir = base_path('resources/js/martis-extensions');
+    if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
+        rmdir($rootDir);
     }
 });
 

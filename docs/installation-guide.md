@@ -279,11 +279,53 @@ php artisan vendor:publish --tag=martis-provider
 
 Without this provider, you can still ship a working Martis install relying purely on `config/martis.php` and auto-discovered resources, but every closure-driven feature will be unavailable.
 
-## Customizing the Boot File (React extensions)
+## Custom React extensions (zero-config, v1.9.0+)
 
-Custom React components — Tools, override components, field renderers — register at runtime through the **runtime extension loader** (v1.8.19+). The consumer ships their own ESM bundle at a stable URL; Martis dynamically imports each URL in `config('martis.extensions')` at SPA boot AFTER the bundled `componentRegistry` is exposed on `window.Martis`.
+Custom React components — Tools, override components, field renderers, custom Cards — register at runtime through the **runtime extension loader** (v1.8.19+) wired up to a **filesystem auto-discovery convention** (v1.9.0+). The dev runs a generator and a build; everything else is plumbing the package handles.
 
-No package rebuild is required. The published `vendor/martis/martis/public/assets/` bundle reads the URL list at runtime, so consumers iterate on their extensions independently of Martis releases.
+### What `martis:install` publishes
+
+Once you run `php artisan martis:install`, the consumer app gets the entire extension scaffold for free:
+
+```
+your-app/
+├── vite.extensions.config.ts                  # Vite library mode, react externalised
+├── tsconfig.extensions.json                   # TS config for the bundle
+├── package.json                               # gains: "build:extensions": "vite build --config vite.extensions.config.ts"
+├── .env                                       # gains: MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js
+└── resources/js/martis-extensions/
+    ├── index.ts                               # auto-discovery entry — picks up everything below
+    ├── tools/                                 # martis:tool --with-component drops files here
+    ├── fields/                                # martis:field drops files here
+    ├── cards/                                 # martis:card drops files here
+    └── overrides/                             # martis:component drops files here
+```
+
+The published `index.ts` uses `import.meta.glob` to register every `.tsx` under the four buckets against `window.Martis.componentRegistry`. The component key is derived from the filename:
+
+| File path                             | Registered key       |
+|---------------------------------------|----------------------|
+| `tools/Charts.tsx`                    | `tool:charts`        |
+| `tools/SystemHealth.tsx`              | `tool:system-health` |
+| `cards/RevenueGauge.tsx`              | `card:revenue-gauge` |
+| `fields/PriceTag.tsx` (`Display`/`Input` named exports) | `field:price-tag`    |
+| `overrides/Sidebar.tsx`               | `layout:sidebar`     |
+| `overrides/LoginPage.tsx`             | `auth:login`         |
+
+The PHP side binds to the same key via `withComponent('tool:charts')` etc., so filename and key stay in lock-step. **No manual `componentRegistry.register(...)` calls** — drop the file in the right bucket, run `npm run build:extensions`, and the component is live.
+
+### The five-minute Tool path
+
+```bash
+php artisan martis:tool Charts --with-component
+npm run build:extensions
+```
+
+That's it. The Tool is auto-registered (since v1.8.20), the React component is auto-registered, and the sidebar surfaces it under the default "Tools" header (or whatever you pass to `withMenuSection('Operations')` in the constructor).
+
+### Collision detection
+
+Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. In a non-interactive shell (e.g. CI) the command aborts with an error code unless `--force` was passed.
 
 ### How the registry is exposed
 
@@ -293,22 +335,16 @@ At SPA boot, `app.tsx` writes:
 window.Martis = {
   componentRegistry,   // import('@/lib/componentRegistry') equivalent
   react,               // the React module instance bundled with Martis
-  version,             // "1.8.19" etc.
+  version,             // "1.9.0" etc.
   shortcuts,           // global keyboard-shortcut helpers
 }
 ```
 
 A consumer extension reads this global to register components without bundling its own copy of `componentRegistry` or React.
 
-### Wiring an extension in the consumer app
+### Configuring multiple bundle URLs
 
-**1. Configure the URL** in the consumer's `.env`:
-
-```env
-MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js
-```
-
-Multiple URLs comma-separated:
+The auto-published `MARTIS_EXTENSIONS` line points at a single bundle (`/vendor/martis-user/extensions.js`). To load additional bundles — e.g. a Composer-distributed package's prebuilt extensions, or a separate dev/staging override — comma-separate them:
 
 ```env
 MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js
@@ -316,63 +352,16 @@ MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js
 
 The blade view emits the resolved array as `window.MartisConfig.extensions`. The SPA loops over it and dynamic-imports each via `import(url)`. Failures are isolated — one broken extension can't take down the whole panel; the error is logged with the URL.
 
-**2. Build the consumer ESM bundle.** Any bundler works; Vite is simplest. Mark `react` external so the JSX runtime is shared with the package:
+### Upgrading from v1.8.18 or earlier
 
-```ts
-// consumer-app/vite.extensions.config.ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+If your app shipped a `resources/js/martis/boot.ts` from the legacy build-time mechanism, the file is silently ignored from v1.8.19 onwards. `martis:install` detects it and prints a one-time warning so you know the file is dead. To migrate:
 
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    lib: {
-      entry: 'resources/js/martis-extensions/index.ts',
-      formats: ['es'],
-      fileName: () => 'extensions.js',
-    },
-    outDir: 'public/vendor/martis-user',
-    emptyOutDir: true,
-    rollupOptions: {
-      external: ['react'],
-      output: {
-        globals: {react: 'window.Martis.react'},
-      },
-    },
-  },
-})
-```
+1. Move each `componentRegistry.register('tool:foo', FooTool)` call's component into `resources/js/martis-extensions/tools/Foo.tsx` (filename = key suffix in PascalCase).
+2. Drop the `register(...)` call entirely — the auto-discovery entry handles it.
+3. Delete `resources/js/martis/boot.ts` and any related Vite alias (`@user/martis/boot`).
+4. Run `php artisan martis:install --force` to publish the new scaffold (your existing files in the buckets are not touched).
 
-**3. Register components** from the entry file:
-
-```ts
-// resources/js/martis-extensions/index.ts
-import { ChartsTool } from './tools/ChartsTool'
-
-declare global {
-  interface Window {
-    Martis?: {
-      componentRegistry: {
-        register(key: string, component: unknown): void
-      }
-    }
-  }
-}
-
-window.Martis?.componentRegistry.register('tool:edgeflow-charts', ChartsTool)
-```
-
-The corresponding PHP-side Tool binds the same key:
-
-```php
-$this->withComponent('tool:edgeflow-charts');
-```
-
-**4. Build & deploy.** `npm run -- build --config vite.extensions.config.ts` writes `public/vendor/martis-user/extensions.js`. The deploy script copies `public/` as usual; no Martis package rebuild involved.
-
-### Why the previous build-time alias was removed
-
-v1.8.18 and earlier documented a `@user/martis/boot` Vite alias resolved at the package's build time. That mechanism never actually worked on the published bundle — Vite tree-shook the dynamic import because the package's own fallback boot module was `export {}`. The runtime mechanism described above replaces it. v1.8.19 is the first release where consumer extensions reliably load on the published bundle.
+The package no longer ships the `@user/martis/boot` build-time alias or the `@user` Vite alias resolution — those mechanisms were removed in v1.8.19 because they never actually worked on the published bundle.
 
 ## Directory Structure After Installation
 
