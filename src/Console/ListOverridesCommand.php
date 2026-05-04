@@ -16,11 +16,10 @@ use Martis\ResourceRegistry;
  *
  * Note on scope. The actual override registry is **frontend-only**:
  * it lives in `@martis/martis/lib/componentRegistry` (TypeScript) and
- * is populated by the consumer's `boot.ts`. There is no PHP-side
- * `ComponentRegistry::class`, so this command cannot list what is
- * registered — only what is **expected**. The output is the canonical
- * checklist for "did I register every component my PHP code points
- * at?" debugging.
+ * is populated by the consumer-extension bundle (v1.9.0+ auto-discovery
+ * over `resources/js/martis-extensions/{tools,fields,cards,overrides}/`).
+ * There is no PHP-side `ComponentRegistry::class`, so this command
+ * cannot list what is registered — only what is **expected**.
  *
  * Sources of expected keys:
  *   - Each registered Resource (via `martis.resources` config).
@@ -33,14 +32,15 @@ use Martis\ResourceRegistry;
  *     php artisan martis:list-overrides
  *     php artisan martis:list-overrides --kind=tool
  *     php artisan martis:list-overrides --filter=order
+ *     php artisan martis:list-overrides --frontend       # v1.9+ filesystem cross-check
  */
 class ListOverridesCommand extends Command
 {
     protected $signature = 'martis:list-overrides
                             {--kind= : Filter by source kind: resource, tool, action}
                             {--filter= : Substring filter applied to the component key}
-                            {--frontend : Cross-check against the consumer\'s boot.ts and flag missing registrations}
-                            {--boot= : Path to the consumer boot.ts (default: resources/js/martis/boot.ts)}';
+                            {--frontend : Cross-check against resources/js/martis-extensions/ (v1.9+ filesystem auto-discovery) and flag missing TSX files}
+                            {--extensions-dir= : Override the consumer extensions root (default: resources/js/martis-extensions)}';
 
     protected $description = 'List every component key the PHP layer expects the frontend componentRegistry to resolve.';
 
@@ -135,23 +135,27 @@ class ListOverridesCommand extends Command
             return self::SUCCESS;
         }
 
-        // --frontend: parse the consumer's boot.ts statically, extract
-        // every `componentRegistry.register('xxx', ...)` call, and tag
-        // each row "registered" / "missing". Catches the most common
-        // override bug — PHP declares a key, host forgot to wire it.
+        // --frontend: walk the v1.9+ extension buckets
+        // (resources/js/martis-extensions/{tools,fields,cards,overrides})
+        // and derive the keys each bucket would auto-register. Compare
+        // against the rows above so the dev sees which PHP-declared
+        // keys still need a TSX file to ship them. The previous
+        // boot.ts parser is dead code: that path was retired in
+        // v1.8.19 / v1.9.0. The --boot flag was removed in v1.10.
         $registered = [];
-        $bootPath = null;
+        $extensionsDir = null;
         if ($this->option('frontend') === true) {
-            $bootOption = $this->option('boot');
-            $bootPath = is_string($bootOption) && $bootOption !== ''
-                ? $bootOption
-                : base_path('resources/js/martis/boot.ts');
+            $extOption = $this->option('extensions-dir');
+            $extensionsDir = is_string($extOption) && $extOption !== ''
+                ? $extOption
+                : base_path('resources/js/martis-extensions');
 
-            if (! is_file($bootPath)) {
-                $this->warn("--frontend: boot file not found at {$bootPath}");
-                $this->line('  Pass --boot=path/to/boot.ts to override.');
+            if (! is_dir($extensionsDir)) {
+                $this->warn("--frontend: extensions directory not found at {$extensionsDir}");
+                $this->line('  Run `php artisan martis:install` to publish the v1.9+ extension scaffold,');
+                $this->line('  or pass --extensions-dir=<path> to point at your custom location.');
             } else {
-                $registered = $this->extractRegisteredKeys((string) file_get_contents($bootPath));
+                $registered = $this->discoverRegisteredKeys($extensionsDir);
             }
         }
 
@@ -171,13 +175,17 @@ class ListOverridesCommand extends Command
             ));
 
             $this->newLine();
+            $label = $extensionsDir !== null
+                ? str_replace((string) base_path().'/', '', $extensionsDir)
+                : 'resources/js/martis-extensions';
             if ($missingCount === 0) {
-                $this->components->info('All declared component keys are registered in '.basename((string) $bootPath).'.');
+                $this->components->info("All declared component keys are present under {$label}.");
 
                 return self::SUCCESS;
             }
-            $this->components->error("{$missingCount} component key(s) declared in PHP but not registered in ".basename((string) $bootPath).'.');
-            $this->line('  Add a `componentRegistry.register(\'<key>\', Component)` call for each missing entry.');
+            $this->components->error("{$missingCount} component key(s) declared in PHP but missing under {$label}.");
+            $this->line('  Drop a TSX file in the matching bucket so the v1.9+ auto-discovery loop registers it,');
+            $this->line('  e.g. `martis:tool Foo --with-component`, `martis:field Bar`, etc.');
 
             return self::INVALID;
         }
@@ -186,60 +194,83 @@ class ListOverridesCommand extends Command
 
         $this->newLine();
         $this->line(sprintf(
-            '%d component key(s) declared. Verify each one is registered in your frontend boot file (e.g. resources/js/boot.ts) via `componentRegistry.register(\'<key>\', Component)`.',
+            '%d component key(s) declared. Verify each one is backed by a TSX file under resources/js/martis-extensions/{tools,fields,cards,overrides}/ (v1.9+ filename → key auto-discovery).',
             count($rows),
         ));
-        $this->line('  Run with <fg=cyan>--frontend</> to cross-check against your boot.ts automatically.');
+        $this->line('  Run with <fg=cyan>--frontend</> to cross-check against the buckets automatically.');
 
         return self::SUCCESS;
     }
 
     /**
-     * Extract every key passed to `componentRegistry.register(...)`,
-     * `registerFieldDisplay(...)`, `registerFieldInput(...)`, and the
-     * per-resource variants from a TypeScript / JavaScript source.
+     * Walk `resources/js/martis-extensions/{tools,fields,cards,overrides}/`
+     * and return the registry keys each `.tsx` file would auto-register
+     * via the bundle entry's `import.meta.glob` loop.
      *
-     * Static parser — covers the 95% case (string-literal keys passed
-     * directly to the registry methods). Computed keys (`register(\`field:\${kind}\`, ...)`)
-     * are intentionally not resolved; if you use those, also pass the
-     * `--boot` option pointing at a manifest you generate yourself.
+     * Mirrors the conventions in the published `index.ts.stub`:
+     *
+     *   tools/{Name}.tsx       → "tool:{kebab(Name)}"
+     *   cards/{Name}.tsx       → "card:{kebab(Name)}"
+     *   fields/{Name}.tsx      → "field:{kebab(Name)}"
+     *   overrides/{Name}.tsx   → OVERRIDE_KEYS[Name] (Sidebar → "layout:sidebar",
+     *                              LoginPage → "auth:login", …)
      *
      * @return list<string>
      */
-    private function extractRegisteredKeys(string $source): array
+    private function discoverRegisteredKeys(string $extensionsDir): array
     {
         $keys = [];
-        // Match both `register('foo', ...)` and shorthand
-        // `registerFieldDisplay('text', ...)` / `registerFieldInput`,
-        // plus the resource-scoped pair which uses two string args
-        // (`registerResourceFieldDisplay('posts', 'status', ...)`).
-        $patterns = [
-            '/componentRegistry\.register\s*\(\s*[\'"`]([^\'"`]+)[\'"`]/',
-            '/registerFieldDisplay\s*\(\s*[\'"`]([^\'"`]+)[\'"`]/',
-            '/registerFieldInput\s*\(\s*[\'"`]([^\'"`]+)[\'"`]/',
-            '/registerResourceFieldDisplay\s*\(\s*[\'"`]([^\'"`]+)[\'"`]\s*,\s*[\'"`]([^\'"`]+)[\'"`]/',
-            '/registerResourceFieldInput\s*\(\s*[\'"`]([^\'"`]+)[\'"`]\s*,\s*[\'"`]([^\'"`]+)[\'"`]/',
+
+        $kebab = static function (string $pascal): string {
+            $stage1 = preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $pascal) ?? $pascal;
+            $stage2 = preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1-$2', $stage1) ?? $stage1;
+
+            return strtolower($stage2);
+        };
+
+        $simpleBuckets = [
+            'tools' => 'tool',
+            'cards' => 'card',
+            'fields' => 'field',
         ];
-        foreach ($patterns as $i => $pattern) {
-            preg_match_all($pattern, $source, $matches);
-            if ($i < 3) {
-                // single-key patterns
-                $keys = array_merge($keys, $matches[1] ?? []);
-            } else {
-                // (resource, field) → 'field:display:resource:field' / 'field:input:...'
-                $kind = $i === 3 ? 'display' : 'input';
-                foreach (($matches[1] ?? []) as $idx => $resource) {
-                    $field = $matches[2][$idx] ?? '';
-                    if ($field !== '') {
-                        $keys[] = "field:{$kind}:{$resource}:{$field}";
-                    }
+
+        foreach ($simpleBuckets as $dir => $prefix) {
+            $bucketPath = $extensionsDir.'/'.$dir;
+            if (! is_dir($bucketPath)) {
+                continue;
+            }
+            foreach (glob($bucketPath.'/*.tsx') ?: [] as $file) {
+                $base = basename($file, '.tsx');
+                if ($base === '' || $base[0] === '.') {
+                    continue;
+                }
+                $keys[] = $prefix.':'.$kebab($base);
+            }
+        }
+
+        // Overrides — fixed key map per filename. Mirrors OVERRIDE_KEYS
+        // in the published `stubs/extensions/index.ts.stub`. Keep the
+        // table here in sync with that file.
+        $overrideKeys = [
+            'Shell' => 'layout:shell',
+            'Sidebar' => 'layout:sidebar',
+            'Topbar' => 'layout:topbar',
+            'Footer' => 'layout:footer',
+            'LoginPage' => 'auth:login',
+            'RegisterPage' => 'auth:register',
+            'ForgotPasswordPage' => 'auth:forgot-password',
+            'ResetPasswordPage' => 'auth:reset-password',
+            'EmailVerifyNoticePage' => 'auth:email-verify-notice',
+        ];
+        $overridesPath = $extensionsDir.'/overrides';
+        if (is_dir($overridesPath)) {
+            foreach (glob($overridesPath.'/*.tsx') ?: [] as $file) {
+                $base = basename($file, '.tsx');
+                if (isset($overrideKeys[$base])) {
+                    $keys[] = $overrideKeys[$base];
                 }
             }
         }
-        // Resource-uri keys map directly to themselves (no prefix), tools
-        // and actions share the same flat string namespace, so the raw
-        // matches from `componentRegistry.register('foo', ...)` already
-        // cover those cases.
 
         return array_values(array_unique($keys));
     }

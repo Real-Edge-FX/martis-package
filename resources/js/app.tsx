@@ -3,6 +3,7 @@ import * as React from 'react'
 import { StrictMode } from 'react'
 import * as ReactJsxRuntime from 'react/jsx-runtime'
 import { createRoot } from 'react-dom/client'
+import { martisRuntime } from '@/lib/martisRuntime'
 import { RouterProvider } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { PrimeReactProvider } from 'primereact/api'
@@ -68,6 +69,13 @@ window.Martis = {
   // jsx/jsxs/Fragment without the consumer needing to bundle a
   // second React copy.
   reactJsxRuntime: ReactJsxRuntime,
+  // `@martis/runtime` public surface (v1.10+). Consumer-extension
+  // shims re-export from here so override stubs can `import {useAuth,
+  // api, AuthFrame, ...} from '@martis/runtime'` and the bundle
+  // resolves everything against the host SPA's React tree.
+  // See `lib/martisRuntime.ts` for the full export list and the
+  // semver contract.
+  runtime: martisRuntime,
   version: __MARTIS_VERSION__,
 }
 

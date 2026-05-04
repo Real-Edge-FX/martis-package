@@ -1,25 +1,31 @@
-import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
-import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/contexts/ToastContext'
-import { api, ApiError } from '@/lib/api'
-import { config } from '@/lib/config'
-import { AuthFrame } from '@/components/auth/AuthFrame'
+import {useState, type FormEvent} from 'react'
+import {ArrowRightIcon, EyeIcon, EyeSlashIcon} from '@phosphor-icons/react'
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useTranslation,
+  useAuth,
+  useToast,
+  api,
+  ApiError,
+  config,
+  AuthFrame,
+} from '@martis/runtime'
 
 /**
  * {{ class }} — custom Register page override.
  *
- * Registered under `auth:register`. POSTs to
+ * Auto-discovery convention (v1.9.0+): lives at
+ * `resources/js/martis-extensions/overrides/RegisterPage.tsx`,
+ * registered under `auth:register`. POSTs to
  * `POST /{martis-path}/api/auth/register` (handled by the
  * `Martis\Contracts\RegistersUsers` binding — default
  * `Martis\Auth\DefaultRegistersUsers`).
  *
- * Reference implementation:
- *   vendor/martis/martis/resources/js/pages/Register.tsx
+ * Reference implementation: `vendor/martis/martis/resources/js/pages/Register.tsx`.
  */
-export function {{ class }}() {
+export default function {{ class }}() {
   const { user, isLoading } = useAuth()
   const navigate = useNavigate()
   const { addToast } = useToast()

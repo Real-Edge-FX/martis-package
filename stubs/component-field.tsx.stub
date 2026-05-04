@@ -1,26 +1,47 @@
-import type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
+/**
+ * {{ class }} — field display + input override (v1.9.0+ convention).
+ *
+ * Lives at `resources/js/martis-extensions/overrides/{{ class }}.tsx`.
+ * Generic field-shape overrides do NOT auto-register through the
+ * bundle's filename → key map (which only knows the canonical
+ * layout/auth slots). To bind:
+ *
+ *   1. PREFERRED: use `martis:field {{ class }}` instead. That generator
+ *      drops a TSX file in `martis-extensions/fields/` and the
+ *      auto-discovery loop picks it up against `field:{kebab}` —
+ *      no extra wiring; AND
+ *   2. The PHP-side override stays the same:
+ *        `->overrideIndex(new Override('{{ kebab }}'))`
+ *        `->overrideCreate(new Override('{{ kebab }}-input'))`
+ *
+ * If you do keep this file under `overrides/`, extend `OVERRIDE_KEYS`
+ * in `resources/js/martis-extensions/index.ts` so the loop knows how
+ * to register `{{ class }}Display` and `{{ class }}Input` against the
+ * `{{ kebab }}` / `{{ kebab }}-input` keys.
+ */
+
+interface FieldProps {
+  value: unknown
+  field: {
+    attribute: string
+    name: string
+    [key: string]: unknown
+  }
+  error?: string
+  onChange?: (v: unknown) => void
+}
 
 /**
  * {{ class }} — Display variant (index/detail contexts).
- *
- * PHP usage:
- *   ->overrideIndex(new Override('{{ kebab }}'))
- *   ->overrideDetail(new Override('{{ kebab }}'))
  */
-export function {{ class }}Display({ value, field }: FieldDisplayProps) {
-  return (
-    <span>{String(value ?? '')}</span>
-  )
+export function {{ class }}Display({value}: FieldProps) {
+  return <span>{String(value ?? '')}</span>
 }
 
 /**
  * {{ class }} — Input variant (create/update contexts).
- *
- * PHP usage:
- *   ->overrideCreate(new Override('{{ kebab }}-input'))
- *   ->overrideUpdate(new Override('{{ kebab }}-input'))
  */
-export function {{ class }}Input({ value, field, onChange, error }: FieldInputProps) {
+export function {{ class }}Input({value, onChange, error}: FieldProps & {onChange: (v: unknown) => void}) {
   return (
     <div>
       <input
@@ -30,11 +51,13 @@ export function {{ class }}Input({ value, field, onChange, error }: FieldInputPr
         className="w-full rounded-md border px-3 py-2 text-sm"
         style={{
           backgroundColor: 'var(--martis-input-bg)',
-          borderColor: error ? '#ef4444' : 'var(--martis-border)',
+          borderColor: error !== undefined && error !== '' ? '#ef4444' : 'var(--martis-border)',
           color: 'var(--martis-text)',
         }}
       />
-      {error && <span className="mt-1 block text-xs text-red-500">{error}</span>}
+      {error !== undefined && error !== '' && (
+        <span className="mt-1 block text-xs text-red-500">{error}</span>
+      )}
     </div>
   )
 }

@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-05-04
+
+### Added
+
+- **`@martis/runtime` public surface.** New ESM module exposed on `window.Martis.runtime` from `app.tsx`. Re-exports the package internals consumer overrides need (auth context, toast context, API client, AuthFrame, Sidebar/Topbar/Footer compositions, `useIsMobile`) plus flattened re-exports of `react-router-dom`, `react-i18next`, `@tanstack/react-query`. Override stubs `import {useAuth, AuthFrame, useNavigate, ...} from '@martis/runtime'` and the consumer's vite alias resolves it against the host SPA at build time — no second copy of React, no npm-install of router/i18next/query in the consumer. New file `resources/js/lib/martisRuntime.ts` is the single source of truth for the surface.
+- **`martis:install` publishes 4 new shim files** under `resources/js/martis-extensions/.shims/`: `runtime.mjs`, `react-router-dom.mjs`, `react-i18next.mjs`, `tanstack-react-query.mjs`. The vite config aliases each bare specifier to the matching shim so the bundle stays self-contained.
+- **`martis:install` adds npm dependencies to `package.json`.** Previously the published `vite.extensions.config.ts` imported `@vitejs/plugin-react` but the consumer's `package.json` didn't list it — fresh laravel + `martis:install` + `npm run build:extensions` failed with `Cannot find package '@vitejs/plugin-react'`. v1.10 adds `EXTENSION_NPM_DEPS` to `InstallCommand` (react, react-dom, vite, @vitejs/plugin-react, typescript, @types/react, @types/react-dom, @types/node, @phosphor-icons/react). Idempotent: existing entries are never overwritten.
+- **CI smoke test against a fresh laravel app** (`.github/workflows/smoke-fresh-laravel.yml`). Composer-creates a laravel project, requires martis via path repo, runs `martis:install`, runs every TSX-producing generator (1 tool, 1 field, 1 card, 9 component types), runs `npm install` + `npm run build:extensions`, and asserts the resulting bundle contains the expected register calls. Catches the entire B1/B2/B3 bug class on every PR.
+
+### Fixed
+
+- **All 10 override stubs** (`shell`, `sidebar`, `topbar`, `footer`, 5 auth pages, `generic`, `field`) now use `export default function` instead of `export function`. The bundle's auto-discovery loop reads `mod.default`, so the previous named-export stubs never registered. Also rewrites every internal-path import (`@/contexts/AuthContext`, `@/lib/api`, `@/components/auth/AuthFrame`, `@martis/martis/...`) into a single `from '@martis/runtime'` import.
+- **`tool_component_missing` translation** now matches the JSX `defaultValue` shipped in v1.9.2 (drops the `boot.ts` reference, points at `resources/js/martis-extensions/tools/{file}.tsx` and `npm run build:extensions`). EN was the only locale with the key declared and it was stale; pt_PT and pt_BR get the key for the first time with native translations.
+- **`tool.stub`** drops the legacy "Register in your `MartisServiceProvider`" + `Martis::tools([X::class])` instruction. Auto-discovery has covered registration since v1.8.20; the stub now points at the auto-discovery convention instead.
+- **`card.stub`**, `component-shell.tsx.stub`, `component-sidebar.tsx.stub`, `component-topbar.tsx.stub`, `component-footer.tsx.stub` all drop the dead `boot.ts` references from their docblock comments.
+- **`martis:list-overrides --frontend`** rewritten. The previous mode parsed `boot.ts` statically (dead since v1.8.19). v1.10 walks `resources/js/martis-extensions/{tools,fields,cards,overrides}/` and derives the registry keys each `.tsx` file would auto-register, then cross-checks against the PHP-declared keys. New `--extensions-dir=` flag replaces the deprecated `--boot=`.
+
+### Changed
+
+- **`martis:install --force` no longer republishes `config/martis.php`.** The previous behaviour silently stomped consumer customisations like `accent`, `brandColor`, `theme` whenever the dev only wanted to refresh the extension scaffold. v1.10 separates the two: `--force` is destructive only for stubs/scaffold; `--force-config` is the explicit opt-in for republishing config. Documented in the install command's signature.
+- **`martis:install` detects legacy v1.9.0–v1.9.2 vite configs** (`external: ['react'`) when run without `--force`, and prints a one-liner pointing at the upgrade command. Apps that ran install during the broken v1.9.0–v1.9.2 window get a clear path to the v1.9.3+ shape.
+
+### Removed
+
+- **`config/martis.php` `extensions_path` knob.** Dead since v1.8.19 retired the build-time `MARTIS_USER_DIR` symlink mode. The comment still referenced `MARTIS_USER_DIR`; both gone.
+- **`martis:list-overrides --boot=` flag.** Replaced by `--extensions-dir=` with the v1.9+ filesystem cross-check.
+
+### Migration notes
+
+Apps on v1.9.0–v1.9.4 upgrade by:
+
+1. `composer update martis/martis`
+2. `php artisan martis:install --force` — publishes the new shim files + vite config.
+3. `npm install` — picks up the npm deps `martis:install` just added to `package.json`.
+4. `npm run build:extensions` — rebuilds with the new shim resolution.
+5. (Optional) `php artisan vendor:publish --tag=martis-lang --force` to refresh the EN/pt_PT/pt_BR `tool_component_missing` translation.
+
+Apps with a customised `vite.extensions.config.ts` keep their file untouched unless `--force` is passed. The legacy-config detector will warn with the upgrade command.
+
+Apps that had `martis:install --force` overwriting `config/martis.php` no longer see that stomp by default. To explicitly republish config use `--force-config`.
+
 ## [1.9.4] — 2026-05-04
 
 ### Fixed

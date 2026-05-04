@@ -8,16 +8,15 @@ use Martis\Tools\Tool;
  * {{ display_name }} — free-form sidebar page.
  *
  * Mounts at `/martis/tools/{{ uri_key }}` and renders the React
- * component registered under the key `{{ component_key }}`.
+ * component auto-discovered from
+ * `resources/js/martis-extensions/tools/{{ class }}.tsx` (v1.9.0+
+ * convention) under the key `{{ component_key }}`.
  *
- * Register in your `MartisServiceProvider`:
- *
- *     use {{ namespace }}\{{ class }};
- *     Martis::tools([{{ class }}::class]);
- *
- * Surface in the menu (optional):
- *
- *     MenuItem::tool({{ class }}::class)
+ * Auto-discovered (v1.8.20+): no manual `Martis::tools([X::class])`
+ * call needed. The Tool also auto-surfaces in the sidebar under the
+ * default "Tools" header — pass `withMenuSection('Operations')` in
+ * the constructor to place it elsewhere, or define a custom
+ * `Martis::mainMenu(...)` resolver for full control.
  *
  * Authorisation: by default visible to every authenticated user.
  * Restrict via `canSee()` in the constructor:

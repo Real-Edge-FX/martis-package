@@ -53,9 +53,14 @@ it('scaffolds the auth-page override TSX in the overrides bucket', function (str
     expect(file_exists($componentPath))->toBeTrue();
 
     $content = (string) file_get_contents($componentPath);
-    // Stub still uses the {{ class }} placeholder, replaced with the
-    // canonical filename.
-    expect($content)->toContain("export function {$expectedFilename}");
+    // v1.10+ stubs use `export default function` (so the auto-discovery
+    // loop reads `mod.default` and registers them) and import package
+    // internals from `@martis/runtime` instead of `@/contexts/...`.
+    expect($content)
+        ->toContain("export default function {$expectedFilename}")
+        ->toContain("from '@martis/runtime'")
+        ->not->toContain("from '@/contexts/")
+        ->not->toContain("from '@/lib/");
 })->with('auth_pages');
 
 it('does NOT touch boot.ts or any legacy registration file', function (string $type) {

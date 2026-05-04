@@ -327,6 +327,12 @@ declare global {
        * consumer extension bundles need to resolve. v1.9.3+.
        */
       reactJsxRuntime?: unknown
+      /**
+       * `@martis/runtime` public surface — exposed by `app.tsx` at
+       * boot. Consumer-extension shims re-export from here.
+       * v1.10.0+. See `lib/martisRuntime.ts`.
+       */
+      runtime?: unknown
       /** Package version (semver string). v1.8.19+. */
       version?: string
     } & Record<string, unknown>

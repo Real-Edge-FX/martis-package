@@ -293,7 +293,7 @@ return [
     'tool_not_found_title' => 'Tool not found',
     'tool_not_found_body' => 'This tool does not exist or you do not have permission to see it.',
     'tool_load_failed' => 'Could not load this tool.',
-    'tool_component_missing' => 'No React component is registered for the key "{{key}}". Add componentRegistry.register("{{key}}", YourComponent) in boot.ts.',
+    'tool_component_missing' => 'No React component is registered for the key "{{key}}". Drop a default-exported component at resources/js/martis-extensions/tools/{{filenameHint}}.tsx and run `npm run build:extensions`.',
 
     // Impersonation (v0.10)
     'impersonation_banner' => 'You are impersonating :target (signed in as :original).',

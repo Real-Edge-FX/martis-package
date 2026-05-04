@@ -9,10 +9,11 @@ use Martis\Cards\Card;
  * Custom dashboard card.
  *
  * `componentKey` ties this PHP descriptor to the React component
- * registered under the same kebab key in
- * `resources/martis-extensions/martis/boot.ts`. Push runtime data to
- * the React side via `withMeta([...])` from a Dashboard, or pre-fill
- * it here by overriding `meta()`.
+ * auto-discovered from `resources/js/martis-extensions/cards/{{ class }}.tsx`
+ * (v1.9.0+ convention; the bundle entry registers it under
+ * `card:{kebab-class}`). Push runtime data to the React side via
+ * `withMeta([...])` from a Dashboard, or pre-fill it here by
+ * overriding `meta()`.
  */
 class {{ class }} extends Card
 {

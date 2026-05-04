@@ -1,7 +1,9 @@
-/*
- * Custom Martis footer.
+/**
+ * {{ class }} — Custom Martis footer.
  *
- * Registered automatically under `layout:footer` in boot.ts.
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/overrides/Footer.tsx` and the
+ * bundle entry registers it under `layout:footer`.
  *
  * PROPS: none. Rendered at the bottom of `.martis-shell-content`, so
  * short pages pin it to the viewport bottom and long pages let it
@@ -11,22 +13,22 @@
  * ------------
  * • `config.brand`    — app name (from `config('martis.brand.name')`).
  * • `config.footer`   — `{ enabled: bool, text: string | null }`. When
- *                        `text` is null, fall back to the translated default.
+ *                       `text` is null, fall back to the translated default.
  * • `config.version`  — auto-detected from Composer at SSR time.
  * • `config.docsUrl`  — optional external docs link.
  */
 
-import { config } from '@martis/martis/lib/config'
-import { useTranslation } from 'react-i18next'
+import {config, useTranslation} from '@martis/runtime'
 
-export function {{ class }}() {
-  const { t } = useTranslation('navigation')
+export default function {{ class }}() {
+  const {t} = useTranslation('navigation')
   const brand = config.brand ?? 'Martis'
 
   if (config.footer?.enabled === false) return null
 
-  const text = config.footer?.text
-    ?? t('footer_default', '© {{brand}} · Powered by Martis', { brand })
+  const text =
+    config.footer?.text ??
+    t('footer_default', '© {{brand}} · Powered by Martis', {brand})
 
   return (
     <footer className="martis-shell-pagefooter">

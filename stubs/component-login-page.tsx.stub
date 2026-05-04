@@ -1,28 +1,41 @@
-import { useState, useEffect, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
-import { useAuth, TwoFactorRequiredError } from '@/contexts/AuthContext'
-import { useToast } from '@/contexts/ToastContext'
-import { ApiError } from '@/lib/api'
-import { config } from '@/lib/config'
-import { AuthFrame } from '@/components/auth/AuthFrame'
+import {useState, useEffect, type FormEvent} from 'react'
+import {ArrowRightIcon, EyeIcon, EyeSlashIcon} from '@phosphor-icons/react'
+import {
+  Link,
+  useNavigate,
+  useTranslation,
+  useAuth,
+  TwoFactorRequiredError,
+  useToast,
+  ApiError,
+  config,
+  AuthFrame,
+} from '@martis/runtime'
 
 /**
  * {{ class }} — custom Login page override.
  *
- * Registered under `auth:login`. The Martis SPA router consults the
- * componentRegistry for this key BEFORE rendering the bundled
- * `pages/Login.tsx`, so anything you return here replaces the default.
+ * Auto-discovery convention (v1.9.0+): this file lives at
+ * `resources/js/martis-extensions/overrides/LoginPage.tsx` and the
+ * bundle entry registers it under `auth:login`. The Martis SPA
+ * router consults the componentRegistry for this key BEFORE
+ * rendering the bundled `pages/Login.tsx`, so anything you return
+ * here replaces the default.
  *
- * Reference implementation:
- *   vendor/martis/martis/resources/js/pages/Login.tsx
+ * Reference implementation: `vendor/martis/martis/resources/js/pages/Login.tsx`.
  *
  * The page typically POSTs `email + password` to
  * `POST /{martis-path}/api/auth/login`. Use `useAuth().login()` to
  * keep the session + 2FA flow consistent with the rest of Martis.
+ *
+ * IMPORTS
+ * -------
+ * Everything except `useState`/`useEffect`/`FormEvent` (from React)
+ * and the Phosphor icons comes from `@martis/runtime` — the
+ * package's public runtime surface (v1.10+). Bundled into the host
+ * SPA, exposed on `window.Martis.runtime`, no second copy.
  */
-export function {{ class }}() {
+export default function {{ class }}() {
   const { user, isLoading, login } = useAuth()
   const navigate = useNavigate()
   const { addToast } = useToast()
