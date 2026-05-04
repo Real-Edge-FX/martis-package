@@ -421,11 +421,18 @@ Cards with polling show a "LIVE" indicator.
 
 ## Tooltip — `help(?string)`
 
-Attach an explanatory tooltip next to the metric title. The frontend renders a question-mark icon; hovering reveals the text. Pass `null` (or never call it) to hide the icon entirely.
+Attach an explanatory tooltip next to the metric title. The bundled `MetricCard` renders a `?` icon next to the title; hovering reveals the text. Pass `null` (or never call it) to hide the icon entirely.
 
 ```php
 ActiveUsers::make('Active Now')
     ->help('Distinct users with at least one HTTP request in the last 5 minutes. Excludes bot traffic.');
+```
+
+HTML is allowed in the tooltip body — line breaks (`<br>`), bold (`<strong>`), inline lists. The same channel field-level help uses, via `data-pr-tooltip-html`. Useful for multi-paragraph explanations on dense metrics:
+
+```php
+RegimeScore::make('Composite')
+    ->help('A 0–10 reading of the current regime.<br><br><strong>5</strong> = neutral.<br><strong>>7</strong> = strong regime.<br><strong>&lt;3</strong> = regime is breaking.<br><br>Not a buy/sell signal.');
 ```
 
 Use it for anything the value cannot explain on its own:
@@ -433,8 +440,11 @@ Use it for anything the value cannot explain on its own:
 - the unit of measurement (`bytes per second`, `cents`)
 - which rows are included or excluded (`soft-deleted ones are counted`)
 - caveats on the time range (`uses the merchant's local timezone, not UTC`)
+- regulatory caveats (`not a buy/sell signal`)
 
-The text is serialized as `help` in the metric payload (`null` when not set), so custom metric components can read it via `meta.help` if they want to render it differently.
+> **History**: shipped server-side from v0.x but the React `MetricCard` never consumed the property until v1.8.18 — `help()` was a no-op visually before that release. Custom metric components that read `meta.help` directly were unaffected.
+
+The text is serialized as `help` (top-level, not under `meta`) in the metric payload, so custom metric components can also read it via `metric.help` and render it however they prefer.
 
 ## Artisan Commands
 

@@ -4,6 +4,7 @@ import { api } from '@/lib/api'
 import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
 import type { MetricDefinition, ActiveFilters } from '@/types'
 import { ValueCard } from './ValueCard'
 import { TrendCard } from './TrendCard'
@@ -88,6 +89,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
               </span>
             )}
             <span className="martis-kpi-label-text">{metric.name}</span>
+            {metric.help && <FieldLabelTooltip text={metric.help} position="top" />}
           </h3>
           {isLive && (
             <span
