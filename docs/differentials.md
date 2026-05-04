@@ -968,18 +968,20 @@ See [Theming Guide](theming.md) for the complete variable reference.
 ### Component scaffolding
 
 ```bash
-# Custom dashboard card — creates PHP class + React component + auto-registers
+# Custom dashboard card — creates PHP class + React component (filename
+# auto-discovery binds card:welcome-card to RevenueGauge.tsx).
 php artisan martis:card WelcomeCard
 
-# Visual override — creates TSX component + auto-registers (no PHP)
+# Visual override — creates TSX component. For shell pieces and auth
+# pages (--type=shell/sidebar/topbar/footer/login-page/...) the bundle's
+# OVERRIDE_KEYS map auto-registers it. For --type=field and
+# --type=generic the consumer must extend OVERRIDE_KEYS in
+# resources/js/martis-extensions/index.ts (the stub repeats this in its
+# header docblock).
 php artisan martis:override StatusBadge --type=field
 ```
 
-`martis:card` creates both the PHP class (`app/Martis/Cards/`) and the
-React component, auto-registering it in the boot file.
-`martis:override` creates a TSX-only component for overriding how
-existing fields, layouts, or footers render — without needing a PHP
-class.
+`martis:card` writes both the PHP class (`app/Martis/Cards/`) and the React component (`resources/js/martis-extensions/cards/{Name}.tsx`); the bundle's filename → key auto-discovery (`{Name}.tsx` → `card:{kebab-name}`) registers it on the next `npm run build:extensions`. `martis:override` writes a TSX-only file under `resources/js/martis-extensions/overrides/`. See [Override System: Auto-registration scope](overrides.md#6-creating-custom-components-artisan) for which `--type` values auto-register and which require a manual `OVERRIDE_KEYS` extension.
 
 ---
 
@@ -992,8 +994,8 @@ class.
 | `martis:field` | Generate a custom field (PHP + React TSX) |
 | `martis:action` | Generate an action (`--destructive` for destructive variant) |
 | `martis:filter` | Generate a filter (`--boolean`, `--date` variants) |
-| `martis:card` | Generate a custom dashboard card (PHP + React TSX + auto-register) |
-| `martis:override` | Scaffold a React override component (TSX only, auto-register) |
+| `martis:card` | Generate a custom dashboard card (PHP + React TSX; auto-discovers via filename → `card:{kebab}`) |
+| `martis:override` | Scaffold a React override component (TSX only; auto-registers for canonical `--type` values, manual `OVERRIDE_KEYS` extension for `generic` / `field`) |
 | `martis:policy` | Generate a resource policy |
 | `martis:theme` | Scaffold a custom theme with all CSS variables (dark + light) |
 | `martis:value` | Generate a value metric |
