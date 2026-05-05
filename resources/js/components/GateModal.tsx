@@ -45,7 +45,13 @@ export function GateModal() {
       // PrimeIcons font, so the default header X renders as an empty
       // hover-circle. Pass an explicit Phosphor icon so the close button
       // is visible in every consumer regardless of font setup.
-      closeIcon={<XIcon size={18} weight="bold" />}
+      //
+      // The inline `color: var(--martis-text)` override is intentional:
+      // PrimeReact's bundled CSS resets `.p-dialog-header-close` to
+      // `rgba(255, 255, 255, 0.6)` (assumes a dark tabbed surface), which
+      // disappears on Martis's light/neutral header. Routing the SVG fill
+      // through Martis's text token makes the X visible in every theme.
+      closeIcon={<XIcon size={18} weight="bold" color="var(--martis-text)" />}
       header={(
         <div className="flex items-center gap-2" style={{ color: 'var(--martis-text)' }}>
           {iconName !== null ? (
