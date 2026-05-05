@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.5] — 2026-05-05
+
+### Fixed
+
+- **GateModal close X invisible on light themes** — v1.11.3 added a Phosphor X icon to the GateModal close button, but PrimeReact's bundled CSS resets `.p-dialog-header-close` to `rgba(255, 255, 255, 0.6)` (white assumes a dark tabbed surface). On Martis's neutral/light header the white X disappeared into the white background. The icon now routes its fill through `var(--martis-text)`, making it visible regardless of theme.
+
 ## [1.11.4] — 2026-05-05
 
 ### Added
