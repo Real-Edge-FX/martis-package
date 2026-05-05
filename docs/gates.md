@@ -155,6 +155,26 @@ $this->withBadge('Pro', 'accent')
 
 `requirePlan` evaluates `current_rank < required_rank → locked`. **Without a resolver configured, every user is treated as having no plan (rank −1) and is locked from every declared tier** — fail-closed, intentional. Hosts that call `requirePlan` without configuring the resolver get a permanently locked panel until they wire it up.
 
+#### `config:cache` and the resolver shape (v1.11.2+)
+
+`php artisan config:cache` serialises `config/martis.php` via `var_export`, which **cannot serialise closures** (`Closure::__set_state()` does not exist). Hosts that put a closure directly in the cached config see the deploy fail at `optimize`.
+
+Three shapes survive the cache (v1.11.2+):
+
+```php
+// 1. Static-method array — recommended, plain PHP, var_export-safe.
+'plan_resolver' => [\App\Gates\PlanResolver::class, 'resolve'],
+
+// 2. Invokable class instance.
+'plan_resolver' => new \App\Gates\PlanResolver,
+
+// 3. Closure wired from a service provider's boot() (NOT in the cached array).
+//    In your AppServiceProvider:
+//    config()->set('martis.gates.plan_resolver', fn ($u) => ...);
+```
+
+Closures inline in `config/martis.php` only work without `config:cache`. Production deploys typically run it, so prefer (1) or (2).
+
 ### When NOT to use `requirePlan`
 
 The plan ranker assumes:

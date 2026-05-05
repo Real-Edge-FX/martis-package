@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Martis\Dashboards\Dashboard;
 use Martis\Tools\Tool;
@@ -111,6 +112,38 @@ it('requirePlan with an undeclared tier fails open (not locked)', function () {
     // Undeclared tier returns null rank → ranker fails open by design.
     expect($dashboard->isLockedFor(new Request))->toBeFalse();
 });
+
+it('plan_resolver accepts a callable that is not a Closure (v1.11.2+)', function () {
+    // Static-method-array form survives `php artisan config:cache`,
+    // unlike a closure. The PlanRanker must accept any callable.
+    config()->set('martis.gates.plan_resolver', [HasGateTestResolver::class, 'resolve']);
+
+    $dashboard = (new Dashboard('Sales'))->requirePlan('pro');
+    expect($dashboard->isLockedFor(new Request))->toBeTrue();   // resolver returns 'starter'
+});
+
+it('plan_resolver accepts an invokable class', function () {
+    config()->set('martis.gates.plan_resolver', new HasGateTestInvokableResolver);
+
+    $dashboard = (new Dashboard('Sales'))->requirePlan('pro');
+    expect($dashboard->isLockedFor(new Request))->toBeTrue();   // resolver returns 'free'
+});
+
+class HasGateTestResolver
+{
+    public static function resolve(?Authenticatable $user): ?string
+    {
+        return 'starter';
+    }
+}
+
+class HasGateTestInvokableResolver
+{
+    public function __invoke(?Authenticatable $user): ?string
+    {
+        return 'free';
+    }
+}
 
 it('Tool also emits lock in toArray when locked', function () {
     $tool = (new Tool('Charts', 'charts'))->lockedFor(fn () => true);

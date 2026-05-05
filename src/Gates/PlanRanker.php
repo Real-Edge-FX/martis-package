@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Martis\Gates;
 
-use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 
@@ -70,12 +69,20 @@ class PlanRanker
 
     /**
      * Plan tier currently held by the user, as resolved by the
-     * `gates.plan_resolver` closure in `config/martis.php`.
+     * `gates.plan_resolver` callable in `config/martis.php`.
+     *
+     * v1.11.2: accepts any PHP callable, not only `Closure`. Closures
+     * cannot survive `php artisan config:cache` (the cache uses
+     * `var_export` and chokes on `Closure::__set_state()`); a
+     * `[Class::class, 'method']` array or a class name with `__invoke`
+     * does survive, so consumers that cache config can express the
+     * resolver as a static method or invokable class instead of a
+     * closure.
      */
     protected function resolveCurrentPlan(?Authenticatable $user): ?string
     {
         $resolver = config('martis.gates.plan_resolver');
-        if (! $resolver instanceof Closure) {
+        if (! is_callable($resolver)) {
             return null;
         }
 
