@@ -15,6 +15,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 
 export function DashboardPage() {
@@ -111,6 +112,12 @@ function DashboardView({
   const isDefaultLayout = currentDashboard?.layout === 'default'
 
   usePageTitle(currentDashboard?.name ?? null)
+  // v1.10.3+: dashboards can override the breadcrumb label independently
+  // from `name` via `Dashboard::withBreadcrumb(...)`. Falls back to
+  // `name` when the descriptor has no override, then to the static
+  // i18n key (`navigation.dashboard`) declared in the route handle
+  // while the dashboards query is still loading.
+  useDynamicCrumb(currentDashboard?.breadcrumb ?? currentDashboard?.name)
 
   // Fetch dashboard data (cards + filters) — skip for default layout (no cards)
   const dashboardQuery = useQuery({

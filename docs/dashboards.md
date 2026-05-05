@@ -124,6 +124,28 @@ SalesDashboard::make('Sales')->withMeta([
 ]);
 ```
 
+## Customising the breadcrumb (v1.10.3+)
+
+By default the breadcrumb on `/martis/dashboards/{uriKey}` reads `Dashboard::name()` — the page heading and the deepest crumb stay in lock-step. Set a dedicated label when you want them to diverge (compact crumb + verbose heading, branded crumb + neutral heading, etc.):
+
+```php
+SalesDashboard::make('Quarterly sales briefing')
+    ->withBreadcrumb('Sales');
+```
+
+The breadcrumb is the **only** thing that changes — `name()` still feeds the page heading, the sidebar entry, the `document.title`, and the menu shortcut from `MenuItem::dashboard()`.
+
+For a translation-friendly variant, override `breadcrumb()` so the label re-resolves on every request and honours locale switches:
+
+```php
+public function breadcrumb(): ?string
+{
+    return (string) __('app.dashboards.sales.breadcrumb');
+}
+```
+
+Return `null` to fall back to `name()`.
+
 ## Artisan Command
 
 ```bash

@@ -25,6 +25,13 @@ class Dashboard implements DashboardContract
 
     protected ?string $component = null;
 
+    /**
+     * Optional breadcrumb label override. When set, the React shell shows
+     * this label as the deepest crumb instead of `name()`. Defaults to
+     * null (the breadcrumb tracks `name()`).
+     */
+    protected ?string $breadcrumb = null;
+
     protected ?Closure $canSeeCallback = null;
 
     public function __construct(
@@ -58,6 +65,28 @@ class Dashboard implements DashboardContract
     public function componentKey(string $component): static
     {
         $this->component = $component;
+
+        return $this;
+    }
+
+    /**
+     * Override-friendly accessor. Subclasses can return a per-request
+     * value (e.g. `__('app.dashboards.home.breadcrumb')`) the same way
+     * they override `name()`. Return `null` to fall back to `name()`.
+     */
+    public function breadcrumb(): ?string
+    {
+        return $this->breadcrumb;
+    }
+
+    /**
+     * Override the breadcrumb label without changing the page heading,
+     * sidebar entry, or `document.title` (those keep reading `name()`).
+     * Pass `null` to clear the override and fall back to `name()`.
+     */
+    public function withBreadcrumb(?string $breadcrumb): static
+    {
+        $this->breadcrumb = $breadcrumb;
 
         return $this;
     }
@@ -156,6 +185,7 @@ class Dashboard implements DashboardContract
         return [
             'type' => 'dashboard',
             'name' => $this->name(),
+            'breadcrumb' => $this->breadcrumb(),
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
             'layout' => $this->layoutType(),

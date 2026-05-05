@@ -172,6 +172,12 @@ export interface MetricDefinition {
 export interface DashboardDefinition {
   type: 'dashboard'
   name: string
+  /**
+   * Optional breadcrumb override. When non-null, the panel shell uses
+   * this label for the deepest crumb instead of `name`. Set on the
+   * PHP side via `Dashboard::withBreadcrumb(...)` (v1.10.3+).
+   */
+  breadcrumb: string | null
   uriKey: string
   component: string | null
   /** Layout type: 'cards' (default metric grid) or 'default' (built-in summary view). */

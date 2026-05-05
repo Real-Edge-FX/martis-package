@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.3] — 2026-05-05
+
+### Added
+
+- **`Tool::withBreadcrumb(?string $label)`** and **`Dashboard::withBreadcrumb(?string $label)`** — declarative override of the breadcrumb label without touching `name()`. The page heading, sidebar entry, `document.title`, and `MenuItem::tool()` / `MenuItem::dashboard()` shortcuts continue to read `name()`; only the deepest crumb in the panel breadcrumb trail picks up the override. Pass `null` to clear and fall back to `name()`.
+- Companion overridable accessor `breadcrumb(): ?string` on both classes — subclasses can return `(string) __('key')` for a per-request, locale-aware label.
+- `breadcrumb` field on the Tool descriptor (`/api/tools/{uriKey}`) and on the Dashboard descriptor (`/api/dashboards`). Frontend types `ToolDescriptor` (`resources/js/pages/ToolPage.tsx`) and `DashboardDefinition` (`resources/js/types/index.ts`) gain `breadcrumb: string | null`.
+- `Dashboard.tsx` now publishes the dynamic crumb via `useDynamicCrumb(currentDashboard?.breadcrumb ?? currentDashboard?.name)` (was missing — only `ToolPage.tsx` was wired in v1.10.2).
+
+### Changed
+
+- `ToolPage.tsx` switches `useDynamicCrumb(descriptor?.name)` → `useDynamicCrumb(descriptor?.breadcrumb ?? descriptor?.name)`. No behaviour change when the override is unset.
+
+### Migration notes
+
+No migration required. `breadcrumb()` defaults to `null` on every existing Tool / Dashboard, so the descriptor exposes `breadcrumb: null` and the React shell falls back to `name`. Existing apps see exactly the v1.10.2 breadcrumb until they opt in via `->withBreadcrumb('...')` or by overriding `breadcrumb()` in a subclass.
+
 ## [1.10.2] — 2026-05-04
 
 ### Fixed

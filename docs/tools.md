@@ -112,6 +112,38 @@ Tool::make(__('Finance Imports'))
 | `withComponent(string)` | React component key. The frontend looks this up in `componentRegistry`. Chainable. |
 | `withMenuSection(?string)` | Optional menu section label. Chainable. |
 | `withMeta(array)` | Merge arbitrary descriptor data; surfaced verbatim to the React component. Chainable. |
+| `breadcrumb()` | Breadcrumb override getter. Returns `null` when the breadcrumb tracks `name()` (default). v1.10.3+. |
+| `withBreadcrumb(?string)` | Override the breadcrumb label without touching `name()`. Pass `null` to clear. Chainable. v1.10.3+. |
+
+### Customising the breadcrumb (v1.10.3+)
+
+By default the breadcrumb on `/martis/tools/{uriKey}` reads `Tool::name()` — the page heading and the deepest crumb stay in lock-step. Set a dedicated label when you want them to diverge (compact crumb + verbose heading, branded crumb + neutral heading, etc.):
+
+```php
+class Charts extends Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Charts', uriKey: 'charts');
+        $this->withIcon('chart-line')
+            ->withBreadcrumb('EdgeFlow · Charts')
+            ->withComponent('tool:charts');
+    }
+}
+```
+
+The breadcrumb is the **only** thing that changes — `name()` still feeds the page heading, the sidebar entry, the `document.title`, and the menu shortcut from `MenuItem::tool()`.
+
+For a translation-friendly variant, override `breadcrumb()` so the label re-resolves on every request and honours locale switches:
+
+```php
+public function breadcrumb(): ?string
+{
+    return (string) __('edgeflow.tools.charts.breadcrumb');
+}
+```
+
+Return `null` to fall back to `name()`.
 
 ### Authorisation
 
