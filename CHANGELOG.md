@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.6] — 2026-05-05
+
+### Changed
+
+- **GateModal rebuilt on the design-system primitives** — the soft-gate modal previously rendered through PrimeReact's `<Dialog>`, which inherited PrimeReact's CSS (white-on-white close X, mismatched header divider, footer alignment off-spec) instead of Martis's. v1.11.6 swaps the implementation for the same `martis-modal-scrim / -surface / -head / -body / -foot` primitives `DeleteModal` already uses, plus the standard `martis-btn-secondary / -primary` button classes. The two surfaces now share scrim, surface dividers, header X, body padding, and footer alignment — visually indistinguishable from any other Martis modal apart from the lock glyph and message.
+
+  The `lockModal(...)` PHP API and the `lock` payload shape are unchanged. No host migration required.
+
 ## [1.11.5] — 2026-05-05
 
 ### Fixed
