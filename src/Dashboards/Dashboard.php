@@ -49,6 +49,16 @@ class Dashboard implements DashboardContract
      */
     protected ?string $parent = null;
 
+    /**
+     * Optional Phosphor icon name for the sidebar entry. When null the
+     * sidebar falls back to the bundled `<SquaresFourIcon>` glyph.
+     * Names match the iconRegistry keys (`chart-line-up`, `rocket-launch`,
+     * `gear-six`, …). Auto-build only — custom `Martis::mainMenu(...)`
+     * resolvers can still override the icon via `MenuItem::icon(...)`.
+     * v1.11.4+.
+     */
+    protected ?string $icon = null;
+
     protected ?Closure $canSeeCallback = null;
 
     public function __construct(
@@ -139,6 +149,34 @@ class Dashboard implements DashboardContract
      *
      * v1.10.5+.
      */
+    /**
+     * Phosphor icon name for the sidebar entry (auto-build path). Returns
+     * `null` when not set; the sidebar then renders the default
+     * `<SquaresFourIcon>` glyph.
+     *
+     * v1.11.4+.
+     */
+    public function icon(): ?string
+    {
+        return $this->icon;
+    }
+
+    /**
+     * Set the Phosphor icon for the sidebar entry. Pass any name
+     * registered in the `iconRegistry` (`chart-line-up`,
+     * `rocket-launch`, `gear-six`, …) or a custom name registered by
+     * the consumer via `iconRegistry.register(...)`. Pass `null` to
+     * clear the override and fall back to the default glyph.
+     *
+     * v1.11.4+.
+     */
+    public function withIcon(?string $icon): static
+    {
+        $this->icon = $icon;
+
+        return $this;
+    }
+
     public function under(?string $parentUriKey): static
     {
         $this->parent = $parentUriKey;
@@ -252,6 +290,7 @@ class Dashboard implements DashboardContract
             'breadcrumb' => $this->breadcrumb(),
             'uriKey' => $this->uriKey(),
             'parent' => $this->parent(),
+            'icon' => $this->icon(),
             'component' => $this->component(),
             'layout' => $this->layoutType(),
             'showRefreshButton' => $this->showRefreshButton(),

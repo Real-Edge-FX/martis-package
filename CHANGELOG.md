@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.4] — 2026-05-05
+
+### Added
+
+- **`Dashboard::withIcon(?string)`** — set a Phosphor icon for the auto-built sidebar entry. Names match the `iconRegistry` keys (`chart-line-up`, `rocket-launch`, `gear-six`, …); pass `null` to fall back to the default `<SquaresFourIcon>` glyph. The icon surfaces in the dashboard descriptor's new `icon` field; the SPA reads it in the auto-build path. Custom `Martis::mainMenu(...)` resolvers can still override per item via `MenuItem::icon(...)`.
+
+  ```php
+  class HomeDashboard extends Dashboard
+  {
+      public function __construct()
+      {
+          parent::__construct(name: 'Home', uriKey: 'home');
+          $this->withIcon('chart-line-up');
+      }
+  }
+  ```
+
+- `DashboardDefinition.icon: string | null` field in the TypeScript types so consumers building custom shells get the icon name without a cast.
+
 ## [1.11.3] — 2026-05-05
 
 ### Fixed
