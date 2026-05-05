@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.2] — 2026-05-05
+
+### Fixed
+
+- **`gates.plan_resolver` now accepts any callable**, not only `Closure`. v1.11.0 / v1.11.1 typed the resolver as a Closure, which `php artisan config:cache` cannot serialize (`Call to undefined method Closure::__set_state()`). Hosts that wired the resolver in `config/martis.php` saw the deploy fail at `optimize`. The package now accepts the three forms PHP can serialize via `var_export`:
+
+  - Static-method array: `[App\Gates\PlanResolver::class, 'resolve']`
+  - Invokable class: `new App\Gates\PlanResolver`
+  - Closure (still works for hosts that wire it from a service-provider boot, sidestepping the cached array)
+
+  No host change required if the resolver was already wired from a provider via `config()->set(...)`. Hosts that put the closure directly in `config/martis.php` should switch to one of the two non-Closure forms above.
+
+- **`config/martis.php` docblock** now points to the static-method-array form as the recommended default; closures in cached config are flagged as fragile.
+
 ## [1.11.1] — 2026-05-05
 
 ### Changed

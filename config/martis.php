@@ -1324,12 +1324,17 @@ return [
     | feature is opt-in: with no `plan_resolver` configured, every
     | `requirePlan(...)` call is a no-op and the entity stays unlocked.
     |
-    | `plan_resolver` is a closure that maps the authenticated user
-    | (nullable) to a plan name string. Return `null` when the user has
-    | no plan assigned — that is treated as "no access". Closures cannot
-    | live in `config:cache`'d arrays, so configure this here and run
-    | `php artisan config:cache` only after defining as a static-class
-    | callable, or skip caching the gates section entirely.
+    | `plan_resolver` is any PHP callable that maps the authenticated
+    | user (nullable) to a plan name string. Return `null` when the
+    | user has no plan assigned — that is treated as "no access".
+    |
+    | Closures DO NOT survive `php artisan config:cache` (`var_export`
+    | chokes on `Closure::__set_state()`). For sites that cache config
+    | in production, declare the resolver as either a static class
+    | method (`[App\\Gates\\PlanResolver::class, 'resolve']`) or an
+    | invokable class (`App\\Gates\\PlanResolver::class`); both forms
+    | round-trip through `var_export` cleanly. v1.11.2+ accepts any
+    | callable, not only `Closure`.
     |
     | `plan_rank` orders the declared tiers; a user is locked from a
     | tier when their current rank sits below the required rank.
