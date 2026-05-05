@@ -32,6 +32,16 @@ class Dashboard implements DashboardContract
      */
     protected ?string $breadcrumb = null;
 
+    /**
+     * Optional `uriKey` of the parent dashboard. Defaults to null, meaning
+     * the dashboard is a root — it appears under the sidebar's DASHBOARDS
+     * section. Set to another dashboard's `uriKey` to nest this one as a
+     * tab inside that parent's page; the sidebar then hides this entry
+     * and the parent's view renders a tab strip with [parent + children].
+     * v1.10.5+.
+     */
+    protected ?string $parent = null;
+
     protected ?Closure $canSeeCallback = null;
 
     public function __construct(
@@ -87,6 +97,44 @@ class Dashboard implements DashboardContract
     public function withBreadcrumb(?string $breadcrumb): static
     {
         $this->breadcrumb = $breadcrumb;
+
+        return $this;
+    }
+
+    /**
+     * `uriKey` of the parent dashboard, or `null` when this dashboard is
+     * a root entry under the sidebar's DASHBOARDS section. Subclasses
+     * can override this if the parent should be derived per-request,
+     * but the static-property pattern is the common case.
+     *
+     * v1.10.5+.
+     */
+    public function parent(): ?string
+    {
+        return $this->parent;
+    }
+
+    /**
+     * Nest this dashboard as a child tab of another dashboard. Pass the
+     * parent's `uriKey` (or `null` to clear). Children never appear in
+     * the sidebar — they live inside the parent's view as a tab strip.
+     *
+     * Example:
+     *
+     *     class RegimeHistoryDashboard extends Dashboard
+     *     {
+     *         public function __construct()
+     *         {
+     *             parent::__construct(name: 'Regime history', uriKey: 'regime-history');
+     *             $this->under('home');  // appears as a tab inside HomeDashboard
+     *         }
+     *     }
+     *
+     * v1.10.5+.
+     */
+    public function under(?string $parentUriKey): static
+    {
+        $this->parent = $parentUriKey;
 
         return $this;
     }
@@ -187,6 +235,7 @@ class Dashboard implements DashboardContract
             'name' => $this->name(),
             'breadcrumb' => $this->breadcrumb(),
             'uriKey' => $this->uriKey(),
+            'parent' => $this->parent(),
             'component' => $this->component(),
             'layout' => $this->layoutType(),
             'showRefreshButton' => $this->showRefreshButton(),

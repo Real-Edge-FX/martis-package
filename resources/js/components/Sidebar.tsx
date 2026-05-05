@@ -21,7 +21,6 @@ import {
   useNavigationRefreshOnNavigate,
 } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
-import { usePreferencesOptional } from "@/contexts/PreferencesContext"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
   SquaresFourIcon,
@@ -298,23 +297,21 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
     refetchInterval: false,
     refetchOnWindowFocus: false,
   })
-  // v1.10.4+: when the user preference `dashboardsLayout` is set to
-  // `sidebar`, the sidebar renders one entry per registered dashboard
-  // under DASHBOARDS. The default `tabs` mode keeps the pre-v1.10.4
-  // behaviour (single hardcoded entry, in-page tabs for switching).
-  // Cached at the same query key the Dashboard page uses, so the two
-  // views share the network call when both are mounted.
-  const prefs = usePreferencesOptional()
-  const dashboardsLayout = prefs?.prefs.dashboardsLayout ?? "tabs"
+  // v1.10.5+: every dashboard whose `parent()` is null appears as a
+  // top-level entry under DASHBOARDS. Children (with `parent()` set
+  // to the uriKey of another dashboard) live inside their parent's
+  // page as a tab strip — never in the sidebar. Same query key
+  // Dashboard.tsx uses, so the two surfaces share the cache.
   const { data: dashboardsResp } = useQuery<{ data: { dashboards: DashboardDefinition[] } }>({
     queryKey: ["dashboards"],
     queryFn: () => api.get("/api/dashboards"),
     staleTime: Infinity,
     refetchInterval: false,
     refetchOnWindowFocus: false,
-    enabled: dashboardsLayout === "sidebar",
   })
-  const dashboards = dashboardsResp?.data?.dashboards ?? []
+  const rootDashboards = (dashboardsResp?.data?.dashboards ?? []).filter(
+    (d) => d.parent === null,
+  )
   // Lightweight badges payload: polled on a separate, longer interval.
   const badgesPollInterval = config.navigation?.badgesPollInterval ?? 300_000
   const { data: badges } = useQuery<Record<string, number>>({
@@ -388,15 +385,14 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
               <span>{t("dashboards", "Dashboards")}</span>
             </div>
           )}
-          {dashboardsLayout === "sidebar" && dashboards.length > 0 ? (
-            // v1.10.4+: one entry per registered dashboard. The first
-            // entry doubles as the panel root link (`/`) so the sidebar
-            // and the URL tree stay in sync — `/martis` already renders
-            // the first registered dashboard via the in-page resolver.
-            // The remaining dashboards link to their explicit URLs so
-            // the React Router NavLink active state highlights the
-            // current entry without a custom `isActive` rule.
-            dashboards.map((dashboard, idx) => {
+          {rootDashboards.length > 0 ? (
+            // v1.10.5+: one entry per ROOT dashboard. Children (any
+            // dashboard whose `parent()` returns a non-null uriKey)
+            // never appear in the sidebar — they live inside their
+            // parent's page as a tab strip. The first root dashboard
+            // doubles as the panel root link (`/`) so deep-link
+            // bookmarks and the sidebar stay in sync.
+            rootDashboards.map((dashboard, idx) => {
               const isFirst = idx === 0
               return (
                 <NavLink
@@ -418,10 +414,10 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
               )
             })
           ) : (
-            // `tabs` mode (default) OR `sidebar` mode with no dashboards
-            // registered yet — render the legacy single entry pointing at
-            // `/`. The in-page tab strip on Dashboard.tsx switches between
-            // dashboards in `tabs` mode.
+            // No dashboards registered — render a single entry pointing
+            // at `/` so the sidebar stays usable on a bare-bones install
+            // with no `Martis::dashboards([...])` call. The page renders
+            // the built-in welcome view in that case.
             <NavLink
               to="/"
               end

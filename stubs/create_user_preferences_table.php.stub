@@ -31,10 +31,6 @@ return new class extends Migration
             $table->string('density', 16)->default('comfortable'); // UiDensity enum
             $table->string('locale', 10)->default('en');
             $table->boolean('reduced_motion')->default(false);
-            // v1.10.4+: how dashboards surface in the panel chrome.
-            // 'tabs' = single sidebar entry + in-page tab strip;
-            // 'sidebar' = one sidebar entry per registered dashboard.
-            $table->string('dashboards_layout', 16)->default('tabs');
             $table->timestamps();
         });
     }

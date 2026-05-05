@@ -25,7 +25,6 @@ use Martis\Preferences\PreferencesResolver;
  * @property UiDensity $density
  * @property string $locale
  * @property bool $reduced_motion
- * @property string $dashboards_layout
  */
 class UserPreference extends Model
 {
@@ -74,13 +73,6 @@ class UserPreference extends Model
             'density' => $this->density->value,
             'locale' => $this->locale,
             'reducedMotion' => (bool) $this->reduced_motion,
-            // Defaults to 'tabs' so a row written before v1.10.4 (no
-            // column on disk; cast falls back to the schema default
-            // 'tabs' when the column is added) deserialises into the
-            // legacy presentation. The Sidebar / Dashboard.tsx use the
-            // same default if the payload is missing the key, but
-            // sending an explicit value is clearer for the SPA.
-            'dashboardsLayout' => $this->dashboards_layout ?? 'tabs',
         ];
     }
 }

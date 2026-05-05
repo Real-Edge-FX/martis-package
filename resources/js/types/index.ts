@@ -179,6 +179,14 @@ export interface DashboardDefinition {
    */
   breadcrumb: string | null
   uriKey: string
+  /**
+   * `uriKey` of the parent dashboard, or `null` for a root dashboard.
+   * Roots appear under the sidebar's DASHBOARDS section; non-roots are
+   * hidden from the sidebar and surface as a tab strip inside their
+   * parent's page. Set on the PHP side via `Dashboard::under(...)`
+   * (v1.10.5+).
+   */
+  parent: string | null
   component: string | null
   /** Layout type: 'cards' (default metric grid) or 'default' (built-in summary view). */
   layout?: 'cards' | 'default'

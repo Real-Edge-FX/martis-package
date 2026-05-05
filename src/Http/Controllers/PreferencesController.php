@@ -76,7 +76,6 @@ class PreferencesController extends MartisController
             'density' => ['sometimes', 'string', 'in:'.implode(',', array_column(UiDensity::cases(), 'value'))],
             'locale' => ['sometimes', 'string', 'in:'.implode(',', $this->resolver->availableLocales())],
             'reducedMotion' => ['sometimes', 'boolean'],
-            'dashboardsLayout' => ['sometimes', 'string', 'in:tabs,sidebar'],
         ]);
 
         if ($validator->fails()) {
@@ -102,9 +101,6 @@ class PreferencesController extends MartisController
         }
         if (array_key_exists('reducedMotion', $data)) {
             $attrs['reduced_motion'] = $data['reducedMotion'];
-        }
-        if (array_key_exists('dashboardsLayout', $data)) {
-            $attrs['dashboards_layout'] = $data['dashboardsLayout'];
         }
 
         UserPreference::updateOrCreate(
