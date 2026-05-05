@@ -7,29 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.10.4] — 2026-05-05
+## [1.10.5] — 2026-05-05
 
 ### Added
 
-- **Per-user `dashboardsLayout` preference** — every user picks how registered dashboards surface in the panel chrome:
-    - `tabs` (default, preserves the v1.10.3 behaviour) — single sidebar entry plus an in-page tab strip at the top of every dashboard view.
-    - `sidebar` — every registered dashboard becomes its own sidebar entry under `DASHBOARDS`, and the in-page tab strip is hidden.
+- **Per-dashboard nesting via `Dashboard::under(?string $parentUriKey)`** — declarative, dev-side. The host registers every dashboard in `Martis::dashboards([...])` and chooses per dashboard which ones live as **sidebar items** (default; root) and which live **inside another dashboard** as a tab. Lets the host group dashboards by context (eg. nest a Pro Lab dashboard under Home) without a per-user preference toggle.
 
-  Toggle in the PreferencesMenu cog under "Dashboards layout". Persisted to `martis_user_preferences.dashboards_layout` and round-tripped through `/api/preferences` (validated with `in:tabs,sidebar`). Default `'tabs'` so existing installs see no behaviour change until a user opts in.
+  ```php
+  class RegimeHistoryDashboard extends Dashboard
+  {
+      public function __construct()
+      {
+          parent::__construct(name: 'Regime history', uriKey: 'regime-history');
+          $this->under('home');  // child of HomeDashboard (uriKey 'home')
+      }
+  }
+  ```
+
+  Override-friendly accessor `parent(): ?string` returns `null` for roots; `under(?string)` is the chainable setter.
 
 ### Changed
 
-- `UserPreference` model + `PreferencesResolver` + `PreferencesController` now carry the new key. The resolver normalises unknown values back to `'tabs'` so a corrupt row never breaks the SPA boot.
-- `Sidebar` reads the preference. In `sidebar` mode it fetches `/api/dashboards` (already cached for `Dashboard.tsx` — same query key, no duplicate request) and renders one `NavLink` per dashboard, using its `name()` as the label and `/dashboards/{uriKey}` as the URL. The first dashboard doubles as the panel root link (`/`) so deep-link bookmarks and the sidebar stay in sync.
-- `Dashboard.tsx` hides the in-page tab strip when the preference is `sidebar` so the two surfaces never clash.
+- `Sidebar` now lists every registered dashboard whose `parent()` returns `null` (root dashboards). Children are hidden from the sidebar — they surface only inside their parent's view.
+- `Dashboard.tsx`'s tab strip is now scoped to the current dashboard's group (parent + its children). Roots with no children render no tab strip at all; flipping between siblings always lands inside the same group.
+- `DashboardDefinition` TS type gains `parent: string | null`.
 
-### Migration
+### Reverted
 
-- New column `dashboards_layout` on `martis_user_preferences`. Two paths to land it:
-    - **Fresh installs**: the published `create_martis_user_preferences_table` migration includes the column.
-    - **Existing installs (any version pre-v1.10.4)**: run `php artisan martis:install` (or `vendor:publish --tag=martis-preferences-dashboards-layout-migration`) to publish the column-add migration, then `php artisan migrate`. Idempotent — short-circuits when the column is already present.
+- v1.10.4's per-user `dashboardsLayout` preference. The dev-side declarative model the host already uses for `withBreadcrumb()` / `componentKey()` etc. fits better than a per-user toggle: the dev knows the right grouping for the panel, the user shouldn't have to choose. The reverted release was tagged but never bumped by any consumer; rolling forward to v1.10.5 is the recommended path. The schema change (`dashboards_layout` column) ships an explicit drop migration in this release for hosts that ran the v1.10.4 column-add.
 
-  Default `'tabs'` so every existing row keeps the legacy presentation until the user opts in.
+### Migration from v1.10.4
+
+If you bumped to v1.10.4 and ran the column-add migration, this release publishes a `drop_dashboards_layout_from_user_preferences_table` migration that removes the column. Idempotent — skipped when the column is absent. No action needed if you stayed on v1.10.3 or earlier.
+
+## [1.10.4] — 2026-05-05 — RETRACTED
+
+Tagged but never released to consumers. The per-user `dashboardsLayout` toggle was the wrong shape — declarative grouping in PHP is a better fit. v1.10.5 reverts the change and ships the dev-side nesting API instead. Skip v1.10.4 and bump straight from v1.10.3 to v1.10.5.
 
 ## [1.10.3] — 2026-05-05
 

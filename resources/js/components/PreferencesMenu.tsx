@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { OverlayPanel } from 'primereact/overlaypanel'
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontalIcon, SunIcon, MoonIcon, MonitorIcon, CheckIcon, ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
-import { usePreferences, type AccentColor, type DashboardsLayout, type ThemeMode, type UiDensity } from '@/contexts/PreferencesContext'
+import { usePreferences, type AccentColor, type ThemeMode, type UiDensity } from '@/contexts/PreferencesContext'
 import { config } from '@/lib/config'
 import { loadLocale } from '@/lib/i18n'
 import { Segmented } from '@/components/ui/Segmented'
@@ -29,11 +29,6 @@ const THEME_OPTIONS: Array<{ key: ThemeMode; labelKey: string; fallback: string;
   { key: 'dark', labelKey: 'theme_dark', fallback: 'Dark', icon: MoonIcon },
   { key: 'light', labelKey: 'theme_light', fallback: 'Light', icon: SunIcon },
   { key: 'system', labelKey: 'theme_system', fallback: 'System', icon: MonitorIcon },
-]
-
-const DASHBOARDS_LAYOUT_OPTIONS: Array<{ key: DashboardsLayout; labelKey: string; fallback: string }> = [
-  { key: 'tabs', labelKey: 'dashboards_layout_tabs', fallback: 'Tabs' },
-  { key: 'sidebar', labelKey: 'dashboards_layout_sidebar', fallback: 'Sidebar' },
 ]
 
 const DENSITY_OPTIONS: Array<{ key: UiDensity; labelKey: string; fallback: string }> = [
@@ -106,9 +101,6 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
     void update(patch)
   }
   const onDensityPick = (density: UiDensity) => { void update({ density }) }
-  const onDashboardsLayoutPick = (dashboardsLayout: DashboardsLayout) => {
-    void update({ dashboardsLayout })
-  }
   const onLocalePick = async (locale: string) => {
     // Order matters: the PUT must settle before we re-fetch React Query
     // caches, otherwise the refetched `/api/navigation` reads the *previous*
@@ -318,22 +310,6 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
               value={prefs.density}
               onChange={onDensityPick}
               options={DENSITY_OPTIONS.map(({ key, labelKey, fallback }) => ({
-                key,
-                label: t(labelKey, fallback),
-              }))}
-            />
-          </Section>
-
-          {/* Dashboards layout — `tabs` keeps the v1.10.3 in-page tab
-              strip, `sidebar` lists every registered dashboard as its
-              own sidebar entry. */}
-          <Section label={t('dashboards_layout', 'Dashboards layout')}>
-            <Segmented<DashboardsLayout>
-              fullWidth
-              ariaLabel={t('dashboards_layout', 'Dashboards layout')}
-              value={prefs.dashboardsLayout}
-              onChange={onDashboardsLayoutPick}
-              options={DASHBOARDS_LAYOUT_OPTIONS.map(({ key, labelKey, fallback }) => ({
                 key,
                 label: t(labelKey, fallback),
               }))}

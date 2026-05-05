@@ -44,12 +44,42 @@ protected function registerDashboards(): void
 }
 ```
 
-When multiple dashboards are registered, every user picks how they surface in the panel chrome via the PreferencesMenu cog (v1.10.4+):
+When multiple dashboards are registered, the host decides per dashboard whether it sits in the sidebar or nests inside another dashboard (v1.10.5+).
 
-- **`tabs`** (default) — a single "Dashboard" entry in the sidebar plus a tab strip at the top of every dashboard view. Same as pre-v1.10.4.
-- **`sidebar`** — every registered dashboard becomes its own sidebar entry under `DASHBOARDS`, using `Dashboard::name()` as the label and `/dashboards/{uriKey}` as the URL. The first dashboard doubles as the panel root link (`/`) so deep-link bookmarks and the sidebar stay in sync. The in-page tab strip is hidden in this mode.
+- **Root dashboards** (default; `parent()` returns `null`) appear in the sidebar's `DASHBOARDS` group, one entry each. The first registered root doubles as the panel root link (`/`) so deep-link bookmarks and the sidebar stay in sync.
+- **Nested dashboards** (declared via `Dashboard::under('parent-uri-key')`) are hidden from the sidebar and surface as a tab strip inside their parent's view. Switching tabs flips the URL between `/dashboards/parent-uri-key` and `/dashboards/child-uri-key` so each tab is bookmarkable individually.
 
-Both surfaces share the same `/api/dashboards` payload and respect `canSee()` per dashboard. Persisted as `dashboardsLayout` on the user preferences row; defaults to `'tabs'` so existing installs see no behaviour change until a user opts in.
+```php
+class HomeDashboard extends Dashboard
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Home', uriKey: 'home');
+    }
+}
+
+class RegimeHistoryDashboard extends Dashboard
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Regime history', uriKey: 'regime-history');
+        $this->under('home');  // appears as a tab inside HomeDashboard
+    }
+}
+
+class ProLabDashboard extends Dashboard
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Pro Lab', uriKey: 'pro-lab');
+        // No `under(...)` — Pro Lab stays as a top-level sidebar entry.
+    }
+}
+```
+
+Result: sidebar lists `Home` and `Pro Lab` only. The Home page renders a tab strip with `Home` and `Regime history`; flipping to Regime history changes the URL to `/dashboards/regime-history` while the user stays on the Home group's tab strip.
+
+Both surfaces share the same `/api/dashboards` payload and respect `canSee()` per dashboard. Children inherit nothing from their parent — they declare their own `cards()`, `filters()`, `name()`, etc. The relationship is purely a navigation shortcut.
 
 ## Refresh Button
 

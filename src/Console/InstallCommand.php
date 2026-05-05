@@ -211,15 +211,13 @@ class InstallCommand extends Command
             'create_martis_user_preferences_table'
         );
 
-        // v1.10.4 — `dashboards_layout` column add for installs that
-        // already created the preferences table at an earlier release.
-        // Idempotent: the migration short-circuits when the column is
-        // already present (eg. fresh install where the create migration
-        // above already added it). Publishing it unconditionally keeps
-        // upgrade paths simple.
+        // v1.10.5 — drop the retracted `dashboards_layout` column. Only
+        // does work on hosts that ran the v1.10.4 column-add; otherwise
+        // a no-op. Bundled into the standard install so v1.10.4 → v1.10.5
+        // upgrades self-clean without manual `vendor:publish` calls.
         $this->publishMigrationStub(
-            StubResolver::path('add_dashboards_layout_to_user_preferences_table.php.stub'),
-            'add_dashboards_layout_to_user_preferences_table'
+            StubResolver::path('drop_dashboards_layout_from_user_preferences_table.php.stub'),
+            'drop_dashboards_layout_from_user_preferences_table'
         );
 
         // In-app notifications. Uses the standard Laravel

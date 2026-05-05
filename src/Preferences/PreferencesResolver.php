@@ -33,7 +33,6 @@ class PreferencesResolver
      *   density: string,
      *   locale: string,
      *   reducedMotion: bool,
-     *   dashboardsLayout: string,
      *   source: string,
      *   preset: string|null,
      * }
@@ -81,9 +80,6 @@ class PreferencesResolver
             'density' => $this->normaliseDensity($merged['density'] ?? $defaults['density']),
             'locale' => is_string($merged['locale'] ?? null) ? $merged['locale'] : $defaults['locale'],
             'reducedMotion' => (bool) ($merged['reducedMotion'] ?? $defaults['reducedMotion']),
-            'dashboardsLayout' => $this->normaliseDashboardsLayout(
-                $merged['dashboardsLayout'] ?? $defaults['dashboardsLayout'],
-            ),
             'source' => $preset !== null ? 'preset' : ($userPrefs !== null ? 'user' : 'default'),
             'preset' => $presetName,
         ];
@@ -102,22 +98,7 @@ class PreferencesResolver
             'density' => $this->normaliseDensity($raw['density'] ?? 'comfortable'),
             'locale' => is_string($raw['locale'] ?? null) ? $raw['locale'] : 'en',
             'reducedMotion' => (bool) ($raw['reducedMotion'] ?? false),
-            'dashboardsLayout' => $this->normaliseDashboardsLayout($raw['dashboardsLayout'] ?? 'tabs'),
         ];
-    }
-
-    /**
-     * Whitelist the two recognised values; anything else collapses to
-     * the legacy `tabs` layout. Tolerates the empty string + null that
-     * a freshly-migrated row carries before the SPA writes a value.
-     */
-    protected function normaliseDashboardsLayout(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return 'tabs';
-        }
-
-        return $value === 'sidebar' ? 'sidebar' : 'tabs';
     }
 
     /** @return list<string> */
@@ -146,7 +127,7 @@ class PreferencesResolver
     protected function normalisePreset(array $preset): array
     {
         $out = [];
-        foreach (['theme', 'accent', 'brandColor', 'density', 'locale', 'reducedMotion', 'dashboardsLayout'] as $key) {
+        foreach (['theme', 'accent', 'brandColor', 'density', 'locale', 'reducedMotion'] as $key) {
             if (array_key_exists($key, $preset)) {
                 $out[$key] = $preset[$key];
             }
