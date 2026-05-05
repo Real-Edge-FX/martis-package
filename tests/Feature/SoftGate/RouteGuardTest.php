@@ -14,11 +14,11 @@ class LockedTestDashboard extends Dashboard
     {
         parent::__construct(name: 'Pro Lab', uriKey: 'pro-lab');
         $this->lockedFor(fn () => true)
-             ->lockModal([
-                 'title' => 'Pro feature',
-                 'message' => 'Upgrade to unlock.',
-                 'cta' => ['label' => 'Upgrade', 'url' => '/billing'],
-             ]);
+            ->lockModal([
+                'title' => 'Pro feature',
+                'message' => 'Upgrade to unlock.',
+                'cta' => ['label' => 'Upgrade', 'url' => '/billing'],
+            ]);
     }
 }
 
@@ -37,11 +37,11 @@ class LockedTestTool extends Tool
         parent::__construct(name: 'Locked Tool', uriKey: 'locked-tool');
         $this->withComponent('tool:locked-tool');
         $this->lockedFor(fn () => true)
-             ->lockModal([
-                 'title' => 'Pro feature',
-                 'message' => 'Upgrade to unlock.',
-                 'cta' => ['label' => 'Upgrade', 'url' => '/billing'],
-             ]);
+            ->lockModal([
+                'title' => 'Pro feature',
+                'message' => 'Upgrade to unlock.',
+                'cta' => ['label' => 'Upgrade', 'url' => '/billing'],
+            ]);
     }
 }
 
