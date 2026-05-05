@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-05-05
+
+### Added
+
+- **Declarative badges across every menu entity** — `withBadge(string $text, string $tone = 'neutral')` is now part of `Dashboard`, `Tool`, `Resource`, `Card`, `Lens`, and `Filter` via the new `Martis\Concerns\HasBadge` trait. The auto-build sidebar emits the pill directly from the entity's `toArray()`; consumers no longer need a custom `Martis::mainMenu(...)` resolver to get a "PRO" / "Beta" tag next to a dashboard. `MenuItem::withBadge(...)` keeps working and overrides the class default when both are set.
+
+- **Soft-gates with `lockedFor` + `lockModal` + `lockPreset`** — every menu entity gains the `Martis\Concerns\HasGate` trait. Locked entries stay visible in the sidebar (with a tag + lock icon), the click intercepts and surfaces a customisable upsell modal instead of navigating. The route guard layer (`MetricController::show` + `ToolsController::show`) returns a `{ locked: true, lock: {...} }` payload when a user paste-bombs the URL directly, so the SPA renders the same lock state full-page.
+
+  ```php
+  class ProLabDashboard extends Dashboard
+  {
+      public function __construct()
+      {
+          parent::__construct(name: 'Pro Lab', uriKey: 'pro-lab');
+          $this->withBadge('Pro', 'accent')
+               ->lockedFor(fn (Request $r) => ! $r->user()?->hasRole('pro'))
+               ->lockModal([
+                   'title' => __('app.gates.pro.title'),
+                   'message' => __('app.gates.pro.message'),
+                   'cta' => ['label' => 'Upgrade', 'url' => '/billing/upgrade'],
+               ]);
+      }
+  }
+  ```
+
+- **Plan-rank shortcut** — `requirePlan('pro')` reuses the gate machinery against an opt-in `gates.plan_resolver` closure + `gates.plan_rank` table in `config/martis.php`. The package stays decoupled from any specific billing layer (Spatie / Cashier / custom claims).
+
+- **Declarative `policy()` binding for `Dashboard` and `Tool`** — new `Martis\Concerns\HasPolicy` trait + `static ?$policy = MyPolicy::class`. Auto-discovery follows the existing `martis.policy_namespace` convention with the entity-suffix stripped (`ProLabDashboard` → `App\Martis\Policies\ProLabPolicy`). When set, the Policy `view` ability wins over the legacy `canSee(Closure)`. Cards/Lenses/Filters retain `canSee` only in v1.11.0 — the trait is in place but unwired into their auth pipelines for the next release.
+
+- New `GateProvider` + `GateModal` shell components mounted in `app.tsx`. PrimeReact Dialog data-driven from the entity's `lockModal` payload; theming via Martis CSS vars.
+
+### Changed
+
+- Sidebar intercepts clicks on locked dashboards (`event.preventDefault()` + open gate modal) instead of navigating.
+- `Dashboard.tsx` + `ToolPage.tsx` render a full-page lock body when the API returns `{ locked: true }`.
+- `Dashboard::authorizedToSee()` and `Tool::authorizedToSee()` consult the policy first, then fall back to the existing `canSee` closure.
+- `MenuItem::resolve()` propagates `lock` from the underlying entity into the resolved menu item shape.
+
+### Migration
+
+No migration required. Defaults preserve v1.10.5 behaviour: `badge: null`, `lock: null`, `static $policy = null`. Hosts that want gating add an opt-in `gates.plan_resolver` + `gates.presets` block to `config/martis.php` and call `requirePlan('pro')` (or `lockedFor(...)` / `lockPreset(...)`) on the entities they want to gate.
+
 ## [1.10.5] — 2026-05-05
 
 ### Added

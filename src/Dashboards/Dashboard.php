@@ -5,6 +5,9 @@ namespace Martis\Dashboards;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Concerns\HasBadge;
+use Martis\Concerns\HasGate;
+use Martis\Concerns\HasPolicy;
 use Martis\Contracts\DashboardContract;
 
 /**
@@ -20,6 +23,10 @@ use Martis\Contracts\DashboardContract;
  */
 class Dashboard implements DashboardContract
 {
+    use HasBadge;
+    use HasGate;
+    use HasPolicy;
+
     /** @var array<string, mixed> */
     protected array $meta = [];
 
@@ -196,6 +203,15 @@ class Dashboard implements DashboardContract
     /** {@inheritdoc} */
     public function authorizedToSee(Request $request): bool
     {
+        // v1.11.0+: declarative `static $policy = ProLabPolicy::class`
+        // bindings + auto-discovery `App\Martis\Policies\{Base}Policy`
+        // win over the `canSee` closure when set. The closure is the
+        // fallback for hosts that do not use Laravel Policies.
+        $policyResult = $this->checkHasPolicyAbility('view', $request);
+        if ($policyResult !== null) {
+            return $policyResult;
+        }
+
         if ($this->canSeeCallback === null) {
             return true;
         }
@@ -239,6 +255,8 @@ class Dashboard implements DashboardContract
             'component' => $this->component(),
             'layout' => $this->layoutType(),
             'showRefreshButton' => $this->showRefreshButton(),
+            'badge' => $this->badge(),
+            'lock' => $this->lockPayloadNow(),
             'meta' => $this->meta(),
         ];
     }

@@ -1315,4 +1315,59 @@ return [
         'poll_interval' => (int) env('MARTIS_IMPERSONATION_POLL_MS', 120000),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Soft-gates (v1.11.0+)
+    |--------------------------------------------------------------------------
+    |
+    | Lets the host declare per-entity plan tiers and upsell modals. The
+    | feature is opt-in: with no `plan_resolver` configured, every
+    | `requirePlan(...)` call is a no-op and the entity stays unlocked.
+    |
+    | `plan_resolver` is a closure that maps the authenticated user
+    | (nullable) to a plan name string. Return `null` when the user has
+    | no plan assigned — that is treated as "no access". Closures cannot
+    | live in `config:cache`'d arrays, so configure this here and run
+    | `php artisan config:cache` only after defining as a static-class
+    | callable, or skip caching the gates section entirely.
+    |
+    | `plan_rank` orders the declared tiers; a user is locked from a
+    | tier when their current rank sits below the required rank.
+    |
+    | `presets` declares reusable badge + modal pairs keyed by name.
+    | Entities apply them with `->lockPreset('pro')` instead of
+    | re-declaring the same modal copy at every call site.
+    */
+    'gates' => [
+        'plan_resolver' => null,
+
+        'plan_rank' => [
+            // Defaults match the EdgeFlow pattern; consumer overrides
+            // by setting their own rank table.
+            'free' => 0,
+            'starter' => 1,
+            'pro' => 2,
+            'admin' => 3,
+        ],
+
+        'presets' => [
+            // Example shape (commented out — opt in by uncommenting +
+            // adapting the URL):
+            //
+            // 'pro' => [
+            //     'badge' => ['text' => 'Pro', 'tone' => 'accent'],
+            //     'modal' => [
+            //         'title' => 'This is a Pro feature',
+            //         'message' => 'Upgrade to unlock the Pro Lab and ML forecasts.',
+            //         'cta' => [
+            //             'label' => 'Upgrade to Pro',
+            //             'url' => '/billing/upgrade?plan=pro',
+            //             'target' => '_self',
+            //         ],
+            //         'dismiss' => true,
+            //     ],
+            // ],
+        ],
+    ],
+
 ];

@@ -94,13 +94,34 @@ public function showRefreshButton(): bool
 
 ## Authorization
 
-Use `canSee()` to control dashboard visibility:
+Three layers, picked per dashboard.
+
+**Hard hide** via `canSee()` — the dashboard is filtered out before the menu builds. User never knows it exists.
 
 ```php
 Martis::dashboards([
     MainDashboard::make('Main'),
     SalesDashboard::make('Sales')->canSee(fn ($r) => $r->user()->isAdmin()),
 ]);
+```
+
+**Declarative Policy class** (v1.11.0+) — bind a Laravel Policy and the `view` ability decides:
+
+```php
+class ProLabDashboard extends Dashboard
+{
+    public static ?string $policy = \App\Martis\Policies\ProLabPolicy::class;
+}
+```
+
+Auto-discovery follows `martis.policy_namespace` — `ProLabDashboard` resolves to `App\Martis\Policies\ProLabPolicy`.
+
+**Soft-gate** with upsell modal (v1.11.0+) — keep the dashboard visible (with a badge), intercept the click, show a customisable modal. Useful for plan-gated features where hiding the entry kills the upsell. See [Soft-gates and badges](./gates.md) for the full API.
+
+```php
+$this->withBadge('Pro', 'accent')
+     ->requirePlan('pro')
+     ->lockPreset('pro');
 ```
 
 ## Dashboard Filters (Martis Extension)

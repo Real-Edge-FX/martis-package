@@ -21,10 +21,12 @@ import {
   useNavigationRefreshOnNavigate,
 } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
+import { useGateOptional } from "@/contexts/GateContext"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
   SquaresFourIcon,
   CaretRightIcon,
+  LockKeyIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "./ResourceIcon"
 
@@ -288,6 +290,11 @@ function NestedGroupBlock({
 
 export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: SidebarProps = {}) {
   const { t } = useTranslation("navigation")
+  // v1.11.0+ — soft-gate hook. Optional because tests may render the
+  // sidebar without the GateProvider; in that case clicks on locked
+  // entries fall through normally (no modal, no interception). Real
+  // panel mounts always have it.
+  const gate = useGateOptional()
   // Full navigation tree: fetched once per session + on route mutations.
   // NOT auto-polled — menu structure rarely changes in production.
   const { data: rawGroups = [] } = useQuery<NavigationGroup[]>({
@@ -394,21 +401,49 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
             // bookmarks and the sidebar stay in sync.
             rootDashboards.map((dashboard, idx) => {
               const isFirst = idx === 0
+              const lock = dashboard.lock ?? null
+              const isLocked = lock !== null
               return (
                 <NavLink
                   key={dashboard.uriKey}
                   to={isFirst ? "/" : `/dashboards/${dashboard.uriKey}`}
                   end
                   className={({ isActive }) =>
-                    "martis-sb-item" + (isActive ? " active" : "")
+                    "martis-sb-item" + (isActive ? " active" : "") + (isLocked ? " locked" : "")
                   }
                   data-pr-tooltip={!isMobile && collapsed ? dashboard.name : undefined}
                   data-pr-position="right"
-                  onClick={isMobile ? onMobileClose : undefined}
+                  onClick={(event) => {
+                    if (isLocked && lock !== null && gate !== null) {
+                      // v1.11.0+ — locked entries do not navigate;
+                      // the modal opens instead. Fall back to navigation
+                      // when the GateProvider is missing (tests, edge
+                      // cases) so the route guard catches it.
+                      event.preventDefault()
+                      gate.open(lock)
+                      return
+                    }
+                    if (isMobile && onMobileClose) onMobileClose()
+                  }}
                 >
                   <SquaresFourIcon size={16} className="shrink-0" />
                   {(isMobile || !collapsed) && (
                     <span className="martis-sb-item-label">{dashboard.name}</span>
+                  )}
+                  {(isMobile || !collapsed) && dashboard.badge && (
+                    <span
+                      className="martis-sb-item-tag"
+                      data-tone={dashboard.badge.tone}
+                    >
+                      {dashboard.badge.text}
+                    </span>
+                  )}
+                  {(isMobile || !collapsed) && isLocked && (
+                    <LockKeyIcon
+                      size={12}
+                      className="shrink-0"
+                      style={{ color: 'var(--martis-text-muted)' }}
+                    />
                   )}
                 </NavLink>
               )

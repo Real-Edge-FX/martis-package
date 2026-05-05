@@ -7,7 +7,9 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+import { useGateOptional } from '@/contexts/GateContext'
 import { MartisLoader } from '@/components/Loader'
+import type { GateLock } from '@/types'
 
 interface ToolDescriptor {
   type: 'tool'
@@ -22,7 +24,18 @@ interface ToolDescriptor {
   icon: string | null
   component: string | null
   menuSection: string | null
+  /** Decorative pill (v1.11+). Set via `Tool::withBadge(...)`. */
+  badge?: { text: string; tone: string } | null
+  /** Soft-gate state (v1.11+). Non-null = the user is locked out. */
+  lock?: GateLock | null
   meta: Record<string, unknown>
+}
+
+/** Locked-tool response shape from the route guard. */
+interface LockedToolResponse {
+  locked: true
+  lock: GateLock
+  tool: ToolDescriptor
 }
 
 interface ToolPageProps {
@@ -71,8 +84,11 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
   const { uriKey } = useParams<{ uriKey: string }>()
   const { t } = useTranslation('messages')
   const { addToast } = useToast()
+  const gate = useGateOptional()
   const [descriptor, setDescriptor] = useState<ToolDescriptor | null>(prefilled ?? null)
   const [error, setError] = useState<'not-found' | 'unknown-component' | null>(null)
+  // v1.11.0+ soft-gate full-page state.
+  const [lockedPayload, setLockedPayload] = useState<LockedToolResponse | null>(null)
 
   usePageTitle(descriptor?.name ?? t('tool_page_title', 'Tool'))
   // Publish the resolved tool name to the breadcrumb so the trail reads
@@ -90,10 +106,15 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
     setError(null)
 
     api
-      .get<ToolDescriptor>(`/api/tools/${encodeURIComponent(uriKey)}`)
+      .get<ToolDescriptor | LockedToolResponse>(`/api/tools/${encodeURIComponent(uriKey)}`)
       .then((data) => {
         if (cancelled) return
-        setDescriptor(data)
+        if ('locked' in data && data.locked === true) {
+          setLockedPayload(data)
+          if (gate !== null) gate.open(data.lock)
+          return
+        }
+        setDescriptor(data as ToolDescriptor)
       })
       .catch((e: unknown) => {
         if (cancelled) return
@@ -108,7 +129,7 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
     return () => {
       cancelled = true
     }
-  }, [uriKey, prefilled, addToast, t])
+  }, [uriKey, prefilled, addToast, t, gate])
 
   if (error === 'not-found') {
     return (
@@ -116,6 +137,42 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
         <WrenchIcon size={36} weight="duotone" />
         <h1>{t('tool_not_found_title', 'Tool not found')}</h1>
         <p>{t('tool_not_found_body', 'This tool does not exist or you do not have permission to see it.')}</p>
+      </div>
+    )
+  }
+
+  // v1.11.0+ soft-gate full-page state. The route guard answered
+  // `{ locked: true, lock, tool }`; render the locked card with the
+  // upsell CTA. The GateModal also opened automatically on mount.
+  if (lockedPayload !== null) {
+    const modal = lockedPayload.lock.modal
+    return (
+      <div
+        className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center"
+        style={{
+          backgroundColor: 'var(--martis-surface)',
+          borderColor: 'var(--martis-border)',
+          color: 'var(--martis-text-muted)',
+        }}
+      >
+        <WrenchIcon size={36} weight="duotone" />
+        <h1 className="mt-3 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+          {modal?.title ?? t('gate.default_title', 'Locked feature')}
+        </h1>
+        <p className="mt-2 max-w-md text-sm">
+          {modal?.message ?? t('gate.default_message', 'This tool is not available on your current plan.')}
+        </p>
+        {modal?.cta && (
+          <a
+            href={modal.cta.url}
+            target={modal.cta.target ?? '_self'}
+            rel={modal.cta.target === '_blank' ? 'noopener noreferrer' : undefined}
+            className="mt-4 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
+            style={{ backgroundColor: 'var(--martis-accent)', color: '#fff' }}
+          >
+            {modal.cta.label}
+          </a>
+        )}
       </div>
     )
   }

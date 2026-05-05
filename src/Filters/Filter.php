@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Concerns\HasBadge;
+use Martis\Concerns\HasGate;
 use Martis\Contracts\FilterContract;
 use Martis\Enums\FilterType;
 
@@ -24,6 +26,9 @@ use Martis\Enums\FilterType;
  */
 abstract class Filter implements FilterContract
 {
+    use HasBadge;
+    use HasGate;
+
     /** @var array<string, mixed> */
     protected array $meta = [];
 
@@ -248,6 +253,8 @@ abstract class Filter implements FilterContract
             'options' => $this->resolvedOptions,
             'default' => $this->default(),
             'span' => $this->span,
+            'badge' => $this->badge(),
+            'lock' => $this->lockPayloadNow(),
             'meta' => $this->meta(),
         ];
     }

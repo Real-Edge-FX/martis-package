@@ -56,6 +56,21 @@ class ToolsController extends MartisController
             return response()->json(['message' => 'Tool not found.'], 404);
         }
 
+        // v1.11.0+ soft-gate route guard. When the tool is locked
+        // for this user, return 200 with a locked shape so the SPA
+        // renders the lock modal as a full-page state instead of
+        // the tool component. Anti-bypass for direct URL access.
+        $lock = method_exists($tool, 'lockPayloadFor')
+            ? $tool->lockPayloadFor($request)
+            : null;
+        if ($lock !== null) {
+            return response()->json([
+                'locked' => true,
+                'lock' => $lock,
+                'tool' => $tool->toArray(),
+            ]);
+        }
+
         return response()->json($tool->toArray());
     }
 }

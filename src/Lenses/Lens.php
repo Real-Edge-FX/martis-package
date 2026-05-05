@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Concerns\HasBadge;
+use Martis\Concerns\HasGate;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\CardContract;
 use Martis\Contracts\FieldContract;
@@ -36,6 +38,9 @@ use Martis\Http\Requests\LensRequest;
  */
 abstract class Lens implements LensContract
 {
+    use HasBadge;
+    use HasGate;
+
     /** Auto-refresh the lens view. */
     public static bool $polling = false;
 
@@ -398,6 +403,8 @@ abstract class Lens implements LensContract
             'showPollingToggle' => $this->pollingToggleVisible(),
             'defaultFilters' => $this->defaultFilters(),
             'cacheTtlSeconds' => $this->cacheTtl(),
+            'badge' => $this->badge(),
+            'lock' => $this->lockPayloadNow(),
             'meta' => $this->meta(),
         ];
     }
