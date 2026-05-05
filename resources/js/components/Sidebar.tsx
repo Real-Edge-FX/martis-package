@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
 import type {
+  DashboardDefinition,
   NavigationGroup,
   NavigationGroupChild,
   NavigationItem,
@@ -20,6 +21,7 @@ import {
   useNavigationRefreshOnNavigate,
 } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
+import { usePreferencesOptional } from "@/contexts/PreferencesContext"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
   SquaresFourIcon,
@@ -296,6 +298,23 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
     refetchInterval: false,
     refetchOnWindowFocus: false,
   })
+  // v1.10.4+: when the user preference `dashboardsLayout` is set to
+  // `sidebar`, the sidebar renders one entry per registered dashboard
+  // under DASHBOARDS. The default `tabs` mode keeps the pre-v1.10.4
+  // behaviour (single hardcoded entry, in-page tabs for switching).
+  // Cached at the same query key the Dashboard page uses, so the two
+  // views share the network call when both are mounted.
+  const prefs = usePreferencesOptional()
+  const dashboardsLayout = prefs?.prefs.dashboardsLayout ?? "tabs"
+  const { data: dashboardsResp } = useQuery<{ data: { dashboards: DashboardDefinition[] } }>({
+    queryKey: ["dashboards"],
+    queryFn: () => api.get("/api/dashboards"),
+    staleTime: Infinity,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    enabled: dashboardsLayout === "sidebar",
+  })
+  const dashboards = dashboardsResp?.data?.dashboards ?? []
   // Lightweight badges payload: polled on a separate, longer interval.
   const badgesPollInterval = config.navigation?.badgesPollInterval ?? 300_000
   const { data: badges } = useQuery<Record<string, number>>({
@@ -369,21 +388,56 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
               <span>{t("dashboards", "Dashboards")}</span>
             </div>
           )}
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              "martis-sb-item" + (isActive ? " active" : "")
-            }
-            data-pr-tooltip={!isMobile && collapsed ? t("dashboard") : undefined}
-            data-pr-position="right"
-            onClick={isMobile ? onMobileClose : undefined}
-          >
-            <SquaresFourIcon size={16} className="shrink-0" />
-            {(isMobile || !collapsed) && (
-              <span className="martis-sb-item-label">{t("dashboard")}</span>
-            )}
-          </NavLink>
+          {dashboardsLayout === "sidebar" && dashboards.length > 0 ? (
+            // v1.10.4+: one entry per registered dashboard. The first
+            // entry doubles as the panel root link (`/`) so the sidebar
+            // and the URL tree stay in sync — `/martis` already renders
+            // the first registered dashboard via the in-page resolver.
+            // The remaining dashboards link to their explicit URLs so
+            // the React Router NavLink active state highlights the
+            // current entry without a custom `isActive` rule.
+            dashboards.map((dashboard, idx) => {
+              const isFirst = idx === 0
+              return (
+                <NavLink
+                  key={dashboard.uriKey}
+                  to={isFirst ? "/" : `/dashboards/${dashboard.uriKey}`}
+                  end
+                  className={({ isActive }) =>
+                    "martis-sb-item" + (isActive ? " active" : "")
+                  }
+                  data-pr-tooltip={!isMobile && collapsed ? dashboard.name : undefined}
+                  data-pr-position="right"
+                  onClick={isMobile ? onMobileClose : undefined}
+                >
+                  <SquaresFourIcon size={16} className="shrink-0" />
+                  {(isMobile || !collapsed) && (
+                    <span className="martis-sb-item-label">{dashboard.name}</span>
+                  )}
+                </NavLink>
+              )
+            })
+          ) : (
+            // `tabs` mode (default) OR `sidebar` mode with no dashboards
+            // registered yet — render the legacy single entry pointing at
+            // `/`. The in-page tab strip on Dashboard.tsx switches between
+            // dashboards in `tabs` mode.
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                "martis-sb-item" + (isActive ? " active" : "")
+              }
+              data-pr-tooltip={!isMobile && collapsed ? t("dashboard") : undefined}
+              data-pr-position="right"
+              onClick={isMobile ? onMobileClose : undefined}
+            >
+              <SquaresFourIcon size={16} className="shrink-0" />
+              {(isMobile || !collapsed) && (
+                <span className="martis-sb-item-label">{t("dashboard")}</span>
+              )}
+            </NavLink>
+          )}
         </div>
 
         {groups.map((group, i) => {

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.4] — 2026-05-05
+
+### Added
+
+- **Per-user `dashboardsLayout` preference** — every user picks how registered dashboards surface in the panel chrome:
+    - `tabs` (default, preserves the v1.10.3 behaviour) — single sidebar entry plus an in-page tab strip at the top of every dashboard view.
+    - `sidebar` — every registered dashboard becomes its own sidebar entry under `DASHBOARDS`, and the in-page tab strip is hidden.
+
+  Toggle in the PreferencesMenu cog under "Dashboards layout". Persisted to `martis_user_preferences.dashboards_layout` and round-tripped through `/api/preferences` (validated with `in:tabs,sidebar`). Default `'tabs'` so existing installs see no behaviour change until a user opts in.
+
+### Changed
+
+- `UserPreference` model + `PreferencesResolver` + `PreferencesController` now carry the new key. The resolver normalises unknown values back to `'tabs'` so a corrupt row never breaks the SPA boot.
+- `Sidebar` reads the preference. In `sidebar` mode it fetches `/api/dashboards` (already cached for `Dashboard.tsx` — same query key, no duplicate request) and renders one `NavLink` per dashboard, using its `name()` as the label and `/dashboards/{uriKey}` as the URL. The first dashboard doubles as the panel root link (`/`) so deep-link bookmarks and the sidebar stay in sync.
+- `Dashboard.tsx` hides the in-page tab strip when the preference is `sidebar` so the two surfaces never clash.
+
+### Migration
+
+- New column `dashboards_layout` on `martis_user_preferences`. Two paths to land it:
+    - **Fresh installs**: the published `create_martis_user_preferences_table` migration includes the column.
+    - **Existing installs (any version pre-v1.10.4)**: run `php artisan martis:install` (or `vendor:publish --tag=martis-preferences-dashboards-layout-migration`) to publish the column-add migration, then `php artisan migrate`. Idempotent — short-circuits when the column is already present.
+
+  Default `'tabs'` so every existing row keeps the legacy presentation until the user opts in.
+
 ## [1.10.3] — 2026-05-05
 
 ### Added
