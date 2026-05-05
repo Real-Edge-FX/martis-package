@@ -5,6 +5,8 @@ namespace Martis\Cards;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Concerns\HasBadge;
+use Martis\Concerns\HasGate;
 use Martis\Contracts\CardContract;
 
 /**
@@ -12,6 +14,9 @@ use Martis\Contracts\CardContract;
  */
 class Card implements CardContract
 {
+    use HasBadge;
+    use HasGate;
+
     /** Authorization callback. */
     protected ?Closure $canSeeCallback = null;
 
@@ -133,6 +138,8 @@ class Card implements CardContract
             'component' => $this->component(),
             'width' => $this->width,
             'framed' => $this->framed,
+            'badge' => $this->badge(),
+            'lock' => $this->lockPayloadNow(),
             'meta' => $this->meta(),
         ];
     }

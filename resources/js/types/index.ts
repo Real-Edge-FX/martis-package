@@ -191,7 +191,36 @@ export interface DashboardDefinition {
   /** Layout type: 'cards' (default metric grid) or 'default' (built-in summary view). */
   layout?: 'cards' | 'default'
   showRefreshButton: boolean
+  /**
+   * Optional decorative pill rendered next to the sidebar entry. Set
+   * on the PHP side via `Dashboard::withBadge('Pro', 'accent')`
+   * (v1.11+). Tones: `neutral|info|success|warning|danger|accent`.
+   */
+  badge: { text: string; tone: string } | null
+  /**
+   * Soft-gate state for the active user. Non-null when the dashboard
+   * is locked (`Dashboard::lockedFor(...)` predicate returned true);
+   * the SPA renders a lock icon and intercepts the click to show the
+   * `modal` payload instead of navigating. v1.11+.
+   */
+  lock: GateLock | null
   meta: Record<string, unknown>
+}
+
+/**
+ * Soft-gate payload — emitted by every menu entity (Dashboard, Tool,
+ * Resource, Card, Lens, Filter) and consumed by `<GateModal>`.
+ */
+export interface GateLock {
+  reason: string
+  modal: {
+    title?: string
+    message?: string
+    messageHtml?: boolean
+    cta?: { label: string; url: string; target?: '_self' | '_blank' }
+    dismiss?: boolean
+    icon?: string
+  } | null
 }
 
 export interface DashboardData {

@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
+use Martis\Concerns\HasBadge;
+use Martis\Concerns\HasGate;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\OverrideContract;
@@ -37,6 +39,9 @@ use Martis\Menu\MenuItem;
  */
 abstract class Resource implements ResourceContract
 {
+    use HasBadge;
+    use HasGate;
+
     /**
      * The underlying model instance (null when creating a new record).
      */
@@ -1237,6 +1242,8 @@ abstract class Resource implements ResourceContract
             'group' => $this->group(),
             'icon' => $this->icon(),
             'accentColor' => static::accentColor(),
+            'badge' => $this->badge(),
+            'lock' => $this->lockPayloadNow(),
         ];
     }
 

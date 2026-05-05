@@ -9,6 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Martis\Concerns\HasBadge;
+use Martis\Concerns\HasGate;
+use Martis\Concerns\HasPolicy;
 use Martis\Contracts\ToolContract;
 
 /**
@@ -58,6 +61,10 @@ use Martis\Contracts\ToolContract;
  */
 class Tool implements ToolContract
 {
+    use HasBadge;
+    use HasGate;
+    use HasPolicy;
+
     protected ?string $icon = null;
 
     protected ?string $component = null;
@@ -181,6 +188,13 @@ class Tool implements ToolContract
 
     public function authorizedToSee(Request $request): bool
     {
+        // v1.11.0+: same precedence as Dashboard — Policy class wins
+        // over the canSee closure when one is configured.
+        $policyResult = $this->checkHasPolicyAbility('view', $request);
+        if ($policyResult !== null) {
+            return $policyResult;
+        }
+
         if ($this->canSeeCallback === null) {
             return true;
         }
@@ -344,6 +358,8 @@ class Tool implements ToolContract
             'icon' => $this->icon(),
             'component' => $this->component(),
             'menuSection' => $this->menuSection(),
+            'badge' => $this->badge(),
+            'lock' => $this->lockPayloadNow(),
             'meta' => $this->meta(),
         ];
     }

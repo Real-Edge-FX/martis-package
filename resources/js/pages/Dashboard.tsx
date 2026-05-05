@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
 import { getNavigationResourceItems } from '@/lib/navigation'
-import type { NavigationGroup, DashboardDefinition, DashboardData, ActiveFilters } from '@/types'
+import type { NavigationGroup, DashboardDefinition, DashboardData, ActiveFilters, GateLock } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { CardSkeleton } from '@/components/LoadingSkeleton'
 import { ResourceIcon } from '@/components/ResourceIcon'
@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+import { useGateOptional } from '@/contexts/GateContext'
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 
 export function DashboardPage() {
@@ -137,20 +138,38 @@ function DashboardView({
   // while the dashboards query is still loading.
   useDynamicCrumb(currentDashboard?.breadcrumb ?? currentDashboard?.name)
 
-  // Fetch dashboard data (cards + filters) — skip for default layout (no cards)
+  // Fetch dashboard data (cards + filters) — skip for default layout (no cards).
+  // v1.11.0+: the route can also answer with `{ locked: true, lock, dashboard }`
+  // when the soft-gate predicate locks the user out. Discriminated union
+  // below — `locked` flag decides which branch the page renders.
+  type DashboardResponse =
+    | { data: DashboardData }
+    | { data: { locked: true; lock: GateLock; dashboard: DashboardDefinition } }
   const dashboardQuery = useQuery({
     queryKey: ['dashboard', currentKey],
-    queryFn: () => api.get<{ data: DashboardData }>(`/api/dashboards/${currentKey}`),
+    queryFn: () => api.get<DashboardResponse>(`/api/dashboards/${currentKey}`),
     enabled: !!currentKey && !isDefaultLayout,
   })
 
-  const dashboardData = dashboardQuery.data?.data
+  const responseData = dashboardQuery.data?.data
+  const lockedResponse = responseData !== undefined && 'locked' in responseData && responseData.locked === true
+    ? responseData
+    : null
+  const dashboardData = (responseData !== undefined && !('locked' in responseData)) ? responseData : undefined
   const cards = dashboardData?.cards ?? []
   const filters = dashboardData?.filters ?? []
   const showRefresh = dashboardData?.dashboard?.showRefreshButton ?? false
 
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: ['metric'] })
+  }
+
+  // v1.11.0+ soft-gate full-page state: when the API tells us the user
+  // is locked out, render the lock as the body of the page. Cards are
+  // not fetched so we leak no data through the empty cells. The
+  // GateModal opens inline via the GateContext.
+  if (lockedResponse !== null) {
+    return <DashboardLockedView lock={lockedResponse.lock} dashboard={lockedResponse.dashboard} />
   }
 
   return (
@@ -349,6 +368,70 @@ function StatCard({ label, value, icon, bgClass }: { label: string; value: numbe
         <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${bgClass}`}>
           {icon}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v1.11.0+ — Locked dashboard view
+// ---------------------------------------------------------------------------
+
+/**
+ * Full-page state for a dashboard the user does not have access to.
+ * Renders the lock affordance inline + opens the modal automatically
+ * so the upsell copy is on screen the moment the page loads. The user
+ * can dismiss the modal and still see the inline lock body — useful
+ * when they want to re-read the message later.
+ */
+function DashboardLockedView({ lock, dashboard }: { lock: GateLock; dashboard: DashboardDefinition }) {
+  const { t } = useTranslation('messages')
+  const gate = useGateOptional()
+  const modal = lock.modal
+
+  // Auto-open the modal on mount.
+  useEffect(() => {
+    if (gate !== null) gate.open(lock)
+    // The empty deps array is intentional — the modal should open once
+    // when the locked view first renders, not on every re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div className="space-y-4">
+      <div
+        className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center"
+        style={{
+          backgroundColor: 'var(--martis-surface)',
+          borderColor: 'var(--martis-border)',
+          color: 'var(--martis-text-muted)',
+        }}
+      >
+        <div className="mb-3" style={{ color: 'var(--martis-text-muted)' }}>
+          <svg width="48" height="48" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+            <path d="M208 80h-32V56a48 48 0 0 0-96 0v24H48a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16ZM96 56a32 32 0 0 1 64 0v24H96Zm112 152H48V96h160ZM136 144v32a8 8 0 0 1-16 0v-32a8 8 0 0 1 16 0Z" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
+          {modal?.title ?? t('gate.default_title', 'Locked feature')}
+        </h2>
+        <p className="mt-2 max-w-md text-sm">
+          {modal?.message ?? t('gate.default_message', 'This dashboard is not available on your current plan.')}
+        </p>
+        {modal?.cta && (
+          <a
+            href={modal.cta.url}
+            target={modal.cta.target ?? '_self'}
+            rel={modal.cta.target === '_blank' ? 'noopener noreferrer' : undefined}
+            className="mt-4 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
+            style={{ backgroundColor: 'var(--martis-accent)', color: '#fff' }}
+          >
+            {modal.cta.label}
+          </a>
+        )}
+        <p className="mt-6 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+          {t('gate.locked_dashboard_id', 'Dashboard: {{name}}', { name: dashboard.name })}
+        </p>
       </div>
     </div>
   )

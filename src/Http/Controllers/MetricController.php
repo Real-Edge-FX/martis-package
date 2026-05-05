@@ -60,6 +60,24 @@ class MetricController
             return JsonErrorResponse::notFound('Dashboard not found.')->toResponse();
         }
 
+        // v1.11.0+ soft-gate route guard: when the dashboard is
+        // locked for this user (`HasGate::isLockedFor`), respond 200
+        // with a `locked: true` shape instead of the normal payload.
+        // The SPA renders the same lock modal as a full-page state.
+        // We deliberately bypass the dashboard cache here so a plan
+        // upgrade lands immediately (the lock predicate would
+        // otherwise stay frozen until cache TTL).
+        $lock = method_exists($instance, 'lockPayloadFor')
+            ? $instance->lockPayloadFor($request)
+            : null;
+        if ($lock !== null) {
+            return JsonResponse::make([
+                'locked' => true,
+                'lock' => $lock,
+                'dashboard' => $instance->toArray(),
+            ])->toResponse();
+        }
+
         // Cache the dashboard shape (definition + cards/filters metadata).
         // The metric values themselves are NOT cached here — `Metric::resolve`
         // owns its own per-metric cache so polling intervals stay correct.

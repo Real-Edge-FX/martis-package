@@ -12,6 +12,8 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { PreferencesProvider } from '@/contexts/PreferencesContext'
 import { DynamicCrumbProvider } from '@/contexts/DynamicCrumbContext'
+import { GateProvider } from '@/contexts/GateContext'
+import { GateModal } from '@/components/GateModal'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
@@ -134,8 +136,11 @@ function App() {
                 <ThemeProvider>
                   <ToastProvider>
                     <DynamicCrumbProvider>
-                      <RouterProvider router={router} />
-                      <ToastContainer />
+                      <GateProvider>
+                        <RouterProvider router={router} />
+                        <GateModal />
+                        <ToastContainer />
+                      </GateProvider>
                     </DynamicCrumbProvider>
                   </ToastProvider>
                 </ThemeProvider>

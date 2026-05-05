@@ -247,7 +247,36 @@ class MenuItem
             $resolved['badge'] = $this->badge;
         }
 
+        // v1.11.0+ — propagate the soft-gate lock from the underlying
+        // entity into the resolved menu item. The auto-build path
+        // already gets this via the entity's `toArray()`, but the
+        // mainMenu custom resolver path produces a thinner shape that
+        // does not call `toArray()` for tools/dashboards/lenses, so
+        // we ask the entity directly here.
+        $lock = $this->resolveEntityLock($request);
+        if ($lock !== null) {
+            $resolved['lock'] = $lock;
+        }
+
         return $resolved;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function resolveEntityLock(Request $request): ?array
+    {
+        $entity = match (true) {
+            $this->tool !== null => is_string($this->tool) ? new $this->tool : $this->tool,
+            $this->dashboard !== null => is_string($this->dashboard) ? new $this->dashboard : $this->dashboard,
+            default => null,
+        };
+
+        if ($entity !== null && method_exists($entity, 'lockPayloadFor')) {
+            return $entity->lockPayloadFor($request);
+        }
+
+        return null;
     }
 
     /**
