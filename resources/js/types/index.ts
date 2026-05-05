@@ -187,6 +187,14 @@ export interface DashboardDefinition {
    * (v1.10.5+).
    */
   parent: string | null
+  /**
+   * Optional Phosphor icon name for the sidebar entry. When non-null,
+   * the auto-built DASHBOARDS section renders the icon in place of the
+   * default `<SquaresFourIcon>`. Set on the PHP side via
+   * `Dashboard::withIcon('chart-line-up')` (v1.11.4+). Names match
+   * the `iconRegistry` keys.
+   */
+  icon: string | null
   component: string | null
   /** Layout type: 'cards' (default metric grid) or 'default' (built-in summary view). */
   layout?: 'cards' | 'default'

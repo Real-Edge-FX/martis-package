@@ -202,6 +202,25 @@ public function breadcrumb(): ?string
 
 Return `null` to fall back to `name()`.
 
+## Sidebar icon (v1.11.4+)
+
+The auto-built `DASHBOARDS` section renders a `<SquaresFourIcon>` next to every entry by default. Use `withIcon(string)` to swap in any Phosphor icon registered in the iconRegistry (`chart-line-up`, `rocket-launch`, `gear-six`, …):
+
+```php
+class HomeDashboard extends Dashboard
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Home', uriKey: 'home');
+        $this->withIcon('chart-line-up');
+    }
+}
+```
+
+Pass `null` to clear the override and fall back to the default glyph. Custom `Martis::mainMenu(...)` resolvers still override the icon per item via `MenuItem::icon(...)` — `withIcon()` only feeds the auto-build path.
+
+Consumers can register additional icons via `iconRegistry.register('my-icon', MyIconComponent)` at boot before the icon name resolves.
+
 ## Artisan Command
 
 ```bash

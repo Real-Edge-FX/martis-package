@@ -426,7 +426,16 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                     if (isMobile && onMobileClose) onMobileClose()
                   }}
                 >
-                  <SquaresFourIcon size={16} className="shrink-0" />
+                  {/* v1.11.4+: per-dashboard icon when set, fall back to
+                      the bundled SquaresFour glyph. The dashboard's
+                      `icon()` is only honoured by the auto-build path;
+                      a custom `Martis::mainMenu(...)` overrides it via
+                      `MenuItem::icon(...)`. */}
+                  {dashboard.icon ? (
+                    <ResourceIcon iconName={dashboard.icon} size={16} className="shrink-0" />
+                  ) : (
+                    <SquaresFourIcon size={16} className="shrink-0" />
+                  )}
                   {(isMobile || !collapsed) && (
                     <span className="martis-sb-item-label">{dashboard.name}</span>
                   )}

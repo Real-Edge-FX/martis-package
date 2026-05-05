@@ -102,3 +102,23 @@ it('a subclass that overrides breadcrumb() is honoured by toArray()', function (
 
     expect($dashboard->toArray()['breadcrumb'])->toBe('Per-request breadcrumb');
 });
+
+it('Dashboard exposes null icon by default and includes it in toArray', function () {
+    $d = new Dashboard('Sales');
+    expect($d->icon())->toBeNull()
+        ->and($d->toArray())->toHaveKey('icon')
+        ->and($d->toArray()['icon'])->toBeNull();
+});
+
+it('withIcon stores the value and surfaces it in toArray (v1.11.4+)', function () {
+    $d = (new Dashboard('Sales'))->withIcon('chart-line-up');
+    expect($d->icon())->toBe('chart-line-up')
+        ->and($d->toArray()['icon'])->toBe('chart-line-up');
+});
+
+it('withIcon(null) clears the override', function () {
+    $d = (new Dashboard('Sales'))
+        ->withIcon('chart-line-up')
+        ->withIcon(null);
+    expect($d->icon())->toBeNull();
+});
