@@ -64,6 +64,13 @@ class Tool implements ToolContract
 
     protected ?string $menuSection = null;
 
+    /**
+     * Optional breadcrumb label override. When set, the React shell shows
+     * this label as the deepest crumb instead of `name()`. Defaults to
+     * null (the breadcrumb tracks `name()`).
+     */
+    protected ?string $breadcrumb = null;
+
     /** @var array<string, mixed> */
     protected array $meta = [];
 
@@ -135,6 +142,28 @@ class Tool implements ToolContract
     public function withMenuSection(?string $section): static
     {
         $this->menuSection = $section;
+
+        return $this;
+    }
+
+    /**
+     * Override-friendly accessor. Subclasses can return a per-request
+     * value (e.g. `__('edgeflow.tools.charts.breadcrumb')`) the same way
+     * they override `name()`. Return `null` to fall back to `name()`.
+     */
+    public function breadcrumb(): ?string
+    {
+        return $this->breadcrumb;
+    }
+
+    /**
+     * Override the breadcrumb label without changing the page heading,
+     * sidebar entry, or `document.title` (those keep reading `name()`).
+     * Pass `null` to clear the override and fall back to `name()`.
+     */
+    public function withBreadcrumb(?string $breadcrumb): static
+    {
+        $this->breadcrumb = $breadcrumb;
 
         return $this;
     }
@@ -310,6 +339,7 @@ class Tool implements ToolContract
         return [
             'type' => 'tool',
             'name' => $this->name(),
+            'breadcrumb' => $this->breadcrumb(),
             'uriKey' => $this->uriKey(),
             'icon' => $this->icon(),
             'component' => $this->component(),

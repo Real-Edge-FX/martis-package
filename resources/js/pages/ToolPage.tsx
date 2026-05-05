@@ -12,6 +12,12 @@ import { MartisLoader } from '@/components/Loader'
 interface ToolDescriptor {
   type: 'tool'
   name: string
+  /**
+   * Optional breadcrumb override. When non-null, the panel shell uses
+   * this label for the deepest crumb instead of `name`. Set on the
+   * PHP side via `Tool::withBreadcrumb(...)` (v1.10.3+).
+   */
+  breadcrumb: string | null
   uriKey: string
   icon: string | null
   component: string | null
@@ -72,8 +78,10 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
   // Publish the resolved tool name to the breadcrumb so the trail reads
   // "Home › Charts" instead of the literal route handle key "tool". The
   // hook resets to null on unmount; static i18n key is the fallback while
-  // the descriptor is still loading.
-  useDynamicCrumb(descriptor?.name)
+  // the descriptor is still loading. v1.10.3+: tools can override the
+  // breadcrumb label independently from `name` via `Tool::withBreadcrumb`,
+  // so the trail and the page heading no longer have to match.
+  useDynamicCrumb(descriptor?.breadcrumb ?? descriptor?.name)
 
   useEffect(() => {
     if (!uriKey || prefilled) return

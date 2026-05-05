@@ -77,6 +77,68 @@ it('GET /martis/api/tools/{uriKey} returns the tool metadata', function () {
     ]);
 });
 
+it('descriptor exposes a null breadcrumb by default (v1.10.3+)', function () {
+    Martis::tools([new SystemStatusTool]);
+
+    $response = $this->getJson('/martis/api/tools/system-status');
+
+    $response->assertStatus(200);
+    expect($response->json('breadcrumb'))->toBeNull();
+});
+
+it('Tool::withBreadcrumb() propagates the override into the descriptor (v1.10.3+)', function () {
+    $tool = (new SystemStatusTool)->withBreadcrumb('System · Status');
+    Martis::tools([$tool]);
+
+    $response = $this->getJson('/martis/api/tools/system-status');
+
+    $response->assertStatus(200);
+    // Override-only field; `name` stays untouched so the page heading
+    // and menu entry are not affected by the breadcrumb override.
+    expect($response->json('breadcrumb'))->toBe('System · Status');
+    expect($response->json('name'))->toBe('System Status');
+});
+
+it('Tool::withBreadcrumb(null) clears a previously-set breadcrumb override', function () {
+    $tool = (new SystemStatusTool)
+        ->withBreadcrumb('Custom')
+        ->withBreadcrumb(null);
+    Martis::tools([$tool]);
+
+    $response = $this->getJson('/martis/api/tools/system-status');
+
+    expect($response->json('breadcrumb'))->toBeNull();
+});
+
+it('Tool::withBreadcrumb() returns the same instance for fluent chaining', function () {
+    $tool = new SystemStatusTool;
+    $returned = $tool->withBreadcrumb('Whatever');
+
+    expect($returned)->toBe($tool);
+});
+
+it('a Tool subclass that overrides breadcrumb() is honoured by toArray()', function () {
+    // Mirrors the i18n-friendly recipe in the docs:
+    //
+    //   public function breadcrumb(): ?string {
+    //       return (string) __('edgeflow.tools.charts.breadcrumb');
+    //   }
+    $tool = new class extends Tool
+    {
+        public function __construct()
+        {
+            parent::__construct(name: 'Charts', uriKey: 'charts');
+        }
+
+        public function breadcrumb(): ?string
+        {
+            return 'Per-request breadcrumb';
+        }
+    };
+
+    expect($tool->toArray()['breadcrumb'])->toBe('Per-request breadcrumb');
+});
+
 it('GET /martis/api/tools/{uriKey} returns 404 for unknown tools', function () {
     Martis::tools([new SystemStatusTool]);
 
