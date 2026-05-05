@@ -1,6 +1,6 @@
 import { Dialog } from 'primereact/dialog'
 import { useTranslation } from 'react-i18next'
-import { LockKeyIcon } from '@phosphor-icons/react'
+import { LockKeyIcon, XIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useGate } from '@/contexts/GateContext'
 
@@ -40,6 +40,12 @@ export function GateModal() {
       closable={dismissible}
       dismissableMask={dismissible}
       onHide={close}
+      // PrimeReact's default close glyph is a PrimeIcons font character
+      // (`pi pi-times`); Martis ships only Phosphor and does not load the
+      // PrimeIcons font, so the default header X renders as an empty
+      // hover-circle. Pass an explicit Phosphor icon so the close button
+      // is visible in every consumer regardless of font setup.
+      closeIcon={<XIcon size={18} weight="bold" />}
       header={(
         <div className="flex items-center gap-2" style={{ color: 'var(--martis-text)' }}>
           {iconName !== null ? (
