@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.7] — 2026-05-05
+
+### Fixed
+
+- **Unknown dashboard slug rendered an empty grid instead of 404** — `pages/Dashboard.tsx` used the route param `:uriKey` verbatim without validating it against the registered dashboards. A deep-link to `/dashboards/foo` (when no dashboard registered that uriKey) silently fell through to a page with the greeting + "No data available" empty grid, indistinguishable from a real-but-empty dashboard. The API already 404s correctly (`MetricController::show` line 60); the SPA was masking it. Unknown slugs now render the standard `NotFoundPage` (compass icon + 404 + descriptive copy), same as Resource / Lens deep-link 404s.
+
 ## [1.11.6] — 2026-05-05
 
 ### Changed

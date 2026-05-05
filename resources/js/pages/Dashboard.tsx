@@ -18,6 +18,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 import { useGateOptional } from '@/contexts/GateContext'
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
+import { NotFoundPage } from '@/pages/NotFound'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -45,6 +46,16 @@ export function DashboardPage() {
   const hasDashboards = dashboards.length > 0
 
   const [activeDashboard, setActiveDashboard] = useState<string | null>(null)
+
+  // v1.11.7+: validate `routeUriKey` against the registered dashboards
+  // before using it. Previously an unknown slug (e.g. `/dashboards/home`
+  // when the registered uriKey is `default`) silently fell through to
+  // an empty grid + greeting because `currentDashboard` resolved to
+  // `null` further down. The API correctly 404s on unknown uriKey;
+  // the SPA was masking it. Now we surface NotFoundPage instead.
+  const routeUriKeyIsKnown =
+    routeUriKey === undefined ||
+    dashboards.some((d) => d.uriKey === routeUriKey)
 
   // Resolution priority: route param (deep-link / sidebar shortcut)
   //   > user's last in-page selection > first registered dashboard.
@@ -76,6 +87,11 @@ export function DashboardPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
         </div>
+      ) : !routeUriKeyIsKnown ? (
+        // Deep-link to an unregistered dashboard — render the standard
+        // 404 surface instead of an empty grid masquerading as a real
+        // dashboard. v1.11.7+.
+        <NotFoundPage />
       ) : hasDashboards ? (
         <DashboardView
           dashboards={dashboards}
