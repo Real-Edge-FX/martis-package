@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.3] — 2026-05-05
+
+### Fixed
+
+- **GateModal close button glyph** — the dismiss button in the soft-gate modal rendered as an empty circle because PrimeReact's default close icon is a PrimeIcons font glyph (`pi pi-times`) and Martis only ships Phosphor. The `<Dialog>` now receives an explicit `closeIcon={<XIcon />}` Phosphor override so the X is visible on every consumer regardless of which icon font is loaded.
+
 ## [1.11.2] — 2026-05-05
 
 ### Fixed
