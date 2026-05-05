@@ -44,7 +44,12 @@ protected function registerDashboards(): void
 }
 ```
 
-When multiple dashboards are registered, the frontend shows tabs to switch between them.
+When multiple dashboards are registered, every user picks how they surface in the panel chrome via the PreferencesMenu cog (v1.10.4+):
+
+- **`tabs`** (default) — a single "Dashboard" entry in the sidebar plus a tab strip at the top of every dashboard view. Same as pre-v1.10.4.
+- **`sidebar`** — every registered dashboard becomes its own sidebar entry under `DASHBOARDS`, using `Dashboard::name()` as the label and `/dashboards/{uriKey}` as the URL. The first dashboard doubles as the panel root link (`/`) so deep-link bookmarks and the sidebar stay in sync. The in-page tab strip is hidden in this mode.
+
+Both surfaces share the same `/api/dashboards` payload and respect `canSee()` per dashboard. Persisted as `dashboardsLayout` on the user preferences row; defaults to `'tabs'` so existing installs see no behaviour change until a user opts in.
 
 ## Refresh Button
 

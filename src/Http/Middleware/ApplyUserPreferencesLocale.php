@@ -25,8 +25,8 @@ class ApplyUserPreferencesLocale
     {
         try {
             $prefs = $this->resolver->resolve($request);
-            $locale = is_string($prefs['locale'] ?? null) ? $prefs['locale'] : null;
-            if ($locale !== null && $locale !== '') {
+            $locale = $prefs['locale'];
+            if ($locale !== '') {
                 app()->setLocale($locale);
             }
         } catch (Throwable) {

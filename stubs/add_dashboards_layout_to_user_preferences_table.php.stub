@@ -1,0 +1,46 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * v1.10.4: per-user `dashboards_layout` preference.
+ *
+ * Adds the new column to the existing `martis_user_preferences` table.
+ * The default `'tabs'` keeps the v1.10.3 behaviour for every existing
+ * row (single sidebar entry + in-page tab strip). Users opt into the
+ * per-dashboard sidebar via the PreferencesMenu cog.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('martis_user_preferences')) {
+            return;
+        }
+
+        if (Schema::hasColumn('martis_user_preferences', 'dashboards_layout')) {
+            return;
+        }
+
+        Schema::table('martis_user_preferences', function (Blueprint $table) {
+            $table->string('dashboards_layout', 16)->default('tabs')->after('reduced_motion');
+        });
+    }
+
+    public function down(): void
+    {
+        if (! Schema::hasTable('martis_user_preferences')) {
+            return;
+        }
+
+        if (! Schema::hasColumn('martis_user_preferences', 'dashboards_layout')) {
+            return;
+        }
+
+        Schema::table('martis_user_preferences', function (Blueprint $table) {
+            $table->dropColumn('dashboards_layout');
+        });
+    }
+};

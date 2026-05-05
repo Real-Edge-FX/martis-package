@@ -259,6 +259,14 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
             ], 'martis-preferences-migration');
 
+            // v1.10.4 column-add migration: `dashboards_layout`. Only
+            // needed for installs that already have the preferences
+            // table from a pre-v1.10.4 release; new installs get the
+            // column from the create migration above.
+            $this->publishes([
+                __DIR__.'/../stubs/add_dashboards_layout_to_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000006_add_dashboards_layout_to_user_preferences_table.php'),
+            ], 'martis-preferences-dashboards-layout-migration');
+
             // Cache subsystem operational metadata. Lives in a
             // dedicated table so the version counter / cleared_at /
             // runtime override flag survive Cache::flush(),
@@ -275,6 +283,7 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../stubs/create_martis_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_martis_action_events_table.php'),
                 __DIR__.'/../stubs/create_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000004_create_martis_user_preferences_table.php'),
                 __DIR__.'/../stubs/create_martis_cache_state_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000005_create_martis_cache_state_table.php'),
+                __DIR__.'/../stubs/add_dashboards_layout_to_user_preferences_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000006_add_dashboards_layout_to_user_preferences_table.php'),
             ], 'martis-migrations');
 
             // Host-app MartisServiceProvider stub. Holds main menu /

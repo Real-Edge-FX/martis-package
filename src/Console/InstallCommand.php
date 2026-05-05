@@ -211,6 +211,17 @@ class InstallCommand extends Command
             'create_martis_user_preferences_table'
         );
 
+        // v1.10.4 — `dashboards_layout` column add for installs that
+        // already created the preferences table at an earlier release.
+        // Idempotent: the migration short-circuits when the column is
+        // already present (eg. fresh install where the create migration
+        // above already added it). Publishing it unconditionally keeps
+        // upgrade paths simple.
+        $this->publishMigrationStub(
+            StubResolver::path('add_dashboards_layout_to_user_preferences_table.php.stub'),
+            'add_dashboards_layout_to_user_preferences_table'
+        );
+
         // In-app notifications. Uses the standard Laravel
         // `notifications` table shape so any consumer-side Notification
         // class with the `database` channel delivers into the Martis

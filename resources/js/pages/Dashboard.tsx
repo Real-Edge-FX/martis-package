@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+import { usePreferencesOptional } from '@/contexts/PreferencesContext'
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 
 export function DashboardPage() {
@@ -107,6 +108,11 @@ function DashboardView({
   const { t } = useTranslation('resources')
   const qc = useQueryClient()
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  // v1.10.4+: when the user picks `sidebar` layout, the in-page tab
+  // strip would duplicate the navigation that's now in the sidebar.
+  // Hide the strip in that mode so the two surfaces never clash.
+  const prefs = usePreferencesOptional()
+  const showTabs = (prefs?.prefs.dashboardsLayout ?? 'tabs') === 'tabs'
 
   const currentDashboard = dashboards.find((d) => d.uriKey === currentKey) ?? null
   const isDefaultLayout = currentDashboard?.layout === 'default'
@@ -137,8 +143,10 @@ function DashboardView({
 
   return (
     <div className="space-y-4">
-      {/* Dashboard tabs (when multiple dashboards exist) */}
-      {dashboards.length > 1 && (
+      {/* Dashboard tabs (when multiple dashboards exist AND the user
+          preference picks `tabs` mode — `sidebar` mode hides this so
+          there is no duplicate navigation). */}
+      {showTabs && dashboards.length > 1 && (
         <div className="flex gap-1 overflow-x-auto pb-1">
           {dashboards.map((d) => (
             <button

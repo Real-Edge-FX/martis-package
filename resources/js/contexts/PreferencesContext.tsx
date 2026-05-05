@@ -20,6 +20,18 @@ export type AccentColor =
   | 'custom'
   | (string & {})
 export type UiDensity = 'comfortable' | 'dense'
+/**
+ * How dashboards surface in the panel chrome.
+ *
+ *   - `tabs` (default): a single "Dashboard" entry in the sidebar plus a
+ *      tab strip at the top of every dashboard view to flip between
+ *      registered dashboards.
+ *   - `sidebar`: every registered dashboard gets its own sidebar entry
+ *      under DASHBOARDS, and the in-page tab strip is hidden.
+ *
+ * Per-user preference; the default keeps the v1.10.3 behaviour.
+ */
+export type DashboardsLayout = 'tabs' | 'sidebar'
 
 export interface Preferences {
   theme: ThemeMode
@@ -28,6 +40,8 @@ export interface Preferences {
   density: UiDensity
   locale: string
   reducedMotion: boolean
+  /** v1.10.4+: how dashboards surface in the panel chrome. */
+  dashboardsLayout: DashboardsLayout
 }
 
 export interface PreferencesMeta {
@@ -57,6 +71,10 @@ const DEFAULTS: Preferences = {
   density: 'comfortable',
   locale: 'en',
   reducedMotion: false,
+  // Default keeps the pre-v1.10.4 behaviour (single sidebar entry, tabs
+  // for switching). Users opt into the per-dashboard sidebar via the
+  // PreferencesMenu cog.
+  dashboardsLayout: 'tabs',
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
