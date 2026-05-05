@@ -99,18 +99,44 @@ $this->lockedFor(fn ($r) => ! $r->user()?->hasRole('pro'))
      ->lockPreset('pro');  // applies badge + modal in one call
 ```
 
-### Plan rank shortcut
+### Plan rank shortcut — for linear-tier SaaS
 
-When the host has a tiered plan model (free / starter / pro / admin), wire up a resolver and use `requirePlan(string $tier)` instead of writing the predicate by hand:
+`requirePlan(string $tier)` is a convenience over `lockedFor` for the **most common SaaS shape**: a linear hierarchy of plans where each tier strictly includes everything below it (free ⊂ starter ⊂ pro ⊂ admin). This is the right tool for ~60–70% of SaaS panels. For non-linear models (feature flags, add-ons sold separately, multi-tenant tenant-plan, seat-based access) reach for the lower-level `lockedFor(Closure)` instead — same gate machinery, no opinion about hierarchy.
+
+When you want to use it, declare the resolver and the rank table:
 
 ```php
 // config/martis.php
 'gates' => [
+    // The plan resolver is the only integration point with the host
+    // app's billing layer. The package never imports Spatie / Cashier /
+    // any specific package — the closure below is what bridges them.
+    //
+    // Examples for each common stack:
+    //
+    //   Spatie roles (simplest; conflates RBAC with billing):
+    //   fn ($u) => $u?->roles->pluck('name')->intersect(['admin','pro','starter','free'])->first()
+    //
+    //   Cashier subscription (Stripe-driven; richer state):
+    //   fn ($u) => $u?->subscribed('default')
+    //                  ? config('billing.price_to_plan')[$u->subscription('default')->stripe_price]
+    //                  : 'free'
+    //
+    //   Custom column on the user (cheapest read):
+    //   fn ($u) => $u?->plan_name ?? 'free'
+    //
+    //   Multi-tenant (plan lives on the tenant, not the user):
+    //   fn ($u) => $u?->currentTeam?->plan_name ?? 'free'
+    //
     'plan_resolver' => fn (?Authenticatable $user): ?string =>
-        $user?->hasRole('admin') ? 'admin'
-        : ($user?->hasRole('pro') ? 'pro'
-        : ($user?->hasRole('starter') ? 'starter' : 'free')),
+        $user?->roles->pluck('name')
+            ->intersect(['admin', 'pro', 'starter', 'free'])
+            ->first(),
 
+    // Hierarquia. `requirePlan('pro')` locks every user whose resolved
+    // plan ranks below the 'pro' entry. Higher rank = higher tier.
+    // The package ships an EMPTY default; the host MUST declare its
+    // own tiers — names are app-specific.
     'plan_rank' => [
         'free'    => 0,
         'starter' => 1,
@@ -118,16 +144,33 @@ When the host has a tiered plan model (free / starter / pro / admin), wire up a 
         'admin'   => 3,
     ],
 ],
+```
 
+```php
 // In the entity class:
 $this->withBadge('Pro', 'accent')
      ->requirePlan('pro')
      ->lockPreset('pro');
 ```
 
-`requirePlan` evaluates `current_rank < required_rank → locked`. Without a resolver configured, the call is a no-op semantically (every authenticated user is treated as having no plan, so they get locked from any tier — the documented behaviour). Hosts that want graceful degradation should configure the resolver before calling `requirePlan`.
+`requirePlan` evaluates `current_rank < required_rank → locked`. **Without a resolver configured, every user is treated as having no plan (rank −1) and is locked from every declared tier** — fail-closed, intentional. Hosts that call `requirePlan` without configuring the resolver get a permanently locked panel until they wire it up.
 
-The package never imports Spatie / Cashier / any specific billing layer. The resolver closure is the integration point; whatever shape the host has, plug it in here.
+### When NOT to use `requirePlan`
+
+The plan ranker assumes:
+
+- **Linear hierarchy**: every higher tier strictly includes every lower tier.
+- **One tier per user**: the resolver returns one plan name string.
+- **Snapshot**: evaluated per request; no time window awareness (trial, grace period, etc.) beyond what the resolver itself encodes.
+
+Fall back to `lockedFor(Closure)` directly when:
+
+- You sell **add-ons** orthogonal to the tier ("Pro includes Analytics, Voice is bought separately").
+- You use **feature flags** (LaunchDarkly, Unleash) — the gate is "has the flag" not "ranks high enough".
+- The plan lives on the **tenant** and the user has different plans per team.
+- You need **per-feature gating** independent of plan ("this user has been allow-listed for the beta").
+
+In those cases, `lockedFor(fn ($r) => ! $r->user()?->canAccessFeature('pro-lab'))` keeps the same UI affordance (badge + modal + route guard) without forcing your access model into a linear rank.
 
 ## `canSee` vs `lockedFor` precedence
 

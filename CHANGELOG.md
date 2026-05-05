@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] — 2026-05-05
+
+### Changed
+
+- **`config('martis.gates.plan_rank')` defaults to `[]`.** v1.11.0 shipped the EdgeFlow-flavoured `free/starter/pro/admin` table as the package default, leaking product-specific tier names into the config. Plan names are app-specific; the default biased every consumer toward one shape. Hosts that call `requirePlan(...)` now declare their own table.
+
+- **`docs/gates.md`** reframes `requirePlan` as the **linear-tier shortcut**, not the universal gate. New "When NOT to use `requirePlan`" section calls out the cases where `lockedFor(Closure)` is the correct escape hatch (feature flags, add-ons sold separately, multi-tenant tenant-plan, per-feature allow lists).
+
+- **`config/martis.php` gates section** ships rich examples for `plan_resolver` across the four common host stacks: Spatie roles, Cashier subscription, custom column on the user, multi-tenant tenant-plan.
+
+### Migration
+
+Hosts that depended on the v1.11.0 default `plan_rank` copy the table into their own `config/martis.php`:
+
+```php
+'plan_rank' => [
+    'free'    => 0,
+    'starter' => 1,
+    'pro'     => 2,
+    'admin'   => 3,
+],
+```
+
+No code change. Hosts that never used `requirePlan` see no behaviour difference.
+
 ## [1.11.0] — 2026-05-05
 
 ### Added

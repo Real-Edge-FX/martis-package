@@ -1339,16 +1339,31 @@ return [
     | re-declaring the same modal copy at every call site.
     */
     'gates' => [
+        // The plan resolver is the consumer-supplied closure that maps
+        // an authenticated user (nullable) to a plan name string. The
+        // package never reaches into Spatie, Cashier, or any other
+        // billing layer — the resolver is the only integration point.
+        // Examples:
+        //   Spatie: fn ($u) => $u?->roles->pluck('name')->first()
+        //   Cashier: fn ($u) => $u?->subscribed('default') ? 'pro' : 'free'
+        //   Custom column: fn ($u) => $u?->plan_name
+        // Closures cannot survive `config:cache`. Either keep this key
+        // out of the cached config (set via a service provider boot
+        // hook) or rely on the per-request closure resolution Laravel
+        // provides via env-driven static factories.
         'plan_resolver' => null,
 
-        'plan_rank' => [
-            // Defaults match the EdgeFlow pattern; consumer overrides
-            // by setting their own rank table.
-            'free' => 0,
-            'starter' => 1,
-            'pro' => 2,
-            'admin' => 3,
-        ],
+        // Hierarquia linear de planos. Empty by default (v1.11.1+) — the
+        // host MUST declare its own tiers before `requirePlan(...)` does
+        // anything useful. Higher rank = higher tier; `requirePlan('pro')`
+        // locks every user whose resolved plan ranks below the 'pro' entry.
+        //
+        // `requirePlan` is the shortcut for the linear-tier model. For
+        // non-linear models (feature flags, add-ons sold separately,
+        // multi-tenant tenant-plan, seat-based access) use the lower-level
+        // `lockedFor(Closure)` directly — same `HasGate` trait, no plan
+        // ranker involved.
+        'plan_rank' => [],
 
         'presets' => [
             // Example shape (commented out — opt in by uncommenting +
