@@ -1,0 +1,162 @@
+# Working with Martis — Agent Guidelines
+
+This document teaches AI coding agents (Claude Code, Codex, Cursor, Gemini, Copilot) how to use the [Martis](https://github.com/Real-Edge-FX/martis-package) Laravel admin engine effectively in **{{project_name}}** (namespace `{{namespace}}`, package version `{{martis_version}}`).
+
+Treat the rules below as binding. They reflect the package's idioms, anti-patterns, and the shape its public API actually takes today.
+
+---
+
+## 1. What Martis is
+
+Martis is a React + TypeScript admin SPA bolted onto Laravel through a single composer package. It auto-discovers Resources, Dashboards, Tools, Cards, Metrics, Filters, and Lenses placed under `app/Martis/**`. Locale-aware out of the box (en, pt_PT, pt_BR by default). Soft-gates plans and policies through traits. The frontend bundle is published once via `php artisan martis:publish-assets`; subsequent builds in the host project go through the consumer-extension Vite config.
+
+Martis is opinionated. Reuse the package primitives instead of building new ones. When a host project needs custom behaviour, extend through the documented hooks (overrides, actions, custom field types, custom Tools), not by editing the published assets or vendor code.
+
+## 2. Generators
+
+Always reach for these before writing code by hand. They wire the right files, namespaces, and registry entries.
+
+| Command | Purpose |
+|---|---|
+| `php artisan martis:install` | First-time install: publishes config, assets, runs migrations, seeds default roles. |
+| `php artisan martis:publish-assets` | Republish the SPA bundle after a package upgrade. |
+| `php artisan martis:resource` | Generate a `Martis\Resource` (CRUD admin surface for one Eloquent model). |
+| `php artisan martis:dashboard` | Generate a `Martis\Dashboards\Dashboard`. |
+| `php artisan martis:tool` | Generate a sidebar Tool (PHP descriptor + TSX shell). |
+| `php artisan martis:card` | Custom dashboard card (PHP + React component). |
+| `php artisan martis:value` / `martis:trend` / `martis:partition` / `martis:progress` / `martis:activity-feed` / `martis:endpoint-table` | One generator per metric kind. |
+| `php artisan martis:filter` | New filter class for an existing Resource. |
+| `php artisan martis:lens` | Lens (saved view) on an existing Resource. |
+| `php artisan martis:action` | Bulk action on an existing Resource. |
+| `php artisan martis:field` | Custom field type (PHP + TSX). |
+| `php artisan martis:component` (alias `martis:override`) | Scaffold a React override into the consumer-extension overrides bucket. |
+| `php artisan martis:theme` / `martis:theme:diff` | New theme + diff against the default. |
+| `php artisan martis:policy` | Resource policy stub aligned with the auto-discovery namespace. |
+| `php artisan martis:user` | Create or promote a user (CLI helper for seeding admins). |
+| `php artisan martis:roles` | Seed the four default plan roles (`free`, `starter`, `pro`, `admin`). |
+| `php artisan martis:cache:status` / `:clear` / `:enable` / `:disable` | Inspect or toggle the four built-in cache layers (metrics, navigation, dashboards, schema) at runtime. |
+| `php artisan martis:list-env-vars` / `martis:list-overrides` | Inspect what env vars Martis honours, and which override stubs exist. |
+| `php artisan martis:stubs` | Publish the stubs the generators use, so the host can customise them. |
+
+When unsure which generator to call, run `php artisan list martis` and read the `--help` of the candidate.
+
+## 3. Field idioms
+
+- Always import field classes from `Martis\Fields\*`. Never duplicate field code; the package owns the rendering pipeline.
+- Use `Text` for free-form short strings, `Code` for monospaced editable blocks, `Number` for numeric, `Date` / `DateTime` for temporal, `Select` / `MultiSelect` for finite values, `Boolean` for booleans, `Email`, `Currency`, `Color`, `Country`, etc. — the catalog covers the common cases.
+- For relations, prefer `BelongsTo`, `BelongsToMany`, `HasMany`, `HasOne`, `MorphTo`, `MorphMany`. Never hand-roll a foreign-key picker as a `Select`.
+- Apply `->rules([...])` to every editable field. The same array drives validation on the API and visible errors on the form.
+- Hide irrelevant fields per context with `->onlyOnIndex()`, `->onlyOnDetail()`, `->hideFromIndex()`, `->showOnlyOn(['detail'])`. Don't move computation into the model just to gate visibility.
+- Custom display: `->displayUsing(fn ($value, $row) => ...)` for index/detail, `->resolveUsing(fn ($value, $row) => ...)` for serialisation. Keep them pure.
+- For finite enumerations, **always** define a PHP Enum and feed `Select::make(...)->options($enum::values())`. Do not pass a hand-typed associative array.
+
+## 4. Resource conventions
+
+- Extend `Martis\Resource`. Each subclass needs: `public static function model(): string`, `public function fields(Request $request): array`, and either a `label()` / `singularLabel()` pair or a `static::$label` property.
+- Use `static::indexQuery(Request $request, Builder $query): Builder` for owner-scoping or default joins. Don't filter inside `fields()`.
+- Authorization helpers (`authorizedToViewAny`, `authorizedToView`, `authorizedToCreate`, `authorizedToUpdate`, `authorizedToDelete`) take **only the Request**. Read the row off `$this->model`. Anything else breaks the contract — Martis enforces single-arg signatures via PHP type system.
+- Prefer policies (`App\Martis\Policies\<Resource>Policy`) for non-trivial authorization. Auto-discovered when named conventionally.
+- For per-row search use `static::indexSearchable()` plus a `static::$search` array. For lenses (saved views) generate via `php artisan martis:lens`.
+- Bulk actions live as separate classes under `App\Martis\Actions\` and are registered via the resource's `actions()` method.
+
+## 5. Dashboards and cards
+
+- Extend `Martis\Dashboards\Dashboard`. The constructor signature is `(?string $name = null, ?string $uriKey = null)` — keep both nullable to match the parent.
+- Inside the constructor, call `$this->withIcon('phosphor-icon-name')` for the sidebar glyph. Use compact, lowercased Phosphor-style names (`chart-line-up`, `rocket-launch`).
+- `cards(Request $request): array` returns a list of `MetricContract|Card|array`. If a card is your own `Cards\Card` subclass, call `->toArray()` on it before returning so the static type checks pass.
+- Cards intended to render through the consumer extension bundle declare `componentKey('card:my-key')` in the constructor. Register the matching TSX in `resources/js/martis-extensions/cards/MyKey.tsx` exporting a default React component.
+- Per-card configuration that the TSX needs on first paint goes inside `meta()`. Always merge with `parent::meta()`.
+
+## 6. Soft gates
+
+- Apply `requirePlan('starter'|'pro')` to a Dashboard, Tool, Card, Filter, Lens, or Resource in its constructor (or via the `HasGate` trait). Combine with `withBadge('Pro', 'accent')` for the visible badge and `lockModal([...])` for the upsell modal copy.
+- The modal copy must be resolved at request time via `__('edgeflow.gates.pro.title')` etc. Never call `__()` in `config/martis.php` or any other `config/*.php` file — the translator is not bound at config-load time. The package will silently fail to resolve the keys.
+- For multi-locale shops, build the lock modal arguments inside the constructor using `__()` calls, not by reading from the config preset table.
+- The CTA `url` should be relative (e.g. `/billing/upgrade?plan=pro`) so it works through any reverse-proxy setup.
+
+## 7. Plan resolver
+
+- Wire the resolver in `config/martis.php` under `gates.plan_resolver`. The value MUST be a `var_export`-safe callable: a class-method-array (`[App\Martis\Gates\MyResolver::class, 'resolve']`) or a static method reference. Never a `Closure`.
+- Closures break `php artisan config:cache` because `var_export()` cannot serialise them. Setting the closure in a service provider's `boot()` does **not** rescue you — `config:cache` boots providers before snapshotting.
+- The resolver returns the user's tier as a string from the configured `gates.plan_rank` table. Return `null` only if the user has no tier at all; the gate ranker treats `null` as below-free.
+
+## 8. i18n
+
+- Every user-visible string MUST go through `__()` or `trans()`. No hardcoded labels.
+- Provide three locales by default: `lang/en/<file>.php`, `lang/pt_PT/<file>.php`, `lang/pt_BR/<file>.php`. Keep the keys identical across locales.
+- Compose locale keys with namespacing: `<scope>.<group>.<key>`. Example: `edgeflow.gates.pro.title`.
+- For dynamic substitutions use placeholders (`:symbol`, `:plan`) and pass them through the second argument to `__()`. Don't concatenate.
+
+## 9. Anti-patterns (do NOT do these)
+
+- ❌ Closures inside `config/martis.php` (or any cached config). Use class-method arrays.
+- ❌ Calling `__()` or any service-container helper at config-load time.
+- ❌ Editing files under `vendor/martis/martis/`. They are vendor; changes are erased on the next `composer install`.
+- ❌ Putting host-app code (Resources, Dashboards, Tools) inside the package. Consumer code lives in `app/Martis/**`, host views in `resources/views/martis-extensions/**`.
+- ❌ Hardcoded user-facing copy. All strings go through `__()` and live in `lang/`.
+- ❌ Ignoring `php artisan martis:publish-assets` after a package upgrade. The published `public/vendor/martis/` bundle gets stale.
+- ❌ Adding extra parameters to `authorizedTo*` helpers; the signature is single-`Request` and the row comes from `$this->model`.
+- ❌ Skipping the `martis:*` generators and writing the boilerplate by hand. The generators are aware of namespace, registry, and asset-publishing nuances.
+- ❌ Modifying or referencing internal task IDs, vendor codenames, or comparable competitor-product names in code or commit messages. Public docs follow the same rule.
+
+## 10. Deep-dive pointer
+
+This file is dense and prescriptive on purpose. For exhaustive treatment of any topic, read the full Martis doc directly — they live under `vendor/martis/martis/docs/`:
+
+| Slug | Topic |
+|---|---|
+| `quick-start` | First resource in five minutes. |
+| `installation-guide` | Install + publish flow. |
+| `configuration` | Every key in `config/martis.php`. |
+| `resources` | Resource API in full. |
+| `fields` | Every field type with examples. |
+| `relationships` | BelongsTo, BelongsToMany, HasMany, MorphTo. |
+| `dashboards` | Dashboard, cards, layout. |
+| `metrics` | Value / Trend / Partition / Progress / Activity feed. |
+| `tools` | Sidebar Tools. |
+| `lenses` | Saved-view lenses. |
+| `filters` | Filter classes + uriKey discipline. |
+| `actions` | Bulk + row actions. |
+| `gates` | Soft gates, plan ranks, modals. |
+| `authorization` | Policies and the `authorizedTo*` helpers. |
+| `authentication` | Built-in login, registration, password reset. |
+| `roles` | Spatie Permission integration + scaffolder. |
+| `i18n` | Locale strategy + lang file conventions. |
+| `cache` | The four cache layers. |
+| `theming` | Theme tokens + the `martis:theme` generator. |
+| `loader` | Boot order and what runs at config load. |
+| `menus` | Sidebar / topnav customisation. |
+| `notifications` | Database / mail / custom channels. |
+| `overrides` | React component overrides. |
+| `components` | Built-in React component catalogue. |
+| `panels-and-tabs` | Panels + tabs in resource detail. |
+| `repeater` | Repeater field. |
+| `default_row_actions` | Configurable per-row actions. |
+| `keyboard-shortcuts` | Built-in keybindings. |
+| `global-search` | Search box behaviour. |
+| `preferences` | Per-user preferences API. |
+| `sticky_views` | Persistent index views. |
+| `impersonation` | Acting as another user. |
+| `sso` | SSO setup. |
+| `customizing-generators` | Override generator stubs. |
+| `differentials` | Martis-only features beyond the standard playbook. |
+| `tool-boot-patterns` | When to compute Tool meta. |
+| `grid-layout` | Card grid system. |
+| `troubleshooting` | Common failures + fixes. |
+| `v1-roadmap` | What's coming. |
+
+Read these directly with your file-read tool when you need depth.
+
+{{MCP_SECTION}}
+## 11. Martis MCP server
+
+This project also exposes the Martis docs through an MCP server (`php artisan martis:mcp-serve`, wired into your agent's MCP config). Three tools available:
+
+- `martis_doc_list()` — same table as section 10, returned as data.
+- `martis_doc_read(slug)` — full markdown of one page.
+- `martis_doc_search(query, limit?)` — top matches across all docs with snippets.
+
+When you need depth on a specific topic, **prefer these MCP tools** over scanning `vendor/martis/martis/docs/` with the file-read tool: the server returns scoped, ranked results with lower token cost.
+
+The MCP server can be toggled at runtime with `MARTIS_MCP_ENABLED=true|false` in the host project's `.env`. When disabled, the tools return a short notice instead of running; no need to un-wire the MCP config.
+{{/MCP_SECTION}}
