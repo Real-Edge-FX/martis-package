@@ -29,6 +29,7 @@ use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
+use Martis\Console\AgentsCommand;
 use Martis\Console\CacheClearCommand;
 use Martis\Console\CacheDisableCommand;
 use Martis\Console\CacheEnableCommand;
@@ -43,6 +44,7 @@ use Martis\Console\InstallCommand;
 use Martis\Console\LensMakeCommand;
 use Martis\Console\ListEnvVarsCommand;
 use Martis\Console\ListOverridesCommand;
+use Martis\Console\McpServeCommand;
 use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ProgressMakeCommand;
@@ -216,6 +218,8 @@ class MartisServiceProvider extends ServiceProvider
                 SsoMakeCommand::class,
                 RolesScaffoldCommand::class,
                 StubsCommand::class,
+                AgentsCommand::class,
+                McpServeCommand::class,
             ]);
 
             $this->publishes([

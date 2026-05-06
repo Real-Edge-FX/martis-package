@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] — 2026-05-05
+
+### Added
+
+- **`martis:agents` artisan command** — interactive generator that detects which AI coding agents the host project uses (Claude Code, Cursor, Gemini CLI, Codex, GitHub Copilot) and writes a dense, prescriptive primer per agent. Always writes `AGENTS.md`; the per-agent variant (`CLAUDE.md`, `.cursorrules`, `GEMINI.md`, `.github/copilot-instructions.md`) carries the same bytes. Three placeholders are substituted: `{{project_name}}`, `{{namespace}}`, `{{martis_version}}`. The primer covers the 31 generators, field idioms, resource conventions, soft gates, the var_export-safe plan resolver, the i18n contract, and concentrated anti-patterns, with a deep-dive pointer to `vendor/martis/martis/docs/<slug>.md`. Lifecycle flags: `--agent=`, `--with-mcp`, `--without-mcp`, `--mcp-only`, `--mcp-unwire`, `--force`, `--dry-run`, `--no-interaction`. See `docs/agent-guidelines.md`.
+- **`martis:mcp-serve` artisan command** — stdio MCP server built on `php-mcp/server` that exposes the package documentation as three tools: `martis_doc_list`, `martis_doc_read(slug)`, and `martis_doc_search(query, limit)`. Runtime toggle via `MARTIS_MCP_ENABLED=true|false` in the host project's `.env` — when disabled, the tools return a short notice instead of running and the handshake stays clean so the agent client does not error.
+- **MCP config patcher** — idempotent merge of the Martis entry into the agent's MCP config file. JSON (Claude Code, Cursor, Gemini) and TOML (Codex). Drops a `.bak` snapshot before any rewrite. Other servers the operator has configured are preserved untouched.
+- **`AgentStubFreshnessTest`** — Pest integrity check that fails CI if the canonical stub mentions artisan commands, Martis classes, env vars, or MCP tool names that are no longer present in the package.
+- **New page** `docs/agent-guidelines.md` covering setup, flags, lifecycle scenarios, and the manual MCP wiring snippet for operators who prefer to wire by hand. Mirror page in `martis-docs` under `customization/agent-guidelines.mdx`.
+
+### Changed
+
+- `composer.json` requires `php-mcp/server: ^3.3` to power the MCP server.
+
 ## [1.11.7] — 2026-05-05
 
 ### Fixed
