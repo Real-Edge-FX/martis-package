@@ -676,8 +676,9 @@ class InstallCommand extends Command
 
     /**
      * Minimum npm dependencies the consumer-extension build needs
-     * (v1.10.0+). Versions track what the host package itself ships
-     * to keep peer-dep compat predictable.
+     * (v1.10.0+) that are NOT version-coupled to the host's Vite
+     * major. Versions track what the host package itself ships to
+     * keep peer-dep compat predictable.
      *
      * `react-router-dom`, `react-i18next` and `@tanstack/react-query`
      * are intentionally NOT in this list — the package re-exposes
@@ -685,16 +686,19 @@ class InstallCommand extends Command
      * shims resolve bare imports without npm-installing them. See
      * `vite.extensions.config.ts.stub` for the alias map.
      *
+     * The `vite` + `@vitejs/plugin-react` pair is resolved separately
+     * by {@see resolveVitePluginReactPair()} because the two are
+     * peer-dep-coupled and we have to honour whichever Vite major
+     * the host Laravel scaffold shipped.
+     *
      * @var array{dependencies: array<string, string>, devDependencies: array<string, string>}
      */
-    private const EXTENSION_NPM_DEPS = [
+    private const STABLE_NPM_DEPS = [
         'dependencies' => [
             'react' => '^18 || ^19',
             'react-dom' => '^18 || ^19',
         ],
         'devDependencies' => [
-            '@vitejs/plugin-react' => '^4 || ^5 || ^6',
-            'vite' => '^5 || ^6 || ^7 || ^8',
             'typescript' => '^5 || ^6',
             '@types/react' => '^18 || ^19',
             '@types/react-dom' => '^18 || ^19',
@@ -702,6 +706,209 @@ class InstallCommand extends Command
             '@phosphor-icons/react' => '^2',
         ],
     ];
+
+    /**
+     * Maps the host's Vite major version to a known-compatible
+     * `@vitejs/plugin-react` range. Each row reflects the
+     * `peerDependencies.vite` declared by the plugin author on
+     * the registry at the time the row was added.
+     *
+     * | plugin-react | peerDependencies.vite                    |
+     * |--------------|-------------------------------------------|
+     * | ^4           | ^4.2.0 \|\| ^5.0.0                         |
+     * | ^5           | ^4.2.0 \|\| ^5.0.0 \|\| ^6.0.0 \|\| ^7.0.0 |
+     * | ^6           | ^8.0.0                                    |
+     *
+     * Add a new row when a new pair stabilises. A Vite major missing
+     * from the table makes {@see resolveVitePluginReactPair()} skip
+     * the auto-bump and emit a loud warning with a snippet the user
+     * can paste — never silently picks a wrong range.
+     *
+     * @var array<int, string>
+     */
+    private const VITE_COMPAT_TABLE = [
+        4 => '^4',
+        5 => '^4 || ^5',
+        6 => '^5',
+        7 => '^5',
+        8 => '^6',
+        9 => '^7',
+    ];
+
+    /**
+     * Default Vite major used when the host `package.json` has no
+     * `vite` entry at all (very fresh app, or non-Laravel scaffold).
+     * Updated together with the active Laravel scaffold.
+     */
+    private const DEFAULT_VITE_MAJOR = 7;
+
+    /**
+     * Optional escape hatch. When the env var is set to a non-empty
+     * semver range, the resolver uses that range for the
+     * `@vitejs/plugin-react` entry verbatim, regardless of the
+     * compat table. Lets operators unblock fresh installs against a
+     * Vite major Martis does not yet know about, e.g.:
+     *
+     *   MARTIS_PLUGIN_REACT_RANGE='^7' php artisan martis:install
+     */
+    private const ENV_OVERRIDE_KEY = 'MARTIS_PLUGIN_REACT_RANGE';
+
+    /**
+     * Pure resolver for the `vite` + `@vitejs/plugin-react` pair.
+     *
+     * Returns a decision the caller can apply against a `package.json`:
+     *
+     * - `vite_range`         — the Vite range to write when the host
+     *                          has none. Mirrors the host range when
+     *                          present (we never overwrite vite).
+     * - `plugin_react_range` — the `@vitejs/plugin-react` range to
+     *                          write when the host has none, or null
+     *                          when the resolver refuses to pick a
+     *                          range (unknown vite major / invalid
+     *                          env override).
+     * - `source`             — `env`, `table`, `default`, `env-invalid`,
+     *                          `unknown-vite`, or `parse-failed`. Tags
+     *                          the decision so tests and callers can
+     *                          assert behaviour without parsing prose.
+     * - `warnings`           — list of human-readable warnings to
+     *                          surface to the operator. Non-empty only
+     *                          when the resolver is skipping the
+     *                          plugin-react write or ignoring a
+     *                          mal-formed env override.
+     *
+     * The function is static + pure (no I/O, no DB, no clock) so the
+     * test matrix can cover every branch quickly.
+     *
+     * @return array{vite_range: string, plugin_react_range: ?string, source: string, warnings: list<string>}
+     */
+    public static function resolveVitePluginReactPair(
+        ?string $hostViteRange,
+        ?string $envOverride,
+    ): array {
+        $warnings = [];
+        $defaultViteRange = '^'.self::DEFAULT_VITE_MAJOR;
+        $hostHasVite = $hostViteRange !== null && trim($hostViteRange) !== '';
+        $effectiveViteRange = $hostHasVite ? (string) $hostViteRange : $defaultViteRange;
+
+        $envOverride = $envOverride === null ? null : trim($envOverride);
+        if ($envOverride !== null && $envOverride !== '') {
+            if (! self::looksLikeSemverRange($envOverride)) {
+                $warnings[] = sprintf(
+                    'Ignored %s=%s: not a valid semver range. Skipped adding @vitejs/plugin-react to package.json.',
+                    self::ENV_OVERRIDE_KEY,
+                    $envOverride,
+                );
+
+                return [
+                    'vite_range' => $effectiveViteRange,
+                    'plugin_react_range' => null,
+                    'source' => 'env-invalid',
+                    'warnings' => $warnings,
+                ];
+            }
+
+            return [
+                'vite_range' => $effectiveViteRange,
+                'plugin_react_range' => $envOverride,
+                'source' => 'env',
+                'warnings' => $warnings,
+            ];
+        }
+
+        if (! $hostHasVite) {
+            return [
+                'vite_range' => $defaultViteRange,
+                'plugin_react_range' => self::VITE_COMPAT_TABLE[self::DEFAULT_VITE_MAJOR],
+                'source' => 'default',
+                'warnings' => $warnings,
+            ];
+        }
+
+        $major = self::extractMajor((string) $hostViteRange);
+        if ($major === null) {
+            $warnings[] = sprintf(
+                'Could not parse the host Vite constraint (%s). Skipped adding @vitejs/plugin-react. '
+                .'Set %s explicitly (e.g. %s="^5") or pin a known Vite major in package.json.',
+                $hostViteRange,
+                self::ENV_OVERRIDE_KEY,
+                self::ENV_OVERRIDE_KEY,
+            );
+
+            return [
+                'vite_range' => $effectiveViteRange,
+                'plugin_react_range' => null,
+                'source' => 'parse-failed',
+                'warnings' => $warnings,
+            ];
+        }
+
+        if (! isset(self::VITE_COMPAT_TABLE[$major])) {
+            $floor = min(array_keys(self::VITE_COMPAT_TABLE));
+            $ceiling = max(array_keys(self::VITE_COMPAT_TABLE));
+            $warnings[] = sprintf(
+                'Vite ^%d is not in this Martis release\'s @vitejs/plugin-react compat table '
+                .'(known range: ^%d..^%d). Skipped adding @vitejs/plugin-react to package.json. '
+                .'To unblock without upgrading Martis, find a plugin-react release whose '
+                .'peerDependencies.vite covers ^%d and re-run with %s set, e.g.: '
+                .'%s="^7" php artisan martis:install',
+                $major,
+                $floor,
+                $ceiling,
+                $major,
+                self::ENV_OVERRIDE_KEY,
+                self::ENV_OVERRIDE_KEY,
+            );
+
+            return [
+                'vite_range' => $effectiveViteRange,
+                'plugin_react_range' => null,
+                'source' => 'unknown-vite',
+                'warnings' => $warnings,
+            ];
+        }
+
+        return [
+            'vite_range' => $effectiveViteRange,
+            'plugin_react_range' => self::VITE_COMPAT_TABLE[$major],
+            'source' => 'table',
+            'warnings' => $warnings,
+        ];
+    }
+
+    /**
+     * Loose validation: accepts any string composed of digits, dots,
+     * carets, tildes, comparison operators, pipes, spaces, hyphens
+     * or the `x` wildcard. Designed to catch obvious typos while
+     * letting npm itself reject anything subtler at install time.
+     */
+    private static function looksLikeSemverRange(string $range): bool
+    {
+        return (bool) preg_match('/^[\s\^~><=*\d.|\-x]+$/i', $range);
+    }
+
+    /**
+     * Picks the major Vite version `npm install` would resolve the
+     * host's range to. For caret OR chains (`^5 || ^6 || ^7`) the
+     * highest caret wins, mirroring npm's "max satisfying" rule.
+     * For other shapes (tildes, comparator pairs) we fall back to
+     * the first integer in the string, which covers the realistic
+     * cases (`~7.0.0`, `>=7 <8`).
+     */
+    private static function extractMajor(string $range): ?int
+    {
+        $carets = [];
+        if (preg_match_all('/\^(\d+)/', $range, $matches) > 0) {
+            $carets = array_map('intval', $matches[1]);
+        }
+        if ($carets !== []) {
+            return max($carets);
+        }
+        if (preg_match('/(\d+)/', $range, $m) === 1) {
+            return (int) $m[1];
+        }
+
+        return null;
+    }
 
     /**
      * Add the consumer-extension npm packages (`react`, `react-dom`,
@@ -716,6 +923,14 @@ class InstallCommand extends Command
      * therefore failed the very first `npm run build:extensions` with
      * `Cannot find package '@vitejs/plugin-react'`. This method
      * closes that gap.
+     *
+     * The `vite` + `@vitejs/plugin-react` pair is resolved through
+     * {@see resolveVitePluginReactPair()} so the constraint we write
+     * always matches the host's Vite major. When the host runs a
+     * Vite major Martis does not know about, the resolver returns
+     * `plugin_react_range: null` and we skip the auto-bump instead
+     * of writing an incompatible range silently. Operators can
+     * always force a range via the `MARTIS_PLUGIN_REACT_RANGE` env.
      */
     protected function updatePackageJsonDeps(Filesystem $filesystem): void
     {
@@ -735,7 +950,7 @@ class InstallCommand extends Command
 
         $added = [];
 
-        foreach (self::EXTENSION_NPM_DEPS as $section => $entries) {
+        foreach (self::STABLE_NPM_DEPS as $section => $entries) {
             /** @var array<string, mixed> $current */
             $current = is_array($decoded[$section] ?? null) ? $decoded[$section] : [];
 
@@ -750,6 +965,37 @@ class InstallCommand extends Command
             ksort($current);
             $decoded[$section] = $current;
         }
+
+        // `devDependencies` is guaranteed to exist at this point: the
+        // STABLE_NPM_DEPS loop above seeded the array even when the
+        // host package.json had no `devDependencies` key.
+        /** @var array<string, mixed> $devDeps */
+        $devDeps = $decoded['devDependencies'];
+
+        $hostViteRange = isset($devDeps['vite']) && is_string($devDeps['vite'])
+            ? $devDeps['vite']
+            : null;
+        $envOverride = getenv(self::ENV_OVERRIDE_KEY);
+        $envOverride = $envOverride === false ? null : $envOverride;
+
+        $resolution = self::resolveVitePluginReactPair($hostViteRange, $envOverride);
+
+        foreach ($resolution['warnings'] as $warning) {
+            $this->components->warn($warning);
+        }
+
+        if (! isset($devDeps['vite'])) {
+            $devDeps['vite'] = $resolution['vite_range'];
+            $added[] = 'devDependencies:vite';
+        }
+
+        if ($resolution['plugin_react_range'] !== null && ! isset($devDeps['@vitejs/plugin-react'])) {
+            $devDeps['@vitejs/plugin-react'] = $resolution['plugin_react_range'];
+            $added[] = 'devDependencies:@vitejs/plugin-react';
+        }
+
+        ksort($devDeps);
+        $decoded['devDependencies'] = $devDeps;
 
         if ($added === []) {
             return;

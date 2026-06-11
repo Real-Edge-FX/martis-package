@@ -322,6 +322,34 @@ The published `index.ts` uses `import.meta.glob` to register every `.tsx` under 
 
 The PHP side binds to the same key via `withComponent('tool:charts')` etc., so filename and key stay in lock-step. **No manual `componentRegistry.register(...)` calls** — drop the file in the right bucket, run `npm run build:extensions`, and the component is live.
 
+### Vite + `@vitejs/plugin-react` compatibility (v1.12.1+)
+
+`martis:install` adds the npm devDependencies the extension build needs (`@vitejs/plugin-react`, `vite`, `typescript`, `@types/*`, `@phosphor-icons/react`). The `vite` + `@vitejs/plugin-react` pair is peer-dep-coupled: a new major of `@vitejs/plugin-react` typically requires a new major of `vite`, and a mismatch produces either `npm install` `ERESOLVE` errors or runtime build crashes.
+
+To keep installs safe, the installer reads your host's existing `devDependencies.vite` and picks the matching `@vitejs/plugin-react` range from a known-compat table:
+
+| Host Vite major | `@vitejs/plugin-react` range written |
+|-----------------|--------------------------------------|
+| `^4`            | `^4`                                 |
+| `^5`            | `^4 \|\| ^5`                          |
+| `^6`            | `^5`                                  |
+| `^7` (Laravel 12 default) | `^5`                        |
+| `^8`            | `^6`                                  |
+| `^9`            | `^7`                                  |
+
+If your host runs a Vite major that is NOT in the table (e.g. you upgraded ahead of the installed Martis release), the installer **skips** writing `@vitejs/plugin-react` and prints a loud warning with a paste-ready unblock recipe. Existing `@vitejs/plugin-react` entries are never overwritten.
+
+#### Overriding the table
+
+If you know which `@vitejs/plugin-react` release is compatible with your Vite major but Martis does not, set the `MARTIS_PLUGIN_REACT_RANGE` env var before running the installer. The resolver writes the value verbatim and skips the table lookup entirely:
+
+```bash
+# Vite 10 + plugin-react 7 (hypothetical example)
+MARTIS_PLUGIN_REACT_RANGE='^7' php artisan martis:install
+```
+
+The override beats every other code path including the unknown-Vite warning. Mal-formed values are rejected (with a clear message) and the installer falls back to "skip + warn" — it never writes a constraint it cannot parse.
+
 ### The five-minute Tool path
 
 ```bash
