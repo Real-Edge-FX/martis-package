@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] — 2026-05-06
+
+### Fixed
+
+- **`martis:install` could write an incompatible `@vitejs/plugin-react` constraint into the host `package.json`.** v1.12.0 declared the dep as `^4 || ^5 || ^6`, which let npm resolve to `plugin-react 6` on a fresh Laravel app shipping with Vite 7. `@vitejs/plugin-react@^6` requires `vite ^8` as a peer dep, so `npm install` failed with `ERESOLVE` (or, with `--legacy-peer-deps`, the next `npm run build:extensions` crashed at runtime). v1.12.1 replaces the static constraint with a Vite-major-aware resolver: the installer reads the host's existing `devDependencies.vite`, picks the matching `@vitejs/plugin-react` range from a known-compat table (Vite ^4..^9), and only writes when the choice is safe. Hosts running a Vite major outside the table get a loud warning + a paste-ready unblock snippet instead of a silent bad write.
+
+### Added
+
+- **`MARTIS_PLUGIN_REACT_RANGE` env override.** Set it to a semver range to bypass the compat table during `martis:install`. Lets operators unblock fresh installs against a Vite major the installed Martis release does not yet know about, e.g. `MARTIS_PLUGIN_REACT_RANGE='^7' php artisan martis:install`. Mal-formed values are rejected with a clear message and the `@vitejs/plugin-react` write is skipped (rather than silently written wrong).
+- **`InstallCommand::resolveVitePluginReactPair()`** — pure static helper exposing the decision logic for testability and reuse. Returns a tagged decision (`source: env|table|default|env-invalid|unknown-vite|parse-failed`) plus the warnings to surface.
+
 ## [1.12.0] — 2026-05-05
 
 ### Added

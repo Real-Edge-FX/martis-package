@@ -15,11 +15,18 @@ jobs:
       fail-fast: false
       matrix:
         php: ["8.3", "8.4"]
-        laravel: ["11.*", "12.*", "13.*"]
+        laravel: ["12.*", "13.*"]
         # 8.3 is the floor (Pest 4 + PHPUnit 12 require it; PHPUnit 12's
         # GarbageCollectorStatus crashes on PHP 8.2). 8.4 is the ceiling
-        # so we catch upcoming breaks early. Laravel: ^11 still
-        # maintained, ^12 current, ^13 supported since v1.3.0.
+        # so we catch upcoming breaks early. Laravel ^11 was dropped
+        # from the matrix on 2026-06-11: every v11.x release on packagist
+        # is flagged with security advisories (PKSA-mdq4-51ck-6kdq and
+        # 4 others), so composer refuses to install any v11.* version
+        # without an `policy.advisories.ignore-id` opt-in. ^11 is still
+        # declared in `composer.json` for self-hosting users who accept
+        # the trade-off, but the CI lane has no path to a green run
+        # against L11 today. ^12 is current, ^13 is supported since
+        # v1.3.0.
 
     steps:
       - uses: actions/checkout@v4
@@ -42,11 +49,9 @@ jobs:
       - name: Pin Laravel ${{ matrix.laravel }}
         run: |
           # orchestra/testbench tracks Laravel's major:
-          #   L11 → testbench ^9
           #   L12 → testbench ^10
           #   L13 → testbench ^11
           case "${{ matrix.laravel }}" in
-            11.*) TB="^9"  ;;
             12.*) TB="^10" ;;
             13.*) TB="^11" ;;
             *)    echo "Unknown Laravel matrix value: ${{ matrix.laravel }}" >&2; exit 1 ;;
