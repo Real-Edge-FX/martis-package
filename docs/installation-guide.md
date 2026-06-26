@@ -187,6 +187,27 @@ php artisan migrate
 
 The `martis:install` command runs all four behind the scenes when invoked with `--with-profile`.
 
+#### UUID / ULID / custom user PKs (v1.12.2+)
+
+The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to whichever primary-key shape your host `users` table uses. The adaptation happens at migration time — each stub introspects the configured user model (`auth.providers.{provider}.model`) and picks the matching column helper:
+
+| User model | `user_id` column |
+|---|---|
+| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained()` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained()` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained()` |
+| `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
+
+The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
+
+If your project uses a non-standard combination — for example, a custom string PK that does not register either canonical trait — set the `MARTIS_USER_ID_COLUMN_TYPE` env var to force the resolver. Accepted values: `bigint`, `uuid`, `ulid`, `string`.
+
+```bash
+MARTIS_USER_ID_COLUMN_TYPE=uuid php artisan martis:install
+```
+
+The env override always beats auto-detection. Mal-formed values (anything outside the four accepted options) are ignored and the auto-detection runs as if the variable were unset. Default `null` keeps the auto-detection on, which is the right behaviour for the overwhelming majority of host apps.
+
 ### Step 6: Publish Translations (Optional)
 
 ```bash

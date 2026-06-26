@@ -19,6 +19,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | User ID column type for Martis-published migrations
+    |--------------------------------------------------------------------------
+    | Controls how the `user_id` (and polymorphic `notifiable_id`)
+    | columns in Martis-published tables — `martis_user_preferences`,
+    | `martis_action_events`, and `notifications` — are declared.
+    |
+    | Default `null` enables auto-detection: each migration stub
+    | inspects the configured user model (`auth.providers.{provider}.model`),
+    | checks for the `HasUuids` / `HasUlids` traits, and reads
+    | `$keyType` + `$incrementing` to pick the right column type.
+    |
+    | Set this explicitly only when the auto-detection mis-fires
+    | (e.g. a custom user model that does not use the canonical
+    | Laravel traits). Accepted values:
+    |
+    |   • `bigint` — `unsignedBigInteger` / `foreignId` (Laravel default)
+    |   • `uuid`   — `uuid` / `foreignUuid` / `uuidMorphs`
+    |   • `ulid`   — `ulid` / `foreignUlid` / `ulidMorphs`
+    |   • `string` — generic `string` column with an explicit `foreign()`
+    |
+    | Available since v1.12.2.
+    */
+    'user_id_column_type' => env('MARTIS_USER_ID_COLUMN_TYPE'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Base Middleware
     |--------------------------------------------------------------------------
     | Applied to all Martis routes (public and protected).

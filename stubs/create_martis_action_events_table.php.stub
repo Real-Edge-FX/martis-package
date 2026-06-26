@@ -14,6 +14,12 @@ use Illuminate\Support\Facades\Schema;
  *
  * The `martis_` prefix keeps every Martis-owned table in one namespace so
  * it never collides with an app's own `action_events` table.
+ *
+ * The `user_id` column matches whichever primary-key shape the host
+ * `users` table uses (no FK constraint — Martis keeps the audit log
+ * even when the actor is later deleted). See the resolver below and
+ * `docs/installation-guide.md` for the `MARTIS_USER_ID_COLUMN_TYPE`
+ * override.
  */
 return new class extends Migration
 {
@@ -29,10 +35,19 @@ return new class extends Migration
             return;
         }
 
-        Schema::create('martis_action_events', function (Blueprint $table) {
+        $userKey = $this->resolveUserKey();
+
+        Schema::create('martis_action_events', function (Blueprint $table) use ($userKey) {
             $table->id();
             $table->string('batch_id')->index();
-            $table->unsignedBigInteger('user_id')->nullable()->index();
+
+            match ($userKey) {
+                'uuid' => $table->uuid('user_id')->nullable()->index(),
+                'ulid' => $table->ulid('user_id')->nullable()->index(),
+                'string' => $table->string('user_id')->nullable()->index(),
+                default => $table->unsignedBigInteger('user_id')->nullable()->index(),
+            };
+
             $table->string('name');
             $table->string('actionable_type')->nullable();
             $table->unsignedBigInteger('actionable_id')->nullable();
@@ -55,5 +70,49 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('martis_action_events');
+    }
+
+    /**
+     * Resolve the user-id column shape the host expects. Mirrors the
+     * resolver inlined in `create_user_preferences_table.php.stub` and
+     * `create_martis_notifications_table.php.stub` so all Martis
+     * tables stay consistent with the host's user PK.
+     */
+    private function resolveUserKey(): string
+    {
+        $override = config('martis.user_id_column_type');
+        if (is_string($override) && $override !== '') {
+            $normalised = mb_strtolower($override);
+            if (in_array($normalised, ['bigint', 'uuid', 'ulid', 'string'], true)) {
+                return $normalised;
+            }
+        }
+
+        $guard = config('martis.guard') ?: config('auth.defaults.guard');
+        $provider = config("auth.guards.{$guard}.provider", config('auth.defaults.provider'));
+        $userClass = config("auth.providers.{$provider}.model");
+        if (! is_string($userClass) || ! class_exists($userClass)) {
+            return 'bigint';
+        }
+
+        $model = new $userClass;
+        $traits = class_uses_recursive($model);
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
+            return 'uuid';
+        }
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUlids::class, $traits, true)) {
+            return 'ulid';
+        }
+
+        $keyType = method_exists($model, 'getKeyType') ? $model->getKeyType() : 'int';
+        $incrementing = method_exists($model, 'getIncrementing') ? $model->getIncrementing() : true;
+        if ($incrementing && $keyType === 'int') {
+            return 'bigint';
+        }
+        if ($keyType === 'string') {
+            return 'string';
+        }
+
+        return 'bigint';
     }
 };

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] — 2026-06-26
+
+### Fixed
+
+- **`martis:install` migrations now adapt to UUID / ULID / string user PKs.** All Martis releases up to v1.12.1 hardcoded `foreignId('user_id')->constrained()` in `stubs/create_user_preferences_table.php.stub`, which assumes `users.id` is a bigint. On a host whose `users` table uses a UUID primary key, `martis:install` failed with `SQLSTATE[42804] Datatype mismatch: foreign key constraint cannot be implemented` — the `martis_user_preferences` migration aborted, the notifications migration was never reached, and the host ended up with only two of three core Martis tables. v1.12.2 inlines a tiny resolver in each of the three published stubs that introspects the configured user model (`auth.providers.{provider}.model`), checks for the canonical `HasUuids` / `HasUlids` traits + `$keyType` / `$incrementing`, and picks the matching column helper (`foreignUuid` / `foreignUlid` / `foreignId` / explicit `string` + manual `foreign()`). Two latent siblings are fixed at the same time:
+    - `stubs/create_martis_action_events_table.php.stub` — the nullable `user_id` column is now `uuid` / `ulid` / `string` / `unsignedBigInteger` depending on the host (still no FK constraint; the audit log keeps rows when an actor is deleted).
+    - `stubs/create_martis_notifications_table.php.stub` — the polymorphic `notifiable` columns use `uuidMorphs` / `ulidMorphs` / `morphs` to match the host's notifiable model PK shape.
+
+### Added
+
+- **`MARTIS_USER_ID_COLUMN_TYPE` env override.** Accepted values: `bigint`, `uuid`, `ulid`, `string`. Default `null` (auto-detect). Set this only when the auto-detection mis-fires (e.g. a custom user model that does not use Laravel's canonical traits): `MARTIS_USER_ID_COLUMN_TYPE=uuid php artisan martis:install`. Wired through `config('martis.user_id_column_type')` and read inline by every Martis migration stub.
+- **`tests/Feature/MigrationStubsUserKeyTest.php`** — data-driven Pest coverage for every PK shape across the three stubs (13 tests). One test deliberately reproduces the v1.12.1 regression by switching the configured user model between runs and asserting the two paths produce different column types.
+
 ## [1.12.1] — 2026-05-06
 
 ### Fixed
