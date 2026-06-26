@@ -24,6 +24,13 @@ use Illuminate\Support\Facades\Schema;
  * Apps that already have Laravel notifications can keep using their
  * existing classes — the Martis UI renders any payload, falling back
  * to the notification's class name when `title` is missing.
+ *
+ * The polymorphic `notifiable` columns adapt to the host's user PK
+ * shape (uuid / ulid / bigint) via the resolver inlined below.
+ * `string`-keyed user models fall through to `morphs()` (bigint) and
+ * the operator should set `MARTIS_USER_ID_COLUMN_TYPE=uuid` or `ulid`
+ * if their host doesn't fit either default. See
+ * `docs/installation-guide.md`.
  */
 return new class extends Migration
 {
@@ -33,10 +40,18 @@ return new class extends Migration
             return;
         }
 
-        Schema::create('notifications', function (Blueprint $table) {
+        $userKey = $this->resolveUserKey();
+
+        Schema::create('notifications', function (Blueprint $table) use ($userKey) {
             $table->uuid('id')->primary();
             $table->string('type');
-            $table->morphs('notifiable');
+
+            match ($userKey) {
+                'uuid' => $table->uuidMorphs('notifiable'),
+                'ulid' => $table->ulidMorphs('notifiable'),
+                default => $table->morphs('notifiable'),
+            };
+
             $table->text('data');
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
@@ -46,5 +61,49 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('notifications');
+    }
+
+    /**
+     * Resolve the user-id column shape the host expects. Mirrors the
+     * resolver inlined in `create_user_preferences_table.php.stub` and
+     * `create_martis_action_events_table.php.stub` so all Martis
+     * tables stay consistent with the host's user PK.
+     */
+    private function resolveUserKey(): string
+    {
+        $override = config('martis.user_id_column_type');
+        if (is_string($override) && $override !== '') {
+            $normalised = mb_strtolower($override);
+            if (in_array($normalised, ['bigint', 'uuid', 'ulid', 'string'], true)) {
+                return $normalised;
+            }
+        }
+
+        $guard = config('martis.guard') ?: config('auth.defaults.guard');
+        $provider = config("auth.guards.{$guard}.provider", config('auth.defaults.provider'));
+        $userClass = config("auth.providers.{$provider}.model");
+        if (! is_string($userClass) || ! class_exists($userClass)) {
+            return 'bigint';
+        }
+
+        $model = new $userClass;
+        $traits = class_uses_recursive($model);
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
+            return 'uuid';
+        }
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUlids::class, $traits, true)) {
+            return 'ulid';
+        }
+
+        $keyType = method_exists($model, 'getKeyType') ? $model->getKeyType() : 'int';
+        $incrementing = method_exists($model, 'getIncrementing') ? $model->getIncrementing() : true;
+        if ($incrementing && $keyType === 'int') {
+            return 'bigint';
+        }
+        if ($keyType === 'string') {
+            return 'string';
+        }
+
+        return 'bigint';
     }
 };

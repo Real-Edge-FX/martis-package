@@ -13,6 +13,13 @@ use Illuminate\Support\Facades\Schema;
  * `config('martis.preferences.defaults')` silently when the table does
  * not exist — apps that skip this migration degrade to a stateless
  * experience without errors.
+ *
+ * The `user_id` column matches whichever primary-key shape the host
+ * `users` table uses. Auto-detection inspects the configured user
+ * model (`auth.providers.{provider}.model`) for `HasUuids` / `HasUlids`
+ * traits and reads `$keyType` / `$incrementing`. Operators can force
+ * a specific shape via `MARTIS_USER_ID_COLUMN_TYPE` (accepted values:
+ * `bigint`, `uuid`, `ulid`, `string`). See `docs/installation-guide.md`.
  */
 return new class extends Migration
 {
@@ -22,9 +29,18 @@ return new class extends Migration
             return;
         }
 
-        Schema::create('martis_user_preferences', function (Blueprint $table) {
+        $userKey = $this->resolveUserKey();
+
+        Schema::create('martis_user_preferences', function (Blueprint $table) use ($userKey) {
             $table->id();
-            $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
+
+            match ($userKey) {
+                'uuid' => $table->foreignUuid('user_id')->unique()->constrained()->cascadeOnDelete(),
+                'ulid' => $table->foreignUlid('user_id')->unique()->constrained()->cascadeOnDelete(),
+                'string' => $this->addStringUserFk($table),
+                default => $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete(),
+            };
+
             $table->string('theme', 16)->default('dark');     // ThemeMode enum
             $table->string('accent', 16)->default('martis');  // AccentColor enum
             $table->string('brand_color', 9)->nullable();     // #RRGGBB or #RRGGBBAA
@@ -38,5 +54,61 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('martis_user_preferences');
+    }
+
+    /**
+     * Resolve the user-id column shape the host expects.
+     *
+     * Returns one of `bigint`, `uuid`, `ulid`, `string`. Inlined in
+     * each Martis migration stub so the published file works even if
+     * the package itself is later removed from the host's composer.
+     */
+    private function resolveUserKey(): string
+    {
+        $override = config('martis.user_id_column_type');
+        if (is_string($override) && $override !== '') {
+            $normalised = mb_strtolower($override);
+            if (in_array($normalised, ['bigint', 'uuid', 'ulid', 'string'], true)) {
+                return $normalised;
+            }
+        }
+
+        $guard = config('martis.guard') ?: config('auth.defaults.guard');
+        $provider = config("auth.guards.{$guard}.provider", config('auth.defaults.provider'));
+        $userClass = config("auth.providers.{$provider}.model");
+        if (! is_string($userClass) || ! class_exists($userClass)) {
+            return 'bigint';
+        }
+
+        $model = new $userClass;
+        $traits = class_uses_recursive($model);
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
+            return 'uuid';
+        }
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUlids::class, $traits, true)) {
+            return 'ulid';
+        }
+
+        $keyType = method_exists($model, 'getKeyType') ? $model->getKeyType() : 'int';
+        $incrementing = method_exists($model, 'getIncrementing') ? $model->getIncrementing() : true;
+        if ($incrementing && $keyType === 'int') {
+            return 'bigint';
+        }
+        if ($keyType === 'string') {
+            return 'string';
+        }
+
+        return 'bigint';
+    }
+
+    /**
+     * Emit a string-typed `user_id` plus an explicit FK to `users.id`.
+     * Used when the host's user PK is a generic string (not UUID, not
+     * ULID, not an auto-incrementing integer).
+     */
+    private function addStringUserFk(Blueprint $table): void
+    {
+        $table->string('user_id')->unique();
+        $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
     }
 };
