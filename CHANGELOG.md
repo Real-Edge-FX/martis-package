@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.1] — 2026-06-27
+
+### Fixed
+
+- **The shipped frontend `public/assets/*.js` dist is now in sync with the source.** v1.14.0 (and every release since v1.11.4, on inspection) shipped with the same frozen bundle. The PHP layer, `CHANGELOG.md`, and `docs/overrides.md` for the v1.14.0 native-field-renderer feature landed correctly, but the bundle a consumer copies via `php artisan martis:publish-assets` did NOT contain the runtime exports. Consumers running `composer require martis/martis:^1.14.0` saw `window.Martis.runtime.FieldInput === undefined` and could not follow `docs/overrides.md` §5.A.
+
+  This release rebuilds `public/` from the current source so:
+
+  - `window.Martis.runtime.FieldInput` and `window.Martis.runtime.FieldDisplay` are present (added in v1.14.0).
+  - The duplicate "Limpar todos" / "Clear all" button inside `FilterPanel` is gone (removed in v1.14.0); only the toolbar `x Reset filters` clears the chip row.
+
+  No source change beyond the rebuild. The release ritual now treats `git add public/` (the entire build output, not just `public/assets/`) as a required step — silent staleness regressed for six consecutive releases before this hotfix.
+
 ## [1.14.0] — 2026-06-27
 
 ### Added
