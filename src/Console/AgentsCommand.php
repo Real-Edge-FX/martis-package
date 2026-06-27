@@ -202,11 +202,7 @@ class AgentsCommand extends Command
      */
     private function wireMcp(array $profiles, McpConfigPatcher $mcp, EnvFilePatcher $env): void
     {
-        $entry = [
-            'command' => 'php',
-            'args' => ['artisan', 'martis:mcp-serve'],
-            'cwd' => base_path(),
-        ];
+        $entry = $this->mcpEntry();
 
         foreach ($profiles as $profile) {
             if (! $profile->supportsMcp()) {
@@ -224,15 +220,68 @@ class AgentsCommand extends Command
         }
 
         if ($this->option('dry-run')) {
-            $this->components->info('[dry-run] set MARTIS_MCP_ENABLED=true in .env, .env.example');
+            $this->components->info('[dry-run] write full MCP env block to .env and .env.example');
 
             return;
         }
 
+        $this->writeMcpEnvBlock($env);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mcpEntry(): array
+    {
+        $transport = strtolower((string) config('martis.mcp.transport', 'stdio'));
+
+        if ($transport === 'http') {
+            $url = (string) config('martis.mcp.url', '');
+            if ($url === '') {
+                $host = (string) config('martis.mcp.host', '127.0.0.1');
+                if ($host === '0.0.0.0' || $host === '::') {
+                    $host = 'localhost';
+                }
+                $port = (int) config('martis.mcp.port', 8091);
+                $path = (string) config('martis.mcp.path', '/mcp');
+                $url = "http://{$host}:{$port}{$path}";
+            }
+
+            return [
+                'type' => 'http',
+                'url' => $url,
+            ];
+        }
+
+        return [
+            'command' => 'php',
+            'args' => ['artisan', 'martis:mcp-serve'],
+            'cwd' => base_path(),
+        ];
+    }
+
+    private function writeMcpEnvBlock(EnvFilePatcher $env): void
+    {
+        $entries = [
+            ['MARTIS_MCP_ENABLED', 'true', 'Set to false to disable the Martis MCP server without un-wiring it.'],
+            ['MARTIS_MCP_TRANSPORT', 'stdio', 'stdio (default) or http. See docs/agent-guidelines.md.'],
+            ['MARTIS_MCP_HOST', '#127.0.0.1', null],
+            ['MARTIS_MCP_PORT', '#8091', null],
+            ['MARTIS_MCP_PATH', '#/mcp', null],
+            ['MARTIS_MCP_URL', '#http://localhost:8091/mcp', null],
+            ['MARTIS_MCP_HTTP_TOKEN', '#', null],
+            ['MARTIS_MCP_HEALTH_PORT', '#', null],
+        ];
+
         foreach (['.env', '.env.example'] as $file) {
-            $set = $env->set($file, 'MARTIS_MCP_ENABLED', 'true', 'Set to false to disable the Martis MCP server without un-wiring it.');
-            if ($set) {
-                $this->components->info("Set MARTIS_MCP_ENABLED=true in {$file}");
+            foreach ($entries as [$key, $value, $comment]) {
+                // `#`-prefixed values are placeholders for commented-out lines.
+                if (str_starts_with($value, '#')) {
+                    $literalValue = substr($value, 1);
+                    $env->setCommented($file, $key, $literalValue, $comment);
+                } else {
+                    $env->set($file, $key, $value, $comment);
+                }
             }
         }
     }
