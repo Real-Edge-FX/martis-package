@@ -44,6 +44,7 @@ import { AuthFrame } from '@/components/auth/AuthFrame'
 import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
 import { Footer } from '@/components/Footer'
+import { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -74,6 +75,17 @@ export const martisRuntime = {
   Topbar,
   Footer,
 
+  // Field renderer (since v1.14.0). Lets custom Action components,
+  // Tools, and cards mount canonical Martis fields without
+  // re-implementing behaviour. Pair these with the FieldDefinition
+  // type re-exported below. See docs/overrides.md "Composing native
+  // field components" for the two operational caveats: BelongsTo
+  // outside a resource form needs related_resource on its
+  // FieldDefinition, and consumer bundles hosted outside the Martis
+  // shell must also load the published martis.css stylesheet.
+  FieldInput,
+  FieldDisplay,
+
   // 3rd-party re-exports — consumers don't need to npm install these.
   // Saves ~150 KB across the typical override stub graph and lets us
   // pin a single version of each in the host SPA bundle.
@@ -87,3 +99,11 @@ export const martisRuntime = {
  * `keyboardShortcuts.ts` `Window` augmentation is loaded.
  */
 export type MartisRuntime = typeof martisRuntime
+
+/**
+ * Field renderer types re-exported so consumers calling
+ * `runtime.FieldInput` / `runtime.FieldDisplay` can type their props
+ * without reaching into internal `@/components/fields/...` paths.
+ */
+export type { FieldDefinition } from '@/types'
+export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'

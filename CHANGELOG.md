@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] — 2026-06-27
+
+### Added
+
+- **Native field renderers exposed to the consumer-extension runtime.** `@martis/runtime` now ships `FieldInput` and `FieldDisplay` (plus the `FieldDefinition`, `FieldDisplayProps`, `FieldInputProps` types). Custom Action components, Tools, and cards can mount the canonical Martis form fields directly — same look, same behaviour, same i18n, automatic per-resource overrides — without re-implementing `Select`, `BelongsTo`, etc. by hand. Two operational caveats documented in `docs/overrides.md` section 5.A:
+  - `BelongsToFieldInput` outside a resource form falls through to `/api/resources/_/_/relatable/{attribute}?related_resource={uriKey}`. The `FieldDefinition` must carry `relatedResource`. For non-resource enums prefer `select`.
+  - Consumer bundles hosted outside the Martis shell must also load the package's published stylesheet (`vendor/martis/assets/app-*.css`) so the `martis-*` class namespace resolves.
+
+  Only the routing entry points (`FieldInput`, `FieldDisplay`) are exposed — not the 46 internal `*FieldInput` components. This keeps the public contract stable across refactors. Pure additive change; the runtime bag is `as const` so adding properties is non-breaking.
+
 ## [1.13.1] — 2026-06-27
 
 ### Fixed

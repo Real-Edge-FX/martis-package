@@ -486,6 +486,68 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
 
+## 5.A Composing native field components (v1.14.0+)
+
+The two sections above show how to **replace** a field renderer. The opposite direction — **composing** the canonical Martis field renderer from inside your own custom component (a custom Action component, a Tool, a Card) — is supported via the consumer-extension runtime.
+
+Since v1.14.0, `@martis/runtime` exposes:
+
+| Export | Shape |
+|---|---|
+| `FieldInput` | The form-mode renderer. Receives the same `FieldInputProps` documented in section 5. |
+| `FieldDisplay` | The read-mode renderer. Receives `FieldDisplayProps`. |
+| `FieldDefinition` (type) | Re-exported so you can type your `field` payload without reaching into internal paths. |
+| `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
+
+### Example — Select inside a custom Action component
+
+```tsx
+import { useState } from 'react'
+import { martisRuntime } from '@martis/runtime'
+
+const { FieldInput } = martisRuntime
+
+const docTypeField = {
+    type: 'select',
+    attribute: 'document_type',
+    label: 'Document type',
+    options: [
+        { value: 'note', label: 'Note' },
+        { value: 'transcript', label: 'Transcript' },
+        { value: 'screenshot', label: 'Screenshot' },
+    ],
+}
+
+export function CandidateReview() {
+    const [docType, setDocType] = useState<string>('note')
+    return (
+        <div className="martis-action-form">
+            <FieldInput
+                field={docTypeField as any}
+                value={docType}
+                onChange={(v) => setDocType(v as string)}
+            />
+        </div>
+    )
+}
+```
+
+The component you receive is **the real Martis renderer** — same look, same behaviour, same i18n. No duplicate CSS, no rebuilt search, no drift over time. If a host project has registered an override for `select`, `FieldInput` will resolve to the override for free.
+
+### Caveats
+
+**1. `BelongsTo` outside a resource form needs `related_resource`.**
+
+`BelongsToFieldInput` builds its options endpoint from the resource context: `/api/resources/{resourceKey}/{recordId}/relatable/{attribute}`. When you mount it from a custom Action component that has no parent resource, it falls through to the synthetic endpoint `/api/resources/_/_/relatable/{attribute}?related_resource={uriKey}`. Make sure your `FieldDefinition` carries the `relatedResource` (the target resource's `uriKey`) so Martis can resolve the relatable query on the server side. For pure enum dropdowns prefer `select` — it has no async dependency and works anywhere.
+
+**2. Consumer bundles hosted outside the Martis shell need the published stylesheet.**
+
+The field components rely on the `martis-*` class namespace defined in the package's stylesheet, which the host SPA already loads. If your extension renders inside Martis pages (the normal case — registered via `componentRegistry`), you inherit the styles for free. If your bundle runs in a context outside the shell, ensure `vendor/martis/assets/app-*.css` is also loaded.
+
+### Why this layer, not the individual `*FieldInput` components
+
+`FieldInput` is a stable single entry point that resolves through `componentRegistry` — overrides, lazy-loading, per-context resolution all keep working. Exposing each of the 46 internal `*FieldInput` components would freeze them as part of the public contract and prevent refactor. Reach for `FieldInput` first; open an issue if the routing layer is the wrong shape for your use case.
+
 ## 6. Creating Custom Components (Artisan)
 
 Use the `martis:component` artisan command to scaffold an override TSX (alias: `martis:override`, kept for back-compat). Each `--type` option writes a different starter — see the [stubs directory on GitHub](https://github.com/Real-Edge-FX/martis-package/tree/main/stubs) for the full source of every scaffold.
