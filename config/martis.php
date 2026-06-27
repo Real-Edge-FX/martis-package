@@ -55,7 +55,17 @@ return [
     */
     'mcp' => [
         'enabled' => env('MARTIS_MCP_ENABLED', true),
-        'transport' => env('MARTIS_MCP_TRANSPORT', 'stdio'),
+        // Intentionally no env() fallback. Each command interprets a
+        // null value differently:
+        //   - martis:mcp-serve falls back to 'stdio' (preserves
+        //     existing-consumer behaviour: a host upgrading from
+        //     v1.14.x whose .mcp.json carries the stdio spawn entry
+        //     keeps working without the server suddenly binding HTTP).
+        //   - martis:agents --with-mcp falls back to 'http' and
+        //     writes MARTIS_MCP_TRANSPORT=http into the .env it
+        //     scaffolds (since v1.15.0 — fresh installs land on the
+        //     recommended HTTP setup).
+        'transport' => env('MARTIS_MCP_TRANSPORT'),
         'url' => env('MARTIS_MCP_URL'),
         'host' => env('MARTIS_MCP_HOST', '127.0.0.1'),
         'port' => (int) env('MARTIS_MCP_PORT', 8091),

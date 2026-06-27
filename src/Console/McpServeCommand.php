@@ -99,7 +99,15 @@ class McpServeCommand extends Command
             return strtolower($cli);
         }
 
-        return strtolower((string) config('martis.mcp.transport', 'stdio'));
+        // The server-side fallback is intentionally 'stdio' (not the
+        // scaffolding default 'http') so existing consumers whose
+        // .mcp.json still carries a stdio spawn entry — written by an
+        // older martis:agents — keep working after upgrade. The
+        // package config keeps `mcp.transport` null when no env was
+        // set; the `?:` here is what turns that into stdio for the
+        // server while AgentsCommand turns the same null into http for
+        // its scaffolding. See config/martis.php for the rationale.
+        return strtolower((string) (config('martis.mcp.transport') ?: 'stdio'));
     }
 
     private function buildHttpTransport(): AuthenticatedStreamableHttpTransport
