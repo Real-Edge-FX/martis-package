@@ -43,3 +43,21 @@ it('vendor constructor accepts the args our subclass passes through', function (
         expect($names)->toContain($expected);
     }
 });
+
+it('vendor has the private $socket property required by the listener swap', function () {
+    $rc = new ReflectionClass(StreamableHttpServerTransport::class);
+
+    expect($rc->hasProperty('socket'))->toBeTrue(
+        'php-mcp/server changed: $socket property removed. Update AuthenticatedStreamableHttpTransport::listen().'
+    );
+    expect($rc->getProperty('socket')->isPrivate())->toBeTrue();
+});
+
+it('vendor has the private $http property required by the listener swap', function () {
+    $rc = new ReflectionClass(StreamableHttpServerTransport::class);
+
+    expect($rc->hasProperty('http'))->toBeTrue(
+        'php-mcp/server changed: $http property removed. Update AuthenticatedStreamableHttpTransport::listen().'
+    );
+    expect($rc->getProperty('http')->isPrivate())->toBeTrue();
+});

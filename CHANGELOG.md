@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `Martis\Mcp\Tools::enabled()` now reads `config('martis.mcp.enabled')` first, falling back to `getenv('MARTIS_MCP_ENABLED')` for cold-bootstrap callers. Behaviour is unchanged for every existing use.
-- The `.env` block written by `martis:agents --with-mcp` expands to advertise all seven MCP knobs as commented-out placeholders. Existing keys are never overwritten.
+- The `.env` block written by `martis:agents --with-mcp` expands to advertise all eight MCP knobs as commented-out placeholders. Existing keys are never overwritten.
 - `Server::make()->withServerInfo('Martis Docs', …)` now reads the package version from `vendor/composer/installed.json` instead of being hardcoded.
 
 ### Vendor

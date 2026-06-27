@@ -167,8 +167,8 @@ class McpServeCommand extends Command
 
     private function packageVersion(): string
     {
-        // src/Console -> src -> package-root -> vendor/composer/installed.json
-        $installed = __DIR__.'/../../vendor/composer/installed.json';
+        // src/Console -> src -> martis/martis -> martis -> vendor -> composer/installed.json
+        $installed = __DIR__.'/../../../../composer/installed.json';
         if (! file_exists($installed)) {
             return '1.13.0';
         }
