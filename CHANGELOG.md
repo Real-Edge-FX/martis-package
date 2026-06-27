@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] — 2026-06-27
+
+### Fixed
+
+- **Flaky `it exits cleanly on SIGTERM in http mode` test poisoned downstream Pest tests on CI.** The test sent SIGTERM after a wall-clock socket bind, racing the ReactPHP loop's signal-handler registration on slow runners. When the signal lost the race, the assertion failed AND the subprocess kept running — bound to its port — and downstream tests (`DashboardBreadcrumbTest`, `DependsOnSyncTest`, others) hit the stale listener and started returning 500. v1.13.0 main-branch CI failed on PHP 8.4 / Laravel 12 and PHP 8.3 / Laravel 13 lanes because of this cascade.
+
+  v1.13.1 hardens the test in three places:
+
+  1. Spawned processes register themselves in a `$GLOBALS` tracker; `afterEach` force-kills every survivor with `SIGKILL` so a flaky assertion never leaks the listener into the next test.
+  2. The SIGTERM test now waits for the deterministic `is up and listening` log marker on stderr before sending the signal, proving the signal handlers are registered.
+  3. The post-signal grace period bumps from 5s to 10s for slow CI runners; the `afterEach` cleanup makes the longer grace safe.
+
+  No production code change. The fix is purely in the test harness.
+
 ## [1.13.0] — 2026-06-27
 
 ### Added
