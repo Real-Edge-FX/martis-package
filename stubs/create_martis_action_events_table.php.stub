@@ -49,12 +49,20 @@ return new class extends Migration
             };
 
             $table->string('name');
+            // Polymorphic morph id columns are declared `string` instead
+            // of `unsignedBigInteger` so the audit log can record actions
+            // against models with any primary-key shape — int, UUID, ULID,
+            // or arbitrary string — and survive a host that mixes them
+            // in the same table (a bigint `User` and a UUID `Candidate`
+            // cannot share a single homogenous morph type). `morphTo()`
+            // accepts string keys without further configuration; the
+            // query layer compares as strings.
             $table->string('actionable_type')->nullable();
-            $table->unsignedBigInteger('actionable_id')->nullable();
+            $table->string('actionable_id')->nullable();
             $table->string('target_type')->nullable();
-            $table->unsignedBigInteger('target_id')->nullable();
+            $table->string('target_id')->nullable();
             $table->string('model_type')->nullable();
-            $table->unsignedBigInteger('model_id')->nullable();
+            $table->string('model_id')->nullable();
             $table->text('fields');
             $table->string('status', 25)->default('running');
             $table->text('exception');

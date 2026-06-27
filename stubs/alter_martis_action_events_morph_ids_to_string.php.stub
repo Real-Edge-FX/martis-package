@@ -1,0 +1,96 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Convert the three polymorphic morph id columns on
+ * `martis_action_events` from `unsignedBigInteger` to `string`.
+ *
+ * Background. The original v1.10.x create-table stub declared
+ * `actionable_id`, `target_id`, and `model_id` as `bigint`. The
+ * audit writer in `ActionController::logActionEvent()` inserts the
+ * acted-on model's primary key into those columns. For any host
+ * model that uses `HasUuids` / `HasUlids` (or otherwise has a
+ * non-integer PK), the INSERT fails — Postgres rejects with
+ * `invalid input syntax for type bigint`; MySQL in strict mode
+ * rejects with a similar type error. The writer is wrapped in a
+ * `try/catch` that only emits a `Log::warning`, so the action
+ * itself completes successfully and the audit row is silently
+ * dropped. The Action Events resource ends up empty.
+ *
+ * Idempotent. Skips when the columns are already non-integer
+ * (fresh v1.14.2+ installs land directly on `string`), and skips
+ * entirely if the table does not exist (host has not run the
+ * create migration yet).
+ *
+ * Driver-aware ALTER. SQLite has no `ALTER COLUMN TYPE`, so we
+ * use Doctrine DBAL through Schema::change() for portability. The
+ * `USING <col>::text` cast is what makes Postgres accept the
+ * conversion of populated rows; on MySQL/SQLite the change is a
+ * straightforward type swap on already-castable values.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('martis_action_events')) {
+            return;
+        }
+
+        $connection = Schema::getConnection();
+        $driver = $connection->getDriverName();
+        $columns = ['actionable_id', 'target_id', 'model_id'];
+
+        if ($driver === 'pgsql') {
+            // Postgres needs USING <col>::text to cast existing rows.
+            foreach ($columns as $col) {
+                if ($this->isAlreadyString($col)) {
+                    continue;
+                }
+
+                DB::statement(sprintf(
+                    'ALTER TABLE martis_action_events ALTER COLUMN %s TYPE VARCHAR(255) USING %s::text',
+                    $col,
+                    $col,
+                ));
+            }
+
+            return;
+        }
+
+        // MySQL, SQLite, SQL Server — Doctrine handles the type change.
+        Schema::table('martis_action_events', function (Blueprint $table) use ($columns) {
+            foreach ($columns as $col) {
+                if ($this->isAlreadyString($col)) {
+                    continue;
+                }
+
+                $table->string($col)->nullable()->change();
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        // No-op. Rolling back to bigint would re-introduce the silent
+        // audit-drop bug on UUID-keyed models, and any string values
+        // already written would fail the cast. The forward direction
+        // is universally safe; the backward direction is not.
+    }
+
+    /**
+     * Inspect the live schema to see whether the column has already
+     * been migrated to a string-compatible type. Different drivers
+     * report different type names; we accept anything that is not
+     * an integer family.
+     */
+    private function isAlreadyString(string $column): bool
+    {
+        $type = mb_strtolower((string) Schema::getColumnType('martis_action_events', $column));
+
+        return ! in_array($type, ['bigint', 'integer', 'int', 'smallint', 'mediumint'], true);
+    }
+};

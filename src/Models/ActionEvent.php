@@ -23,11 +23,11 @@ use Illuminate\Support\Carbon;
  * @property int|null $user_id
  * @property string $name
  * @property string|null $actionable_type
- * @property int|null $actionable_id
+ * @property string|null $actionable_id
  * @property string|null $target_type
- * @property int|null $target_id
+ * @property string|null $target_id
  * @property string|null $model_type
- * @property int|null $model_id
+ * @property string|null $model_id
  * @property array<string, mixed> $fields
  * @property string $status
  * @property string $exception
