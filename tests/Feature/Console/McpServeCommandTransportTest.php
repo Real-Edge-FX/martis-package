@@ -53,6 +53,16 @@ function artisanPath(): string
     return dirname(__DIR__, 3);
 }
 
+/**
+ * Tracks every Process spawned by spawnServe() inside this test file so
+ * the afterEach hook can force-kill survivors even when an assertion
+ * throws mid-test. Without this, a flaky SIGTERM test on slow CI runners
+ * leaves the subprocess bound to its port, and downstream Pest tests
+ * (DashboardBreadcrumbTest, DependsOnSyncTest, etc.) start failing
+ * with 500s because their HTTP test client hits the stale process.
+ */
+$GLOBALS['__martis_serve_processes'] = [];
+
 function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
 {
     $root = artisanPath();
@@ -62,9 +72,43 @@ function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
     ]);
     $process = new Process($cmd, $root, $env);
     $process->start();
+    $GLOBALS['__martis_serve_processes'][] = $process;
 
     return $process;
 }
+
+/**
+ * Block until `Server is up and listening` (or any "listening" marker)
+ * appears on stderr, proving the ReactPHP loop has registered its
+ * signal handlers. Without this gate the SIGTERM test races the boot
+ * sequence on slow CI runners and fires the signal before the handler
+ * is wired, leaving the subprocess running.
+ */
+function waitForServeReady(Process $process, float $timeoutSec = 8.0): bool
+{
+    $deadline = microtime(true) + $timeoutSec;
+    while (microtime(true) < $deadline) {
+        if (str_contains($process->getErrorOutput(), 'is up and listening')) {
+            return true;
+        }
+        usleep(50_000);
+    }
+
+    return false;
+}
+
+afterEach(function () {
+    foreach ($GLOBALS['__martis_serve_processes'] as $p) {
+        if ($p instanceof Process && $p->isRunning()) {
+            // SIGTERM first, then SIGKILL after the 1s grace. Symfony's
+            // Process::stop() handles the escalation but we need to
+            // also reap the pid so the next test file doesn't inherit
+            // an orphaned listener on the bound port.
+            $p->stop(1, defined('SIGKILL') ? SIGKILL : 9);
+        }
+    }
+    $GLOBALS['__martis_serve_processes'] = [];
+});
 
 it('http transport responds to tools/list on /mcp', function () {
     $port = pickPort();
@@ -239,16 +283,27 @@ it('stdio default keeps producing the three tools (regression guard)', function 
 it('exits cleanly on SIGTERM in http mode', function () {
     $port = pickPort();
     $process = spawnServe(['--transport=http', "--port={$port}", '--no-warn-on-public']);
-    expect(waitForPort('127.0.0.1', $port))->toBeTrue();
+
+    // Wait for the socket AND the "is up and listening" stderr marker.
+    // Both must be true before we send SIGTERM — otherwise the signal
+    // races the ReactPHP loop's signal-handler registration and the
+    // process never receives the SIGTERM cleanly. Previously this was
+    // a "wait 5s" wall clock and flaked on slow runners; the marker
+    // gate is deterministic.
+    expect(waitForPort('127.0.0.1', $port))->toBeTrue('server did not bind in time');
+    expect(waitForServeReady($process))->toBeTrue('signal handlers were not registered in time');
 
     $pid = $process->getPid();
     expect($pid)->toBeInt();
     $process->signal(SIGTERM);
 
+    // Generous 10s budget for the loop to drain on slow CI. The
+    // afterEach will SIGKILL if this is still running, so a flaky
+    // failure here never leaks the subprocess into downstream tests.
     $started = microtime(true);
-    while ($process->isRunning() && microtime(true) - $started < 5.0) {
+    while ($process->isRunning() && microtime(true) - $started < 10.0) {
         usleep(50_000);
     }
-    expect($process->isRunning())->toBeFalse('process did not exit within 5s of SIGTERM');
+    expect($process->isRunning())->toBeFalse('process did not exit within 10s of SIGTERM');
     expect($process->getExitCode())->toBe(0);
 });
