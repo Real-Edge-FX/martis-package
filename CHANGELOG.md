@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.3] — 2026-06-27
+
+### Fixed
+
+- **`martis:install` in a non-TTY shell silently auto-enabled Profile + 2FA and ALTERed the host `users` table.** `docker compose exec -T`, CI pipes, and any other invocation that strips the TTY without explicitly passing `--no-interaction` left `$input->isInteractive()` true. The `confirm('…', default: true)` defaults then resolved to "yes" without ever showing a prompt — so Profile + 2FA migrations were published AND executed against the host `users` table, unasked. For hosts whose `users` is owned by an external migration system (e.g. Alembic), this was an unwanted out-of-band schema mutation.
+
+  Three changes in `InstallCommand::resolveInstallOptions()`:
+
+  1. The interactive gate now requires BOTH `$input->isInteractive()` and an actual TTY on stdin (`stream_isatty(STDIN)` with a `posix_isatty()` fallback). Non-TTY contexts behave as if `--no-interaction` were passed, regardless of how the runtime was invoked.
+  2. `config('martis.profile.enabled')` and `config('martis.profile.two_factor.enabled')` are now treated as the source of truth. A host with `MARTIS_PROFILE_ENABLED=false` or `MARTIS_2FA_ENABLED=false` in `.env` will never get the host-table migration published, even when the operator explicitly passes `--with-profile` / `--with-2fa`.
+  3. Two new opt-out flags ship: `--no-profile` and `--no-2fa`. They win over `--with-*` and over interactive confirms, giving automation a deterministic opt-out.
+
+- **v1.14.2 `alter_martis_action_events_morph_ids_to_string` migration was a silent no-op on Postgres.** Modern Laravel (11+) dropped doctrine/dbal and uses the native pg introspector, which returns Postgres native type names (`int8`, `int4`, `int2`) instead of the Laravel/MySQL aliases. The v1.14.2 `isAlreadyString()` guard whitelisted only `['bigint','integer','int','smallint','mediumint']` — every Postgres bigint column was misclassified as "already string", every `ALTER COLUMN` was skipped, the migration reported DONE without converting anything, and the silent audit drop the v1.14.2 release was meant to fix remained broken for every Postgres consumer.
+
+  A new migration ships under a new filename — `fix_martis_action_events_morph_ids_string_v2` — so Laravel applies it once for consumers who already ran the v1.14.2 broken alter (which is recorded as `Ran` in their `migrations` table and would never re-run if we patched it in place). The new migration drops the type-detection guard entirely and ALTERs unconditionally — Postgres uses `ALTER COLUMN ... TYPE VARCHAR(255) USING <col>::text`, other drivers use `Schema::table()->string()->nullable()->change()`. Both are no-op-safe on already-converted columns, so fresh v1.14.2+ installs run it cleanly too.
+
 ## [1.14.2] — 2026-06-27
 
 ### Fixed
