@@ -158,5 +158,21 @@ This project also exposes the Martis docs through an MCP server (`php artisan ma
 
 When you need depth on a specific topic, **prefer these MCP tools** over scanning `vendor/martis/martis/docs/` with the file-read tool: the server returns scoped, ranked results with lower token cost.
 
-The MCP server can be toggled at runtime with `MARTIS_MCP_ENABLED=true|false` in the host project's `.env`. When disabled, the tools return a short notice instead of running; no need to un-wire the MCP config.
+### Transport
+
+`martis:mcp-serve` ships two transports (since v1.13.0):
+
+- **`stdio` (default)** — the MCP client spawns a PHP subprocess per session via `command/args/cwd` in `.mcp.json`. Right for single-agent dev loops.
+- **`http` (Streamable)** — long-running, networked, URL-addressable. Right when the MCP server is a shared service (multiple agents/sessions, containers, environments where spawning PHP from the client is awkward). The client connects via `{"type":"http","url":"http://host:port/mcp"}` in `.mcp.json`.
+
+Which transport you reach depends on how the host wired it. Both expose the same three tools.
+
+### Runtime knobs (host operator's concern, not yours)
+
+- `MARTIS_MCP_ENABLED=true|false` — toggle the server without un-wiring. When `false`, `tools/list` keeps publishing the three tool definitions but every `tools/call` returns an `enabled: false` payload with an explanatory message. Treat that as "MCP temporarily off, fall back to reading `vendor/martis/martis/docs/<slug>.md` directly".
+- `MARTIS_MCP_TRANSPORT`, `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT`, `MARTIS_MCP_PATH`, `MARTIS_MCP_URL` — transport configuration.
+- `MARTIS_MCP_HTTP_TOKEN` — optional bearer token. When set, the HTTP server requires `Authorization: Bearer <token>` on `/mcp`; mismatch returns 401. The MCP client config the host writes already carries the right header if the operator wired the token.
+- `MARTIS_MCP_HEALTH_PORT` — opt-in `/health` endpoint on a dedicated port. Returns `{status, version, transport, uptime_s, tool_count}` — for ops, not for you.
+
+You do not need to set any of these. If a tool call returns `enabled: false`, fall back to reading the docs directly via `vendor/martis/martis/docs/<slug>.md`. If you get a 401 or connection error, tell the user — the operator's setup is the problem, not yours.
 {{/MCP_SECTION}}

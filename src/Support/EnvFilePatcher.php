@@ -76,8 +76,37 @@ class EnvFilePatcher
         return true;
     }
 
+    /**
+     * Like set(), but writes the key as a commented-out placeholder
+     * (line prefixed with `#`). Useful for documenting available knobs
+     * without setting them.
+     */
+    public function setCommented(string $relativeFile, string $key, string $value, ?string $comment = null): bool
+    {
+        $absolute = $this->basePath.'/'.$relativeFile;
+        if (! file_exists($absolute)) {
+            return false;
+        }
+
+        $contents = (string) file_get_contents($absolute);
+        if ($this->hasKey($contents, $key)) {
+            return false; // Already present (commented or not) — don't double-write.
+        }
+
+        $tail = str_ends_with($contents, "\n") ? '' : "\n";
+        $block = $tail."\n";
+        if ($comment !== null) {
+            $block .= '# '.$comment."\n";
+        }
+        $block .= '# '.$key.'='.$value."\n";
+
+        file_put_contents($absolute, $contents.$block);
+
+        return true;
+    }
+
     private function hasKey(string $contents, string $key): bool
     {
-        return (bool) preg_match('/^\s*'.preg_quote($key, '/').'=/m', $contents);
+        return (bool) preg_match('/^\s*#?\s*'.preg_quote($key, '/').'=/m', $contents);
     }
 }

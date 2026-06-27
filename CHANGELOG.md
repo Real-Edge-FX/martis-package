@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-06-27
+
+### Added
+
+- **`martis:mcp-serve --transport=http`** — Streamable HTTP transport for the Martis docs MCP. Long-running, networked, URL-addressable, hot-connectable. New CLI options: `--host`, `--port`, `--path`, `--health-port`, `--no-warn-on-public`. Default transport stays `stdio` (backward compatible). Built on `php-mcp/server`'s `StreamableHttpServerTransport` with `stateless=true` and `enableJsonResponse=true` — every request is self-contained, no SSE keepalive.
+- **`martis:agents --with-mcp` writes a URL entry** when `MARTIS_MCP_TRANSPORT=http`. The `.mcp.json` entry becomes `{type: http, url: ...}` instead of the previous `{command, args, cwd}` spawn entry. `MARTIS_MCP_URL` overrides; otherwise the URL is built from host+port+path (with `0.0.0.0` → `localhost`).
+- **Optional bearer-token auth** on `/mcp` via `MARTIS_MCP_HTTP_TOKEN`. When set, the server requires `Authorization: Bearer <token>` and returns 401 on mismatch. When unset, no auth. Loud warning at boot when `host=0.0.0.0` without a token; suppress with `--no-warn-on-public`.
+- **`/health` endpoint** on a dedicated port via `MARTIS_MCP_HEALTH_PORT`. Off by default. Payload: `status, version, transport, uptime_s, tool_count`. Designed for container/k8s health checks.
+- **`config('martis.mcp.*')` namespace** with eight scalars (`enabled, transport, url, host, port, path, token, health_port`). Auto-appears in `martis:list-env-vars` and survives `config:cache`. The previous `MARTIS_MCP_ENABLED` env var is preserved and continues to honour its existing semantics.
+
+### Changed
+
+- `Martis\Mcp\Tools::enabled()` now reads `config('martis.mcp.enabled')` first, falling back to `getenv('MARTIS_MCP_ENABLED')` for cold-bootstrap callers. Behaviour is unchanged for every existing use.
+- The `.env` block written by `martis:agents --with-mcp` expands to advertise all eight MCP knobs as commented-out placeholders. Existing keys are never overwritten.
+- `Server::make()->withServerInfo('Martis Docs', …)` now reads the package version from `vendor/composer/installed.json` instead of being hardcoded.
+
+### Vendor
+
+- Composer constraint stays `php-mcp/server: ^3.3`. The new `AuthenticatedStreamableHttpTransport` subclasses vendor's `StreamableHttpServerTransport` and overrides its `createRequestHandler()` method. A `VendorContractTest` (reflection-based) fails CI on any vendor change that breaks the subclass contract.
+
 ## [1.12.2] — 2026-06-26
 
 ### Fixed

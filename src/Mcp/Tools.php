@@ -91,6 +91,15 @@ class Tools
 
     public static function enabled(): bool
     {
+        // Prefer Laravel config when bootstrapped (set by env() through
+        // config/martis.php). Fall back to raw getenv() for cold-bootstrap
+        // paths (e.g. invoking Tools standalone, outside the framework).
+        // Note: config()->offsetUnset() sets the value to null (not removed),
+        // so we treat null as "not set" and let getenv() handle it.
+        if (function_exists('config') && app()->bound('config') && config()->has('martis.mcp.enabled') && config('martis.mcp.enabled') !== null) {
+            return (bool) config('martis.mcp.enabled');
+        }
+
         $raw = getenv('MARTIS_MCP_ENABLED');
         if ($raw === false || $raw === '') {
             return true;
