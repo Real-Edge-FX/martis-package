@@ -57,9 +57,13 @@ it('includes the MCP section when --with-mcp is set', function () {
     expect($body)->toContain('martis_doc_search')
         ->and($body)->toContain('MARTIS_MCP_ENABLED');
 
+    // Since v1.15.0 the scaffold default is HTTP, so the .mcp.json
+    // entry is the URL connection ({"type":"http","url":"…/mcp"})
+    // rather than the legacy stdio spawn entry. Transport-specific
+    // assertions live in AgentsCommandHttpTransportTest; this test
+    // just confirms the MCP block was wired at all.
     $mcp = (string) file_get_contents($this->base.'/.mcp.json');
-    expect($mcp)->toContain('"martis"')
-        ->and($mcp)->toContain('martis:mcp-serve');
+    expect($mcp)->toContain('"martis"');
 
     expect((string) file_get_contents($this->base.'/.env'))->toContain('MARTIS_MCP_ENABLED=true');
 });

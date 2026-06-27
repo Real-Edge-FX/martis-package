@@ -162,8 +162,8 @@ When you need depth on a specific topic, **prefer these MCP tools** over scannin
 
 `martis:mcp-serve` ships two transports (since v1.13.0):
 
-- **`stdio` (default)** — the MCP client spawns a PHP subprocess per session via `command/args/cwd` in `.mcp.json`. Right for single-agent dev loops.
-- **`http` (Streamable)** — long-running, networked, URL-addressable. Right when the MCP server is a shared service (multiple agents/sessions, containers, environments where spawning PHP from the client is awkward). The client connects via `{"type":"http","url":"http://host:port/mcp"}` in `.mcp.json`.
+- **`http` (Streamable, default for new installs since v1.15.0)** — long-running, networked, URL-addressable. The client connects via `{"type":"http","url":"http://host:port/mcp"}` in `.mcp.json`. Right when the MCP server is a shared service (multiple agents/sessions, containers, environments where spawning PHP from the client is awkward).
+- **`stdio` (legacy / opt-in fallback)** — the MCP client spawns a PHP subprocess per session via `command/args/cwd` in `.mcp.json`. Right for single-agent dev loops with zero infrastructure. Existing v1.12.x / v1.13.x / v1.14.x consumers whose `.mcp.json` already carries the stdio spawn entry keep working unchanged.
 
 Which transport you reach depends on how the host wired it. Both expose the same three tools.
 

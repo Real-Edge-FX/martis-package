@@ -97,13 +97,36 @@ it('substitutes 0.0.0.0 -> localhost in the guessed url', function () {
     expect($entry['mcpServers']['martis']['url'])->toBe('http://localhost:8091/mcp');
 });
 
-it('keeps the stdio spawn entry when transport=stdio (default, regression guard)', function () {
-    // transport already stdio in beforeEach.
+it('still writes the stdio spawn entry when transport=stdio is explicitly set (regression guard)', function () {
+    // transport already stdio in beforeEach — operator's explicit
+    // choice must be honoured even though http is the new scaffolding
+    // default in v1.15.0+.
     runAgents();
 
     $entry = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
     expect($entry['mcpServers']['martis'])->toHaveKey('command');
     expect($entry['mcpServers']['martis'])->not->toHaveKey('url');
+});
+
+it('writes the http URL entry when transport is unset (v1.15.0 scaffold default)', function () {
+    // Simulate a fresh install with no MARTIS_MCP_TRANSPORT in .env:
+    // the package config sets `mcp.transport` to null. AgentsCommand
+    // must default that to http and write the matching URL entry.
+    config()->set('martis.mcp.transport', null);
+
+    runAgents();
+
+    $entry = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
+    expect($entry['mcpServers']['martis'])->toMatchArray(['type' => 'http']);
+    expect($entry['mcpServers']['martis']['url'])->toContain('/mcp');
+    expect($entry['mcpServers']['martis'])->not->toHaveKey('command');
+
+    // The scaffold also pins MARTIS_MCP_TRANSPORT=http in .env so the
+    // next time the same command runs (or the consumer inspects the
+    // env), the choice is visible and persistent.
+    $env = (string) file_get_contents($this->base.'/.env');
+    expect($env)->toContain("MARTIS_MCP_TRANSPORT=http\n");
+    expect($env)->not->toContain("MARTIS_MCP_TRANSPORT=stdio\n");
 });
 
 it('writes the full 7-env block on first run', function () {

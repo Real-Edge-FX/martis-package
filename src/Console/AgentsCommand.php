@@ -233,7 +233,15 @@ class AgentsCommand extends Command
      */
     private function mcpEntry(): array
     {
-        $transport = strtolower((string) config('martis.mcp.transport', 'stdio'));
+        // Scaffold-time default: http. The package config no longer
+        // forces a fallback ('transport' = env('MARTIS_MCP_TRANSPORT')
+        // with no default), so when the operator has not pinned a
+        // transport in their .env, this command treats the
+        // recommended setup (a long-running HTTP server) as default
+        // and writes the matching URL entry into .mcp.json.
+        // McpServeCommand falls back to 'stdio' under the same null
+        // value so existing-consumer behaviour is preserved.
+        $transport = strtolower((string) (config('martis.mcp.transport') ?: 'http'));
 
         if ($transport === 'http') {
             $url = (string) config('martis.mcp.url', '');
@@ -264,7 +272,7 @@ class AgentsCommand extends Command
     {
         $entries = [
             ['MARTIS_MCP_ENABLED', 'true', 'Set to false to disable the Martis MCP server without un-wiring it.'],
-            ['MARTIS_MCP_TRANSPORT', 'stdio', 'stdio (default) or http. See docs/agent-guidelines.md.'],
+            ['MARTIS_MCP_TRANSPORT', 'http', 'Default scaffold (v1.15.0+). Set to "stdio" for spawn-per-session legacy mode. See docs/agent-guidelines.md.'],
             ['MARTIS_MCP_HOST', '#127.0.0.1', null],
             ['MARTIS_MCP_PORT', '#8091', null],
             ['MARTIS_MCP_PATH', '#/mcp', null],

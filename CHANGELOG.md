@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] — 2026-06-27
+
+### Changed
+
+- **`martis:agents --with-mcp` now scaffolds HTTP as the MCP transport by default.** Fresh installs that run `martis:agents` get:
+  - `MARTIS_MCP_TRANSPORT=http` written **uncommented** into `.env` (was `=stdio` in v1.13.0–v1.14.x).
+  - The `.mcp.json` entry written as a URL connection (`{"type":"http","url":"http://localhost:8091/mcp"}`) instead of a stdio spawn entry (`{"command":"php","args":["artisan","martis:mcp-serve"],"cwd":"…"}`).
+
+  The recommended setup since v1.13.0 has been HTTP (long-running, networked, URL-addressable, hot-reconnect, container-friendly). The scaffold default now matches that recommendation so new installs land on the path the docs already prescribe.
+
+  **Existing consumers are not affected.** This is intentional, deliberate, and the entire reason this is v1.15.0 rather than a default flip at the package config layer (which would have been a true breaking change):
+
+  - The `MARTIS_MCP_TRANSPORT` value in `config/martis.php` no longer carries a hard-coded fallback — it reads `env('MARTIS_MCP_TRANSPORT')` with no default. Each command that consumes the value picks its own interpretation of "null":
+    - `martis:mcp-serve` falls back to **stdio** so existing consumers whose `.mcp.json` carries the stdio spawn entry keep working through an upgrade without the server suddenly trying to bind a port.
+    - `martis:agents --with-mcp` falls back to **http** so fresh installs get the new scaffolding default.
+  - `EnvFilePatcher::set()` and `setCommented()` are already idempotent for existing keys (regex matches both commented and uncommented lines), so re-running `martis:agents --with-mcp` on a host that already has `MARTIS_MCP_TRANSPORT=stdio` in `.env` does NOT overwrite it. The operator's pinned choice survives.
+  - The AGENTS.md stub and `docs/agent-guidelines.md` swap stdio/http positioning to match — HTTP is described as the default, stdio as the legacy fallback.
+
+  To opt into stdio on a fresh install: set `MARTIS_MCP_TRANSPORT=stdio` in `.env` before running `martis:agents --with-mcp`. The agents command honours the explicit pin and writes the stdio spawn entry.
+
 ## [1.14.3] — 2026-06-27
 
 ### Fixed

@@ -59,19 +59,22 @@ The primer covers Martis idioms: the 31 generators, field rules, resource conven
 
 The server reads `MARTIS_MCP_ENABLED` at boot. When `false`, the tools return a short notice instead of running. This lets you toggle the integration on and off via `.env` without editing your agent's MCP config.
 
-## Running the MCP over HTTP (v1.13.0+)
+## Running the MCP over HTTP (default since v1.15.0)
 
-`martis:mcp-serve` ships two transports. stdio is the default and stays the right choice for single-agent dev loops: the MCP client spawns a PHP subprocess on demand and tears it down at session end. HTTP is the right choice when the MCP server is a shared service — multiple agents, multiple sessions, containers, or any environment where spawning PHP from the agent client is awkward.
+`martis:mcp-serve` ships two transports.
+
+- **HTTP (default for new installs since v1.15.0)** — a long-running server bound to `127.0.0.1:8091/mcp`. The MCP client connects by URL. Right when the MCP server is a shared service — multiple agents, multiple sessions, containers, or any environment where spawning PHP from the agent client is awkward. `martis:agents --with-mcp` now writes the URL entry into `.mcp.json` and `MARTIS_MCP_TRANSPORT=http` into `.env` by default.
+- **stdio (legacy / opt-in fallback)** — the MCP client spawns a PHP subprocess on demand and tears it down at session end. Right for single-agent dev loops with zero infrastructure. To opt in, set `MARTIS_MCP_TRANSPORT=stdio` in `.env` before running `martis:agents --with-mcp`. Existing v1.12.x / v1.13.x / v1.14.x consumers whose `.mcp.json` already carries the stdio spawn entry keep working unchanged.
 
 ### When to use which
 
-| | stdio | HTTP |
+| | HTTP (default) | stdio (legacy) |
 |---|---|---|
-| Local dev, single agent | ✓ default | works, but extra setup |
-| Multiple agents / sessions | spawn-per-session, slow | ✓ long-running, shared |
-| Container deploy | needs PHP in client image | ✓ ships PHP once, exposes URL |
-| Hot-reload after package upgrade | client must restart | ✓ restart server, agents reconnect |
-| Network exposure | n/a | ✓ via reverse proxy |
+| Local dev, single agent | ✓ long-running, hot-reconnect | ✓ zero infra |
+| Multiple agents / sessions | ✓ long-running, shared | spawn-per-session, slow |
+| Container deploy | ✓ ships PHP once, exposes URL | needs PHP in client image |
+| Hot-reload after package upgrade | ✓ restart server, agents reconnect | client must restart |
+| Network exposure | ✓ via reverse proxy | n/a |
 
 ### Zero-to-running (HTTP)
 
