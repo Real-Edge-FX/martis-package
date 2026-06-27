@@ -86,10 +86,6 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
     onChange(next)
   }
 
-  const handleClearAll = () => {
-    onChange({})
-  }
-
   const handleClearSingle = (uriKey: string) => {
     const next = { ...value }
     delete next[uriKey]
@@ -162,17 +158,6 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
             </button>
           </span>
         ))}
-
-          {activeCount > 1 && (
-            <button
-              type="button"
-              onClick={handleClearAll}
-              className="text-xs font-medium hover:opacity-70"
-              style={{ color: 'var(--martis-text-muted)' }}
-            >
-              {t('clear_all', 'Clear all')}
-            </button>
-          )}
         </div>
         {rightSlot}
       </div>
