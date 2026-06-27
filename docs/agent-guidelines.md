@@ -59,6 +59,121 @@ The primer covers Martis idioms: the 31 generators, field rules, resource conven
 
 The server reads `MARTIS_MCP_ENABLED` at boot. When `false`, the tools return a short notice instead of running. This lets you toggle the integration on and off via `.env` without editing your agent's MCP config.
 
+## Running the MCP over HTTP (v1.13.0+)
+
+`martis:mcp-serve` ships two transports. stdio is the default and stays the right choice for single-agent dev loops: the MCP client spawns a PHP subprocess on demand and tears it down at session end. HTTP is the right choice when the MCP server is a shared service — multiple agents, multiple sessions, containers, or any environment where spawning PHP from the agent client is awkward.
+
+### When to use which
+
+| | stdio | HTTP |
+|---|---|---|
+| Local dev, single agent | ✓ default | works, but extra setup |
+| Multiple agents / sessions | spawn-per-session, slow | ✓ long-running, shared |
+| Container deploy | needs PHP in client image | ✓ ships PHP once, exposes URL |
+| Hot-reload after package upgrade | client must restart | ✓ restart server, agents reconnect |
+| Network exposure | n/a | ✓ via reverse proxy |
+
+### Zero-to-running (HTTP)
+
+```bash
+# .env
+MARTIS_MCP_TRANSPORT=http
+MARTIS_MCP_HOST=0.0.0.0
+MARTIS_MCP_PORT=8091
+MARTIS_MCP_HEALTH_PORT=8092
+MARTIS_MCP_HTTP_TOKEN=  # optional bearer token (recommended when host=0.0.0.0)
+
+# 1. Wire each agent's .mcp.json with the URL entry
+php artisan martis:agents --with-mcp
+
+# 2. Run the server long-lived (foreground for dev; systemd / compose for prod)
+php artisan martis:mcp-serve
+```
+
+The `martis:agents` command writes a URL entry into `.mcp.json` like:
+
+```json
+{ "mcpServers": { "martis": { "type": "http", "url": "http://localhost:8091/mcp" } } }
+```
+
+`MARTIS_MCP_URL` overrides the auto-built URL. Without it, the value is built from host+port+path with `0.0.0.0` → `localhost`.
+
+### docker-compose
+
+```yaml
+services:
+  martis-mcp:
+    image: php:8.4-cli
+    working_dir: /app
+    volumes: ["./:/app"]
+    command: ["php", "artisan", "martis:mcp-serve"]
+    environment:
+      MARTIS_MCP_TRANSPORT: http
+      MARTIS_MCP_HOST: 0.0.0.0
+      MARTIS_MCP_PORT: 8091
+      MARTIS_MCP_HEALTH_PORT: 8092
+      MARTIS_MCP_HTTP_TOKEN: ${MARTIS_MCP_HTTP_TOKEN}
+    ports: ["8091:8091"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8092/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+```
+
+### systemd
+
+```ini
+# /etc/systemd/system/martis-mcp.service
+[Unit]
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/your-app
+EnvironmentFile=/var/www/your-app/.env
+ExecStart=/usr/bin/php artisan martis:mcp-serve
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Auth posture
+
+The docs are public (anyone can `composer require martis/martis` and read them). When `MARTIS_MCP_HTTP_TOKEN` is unset, the HTTP endpoint accepts any caller. Set the token whenever you bind to a non-loopback host:
+
+```bash
+MARTIS_MCP_HTTP_TOKEN=$(openssl rand -hex 32)
+```
+
+When `host=0.0.0.0` without a token, `martis:mcp-serve` prints a warning at boot. Suppress with `--no-warn-on-public` if you front the server with an authenticated reverse proxy.
+
+### `/health` endpoint
+
+Opt-in: set `MARTIS_MCP_HEALTH_PORT=8092` (or pass `--health-port=8092`). The endpoint lives at `GET /health` and returns:
+
+```json
+{
+  "status": "ok",
+  "version": "1.13.0",
+  "transport": "http",
+  "uptime_s": 1234,
+  "tool_count": 3
+}
+```
+
+`status` becomes `"disabled"` and `tool_count` becomes `0` when `MARTIS_MCP_ENABLED=false`.
+
+### Troubleshooting
+
+- **401 unauthorized**: token mismatch. Check that the client sends `Authorization: Bearer <token>` and the value matches `MARTIS_MCP_HTTP_TOKEN`.
+- **"could not bind to port"**: another process holds the port. Pick a different one with `--port=...`.
+- **`MARTIS_MCP_ENABLED=false`**: handshake still works (clients see the server) but `tools/list` returns `[]`. Useful for emergency disabling without un-wiring.
+- **Logs**: go to stderr in both transports. systemd captures via `journalctl -u martis-mcp`; compose captures via `docker compose logs -f martis-mcp`.
+
 ### Manual MCP wiring
 
 If you prefer to wire MCP yourself, add this to your agent's MCP config (`.mcp.json`, `.cursor/mcp.json`, etc.):
