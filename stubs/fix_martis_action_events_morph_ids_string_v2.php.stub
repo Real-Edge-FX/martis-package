@@ -1,0 +1,84 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * v1.14.3 — re-fix the polymorphic morph id columns on
+ * `martis_action_events`.
+ *
+ * Why a second migration? The v1.14.2
+ * `alter_martis_action_events_morph_ids_to_string` migration shipped
+ * with a broken `isAlreadyString()` guard. The whitelist enumerated
+ * Laravel/MySQL aliases (`bigint`, `integer`, `int`, `smallint`,
+ * `mediumint`) but missed the Postgres native type names returned by
+ * the Laravel-11+ native schema introspector (`int8`, `int4`, `int2`).
+ * On a Postgres host, every column matched the "already string"
+ * branch and was skipped — the migration reported DONE but converted
+ * nothing. Hosts who ran it have it recorded in their `migrations`
+ * table, so a content-only fix in the same filename would never
+ * re-run. This migration ships under a new filename so Laravel
+ * treats it as a fresh migration and applies it once.
+ *
+ * Strategy. The v1.14.2 guard was over-engineered. The conversion is
+ * trivially idempotent on every driver we support: ALTERing an
+ * already-`varchar(255)` column to `varchar(255)` (Postgres
+ * `ALTER COLUMN ... TYPE VARCHAR(255) USING <col>::text`, MySQL /
+ * SQLite native `Schema::table()->string()->change()`) is a no-op
+ * cost-wise and produces no schema diff. So this migration drops
+ * the type-detection guard entirely and just runs the ALTER.
+ *
+ * For fresh v1.14.2+ installs the create stub already declared the
+ * columns as `string`, so this migration ALTERs varchar→varchar — a
+ * trivially safe no-op. For hosts upgraded from v1.14.1 or earlier
+ * (the actual broken case) it does the real conversion.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('martis_action_events')) {
+            return;
+        }
+
+        $columns = ['actionable_id', 'target_id', 'model_id'];
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            // Postgres needs USING <col>::text to cast the existing
+            // populated rows. The cast accepts both integer and
+            // varchar source types, so this runs cleanly whether the
+            // column was created as bigint (broken v1.14.1 / v1.12.2
+            // create stub) or already as varchar (fresh v1.14.2+).
+            foreach ($columns as $col) {
+                DB::statement(sprintf(
+                    'ALTER TABLE martis_action_events ALTER COLUMN %s TYPE VARCHAR(255) USING %s::text',
+                    $col,
+                    $col,
+                ));
+            }
+
+            return;
+        }
+
+        // MySQL / SQLite / SQL Server — Laravel 11+ ships native
+        // schema-change support without doctrine/dbal, so
+        // `->string()->nullable()->change()` works directly.
+        Schema::table('martis_action_events', function (Blueprint $table) use ($columns) {
+            foreach ($columns as $col) {
+                $table->string($col)->nullable()->change();
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        // No-op. Reverting to bigint would re-introduce the silent
+        // audit-drop bug on UUID-keyed models, and string values
+        // already written would fail the integer cast. The forward
+        // direction is universally safe; the backward direction is
+        // not.
+    }
+};

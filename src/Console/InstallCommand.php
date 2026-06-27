@@ -14,8 +14,10 @@ class InstallCommand extends Command
                             {--force : Overwrite existing scaffold files (vite config, shim files, index entry, generator stubs). Does NOT republish config/martis.php or app/Providers/MartisServiceProvider.php — pass --force-config and --force-provider for those.}
                             {--force-config : Republish config/martis.php, overwriting any consumer customisations. Separated from --force so refreshing the extension scaffold does not destroy the host app config.}
                             {--force-provider : Republish app/Providers/MartisServiceProvider.php, overwriting any consumer customisations (registered dashboards, menu, gates, cache layers). Separated from --force so refreshing the extension scaffold does not wipe host app dashboard wiring.}
-                            {--with-profile : Enable profile support}
-                            {--with-2fa : Enable two-factor authentication support}
+                            {--with-profile : Enable profile support (publishes the avatar migration on the host users table)}
+                            {--no-profile : Disable profile support, even when running interactively. Wins over --with-profile.}
+                            {--with-2fa : Enable two-factor authentication support (publishes the two-factor migration on the host users table)}
+                            {--no-2fa : Disable 2FA support, even when running interactively. Wins over --with-2fa.}
                             {--avatar-column= : Column on the users table that stores avatar paths}
                             {--existing-avatar-column : Use an existing avatar column instead of publishing a migration}';
 
@@ -64,17 +66,59 @@ class InstallCommand extends Command
      */
     protected function resolveInstallOptions(): array
     {
-        $interactive = $this->input->isInteractive() && ! app()->runningUnitTests();
-        $profileEnabled = (bool) $this->option('with-profile');
-        $twoFactorEnabled = (bool) $this->option('with-2fa');
+        // Two-layer interactivity gate. The Symfony default
+        // `$this->input->isInteractive()` is true unless the operator
+        // passed `--no-interaction`, but docker-compose / CI pipes
+        // routinely strip the TTY without setting that flag. When that
+        // happens, `confirm(..., true)` silently returns the destructive
+        // default ("yes, alter the host users table"). Treat the command
+        // as truly interactive only when BOTH Symfony agrees AND stdin
+        // is an actual TTY. Tests stay in non-interactive land via the
+        // runningUnitTests() escape hatch.
+        $interactive = $this->input->isInteractive()
+            && ! app()->runningUnitTests()
+            && $this->stdinIsTty();
+
+        // Explicit flags win over everything. --no-* trumps --with-* so
+        // automation that previously set --with-profile to opt-in can
+        // be safely overridden in a follow-up call without editing the
+        // command line.
+        $profileFlag = $this->option('with-profile');
+        $profileOptOut = $this->option('no-profile');
+        $twoFactorFlag = $this->option('with-2fa');
+        $twoFactorOptOut = $this->option('no-2fa');
+
+        // Config-as-source-of-truth. A consumer that set
+        // MARTIS_PROFILE_ENABLED=false (or 2FA_ENABLED=false) is making
+        // a deliberate "do not touch my users table" statement; honour
+        // it even when running interactively.
+        $profileConfigEnabled = (bool) config('martis.profile.enabled', true);
+        $twoFactorConfigEnabled = (bool) config('martis.profile.two_factor.enabled', true);
+
+        $profileEnabled = $this->resolveFeatureToggle(
+            optOut: (bool) $profileOptOut,
+            optIn: (bool) $profileFlag,
+            interactive: $interactive,
+            configEnabled: $profileConfigEnabled,
+            prompt: 'Would you like to enable the Martis Profile feature?',
+        );
+
+        $twoFactorEnabled = $this->resolveFeatureToggle(
+            optOut: (bool) $twoFactorOptOut,
+            optIn: (bool) $twoFactorFlag,
+            interactive: $interactive,
+            configEnabled: $twoFactorConfigEnabled,
+            // Defer to whatever Profile resolved to — 2FA without Profile
+            // makes no sense in the published-migration sense (the 2FA
+            // migration ALTERs the same users table the profile flow
+            // does), but the boolean stays independent so apps that
+            // wire their own profile UI can still opt into 2FA.
+            prompt: 'Would you like to enable the Martis 2FA feature?',
+        );
+
         $avatarEnabled = false;
         $publishAvatarMigration = false;
         $avatarColumn = 'profile_picture';
-
-        if (! $profileEnabled && ! $twoFactorEnabled && $interactive) {
-            $profileEnabled = $this->confirm('Would you like to enable the Martis Profile feature?', true);
-            $twoFactorEnabled = $this->confirm('Would you like to enable the Martis 2FA feature?', true);
-        }
 
         if ($profileEnabled) {
             $avatarEnabled = true;
@@ -113,6 +157,73 @@ class InstallCommand extends Command
             'publish_avatar_migration' => $publishAvatarMigration,
             'two_factor_enabled' => $twoFactorEnabled,
         ];
+    }
+
+    /**
+     * True only when stdin is a real TTY. `docker compose exec -T` and
+     * piped CI invocations strip the PTY without passing
+     * `--no-interaction`, so Symfony's `$input->isInteractive()` alone
+     * is unreliable for "should I block on a prompt?". Falling back to
+     * `posix_isatty()` when `stream_isatty()` is unavailable keeps the
+     * detection working on older or non-POSIX runtimes.
+     */
+    protected function stdinIsTty(): bool
+    {
+        if (! defined('STDIN')) {
+            return false;
+        }
+
+        if (function_exists('stream_isatty')) {
+            return @stream_isatty(STDIN);
+        }
+
+        if (function_exists('posix_isatty')) {
+            return @posix_isatty(STDIN);
+        }
+
+        return false;
+    }
+
+    /**
+     * Combine the four signals (explicit opt-out, explicit opt-in,
+     * interactive prompt, and config default) into a single boolean
+     * "should this feature be enabled?" Precedence, in order:
+     *
+     *   1. Explicit `--no-*` opt-out: always wins, returns false.
+     *   2. Config disabled (e.g. `MARTIS_PROFILE_ENABLED=false`):
+     *      a host that already told us "do not touch my users table"
+     *      via env should not get the migration published, even when
+     *      the operator is sitting at a TTY.
+     *   3. Explicit `--with-*` opt-in: returns true.
+     *   4. Interactive with no flag: prompt with default=true (the
+     *      historical behaviour, preserved for human installs).
+     *   5. Non-interactive with no flag: returns false — automation
+     *      must opt into schema-altering features explicitly.
+     */
+    protected function resolveFeatureToggle(
+        bool $optOut,
+        bool $optIn,
+        bool $interactive,
+        bool $configEnabled,
+        string $prompt,
+    ): bool {
+        if ($optOut) {
+            return false;
+        }
+
+        if (! $configEnabled) {
+            return false;
+        }
+
+        if ($optIn) {
+            return true;
+        }
+
+        if ($interactive) {
+            return (bool) $this->confirm($prompt, true);
+        }
+
+        return false;
     }
 
     protected function createDirectories(): void
@@ -208,9 +319,26 @@ class InstallCommand extends Command
         // row for UUID/ULID-keyed models; new installs already land
         // on string via the create stub above, so this migration is a
         // self-detected no-op for them.
+        //
+        // NB: the v1.14.2 release of this migration shipped with a
+        // broken type-detection guard (Postgres returns `int8` /
+        // `int4` / `int2` from the native introspector, which the
+        // guard misclassified as "already string" and skipped). The
+        // v1.14.3 follow-up below applies the actual conversion under
+        // a NEW filename so consumers who already ran v1.14.2's
+        // broken alter — which is now permanently recorded in their
+        // `migrations` table — converge to the correct schema.
         $this->publishMigrationStub(
             StubResolver::path('alter_martis_action_events_morph_ids_to_string.php.stub'),
             'alter_martis_action_events_morph_ids_to_string'
+        );
+
+        // v1.14.3 — re-applies the morph id type conversion. Drops the
+        // broken guard and ALTERs unconditionally (varchar→varchar is
+        // a free no-op on every supported driver).
+        $this->publishMigrationStub(
+            StubResolver::path('fix_martis_action_events_morph_ids_string_v2.php.stub'),
+            'fix_martis_action_events_morph_ids_string_v2'
         );
 
         // User preferences (theme/accent/density/locale/reduced-motion).

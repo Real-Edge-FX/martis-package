@@ -108,6 +108,53 @@ it('martis:install --no-interaction skips the optional profile migration by defa
     expect($migrations)->toHaveCount(0);
 });
 
+it('martis:install in non-TTY without --no-interaction still skips host-table migrations', function () {
+    // v1.14.3 bug fix. `docker compose exec -T` and CI pipes strip the
+    // TTY without setting `--no-interaction`. Symfony's
+    // $input->isInteractive() stayed true, the confirm() defaults
+    // resolved to "yes" silently, and the host `users` table was
+    // ALTERed (profile_picture + two_factor_*) without the operator
+    // ever being prompted. The fix gates the interactive branch
+    // behind both `isInteractive()` AND a real TTY check; the test
+    // process here is naturally non-TTY, so the bug-fix path is
+    // exercised even without explicit `--no-interaction`.
+    $this->artisan('martis:install')->assertSuccessful();
+
+    $profile = glob(database_path('migrations/*_add_martis_profile_picture_column_to_users_table.php')) ?: [];
+    $twoFactor = glob(database_path('migrations/*_add_martis_two_factor_columns_to_users_table.php')) ?: [];
+
+    expect($profile)->toHaveCount(0, 'profile migration must not auto-publish in non-TTY contexts');
+    expect($twoFactor)->toHaveCount(0, '2FA migration must not auto-publish in non-TTY contexts');
+});
+
+it('martis:install respects MARTIS_PROFILE_ENABLED=false even with --with-profile', function () {
+    config()->set('martis.profile.enabled', false);
+
+    $this->artisan('martis:install', [
+        '--no-interaction' => true,
+        '--with-profile' => true,
+    ])->assertSuccessful();
+
+    $migrations = glob(database_path('migrations/*_add_martis_profile_picture_column_to_users_table.php')) ?: [];
+
+    expect($migrations)->toHaveCount(0, 'config-disabled profile must win over the explicit --with-profile flag so a host with MARTIS_PROFILE_ENABLED=false cannot have its users table altered');
+});
+
+it('martis:install --no-profile blocks profile even when interactive defaults would say yes', function () {
+    // The --no-profile flag wins over both --with-profile and the
+    // interactive confirm default. Combined with config-respect
+    // above, it gives operators a deterministic opt-out path.
+    $this->artisan('martis:install', [
+        '--no-interaction' => true,
+        '--with-profile' => true,
+        '--no-profile' => true,
+    ])->assertSuccessful();
+
+    $migrations = glob(database_path('migrations/*_add_martis_profile_picture_column_to_users_table.php')) ?: [];
+
+    expect($migrations)->toHaveCount(0);
+});
+
 it('martis:install can publish the optional profile migration without duplication', function () {
     $this->artisan('martis:install', [
         '--no-interaction' => true,
