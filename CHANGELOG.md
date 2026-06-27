@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.2] — 2026-06-27
+
+### Fixed
+
+- **`martis_action_events` silently dropped every row for UUID/ULID-keyed models.** v1.12.2 made the `user_id` column adaptive to the host's user PK, but left the three polymorphic morph id columns (`actionable_id`, `target_id`, `model_id`) hardcoded as `unsignedBigInteger`. `ActionController::logActionEvent()` writes the acted-on model's primary key into all three. For any host model that uses `HasUuids` / `HasUlids` (or any non-integer PK), Postgres rejects the INSERT with `invalid input syntax for type bigint` and MySQL in strict mode rejects with a similar type error. The writer is wrapped in a `try/catch` that only emits a `Log::warning`, so the action itself completes successfully and the audit row is silently dropped. The Action Events resource ends up empty on UUID hosts.
+
+  v1.14.2 ships two changes:
+
+  1. `stubs/create_martis_action_events_table.php.stub` now declares all three morph id columns as `string`. New installs land directly on the fixed shape. `morphTo()` accepts string keys without further configuration, and `string` is the only type that supports the genuinely heterogeneous case — a `bigint` `User` and a UUID `Candidate` in the same table.
+  2. `stubs/alter_martis_action_events_morph_ids_to_string.php.stub` ships as a new published migration via `martis:install`. It is driver-aware (Postgres needs `USING <col>::text`; MySQL / SQLite use Doctrine via `Schema::table()->change()`) and skips columns that have already been migrated, so it is a no-op for fresh v1.14.2+ installs and for hosts that already manually fixed their schema.
+
+  No data migration required; existing rows on consumers who managed to insert (bigint hosts) are integer values that cast cleanly to string. The `ActionEvent` model docblock is updated from `int|null` to `string|null` for the three morph id properties so static analysis stays accurate.
+
 ## [1.14.1] — 2026-06-27
 
 ### Fixed

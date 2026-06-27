@@ -201,6 +201,26 @@ it('action_events writes a ulid nullable user_id for HasUlids host user', functi
     expect(columnIsIntegerLike(columnInfo('martis_action_events', 'user_id')))->toBeFalse();
 });
 
+it('action_events writes string-typed polymorphic morph id columns regardless of host PK shape', function () {
+    // v1.14.2 bug fix. `actionable_id` / `target_id` / `model_id` used
+    // to be `unsignedBigInteger`. ActionController writes the
+    // acted-on model's PK into all three columns, so a UUID-keyed
+    // model triggered a Postgres type error that the controller's
+    // try/catch silently swallowed — every audit row was dropped.
+    // String columns accept any PK shape (and heterogeneous mixes
+    // of int + UUID + ULID across the same table — morphTo handles
+    // string keys without further configuration).
+    createUsersTable('bigint');
+    config()->set('auth.providers.users.model', BigintTestUser::class);
+
+    loadStub('create_martis_action_events_table.php.stub')->up();
+
+    foreach (['actionable_id', 'target_id', 'model_id'] as $column) {
+        expect(columnIsIntegerLike(columnInfo('martis_action_events', $column)))
+            ->toBeFalse("`{$column}` must be a string column, not bigint, so the audit writer survives UUID/ULID/string PKs");
+    }
+});
+
 // ---------------------------------------------------------------------------
 // notifications (polymorphic morphs)
 // ---------------------------------------------------------------------------

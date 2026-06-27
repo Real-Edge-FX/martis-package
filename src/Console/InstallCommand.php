@@ -202,6 +202,17 @@ class InstallCommand extends Command
             'create_martis_action_events_table'
         );
 
+        // v1.14.2 — convert the three polymorphic morph id columns on
+        // `martis_action_events` from `bigint` to `string`. Hosts that
+        // installed pre-v1.14.2 had the audit log silently drop every
+        // row for UUID/ULID-keyed models; new installs already land
+        // on string via the create stub above, so this migration is a
+        // self-detected no-op for them.
+        $this->publishMigrationStub(
+            StubResolver::path('alter_martis_action_events_morph_ids_to_string.php.stub'),
+            'alter_martis_action_events_morph_ids_to_string'
+        );
+
         // User preferences (theme/accent/density/locale/reduced-motion).
         // The preferences resolver falls back to config defaults if this
         // migration is never run, so the table is core but not strictly
