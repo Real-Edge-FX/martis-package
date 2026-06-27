@@ -17,6 +17,7 @@ afterEach(function () {
         rmtree($this->dir);
     }
     putenv('MARTIS_MCP_ENABLED');
+    config()->set('martis.mcp.enabled', null);
 });
 
 it('lists docs through listDocs when enabled', function () {
@@ -40,6 +41,7 @@ it('returns an error payload when the slug is missing', function () {
 });
 
 it('returns disabled notices when MARTIS_MCP_ENABLED=false', function () {
+    config()->set('martis.mcp.enabled', false);
     putenv('MARTIS_MCP_ENABLED=false');
     $tools = new Tools(new DocLookup($this->dir));
 
@@ -49,5 +51,26 @@ it('returns disabled notices when MARTIS_MCP_ENABLED=false', function () {
 });
 
 it('treats undefined env as enabled (default true)', function () {
+    expect(Tools::enabled())->toBeTrue();
+});
+
+it('Tools::enabled() returns the config(\'martis.mcp.enabled\') value when set', function () {
+    config()->set('martis.mcp.enabled', false);
+    putenv('MARTIS_MCP_ENABLED'); // unset
+    expect(Tools::enabled())->toBeFalse();
+
+    config()->set('martis.mcp.enabled', true);
+    expect(Tools::enabled())->toBeTrue();
+});
+
+it('Tools::enabled() falls back to getenv when config is missing (cold bootstrap)', function () {
+    config()->offsetUnset('martis.mcp.enabled');
+    putenv('MARTIS_MCP_ENABLED=false');
+    expect(Tools::enabled())->toBeFalse();
+
+    putenv('MARTIS_MCP_ENABLED=true');
+    expect(Tools::enabled())->toBeTrue();
+
+    putenv('MARTIS_MCP_ENABLED'); // unset → default true
     expect(Tools::enabled())->toBeTrue();
 });

@@ -45,6 +45,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Martis MCP Server
+    |--------------------------------------------------------------------------
+    | Controls the docs MCP server (martis:mcp-serve) that exposes the
+    | Martis documentation to coding agents (Claude Code, Cursor, etc.).
+    | See docs/agent-guidelines.md for the full setup recipe.
+    |
+    | Available since v1.13.0.
+    */
+    'mcp' => [
+        'enabled' => env('MARTIS_MCP_ENABLED', true),
+        'transport' => env('MARTIS_MCP_TRANSPORT', 'stdio'),
+        'url' => env('MARTIS_MCP_URL'),
+        'host' => env('MARTIS_MCP_HOST', '127.0.0.1'),
+        'port' => (int) env('MARTIS_MCP_PORT', 8091),
+        'path' => env('MARTIS_MCP_PATH', '/mcp'),
+        'token' => env('MARTIS_MCP_HTTP_TOKEN'),
+        'health_port' => (int) env('MARTIS_MCP_HEALTH_PORT', 0),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Base Middleware
     |--------------------------------------------------------------------------
     | Applied to all Martis routes (public and protected).
