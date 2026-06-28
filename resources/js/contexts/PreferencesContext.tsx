@@ -399,8 +399,23 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       const resp = await api.delete<ShowResponse>('/api/preferences')
       if (resp?.data) setPrefs({ ...DEFAULTS, ...resp.data })
       if (resp?.meta) setMeta(resp.meta)
+      // Keep i18next in sync with the restored locale. Without this,
+      // a user who reset from pt_BR back to the default en would see
+      // the dropdown flip to "English" but every label keep rendering
+      // in pt_BR until they reload — exactly the bug v1.15.1 closes.
+      // Mirrors the update() codepath above so reset and update behave
+      // symmetrically.
+      const restored = resp?.data.locale
+      if (typeof restored === 'string' && restored !== '' && restored !== i18n.language) {
+        void loadLocale(restored)
+      }
     } catch {
       setPrefs(DEFAULTS)
+      // Same locale sync on the catch branch so a fallback to DEFAULTS
+      // also reaches i18next.
+      if (DEFAULTS.locale && DEFAULTS.locale !== i18n.language) {
+        void loadLocale(DEFAULTS.locale)
+      }
     }
   }, [enabled])
 

@@ -364,7 +364,6 @@ class NavigationController extends MartisController
         }
 
         $section = MenuSection::make(__('martis::messages.system'), $items)
-            ->icon('gear')
             ->collapsable(true)
             ->resolve($request);
 

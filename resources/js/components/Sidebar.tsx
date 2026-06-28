@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react"
+import { useIsTruncated } from "@/hooks/useIsTruncated"
 import { NavLink, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
@@ -32,6 +33,19 @@ import { ResourceIcon } from "./ResourceIcon"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
+}
+
+/**
+ * Stable React key for a leaf navigation item.
+ * Resources use their uriKey (globally unique); other entries compose
+ * groupKey + label + url to disambiguate siblings.
+ * Lives here — outside LeafItem — so call sites can pass it as the
+ * `key` prop on the <LeafItem> wrapper where React's reconciler reads it.
+ */
+function leafItemKey(item: NavigationItem, groupKey: string): string {
+  return item.type === "resource"
+    ? item.uriKey
+    : `${groupKey}-${item.label}-${item.url}`
 }
 
 /**
@@ -96,13 +110,28 @@ interface RenderItemContext {
  * Render a single leaf navigation item (resource / link / tool / dashboard /
  * lens / filter). Shared between flat groups and nested MenuGroups so the
  * row markup stays consistent across both levels.
+ *
+ * Implemented as a React component (not a plain function) so that the
+ * useIsTruncated hook can be called inside it. The hook wires a ref to
+ * the label span and reports whether the text is CSS-clipped; the result
+ * feeds into the tooltip condition alongside the collapsed-mode check.
  */
-function renderLeafItem(
-  item: NavigationItem,
-  ctx: RenderItemContext,
-): JSX.Element {
+function LeafItem({
+  item,
+  ctx,
+}: {
+  item: NavigationItem
+  ctx: RenderItemContext
+}): JSX.Element {
   const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
-  const showTooltip = !ctx.isMobile && ctx.collapsed ? item.label : undefined
+  const [labelRef, labelOverflows] = useIsTruncated<HTMLSpanElement>()
+  // Tooltip surfaces the full label in two cases: when the sidebar
+  // is collapsed (icon-only mode, no label visible at all) and when
+  // the label is CSS-truncated with an ellipsis. Both share the same
+  // PrimeReact tooltip plumbing (data-pr-tooltip + the global
+  // <Tooltip selector="[data-pr-tooltip]" /> instance mounted in
+  // app.tsx). Native `title=` is forbidden by the workspace rule.
+  const showTooltip = !ctx.isMobile && (ctx.collapsed || labelOverflows) ? item.label : undefined
   const count = getItemCount(item)
   const showLabel = ctx.isMobile || !ctx.collapsed
   const showCount = showLabel && count !== null
@@ -112,7 +141,7 @@ function renderLeafItem(
     <>
       <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
       {showLabel && (
-        <span className="martis-sb-item-label">{item.label}</span>
+        <span ref={labelRef} className="martis-sb-item-label">{item.label}</span>
       )}
       {showLabel && badge && (
         <span
@@ -130,15 +159,9 @@ function renderLeafItem(
     </>
   )
 
-  const key =
-    item.type === "resource"
-      ? item.uriKey
-      : `${ctx.groupKey}-${item.label}-${item.url}`
-
   if (item.external) {
     return (
       <a
-        key={key}
         href={item.url}
         target="_blank"
         rel="noreferrer"
@@ -176,7 +199,6 @@ function renderLeafItem(
 
   return (
     <NavLink
-      key={key}
       to={item.url}
       end
       className={() => className}
@@ -279,9 +301,13 @@ function NestedGroupBlock({
       )}
       {(open || (!ctx.isMobile && ctx.collapsed)) && (
         <div className="martis-sb-subgroup-items">
-          {group.items.map((item) =>
-            renderLeafItem(item, { ...ctx, groupKey }),
-          )}
+          {group.items.map((item) => (
+            <LeafItem
+              key={leafItemKey(item, groupKey)}
+              item={item}
+              ctx={{ ...ctx, groupKey }}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -565,7 +591,13 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                         />
                       )
                     }
-                    return renderLeafItem(child, ctx)
+                    return (
+                      <LeafItem
+                        key={leafItemKey(child, groupKey)}
+                        item={child}
+                        ctx={ctx}
+                      />
+                    )
                   })}
               </div>
             </Fragment>
