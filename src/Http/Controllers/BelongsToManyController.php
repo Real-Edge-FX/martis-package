@@ -79,7 +79,7 @@ class BelongsToManyController extends MartisController
         $dirStr = is_string($rawDir) ? $rawDir : SortDirection::Asc->value;
         $direction = SortDirection::tryFrom(strtolower($dirStr)) ?? SortDirection::Asc;
 
-        if (is_string($rawSort) && $rawSort !== '') {
+        if (is_string($rawSort) && $rawSort !== '' && $this->isSortableAttribute($relatedResourceClass, $request, $rawSort)) {
             $query->orderBy($rawSort, $direction->value);
         }
 

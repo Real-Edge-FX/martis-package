@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
@@ -75,5 +76,34 @@ abstract class MartisController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Whether `$attribute` is a declared-sortable field on `$resourceClass`.
+     *
+     * Relationship index endpoints accept a `?sort=` query param. It must
+     * never reach `orderBy()` unvalidated: a non-existent column 500s on
+     * MySQL/Postgres (SQLite tolerates it), and an undeclared real column
+     * would be silently honoured (unintended ordering / minor info-oracle).
+     * Validate against the resource's fields where `isSortable()`. Layout
+     * nodes (Section/Panel/TabGroup) are flattened first so the
+     * `FieldContract` filter does not trip on non-field nodes — mirrors
+     * `HasManyController::applySorting()`.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     */
+    protected function isSortableAttribute(string $resourceClass, Request $request, string $attribute): bool
+    {
+        $instance = new $resourceClass;
+
+        $sortable = array_map(
+            fn (FieldContract $field): string => $field->attribute(),
+            array_values(array_filter(
+                Field::flattenLayoutFields($instance->fields($request)),
+                fn (FieldContract $field): bool => $field->isSortable(),
+            )),
+        );
+
+        return in_array($attribute, $sortable, true);
     }
 }

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (ecosystem audit)
+
+- **`BelongsToMany` / `MorphToMany` relationship index ignored the sortable-field whitelist on `?sort=`.** Both controllers passed the raw `?sort=` query param straight to `$query->orderBy()` with no validation, unlike `ResourceController` / `HasManyController` / `MorphManyController` which check it against the related resource's declared `->sortable()` fields. An undeclared real column was silently honoured (unintended ordering / minor info-oracle) and a non-existent column 500s on MySQL/Postgres (SQLite tolerates it). Both now validate via a shared `MartisController::isSortableAttribute()` helper. This aligns the behaviour with the documented contract (`docs/relationships.md`: "Sort asc/desc on sortable fields").
+
 ## [1.15.2] — 2026-06-28
 
 ### Fixed
