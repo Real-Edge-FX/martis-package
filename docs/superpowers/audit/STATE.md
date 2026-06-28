@@ -57,7 +57,14 @@ On branch `fix/metric-controller-resource-registry-v1.15.2` (PR #193, HELD):
 3. `ValueResult` negative-baseline — change guard `> 0` → `!= 0`.
 Tests: 2048 Pest passing. New: `MetricControllerResourceCardTest`, 3 cases in `MetricTest`.
 
-These are also independently shipped as the v1.15.2 line (held). The audit will surface MORE metric findings (e.g. Trend `DATE_FORMAT` MySQL-only cross-driver, metric cache-key user-scoping) — those are NOT yet fixed.
+These are also independently shipped as the v1.15.2 line (held). The audit will surface MORE metric findings (e.g. metric cache-key user-scoping) — those are NOT yet fixed.
+
+### Audit Phase-3 fixes already landed on THIS branch (`audit/ecosystem-sweep-2026-06-28`)
+
+1. **`?sort=` whitelist on BelongsToMany + MorphToMany** (commit `d28121eae`). Added shared `MartisController::isSortableAttribute()`; both controllers now gate `orderBy()` on the related resource's declared sortable fields (was: raw param → orderBy, 500 on MySQL/Postgres for bogus columns, undeclared real columns honoured). Tests in both controller suites. No doc change (already matched `docs/relationships.md`).
+2. **`TrendMetric` cross-driver DB aggregation** (commit `ced5c5055`). Was MySQL-only `DATE_FORMAT()` → 500 on SQLite/Postgres. Reworked to PHP-side Carbon bucketing (database-agnostic, correct ISO-week). New `TrendMetricAggregationTest`. Docs: `docs/metrics.md` "Database support" note + mirrored to `martis-docs core/metrics.mdx` on branch `docs/audit-sweep-2026-06-28` (HELD, not deployed). User chose PHP-bucketing over per-driver SQL.
+
+Full suite at 2055 Pest passing on this branch. Both fixes were forwarded by the user from the live audit before findings.json landed — when triaging findings.json, DEDUPE against these two (do not re-fix).
 
 ---
 
