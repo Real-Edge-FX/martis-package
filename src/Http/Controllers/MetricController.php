@@ -129,11 +129,16 @@ class MetricController
     public function computeResourceMetric(Request $request, string $resource, string $card): IlluminateJsonResponse
     {
         $registry = app(ResourceRegistry::class);
-        $resourceClass = $registry->resolve($resource);
 
-        if ($resourceClass === null) {
+        // ResourceRegistry has no resolve() method — the lookup idiom
+        // every other controller uses is has()-guard + get() (get()
+        // throws when the key is unregistered, so the has() check is
+        // what turns an unknown uriKey into a clean 404 here).
+        if (! $registry->has($resource)) {
             return JsonErrorResponse::notFound('Resource not found.')->toResponse();
         }
+
+        $resourceClass = $registry->get($resource);
 
         /** @var resource $instance */
         $instance = new $resourceClass;

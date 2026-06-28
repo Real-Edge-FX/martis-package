@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.2] — 2026-06-28
+
+### Fixed
+
+- **Resource metric cards 500'd: `MetricController` called a non-existent registry method.** `computeResourceMetric()` (the `GET /api/resources/{resource}/cards/{card}` endpoint) looked up the resource with `ResourceRegistry::resolve()`, a method that has never existed on the registry — every resource-level metric card returned `HTTP 500: Call to undefined method Martis\ResourceRegistry::resolve()`, making `Resource::cards()` effectively dead. Replaced with the canonical `has()`-guard + `get()` idiom every other controller (Action, BelongsToMany, HasOne, HasMany, MorphMany) already uses; an unknown resource now returns a clean 404 instead of throwing. The dashboard metric path (`computeDashboardMetric`) was unaffected — it resolves through `MartisManager` and was never broken. New `MetricControllerResourceCardTest` pins the contract: a registered card computes its value, an unknown resource 404s, an unknown card 404s.
+
 ## [1.15.1] — 2026-06-27
 
 ### Fixed
