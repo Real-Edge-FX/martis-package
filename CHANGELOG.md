@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.1] — 2026-06-27
+
+### Fixed
+
+- **Built-in SYSTEM navigation group no longer renders a gear icon.** The MenuSection chain in `NavigationController` declared `->icon('gear')` while every peer group (GOVERNANCE, custom user groups) renders without a group-level icon. Visual inconsistency removed. Pest regression guard added.
+
+- **Sidebar nav items now show a PrimeReact tooltip when the label is CSS-truncated.** A long label like "Processed Candidates" used to render with an ellipsis and no way to read the rest. The new `useIsTruncated` hook detects overflow on the label `<span>` (`scrollWidth > clientWidth + 1`, ResizeObserver-driven) and threads the boolean into the existing `data-pr-tooltip` plumbing. Per workspace rule (`CLAUDE.md`), the native `title=` attribute is not used in this surface.
+
+- **Preferences "Reset" now applies the restored locale to i18next without a refresh.** `PreferencesContext.reset()` updated React state but skipped the `loadLocale()` side-effect that `update()` runs. A user resetting from `pt_BR` to the default `en` saw the dropdown flip but every label stay in `pt_BR` until a page reload. The reset callback now mirrors the `update()` locale-sync block.
+
 ## [1.15.0] — 2026-06-27
 
 ### Changed
