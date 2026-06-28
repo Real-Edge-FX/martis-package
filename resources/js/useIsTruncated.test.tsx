@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { useIsTruncated } from '@/hooks/useIsTruncated'
 
@@ -18,7 +18,7 @@ function Probe({ scrollWidth, clientWidth }: ProbeProps) {
         if (!el) return
         Object.defineProperty(el, 'scrollWidth', { configurable: true, get: () => scrollWidth })
         Object.defineProperty(el, 'clientWidth', { configurable: true, get: () => clientWidth })
-        ref.current = el
+        ;(ref as React.MutableRefObject<HTMLSpanElement | null>).current = el
       }}
       data-truncated={truncated ? 'yes' : 'no'}
     />
