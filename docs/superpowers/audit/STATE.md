@@ -42,6 +42,18 @@ The audit runs as a background Workflow. **Resuming uses the on-disk journal —
 `cp <scratch>/audit/*.{md,json} docs/superpowers/audit/ && git add docs/superpowers/audit && git commit && git push`
 (The /tmp scratch dies with the session — this copy is what makes the findings durable.)
 
+### OUTCOME (2026-06-28 ~23:40): Phase 1 COMPLETE — findings recovered + durable
+
+The run-2 synth agent stalled (wrote only a stray `severity_tally.txt`); `findings.json`/`AUDIT-REPORT.md` were never produced in /tmp. **Recovered the full confirmed-findings array from the synth agent's transcript** (`agent-a11e9c1339cb280ba.jsonl` — the workflow had passed `JSON.stringify(confirmed)` into the synth prompt), zero extra agent tokens. Generated the consolidated report locally.
+
+**Durable artifacts (committed, branch `audit/ecosystem-sweep-2026-06-28`):**
+- `docs/superpowers/audit/findings.json` — 159 raw confirmed findings.
+- `docs/superpowers/audit/AUDIT-REPORT.md` — 158 actionable (1 verifier-invalidated dropped), severity-ranked.
+
+**Totals:** critical 3 · high 28 · medium 57 · low 70. Categories: security 52 · bug 54 · doc-drift 20 · implementation 14 · convention 18 · perf 1.
+
+**3 criticals:** (1) pivot action execution skips per-model canRun + resource authz; (2) impersonation `stop()` endpoint missing authz; (3) MarkdownField unsanitized `marked.parse()` → `dangerouslySetInnerHTML` (XSS). Workflow run is gone (TaskStop reports no such task) — no zombie. Phase 3 = fix all (dedupe the 2 already-[FIXED]).
+
 ### Run history
 
 - **Run 1 (task wlks2dsru):** hit session limit (resets 23:00 Lisbon) mid-way. Returned `{confirmed:44, critical:2, high:14, medium:15, low:13}` but `synth: null` — REPORT NOT WRITTEN. ~130 verify agents + fe-pages-lib finder + synth failed on the limit. ~227 agents / 5.8M tokens already cached on disk.
