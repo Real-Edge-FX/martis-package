@@ -47,7 +47,8 @@ afterEach(() => {
 
 function Caller() {
   const { reset } = usePreferences()
-  useEffect(() => { void reset() }, [reset])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void reset() }, [])
   return null
 }
 
