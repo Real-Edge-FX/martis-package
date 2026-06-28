@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react"
+import { useIsTruncated } from "@/hooks/useIsTruncated"
 import { NavLink, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
@@ -96,13 +97,28 @@ interface RenderItemContext {
  * Render a single leaf navigation item (resource / link / tool / dashboard /
  * lens / filter). Shared between flat groups and nested MenuGroups so the
  * row markup stays consistent across both levels.
+ *
+ * Implemented as a React component (not a plain function) so that the
+ * useIsTruncated hook can be called inside it. The hook wires a ref to
+ * the label span and reports whether the text is CSS-clipped; the result
+ * feeds into the tooltip condition alongside the collapsed-mode check.
  */
-function renderLeafItem(
-  item: NavigationItem,
-  ctx: RenderItemContext,
-): JSX.Element {
+function LeafItem({
+  item,
+  ctx,
+}: {
+  item: NavigationItem
+  ctx: RenderItemContext
+}): JSX.Element {
   const iconName = item.type === "resource" ? item.icon : item.icon ?? "link"
-  const showTooltip = !ctx.isMobile && ctx.collapsed ? item.label : undefined
+  const [labelRef, labelOverflows] = useIsTruncated<HTMLSpanElement>()
+  // Tooltip surfaces the full label in two cases: when the sidebar
+  // is collapsed (icon-only mode, no label visible at all) and when
+  // the label is CSS-truncated with an ellipsis. Both share the same
+  // PrimeReact tooltip plumbing (data-pr-tooltip + the global
+  // <Tooltip selector="[data-pr-tooltip]" /> instance mounted in
+  // app.tsx). Native `title=` is forbidden by the workspace rule.
+  const showTooltip = !ctx.isMobile && (ctx.collapsed || labelOverflows) ? item.label : undefined
   const count = getItemCount(item)
   const showLabel = ctx.isMobile || !ctx.collapsed
   const showCount = showLabel && count !== null
@@ -112,7 +128,7 @@ function renderLeafItem(
     <>
       <ResourceIcon iconName={iconName ?? null} size={16} className="shrink-0" />
       {showLabel && (
-        <span className="martis-sb-item-label">{item.label}</span>
+        <span ref={labelRef} className="martis-sb-item-label">{item.label}</span>
       )}
       {showLabel && badge && (
         <span
@@ -188,6 +204,18 @@ function renderLeafItem(
       {inner}
     </NavLink>
   )
+}
+
+/**
+ * Thin wrapper so call sites that previously called `renderLeafItem(item, ctx)`
+ * can stay as JSX elements. The function signature is kept for compatibility
+ * with the two map() call sites in this module.
+ */
+function renderLeafItem(
+  item: NavigationItem,
+  ctx: RenderItemContext,
+): JSX.Element {
+  return <LeafItem item={item} ctx={ctx} />
 }
 
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
