@@ -6,6 +6,8 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\MartisManager;
+use Martis\ResourceRegistry;
 
 class NavSystemSectionTestUser extends User
 {
@@ -23,7 +25,6 @@ class NavSystemSectionTestUser extends User
  * This test ensures that icon is removed in v1.15.1 — peer groups like
  * GOVERNANCE and custom user groups never render a group-level icon.
  */
-
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
@@ -43,11 +44,20 @@ beforeEach(function () {
         'password' => bcrypt('password'),
     ]);
 
+    app(MartisManager::class)->forgetMainMenu();
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+
     config()->set('martis.cache.admin_ui', true);
 
     Gate::define('manage-martis-cache', fn () => true);
 
     $this->actingAs($this->user, 'web');
+});
+
+afterEach(function () {
+    app(MartisManager::class)->forgetMainMenu();
 });
 
 it('SYSTEM nav section is rendered without an icon (v1.15.1+ — was gear)', function () {
