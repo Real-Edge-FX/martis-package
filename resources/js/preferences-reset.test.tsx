@@ -31,7 +31,7 @@ vi.mock('@/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
-beforeEach(() => {
+beforeEach(async () => {
   loadLocaleSpy.mockClear()
   // Wire the config so `config.preferences.enabled` resolves to true.
   // The PreferencesContext reads: `config.preferences?.enabled !== false`
@@ -39,6 +39,10 @@ beforeEach(() => {
   ;(window as { MartisConfig?: unknown }).MartisConfig = {
     preferences: { enabled: true, allowBrandColor: false, initial: null },
   }
+  // Restore i18n mock language to the initial value so cases that mutate it
+  // (same-locale negative, catch branch) don't bleed into each other.
+  const { default: i18nMock } = await import('@/lib/i18n')
+  ;(i18nMock as { language: string }).language = 'pt_BR'
 })
 
 afterEach(() => {
@@ -54,6 +58,47 @@ function Caller() {
 
 describe('PreferencesContext.reset()', () => {
   it('calls loadLocale(restoredLocale) when the reset response carries a locale different from the current i18n.language', async () => {
+    await act(async () => {
+      render(
+        <PreferencesProvider>
+          <Caller />
+        </PreferencesProvider>,
+      )
+    })
+
+    expect(loadLocaleSpy).toHaveBeenCalledWith('en')
+  })
+
+  it('does NOT call loadLocale when the restored locale matches the current i18n.language', async () => {
+    // Override the i18n mock so `language` matches the locale the API
+    // is going to restore. Without this guard the spy would fire on
+    // every reset — wasteful and would invalidate downstream caches
+    // unnecessarily.
+    const { default: i18nMock } = await import('@/lib/i18n')
+    ;(i18nMock as { language: string }).language = 'en'
+
+    await act(async () => {
+      render(
+        <PreferencesProvider>
+          <Caller />
+        </PreferencesProvider>,
+      )
+    })
+
+    expect(loadLocaleSpy).not.toHaveBeenCalled()
+  })
+
+  it('falls back to DEFAULTS.locale and calls loadLocale when the API call rejects', async () => {
+    // Force the DELETE to throw. The reset callback's catch branch
+    // is supposed to call setPrefs(DEFAULTS) and loadLocale(DEFAULTS.locale)
+    // — without that, a server-failure path leaves i18next stuck on
+    // the prior language.
+    const { api } = await import('@/lib/api')
+    ;(api.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('500'))
+
+    const { default: i18nMock } = await import('@/lib/i18n')
+    ;(i18nMock as { language: string }).language = 'pt_BR'
+
     await act(async () => {
       render(
         <PreferencesProvider>

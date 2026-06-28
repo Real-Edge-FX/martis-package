@@ -36,6 +36,19 @@ function getBrand(): string {
 }
 
 /**
+ * Stable React key for a leaf navigation item.
+ * Resources use their uriKey (globally unique); other entries compose
+ * groupKey + label + url to disambiguate siblings.
+ * Lives here — outside LeafItem — so call sites can pass it as the
+ * `key` prop on the <LeafItem> wrapper where React's reconciler reads it.
+ */
+function leafItemKey(item: NavigationItem, groupKey: string): string {
+  return item.type === "resource"
+    ? item.uriKey
+    : `${groupKey}-${item.label}-${item.url}`
+}
+
+/**
  * Sidebar brand resolution (v1.7.0).
  *
  * Three modes, with per-theme variants:
@@ -146,15 +159,9 @@ function LeafItem({
     </>
   )
 
-  const key =
-    item.type === "resource"
-      ? item.uriKey
-      : `${ctx.groupKey}-${item.label}-${item.url}`
-
   if (item.external) {
     return (
       <a
-        key={key}
         href={item.url}
         target="_blank"
         rel="noreferrer"
@@ -192,7 +199,6 @@ function LeafItem({
 
   return (
     <NavLink
-      key={key}
       to={item.url}
       end
       className={() => className}
@@ -204,18 +210,6 @@ function LeafItem({
       {inner}
     </NavLink>
   )
-}
-
-/**
- * Thin wrapper so call sites that previously called `renderLeafItem(item, ctx)`
- * can stay as JSX elements. The function signature is kept for compatibility
- * with the two map() call sites in this module.
- */
-function renderLeafItem(
-  item: NavigationItem,
-  ctx: RenderItemContext,
-): JSX.Element {
-  return <LeafItem item={item} ctx={ctx} />
 }
 
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
@@ -307,9 +301,13 @@ function NestedGroupBlock({
       )}
       {(open || (!ctx.isMobile && ctx.collapsed)) && (
         <div className="martis-sb-subgroup-items">
-          {group.items.map((item) =>
-            renderLeafItem(item, { ...ctx, groupKey }),
-          )}
+          {group.items.map((item) => (
+            <LeafItem
+              key={leafItemKey(item, groupKey)}
+              item={item}
+              ctx={{ ...ctx, groupKey }}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -593,7 +591,13 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                         />
                       )
                     }
-                    return renderLeafItem(child, ctx)
+                    return (
+                      <LeafItem
+                        key={leafItemKey(child, groupKey)}
+                        item={child}
+                        ctx={ctx}
+                      />
+                    )
                   })}
               </div>
             </Fragment>
