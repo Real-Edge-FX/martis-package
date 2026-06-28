@@ -16,9 +16,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
  * labels.
  *
  * SSR / no-ResizeObserver fallback: when `ResizeObserver` is not
- * available (jsdom by default, very old browsers), the hook still
- * runs one measurement after the initial layout pass and returns
- * the snapshot.
+ * available (jsdom by default, very old browsers), the hook falls
+ * back to the per-render measurement below — the `useLayoutEffect`
+ * with no dependency array re-measures on every render so the
+ * consumer sees a fresh truncation state whenever the component
+ * re-renders for any reason (label text change, badge update,
+ * sidebar collapse toggle, theme change). The `ResizeObserver`
+ * branch adds element-resize signals on top of that.
  */
 export function useIsTruncated<T extends HTMLElement>(): readonly [React.RefObject<T>, boolean] {
   const ref = useRef<T | null>(null) as React.RefObject<T>

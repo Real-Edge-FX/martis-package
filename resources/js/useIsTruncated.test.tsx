@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, afterEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { describe, expect, it, afterEach } from 'vitest'
+import { render } from '@testing-library/react'
 import { useIsTruncated } from '@/hooks/useIsTruncated'
 
 interface ProbeProps {
