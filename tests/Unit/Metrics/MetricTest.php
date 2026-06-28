@@ -95,6 +95,18 @@ it('ValueResult handles zero previous without division error', function () {
     expect($arr)->not->toHaveKey('change');
 });
 
+it('ValueResult computes change from a negative previous', function () {
+    // Regression: the guard was `previous > 0`, which silently dropped
+    // `change` for any negative baseline (a loss, a deficit, a negative
+    // balance). Division by a negative number is mathematically valid;
+    // only zero must be excluded. -500 -> +200 is a +140% swing.
+    $result = (new ValueResult(200))->previous(-500);
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('change')
+        ->and($arr['change'])->toBe(-140.0);
+});
+
 // ---------------------------------------------------------------------------
 // TrendMetric
 // ---------------------------------------------------------------------------
@@ -119,6 +131,28 @@ it('TrendResult supports showSumValue', function () {
     $arr = $result->toArray();
 
     expect($arr['sumValue'])->toBe(30);
+});
+
+it('TrendResult omits change entirely when the delta is null (sparkline, zero-first series)', function () {
+    // Regression: a sparkline series whose first bucket is 0 (common for
+    // brand-new data) made computeDelta() return null, and toArray()
+    // emitted `change: null`. The frontend guard was `change !== undefined`,
+    // which is true for a JSON null, so the card rendered the literal
+    // string "null%". The contract: when there is no meaningful delta,
+    // omit the key so the frontend's `!= null` guard suppresses the row.
+    $result = (new TrendResult(['Mon', 'Tue', 'Wed'], [0, 5, 9]))->sparkline();
+    $arr = $result->toArray();
+
+    expect($arr['sparkline'])->toBeTrue()
+        ->and($arr)->not->toHaveKey('change');
+});
+
+it('TrendResult keeps change when the delta is a real number', function () {
+    $result = (new TrendResult(['Mon', 'Tue', 'Wed'], [10, 15, 20]))->sparkline();
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('change')
+        ->and($arr['change'])->toBe(100.0);
 });
 
 // ---------------------------------------------------------------------------

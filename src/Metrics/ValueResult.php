@@ -109,7 +109,11 @@ class ValueResult extends MetricResult
         if ($this->previous !== null) {
             $data['previous'] = $this->previous;
 
-            if ($this->previous > 0) {
+            // Guard only against a zero baseline (division by zero). A
+            // negative previous is a mathematically valid denominator —
+            // the old `> 0` guard silently dropped `change` for losses,
+            // deficits, and negative balances.
+            if ($this->previous != 0) {
                 $data['change'] = round((($this->value - $this->previous) / $this->previous) * 100, 1);
             }
         }

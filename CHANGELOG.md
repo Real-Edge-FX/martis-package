@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Resource metric cards 500'd: `MetricController` called a non-existent registry method.** `computeResourceMetric()` (the `GET /api/resources/{resource}/cards/{card}` endpoint) looked up the resource with `ResourceRegistry::resolve()`, a method that has never existed on the registry — every resource-level metric card returned `HTTP 500: Call to undefined method Martis\ResourceRegistry::resolve()`, making `Resource::cards()` effectively dead. Replaced with the canonical `has()`-guard + `get()` idiom every other controller (Action, BelongsToMany, HasOne, HasMany, MorphMany) already uses; an unknown resource now returns a clean 404 instead of throwing. The dashboard metric path (`computeDashboardMetric`) was unaffected — it resolves through `MartisManager` and was never broken. New `MetricControllerResourceCardTest` pins the contract: a registered card computes its value, an unknown resource 404s, an unknown card 404s.
 
+- **Trend sparkline cards rendered the literal text `null%`.** When a sparkline `TrendResult`'s delta could not be computed (empty series, or a first bucket of `0` — common for brand-new data), `toArray()` emitted `change: null`. The `TrendCard` guard only checked `change !== undefined`, and a JSON `null` is not `undefined`, so the card printed `null%`. `TrendResult::toArray()` now omits `change` entirely when the delta is null, and `TrendCard` guards with `change != null` (defense in depth).
+
+- **`ValueResult` dropped the change percentage for a negative baseline.** The guard was `previous > 0`, which silently omitted `change` whenever the previous value was negative (a loss, a deficit, a negative balance). Division by a negative denominator is mathematically valid; the guard now excludes only zero (`previous != 0`), so a metric going from `-500` to `+200` correctly reports `+140%`.
+
 ## [1.15.1] — 2026-06-27
 
 ### Fixed
