@@ -1,0 +1,74 @@
+# Martis Ecosystem Audit — durable state / resume map
+
+**Last updated:** 2026-06-28 ~23:05 WEST
+**Purpose:** Let a cold session continue this audit WITHOUT redoing any work. Read this first.
+
+---
+
+## The user's binding decisions (do not re-ask)
+
+1. **Deliverable: fix EVERYTHING.** Not just a report, not just GitHub issues. Every confirmed finding gets fixed (TDD per fix + docs sync), accumulated into a release. (This overrides the default `feedback_bug_handling_workflow` "issues-not-PRs" rule — the user explicitly chose "corrigir tudo, não quero problemas".)
+2. **Scope: martis-package + docs only.** PHP + React + `docs/*.md` + the `martis-docs` mirror (`src/content/**/*.mdx`). NOT martis-playground, NOT consumers (edge-flow is Python now).
+3. **Hold the v1.15.2 tag.** Do not tag/release yet — accumulate the audit fixes into a larger release. PR [#193](https://github.com/Real-Edge-FX/martis-package/pull/193) stays OPEN, NOT merged, NOT tagged.
+4. **Docs sync is a hard rule.** Package `docs/*.md` ↔ `martis-docs` `*.mdx` must be EQUAL and reflect the code (source of truth = martis-package). Covers create/edit/delete/rename. Doc drift counts as a bug. Every landing-pill bump also updates `RELEASE_HEADLINE` in `martis-docs/src/data/landing.ts`.
+
+---
+
+## Phase plan
+
+- **Phase 1 — FIND + VERIFY (workflow):** IN PROGRESS. See "Workflow" below.
+- **Phase 2 — Triage + fix plan:** read `findings.json`, group by severity/subsystem, separate safe one-liners from entangled work, build an SDD plan, present consolidated report to user.
+- **Phase 3 — Fix everything (SDD):** on this branch (`audit/ecosystem-sweep-2026-06-28`), each finding → failing test → fix → docs sync (both sides) → green. Whole-branch review at the end. Then ONE larger release.
+
+---
+
+## Workflow (Phase 1) — HOW TO RESUME WITHOUT RE-BURNING
+
+The audit runs as a background Workflow. **Resuming uses the on-disk journal — completed agents return cached results instantly at ZERO token cost.** Only failed/new agents re-run. Do NOT author a new workflow from scratch.
+
+- **Run ID:** `wf_5b41df2f-74d`
+- **Script path:** `/Users/lmoura/.claude/projects/-Users-lmoura-projects-martis-martis-package/8c99f15c-6537-4b99-a9db-8f2073119f8e/workflows/scripts/martis-ecosystem-audit-wf_5b41df2f-74d.js`
+- **Transcript/journal dir (durable on disk):** `/Users/lmoura/.claude/projects/-Users-lmoura-projects-martis/8c99f15c-6537-4b99-a9db-8f2073119f8e/subagents/workflows/wf_5b41df2f-74d/`
+- **To resume:** `Workflow({ scriptPath: "<script path above>", resumeFromRunId: "wf_5b41df2f-74d" })`
+
+**What it does:** 30 targets (21 PHP subsystems + 3 frontend areas + 3 security lenses + 2 docs-sync + 1 fe-pages-lib) → finder (code-analyzer, sonnet) → adversarial per-finding verifier → synthesizer (opus) writes the report.
+
+**The synthesizer writes (EPHEMERAL /tmp — must be copied to git on completion):**
+- `<scratch>/audit/AUDIT-REPORT.md`
+- `<scratch>/audit/findings.json`
+- scratch = `/private/tmp/claude-72892903/-Users-lmoura-projects-martis/8c99f15c-6537-4b99-a9db-8f2073119f8e/scratchpad/audit/`
+
+**ON COMPLETION, immediately copy both into this repo and commit/push:**
+`cp <scratch>/audit/*.{md,json} docs/superpowers/audit/ && git add docs/superpowers/audit && git commit && git push`
+(The /tmp scratch dies with the session — this copy is what makes the findings durable.)
+
+### Run history
+
+- **Run 1 (task wlks2dsru):** hit session limit (resets 23:00 Lisbon) mid-way. Returned `{confirmed:44, critical:2, high:14, medium:15, low:13}` but `synth: null` — REPORT NOT WRITTEN. ~130 verify agents + fe-pages-lib finder + synth failed on the limit. ~227 agents / 5.8M tokens already cached on disk.
+- **Run 2 (resume, task wzg3jb465):** launched 23:01 after limit reset. Re-runs only the failed tail (cached prefix free). Should write the report + findings.json.
+
+---
+
+## Already FIXED — do NOT re-investigate or re-fix (committed + pushed)
+
+On branch `fix/metric-controller-resource-registry-v1.15.2` (PR #193, HELD):
+1. `MetricController::computeResourceMetric()` — `ResourceRegistry::resolve()` (nonexistent) → `has()`-guard + `get()`. Resource metric cards were 500ing.
+2. `TrendResult` sparkline "null%" — omit `change` when delta is null; TSX `TrendCard` guards `change != null`.
+3. `ValueResult` negative-baseline — change guard `> 0` → `!= 0`.
+Tests: 2048 Pest passing. New: `MetricControllerResourceCardTest`, 3 cases in `MetricTest`.
+
+These are also independently shipped as the v1.15.2 line (held). The audit will surface MORE metric findings (e.g. Trend `DATE_FORMAT` MySQL-only cross-driver, metric cache-key user-scoping) — those are NOT yet fixed.
+
+---
+
+## Known high-value leads already surfaced (pre-verification, for context)
+
+- **`DATE_FORMAT` is MySQL-only** in `TrendMetric::aggregateByPeriod()` / `PartitionMetric` → Trend & Partition metric DB aggregation 500s on Postgres/SQLite. Zero DB-level test coverage of that path. Entangled with the named-range `(int)"TODAY"→0` collapse. Needs per-driver SQL + a DB test harness. (LARGER, own task.)
+- **Metric compute cache key not user-scoped** (`md5(uriKey_range_filters_locale)`) → user-scoped metrics can serve user A's value to user B. (Small fix, design tradeoff.)
+
+---
+
+## Open PRs / branches
+
+- PR #193 `fix/metric-controller-resource-registry-v1.15.2` — v1.15.2 metric fixes, CI green, HELD (no tag).
+- `audit/ecosystem-sweep-2026-06-28` (this branch) — durable home for audit state + findings + Phase 3 fixes.
