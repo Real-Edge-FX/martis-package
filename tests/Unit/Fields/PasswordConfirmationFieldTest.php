@@ -48,6 +48,28 @@ it('Password::fill() hashes the value before persisting', function () {
         ->and(Hash::check('secret123', $stored))->toBeTrue();
 });
 
+it('Password::fill() respects a Closure-based readonly guard', function () {
+    $model = new PasswordTestModel(['password' => 'original-hash']);
+
+    // Closure that always returns true — field must be treated as readonly.
+    $field = Password::make('password')->readonly(fn () => true);
+    $field->fill($model, 'should-not-overwrite');
+
+    // The original value must be preserved.
+    expect($model->getAttribute('password'))->toBe('original-hash');
+});
+
+it('Password::fill() writes when the Closure-based readonly guard returns false', function () {
+    $model = new PasswordTestModel;
+
+    $field = Password::make('password')->readonly(fn () => false);
+    $field->fill($model, 'new-password');
+
+    $stored = $model->getAttribute('password');
+    expect($stored)->toBeString()
+        ->and(Hash::check('new-password', $stored))->toBeTrue();
+});
+
 it('Password::fill() skips hashing when the value is null or empty', function () {
     $model = new PasswordTestModel(['password' => 'keep-me']);
     $field = Password::make('password');

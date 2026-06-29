@@ -114,6 +114,58 @@ it('clamps motion tokens under reduced-motion preference', function () {
     expect($contents)->toContain('[data-reduced-motion="true"]');
 });
 
+it('--force flag overwrites an existing theme without prompting', function () {
+    // Create the theme file first.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+
+    // Re-run with --force — must not block on an interactive prompt and must succeed.
+    $this->artisan('martis:theme', ['name' => 'test-theme', '--force' => true])
+        ->assertSuccessful();
+
+    expect(file_exists(resource_path('css/martis/test-theme.css')))->toBeTrue();
+});
+
+it('aborts without --force in non-interactive mode when the file already exists', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+
+    // Second run without --force in test (non-interactive) environment aborts.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->assertFailed();
+});
+
+it('updates theme.name when the theme block contains a nested sub-array', function () {
+    $original = <<<'PHP'
+<?php
+return [
+    'brand' => [
+        'name' => env('MARTIS_BRAND_NAME', 'Martis'),
+    ],
+    'theme' => [
+        'default' => 'dark',
+        'allowToggle' => true,
+        'accents' => ['blue', 'red'],
+    ],
+];
+PHP;
+
+    $configPath = config_path('martis.php');
+    file_put_contents($configPath, $original);
+
+    try {
+        $this->artisan('martis:theme', ['name' => 'nested-test'])->assertSuccessful();
+
+        $after = (string) file_get_contents($configPath);
+
+        // theme.name must be inserted despite the nested array.
+        expect($after)->toContain("'name' => 'nested-test'");
+
+        // brand.name must be untouched.
+        expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
+    } finally {
+        file_put_contents($configPath, $original);
+    }
+});
+
 it('updates theme.name without touching brand.name in config/martis.php', function () {
     $original = <<<'PHP'
 <?php

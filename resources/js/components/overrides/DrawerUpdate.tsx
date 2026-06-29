@@ -275,13 +275,16 @@ export function DrawerUpdate(props: OverrideProps) {
         <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
           {allFormFields.map((item, idx) => {
             if (item.type === 'tab_group') {
-              return <TabsInput key={idx} tabGroup={item as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              const tg = item as TabGroupDefinition
+              return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
             }
             if (item.type === 'section') {
-              return <SectionInput key={idx} section={item as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              const sec = item as SectionDefinition
+              return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
             }
             if (item.type === 'panel') {
-              return <PanelInput key={idx} panel={item as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              const panel = item as PanelDefinition
+              return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
             }
             const field = item as FieldDefinition
             return (

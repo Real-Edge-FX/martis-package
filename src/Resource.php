@@ -78,16 +78,10 @@ abstract class Resource implements ResourceContract
     // Abstract — must be implemented by concrete resources
     // -------------------------------------------------------------------------
 
-    /**
-     * Return all fields for this resource.
-     *
-     * @return list<FieldContract>
-     */
+    /** {@inheritdoc} */
     abstract public function fields(Request $request): array;
 
-    /**
-     * Return the fully-qualified Eloquent model class name.
-     */
+    /** {@inheritdoc} */
     abstract public static function model(): string;
 
     // -------------------------------------------------------------------------
@@ -1538,7 +1532,7 @@ abstract class Resource implements ResourceContract
         $cap = static::$relatableSearchResults;
 
         if ($cap === null) {
-            return min($requestPerPage, 100);
+            return max(1, min($requestPerPage, 100));
         }
 
         return max(1, min($requestPerPage, $cap, 100));

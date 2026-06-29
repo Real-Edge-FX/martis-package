@@ -77,6 +77,7 @@ return [
     '2fa_otp_placeholder' => '6-digit code',
     '2fa_challenge_failed' => 'Invalid code. Please try again.',
     '2fa_cancel' => 'Cancel',
+    'current_password_wrong' => 'Incorrect password. Please try again.',
     '2fa_disable_confirm_title' => 'Disable Two-Factor Authentication',
     '2fa_disable_confirm_body' => 'Are you sure you want to disable two-factor authentication? Your account will be less secure.',
     '2fa_disable_confirm' => 'Yes, disable',

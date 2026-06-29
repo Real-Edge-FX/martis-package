@@ -311,7 +311,7 @@ abstract class Field implements FieldContract
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
-        if ($this->readonly) {
+        if ($this->isReadonly()) {
             return;
         }
 
@@ -623,7 +623,7 @@ abstract class Field implements FieldContract
         // AND a context-scoped validation rule call `->required()`
         // separately. v1.8.3.
         foreach ($this->extraRules as $rule) {
-            if (is_string($rule) && (str_starts_with($rule, 'required') || $rule === 'required')) {
+            if (is_string($rule) && str_starts_with($rule, 'required')) {
                 return true;
             }
             if (is_object($rule) && method_exists($rule, '__toString')) {
@@ -1389,7 +1389,25 @@ abstract class Field implements FieldContract
     {
         $rules = [];
 
-        if ($this->isRequired()) {
+        // Resolve extra rules early so the duplicate-required guard below can
+        // inspect the full resolved set (handles both static and closure forms).
+        $extraRules = $this->extraRules;
+        if ($this->rulesResolver !== null) {
+            $resolved = ($this->rulesResolver)($this->safeRequest());
+            if (is_array($resolved)) {
+                $extraRules = $resolved;
+            }
+        }
+
+        // Only prepend 'required' when it is not already present in the
+        // resolved extra-rules bag — prevents duplicate ['required', 'required']
+        // when a developer writes ->rules(['required', 'email']).
+        $extraRulesHaveRequired = in_array('required', $extraRules, true);
+
+        if ($extraRulesHaveRequired) {
+            // 'required' is already in the explicit rules — do not add a
+            // duplicate or a conflicting 'nullable'/'sometimes' modifier.
+        } elseif ($this->isRequired()) {
             $rules[] = 'required';
         } elseif ($this->isNullable()) {
             $rules[] = 'nullable';
@@ -1406,17 +1424,6 @@ abstract class Field implements FieldContract
                 $rule .= ",{$this->uniqueIgnoreId}";
             }
             $rules[] = $rule;
-        }
-
-        // Resolve closure-based rules() lazily so the active request is
-        // available. Static rules() and the closure form are mutually
-        // exclusive — only one path is in effect at any time.
-        $extraRules = $this->extraRules;
-        if ($this->rulesResolver !== null) {
-            $resolved = ($this->rulesResolver)($this->safeRequest());
-            if (is_array($resolved)) {
-                $extraRules = $resolved;
-            }
         }
 
         $contextRules = match ($context) {

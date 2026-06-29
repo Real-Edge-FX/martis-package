@@ -128,6 +128,33 @@ it('Number integer() adds integer rule', function () {
     expect($field->buildRules())->toContain('integer');
 });
 
+it('Number::min() on repeated calls keeps only the latest min rule', function () {
+    $field = Number::make('count')->min(5)->min(10);
+    $rules = $field->buildRules();
+
+    $minRules = array_values(array_filter($rules, fn ($r) => is_string($r) && str_starts_with($r, 'min:')));
+
+    expect($minRules)->toHaveCount(1)->and($minRules[0])->toBe('min:10');
+});
+
+it('Number::max() on repeated calls keeps only the latest max rule', function () {
+    $field = Number::make('count')->max(100)->max(50);
+    $rules = $field->buildRules();
+
+    $maxRules = array_values(array_filter($rules, fn ($r) => is_string($r) && str_starts_with($r, 'max:')));
+
+    expect($maxRules)->toHaveCount(1)->and($maxRules[0])->toBe('max:50');
+});
+
+it('buildRules() does not duplicate required when rules([\'required\']) is combined with auto-detection', function () {
+    $field = Text::make('email')->rules(['required', 'email']);
+    $rules = $field->buildRules();
+
+    $requiredEntries = array_values(array_filter($rules, fn ($r) => $r === 'required'));
+
+    expect($requiredEntries)->toHaveCount(1);
+});
+
 // ---------------------------------------------------------------------------
 // Boolean
 // ---------------------------------------------------------------------------

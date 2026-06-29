@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { useState, useRef, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ImageIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import { useToastSafe } from "@/contexts/ToastContext"
@@ -86,11 +86,25 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
     return 'image/*'
   }, [acceptedTypes])
 
-  const previewUrl = useMemo(() => {
-    if (currentFile) return URL.createObjectURL(currentFile)
-    if (existingImage) return existingImage.thumbnailUrl ?? existingImage.url
-    return null
-  }, [currentFile, existingImage])
+  const [blobPreviewUrl, setBlobPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!currentFile) {
+      setBlobPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(currentFile)
+    setBlobPreviewUrl(url)
+    return () => {
+      URL.revokeObjectURL(url)
+    }
+  }, [currentFile])
+
+  const previewUrl = currentFile
+    ? blobPreviewUrl
+    : existingImage
+      ? (existingImage.thumbnailUrl ?? existingImage.url)
+      : null
 
   function formatSize(kb: number): string {
     return kb >= 1024 ? `${(kb / 1024).toFixed(0)} MB` : `${kb} KB`
@@ -299,6 +313,12 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
   }
 
   function handleRemove(id: string) {
+    const item = items.find((it) => it.id === id)
+    // Revoke the blob URL for locally-selected files to avoid memory leaks.
+    // Existing server images use regular https:// URLs — do not revoke those.
+    if (item?.file && item.previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(item.previewUrl)
+    }
     emitChange(items.filter((it) => it.id !== id))
   }
 

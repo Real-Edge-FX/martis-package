@@ -96,6 +96,14 @@ function redirectOnSessionExpiry(): void {
 }
 
 /**
+ * Endpoints that legitimately return 401 on public/unauthenticated pages
+ * (login, 2FA challenge). Redirecting on 401 from these would cause a
+ * redirect loop because the SPA probes them while the user is logged out.
+ * Applied in both request() and uploadRequest() for consistency.
+ */
+const PUBLIC_PROBES = ['/api/auth/user', '/api/preferences', '/api/navigation']
+
+/**
  * Redirect to the email-verify notice when the server signals 409 +
  * "Your email address is not verified." (the response shape emitted by
  * `EnsureEmailIsVerified` for `Accept: application/json` requests).
@@ -162,8 +170,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     // pages (login, 2FA challenge). Without this, mounting the SPA on the
     // login page triggers a redirect loop because `/api/preferences` and
     // friends are protected and will 401 while the user is logged out.
-    const publicProbes = ['/api/auth/user', '/api/preferences', '/api/navigation']
-    if (res.status === 401 && !publicProbes.includes(path)) {
+    if (res.status === 401 && !PUBLIC_PROBES.includes(path)) {
       redirectOnSessionExpiry()
     }
     if (isEmailUnverifiedResponse(res.status, json)) {
@@ -289,7 +296,7 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
   }
 
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && !PUBLIC_PROBES.includes(path)) {
       redirectOnSessionExpiry()
     }
     const err = (json ?? {}) as { message?: string; errors?: unknown }

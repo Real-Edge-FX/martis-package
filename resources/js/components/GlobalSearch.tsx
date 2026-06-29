@@ -302,10 +302,8 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     }
 
     if (item.url) {
-      if ('url' in item && item.url) {
-        navigate(item.url)
-        onClose()
-      }
+      navigate(item.url)
+      onClose()
     }
   }, [navigate, onClose])
 

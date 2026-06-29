@@ -301,23 +301,27 @@ class TwoFactorService
         return false;
     }
 
-    /** Resolves once per request whether the users table carries the replay
-     *  timestamp column introduced alongside {@see self::verifyAndTrack()}. */
+    /** Resolves once per process whether the users table carries the replay
+     *  timestamp column introduced alongside {@see self::verifyAndTrack()}.
+     *  Keyed by connection:table so different user models in the same process
+     *  (e.g. multi-connection test suites) each get an independent result. */
     private function hasLastUsedColumn(Model $user): bool
     {
-        static $cached = null;
-        if ($cached !== null) {
-            return $cached;
+        static $cache = [];
+        $key = $user->getConnectionName().':'.$user->getTable();
+
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
         }
 
         try {
-            $cached = Schema::connection($user->getConnectionName())
+            $cache[$key] = Schema::connection($user->getConnectionName())
                 ->hasColumn($user->getTable(), 'two_factor_last_used_at');
         } catch (Throwable) {
-            $cached = false;
+            $cache[$key] = false;
         }
 
-        return $cached;
+        return $cache[$key];
     }
 
     /**

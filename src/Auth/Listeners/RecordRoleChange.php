@@ -182,7 +182,7 @@ class RecordRoleChange
         }
 
         if (! is_array($rolesOrIds)) {
-            return [$rolesOrIds];
+            return (is_int($rolesOrIds) || is_string($rolesOrIds)) ? [$rolesOrIds] : [];
         }
 
         $ids = [];

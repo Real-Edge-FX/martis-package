@@ -130,7 +130,8 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
         onClick={(e) => overlayRef.current?.toggle(e)}
         className="inline-flex items-center justify-center rounded-md border p-2 text-[color:var(--martis-text-muted)] hover:bg-[color:var(--martis-hover)] hover:text-[color:var(--martis-text)]"
         style={{ borderColor: 'transparent' }}
-        title={t('preferences', 'Preferences')}
+        data-pr-tooltip={t('preferences', 'Preferences')}
+        data-pr-position="bottom"
       >
         <SlidersHorizontalIcon size={18} />
       </button>
@@ -156,7 +157,8 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
               onClick={() => void reset()}
               className="inline-flex items-center gap-1 text-xs hover:underline"
               style={{ color: 'var(--martis-text-muted)' }}
-              title={t('reset_to_defaults', 'Reset to defaults')}
+              data-pr-tooltip={t('reset_to_defaults', 'Reset to defaults')}
+              data-pr-position="bottom"
             >
               <ArrowCounterClockwiseIcon size={12} />
               {t('reset', 'Reset')}
@@ -191,7 +193,8 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                   type="button"
                   onClick={() => onAccentPick(key)}
                   aria-label={label}
-                  title={label}
+                  data-pr-tooltip={label}
+                  data-pr-position="bottom"
                   className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
                   style={{
                     backgroundColor: color,
@@ -216,7 +219,8 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                     type="button"
                     onClick={() => onAccentPick(name as AccentColor)}
                     aria-label={titleLabel}
-                    title={`${titleLabel} (custom)`}
+                    data-pr-tooltip={`${titleLabel} (custom)`}
+                    data-pr-position="bottom"
                     className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
                     style={{
                       backgroundColor: color,
@@ -247,7 +251,8 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                         ? 'none'
                         : 'conic-gradient(#ef4444, #f59e0b, #22c55e, #3b82f6, #8b5cf6, #ef4444)',
                     }}
-                    title={t('pick_brand_color', 'Pick a custom accent')}
+                    data-pr-tooltip={t('pick_brand_color', 'Pick a custom accent')}
+                    data-pr-position="bottom"
                   >
                     <input
                       type="color"
@@ -287,7 +292,8 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                       onClick={onBrandColorClear}
                       className="rounded-md px-2 py-1 text-xs"
                       style={{ color: 'var(--martis-text-muted)' }}
-                      title={t('clear_brand_color', 'Clear brand color')}
+                      data-pr-tooltip={t('clear_brand_color', 'Clear brand color')}
+                      data-pr-position="bottom"
                     >
                       ×
                     </button>

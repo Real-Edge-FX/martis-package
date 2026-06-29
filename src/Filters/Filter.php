@@ -4,7 +4,6 @@ namespace Martis\Filters;
 
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Concerns\HasBadge;
@@ -57,16 +56,10 @@ abstract class Filter implements FilterContract
         return new static($name, $uriKey);
     }
 
-    /**
-     * Apply the filter to the given query.
-     *
-     * @param  Builder<Model>  $query
-     */
+    /** {@inheritdoc} */
     abstract public function apply(Request $request, Builder $query, mixed $value): Builder;
 
-    /**
-     * The filter type identifier sent to the frontend.
-     */
+    /** {@inheritdoc} */
     abstract public function filterType(): FilterType;
 
     /** {@inheritdoc} */

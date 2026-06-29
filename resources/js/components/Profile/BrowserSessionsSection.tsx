@@ -57,9 +57,10 @@ function deviceLabel(userAgent: string): string {
 
 function relativeTime(timestamp: number, locale = 'en'): string {
   const seconds = Math.floor(Date.now() / 1000) - timestamp
-  if (seconds < 60) return 'just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  if (seconds < 60) return rtf.format(-seconds, 'second')
+  if (seconds < 3600) return rtf.format(-Math.floor(seconds / 60), 'minute')
+  if (seconds < 86400) return rtf.format(-Math.floor(seconds / 3600), 'hour')
 
   return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',

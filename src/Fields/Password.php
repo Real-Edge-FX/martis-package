@@ -145,7 +145,7 @@ class Password extends Field
 
     public function fill(Model $model, mixed $value): void
     {
-        if ($this->readonly) {
+        if ($this->isReadonly()) {
             return;
         }
 

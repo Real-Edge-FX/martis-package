@@ -128,9 +128,12 @@ class ResourceController extends MartisController
         SearchResolver::apply($request, $query, $resourceClass, $search);
         $this->applySorting($request, $query, $resourceClass);
 
-        $perPage = min(
-            (int) ($request->query('per_page', (string) $resourceClass::resolvedPerPage())),
-            (int) config('martis.pagination.max_per_page', 100),
+        $perPage = max(
+            1,
+            min(
+                (int) ($request->query('per_page', (string) $resourceClass::resolvedPerPage())),
+                (int) config('martis.pagination.max_per_page', 100),
+            ),
         );
 
         $paginator = $query->paginate($perPage);
@@ -666,7 +669,11 @@ class ResourceController extends MartisController
         // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
         $fields = Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
 
-        // Strip showCreateRelationButton from BelongsTo fields to prevent nesting (max 1 level deep)
+        // Depth enforcement: strip showCreateRelationButton from belongs_to/morph_to fields.
+        // This is the canonical server-side guard that prevents nested inline creates —
+        // BelongsToField.tsx gates both the button and the InlineCreateModal on
+        // showCreateRelationButton === true, so the nested create UI is never rendered
+        // inside an inline create modal.
         $fieldData = array_map(function (FieldContract $f): array {
             $arr = $f->toArray();
             if (($arr['type'] ?? '') === 'belongs_to' || ($arr['type'] ?? '') === 'morph_to') {
@@ -804,11 +811,9 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Block nested inline create (only one level deep)
-        if ($request->header('X-Martis-Inline-Create-Depth', '0') !== '0') {
-            return JsonErrorResponse::validation([], 'Inline create only supports one level of depth.')->toResponse();
-        }
-
+        // Depth enforcement is handled at the schema layer (inlineCreateSchema strips
+        // showCreateRelationButton from belongs_to/morph_to fields, so the nested
+        // create button is never rendered inside an inline create modal).
         $model = $resourceClass::newModel();
         $res = new $resourceClass($model);
         $fields = Field::filterForContext($res->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
@@ -1392,25 +1397,51 @@ class ResourceController extends MartisController
      */
     private function handleDatabaseError(QueryException $e): IlluminateJsonResponse
     {
-        $code = (string) ($e->errorInfo[1] ?? '');
+        $vendorCode = (string) ($e->errorInfo[1] ?? '');
+        $sqlState = (string) ($e->errorInfo[0] ?? '');
 
-        $message = match ($code) {
-            '1048' => 'A required field is missing. Please check all mandatory fields.',
-            '1062' => 'A record with this value already exists. Please use a unique value.',
-            '1364' => 'A required field was not provided. Please fill in all mandatory fields.',
-            '1451' => 'This record cannot be modified because it is referenced by other records.',
-            '1452' => 'The referenced record does not exist. Please check relationship fields.',
+        // Determine the effective error class using the MySQL vendor code first,
+        // then fall back to ANSI/ISO SQLSTATE so PostgreSQL and SQLite get precise
+        // messages instead of the generic fallback.
+        //
+        // SQLSTATE reference:
+        //   23000 — integrity constraint violation (generic)
+        //   23503 — foreign key violation (PostgreSQL)
+        //   23505 — unique constraint violation (PostgreSQL)
+        //   23000 with SQLite vendor code 19 — SQLITE_CONSTRAINT
+        $isUnique = $vendorCode === '1062'
+            || $sqlState === '23505'
+            || ($sqlState === '23000' && $vendorCode === '19');
+
+        $isForeignKeyViolation = in_array($vendorCode, ['1451', '1452'], strict: true)
+            || $sqlState === '23503';
+
+        $isNotNull = in_array($vendorCode, ['1048', '1364'], strict: true);
+
+        $message = match (true) {
+            $isUnique => 'A record with this value already exists. Please use a unique value.',
+            $isForeignKeyViolation => match ($vendorCode) {
+                '1451' => 'This record cannot be modified because it is referenced by other records.',
+                default => 'The referenced record does not exist. Please check relationship fields.',
+            },
+            $isNotNull => 'A required field is missing. Please check all mandatory fields.',
             default => 'A database error occurred. Please check your input and try again.',
         };
 
         // Unique constraint violations are validation errors — return 422 with field mapping
-        if ($code === '1062') {
+        if ($isUnique) {
             $field = null;
-            $errorDetail = $e->errorInfo[2] ?? '';
+            $errorDetail = (string) ($e->errorInfo[2] ?? '');
+
             // MySQL: "Duplicate entry 'val' for key 'table.table_column_unique'"
             if (preg_match("/for key '(?:[^.]+\.)?(?:\w+_)?(\w+)_unique'/", $errorDetail, $m)) {
                 $field = $m[1];
             }
+            // PostgreSQL: 'Key (column)=(value) already exists.'
+            if ($field === null && preg_match('/Key \(([^)]+)\)=/', $errorDetail, $m)) {
+                $field = $m[1];
+            }
+
             if ($field) {
                 return JsonErrorResponse::validation([$field => [$message]], $message)->toResponse();
             }

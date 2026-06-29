@@ -107,8 +107,8 @@ class TrendResult extends MetricResult
         if ($this->suffix !== null) {
             $data['suffix'] = $this->suffix;
         }
-        if ($this->showLatestValue) {
-            $data['latestValue'] = end($this->values) ?: 0;
+        if ($this->showLatestValue && $this->values !== []) {
+            $data['latestValue'] = end($this->values);
         }
         if ($this->showSumValue) {
             $data['sumValue'] = array_sum($this->values);

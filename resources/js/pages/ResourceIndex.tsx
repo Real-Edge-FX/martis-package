@@ -456,19 +456,19 @@ export function ResourceIndexPage() {
       onCreated: (rec) => {
         setShowCreateOverride(false)
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
-        addToast('success', schema!.messages?.created ?? 'Record created successfully.')
+        addToast('success', schema!.messages?.created ?? tMsg('record_created'))
         const target = resolveRedirect(overrideDef.redirectAfter, resource!, rec.id)
         if (target) navigate(target)
       },
       onUpdated: (rec) => {
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
-        addToast('success', schema!.messages?.updated ?? 'Record updated successfully.')
+        addToast('success', schema!.messages?.updated ?? tMsg('record_updated'))
         const target = resolveRedirect(overrideDef.redirectAfter, resource!, rec.id)
         if (target) navigate(target)
       },
       onDeleted: () => {
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
-        addToast('success', schema!.messages?.deleted ?? 'Record deleted successfully.')
+        addToast('success', schema!.messages?.deleted ?? tMsg('record_deleted'))
       },
       onEdit: (id) => { if (id) navigate(`/resources/${resource}/${id}/edit`) },
       onView: (id) => navigate(`/resources/${resource}/${id}`),

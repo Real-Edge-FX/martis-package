@@ -19,6 +19,10 @@ class ProgressResult extends MetricResult
 
     public function __construct(float|int $current, float|int $target)
     {
+        if ($target < 0) {
+            throw new \InvalidArgumentException('ProgressResult target must be >= 0.');
+        }
+
         $this->current = $current;
         $this->target = $target;
     }

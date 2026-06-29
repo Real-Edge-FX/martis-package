@@ -797,7 +797,9 @@ class BelongsToManyController extends MartisController
         $code = (string) ($e->errorInfo[1] ?? '');
 
         $message = match ($code) {
+            '1048' => 'A required field is missing.',
             '1062' => 'A record with this value already exists.',
+            '1364' => 'A required field was not provided.',
             '1451' => 'This record is referenced by other records.',
             '1452' => 'The referenced record does not exist.',
             default => 'A database error occurred.',

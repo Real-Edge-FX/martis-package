@@ -48,12 +48,15 @@ function formatValue(val: number, ext: CurrencyExt): string {
 }
 
 export function CurrencyFieldDisplay({ field, value }: FieldDisplayProps) {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === '') {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
 
   const ext = getExt(field as unknown as Record<string, unknown>)
   const numVal = Number(value)
+  if (Number.isNaN(numVal)) {
+    return <span className="text-gray-400 dark:text-gray-500">—</span>
+  }
   const formatted = formatValue(numVal, ext)
   const symbol = ext.currencySymbol ?? ext.currencyCode ?? '$'
   const name = ext.currencyName ?? ext.currencyCode ?? 'USD'

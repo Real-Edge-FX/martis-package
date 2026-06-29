@@ -577,7 +577,7 @@ class BelongsTo extends Field
     public function isShowCreateRelationButton(): bool
     {
         $declared = $this->showCreateRelationButton instanceof \Closure
-            ? (bool) ($this->showCreateRelationButton)(request())
+            ? (bool) ($this->showCreateRelationButton)($this->safeRequest())
             : $this->showCreateRelationButton;
 
         if (! $declared) {

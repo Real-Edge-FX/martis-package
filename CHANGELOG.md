@@ -23,6 +23,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`BelongsToMany` / `MorphToMany` relationship index ignored the sortable-field whitelist on `?sort=`.** Both controllers passed the raw `?sort=` query param straight to `$query->orderBy()` with no validation, unlike `ResourceController` / `HasManyController` / `MorphManyController` which check it against the related resource's declared `->sortable()` fields. An undeclared real column was silently honoured (unintended ordering / minor info-oracle) and a non-existent column 500s on MySQL/Postgres (SQLite tolerates it). Both now validate via a shared `MartisController::isSortableAttribute()` helper. This aligns the behaviour with the documented contract (`docs/relationships.md`: "Sort asc/desc on sortable fields").
 
+### Fixed — mechanical tail (ecosystem audit)
+
+Verified-then-fixed in a parallel worktree-isolated pass (each finding re-checked against the code before fixing; false positives rejected). Conventions (PHP enums, i18n keys, PrimeReact tooltips, `{@inheritdoc}`), and medium/low bug + implementation fixes:
+
+- **Fix:** `LensRequest::withFilters()` now skips filters whose selected value is `null` or `''`, matching the guard already present in `ResourceController::applyFilters()` and preventing invalid queries (e.g. `whereDate($col, $op, null)`) when a lens receives an empty filter payload.
+- **RecordImpersonation**: remove dead `instanceof Model` ternary in `record()` — both branches were identical; simplified to `$target::class`.
+- **RecordRoleChange**: `normaliseIds()` now validates non-array scalars as `int|string` before wrapping; invalid types (bool, float, object) return `[]`, matching the array-branch guard and the declared `list<int|string>` return type.
+- **ThemeMakeCommand**: fix `rewriteThemeNameInConfig` regex to handle nested sub-arrays inside the `theme` config block
+- **ThemeMakeCommand**: add `--force` flag and non-interactive TTY guard to prevent blocking in CI/piped contexts
+- **UserCommand**: add duplicate-email check before `save()` to surface a friendly error instead of a raw DB constraint exception
+- **SsoMakeCommand**: sanitize custom provider name to valid identifier characters (`[a-z0-9_]`) and reject names that reduce to empty
+- **Convention** Apply `{@inheritdoc}` to abstract stubs in `Resource`, `Filter`, and `Metric` that duplicated their interface docblocks (`Resource::fields`, `Resource::model`, `Filter::apply`, `Filter::filterType`, `Metric::calculate`, `Metric::metricType`, `Metric::cacheFor`).
+- **Topbar**: replaced native `title=` tooltip on hamburger menu button with `data-pr-tooltip` (PrimeReact pattern, matching collapse button)
+- **PreferencesMenu**: replaced 6 native `title=` attributes with `data-pr-tooltip` on trigger, reset, accent swatches, custom accent swatches, color picker label, and clear button
+- **GlobalSearch**: collapsed redundant double-guard `if (item.url) { if ('url' in item && item.url)` to a single check
+- **NotificationBell**: in-app `action_url` paths (starting with `/`) now use SPA `navigate()` instead of `window.location.href`, preserving React Query caches
+- **DrawerCreate / DrawerUpdate**: replaced array-index `key` with stable keys on `tab_group`, `section`, and `panel` layout containers to prevent React reconciliation drift
+- **BrowserSessionsSection**: `relativeTime()` now uses `Intl.RelativeTimeFormat` for all duration branches, replacing hardcoded English 'just now' / 'min ago' / 'h ago'
+- **SecuritySection / profile lang**: added missing `current_password_wrong` key to `en`, `pt_PT`, and `pt_BR` profile lang files; fixed `defaultValue` from Portuguese to English
+- **CurrencyField**: fixed display of non-numeric strings — now renders an em dash instead of 'NaN'; also guards against empty string showing as 0.00
+- **BelongsToField**: replaced JSON.stringify in useEffect dependency array with a stable derived id-key (eliminates lint anti-pattern)
+- **TagField**: 'Add' button label and remove-chip tooltip are now run through i18n (keys `tag_add`, `tag_remove`); remove tooltip no longer renders 'null'/'undefined' when tag title is absent
+- **HasOneField**: formatAggregate no longer hardcodes pt-PT locale; ofMany pill uses data-pr-tooltip and i18n keys instead of native title= and Portuguese literals
+- **RepeaterField**: all Portuguese defaultValue fallbacks replaced with English equivalents; all native title= replaced with data-pr-tooltip
+- **IconField**: icon-picker buttons now use data-pr-tooltip instead of native title=
+- **ImageField**: URL.createObjectURL/revokeObjectURL now paired correctly in both SingleImageInput (useEffect cleanup) and MultipleImageInput (revoke on remove)
+- **ToastContext** — safety-net timeout now calls `remove(msg)` instead of `clear()`, so multiple queued toasts are no longer silently wiped when the first timer fires.
+- **api.ts** — extracted `publicProbes` allowlist to module scope (`PUBLIC_PROBES`) and applied the same 401-redirect guard in `uploadRequest()` for consistency with `request()`.
+- **ResourceIndex** — `buildOverrideProps` fallback toast messages now use `tMsg()` i18n keys instead of hardcoded English strings, fixing pt_PT/pt_BR display.
+- **CacheAdmin** — replaced `window.confirm` calls with a themed portal modal (`CacheConfirmDialog`) matching the project's established DeleteModal/UnsavedChangesDialog pattern.
+- **Fix** `Field::fill()` and `Password::fill()` now call `isReadonly()` instead of reading the raw `$this->readonly` boolean directly, so Closure-based readonly guards are evaluated correctly on fill.
+- **Fix** `Field::buildRules()` no longer emits a duplicate `'required'` entry when `->rules(['required', ...])` is combined with auto-detection via `rulesHaveRequired()`.
+- **Fix** `Number::min()` and `Number::max()` strip any prior `min:`/`max:` rule before appending the new one, preventing stale duplicate constraints on repeated calls.
+- **Fix** `Slug::reserved()` normalises entries to lowercase at insertion time so mixed-case reserved words like `'Admin'` are correctly blocked.
+- **Cleanup** Remove dead tautological `|| $rule === 'required'` branch in `Field::rulesHaveRequired()`.
+- **Docs** Clarify `PasswordConfirmation` class docstring: the `confirmed` backend rule is not wired automatically — the developer must add `->rules(['confirmed'])` to the paired `Password` field.
+- **Tag field**: fix `extraAttributes()` filter dropping explicit `false` values — `relationSearchable: false` now correctly reaches the frontend payload.
+- **HasMany / MorphMany**: add `method_exists` guard in `resolve()` when `showOnIndex` is enabled, matching the existing guard in `BelongsToMany::resolve()`.
+- **BelongsTo / BelongsToMany / MorphTo**: replace bare `request()` with `safeRequest()` in `isShowCreateRelationButton()` to avoid `BindingResolutionException` in non-HTTP contexts (queue jobs, Artisan commands, raw PHPUnit).
+- **BooleanGroup**: fixed `requireAll()` silently applying no constraint when `options()` was called with a Closure — now uses `getOptions()` so the closure is resolved before computing the count.
+- **KeyValue**: default column headers ('Key', 'Value') and add-row button ('Add Row') are now resolved through the i18n system (`martis::messages.key_value_*`) with translations for en, pt_PT, and pt_BR.
+- **Country**: `countryList()` is memoized in a static property so the 197-entry array is constructed only once per process, reducing per-request allocation overhead on pages with multiple Country fields.
+- **TwoFactorService** key the `hasLastUsedColumn` static cache by `connection:table` so different user models/connections in the same process each get an independent schema probe result.
+- **MorphToMany** `attachableIndex` now passes a form-draft third argument to 3-arg `relatableQueryUsing` closures (parity with `BelongsToMany` v1.8.2 feature).
+- **BelongsToMany/MorphToMany** `handleDatabaseError` now covers MySQL error codes 1048 (NOT NULL) and 1364 (missing DEFAULT) — consistent with the other four relationship controllers.
+- **fix** Remove dead `X-Martis-Inline-Create-Depth` header guard from `inlineCreateStore`; depth is enforced at the schema layer via `showCreateRelationButton: false` on `belongs_to`/`morph_to` fields.
+- **fix** Clamp `per_page=0` and negative `per_page` values to 1 in the resource index endpoint and `resolveRelatableSearchResults`, preventing silent empty-page responses and potential engine errors.
+- **fix** Extend `handleDatabaseError` with ANSI SQLSTATE fallbacks (23505, 23503, 23000/19) so PostgreSQL and SQLite users receive precise 422 validation errors for unique-constraint and FK violations instead of the generic 500 message.
+- **MCP** `DocLookup::search()` now documents that `$limit <= 0` is clamped to 1 (defensive guard against invalid LLM-agent input).
+- **Fix** `TrendResult::showLatestValue()` no longer emits `latestValue: 0` for an empty series — the key is omitted when there are no data points, preventing a stale `"0"` from rendering in `TrendCard`.
+- **Fix** `ProgressResult` constructor now throws `InvalidArgumentException` when `target` is negative, replacing the previous silent-zero behaviour.
+- **fix(sso):** `NativeAdapter::syncRoles` now uses `getKey()` instead of `pluck('id')` to resolve role primary keys, preventing silent role-stripping for host apps with UUID or custom-named primary keys on their Role model.
+
 ## [1.15.2] — 2026-06-28
 
 ### Fixed

@@ -105,6 +105,17 @@ it('BooleanGroup requireAll() compiles to minChecked(count(options))', function 
     expect($field->getMinChecked())->toBe(3);
 });
 
+it('BooleanGroup requireAll() resolves the closure-based option count (regression)', function () {
+    // When options() is called with a Closure, $this->options is set to [].
+    // The old code called count($this->options) which was always 0, making
+    // requireAll() a no-op. The fix uses getOptions() which invokes the closure.
+    $field = BooleanGroup::make('permissions')
+        ->options(fn () => ['x' => 'X', 'y' => 'Y', 'z' => 'Z'])
+        ->requireAll();
+
+    expect($field->getMinChecked())->toBe(3);
+});
+
 // -----------------------------------------------------------------------------
 // buildRules() — backend enforcement of minChecked / maxChecked
 //

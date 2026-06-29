@@ -158,10 +158,26 @@ class MorphToManyController extends MartisController
         /** @var Builder<Model> $query */
         $query = $relatedModelClass::query();
 
-        // Apply relatableQueryUsing closure
+        // Apply relatableQueryUsing closure.
+        //
+        // v1.8.2 parity — pass the parent form draft as a 3rd argument when
+        // the closure asks for it. The frontend posts unsaved form values via
+        // `?form[attribute]=value` so the picker can filter on what the user
+        // JUST picked in the parent form (e.g. only permissions matching the
+        // role's chosen `guard_name` even though the role is not saved yet).
+        //
+        // Backwards-compat: closures with arity 2 keep working —
+        // ReflectionFunction tells us how many args they want.
         $relatableClosure = $field->getRelatableQueryClosure();
         if ($relatableClosure !== null) {
-            $relatableClosure($request, $query);
+            $formDraft = $this->collectFormDraft($request);
+
+            $arity = (new \ReflectionFunction($relatableClosure))->getNumberOfParameters();
+            if ($arity >= 3) {
+                $relatableClosure($request, $query, $formDraft);
+            } else {
+                $relatableClosure($request, $query);
+            }
         }
 
         // Exclude already-attached records unless allowDuplicates
@@ -714,12 +730,50 @@ class MorphToManyController extends MartisController
         return $data;
     }
 
+    /**
+     * Read the parent form draft posted by the frontend in `?form[*]`.
+     *
+     * The picker sends UNSAVED values from the parent form (e.g.
+     * `guard_name` for a Role being created) so 3-arg
+     * `relatableQueryUsing` closures can filter on them. Returns an
+     * empty array when no `form` param is present — older closures
+     * (arity 2) never see this and continue to work unchanged.
+     *
+     * v1.8.2 parity.
+     *
+     * @return array<string, scalar|null>
+     */
+    private function collectFormDraft(Request $request): array
+    {
+        $raw = $request->query('form', []);
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($raw as $key => $value) {
+            if (! is_string($key)) {
+                continue;
+            }
+            // Only forward scalars / null. Nested arrays are not part
+            // of the contract — the caller is supposed to send simple
+            // top-level form fields.
+            if ($value === null || is_scalar($value)) {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
+    }
+
     private function handleDatabaseError(QueryException $e): IlluminateJsonResponse
     {
         $code = (string) ($e->errorInfo[1] ?? '');
 
         $message = match ($code) {
+            '1048' => 'A required field is missing.',
             '1062' => 'A record with this value already exists.',
+            '1364' => 'A required field was not provided.',
             '1451' => 'This record is referenced by other records.',
             '1452' => 'The referenced record does not exist.',
             default => 'A database error occurred.',

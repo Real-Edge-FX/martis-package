@@ -183,3 +183,30 @@ it('martis:sso registers the SocialiteProviders listener idempotently', function
     $contents = (string) (new Filesystem)->get($providerPath);
     expect(substr_count($contents, 'MicrosoftExtendSocialite'))->toBe(1);
 });
+
+it('martis:sso sanitizes a hyphenated custom provider name to a safe identifier', function () {
+    $this->artisan('martis:sso', [
+        'provider' => 'my-provider',
+        '--custom' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ])->assertSuccessful();
+
+    // The sanitized name must appear in config as a valid column-name fragment.
+    if (file_exists(config_path('martis.php'))) {
+        $config = (string) file_get_contents(config_path('martis.php'));
+        expect($config)->toContain('my_provider');
+        expect($config)->not->toContain('my-provider');
+    }
+});
+
+it('martis:sso rejects a provider name that reduces to empty after sanitization', function () {
+    $this->artisan('martis:sso', [
+        'provider' => '---',
+        '--custom' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ])->assertFailed();
+});

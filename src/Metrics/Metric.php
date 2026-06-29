@@ -88,14 +88,10 @@ abstract class Metric implements MetricContract
         return new static($name, $uriKey);
     }
 
-    /**
-     * Calculate the metric value.
-     */
+    /** {@inheritdoc} */
     abstract public function calculate(Request $request): mixed;
 
-    /**
-     * The metric type identifier.
-     */
+    /** {@inheritdoc} */
     abstract public function metricType(): MetricType;
 
     /** {@inheritdoc} */
@@ -218,9 +214,7 @@ abstract class Metric implements MetricContract
     // Caching
     // -------------------------------------------------------------------------
 
-    /**
-     * How long to cache the metric result. Return null to disable caching.
-     */
+    /** {@inheritdoc} */
     public function cacheFor(): ?DateTimeInterface
     {
         return null;

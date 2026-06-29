@@ -51,7 +51,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
       addToast('success', t('2fa_disabled_success'))
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
-        setPasswordError(t('current_password_wrong', { defaultValue: 'Password incorrecta. Tente novamente.' }))
+        setPasswordError(t('current_password_wrong', { defaultValue: 'Incorrect password. Please try again.' }))
       } else {
         addToast('error', t('error'))
       }

@@ -328,3 +328,45 @@ it('Metric help() returns the same instance for chaining', function () {
     $metric = TestTotalUsersMetric::make('Test');
     expect($metric->help('A'))->toBe($metric);
 });
+
+// ---------------------------------------------------------------------------
+// TrendResult — latestValue edge cases
+// ---------------------------------------------------------------------------
+
+it('TrendResult showLatestValue omits latestValue key for empty series', function () {
+    $result = (new TrendResult([], []))->showLatestValue();
+    $arr = $result->toArray();
+
+    expect($arr)->not->toHaveKey('latestValue');
+});
+
+it('TrendResult showLatestValue preserves a legitimate last value of zero', function () {
+    $result = (new TrendResult(['A', 'B', 'C'], [5, 3, 0]))->showLatestValue();
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('latestValue')
+        ->and($arr['latestValue'])->toBe(0);
+});
+
+it('TrendResult showLatestValue preserves a legitimate last value of 0.0', function () {
+    $result = (new TrendResult(['A', 'B'], [1.5, 0.0]))->showLatestValue();
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('latestValue')
+        ->and($arr['latestValue'])->toBe(0.0);
+});
+
+// ---------------------------------------------------------------------------
+// ProgressResult — constructor guard for negative target
+// ---------------------------------------------------------------------------
+
+it('ProgressResult throws InvalidArgumentException when target is negative', function () {
+    expect(fn () => new ProgressResult(50, -1))
+        ->toThrow(InvalidArgumentException::class, 'ProgressResult target must be >= 0.');
+});
+
+it('ProgressResult accepts zero target without throwing', function () {
+    $arr = (new ProgressResult(0, 0))->toArray();
+
+    expect($arr['percentage'])->toBe(0);
+});

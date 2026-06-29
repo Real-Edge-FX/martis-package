@@ -8,7 +8,9 @@ use RuntimeException;
 
 class ThemeMakeCommand extends Command
 {
-    protected $signature = 'martis:theme {name? : The theme name (default: custom)}';
+    protected $signature = 'martis:theme
+                            {name? : The theme name (default: custom)}
+                            {--force : Overwrite an existing theme file without prompting}';
 
     protected $description = 'Scaffold a custom Martis theme with the full design-token surface (dark + light, accents, density, motion)';
 
@@ -26,10 +28,20 @@ class ThemeMakeCommand extends Command
             mkdir($dir, 0755, true);
         }
 
-        if (file_exists($path) && ! $this->confirm("Theme '{$name}.css' already exists. Overwrite?")) {
-            $this->components->warn('Aborted.');
+        if (file_exists($path) && ! $this->option('force')) {
+            // In non-interactive contexts (CI, pipes, unit tests), prompting is
+            // not possible — fail explicitly so automation knows to pass --force.
+            if (! $this->input->isInteractive() || app()->runningUnitTests()) {
+                $this->components->error("Theme '{$name}.css' already exists. Use --force to overwrite.");
 
-            return self::FAILURE;
+                return self::FAILURE;
+            }
+
+            if (! $this->confirm("Theme '{$name}.css' already exists. Overwrite?")) {
+                $this->components->warn('Aborted.');
+
+                return self::FAILURE;
+            }
         }
 
         $contents = $this->renderStub($name);
@@ -113,8 +125,11 @@ class ThemeMakeCommand extends Command
      */
     protected function rewriteThemeNameInConfig(string $content, string $name): ?string
     {
-        // Match 'theme' => [ ... ] non-greedily, capturing the inner body.
-        $pattern = "/('theme'\s*=>\s*\[)([^\]]*)(\])/s";
+        // Match 'theme' => [ ... ] by anchoring on the closing ],? that sits
+        // at the same 4-space indentation as the key, so that nested arrays
+        // inside the block (e.g. 'accents' => ['blue', 'red']) do not
+        // truncate the match at their inner ].
+        $pattern = "/('theme'\s*=>\s*\[)(.*?)(\n    \],?)/s";
 
         return preg_replace_callback(
             $pattern,

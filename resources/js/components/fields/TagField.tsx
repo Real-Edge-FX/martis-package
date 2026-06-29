@@ -217,7 +217,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
                 <button
                   type="button"
                   onClick={() => removeTag(tag.id)}
-                  data-pr-tooltip={`Remove ${tag.title}`}
+                  data-pr-tooltip={tMsg('tag_remove', { title: tag.title ?? String(tag.id), defaultValue: `Remove ${tag.title ?? tag.id}` })}
                   data-pr-position="top"
                   className="opacity-70 hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--martis-danger)', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
@@ -239,7 +239,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
           style={{ color: 'var(--martis-accent)' }}
         >
           <PlusIcon size={12} weight="bold" />
-          Add {field.label}
+          {tMsg('tag_add', { label: field.label, defaultValue: `Add ${field.label}` })}
         </button>
       )}
 

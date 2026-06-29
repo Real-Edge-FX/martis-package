@@ -49,6 +49,10 @@ class LensRequest extends Request
                 continue;
             }
 
+            if ($value === null || $value === '') {
+                continue;
+            }
+
             if (method_exists($filter, 'apply')) {
                 // Filters operate on Builder<Model>; the generic narrows back
                 // when the caller's $query is the concrete TModel.

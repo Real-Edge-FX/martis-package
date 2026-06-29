@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Model;
  * Password confirmation field — companion to a Password field.
  *
  * The field is never persisted to the model (fill is a no-op). Backend
- * validation relies on Laravel's `confirmed` rule applied to the paired
- * `Password` field — this companion simply provides the second input and
- * the UX we ship around it.
+ * validation does NOT wire `confirmed` automatically — the developer must
+ * add `->rules(['confirmed'])` to the paired Password field explicitly.
+ * This companion simply provides the second input and the UX we ship around it.
  *
  * Martis differentials:
  *  - ⭐ Live match indicator — green tick / red cross in real time (React)

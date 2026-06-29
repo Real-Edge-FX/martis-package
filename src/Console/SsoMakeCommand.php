@@ -52,8 +52,13 @@ class SsoMakeCommand extends Command
     public function handle(): int
     {
         $name = strtolower((string) $this->argument('provider'));
+        // Sanitize to valid identifier characters so the name can be safely
+        // used as a SQL column name fragment and a filesystem path component.
+        $name = (string) preg_replace('/[^a-z0-9_]/', '_', $name);
+        $name = ltrim($name, '_0123456789');
+
         if ($name === '') {
-            $this->error('Provider name is required.');
+            $this->error('Provider name is required and must contain at least one letter.');
 
             return self::INVALID;
         }
