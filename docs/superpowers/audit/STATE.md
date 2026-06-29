@@ -93,6 +93,21 @@ Commits since tail (all pushed, branch `audit/ecosystem-sweep-2026-06-28`):
 
 Test health: **2129 Pest + 184 Vitest passing, phpstan + pint clean.** Sec workflow run `wf_49a25e54-841` (done); worktrees pruned.
 
+#### ALL SECURITY HIGHS DONE (2026-06-29)
+
+- `c99b1c3` ActionController IDOR (resolveModels indexQuery scope) + exception-message leak. 404-vs-403 REJECTED (tested anti-enumeration, see REJECTED.md). RED-confirmed IDOR test.
+- `503ab28` SSO `on_no_role_match` deny-bypass + 'callable'→null-denies (doc-backed) + Azure dead-code accessToken + OData urlencode + Graph timeout. OAuth-state-CSRF REJECTED (Socialite handles stateful, see REJECTED.md). RED-confirmed SSO test.
+- `256c581` ResourceController show()/syncField() ?context=update|create authz gates + TwoFactorService generateSetup confirmed-secret guard + File::fillMultiple client-path-injection + MagicLink forceFill + ExecuteAction double-encode. 3 RED-confirmed tests (AuditSecurityHighsTest + ResourceControllerTest context-gate).
+
+Test health: **2134 Pest + 184 Vitest passing, phpstan + pint clean.** Everything pushed.
+
+**REMAINING (lower-priority security med/low in my high-files + docs):**
+- ActionController `fields()` returns action field schema without authz (med); ActionController other exception-message leaks (med) — execute() catch already fixed in c99b1c3, check act()/other paths.
+- ResourceController `replicateFields` per-model field authz (med); raw exception message in a 500 (low).
+- The 2 **docs-sync** batches (`docs-sync-package-vs-code` 11, `docs-sync-pkg-vs-mdx` 6) — package docs ↔ code ↔ martis-docs drift.
+- **martis-docs MIRROR + DEPLOY**: package-doc edits made this session (docs/cache.md deny-default) are NOT yet mirrored to `martis-docs/*.mdx` nor deployed. Per the hard docs-sync rule, before any release: port all changed `docs/*.md` to `martis-docs/src/content/**/*.mdx`, run `sync-docs.sh`, PR + deploy martis-docs.
+- v1.15.2 tag remains **HELD** until the audit branch is complete + reviewed + user authorizes.
+
 **STILL TODO (inline highs, not started):** SSO `on_no_role_match` deny-bypass + 'callable' null→guest (doc-backed bug; src/Http/Controllers/SsoController.php:92-107) + OAuth-state CSRF (med); ActionController resolveModels IDOR (300-323) + 404-vs-403 + exception-leak (med) + fields() authz (med); ResourceController show?context=update leak (213) + syncField wrong gate (728) + replicateFields per-model authz (med) + exception-leak (low); MagicLinkController mass-assignment (133); ExecuteAction double-encode JSON (114); File fillMultiple keepPaths validation (325); TwoFactorService 2FA setup overwrites confirmed secret (generateSetup); AzureProvider dead-code accessToken (62) + OData filter unquoted (low) + no-timeout SSRF (low). **Then: 2 docs-sync batches + martis-docs mirror of all package-doc changes (cache.md done locally, NOT yet mirrored/deployed).** Tag still HELD.
 
 ### Run history
