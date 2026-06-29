@@ -1,14 +1,23 @@
 import { useState, useMemo } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 
 /**
- * Safely render Markdown to HTML using the configured preset approach.
+ * Render Markdown to SANITIZED HTML using the configured preset.
  * Presets: 'default' (GFM), 'commonmark', 'zero' (no formatting).
+ *
+ * `marked` does not sanitize: raw HTML embedded in the markdown source
+ * (`<script>`, event-handler attributes like `onerror`, `javascript:`
+ * URLs) passes through verbatim and would execute as stored XSS once
+ * injected via `dangerouslySetInnerHTML`. Every code path that reaches
+ * `dangerouslySetInnerHTML` must therefore run through DOMPurify here.
+ *
+ * Exported for direct unit testing of the sanitization contract.
  */
-function renderMarkdown(content: string, preset: string): string {
+export function renderMarkdown(content: string, preset: string): string {
   if (preset === 'zero') {
     return content
       .replace(/&/g, '&amp;')
@@ -22,7 +31,9 @@ function renderMarkdown(content: string, preset: string): string {
     breaks: preset === 'default',
   })
 
-  return marked.parse(content, { async: false }) as string
+  const raw = marked.parse(content, { async: false }) as string
+
+  return DOMPurify.sanitize(raw)
 }
 
 export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (ecosystem audit)
+
+- **Stored XSS in `MarkdownField` (critical).** Both the display renderer and the input live-preview fed `marked.parse()` output straight into `dangerouslySetInnerHTML`. `marked` does not sanitize HTML, so a stored markdown value containing raw `<script>`, event-handler attributes (`onerror`, …), or `javascript:` URLs executed in the browser of every user who viewed the record. `renderMarkdown()` now runs the parsed HTML through DOMPurify (new `dompurify` dependency). The `zero` preset's entity-escaping is unchanged. Exported `renderMarkdown` is covered by a sanitization regression test.
+
 ### Fixed (ecosystem audit)
 
 - **`TrendMetric` DB aggregation 500'd on every non-MySQL database.** `aggregateByPeriod()` built its `date_key` with MySQL-only `DATE_FORMAT(...)` in a raw select — `no such function: DATE_FORMAT` on SQLite, and the wrong function on PostgreSQL — so every `countByDays` / `sumByWeeks` / `averageByMonths` etc. threw on non-MySQL connections. The path had zero DB-level test coverage (unit tests only built `TrendResult` objects by hand). Reworked to fetch the in-range rows and bucket them in PHP with Carbon, using the SAME period key (`Y-m-d` / ISO `o-W` / `Y-m`) as the label loop — database-agnostic, no dialect-specific SQL, and correct for ISO-week grouping (which SQLite's `strftime` cannot express). New `TrendMetricAggregationTest` exercises count/sum/avg/week aggregation on SQLite.
