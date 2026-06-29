@@ -843,7 +843,6 @@ The user dropdown menu in the topbar is configurable:
 'user_menu' => [
     'showThemeToggle' => true,      // Dark/light mode toggle
     'showProfile' => true,          // Profile page link
-    'showNotifications' => true,    // Notifications (placeholder)
     // 'customItems' => [
     //     ['label' => 'Settings', 'icon' => 'pi pi-cog', 'url' => '/settings'],
     //     ['separator' => true],

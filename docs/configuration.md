@@ -503,8 +503,7 @@ Both flags are read live, so mid-session toggles via `window.MartisConfig` take 
 ```php
 'user_menu' => [
     'showThemeToggle' => true,
-    'showProfile' => true,
-    'showNotifications' => true,
+    'showProfile' => env('MARTIS_SHOW_PROFILE_MENU', true),
     // 'customItems' => [],
 ],
 ```
@@ -512,8 +511,7 @@ Both flags are read live, so mid-session toggles via `window.MartisConfig` take 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `showThemeToggle` | `bool` | `true` | Show dark/light mode toggle. |
-| `showProfile` | `bool` | `true` | Show profile page link. |
-| `showNotifications` | `bool` | `true` | Show notifications indicator. |
+| `showProfile` | `bool` | `true` | Show profile page link. Override with `MARTIS_SHOW_PROFILE_MENU=false`. |
 | `customItems` | `?array` | `null` | Array of custom menu items (see example below). |
 
 ### Custom Menu Items
@@ -550,6 +548,7 @@ Both flags are read live, so mid-session toggles via `window.MartisConfig` take 
 'dashboard' => [
     'showGreeting' => env('MARTIS_DASHBOARD_SHOW_GREETING', true),
     'showWelcome' => env('MARTIS_DASHBOARD_SHOW_WELCOME', true),
+    'showWelcomeCard' => env('MARTIS_DASHBOARD_SHOW_WELCOME_CARD', true),
     'showMetrics' => true,
     'showResourceCards' => true,
 ],
@@ -559,6 +558,7 @@ Both flags are read live, so mid-session toggles via `window.MartisConfig` take 
 |-----|------|---------|-------------|
 | `showGreeting` | `bool` | `true` | Show personalised greeting (`Hello, {name}`). Override with `MARTIS_DASHBOARD_SHOW_GREETING=false`. |
 | `showWelcome` | `bool` | `true` | Show welcome subtitle (`Welcome to Martis Admin Engine.`) below the greeting. Override with `MARTIS_DASHBOARD_SHOW_WELCOME=false`. |
+| `showWelcomeCard` | `bool` | `true` | Show the animated WelcomeCard hero at the top of the dashboard. Override with `MARTIS_DASHBOARD_SHOW_WELCOME_CARD=false`. |
 | `showMetrics` | `bool` | `true` | Show summary metrics row (total resources, groups). |
 | `showResourceCards` | `bool` | `true` | Show resource quick-access cards grid. |
 
@@ -578,6 +578,9 @@ Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-c
 'index' => [
     'default_row_actions' => [
         'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        'view' => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+        'edit' => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+        'delete' => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
     ],
     'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
     'default_trashed_filter' => env('MARTIS_DEFAULT_TRASHED_FILTER', 'active'),
@@ -587,10 +590,13 @@ Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-c
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `default_row_actions.enabled` | `bool` | `true` | Master switch for the default row actions column (view/edit/delete and restore/force-delete on soft-delete models). When `false`, Martis never renders the column. |
+| `default_row_actions.view` | `bool` | `true` | Per-action global kill-switch for the View icon. Flip to `false` to hide it across every resource. `MARTIS_DEFAULT_ROW_ACTION_VIEW`. |
+| `default_row_actions.edit` | `bool` | `true` | Per-action global kill-switch for the Edit icon. `MARTIS_DEFAULT_ROW_ACTION_EDIT`. |
+| `default_row_actions.delete` | `bool` | `true` | Per-action global kill-switch for the Delete icon. `MARTIS_DEFAULT_ROW_ACTION_DELETE`. |
 | `row_click_opens_detail` | `bool` | `true` | When default row actions expose a "view" icon, clicking the row body becomes redundant. Set to `false` to disable row-click and keep the row informational. Override per resource with `rowClickOpensDetail(Request $request): ?bool`. |
 | `default_trashed_filter` | `string` | `'active'` | Initial state of the trashed-filter dropdown on soft-delete resources (main index **and** relationship panels). One of `'active'` (hide deleted), `'with'` (include deleted alongside live), `'only'` (only deleted). Visibility of the dropdown itself is gated by [`Resource::canViewTrashed()`](resources.md#restricting-trashed-visibility-by-role). |
 
-There are no per-action env toggles. Per-action visibility is controlled by `Resource::defaultRowActions(Request $request): bool|array`, which can return:
+The three per-action sub-keys are global kill-switches. A resource-level `Resource::defaultRowActions(Request $request): bool|array` can subtract further but never force a globally-disabled action back on. It can return:
 
 - `true` (default) — show all four (view, edit, delete, plus restore/force-delete on soft-delete models)
 - `false` — opt the resource out entirely
@@ -831,7 +837,7 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
         'enabled' => true,
         'recovery_codes' => 8,
     ],
-    'sections' => ['account', 'password', 'avatar', 'security'],
+    'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],
 ],
 ```
 
@@ -1023,15 +1029,15 @@ Toggles the theme switcher and locale picker that float on the auth pages.
 
 ```php
 'auth' => [
-    'password_reset' => [
+    'passwordReset' => [
         'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
         'url'     => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
+        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
     ],
-    'password_broker' => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
 ],
 ```
 
-Off by default. Enable to expose the "Forgot your password?" flow. `password_broker` matches the broker name in `config/auth.php`.
+Off by default. Enable to expose the "Forgot your password?" flow. `broker` matches the broker name in `config/auth.php`.
 
 ## Registration
 
@@ -1050,15 +1056,13 @@ Off by default. When on, exposes the register link and form. `default_role` (Spa
 ## Login throttle
 
 ```php
-'auth' => [
-    'login_throttle' => [
-        'attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
-        'minutes'  => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
-    ],
+'throttle' => [
+    'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
+    'login_minutes'  => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
 ],
 ```
 
-Independent from the global panel throttle (`MARTIS_THROTTLE_*`). Defaults to 20 attempts per minute on the login endpoint.
+These keys live in the same `throttle` block as the global panel limits (`MARTIS_THROTTLE_*`), but the `login_*` bucket is a separate brute-force guard on the login endpoint. Defaults to 20 attempts per minute.
 
 ## Impersonation extras
 
@@ -1136,7 +1140,7 @@ When on, the drawer that opens record detail can be expanded into a full overlay
 | Key | Default | Effect |
 |---|---|---|
 | `enabled` | `true` | Remember the last index URL (filter, sort, page) per resource so users return to where they left off. |
-| `scope` | `session` | `session` keeps the memory until the session expires; `request` is a no-op for one navigation only. |
+| `scope` | `session` | Where state is persisted: `session` — sessionStorage, wipes on tab close; `local` — localStorage, survives tab close. |
 
 ## Loader
 
@@ -1170,11 +1174,13 @@ Hides the global pre-hydration loader. Useful when you embed Martis inside an ou
 
 ```php
 'index' => [
-    'default_row_actions' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
-    'default_row_action_view'   => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
-    'default_row_action_edit'   => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
-    'default_row_action_delete' => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
-    'row_click_opens_detail'    => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
+    'default_row_actions' => [
+        'enabled' => env('MARTIS_DEFAULT_ROW_ACTIONS', true),
+        'view'    => env('MARTIS_DEFAULT_ROW_ACTION_VIEW', true),
+        'edit'    => env('MARTIS_DEFAULT_ROW_ACTION_EDIT', true),
+        'delete'  => env('MARTIS_DEFAULT_ROW_ACTION_DELETE', true),
+    ],
+    'row_click_opens_detail' => env('MARTIS_ROW_CLICK_OPENS_DETAIL', true),
 ],
 ```
 
@@ -1183,21 +1189,27 @@ The View / Edit / Delete row actions appear by default on every Resource. Toggle
 ## Locales and i18n
 
 ```php
-'locale_fallback_chain' => env('MARTIS_LOCALE_FALLBACK_CHAIN', 'en'),
-'app_locale_namespaces' => env('MARTIS_APP_LOCALE_NAMESPACES', ''),
-'rtl_locales'           => env('MARTIS_RTL_LOCALES', 'ar,fa,he,ur'),
+'locales' => [
+    'app_namespaces' => env('MARTIS_APP_LOCALE_NAMESPACES', ''),
+    'fallback_chain' => env('MARTIS_LOCALE_FALLBACK_CHAIN', 'en'),
+    'rtl_locales'    => env('MARTIS_RTL_LOCALES', 'ar,fa,he,ur'),
+],
 ```
+
+Each env var is a comma-separated string; Martis splits it into an array at boot.
 
 | Key | Default | Effect |
 |---|---|---|
-| `locale_fallback_chain` | `en` | Comma-separated chain consulted when a translation is missing in the active locale. |
-| `app_locale_namespaces` | `''` | Comma-separated list of consumer translation namespaces published into Martis surfaces (so your app can override package strings). |
-| `rtl_locales` | `ar,fa,he,ur` | Locales rendered right-to-left. |
+| `locales.fallback_chain` | `en` | Comma-separated chain consulted when a translation is missing in the active locale. |
+| `locales.app_namespaces` | `''` | Comma-separated list of consumer translation namespaces published into Martis surfaces (so your app can override package strings). |
+| `locales.rtl_locales` | `ar,fa,he,ur` | Locales rendered right-to-left. |
 
 ## Dev tools (v1.8.8)
 
 ```php
-'dev_tools' => env('MARTIS_DEV_TOOLS', in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
+'dev' => [
+    'tools_enabled' => env('MARTIS_DEV_TOOLS', in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
+],
 ```
 
 Master switch for the Component Inspector overlay (Cmd/Ctrl+Shift+I) and other in-page debugging surfaces. Defaults to ON in `local` and `testing`, OFF in `production`. Force ON in production with `MARTIS_DEV_TOOLS=true` for short-lived diagnostic windows.
@@ -1294,7 +1306,6 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_DEFAULT_TRASHED_FILTER` | `'active'` |
 | `MARTIS_DEV_TOOLS` | `in_array(env('APP_ENV', 'production'), ['local', 'testing'], true),` |
 | `MARTIS_DRAWER_EXPANDABLE` | `true` |
-| `MARTIS_EXTENSIONS_PATH` | `'martis-extensions'` |
 | `MARTIS_FAVICON` | `null` |
 | `MARTIS_FOOTER_TEXT` | `(no default)` |
 | `MARTIS_GUARD` | `null` |
@@ -1341,6 +1352,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_THROTTLE_ENABLED` | `true` |
 | `MARTIS_THROTTLE_MAX` | `120` |
 | `MARTIS_TOAST_POSITION` | `'bottom-right'` |
+| `MARTIS_USER_ID_COLUMN_TYPE` | `(no default)` |
 | `MARTIS_WELCOME_DESCRIPTION` | `(no default)` |
 | `MARTIS_WELCOME_HEADING` | `(no default)` |
 ## Next Steps
