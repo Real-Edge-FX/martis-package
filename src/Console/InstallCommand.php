@@ -1191,7 +1191,10 @@ class InstallCommand extends Command
 
     protected function runMigrations(): void
     {
-        $this->call('migrate');
+        // --force so the install never stalls on Laravel's "Do you really
+        // wish to run this command?" prompt in production / CI / non-interactive
+        // shells. martis:install is itself the confirmation step.
+        $this->call('migrate', ['--force' => true]);
         $this->components->twoColumnDetail('<fg=green>Executed</> migrations', 'Martis database changes applied');
     }
 }

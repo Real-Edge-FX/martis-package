@@ -48,6 +48,11 @@ beforeEach(function () {
         'email' => 'cache-admin@martis.test',
         'password' => bcrypt('secret'),
     ]);
+
+    // The package now DENIES manage-martis-cache by default (a host must
+    // opt in). Grant it for the success-path tests; the explicit deny test
+    // below overrides this in its own body.
+    Gate::define('manage-martis-cache', fn () => true);
 });
 
 it('returns the full cache snapshot through GET /api/cache', function () {

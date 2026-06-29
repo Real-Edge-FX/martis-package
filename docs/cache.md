@@ -26,13 +26,13 @@ The sidebar that surfaces "Sistema → Cache" — and every other navigation ent
 | **Resource entries** (Clients, Projects, Action Events, …) | The user must pass `Resource::authorizedToViewAny($request)`. Internally that calls the policy's `viewAny` ability. Resources without `viewAny` are silently hidden. |
 | **Resource that opts out** | Set `public static function displayInNavigation(): bool { return false; }` on the resource class. Always hidden. |
 | **Custom links injected via `Martis::mainMenu(...)`** | Each `MenuItem` honours `->canSee(Closure|bool)`. The closure receives the `Request` and decides per-user. |
-| **System → Cache (built-in by Martis)** | Gated by Laravel's Gate `manage-martis-cache`. The default closure allows any authenticated user; host apps tighten it to `is_admin` (see below). The entry also disappears wholesale when `cache.admin_ui = false`. |
+| **System → Cache (built-in by Martis)** | Gated by Laravel's Gate `manage-martis-cache`. **The default DENIES everyone** — flushing/disabling the cache is destructive and privileged, so you must grant the ability explicitly (see below). The entry also disappears wholesale when `cache.admin_ui = false`. |
 
 In short: **if a user lacks the policy, the sidebar entry never renders, the route returns 403, and the API endpoint behind it returns 403 too.** The three layers are checked independently.
 
-### Tightening the cache admin gate
+### Granting the cache admin gate
 
-Out of the box, any authenticated user reaches `/martis/system/cache`. For production, override the gate from your `MartisServiceProvider` (published by `martis:install` at `app/Providers/MartisServiceProvider.php`):
+The `manage-martis-cache` gate **denies by default** — out of the box nobody reaches `/martis/system/cache`, the sidebar entry is hidden, and `/martis/api/cache/*` returns 403. To grant access, define the gate from your `MartisServiceProvider` (published by `martis:install` at `app/Providers/MartisServiceProvider.php`):
 
 ```php
 // app/Providers/MartisServiceProvider.php
@@ -42,7 +42,7 @@ protected function registerGates(): void
 }
 ```
 
-Calling `Gate::define()` from the host app replaces Martis's default closure, so order doesn't matter. Once tightened, non-admins see no sidebar entry and `/martis/api/cache/*` returns 403.
+Calling `Gate::define()` from the host app replaces Martis's default closure, so order doesn't matter. Until you define it, the cache admin surface stays locked: this is intentional — cache flush/disable is a destructive operation and the package will not grant it implicitly.
 
 ## The four built-in layers
 

@@ -301,14 +301,16 @@ class MartisServiceProvider extends ServiceProvider
     /**
      * Register the default `manage-martis-cache` gate.
      *
-     * Default behaviour: any authenticated user is allowed. Host apps
-     * should override this in their own service provider when they want
-     * to restrict the cache admin page to a subset of users:
+     * Default behaviour: DENY. Managing the cache (flush / disable) is a
+     * destructive, privileged operation, so the package will not grant it
+     * implicitly — not even to authenticated panel users. Host apps opt in
+     * by defining the gate in their own service provider:
      *
      *     Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
      *
      * Calling `Gate::define()` from the host app replaces the closure
-     * registered here, so order doesn't matter.
+     * registered here, so order doesn't matter. Until the host defines it,
+     * the cache admin endpoints return 403 and the UI control is hidden.
      */
     protected function registerCacheGate(): void
     {
@@ -316,7 +318,8 @@ class MartisServiceProvider extends ServiceProvider
             return;
         }
 
-        Gate::define('manage-martis-cache', fn ($user) => $user !== null);
+        // Secure default: deny. The host must explicitly grant this ability.
+        Gate::define('manage-martis-cache', fn ($user) => false);
     }
 
     /** Register the custom exception handler for Martis routes. */

@@ -472,8 +472,15 @@ return [
     |     into full-table scans on most engines.
     */
     'search' => [
+        // Relationship / autocomplete search (BelongsTo pickers, etc.).
         'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
         'min_query' => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
+
+        // Global search bar (topbar).
+        'enabled' => true,
+        'placeholder' => null, // null = use i18n default "Press / to search"
+        'mode' => env('MARTIS_SEARCH_MODE', 'bar'), // bar, icon, disabled
+        'mobileMode' => env('MARTIS_SEARCH_MOBILE_MODE', 'icon'), // bar, icon, disabled
     ],
 
     /*
@@ -694,19 +701,6 @@ return [
         'showThemeToggle' => true,
         'showProfile' => env('MARTIS_SHOW_PROFILE_MENU', true),
         // 'customItems' => [],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Global Search
-    |--------------------------------------------------------------------------
-    | Configure the search bar in the topbar.
-    */
-    'search' => [
-        'enabled' => true,
-        'placeholder' => null, // null = use i18n default "Press / to search"
-        'mode' => env('MARTIS_SEARCH_MODE', 'bar'), // bar, icon, disabled
-        'mobileMode' => env('MARTIS_SEARCH_MOBILE_MODE', 'icon'), // bar, icon, disabled
     ],
 
     /*
