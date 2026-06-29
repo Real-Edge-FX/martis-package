@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
@@ -585,4 +586,61 @@ it('filters actions by context=inline', function () {
     foreach ($actions as $action) {
         expect($action['showInline'])->toBeTrue();
     }
+});
+
+// ---------------------------------------------------------------------------
+// IDOR guard — resolveModels() must honour the resource indexQuery scope
+// ---------------------------------------------------------------------------
+
+class ActionTestScopedResource extends Resource
+{
+    public static ?string $policy = ActionTestPolicyWithRunAction::class;
+
+    public static function model(): string
+    {
+        return ActionTestModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'act-scoped-items';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->required(),
+            Text::make('status'),
+        ];
+    }
+
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        return $query->where('status', 'draft');
+    }
+
+    /** @return list<ActionContract> */
+    public function actions(Request $request): array
+    {
+        return [ActionTestPublish::make()];
+    }
+}
+
+it('an action cannot reach records outside the resource indexQuery scope (IDOR guard)', function () {
+    app(ResourceRegistry::class)->register(ActionTestScopedResource::class);
+
+    $inScope = ActionTestModel::create(['title' => 'Draft', 'status' => 'draft']);
+    $outOfScope = ActionTestModel::create(['title' => 'Hidden', 'status' => 'archived']);
+
+    // Pass BOTH ids — the archived one is outside the scoped indexQuery.
+    $response = $this->postJson('/martis/api/resources/act-scoped-items/actions/action-test-publish', [
+        'resources' => [$inScope->id, $outOfScope->id],
+    ]);
+
+    $response->assertSuccessful();
+
+    // In-scope record was acted on; the out-of-scope record was never
+    // resolved, so the action could not touch it.
+    expect($inScope->fresh()->status)->toBe('published')
+        ->and($outOfScope->fresh()->status)->toBe('archived');
 });

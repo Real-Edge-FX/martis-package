@@ -243,7 +243,9 @@ class ActionController extends MartisController
                 throw $e;
             }
 
-            return JsonErrorResponse::serverError('Action failed: '.$e->getMessage())->toResponse();
+            // Do not leak the raw exception message to the HTTP client — the
+            // full detail is in the Log::error above (and the action event).
+            return JsonErrorResponse::serverError('The action could not be completed due to an internal error.')->toResponse();
         }
     }
 
@@ -313,8 +315,14 @@ class ActionController extends MartisController
         /** @var Model $modelInstance */
         $modelInstance = new $modelClass;
 
+        // Apply the resource's index scoping (tenant / ownership filters)
+        // before selecting by id. Without this, an action could resolve and
+        // act on records outside the user's visible scope just by passing
+        // their ids (IDOR) — the same guard the index listing applies.
+        $query = $resource::indexQuery($request, $modelInstance->newQuery());
+
         /** @var Collection<int, Model> $result */
-        $result = $modelInstance->newQuery()->whereIn(
+        $result = $query->whereIn(
             $modelInstance->getKeyName(),
             $ids,
         )->get();
