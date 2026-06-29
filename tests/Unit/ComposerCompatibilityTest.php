@@ -15,7 +15,14 @@ declare(strict_types=1);
  */
 it('does not allow the Laravel 11 major in the framework constraint', function () {
     $composer = json_decode((string) file_get_contents(dirname(__DIR__, 2).'/composer.json'), true);
-    $constraint = (string) ($composer['require']['laravel/framework'] ?? '');
+    // The CI matrix pins the version via `composer require --dev`, which
+    // MOVES laravel/framework into require-dev — so read it from whichever
+    // section holds it.
+    $constraint = (string) (
+        $composer['require']['laravel/framework']
+        ?? $composer['require-dev']['laravel/framework']
+        ?? ''
+    );
 
     expect($constraint)->not->toBe('');
 
