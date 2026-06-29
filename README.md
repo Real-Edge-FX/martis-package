@@ -11,7 +11,7 @@
   <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/v/martis/martis?style=flat-square&label=version" alt="Version on Packagist"></a>
   <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/dt/martis/martis?style=flat-square&label=downloads" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.3+">
-  <img src="https://img.shields.io/badge/Laravel-12%2B-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel 12+">
+  <img src="https://img.shields.io/badge/Laravel-12%2F13-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel 12 / 13">
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 18">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
 </p>
@@ -70,7 +70,7 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 | Dependency | Version |
 |------------|---------|
 | PHP | 8.3+ |
-| Laravel | 11+ or 12+ |
+| Laravel | 12 or 13 |
 | Node.js | 20+ (contributors only) |
 | pnpm | 8+ (contributors only) |
 
