@@ -30,3 +30,6 @@
 /.codex                export-ignore
 /.claude               export-ignore
 /.idea                 export-ignore
+
+# Internal-only dev docs — never ship in the Composer dist.
+/internal              export-ignore
