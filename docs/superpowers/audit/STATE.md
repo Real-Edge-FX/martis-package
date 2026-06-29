@@ -81,6 +81,20 @@ Test health after tail: **2107 Pest + 184 Vitest passing, phpstan clean, pint cl
 
 **Next: inline security highs** (the ~18 above) then the 2 docs-sync batches. The v1.15.2 tag remains HELD.
 
+#### PHASE 3 — security highs + sec med/low (2026-06-29, continued)
+
+User decisions (AskUserQuestion): (1) `manage-martis-cache` → **deny by default** (done, documented); (2) **highs inline + parallelize sec med/low** (done).
+
+Commits since tail (all pushed, branch `audit/ecosystem-sweep-2026-06-28`):
+- `cae7dd3` field readonly-closure (9 fields), DateTime time-loss, AuthController 2FA `=== false` (3 high) + AuditFieldFixesTest
+- `e490e84` checkPolicy/checkRelationalPolicy thread the passed `$request` (high) + CheckPolicyRequestTest (RED-confirmed)
+- `987ee4e` cache gate deny-default + duplicate `search` config key + InstallCommand `--force` (3 high) + SearchConfigTest, CacheControllerTest grant, docs/cache.md
+- `055e3810` sec med/low pass APPLIED (10 fixes, 6 batches, 0 FP): MCP hash_equals timing-safe + /health warning + readDoc slug sanitize; EmailVerification error-leak; File/Image per-item MIME/size rules in HasMany/HasOne/MorphMany/MorphOne; **NEW `bypass-martis-cache` gate (deny default)**; dashboards lock re-eval; DrawerDetail authz buttons. Merge fallout fixed: HasManyControllerTest helper refactor (agent used flushing file-global beforeEach + `->group()` on hooks + wrong rel URL `file-children`→`fileChildren`); MartisCache `use Gate`; MetricController redundant array_values; cache bypass tests grant the gate.
+
+Test health: **2129 Pest + 184 Vitest passing, phpstan + pint clean.** Sec workflow run `wf_49a25e54-841` (done); worktrees pruned.
+
+**STILL TODO (inline highs, not started):** SSO `on_no_role_match` deny-bypass + 'callable' null→guest (doc-backed bug; src/Http/Controllers/SsoController.php:92-107) + OAuth-state CSRF (med); ActionController resolveModels IDOR (300-323) + 404-vs-403 + exception-leak (med) + fields() authz (med); ResourceController show?context=update leak (213) + syncField wrong gate (728) + replicateFields per-model authz (med) + exception-leak (low); MagicLinkController mass-assignment (133); ExecuteAction double-encode JSON (114); File fillMultiple keepPaths validation (325); TwoFactorService 2FA setup overwrites confirmed secret (generateSetup); AzureProvider dead-code accessToken (62) + OData filter unquoted (low) + no-timeout SSRF (low). **Then: 2 docs-sync batches + martis-docs mirror of all package-doc changes (cache.md done locally, NOT yet mirrored/deployed).** Tag still HELD.
+
 ### Run history
 
 - **Run 1 (task wlks2dsru):** hit session limit (resets 23:00 Lisbon) mid-way. Returned `{confirmed:44, critical:2, high:14, medium:15, low:13}` but `synth: null` — REPORT NOT WRITTEN. ~130 verify agents + fe-pages-lib finder + synth failed on the limit. ~227 agents / 5.8M tokens already cached on disk.
