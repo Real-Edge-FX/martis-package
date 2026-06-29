@@ -247,6 +247,29 @@ it('warns when host=0.0.0.0 without a token (and stays silent with --no-warn-on-
     expect($silentStderr)->not->toContain('MARTIS_MCP_HTTP_TOKEN');
 });
 
+it('warns about the health endpoint on 0.0.0.0 even when a token is set', function () {
+    // Setting a token silenced the original warning, but the health endpoint
+    // was still publicly bound without authentication. The fix emits a dedicated
+    // warning for the health port whenever host=0.0.0.0 and --health-port is active,
+    // regardless of whether MARTIS_MCP_HTTP_TOKEN is set.
+    $port = pickPort();
+    $healthPort = pickPort();
+    $process = spawnServe(
+        ['--transport=http', '--host=0.0.0.0', "--port={$port}", "--health-port={$healthPort}"],
+        ['MARTIS_MCP_HTTP_TOKEN' => 'test-token-for-health-warn'],
+    );
+
+    expect(waitForPort('0.0.0.0', $port))->toBeTrue();
+    usleep(200_000);
+    $stderr = $process->getIncrementalErrorOutput();
+    $process->stop(2);
+
+    // The MCP docs API warning must NOT fire (token is set).
+    expect($stderr)->not->toContain('MARTIS_MCP_HTTP_TOKEN');
+    // The health endpoint warning MUST fire.
+    expect($stderr)->toContain('/health')->toContain('0.0.0.0');
+});
+
 it('stdio default keeps producing the three tools (regression guard)', function () {
     $root = artisanPath();
     $process = new Process(

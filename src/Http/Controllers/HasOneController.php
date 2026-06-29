@@ -508,6 +508,15 @@ class HasOneController extends MartisController
             }
 
             $rules[$field->attribute()] = $fieldRules;
+
+            // Register per-item rules for multiple-file fields (e.g. MIME type, max size).
+            if (method_exists($field, 'buildItemRules')) {
+                $itemRules = $field->buildItemRules();
+                if (! empty($itemRules)) {
+                    $rules[$field->attribute().'.*'] = $itemRules;
+                }
+            }
+
             if ($field instanceof Field) {
                 $attributes[$field->attribute()] = $field->label();
             }

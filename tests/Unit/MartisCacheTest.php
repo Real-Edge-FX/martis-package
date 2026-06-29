@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Martis\Cache\MartisCache;
 use Martis\Tests\TestCase;
 
@@ -133,7 +134,9 @@ it('clearOverride drops the runtime flag and falls back to config', function () 
     expect($this->cache->enabled('schema'))->toBeTrue();
 });
 
-it('honours the X-Martis-No-Cache header on the active request', function () {
+it('honours the X-Martis-No-Cache header when the bypass gate allows', function () {
+    Gate::define('bypass-martis-cache', fn ($user = null) => true);
+
     $request = Request::create('/');
     $request->headers->set('X-Martis-No-Cache', '1');
     $this->app->instance('request', $request);
@@ -149,7 +152,9 @@ it('honours the X-Martis-No-Cache header on the active request', function () {
     expect($this->cache->remember('metrics', 'k', $cb))->toBe(2);
 });
 
-it('honours the ?nocache=1 query parameter', function () {
+it('honours the ?nocache=1 query parameter when the bypass gate allows', function () {
+    Gate::define('bypass-martis-cache', fn ($user = null) => true);
+
     $request = Request::create('/?nocache=1');
     $this->app->instance('request', $request);
 
@@ -162,6 +167,85 @@ it('honours the ?nocache=1 query parameter', function () {
 
     expect($this->cache->remember('metrics', 'k', $cb))->toBe(1);
     expect($this->cache->remember('metrics', 'k', $cb))->toBe(2);
+});
+
+// -----------------------------------------------------------------------------
+// Per-request bypass authorization (bypass-martis-cache Gate)
+// -----------------------------------------------------------------------------
+
+it('blocks the X-Martis-No-Cache header when the bypass gate denies', function () {
+    // Default gate (deny-all) is registered by the service provider.
+    // This test asserts the default behaviour without overriding the gate.
+    Gate::define('bypass-martis-cache', fn () => false);
+
+    $request = Request::create('/');
+    $request->headers->set('X-Martis-No-Cache', '1');
+    $this->app->instance('request', $request);
+
+    $hits = 0;
+    $cb = function () use (&$hits) {
+        $hits++;
+
+        return $hits;
+    };
+
+    // Both calls should hit the cache (gate denies the bypass signal).
+    expect($this->cache->remember('metrics', 'k', $cb))->toBe(1);
+    expect($this->cache->remember('metrics', 'k', $cb))->toBe(1);
+    expect($hits)->toBe(1);
+});
+
+it('blocks the ?nocache=1 query parameter when the bypass gate denies', function () {
+    Gate::define('bypass-martis-cache', fn () => false);
+
+    $request = Request::create('/?nocache=1');
+    $this->app->instance('request', $request);
+
+    $hits = 0;
+    $cb = function () use (&$hits) {
+        $hits++;
+
+        return $hits;
+    };
+
+    expect($this->cache->remember('metrics', 'k', $cb))->toBe(1);
+    expect($this->cache->remember('metrics', 'k', $cb))->toBe(1);
+    expect($hits)->toBe(1);
+});
+
+it('blocks the ?nocache=true variant when the bypass gate denies', function () {
+    Gate::define('bypass-martis-cache', fn () => false);
+
+    $request = Request::create('/?nocache=true');
+    $this->app->instance('request', $request);
+
+    $hits = 0;
+    $cb = function () use (&$hits) {
+        $hits++;
+
+        return $hits;
+    };
+
+    expect($this->cache->remember('metrics', 'k', $cb))->toBe(1);
+    expect($this->cache->remember('metrics', 'k', $cb))->toBe(1);
+    expect($hits)->toBe(1);
+});
+
+it('bypassed() returns false when no bypass signal is present regardless of the gate', function () {
+    Gate::define('bypass-martis-cache', fn ($user = null) => true);
+
+    $request = Request::create('/');
+    $this->app->instance('request', $request);
+
+    expect($this->cache->bypassed($request))->toBeFalse();
+});
+
+it('bypassed() returns true when both signal and gate allow', function () {
+    Gate::define('bypass-martis-cache', fn ($user = null) => true);
+
+    $request = Request::create('/?nocache=1');
+
+    expect($this->cache->bypassed($request))->toBeTrue();
 });
 
 it('accepts the legacy bare-int config shape', function () {

@@ -299,27 +299,37 @@ class MartisServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the default `manage-martis-cache` gate.
+     * Register the default cache-related gates. Both DENY by default.
      *
-     * Default behaviour: DENY. Managing the cache (flush / disable) is a
-     * destructive, privileged operation, so the package will not grant it
-     * implicitly — not even to authenticated panel users. Host apps opt in
-     * by defining the gate in their own service provider:
+     * `manage-martis-cache` — access to the cache admin UI and REST
+     * endpoints (flush / disable). Destructive and privileged, so the
+     * package will not grant it implicitly. Until the host defines it,
+     * the endpoints return 403 and the sidebar entry is hidden:
      *
      *     Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
      *
+     * `bypass-martis-cache` — the right to skip the per-request cache via
+     * the `X-Martis-No-Cache: 1` header or `?nocache=1`. Defaults to deny
+     * so ordinary authenticated users cannot force expensive metric /
+     * navigation / schema re-computation on every request:
+     *
+     *     Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
+     *
      * Calling `Gate::define()` from the host app replaces the closure
-     * registered here, so order doesn't matter. Until the host defines it,
-     * the cache admin endpoints return 403 and the UI control is hidden.
+     * registered here, so order doesn't matter.
      */
     protected function registerCacheGate(): void
     {
-        if (Gate::has('manage-martis-cache')) {
-            return;
+        // Secure default: deny. The host must explicitly grant this ability.
+        if (! Gate::has('manage-martis-cache')) {
+            Gate::define('manage-martis-cache', fn ($user) => false);
         }
 
-        // Secure default: deny. The host must explicitly grant this ability.
-        Gate::define('manage-martis-cache', fn ($user) => false);
+        // Secure default: deny. Without this, the cache-bypass signals
+        // (header / query param) are ignored for every user.
+        if (! Gate::has('bypass-martis-cache')) {
+            Gate::define('bypass-martis-cache', fn () => false);
+        }
     }
 
     /** Register the custom exception handler for Martis routes. */

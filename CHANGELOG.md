@@ -113,6 +113,17 @@ Verified-then-fixed in a parallel worktree-isolated pass (each finding re-checke
 - **feat(notifications)** Add `Martis\Enums\NotificationLevel` enum (Info, Success, Warning, Danger); `MartisNotification` now enforces the finite level set at the type level and fixes the stale docblock reference.
 - **fix(2fa)** Replace `assert($user instanceof Model)` with an explicit `InvalidArgumentException` guard in all public `TwoFactorService` methods, ensuring the contract is enforced regardless of `zend.assertions`.
 
+### Security & fixes — medium/low (ecosystem audit, parallel verify-then-fix pass)
+
+- **Security**: Use `hash_equals()` for bearer-token comparison in `AuthenticatedStreamableHttpTransport` to prevent timing-oracle attacks (both `listen()` and `createRequestHandler()` paths).
+- **Security**: `McpServeCommand::maybeWarnOnPublic()` now emits a dedicated warning when `/health` is bound to `0.0.0.0`, even when `MARTIS_MCP_HTTP_TOKEN` is set (previously the health-port exposure was silent in that configuration).
+- **Security**: Sanitize user-supplied slug before reflecting it in the `readDoc` error message to prevent log injection and terminal escape injection.
+- **DrawerDetail**: hide Delete and Edit footer buttons when `_authorization.authorizedToDelete` / `authorizedToUpdate` is false, matching the existing guards in ResourceDetail and Table.
+- **Security:** `EmailVerificationController::verify()` no longer passes an internal config error message to `abort(500)` — the message is logged via `report()` and suppressed from the HTTP response.
+- **Security:** MIME type and file size constraints configured on multiple-file `File`/`Image` fields are now enforced when those fields appear inside `HasMany`, `MorphMany`, `HasOne`, and `MorphOne` relationship resources (previously only `ResourceController` applied `buildItemRules()`)
+- **Security** Gate-guard the per-request cache bypass (`?nocache=1` / `X-Martis-No-Cache: 1`): the signal is now honoured only when the `bypass-martis-cache` gate passes. The gate defaults to deny-all; host apps should grant it only to privileged users.
+- **Fix** Dashboard list endpoint (`GET /api/dashboards`) now re-evaluates the lock predicate on every request instead of freezing lock state in the per-user cache. A plan downgrade now immediately shows the lock icon in the sidebar list; a plan upgrade immediately removes it. The content guard in `show()` was already correct; this closes the soft-gate gap on the list surface.
+
 ## [1.15.2] — 2026-06-28
 
 ### Fixed

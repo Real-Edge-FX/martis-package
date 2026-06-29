@@ -3,7 +3,10 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Martis\Fields\File;
 use Martis\Fields\HasMany;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -394,3 +397,138 @@ it('blocks create when resource authorization denies it', function () {
     // Since we can't easily swap, just verify the endpoint works with authorization
     expect($response->status())->toBeIn([201, 403]);
 });
+
+// ---------------------------------------------------------------------------
+// Security: multi-file field item-level validation inside HasMany
+// Regression guard for: buildItemRules() bypass in relationship controllers
+// ---------------------------------------------------------------------------
+
+class HMFileChildModel extends Model
+{
+    protected $table = 'hm_test_file_children';
+
+    protected $fillable = ['attachments', 'parent_id'];
+
+    protected $casts = ['attachments' => 'array'];
+}
+
+class HMFileParentModel extends Model
+{
+    protected $table = 'hm_test_file_parents';
+
+    protected $fillable = ['name'];
+
+    public function fileChildren(): EloquentHasMany
+    {
+        return $this->hasMany(HMFileChildModel::class, 'parent_id');
+    }
+}
+
+class HMFileChildResource extends Resource
+{
+    public static function model(): string
+    {
+        return HMFileChildModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            File::make('attachments')
+                ->multiple()
+                ->disk('fake_disk')
+                ->storagePath('hm-attachments')
+                ->acceptedTypes(['pdf'])
+                ->maxSize(5120)
+                ->nullable(),
+        ];
+    }
+}
+
+class HMFileParentResource extends Resource
+{
+    public static function model(): string
+    {
+        return HMFileParentModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name')->required(),
+            HasMany::make('File Children', 'fileChildren')->relatedResource('h-m-file-child-models'),
+        ];
+    }
+}
+
+// Per-test setup for the multi-file-validation cases. NOT a file-global
+// beforeEach: this file already has flushing beforeEach hooks (above) that
+// register the standard HasMany resources, so a flushing file-global hook
+// here would clobber them. Calling this from each test body gives those
+// tests an isolated, file-resource-only registry without touching the rest.
+function hmFileValidationSetup(): void
+{
+    Storage::fake('fake_disk');
+
+    Schema::disableForeignKeyConstraints();
+    Schema::dropIfExists('hm_test_file_children');
+    Schema::dropIfExists('hm_test_file_parents');
+
+    Schema::create('hm_test_file_parents', function ($table) {
+        $table->id();
+        $table->string('name');
+        $table->timestamps();
+    });
+
+    Schema::create('hm_test_file_children', function ($table) {
+        $table->id();
+        $table->json('attachments')->nullable();
+        $table->unsignedBigInteger('parent_id');
+        $table->timestamps();
+        $table->foreign('parent_id')->references('id')->on('hm_test_file_parents')->onDelete('cascade');
+    });
+
+    Schema::enableForeignKeyConstraints();
+
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(HMFileParentResource::class);
+    $registry->register(HMFileChildResource::class);
+}
+
+it('rejects disallowed MIME type for multi-file field in HasMany relationship', function () {
+    hmFileValidationSetup();
+    $parent = HMFileParentModel::create(['name' => 'Parent']);
+
+    // Upload a .txt file when only pdf is accepted
+    $badFile = UploadedFile::fake()->create('malware.txt', 10, 'text/plain');
+
+    $response = $this->call(
+        'POST',
+        "/martis/api/resources/h-m-file-parent-models/{$parent->id}/has-many/fileChildren",
+        [],
+        [],
+        ['attachments' => [$badFile]],
+        ['HTTP_ACCEPT' => 'application/json']
+    );
+
+    $response->assertStatus(422);
+})->group('hm-file-validation');
+
+it('accepts allowed MIME type for multi-file field in HasMany relationship', function () {
+    hmFileValidationSetup();
+    $parent = HMFileParentModel::create(['name' => 'Parent']);
+
+    $goodFile = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
+
+    $response = $this->call(
+        'POST',
+        "/martis/api/resources/h-m-file-parent-models/{$parent->id}/has-many/fileChildren",
+        [],
+        [],
+        ['attachments' => [$goodFile]],
+        ['HTTP_ACCEPT' => 'application/json']
+    );
+
+    $response->assertStatus(201);
+})->group('hm-file-validation');

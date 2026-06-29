@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Martis\Models\CacheState;
 
 /**
@@ -43,7 +44,10 @@ use Martis\Models\CacheState;
  *
  * Per-request bypass — header `X-Martis-No-Cache: 1` or query
  * `?nocache=1` (or `?nocache=true`). Useful for debugging without
- * flipping config.
+ * flipping config. Requires the `bypass-martis-cache` Gate (default:
+ * deny). Host apps should grant it only to privileged users, e.g.:
+ *
+ *     Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
  */
 class MartisCache
 {
@@ -321,6 +325,14 @@ class MartisCache
     /**
      * Per-request bypass detection. Read from the current request when
      * one is bound — falls back to false in console / queue contexts.
+     *
+     * The bypass signal (header or query param) is honoured only when the
+     * authenticated user passes the `bypass-martis-cache` Gate. The gate
+     * defaults to deny-all so that ordinary authenticated users cannot
+     * force expensive re-computation on every request. Host apps should
+     * grant it to privileged users in their service provider:
+     *
+     *     Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
      */
     public function bypassed(?Request $request = null): bool
     {
@@ -330,13 +342,15 @@ class MartisCache
             return false;
         }
 
-        if ($request->headers->get('X-Martis-No-Cache') === '1') {
-            return true;
+        $hasSignal = $request->headers->get('X-Martis-No-Cache') === '1'
+            || $request->query('nocache') === '1'
+            || $request->query('nocache') === 'true';
+
+        if (! $hasSignal) {
+            return false;
         }
 
-        $param = $request->query('nocache');
-
-        return $param === '1' || $param === 'true';
+        return Gate::forUser($request->user())->allows('bypass-martis-cache');
     }
 
     // -------------------------------------------------------------------------

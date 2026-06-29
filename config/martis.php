@@ -996,9 +996,15 @@ return [
     | shape — bare int = TTL with cache enabled, null = disabled — is still
     | accepted for backward compatibility.
     |
-    | Bypass per-request:
+    | Bypass per-request (requires the `bypass-martis-cache` Gate):
     |   • Header `X-Martis-No-Cache: 1`
     |   • Query param `?nocache=1`
+    |
+    | The `bypass-martis-cache` Gate defaults to deny so that ordinary
+    | authenticated users cannot force expensive re-computation on every
+    | request. Grant it only to privileged users in your service provider:
+    |
+    |     Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
     |
     */
 

@@ -83,3 +83,56 @@ it('passes through when token is set and Authorization matches exactly', functio
 
     expect($response->getStatusCode())->not->toBe(401);
 });
+
+it('returns 401 for a correct prefix followed by extra characters (timing-safe boundary)', function () {
+    // hash_equals must reject strings that share a prefix with the real token.
+    // A naive short-circuit comparison would also 401 here, but this test
+    // documents the expected behaviour and guards against any future regression
+    // that might use str_starts_with() or substring checks instead.
+    $t = new AuthenticatedStreamableHttpTransport(
+        host: '127.0.0.1', port: 1, mcpPath: '/mcp', stateless: true, token: 'secret',
+    );
+
+    $request = (new ServerRequest('POST', 'http://localhost/mcp'))
+        ->withHeader('Authorization', 'Bearer secret-EXTRA');
+    $response = invokeHandler($t, $request);
+
+    expect($response->getStatusCode())->toBe(401);
+});
+
+it('returns 401 for a token that is a truncated prefix of the real token', function () {
+    $t = new AuthenticatedStreamableHttpTransport(
+        host: '127.0.0.1', port: 1, mcpPath: '/mcp', stateless: true, token: 'secret-token-abc',
+    );
+
+    // Partial match — only a prefix of the real token is supplied.
+    $request = (new ServerRequest('POST', 'http://localhost/mcp'))
+        ->withHeader('Authorization', 'Bearer secret');
+    $response = invokeHandler($t, $request);
+
+    expect($response->getStatusCode())->toBe(401);
+});
+
+it('returns 401 when Authorization is one character short of the token (timing-safe guard)', function () {
+    $t = new AuthenticatedStreamableHttpTransport(
+        host: '127.0.0.1', port: 1, mcpPath: '/mcp', stateless: true, token: 'secret-token-abc',
+    );
+
+    $request = (new ServerRequest('POST', 'http://localhost/mcp'))
+        ->withHeader('Authorization', 'Bearer secret-token-ab'); // one char short — differing lengths
+    $response = invokeHandler($t, $request);
+
+    expect($response->getStatusCode())->toBe(401);
+});
+
+it('returns 401 when Authorization has a trailing null byte appended (timing-safe guard)', function () {
+    $t = new AuthenticatedStreamableHttpTransport(
+        host: '127.0.0.1', port: 1, mcpPath: '/mcp', stateless: true, token: 'secret-token-abc',
+    );
+
+    $request = (new ServerRequest('POST', 'http://localhost/mcp'))
+        ->withHeader('Authorization', "Bearer secret-token-abc\x00");
+    $response = invokeHandler($t, $request);
+
+    expect($response->getStatusCode())->toBe(401);
+});

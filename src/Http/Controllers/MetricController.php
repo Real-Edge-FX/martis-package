@@ -34,16 +34,44 @@ class MetricController
 
     public function dashboards(Request $request): IlluminateJsonResponse
     {
-        // Cache the dashboard list shape per user — `authorizedToSee` runs
-        // against the active user, so two users may see different lists.
+        // Resolve dashboards outside the cache so we can evaluate the lock
+        // predicate on every request — lock state must NOT be frozen in the
+        // cached payload, otherwise a plan downgrade/upgrade is invisible
+        // until the TTL expires (the same reason show() bypasses the cache
+        // for the lock check; see lines 63-79).
+        $manager = app(MartisManager::class);
+        $instances = $manager->resolveDashboards($request);
+
+        // Cache the structural shape (name, uriKey, layout, badge, icon, …)
+        // with the lock field stripped. Lock is re-injected below from the
+        // live predicate evaluation.
         $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
-        $payload = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale(), function () use ($request): array {
-            $manager = app(MartisManager::class);
-            $dashboards = $manager->resolveDashboards($request);
+        $cached = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale(), function () use ($instances): array {
+            return array_map(function (DashboardContract $d): array {
+                $arr = $d->toArray();
+                // Strip the lock key so stale lock state is never persisted.
+                $arr['lock'] = null;
 
-            return array_values(array_map(fn (DashboardContract $d) => $d->toArray(), $dashboards));
+                return $arr;
+            }, $instances);
         });
+
+        // Re-inject the live lock payload for each dashboard entry.
+        // This mirrors the guard in show(): evaluate lockPayloadFor() outside
+        // the cache boundary so plan/role changes land immediately.
+        $payload = array_map(function (array $entry) use ($instances, $request): array {
+            foreach ($instances as $instance) {
+                if ($instance->uriKey() === $entry['uriKey']) {
+                    $entry['lock'] = method_exists($instance, 'lockPayloadFor')
+                        ? $instance->lockPayloadFor($request)
+                        : null;
+                    break;
+                }
+            }
+
+            return $entry;
+        }, $cached);
 
         return JsonResponse::make(['dashboards' => $payload])->toResponse();
     }

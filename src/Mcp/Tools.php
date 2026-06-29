@@ -54,9 +54,11 @@ class Tools
         }
         $content = $this->docs->read($slug);
         if ($content === null) {
+            $safeSlug = (string) preg_replace('/[^A-Za-z0-9._-]/', '', $slug);
+
             return [
                 'enabled' => true,
-                'error' => "No documentation page found for slug `{$slug}`. Call martis_doc_list to see available slugs.",
+                'error' => "No documentation page found for slug `{$safeSlug}`. Call martis_doc_list to see available slugs.",
             ];
         }
 

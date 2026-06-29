@@ -146,13 +146,27 @@ class McpServeCommand extends Command
             return;
         }
         $host = (string) ($this->option('host') ?: config('martis.mcp.host', '127.0.0.1'));
+        if ($host !== '0.0.0.0') {
+            return;
+        }
+
         $token = (string) config('martis.mcp.token', '');
-        if ($host === '0.0.0.0' && $token === '') {
+        if ($token === '') {
             fwrite(
                 STDERR,
                 '[martis:mcp-serve] WARNING: bound to 0.0.0.0 without MARTIS_MCP_HTTP_TOKEN. '
                 .'Anyone reaching this port can call the docs API. Set the token or front '
                 ."the server with an authenticated reverse proxy.\n"
+            );
+        }
+
+        $healthPort = (int) ($this->option('health-port') ?: config('martis.mcp.health_port', 0));
+        if ($healthPort > 0) {
+            fwrite(
+                STDERR,
+                '[martis:mcp-serve] WARNING: /health endpoint is bound to 0.0.0.0 without authentication. '
+                .'Operational metadata (version, uptime, tool count) is visible to any network peer. '
+                ."Front this port with an authenticated reverse proxy or restrict access with a firewall rule.\n"
             );
         }
     }
