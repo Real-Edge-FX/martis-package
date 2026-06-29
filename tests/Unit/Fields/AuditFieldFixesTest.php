@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Martis\Fields\Date;
 use Martis\Fields\DateTime;
@@ -24,14 +25,14 @@ function auditFakeModel(): Model
 
 it('DateTime resolves with the time portion intact', function () {
     $model = auditFakeModel();
-    $model->setAttribute('published_at', \Carbon\Carbon::parse('2026-06-29 14:30:45'));
+    $model->setAttribute('published_at', Carbon::parse('2026-06-29 14:30:45'));
 
     expect(DateTime::make('published_at')->resolve($model))->toBe('2026-06-29 14:30:45');
 });
 
 it('Date (date-only) still strips the time portion', function () {
     $model = auditFakeModel();
-    $model->setAttribute('born_on', \Carbon\Carbon::parse('2026-06-29 14:30:45'));
+    $model->setAttribute('born_on', Carbon::parse('2026-06-29 14:30:45'));
 
     expect(Date::make('born_on')->resolve($model))->toBe('2026-06-29');
 });
