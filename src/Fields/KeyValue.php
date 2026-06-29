@@ -151,7 +151,7 @@ class KeyValue extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
-        if ($this->readonly) {
+        if ($this->isReadonly()) {
             return;
         }
 
