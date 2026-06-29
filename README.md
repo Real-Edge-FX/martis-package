@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/v/martis/martis?style=flat-square&label=version" alt="Version on Packagist"></a>
   <a href="https://packagist.org/packages/martis/martis"><img src="https://img.shields.io/packagist/dt/martis/martis?style=flat-square&label=downloads" alt="Downloads"></a>
-  <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.2+">
+  <img src="https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.3+">
   <img src="https://img.shields.io/badge/Laravel-12%2B-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel 12+">
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 18">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
@@ -69,7 +69,7 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 
 | Dependency | Version |
 |------------|---------|
-| PHP | 8.2+ |
+| PHP | 8.3+ |
 | Laravel | 11+ or 12+ |
 | Node.js | 20+ (contributors only) |
 | pnpm | 8+ (contributors only) |
@@ -193,7 +193,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 
 | Layer     | Technology |
 |-----------|-----------|
-| Backend   | PHP 8.2+, Laravel 12/13 |
+| Backend   | PHP 8.3+, Laravel 12/13 |
 | Frontend  | React 18, TypeScript, PrimeReact, Tailwind CSS |
 | Icons     | Phosphor Icons |
 | Build     | Vite, pnpm |
