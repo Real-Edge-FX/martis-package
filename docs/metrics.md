@@ -211,6 +211,8 @@ The `<Sparkline>` React component used internally is also exported (`@/component
 
 Every query helper (`count`, `sum`, `average`, `max`, `min` on `ValueMetric`; `countByDays` / `countByWeeks` / `countByMonths` / `sumByDays` / `sumByWeeks` / `sumByMonths` / `averageByDays` / `averageByMonths` on `TrendMetric`) accepts an optional `?string $dateColumn = null` final argument that controls which timestamp column the active range filter applies against. Defaults to `created_at`.
 
+> **Database support.** `TrendMetric` buckets its periods (day / ISO week / month) in PHP after fetching the in-range rows, so it is database-agnostic — MySQL, PostgreSQL and SQLite all work identically, including ISO-week grouping. No driver-specific SQL date functions are used.
+
 ```php
 public function calculate(Request $request): TrendResult
 {

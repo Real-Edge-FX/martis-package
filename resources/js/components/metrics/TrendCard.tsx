@@ -92,7 +92,7 @@ export function TrendCard({ data, color }: TrendCardProps) {
       <div>
         {formattedDisplay && <p className="martis-kpi-value">{formattedDisplay}</p>}
         <div className="mt-2 flex items-end justify-between gap-3">
-          {change !== undefined ? (
+          {change != null ? (
             <span className={deltaClass}>
               {change > 0 ? '+' : ''}{change}%
             </span>

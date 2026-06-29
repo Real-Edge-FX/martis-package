@@ -864,8 +864,12 @@ it('resolveRelatableSearchResults defaults to request per-page (clamped to 100) 
 it('resolveRelatableSearchResults floors at 1', function () {
     // Even pathological inputs return at least 1 row so paginate() does
     // not blow up with a "perPage must be at least 1" error.
+    // Capped path (explicit $relatableSearchResults)
     expect(CappedResource::resolveRelatableSearchResults(0))->toBe(1);
     expect(CappedResource::resolveRelatableSearchResults(-5))->toBe(1);
+    // Uncapped path (null $relatableSearchResults — falls back to request per_page clamped to 100)
+    expect(Martis\Resource::resolveRelatableSearchResults(0))->toBe(1);
+    expect(Martis\Resource::resolveRelatableSearchResults(-1))->toBe(1);
 });
 
 // ---------------------------------------------------------------------------

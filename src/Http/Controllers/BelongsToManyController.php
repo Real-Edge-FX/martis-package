@@ -79,7 +79,7 @@ class BelongsToManyController extends MartisController
         $dirStr = is_string($rawDir) ? $rawDir : SortDirection::Asc->value;
         $direction = SortDirection::tryFrom(strtolower($dirStr)) ?? SortDirection::Asc;
 
-        if (is_string($rawSort) && $rawSort !== '') {
+        if (is_string($rawSort) && $rawSort !== '' && $this->isSortableAttribute($relatedResourceClass, $request, $rawSort)) {
             $query->orderBy($rawSort, $direction->value);
         }
 
@@ -614,8 +614,13 @@ class BelongsToManyController extends MartisController
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
-        /** @phpstan-ignore staticMethod.notFound */
-        $parentModel = $modelClass::find($id); // @phpstan-ignore-line
+        // Resolve the parent through the resource's indexQuery scope + a key
+        // match, never a bare find(): a scoped-out id stays indistinguishable
+        // from a missing one (uniform 404) and the scope is enforced even for
+        // resources with no policy.
+        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
+            ->whereKey($id)
+            ->first();
 
         if ($parentModel === null) {
             return JsonErrorResponse::notFound('Parent record not found.')->toResponse();
@@ -797,7 +802,9 @@ class BelongsToManyController extends MartisController
         $code = (string) ($e->errorInfo[1] ?? '');
 
         $message = match ($code) {
+            '1048' => 'A required field is missing.',
             '1062' => 'A record with this value already exists.',
+            '1364' => 'A required field was not provided.',
             '1451' => 'This record is referenced by other records.',
             '1452' => 'The referenced record does not exist.',
             default => 'A database error occurred.',

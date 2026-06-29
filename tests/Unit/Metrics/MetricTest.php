@@ -95,6 +95,18 @@ it('ValueResult handles zero previous without division error', function () {
     expect($arr)->not->toHaveKey('change');
 });
 
+it('ValueResult computes change from a negative previous', function () {
+    // Regression: the guard was `previous > 0`, which silently dropped
+    // `change` for any negative baseline (a loss, a deficit, a negative
+    // balance). Division by a negative number is mathematically valid;
+    // only zero must be excluded. -500 -> +200 is a +140% swing.
+    $result = (new ValueResult(200))->previous(-500);
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('change')
+        ->and($arr['change'])->toBe(-140.0);
+});
+
 // ---------------------------------------------------------------------------
 // TrendMetric
 // ---------------------------------------------------------------------------
@@ -119,6 +131,28 @@ it('TrendResult supports showSumValue', function () {
     $arr = $result->toArray();
 
     expect($arr['sumValue'])->toBe(30);
+});
+
+it('TrendResult omits change entirely when the delta is null (sparkline, zero-first series)', function () {
+    // Regression: a sparkline series whose first bucket is 0 (common for
+    // brand-new data) made computeDelta() return null, and toArray()
+    // emitted `change: null`. The frontend guard was `change !== undefined`,
+    // which is true for a JSON null, so the card rendered the literal
+    // string "null%". The contract: when there is no meaningful delta,
+    // omit the key so the frontend's `!= null` guard suppresses the row.
+    $result = (new TrendResult(['Mon', 'Tue', 'Wed'], [0, 5, 9]))->sparkline();
+    $arr = $result->toArray();
+
+    expect($arr['sparkline'])->toBeTrue()
+        ->and($arr)->not->toHaveKey('change');
+});
+
+it('TrendResult keeps change when the delta is a real number', function () {
+    $result = (new TrendResult(['Mon', 'Tue', 'Wed'], [10, 15, 20]))->sparkline();
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('change')
+        ->and($arr['change'])->toBe(100.0);
 });
 
 // ---------------------------------------------------------------------------
@@ -293,4 +327,46 @@ it('Metric help(null) clears a previously set tooltip', function () {
 it('Metric help() returns the same instance for chaining', function () {
     $metric = TestTotalUsersMetric::make('Test');
     expect($metric->help('A'))->toBe($metric);
+});
+
+// ---------------------------------------------------------------------------
+// TrendResult — latestValue edge cases
+// ---------------------------------------------------------------------------
+
+it('TrendResult showLatestValue omits latestValue key for empty series', function () {
+    $result = (new TrendResult([], []))->showLatestValue();
+    $arr = $result->toArray();
+
+    expect($arr)->not->toHaveKey('latestValue');
+});
+
+it('TrendResult showLatestValue preserves a legitimate last value of zero', function () {
+    $result = (new TrendResult(['A', 'B', 'C'], [5, 3, 0]))->showLatestValue();
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('latestValue')
+        ->and($arr['latestValue'])->toBe(0);
+});
+
+it('TrendResult showLatestValue preserves a legitimate last value of 0.0', function () {
+    $result = (new TrendResult(['A', 'B'], [1.5, 0.0]))->showLatestValue();
+    $arr = $result->toArray();
+
+    expect($arr)->toHaveKey('latestValue')
+        ->and($arr['latestValue'])->toBe(0.0);
+});
+
+// ---------------------------------------------------------------------------
+// ProgressResult — constructor guard for negative target
+// ---------------------------------------------------------------------------
+
+it('ProgressResult throws InvalidArgumentException when target is negative', function () {
+    expect(fn () => new ProgressResult(50, -1))
+        ->toThrow(InvalidArgumentException::class, 'ProgressResult target must be >= 0.');
+});
+
+it('ProgressResult accepts zero target without throwing', function () {
+    $arr = (new ProgressResult(0, 0))->toArray();
+
+    expect($arr['percentage'])->toBe(0);
 });

@@ -262,6 +262,12 @@ class LensController extends MartisController
             static::classHash($lensInstance),
             $lensInstance->uriKey(),
             $tableVersion,
+            // The authenticated user's id scopes the key. A lens's query()
+            // may filter by the current user (e.g. "my records"), so two
+            // users hitting the same lens with identical params must not
+            // share a cache entry — without this, user A's rows leak to
+            // user B until the TTL expires.
+            (string) ($lensRequest->user()?->getAuthIdentifier() ?? 'guest'),
             $lensRequest->search,
             $lensRequest->sortColumn ?? '',
             $lensRequest->sortDirection->value,

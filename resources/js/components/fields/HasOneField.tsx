@@ -33,9 +33,9 @@ function formatAggregate(agg: { fn: string; column: string; value: number | null
   if (agg.fn === 'count') return String(Math.round(agg.value))
   // Heuristic: columns that look like money render with 2 decimals.
   if (/amount|revenue|price|cost|total/i.test(agg.column)) {
-    return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(agg.value)
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' }).format(agg.value)
   }
-  return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 }).format(agg.value)
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(agg.value)
 }
 
 /**
@@ -180,8 +180,12 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           </h3>
           {/* ⭐ Martis differential — Latest-of-N pill on HasOne::ofMany */}
           {record !== null && typeof ofMany?.totalCount === 'number' && ofMany.totalCount > 1 && (
-            <span className="martis-ofmany-pill" title={`${ofMany.totalCount} registos no total`}>
-              1 de {ofMany.totalCount}
+            <span
+              className="martis-ofmany-pill"
+              data-pr-tooltip={tMsg('ofmany_total_count', { count: ofMany.totalCount, defaultValue: `${ofMany.totalCount} records total` })}
+              data-pr-position="top"
+            >
+              {tMsg('ofmany_n_of_total', { n: 1, total: ofMany.totalCount, defaultValue: `1 of ${ofMany.totalCount}` })}
             </span>
           )}
           {/* ⭐ Through breadcrumb tooltip marker — uses MartisTooltip

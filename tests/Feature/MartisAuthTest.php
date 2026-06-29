@@ -80,6 +80,35 @@ it('POST /martis/login with valid credentials authenticates user', function () {
     $this->assertAuthenticatedAs($user);
 });
 
+it('POST /martis/login with keep_signed_in issues the remember-me token', function () {
+    $user = makeAuthUser('remember@example.com', 'mypassword');
+    expect($user->remember_token)->toBeNull();
+
+    $response = $this->post('/martis/login', [
+        'email' => 'remember@example.com',
+        'password' => 'mypassword',
+        'keep_signed_in' => true,
+    ]);
+
+    $response->assertRedirect();
+    $this->assertAuthenticatedAs($user);
+    // attempt($creds, true) persists a remember_token and queues the
+    // long-lived remember cookie — the signal that the toggle was honoured.
+    expect($user->fresh()->remember_token)->not->toBeNull();
+});
+
+it('POST /martis/login without keep_signed_in does not issue a remember-me token', function () {
+    $user = makeAuthUser('noremember@example.com', 'mypassword');
+
+    $this->post('/martis/login', [
+        'email' => 'noremember@example.com',
+        'password' => 'mypassword',
+    ])->assertRedirect();
+
+    $this->assertAuthenticatedAs($user);
+    expect($user->fresh()->remember_token)->toBeNull();
+});
+
 it('POST /martis/login with invalid credentials returns error', function () {
     makeAuthUser('wrong@example.com', 'correctpassword');
 

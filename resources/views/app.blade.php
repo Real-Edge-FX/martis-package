@@ -80,7 +80,7 @@
             docsUrl: {!! json_encode(config('martis.brand.docs_url')) !!},
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},
             keyboardShortcuts: {!! json_encode(config('martis.keyboard_shortcuts', ['enabled' => true, 'helpOverlay' => true])) !!},
-            userMenu: {!! json_encode(config('martis.user_menu', ['showThemeToggle' => true, 'showProfile' => true, 'showNotifications' => true])) !!},
+            userMenu: {!! json_encode(config('martis.user_menu', ['showThemeToggle' => true, 'showProfile' => true])) !!},
             search: {!! json_encode(config('martis.search', ['enabled' => true])) !!},
             dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showWelcomeCard' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
             welcome: {!! json_encode(config('martis.welcome', ['heading' => null, 'description' => null])) !!},
@@ -182,6 +182,7 @@
                 ],
                 'avatar' => [
                     'enabled' => (bool) config('martis.profile.avatar.enabled', true),
+                    'max_size_kb' => (int) config('martis.profile.avatar.max_size_kb', 2048),
                 ],
                 'two_factor' => [
                     'enabled' => (bool) config('martis.profile.two_factor.enabled', true),

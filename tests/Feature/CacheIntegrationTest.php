@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Martis\Cache\MartisCache;
 use Martis\Fields\Text;
@@ -195,6 +196,8 @@ it('navigation cache is scoped per user', function () {
 
 it('navigation bypass via X-Martis-No-Cache header skips the cache layer', function () {
     $this->actingAs($this->user, 'web');
+    // Per-request bypass now requires the bypass-martis-cache gate (deny by default).
+    Gate::define('bypass-martis-cache', fn ($user = null) => true);
 
     // Prime cache.
     $this->getJson('/martis/api/navigation');
@@ -274,6 +277,8 @@ it('schema cache returns a fresh payload after a registry change + clear', funct
 
 it('schema bypass via ?nocache=1 query skips the cache', function () {
     $this->actingAs($this->user, 'web');
+    // Per-request bypass now requires the bypass-martis-cache gate (deny by default).
+    Gate::define('bypass-martis-cache', fn ($user = null) => true);
 
     $primed = $this->getJson('/martis/api/resources/cached-accounts/schema')->json();
 

@@ -78,16 +78,10 @@ abstract class Resource implements ResourceContract
     // Abstract — must be implemented by concrete resources
     // -------------------------------------------------------------------------
 
-    /**
-     * Return all fields for this resource.
-     *
-     * @return list<FieldContract>
-     */
+    /** {@inheritdoc} */
     abstract public function fields(Request $request): array;
 
-    /**
-     * Return the fully-qualified Eloquent model class name.
-     */
+    /** {@inheritdoc} */
     abstract public static function model(): string;
 
     // -------------------------------------------------------------------------
@@ -600,43 +594,43 @@ abstract class Resource implements ResourceContract
     /** {@inheritdoc} */
     public function authorizedToViewAny(Request $request): bool
     {
-        return $this->checkPolicy('viewAny', null);
+        return $this->checkPolicy($request, 'viewAny', null);
     }
 
     /** {@inheritdoc} */
     public function authorizedToView(Request $request): bool
     {
-        return $this->checkPolicy('view', $this->model);
+        return $this->checkPolicy($request, 'view', $this->model);
     }
 
     /** {@inheritdoc} */
     public function authorizedToCreate(Request $request): bool
     {
-        return $this->checkPolicy('create', null);
+        return $this->checkPolicy($request, 'create', null);
     }
 
     /** {@inheritdoc} */
     public function authorizedToUpdate(Request $request): bool
     {
-        return $this->checkPolicy('update', $this->model);
+        return $this->checkPolicy($request, 'update', $this->model);
     }
 
     /** {@inheritdoc} */
     public function authorizedToDelete(Request $request): bool
     {
-        return $this->checkPolicy('delete', $this->model);
+        return $this->checkPolicy($request, 'delete', $this->model);
     }
 
     /** {@inheritdoc} */
     public function authorizedToRestore(Request $request): bool
     {
-        return $this->checkPolicy('restore', $this->model);
+        return $this->checkPolicy($request, 'restore', $this->model);
     }
 
     /** {@inheritdoc} */
     public function authorizedToForceDelete(Request $request): bool
     {
-        return $this->checkPolicy('forceDelete', $this->model);
+        return $this->checkPolicy($request, 'forceDelete', $this->model);
     }
 
     /** {@inheritdoc} */
@@ -645,7 +639,7 @@ abstract class Resource implements ResourceContract
         $policy = static::resolvePolicy();
 
         if ($policy !== null && method_exists($policy, 'replicate')) {
-            return $this->checkPolicy('replicate', $this->model);
+            return $this->checkPolicy($request, 'replicate', $this->model);
         }
 
         // Fallback: must pass both create AND update
@@ -658,7 +652,7 @@ abstract class Resource implements ResourceContract
         $policy = static::resolvePolicy();
 
         if ($policy !== null && method_exists($policy, 'runAction')) {
-            return $this->checkPolicy('runAction', $this->model);
+            return $this->checkPolicy($request, 'runAction', $this->model);
         }
 
         // Fallback to update
@@ -671,7 +665,7 @@ abstract class Resource implements ResourceContract
         $policy = static::resolvePolicy();
 
         if ($policy !== null && method_exists($policy, 'runDestructiveAction')) {
-            return $this->checkPolicy('runDestructiveAction', $this->model);
+            return $this->checkPolicy($request, 'runDestructiveAction', $this->model);
         }
 
         // Fallback to delete
@@ -693,7 +687,7 @@ abstract class Resource implements ResourceContract
     {
         $ability = 'attachAny'.class_basename($relatedModelClass);
 
-        return $this->checkRelationalPolicy($ability, $relatedModelClass);
+        return $this->checkRelationalPolicy($request, $ability, $relatedModelClass);
     }
 
     /** {@inheritdoc} */
@@ -701,7 +695,7 @@ abstract class Resource implements ResourceContract
     {
         $ability = 'attach'.class_basename($relatedModel);
 
-        return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
+        return $this->checkRelationalPolicy($request, $ability, get_class($relatedModel), $relatedModel);
     }
 
     /** {@inheritdoc} */
@@ -709,7 +703,7 @@ abstract class Resource implements ResourceContract
     {
         $ability = 'detach'.class_basename($relatedModel);
 
-        return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
+        return $this->checkRelationalPolicy($request, $ability, get_class($relatedModel), $relatedModel);
     }
 
     /**
@@ -725,7 +719,7 @@ abstract class Resource implements ResourceContract
         $ability = 'updatePivot'.class_basename($relatedModel);
 
         if ($this->policyDefinesAbility($ability)) {
-            return $this->checkRelationalPolicy($ability, get_class($relatedModel), $relatedModel);
+            return $this->checkRelationalPolicy($request, $ability, get_class($relatedModel), $relatedModel);
         }
 
         return $this->authorizedToUpdate($request);
@@ -736,7 +730,7 @@ abstract class Resource implements ResourceContract
     {
         $ability = 'add'.class_basename($relatedModelClass);
 
-        return $this->checkRelationalPolicy($ability, $relatedModelClass);
+        return $this->checkRelationalPolicy($request, $ability, $relatedModelClass);
     }
 
     // -------------------------------------------------------------------------
@@ -771,6 +765,7 @@ abstract class Resource implements ResourceContract
     }
 
     protected function checkRelationalPolicy(
+        Request $request,
         string $ability,
         string $relatedModelClass,
         ?Model $relatedModel = null,
@@ -785,7 +780,7 @@ abstract class Resource implements ResourceContract
             return true;
         }
 
-        $user = request()->user();
+        $user = $request->user();
         if ($user === null) {
             return false;
         }
@@ -825,7 +820,7 @@ abstract class Resource implements ResourceContract
      * @param  string  $ability  Policy method name (viewAny, view, create, update, delete, restore, forceDelete)
      * @param  Model|null  $model  The model instance (null for collection-level checks)
      */
-    protected function checkPolicy(string $ability, ?Model $model): bool
+    protected function checkPolicy(Request $request, string $ability, ?Model $model): bool
     {
         if (! static::authorizable()) {
             return true;
@@ -837,7 +832,7 @@ abstract class Resource implements ResourceContract
             return true;
         }
 
-        $user = request()->user();
+        $user = $request->user();
         if ($user === null) {
             return false;
         }
@@ -1538,7 +1533,7 @@ abstract class Resource implements ResourceContract
         $cap = static::$relatableSearchResults;
 
         if ($cap === null) {
-            return min($requestPerPage, 100);
+            return max(1, min($requestPerPage, 100));
         }
 
         return max(1, min($requestPerPage, $cap, 100));

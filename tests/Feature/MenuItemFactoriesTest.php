@@ -342,6 +342,60 @@ it('suppresses System auto-injection when a resource is referenced in the custom
     }
 });
 
+it('falls back to the dashboard icon when no MenuItem-level icon is set', function () {
+    // MenuFactorySalesDashboard does not call withIcon(), so icon() returns null.
+    // A subclass that sets an icon should have it propagated to the menu payload.
+    $dashboard = new class extends Dashboard
+    {
+        public function __construct()
+        {
+            parent::__construct('Metrics', 'metrics');
+            $this->withIcon('chart-bar');
+        }
+
+        public function cards(Request $request): array
+        {
+            return [];
+        }
+    };
+
+    app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu) use ($dashboard): Menu {
+        return $menu->prepend(MenuSection::make('Reports', [
+            MenuItem::dashboard($dashboard),
+        ]));
+    });
+
+    $response = $this->getJson('/martis/api/navigation');
+
+    $response->assertJsonPath('0.items.0.icon', 'chart-bar');
+});
+
+it('lets a MenuItem-level icon override the dashboard icon', function () {
+    $dashboard = new class extends Dashboard
+    {
+        public function __construct()
+        {
+            parent::__construct('Metrics', 'metrics');
+            $this->withIcon('chart-bar');
+        }
+
+        public function cards(Request $request): array
+        {
+            return [];
+        }
+    };
+
+    app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu) use ($dashboard): Menu {
+        return $menu->prepend(MenuSection::make('Reports', [
+            MenuItem::dashboard($dashboard)->icon('rocket-launch'),
+        ]));
+    });
+
+    $response = $this->getJson('/martis/api/navigation');
+
+    $response->assertJsonPath('0.items.0.icon', 'rocket-launch');
+});
+
 it('drops a MenuGroup whose canSee returns false', function () {
     app(MartisManager::class)->mainMenu(function (Request $request, Menu $menu): Menu {
         return $menu->prepend(MenuSection::make('Settings', [

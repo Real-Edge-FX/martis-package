@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowsClockwiseIcon, BroomIcon, DatabaseIcon, ToggleLeftIcon, ToggleRightIcon, TrashIcon } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon, BroomIcon, DatabaseIcon, ToggleLeftIcon, ToggleRightIcon, TrashIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -26,6 +27,82 @@ interface CacheStatusResponse {
   }
 }
 
+interface ConfirmState {
+  message: string
+  onConfirm: () => void
+}
+
+/** Minimal themed confirm dialog used in place of window.confirm. */
+function CacheConfirmDialog({
+  state,
+  onCancel,
+}: {
+  state: ConfirmState | null
+  onCancel: () => void
+}) {
+  const { t: tAct } = useTranslation('actions')
+
+  useEffect(() => {
+    if (!state) return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCancel()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [state, onCancel])
+
+  if (!state) return null
+
+  return createPortal(
+    <div
+      className="martis-modal-scrim"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="martis-modal-surface"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="martis-modal-head">
+          <div className="flex items-center gap-3">
+            <WarningIcon size={18} weight="fill" style={{ color: 'var(--martis-warning)' }} />
+            <h3 className="martis-modal-head-title">{tAct('confirm', 'Confirm')}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="martis-modal-close"
+            aria-label={tAct('cancel')}
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+        <div className="martis-modal-body">{state.message}</div>
+        <div className="martis-modal-foot">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="martis-btn-secondary"
+          >
+            <XIcon size={14} />
+            {tAct('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => { state.onConfirm(); onCancel() }}
+            className="martis-btn-warning"
+          >
+            <WarningIcon size={14} />
+            {tAct('confirm', 'Confirm')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 /**
  * "Sistema → Cache" admin page (Task 17 ⭐).
  *
@@ -45,6 +122,12 @@ export function CacheAdminPage() {
   const [rows, setRows] = useState<CacheRow[] | null>(null)
   const [masterEnabled, setMasterEnabled] = useState(true)
   const [busy, setBusy] = useState<CacheType | 'all' | null>(null)
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
+  // Stable ref so callbacks closed over setConfirmState are always fresh.
+  const openConfirm = useRef((message: string, onConfirm: () => void) => {
+    setConfirmState({ message, onConfirm })
+  })
+  const closeConfirm = useCallback(() => setConfirmState(null), [])
 
   usePageTitle(t('cache_admin_title', 'System cache'))
 
@@ -82,15 +165,16 @@ export function CacheAdminPage() {
   const onClear = useCallback(
     (type: CacheType) => {
       const message = t('cache_clear_confirm', { type, defaultValue: `Clear the ${type} cache now?` })
-      if (!window.confirm(message)) return
-      void post('/api/cache/clear', type, { type })
+      openConfirm.current(message, () => void post('/api/cache/clear', type, { type }))
     },
     [post, t],
   )
 
   const onClearAll = useCallback(() => {
-    if (!window.confirm(t('cache_clear_all_confirm', 'Clear every Martis cache?'))) return
-    void post('/api/cache/clear', 'all')
+    openConfirm.current(
+      t('cache_clear_all_confirm', 'Clear every Martis cache?'),
+      () => void post('/api/cache/clear', 'all'),
+    )
   }, [post, t])
 
   const onToggle = useCallback(
@@ -318,6 +402,7 @@ export function CacheAdminPage() {
           </tbody>
         </table>
       </div>
+      <CacheConfirmDialog state={confirmState} onCancel={closeConfirm} />
     </div>
   )
 }

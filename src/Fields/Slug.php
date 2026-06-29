@@ -83,7 +83,10 @@ class Slug extends Field
      */
     public function reserved(array $reserved): static
     {
-        $this->reserved = array_values(array_map(fn ($v) => (string) $v, $reserved));
+        // Normalise to lowercase: generate() always produces a lowercase slug
+        // (Str::slug), so mixed-case entries like 'Admin' would silently bypass
+        // the in_array guard in buildRules() without this normalisation.
+        $this->reserved = array_values(array_map(fn ($v) => strtolower((string) $v), $reserved));
 
         return $this;
     }

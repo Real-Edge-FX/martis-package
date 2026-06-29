@@ -86,7 +86,7 @@ final class AuthenticatedStreamableHttpTransport extends StreamableHttpServerTra
         $expected = 'Bearer '.$this->token;
 
         $wrappedHandler = function (ServerRequestInterface $request) use ($vendorHandler, $expected) {
-            if ($request->getHeaderLine('Authorization') !== $expected) {
+            if (! hash_equals($expected, $request->getHeaderLine('Authorization'))) {
                 return new HttpResponse(
                     401,
                     ['Content-Type' => 'application/json'],
@@ -132,7 +132,7 @@ final class AuthenticatedStreamableHttpTransport extends StreamableHttpServerTra
         $expected = 'Bearer '.$token;
 
         return function (ServerRequestInterface $request) use ($next, $expected) {
-            if ($request->getHeaderLine('Authorization') !== $expected) {
+            if (! hash_equals($expected, $request->getHeaderLine('Authorization'))) {
                 return new HttpResponse(
                     401,
                     ['Content-Type' => 'application/json'],

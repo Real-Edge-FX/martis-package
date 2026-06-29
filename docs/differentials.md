@@ -969,7 +969,7 @@ See [Theming Guide](theming.md) for the complete variable reference.
 
 ```bash
 # Custom dashboard card — creates PHP class + React component (filename
-# auto-discovery binds card:welcome-card to RevenueGauge.tsx).
+# auto-discovery binds card:welcome-card to WelcomeCard.tsx).
 php artisan martis:card WelcomeCard
 
 # Visual override — creates TSX component. Every --type value

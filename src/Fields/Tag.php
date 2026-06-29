@@ -247,7 +247,7 @@ class Tag extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
-        if ($this->readonly) {
+        if ($this->isReadonly()) {
             return;
         }
 
@@ -319,6 +319,6 @@ class Tag extends Field
             'modalSize' => $this->modalSize->value,
             'preload' => $this->preload,
             'relationSearchable' => $this->relationSearchable,
-        ], fn (mixed $v): bool => $v !== null && $v !== false && $v !== '');
+        ], fn (mixed $v): bool => $v !== null && $v !== '');
     }
 }

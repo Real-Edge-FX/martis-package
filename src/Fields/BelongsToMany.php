@@ -357,7 +357,7 @@ class BelongsToMany extends Field
     public function isShowCreateRelationButton(): bool
     {
         if ($this->showCreateRelationButton instanceof \Closure) {
-            return (bool) ($this->showCreateRelationButton)(request());
+            return (bool) ($this->showCreateRelationButton)($this->safeRequest());
         }
 
         return $this->showCreateRelationButton;

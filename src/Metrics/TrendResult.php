@@ -107,15 +107,25 @@ class TrendResult extends MetricResult
         if ($this->suffix !== null) {
             $data['suffix'] = $this->suffix;
         }
-        if ($this->showLatestValue) {
-            $data['latestValue'] = end($this->values) ?: 0;
+        if ($this->showLatestValue && $this->values !== []) {
+            $data['latestValue'] = end($this->values);
         }
         if ($this->showSumValue) {
             $data['sumValue'] = array_sum($this->values);
         }
         if ($this->sparkline) {
             $data['sparkline'] = true;
-            $data['change'] = $this->change ?? $this->computeDelta();
+
+            // computeDelta() returns null when the series can't produce a
+            // meaningful delta (empty, or first bucket is zero — common
+            // for brand-new data). Omit `change` entirely in that case:
+            // emitting `change: null` made the card render the literal
+            // string "null%", because the frontend guard only checked
+            // `!== undefined` and a JSON null is not undefined.
+            $change = $this->change ?? $this->computeDelta();
+            if ($change !== null) {
+                $data['change'] = $change;
+            }
         }
 
         return $data;

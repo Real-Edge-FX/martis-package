@@ -169,6 +169,40 @@ it('lists tags attached to a polymorphic parent', function () {
     expect($response->json('meta.total'))->toBe(2);
 });
 
+it('ignores an undeclared sort column and preserves default order (whitelist)', function () {
+    // MTMTagResource declares only `name` as ->sortable(). `id` is a
+    // real column but NOT a declared sortable field. Before the fix the
+    // raw ?sort=id&direction=desc went straight to orderBy(); it must
+    // now be dropped, leaving the default (id asc) order.
+    $post = MTMPostModel::create(['title' => 'Post']);
+    $php = MTMTagModel::create(['name' => 'php']);
+    $laravel = MTMTagModel::create(['name' => 'laravel']);
+    $post->tags()->attach([$php->id, $laravel->id]);
+
+    $response = $this->getJson(
+        "/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags?sort=id&direction=desc"
+    );
+
+    $response->assertOk();
+    expect(array_column($response->json('data'), 'name'))->toBe(['php', 'laravel']);
+});
+
+it('applies a declared-sortable column in ?sort= (regression guard)', function () {
+    // `name` IS ->sortable() on MTMTagResource — the whitelist must
+    // still let it through after the fix.
+    $post = MTMPostModel::create(['title' => 'Post']);
+    $php = MTMTagModel::create(['name' => 'php']);
+    $laravel = MTMTagModel::create(['name' => 'laravel']);
+    $post->tags()->attach([$php->id, $laravel->id]);
+
+    $response = $this->getJson(
+        "/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags?sort=name&direction=asc"
+    );
+
+    $response->assertOk();
+    expect(array_column($response->json('data'), 'name'))->toBe(['laravel', 'php']);
+});
+
 it('does not leak tags attached to another morph type with the same ID', function () {
     $post = MTMPostModel::create(['title' => 'Post']);
     $video = MTMVideoModel::create(['title' => 'Video']);

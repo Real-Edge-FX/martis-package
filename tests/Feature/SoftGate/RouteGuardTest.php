@@ -106,3 +106,34 @@ it('the dashboards list endpoint emits the lock field on every dashboard', funct
     expect($byKey['pro-lab']['lock'])->not->toBeNull()
         ->and($byKey['home']['lock'])->toBeNull();
 });
+
+it('the dashboards list endpoint re-evaluates lock state on every request even when the structure is cached', function () {
+    // The structural cache must not freeze the lock field. We verify this by
+    // registering a dashboard whose lock predicate switches between two calls.
+    // First call: locked. Second call (same cache is still warm): must be unlocked.
+    // Without the fix, the second call would still return the stale locked payload.
+    $locked = true;
+
+    $dynamic = new class('Dynamic', 'dynamic') extends Dashboard {};
+    $dynamic->lockedFor(function () use (&$locked): bool {
+        return $locked;
+    })->lockModal(['title' => 'Upgrade', 'message' => 'Upgrade now.']);
+
+    Martis::dashboards([$dynamic]);
+
+    // First request: locked
+    $first = $this->getJson('/martis/api/dashboards');
+    $first->assertStatus(200);
+    $firstEntry = collect($first->json('data.dashboards'))->firstWhere('uriKey', 'dynamic');
+    expect($firstEntry['lock'])->not->toBeNull();
+
+    // Simulate plan upgrade: flip the lock state
+    $locked = false;
+
+    // Second request — the structural cache is still warm, but lock must reflect
+    // the new (unlocked) state.
+    $second = $this->getJson('/martis/api/dashboards');
+    $second->assertStatus(200);
+    $secondEntry = collect($second->json('data.dashboards'))->firstWhere('uriKey', 'dynamic');
+    expect($secondEntry['lock'])->toBeNull();
+});

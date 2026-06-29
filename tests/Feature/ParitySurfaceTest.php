@@ -27,6 +27,7 @@ use Illuminate\Support\ServiceProvider;
 use Martis\Cache\MartisCache;
 use Martis\Contracts\NotImpersonable;
 use Martis\Contracts\ToolContract;
+use Martis\Enums\NotificationLevel;
 use Martis\Facades\Martis;
 use Martis\Fields\Field;
 use Martis\Fields\Image;
@@ -227,7 +228,7 @@ it('MartisNotification::make() builds a notification with the recommended payloa
     $note = MartisNotification::make(
         title: 'Invoice paid',
         message: 'INV-2026-001 has been paid.',
-        level: 'success',
+        level: NotificationLevel::Success,
     );
 
     // Notification classes carry a toArray($notifiable) the channel uses

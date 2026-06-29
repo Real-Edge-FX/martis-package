@@ -46,6 +46,8 @@ export function DrawerDetail(props: OverrideProps) {
   })
 
   const activeRecord = record ?? recordQuery.data?.data
+  const canUpdate = activeRecord?._authorization?.authorizedToUpdate !== false && !!activeRecord
+  const canDelete = activeRecord?._authorization?.authorizedToDelete !== false && !!activeRecord
 
   const deleteMutation = useMutation({
     mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${recordId}`),
@@ -103,22 +105,26 @@ export function DrawerDetail(props: OverrideProps) {
         onClose={onClose}
         footer={
           <>
-            <button
-              type="button"
-              onClick={() => setShowDelete(true)}
-              className="martis-btn-danger inline-flex items-center gap-1.5"
-            >
-              <TrashIcon size={14} />
-              {tAct('delete')}
-            </button>
-            <button
-              type="button"
-              onClick={() => onEdit(recordId ? Number(recordId) || recordId : undefined)}
-              className="martis-btn-primary inline-flex items-center gap-1.5"
-            >
-              <PencilSimpleIcon size={14} />
-              {tAct('edit')}
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => setShowDelete(true)}
+                className="martis-btn-danger inline-flex items-center gap-1.5"
+              >
+                <TrashIcon size={14} />
+                {tAct('delete')}
+              </button>
+            )}
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => onEdit(recordId ? Number(recordId) || recordId : undefined)}
+                className="martis-btn-primary inline-flex items-center gap-1.5"
+              >
+                <PencilSimpleIcon size={14} />
+                {tAct('edit')}
+              </button>
+            )}
           </>
         }
       >

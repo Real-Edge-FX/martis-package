@@ -6,7 +6,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react"
-import { Toast } from "primereact/toast"
+import { Toast, type ToastMessage } from "primereact/toast"
 import { CheckIcon, InfoIcon, WarningIcon, XIcon } from "@phosphor-icons/react"
 import { useTranslation } from "react-i18next"
 import { config } from "@/lib/config"
@@ -68,7 +68,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const addToast = useCallback(
     (type: ToastType, message: string) => {
       const life = 5000
-      toastRef.current?.show({
+      // Build the message object first so we can pass the same reference to
+      // remove() in the safety-net timeout. Using clear() would wipe every
+      // active toast; remove() targets only this specific message.
+      const msg: ToastMessage = {
         severity: severityMap[type] ?? "info",
         life,
         sticky: false,
@@ -103,12 +106,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             </div>
           )
         },
-      })
+      }
 
-      // Safety-net: force-clear ALL messages after life + 1s in case
+      toastRef.current?.show(msg)
+
+      // Safety-net: remove only THIS message after life + 1s in case
       // PrimeReact's internal timer doesn't fire (CSS transition edge-case).
+      // Previously called clear(), which silently wiped all queued toasts.
       setTimeout(() => {
-        toastRef.current?.clear()
+        toastRef.current?.remove(msg)
       }, life + 1000)
     },
     [t],

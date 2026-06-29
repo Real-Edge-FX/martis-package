@@ -7,6 +7,156 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-06-29
+
+> **Security release — ecosystem audit sweep.** A full-ecosystem audit (PHP + React) found and fixed 2 critical and ~28 high-severity issues plus a long tail of medium/low fixes; each fix is regression-tested and several audit findings were verified as false positives and rejected (not "fixed"). **Contains one breaking change** — see `manage-martis-cache` below. Test health: 2137 Pest + 189 Vitest passing.
+
+### Security (ecosystem audit)
+
+- **Action field-schema endpoint and replicate form leaked data past authorization (medium).** `ActionController::fields()` (`GET …/actions/{action}/fields`) returned the action's input field definitions with no authorization check — it now applies the same `authorizedToSee()` gate as `execute()`. `ResourceController::replicateFields()` returned every field's value without the per-model `isAuthorizedForModel()` filter the detail endpoint applies, so a field hidden for that record (`canSeeForModel` / `canSeeUsingPolicy`) leaked its value through the replicate form; it now skips unauthorized fields.
+
+- **`?context=update` / `?context=create` leaked field data to view-only users (high).** `ResourceController::show()` and `syncField()` honoured `?context=update`/`create` (which expose that context's raw, unmasked field set) after only a `view` check. `show()` now also requires `authorizedToUpdate`/`authorizedToCreate` for those contexts; `syncField()`'s update gate was `authorizedToCreate() || authorizedToViewAny()` — a view-only user passed it — and is now `authorizedToUpdate()`. RED-confirmed regression test: a view-but-not-update user gets 403 on `?context=update`.
+
+- **2FA setup could silently overwrite a confirmed secret (high).** `TwoFactorService::generateSetup()` generated and stored a fresh secret with no guard, so calling it again replaced the live, confirmed 2FA secret (and invalidated the recovery codes) without any re-authentication. It now throws if 2FA is already enabled — the user must disable it first (itself a gated action). RED-confirmed test.
+
+- **Multi-file fields trusted client-supplied "existing" paths (high).** `File::fillMultiple()` built the kept-paths set straight from the request's `existing[]` array, so a client could inject arbitrary disk paths (another record's uploads, a traversal) into the stored set, and any omitted owned path was deleted. Kept paths are now intersected with the model's actually-owned paths (`in_array($p, $existingPaths)`), so injected values are dropped. RED-confirmed test.
+
+- **Magic-link auto-registration could create a credential-less account (high).** `MagicLinkController::autoRegister()` built the user via the mass-assignment constructor (`new User([...])`); a host `User` model that doesn't list `email`/`name`/`password` in `$fillable` silently dropped them, creating an account with a null email/password. It now uses `forceFill()` for these package-controlled values.
+
+- **SSO `on_no_role_match` hook could bypass `deny`, and `callable` + a null result logged in role-less users (high).** `SsoController` fired the `fireNoRoleMatch` hook for *every* strategy before checking it. A registered callback returning a `RedirectResponse` therefore overrode an explicit `on_no_role_match = 'deny'`; and when the strategy was `'callable'` but the callback returned `null` (or none was registered), control fell through to the `'guest'` branch — silently logging the user in with no roles. The hook is now consulted **only** for the `'callable'` strategy (matching `SsoManager::onNoRoleMatchUsing`'s contract), and a `'callable'` strategy that yields no response denies. `'deny'` and `'guest'` no longer invoke the hook. RED-confirmed regression test for the `callable`-null path.
+
+- **Actions could act on records outside the resource's visible scope — IDOR (high).** `ActionController::resolveModels()` selected the action's target models with a raw `whereIn(key, ids)` query, ignoring the resource's `indexQuery()` (the tenant / ownership / status scoping every listing applies). A user could run an action against any record by passing its id, even one they could never see in the index. `resolveModels()` now runs the ids through `indexQuery($request, …)`, so an action can only ever reach records inside the user's scoped query. RED-confirmed regression test: a publish action against an out-of-scope id leaves it untouched.
+
+- **Action failures leaked the raw exception message to the client (medium).** `ActionController::execute()`'s catch-all returned `serverError('Action failed: '.$e->getMessage())`, exposing internal exception text (file paths, SQL fragments, class names) in the HTTP 500 body. The client now gets a generic message; the full detail stays in the server log (`Log::error`) and the recorded action event.
+
+- **`manage-martis-cache` now denies by default — BREAKING (high).** The fallback gate was `fn ($user) => $user !== null`, granting any authenticated user the ability to flush/disable every Martis cache. Flushing the cache is destructive and privileged, so the package no longer grants it implicitly. The default closure now returns `false`; host apps opt in by defining `Gate::define('manage-martis-cache', …)` in their service provider (this replaces the package closure, as before). Until defined, the cache admin sidebar entry is hidden and `/martis/api/cache/*` returns 403. **Action required:** if you relied on the open default, add the gate definition. Documented in `docs/cache.md`.
+
+- **Authorization read the global `request()` instead of the passed `$request` (high).** `Resource::checkPolicy()` and `checkRelationalPolicy()` resolved the current user via the global `request()->user()` helper, ignoring the `Request` that every `authorizedTo*()` method already receives. In the normal HTTP flow the two are the same object, but in any context where they diverge — an action authorized inside a queued job, a sub-request, or a test that constructs a `Request` — authorization ran against the wrong user or, when no request was bound, denied everything. Both helpers now take the `Request` as their first argument and use `$request->user()`; all 15 call sites pass it through. Regression test authorizes against a constructed request's user with no global request bound.
+
+- **`/martis/api/user` under-reported a pending 2FA challenge (high).** `AuthController::user()` gated the `two_factor_pending` response on `$twoFactorPassed === false`, but the session flag's initial state is `null` (never set) — so a user with 2FA enabled who had not yet cleared the challenge was reported as fully authenticated instead of pending, and the SPA would not redirect to the challenge. The check is now `!== true`: only an explicit pass clears it; null and false both report pending.
+
+- **XSS via `Url` field `javascript:` / `data:` schemes (high).** `UrlFieldDisplay` rendered `<a href={value}>` with no scheme check, so a stored `javascript:`/`data:`/`vbscript:` URL became a clickable link that executed script on click. The renderer now allowlists schemes (`http`, `https`, `mailto`, `tel`) via `isSafeHref()` and falls back to plain text for anything else. As defense-in-depth, the `Url` field's validation rule now rejects any normalised value whose scheme is not `http`/`https`, so a dangerous scheme can't be stored in the first place. Covered by frontend + backend regression tests.
+
+- **Pivot action execution skipped authorization (critical).** `ActionController::executePivot()` loaded the parent record with a raw `find($id)` and never checked `authorizedToView` — any authenticated user could run a pivot action against any parent row by guessing its id (IDOR). It also ran the action handler without the per-model `authorizedToRun()` loop the non-pivot `execute()` path enforces, so a visible pivot action fired on every selected related record regardless of its `canRun` rule. Both gates are now applied: the parent is authorized before resolving the action (403 on denial), and each related model is checked against `authorizedToRun()` (404 on denial). Regression tests cover both.
+
+- **Stored XSS in `MarkdownField` (critical).** Both the display renderer and the input live-preview fed `marked.parse()` output straight into `dangerouslySetInnerHTML`. `marked` does not sanitize HTML, so a stored markdown value containing raw `<script>`, event-handler attributes (`onerror`, …), or `javascript:` URLs executed in the browser of every user who viewed the record. `renderMarkdown()` now runs the parsed HTML through DOMPurify (new `dompurify` dependency). The `zero` preset's entity-escaping is unchanged. Exported `renderMarkdown` is covered by a sanitization regression test.
+
+### Fixed (ecosystem audit)
+
+- **"Keep me signed in" never issued the remember-me cookie (high).** Two breaks killed the toggle end to end: `LoginController::login()` called `attempt()` with no `$remember` argument (and didn't validate the flag), and the SPA dropped `keepSignedIn` before posting — `AuthContext.login()` only sent `{email, password}`. So authentication lived only in the session and expired after `session.lifetime`, regardless of the checkbox. The backend now validates `keep_signed_in` and forwards it to `attempt($credentials, $remember)` (issuing the long-lived remember cookie), and the React form threads `keepSignedIn` through `login()` as `keep_signed_in`. RED-confirmed test: `remember_token` is persisted when the flag is set and absent when it isn't.
+
+- **`AzureProvider` access-token resolution had a dead branch + minor hardening.** `resolveIdentity()` assigned `$accessToken = method_exists($user, 'token') ? null : null` — both branches were `null`, so the line did nothing (the token was actually resolved by the `property_exists($user, 'token')` check below it). Removed the dead branch for clarity. Hardening: the Microsoft Graph `appRoleAssignments` OData `$filter` now URL-encodes the `resourceId`, and the Graph HTTP calls set a `timeout(10)` / `connectTimeout(5)` so a slow Graph endpoint can't hang the SSO login.
+
+- **Duplicate `search` key in `config/martis.php` dropped `default_limit` and `min_query` (high).** Two top-level `'search' => [...]` blocks were defined — one for relationship/autocomplete search (`default_limit`, `min_query`) and one for the global search bar (`enabled`, `placeholder`, `mode`, `mobileMode`). PHP keeps only the last entry for a repeated key, so the global-search block silently overwrote the first and `config('martis.search.default_limit')` / `min_query` were lost (falling back to hard-coded defaults). The two blocks are merged into one. Regression test asserts all keys coexist.
+
+- **`martis:install` migration step stalled on an interactive prompt (high).** `InstallCommand::runMigrations()` called `$this->call('migrate')` without `--force`, so in production (`APP_ENV=production`) Laravel's "Do you really wish to run this command?" confirmation blocked a non-interactive / CI / Docker install indefinitely. The call now passes `--force` (the `martis:install` invocation is itself the operator's confirmation).
+
+- **`DateTime` field silently dropped the time portion (high).** `DateTime extends Date`, but `Date` defaults to date-only mode (`withTime = false`, format `Y-m-d`) and `DateTime` never flipped it on, so `resolve()` formatted a datetime value as `Y-m-d` — the time was lost on both display and store. `DateTime` now declares `withTime = true` with `Y-m-d H:i:s` display/store formats. Regression test asserts the time survives (and that date-only `Date` still strips it).
+
+- **Closure-based `->readonly()` was ignored by 9 fields' `fill()` (high).** `Field::fill()` correctly gated on `isReadonly()` (which evaluates a `->readonly(Closure)` resolver), but nine fields that override `fill()` — `Code`, `Repeater`, `File`, `BelongsTo`, `Tag`, `MorphTo`, `MultiSelect`, `Image`, `KeyValue` — checked the raw `$this->readonly` boolean, which a closure never sets. A field marked read-only via a closure (`->readonly(fn ($r) => ! $r->user()->isAdmin())`) accepted writes anyway. All nine now call `isReadonly()`. Regression test covers the closure-true (skip) and closure-false (write) paths.
+
+- **Lens result cache leaked across users (high).** `LensController::buildCacheKey()` keyed on search/sort/filters/locale/table-version but not the authenticated user. A lens whose `query()` scopes by the current user served user A's cached rows to user B for identical params until the TTL expired. The user id is now part of the key. Reflection regression test asserts the key differs by user and is stable per user.
+
+- **`TrendMetric` DB aggregation 500'd on every non-MySQL database.** `aggregateByPeriod()` built its `date_key` with MySQL-only `DATE_FORMAT(...)` in a raw select — `no such function: DATE_FORMAT` on SQLite, and the wrong function on PostgreSQL — so every `countByDays` / `sumByWeeks` / `averageByMonths` etc. threw on non-MySQL connections. The path had zero DB-level test coverage (unit tests only built `TrendResult` objects by hand). Reworked to fetch the in-range rows and bucket them in PHP with Carbon, using the SAME period key (`Y-m-d` / ISO `o-W` / `Y-m`) as the label loop — database-agnostic, no dialect-specific SQL, and correct for ISO-week grouping (which SQLite's `strftime` cannot express). New `TrendMetricAggregationTest` exercises count/sum/avg/week aggregation on SQLite.
+
+- **`BelongsToMany` / `MorphToMany` relationship index ignored the sortable-field whitelist on `?sort=`.** Both controllers passed the raw `?sort=` query param straight to `$query->orderBy()` with no validation, unlike `ResourceController` / `HasManyController` / `MorphManyController` which check it against the related resource's declared `->sortable()` fields. An undeclared real column was silently honoured (unintended ordering / minor info-oracle) and a non-existent column 500s on MySQL/Postgres (SQLite tolerates it). Both now validate via a shared `MartisController::isSortableAttribute()` helper. This aligns the behaviour with the documented contract (`docs/relationships.md`: "Sort asc/desc on sortable fields").
+
+### Fixed — mechanical tail (ecosystem audit)
+
+Verified-then-fixed in a parallel worktree-isolated pass (each finding re-checked against the code before fixing; false positives rejected). Conventions (PHP enums, i18n keys, PrimeReact tooltips, `{@inheritdoc}`), and medium/low bug + implementation fixes:
+
+- **Fix:** `LensRequest::withFilters()` now skips filters whose selected value is `null` or `''`, matching the guard already present in `ResourceController::applyFilters()` and preventing invalid queries (e.g. `whereDate($col, $op, null)`) when a lens receives an empty filter payload.
+- **RecordImpersonation**: remove dead `instanceof Model` ternary in `record()` — both branches were identical; simplified to `$target::class`.
+- **RecordRoleChange**: `normaliseIds()` now validates non-array scalars as `int|string` before wrapping; invalid types (bool, float, object) return `[]`, matching the array-branch guard and the declared `list<int|string>` return type.
+- **ThemeMakeCommand**: fix `rewriteThemeNameInConfig` regex to handle nested sub-arrays inside the `theme` config block
+- **ThemeMakeCommand**: add `--force` flag and non-interactive TTY guard to prevent blocking in CI/piped contexts
+- **UserCommand**: add duplicate-email check before `save()` to surface a friendly error instead of a raw DB constraint exception
+- **SsoMakeCommand**: sanitize custom provider name to valid identifier characters (`[a-z0-9_]`) and reject names that reduce to empty
+- **Convention** Apply `{@inheritdoc}` to abstract stubs in `Resource`, `Filter`, and `Metric` that duplicated their interface docblocks (`Resource::fields`, `Resource::model`, `Filter::apply`, `Filter::filterType`, `Metric::calculate`, `Metric::metricType`, `Metric::cacheFor`).
+- **Topbar**: replaced native `title=` tooltip on hamburger menu button with `data-pr-tooltip` (PrimeReact pattern, matching collapse button)
+- **PreferencesMenu**: replaced 6 native `title=` attributes with `data-pr-tooltip` on trigger, reset, accent swatches, custom accent swatches, color picker label, and clear button
+- **GlobalSearch**: collapsed redundant double-guard `if (item.url) { if ('url' in item && item.url)` to a single check
+- **NotificationBell**: in-app `action_url` paths (starting with `/`) now use SPA `navigate()` instead of `window.location.href`, preserving React Query caches
+- **DrawerCreate / DrawerUpdate**: replaced array-index `key` with stable keys on `tab_group`, `section`, and `panel` layout containers to prevent React reconciliation drift
+- **BrowserSessionsSection**: `relativeTime()` now uses `Intl.RelativeTimeFormat` for all duration branches, replacing hardcoded English 'just now' / 'min ago' / 'h ago'
+- **SecuritySection / profile lang**: added missing `current_password_wrong` key to `en`, `pt_PT`, and `pt_BR` profile lang files; fixed `defaultValue` from Portuguese to English
+- **CurrencyField**: fixed display of non-numeric strings — now renders an em dash instead of 'NaN'; also guards against empty string showing as 0.00
+- **BelongsToField**: replaced JSON.stringify in useEffect dependency array with a stable derived id-key (eliminates lint anti-pattern)
+- **TagField**: 'Add' button label and remove-chip tooltip are now run through i18n (keys `tag_add`, `tag_remove`); remove tooltip no longer renders 'null'/'undefined' when tag title is absent
+- **HasOneField**: formatAggregate no longer hardcodes pt-PT locale; ofMany pill uses data-pr-tooltip and i18n keys instead of native title= and Portuguese literals
+- **RepeaterField**: all Portuguese defaultValue fallbacks replaced with English equivalents; all native title= replaced with data-pr-tooltip
+- **IconField**: icon-picker buttons now use data-pr-tooltip instead of native title=
+- **ImageField**: URL.createObjectURL/revokeObjectURL now paired correctly in both SingleImageInput (useEffect cleanup) and MultipleImageInput (revoke on remove)
+- **ToastContext** — safety-net timeout now calls `remove(msg)` instead of `clear()`, so multiple queued toasts are no longer silently wiped when the first timer fires.
+- **api.ts** — extracted `publicProbes` allowlist to module scope (`PUBLIC_PROBES`) and applied the same 401-redirect guard in `uploadRequest()` for consistency with `request()`.
+- **ResourceIndex** — `buildOverrideProps` fallback toast messages now use `tMsg()` i18n keys instead of hardcoded English strings, fixing pt_PT/pt_BR display.
+- **CacheAdmin** — replaced `window.confirm` calls with a themed portal modal (`CacheConfirmDialog`) matching the project's established DeleteModal/UnsavedChangesDialog pattern.
+- **Fix** `Field::fill()` and `Password::fill()` now call `isReadonly()` instead of reading the raw `$this->readonly` boolean directly, so Closure-based readonly guards are evaluated correctly on fill.
+- **Fix** `Field::buildRules()` no longer emits a duplicate `'required'` entry when `->rules(['required', ...])` is combined with auto-detection via `rulesHaveRequired()`.
+- **Fix** `Number::min()` and `Number::max()` strip any prior `min:`/`max:` rule before appending the new one, preventing stale duplicate constraints on repeated calls.
+- **Fix** `Slug::reserved()` normalises entries to lowercase at insertion time so mixed-case reserved words like `'Admin'` are correctly blocked.
+- **Cleanup** Remove dead tautological `|| $rule === 'required'` branch in `Field::rulesHaveRequired()`.
+- **Docs** Clarify `PasswordConfirmation` class docstring: the `confirmed` backend rule is not wired automatically — the developer must add `->rules(['confirmed'])` to the paired `Password` field.
+- **Tag field**: fix `extraAttributes()` filter dropping explicit `false` values — `relationSearchable: false` now correctly reaches the frontend payload.
+- **HasMany / MorphMany**: add `method_exists` guard in `resolve()` when `showOnIndex` is enabled, matching the existing guard in `BelongsToMany::resolve()`.
+- **BelongsTo / BelongsToMany / MorphTo**: replace bare `request()` with `safeRequest()` in `isShowCreateRelationButton()` to avoid `BindingResolutionException` in non-HTTP contexts (queue jobs, Artisan commands, raw PHPUnit).
+- **BooleanGroup**: fixed `requireAll()` silently applying no constraint when `options()` was called with a Closure — now uses `getOptions()` so the closure is resolved before computing the count.
+- **KeyValue**: default column headers ('Key', 'Value') and add-row button ('Add Row') are now resolved through the i18n system (`martis::messages.key_value_*`) with translations for en, pt_PT, and pt_BR.
+- **Country**: `countryList()` is memoized in a static property so the 197-entry array is constructed only once per process, reducing per-request allocation overhead on pages with multiple Country fields.
+- **TwoFactorService** key the `hasLastUsedColumn` static cache by `connection:table` so different user models/connections in the same process each get an independent schema probe result.
+- **MorphToMany** `attachableIndex` now passes a form-draft third argument to 3-arg `relatableQueryUsing` closures (parity with `BelongsToMany` v1.8.2 feature).
+- **BelongsToMany/MorphToMany** `handleDatabaseError` now covers MySQL error codes 1048 (NOT NULL) and 1364 (missing DEFAULT) — consistent with the other four relationship controllers.
+- **fix** Remove dead `X-Martis-Inline-Create-Depth` header guard from `inlineCreateStore`; depth is enforced at the schema layer via `showCreateRelationButton: false` on `belongs_to`/`morph_to` fields.
+- **fix** Clamp `per_page=0` and negative `per_page` values to 1 in the resource index endpoint and `resolveRelatableSearchResults`, preventing silent empty-page responses and potential engine errors.
+- **fix** Extend `handleDatabaseError` with ANSI SQLSTATE fallbacks (23505, 23503, 23000/19) so PostgreSQL and SQLite users receive precise 422 validation errors for unique-constraint and FK violations instead of the generic 500 message.
+- **MCP** `DocLookup::search()` now documents that `$limit <= 0` is clamped to 1 (defensive guard against invalid LLM-agent input).
+- **Fix** `TrendResult::showLatestValue()` no longer emits `latestValue: 0` for an empty series — the key is omitted when there are no data points, preventing a stale `"0"` from rendering in `TrendCard`.
+- **Fix** `ProgressResult` constructor now throws `InvalidArgumentException` when `target` is negative, replacing the previous silent-zero behaviour.
+- **fix(sso):** `NativeAdapter::syncRoles` now uses `getKey()` instead of `pluck('id')` to resolve role primary keys, preventing silent role-stripping for host apps with UUID or custom-named primary keys on their Role model.
+
+- **MartisCache::clear()** now wraps the version read+write pair in a DB transaction with `lockForUpdate` to prevent lost increments under concurrent invalidation.
+- **MartisCache::writeState()** no longer overwrites `created_at` on UPDATE — the original row creation timestamp is now preserved across every version bump.
+- **MartisCache::normalizedConfig()** now passes the extension TTL through `normalizeTtl()` on the extension fast-path, so `ttl: 0` and negative values correctly resolve to no-expiry (`null`) instead of immediate expiry.
+- **HasGate docblock**: removed stale reference to a `method_exists` guard that was never present; docblock now accurately describes the HasBadge convention.
+- **MartisServiceProvider**: removed duplicate `publishes()` call that registered the `action_events` migration stub twice under the `martis-migrations` tag (dead code — the bundle block already covers it).
+- **McpConfigPatcher**: fixed TOML inline-array parser to respect quoted strings when splitting on commas; prevents corruption of values like `"hello, world"` during round-trip.
+- **EnvFilePatcher**: `remove()` now cleans up the blank separator line that `set()` writes before each key, leaving no orphaned blank lines in `.env` / `.env.example` after unwiring.
+- **MartisServiceProvider**: register Octane `RequestTerminated` / `TaskTerminated` listeners that flush the static policy-resolution caches (`Resource` + `HasPolicy`) between requests in persistent-process deployments.
+- **Fix** `Image::resolveMultiple` now applies `thumbnail(Closure)` and `preview(Closure)` resolvers to every item in multiple mode (was silently falling back to disk URLs).
+- **Fix** `Image::getThumbnailPath` no longer produces a trailing dot when the stored path has no file extension.
+- **Fix** `Image::generateThumbnailWithGd` now handles BMP images (`image/bmp`, `image/x-bmp`) in both source-load and output match expressions.
+- **fix(notifications):** `markRead` no longer crashes with `TypeError` when a concurrent delete removes the notification between `markAsRead()` and the response serialization — uses in-memory model instead of `fresh()`
+- **Fix** `MenuItem::dashboard()` now correctly falls back to the dashboard's own `withIcon()` value when no icon is set on the `MenuItem` wrapper (`resolveDashboardItem` was hardcoded to `$this->icon`, silently discarding `Dashboard::icon()`).
+- **Fix** `RecordImpersonation`: removed dead ternary `$target instanceof Model ? $target::class : $target::class` — both branches returned identical values; simplified to `$target::class`.
+- **Docs** `PlanRanker`: corrected class docblock failure-mode description — unknown required tier fails open, unconfigured resolver and unknown user plan both fail closed (was previously misleadingly stated as all cases failing open).
+- **Docs** `RequestScopedAbilityCache`: added docblock note clarifying that `lookup()` is public API for host-app and future internal use; the package does not yet consume it internally (observe-only design is intentional).
+- **fix(2fa)** Replace process-persistent `static $cached` in `TwoFactorService::hasLastUsedColumn()` with a per-instance array cache keyed by connection+table, preventing stale schema state under Octane/long-running workers.
+- **fix(profile)** Align client-side avatar size guard with the server config: `AvatarSection` now reads `config.profile.avatar.max_size_kb` from the boot payload (default 2048 KB) instead of a hardcoded 5 MB constant.
+- **fix(profile)** `ProfileResource::updateRules()` now derives the table name from `config('auth.providers.users.model')` instead of hardcoding `'users'`, fixing uniqueness checks for consumers with a custom auth model.
+- **feat(notifications)** Add `Martis\Enums\NotificationLevel` enum (Info, Success, Warning, Danger); `MartisNotification` now enforces the finite level set at the type level and fixes the stale docblock reference.
+- **fix(2fa)** Replace `assert($user instanceof Model)` with an explicit `InvalidArgumentException` guard in all public `TwoFactorService` methods, ensuring the contract is enforced regardless of `zend.assertions`.
+
+### Security & fixes — medium/low (ecosystem audit, parallel verify-then-fix pass)
+
+- **Security**: Use `hash_equals()` for bearer-token comparison in `AuthenticatedStreamableHttpTransport` to prevent timing-oracle attacks (both `listen()` and `createRequestHandler()` paths).
+- **Security**: `McpServeCommand::maybeWarnOnPublic()` now emits a dedicated warning when `/health` is bound to `0.0.0.0`, even when `MARTIS_MCP_HTTP_TOKEN` is set (previously the health-port exposure was silent in that configuration).
+- **Security**: Sanitize user-supplied slug before reflecting it in the `readDoc` error message to prevent log injection and terminal escape injection.
+- **DrawerDetail**: hide Delete and Edit footer buttons when `_authorization.authorizedToDelete` / `authorizedToUpdate` is false, matching the existing guards in ResourceDetail and Table.
+- **Security:** `EmailVerificationController::verify()` no longer passes an internal config error message to `abort(500)` — the message is logged via `report()` and suppressed from the HTTP response.
+- **Security:** MIME type and file size constraints configured on multiple-file `File`/`Image` fields are now enforced when those fields appear inside `HasMany`, `MorphMany`, `HasOne`, and `MorphOne` relationship resources (previously only `ResourceController` applied `buildItemRules()`)
+- **Security** Gate-guard the per-request cache bypass (`?nocache=1` / `X-Martis-No-Cache: 1`): the signal is now honoured only when the `bypass-martis-cache` gate passes. The gate defaults to deny-all; host apps should grant it only to privileged users.
+- **Fix** Dashboard list endpoint (`GET /api/dashboards`) now re-evaluates the lock predicate on every request instead of freezing lock state in the per-user cache. A plan downgrade now immediately shows the lock icon in the sidebar list; a plan upgrade immediately removes it. The content guard in `show()` was already correct; this closes the soft-gate gap on the list surface.
+
+## [1.15.2] — 2026-06-28
+
+### Fixed
+
+- **Resource metric cards 500'd: `MetricController` called a non-existent registry method.** `computeResourceMetric()` (the `GET /api/resources/{resource}/cards/{card}` endpoint) looked up the resource with `ResourceRegistry::resolve()`, a method that has never existed on the registry — every resource-level metric card returned `HTTP 500: Call to undefined method Martis\ResourceRegistry::resolve()`, making `Resource::cards()` effectively dead. Replaced with the canonical `has()`-guard + `get()` idiom every other controller (Action, BelongsToMany, HasOne, HasMany, MorphMany) already uses; an unknown resource now returns a clean 404 instead of throwing. The dashboard metric path (`computeDashboardMetric`) was unaffected — it resolves through `MartisManager` and was never broken. New `MetricControllerResourceCardTest` pins the contract: a registered card computes its value, an unknown resource 404s, an unknown card 404s.
+
+- **Trend sparkline cards rendered the literal text `null%`.** When a sparkline `TrendResult`'s delta could not be computed (empty series, or a first bucket of `0` — common for brand-new data), `toArray()` emitted `change: null`. The `TrendCard` guard only checked `change !== undefined`, and a JSON `null` is not `undefined`, so the card printed `null%`. `TrendResult::toArray()` now omits `change` entirely when the delta is null, and `TrendCard` guards with `change != null` (defense in depth).
+
+- **`ValueResult` dropped the change percentage for a negative baseline.** The guard was `previous > 0`, which silently omitted `change` whenever the previous value was negative (a loss, a deficit, a negative balance). Division by a negative denominator is mathematically valid; the guard now excludes only zero (`previous != 0`), so a metric going from `-500` to `+200` correctly reports `+140%`.
+
 ## [1.15.1] — 2026-06-27
 
 ### Fixed

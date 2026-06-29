@@ -308,7 +308,7 @@ class BelongsTo extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
-        if ($this->readonly) {
+        if ($this->isReadonly()) {
             return;
         }
 
@@ -577,7 +577,7 @@ class BelongsTo extends Field
     public function isShowCreateRelationButton(): bool
     {
         $declared = $this->showCreateRelationButton instanceof \Closure
-            ? (bool) ($this->showCreateRelationButton)(request())
+            ? (bool) ($this->showCreateRelationButton)($this->safeRequest())
             : $this->showCreateRelationButton;
 
         if (! $declared) {

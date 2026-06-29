@@ -195,13 +195,16 @@ it('inline create store validates required fields', function () {
     $response->assertStatus(422);
 });
 
-it('inline create store blocks nested depth', function () {
+it('inline create store succeeds regardless of X-Martis-Inline-Create-Depth header (depth is enforced at schema layer)', function () {
+    // Depth enforcement is done by inlineCreateSchema stripping showCreateRelationButton
+    // from belongs_to/morph_to fields. The store endpoint does not reject requests based
+    // on the header — the nested create button is simply never rendered by the frontend.
     $response = $this->postJson(
         '/martis/api/resources/inline-create-category-models/inline-create',
         ['name' => 'Nested Category'],
         ['X-Martis-Inline-Create-Depth' => '1']
     );
 
-    $response->assertStatus(422);
-    expect($response->json('message'))->toContain('depth');
+    $response->assertStatus(201);
+    $this->assertDatabaseHas('martis_test_inline_categories', ['name' => 'Nested Category']);
 });

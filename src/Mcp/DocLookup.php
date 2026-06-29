@@ -51,6 +51,7 @@ class DocLookup
     }
 
     /**
+     * @param  int  $limit  Maximum number of results to return (default 5). Values <= 0 are clamped to 1.
      * @return list<array{slug: string, score: int, snippet: string}>
      */
     public function search(string $query, int $limit = 5): array

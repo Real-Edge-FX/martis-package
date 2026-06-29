@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Martis\Auth\Listeners;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martis\Impersonation\Events\ImpersonationStarted;
@@ -52,7 +51,7 @@ class RecordImpersonation
             return;
         }
 
-        $targetType = $target instanceof Model ? $target::class : $target::class;
+        $targetType = $target::class;
         $targetId = $this->extractId($target);
         $targetLabel = $this->describeLabel($target);
 

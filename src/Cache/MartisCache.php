@@ -10,6 +10,8 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Martis\Models\CacheState;
 
 /**
@@ -42,7 +44,10 @@ use Martis\Models\CacheState;
  *
  * Per-request bypass — header `X-Martis-No-Cache: 1` or query
  * `?nocache=1` (or `?nocache=true`). Useful for debugging without
- * flipping config.
+ * flipping config. Requires the `bypass-martis-cache` Gate (default:
+ * deny). Host apps should grant it only to privileged users, e.g.:
+ *
+ *     Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
  */
 class MartisCache
 {
@@ -220,14 +225,40 @@ class MartisCache
         foreach ($types as $t) {
             $this->assertKnownType($t);
 
-            $current = $this->state($t);
-            $next = [
-                'version' => $current['version'] + 1,
-                'cleared_at' => $now->toIso8601String(),
-                'override' => $current['override'],
-            ];
+            try {
+                DB::transaction(function () use ($t, $now): void {
+                    // Lock the row so concurrent clear() calls cannot both read
+                    // the same version N and each write N+1 — one would read
+                    // the other's committed N+1 and write N+2 instead.
+                    $row = CacheState::query()->lockForUpdate()->where('type', $t)->first();
 
-            $this->writeState($t, $next);
+                    $current = $row
+                        ? [
+                            'version' => (int) $row->version,
+                            'cleared_at' => $row->cleared_at?->toIso8601String(),
+                            'override' => $row->override === null ? null : (bool) $row->override,
+                        ]
+                        : ['version' => 1, 'cleared_at' => null, 'override' => null];
+
+                    $next = [
+                        'version' => $current['version'] + 1,
+                        'cleared_at' => $now->toIso8601String(),
+                        'override' => $current['override'],
+                    ];
+
+                    $this->writeState($t, $next);
+                });
+            } catch (QueryException) {
+                // Table not yet migrated — fall back to a best-effort
+                // non-atomic bump (historical behaviour before v1.8.8).
+                $current = $this->state($t);
+                $next = [
+                    'version' => $current['version'] + 1,
+                    'cleared_at' => $now->toIso8601String(),
+                    'override' => $current['override'],
+                ];
+                $this->writeState($t, $next);
+            }
         }
     }
 
@@ -294,6 +325,14 @@ class MartisCache
     /**
      * Per-request bypass detection. Read from the current request when
      * one is bound — falls back to false in console / queue contexts.
+     *
+     * The bypass signal (header or query param) is honoured only when the
+     * authenticated user passes the `bypass-martis-cache` Gate. The gate
+     * defaults to deny-all so that ordinary authenticated users cannot
+     * force expensive re-computation on every request. Host apps should
+     * grant it to privileged users in their service provider:
+     *
+     *     Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
      */
     public function bypassed(?Request $request = null): bool
     {
@@ -303,13 +342,15 @@ class MartisCache
             return false;
         }
 
-        if ($request->headers->get('X-Martis-No-Cache') === '1') {
-            return true;
+        $hasSignal = $request->headers->get('X-Martis-No-Cache') === '1'
+            || $request->query('nocache') === '1'
+            || $request->query('nocache') === 'true';
+
+        if (! $hasSignal) {
+            return false;
         }
 
-        $param = $request->query('nocache');
-
-        return $param === '1' || $param === 'true';
+        return Gate::forUser($request->user())->allows('bypass-martis-cache');
     }
 
     // -------------------------------------------------------------------------
@@ -352,7 +393,10 @@ class MartisCache
         // extension is the source of truth when no config exists.
         if ($raw === null) {
             if ($extension !== null) {
-                return $extension;
+                return [
+                    'enabled' => $extension['enabled'],
+                    'ttl' => $this->normalizeTtl($extension['ttl']),
+                ];
             }
 
             return ['enabled' => false, 'ttl' => null];
@@ -469,17 +513,29 @@ class MartisCache
      */
     protected function writeState(string $type, array $next): void
     {
+        $now = Date::now();
+
         try {
-            CacheState::query()->updateOrInsert(
-                ['type' => $type],
-                [
+            $affected = CacheState::query()
+                ->where('type', $type)
+                ->update([
                     'version' => $next['version'],
                     'cleared_at' => $next['cleared_at'],
                     'override' => $next['override'],
-                    'updated_at' => Date::now(),
-                    'created_at' => Date::now(),
-                ],
-            );
+                    'updated_at' => $now,
+                ]);
+
+            if ($affected === 0) {
+                // Row does not exist yet — insert with created_at.
+                CacheState::query()->insert([
+                    'type' => $type,
+                    'version' => $next['version'],
+                    'cleared_at' => $next['cleared_at'],
+                    'override' => $next['override'],
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]);
+            }
         } catch (QueryException) {
             // Migration pending — silently degrade. The historical
             // semantics (state lost on Cache::flush()) reapply until

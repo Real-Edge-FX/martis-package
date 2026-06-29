@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Martis\Contracts\SendsEmailVerification;
 use Tests\Stubs\VerifiableUser;
 
@@ -272,6 +273,32 @@ it('consumer can override the SendsEmailVerification contract', function () {
         ->assertStatus(200);
 
     expect($captured)->toBe(['custom@example.com']);
+});
+
+// ---------------------------------------------------------------------------
+// Misconfigured auth provider path
+// ---------------------------------------------------------------------------
+
+it('GET /email/verify/{id}/{hash} returns 500 without leaking a message when the auth model is not configured', function () {
+    // Simulate a broken consumer config: the provider model key is missing.
+    config([
+        'martis.auth.email_verification.enabled' => true,
+        'auth.providers.users.model' => null,
+    ]);
+
+    // Build a signed URL for a dummy id/hash — the abort(500) fires before
+    // any user lookup so the values do not matter.
+    $url = URL::signedRoute('martis.email.verify', [
+        'id' => '1',
+        'hash' => sha1('irrelevant@example.com'),
+    ]);
+
+    $response = $this->get($url);
+
+    // The response must be 500 and must NOT include the internal error message
+    // in the response body regardless of APP_DEBUG state.
+    $response->assertStatus(500);
+    expect((string) $response->getContent())->not->toContain('not configured');
 });
 
 // ---------------------------------------------------------------------------

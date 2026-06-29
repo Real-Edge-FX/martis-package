@@ -226,6 +226,30 @@ describe('BelongsToManyController', function () {
         expect($data[0]['_pivot']['notes'])->toBe('important');
     });
 
+    it('ignores an undeclared sort column and preserves default order (whitelist)', function () {
+        // Security/correctness regression: the raw ?sort= used to go
+        // straight to $query->orderBy($rawSort, ...) with no whitelist.
+        // BTMChildResource::title is a REAL column but is NOT declared
+        // ->sortable(), so ?sort=title used to reorder alphabetically
+        // (and on MySQL/Postgres a non-existent column 500s). The sort
+        // must be validated against the related resource's declared
+        // sortable fields; an undeclared column is dropped and the
+        // default (id / insertion) order stands.
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $zebra = BTMChildModel::create(['title' => 'Zebra']);
+        $apple = BTMChildModel::create(['title' => 'Apple']);
+        $parent->children()->attach([$zebra->id, $apple->id]);
+
+        $response = $this->getJson(
+            "/martis/api/resources/b-t-m-parent-models/{$parent->id}/belongs-to-many/children?sort=title&direction=asc"
+        );
+
+        $response->assertStatus(200);
+        // Default id/insertion order (Zebra then Apple), NOT alphabetical
+        // — proves the undeclared `title` sort was dropped.
+        expect(array_column($response->json('data'), 'title'))->toBe(['Zebra', 'Apple']);
+    });
+
     it('lists attachable records (attachable)', function () {
         $parent = BTMParentModel::create(['name' => 'Parent A']);
         $child1 = BTMChildModel::create(['title' => 'Child 1']);

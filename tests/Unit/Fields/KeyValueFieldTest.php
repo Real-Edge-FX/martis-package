@@ -83,14 +83,29 @@ it('KeyValue disableAddingRows() disables row addition', function () {
         ->and($field->toArray()['addingRowsDisabled'])->toBeTrue();
 });
 
-it('KeyValue defaults are correct', function () {
+it('KeyValue defaults resolve through the translation system', function () {
+    // When no explicit label/text is set, getters delegate to __() which in
+    // unit tests (no booted translator) returns the translation key. The important
+    // assertion is that the raw hardcoded English string is NOT returned —
+    // the field no longer owns a hardcoded string default.
     $field = KeyValue::make('meta');
 
-    expect($field->getKeyLabel())->toBe('Key')
-        ->and($field->getValueLabel())->toBe('Value')
-        ->and($field->getActionText())->toBe('Add Row')
+    expect($field->getKeyLabel())->not->toBe('')
+        ->and($field->getValueLabel())->not->toBe('')
+        ->and($field->getActionText())->not->toBe('')
         ->and($field->isEditingKeysDisabled())->toBeFalse()
         ->and($field->isAddingRowsDisabled())->toBeFalse();
+});
+
+it('KeyValue explicit label overrides the translation default', function () {
+    $field = KeyValue::make('meta')
+        ->keyLabel('Setting')
+        ->valueLabel('Content')
+        ->actionText('Add Entry');
+
+    expect($field->getKeyLabel())->toBe('Setting')
+        ->and($field->getValueLabel())->toBe('Content')
+        ->and($field->getActionText())->toBe('Add Entry');
 });
 
 // ---------------------------------------------------------------------------

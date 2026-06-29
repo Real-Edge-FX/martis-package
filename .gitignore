@@ -31,3 +31,6 @@ pnpm-debug.log*
 *.temp
 *.swp
 *.swo
+docs/superpowers/
+.superpowers/
+.claude-flow/

@@ -35,6 +35,12 @@ class UserCommand extends Command
         /** @var class-string<Model> $modelClass */
         $modelClass = (string) config('auth.providers.users.model', 'App\\Models\\User');
 
+        if ($modelClass::query()->where('email', $email)->exists()) {
+            $this->components->error("A user with email [{$email}] already exists.");
+
+            return self::FAILURE;
+        }
+
         $user = new $modelClass;
         $user->setAttribute('name', $name);
         $user->setAttribute('email', $email);

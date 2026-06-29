@@ -110,6 +110,13 @@ class ActionController extends MartisController
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
         }
 
+        // Gate the field-schema endpoint with the same check execute() uses —
+        // a user who cannot see/run the action must not enumerate its input
+        // field definitions.
+        if (! $actionInstance->authorizedToSee($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         $fields = $actionInstance->fields($request);
 
         /** @var array<string, mixed> $data */
@@ -243,7 +250,9 @@ class ActionController extends MartisController
                 throw $e;
             }
 
-            return JsonErrorResponse::serverError('Action failed: '.$e->getMessage())->toResponse();
+            // Do not leak the raw exception message to the HTTP client — the
+            // full detail is in the Log::error above (and the action event).
+            return JsonErrorResponse::serverError('The action could not be completed due to an internal error.')->toResponse();
         }
     }
 
@@ -313,8 +322,14 @@ class ActionController extends MartisController
         /** @var Model $modelInstance */
         $modelInstance = new $modelClass;
 
+        // Apply the resource's index scoping (tenant / ownership filters)
+        // before selecting by id. Without this, an action could resolve and
+        // act on records outside the user's visible scope just by passing
+        // their ids (IDOR) — the same guard the index listing applies.
+        $query = $resource::indexQuery($request, $modelInstance->newQuery());
+
         /** @var Collection<int, Model> $result */
-        $result = $modelInstance->newQuery()->whereIn(
+        $result = $query->whereIn(
             $modelInstance->getKeyName(),
             $ids,
         )->get();
@@ -544,13 +559,29 @@ class ActionController extends MartisController
         }
 
         $modelClass = $resourceClass::model();
-        $parentModel = $modelClass::find($id);
+        // Resolve the parent through the resource's indexQuery scope (tenant /
+        // ownership filters) + a key match — never a bare find(). This keeps a
+        // scoped-out id indistinguishable from a missing one (uniform 404, no
+        // existence oracle across ownership boundaries) and enforces the scope
+        // even for resources with no policy, matching resolveModels().
+        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
+            ->whereKey($id)
+            ->first();
         if ($parentModel === null) {
             return JsonErrorResponse::notFound("Parent record [{$id}] not found.")->toResponse();
         }
 
         if (! method_exists($parentModel, $relationship)) {
             return JsonErrorResponse::notFound("Relationship [{$relationship}] not found on resource.")->toResponse();
+        }
+
+        // Authorize access to the PARENT record before anything else.
+        // Without this a caller could run a pivot action against any
+        // parent row by guessing its id (IDOR) — the relationship index
+        // controllers gate the parent the same way.
+        $parentInstance = new $resourceClass($parentModel);
+        if (! $parentInstance->authorizedToView($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $instance = new $resourceClass;
@@ -568,7 +599,6 @@ class ActionController extends MartisController
         }
 
         // Resolve pivot columns from the BelongsToMany field definition
-        $parentInstance = new $resourceClass($parentModel);
         $pivotColumns = $this->resolvePivotColumns($parentInstance, $request, $relationship);
 
         /** @var list<int|string> $relatedIds */
@@ -593,6 +623,17 @@ class ActionController extends MartisController
             return JsonErrorResponse::validation(
                 ['resources' => ['This action requires exactly one selected resource.']],
             )->toResponse();
+        }
+
+        // Per-model authorization — mirrors the non-pivot execute() path.
+        // Without this, a visible pivot action ran on every selected
+        // related record regardless of the action's own canRun rule.
+        if (! $actionInstance->isStandalone()) {
+            foreach ($models as $model) {
+                if (! $actionInstance->authorizedToRun($request, $model)) {
+                    return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
+                }
+            }
         }
 
         $actionFields = $actionInstance->fields($request);

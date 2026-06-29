@@ -120,7 +120,6 @@ This creates `config/martis.php`. The most commonly customized keys:
 - `path` — Admin panel URL prefix (default: `martis`)
 - `guard` — Authentication guard (default: `null`, falls back to `config('auth.defaults.guard')`)
 - `resources_path` — Directory scanned for resource classes (default: `app_path('Martis')`)
-- `extensions_path` — Folder under `resources/` holding consumer React extensions (default: `martis-extensions`)
 - `theme.default` — Default theme: `dark`, `light`, or `system`
 - `theme.allowToggle` — Allow users to switch themes from the preferences panel
 - `locale` — Default locale (defaults to `config('app.locale')`)

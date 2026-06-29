@@ -299,7 +299,8 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = isActive ? 'var(--martis-accent-bg-light)' : 'transparent'
                       }}
-                      title={name}
+                      data-pr-tooltip={name}
+                      data-pr-position="top"
                       data-icon-name={name}
                     >
                       <ResourceIcon iconName={name} size={20} />

@@ -27,6 +27,7 @@ use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
+use Martis\Concerns\HasPolicy;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
 use Martis\Console\AgentsCommand;
@@ -173,6 +174,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerEmailVerificationUrl();
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
+        $this->registerOctanePolicyCacheFlush();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -238,14 +240,6 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../resources/lang' => $this->app->langPath('vendor/martis'),
             ], 'martis-lang');
 
-            // Core action-events audit log table. The stub is idempotent:
-            // it renames an existing `action_events` table to
-            // `martis_action_events` when upgrading, otherwise creates it
-            // fresh under the martis_ prefix.
-            $this->publishes([
-                __DIR__.'/../stubs/create_martis_action_events_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000001_create_martis_action_events_table.php'),
-            ], 'martis-migrations');
-
             // Profile: 2FA columns migration stub
             $this->publishes([
                 __DIR__.'/../stubs/add_two_factor_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_two_factor_columns.php'),
@@ -305,24 +299,37 @@ class MartisServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the default `manage-martis-cache` gate.
+     * Register the default cache-related gates. Both DENY by default.
      *
-     * Default behaviour: any authenticated user is allowed. Host apps
-     * should override this in their own service provider when they want
-     * to restrict the cache admin page to a subset of users:
+     * `manage-martis-cache` — access to the cache admin UI and REST
+     * endpoints (flush / disable). Destructive and privileged, so the
+     * package will not grant it implicitly. Until the host defines it,
+     * the endpoints return 403 and the sidebar entry is hidden:
      *
      *     Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
+     *
+     * `bypass-martis-cache` — the right to skip the per-request cache via
+     * the `X-Martis-No-Cache: 1` header or `?nocache=1`. Defaults to deny
+     * so ordinary authenticated users cannot force expensive metric /
+     * navigation / schema re-computation on every request:
+     *
+     *     Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
      *
      * Calling `Gate::define()` from the host app replaces the closure
      * registered here, so order doesn't matter.
      */
     protected function registerCacheGate(): void
     {
-        if (Gate::has('manage-martis-cache')) {
-            return;
+        // Secure default: deny. The host must explicitly grant this ability.
+        if (! Gate::has('manage-martis-cache')) {
+            Gate::define('manage-martis-cache', fn ($user) => false);
         }
 
-        Gate::define('manage-martis-cache', fn ($user) => $user !== null);
+        // Secure default: deny. Without this, the cache-bypass signals
+        // (header / query param) are ignored for every user.
+        if (! Gate::has('bypass-martis-cache')) {
+            Gate::define('bypass-martis-cache', fn () => false);
+        }
     }
 
     /** Register the custom exception handler for Martis routes. */
@@ -672,6 +679,45 @@ class MartisServiceProvider extends ServiceProvider
                     $method,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Register listeners that flush the static policy-resolution caches
+     * held by {@see \Martis\Resource} and {@see HasPolicy}
+     * between requests in persistent-process environments (Laravel Octane,
+     * queue workers).
+     *
+     * Under PHP-FPM the process dies after each request so the caches are
+     * naturally empty on the next request. Under Octane or long-running
+     * queue workers the same process handles many requests; without this
+     * flush a policy class rebound in the container (e.g. via
+     * `$this->app->bind(MyPolicy::class, …)` in a request-scoped provider)
+     * would not be visible to subsequent requests because the old instance
+     * is already cached in the static array.
+     *
+     * The listener is registered only when the Octane event classes exist
+     * in the project, so there is no hard dependency on laravel/octane.
+     */
+    protected function registerOctanePolicyCacheFlush(): void
+    {
+        // Referenced as strings, not ::class, so there is no compile-time
+        // dependency on laravel/octane (an optional peer). The class_exists()
+        // guard below registers the listener only when Octane is installed.
+        $octaneEvents = [
+            'Laravel\\Octane\\Events\\RequestTerminated',
+            'Laravel\\Octane\\Events\\TaskTerminated',
+        ];
+
+        foreach ($octaneEvents as $eventClass) {
+            if (! class_exists($eventClass)) {
+                continue;
+            }
+
+            Event::listen($eventClass, static function () {
+                \Martis\Resource::flushPolicyCache();
+                HasPolicy::flushPolicyCache();
+            });
         }
     }
 }

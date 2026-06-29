@@ -94,3 +94,16 @@ it('Country toArray contains countries and showFlags', function () {
         ->and($arr['showFlags'])->toBeTrue()
         ->and($arr['countries'])->toBeArray();
 });
+
+it('Country countryList returns the same array instance on repeated calls (memoization)', function () {
+    // Reset the static cache so this test is not order-dependent.
+    $reflection = new ReflectionProperty(Country::class, 'cachedCountryList');
+    $reflection->setAccessible(true);
+    $reflection->setValue(null, null);
+
+    $first = Country::countryList();
+    $second = Country::countryList();
+
+    // Both calls must return identical data and the second call must reuse the cache.
+    expect($first)->toBe($second);
+});

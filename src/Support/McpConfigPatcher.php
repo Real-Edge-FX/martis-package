@@ -268,7 +268,7 @@ class McpConfigPatcher
             return stripcslashes($m[1]);
         }
         if (preg_match('/^\[(.*)\]$/', $raw, $m)) {
-            $items = array_map('trim', explode(',', $m[1]));
+            $items = $this->splitTomlInlineArray($m[1]);
 
             return array_values(array_filter(array_map(
                 fn (string $i) => $i === '' ? null : $this->parseTomlValue($i),
@@ -280,6 +280,56 @@ class McpConfigPatcher
         }
 
         return $raw;
+    }
+
+    /**
+     * Split a TOML inline-array body on commas that appear outside
+     * double-quoted strings. A naive `explode(',', $body)` would
+     * corrupt values such as `"hello, world"` by splitting on the
+     * comma inside the string literal.
+     *
+     * The scanner tracks whether the cursor is inside a double-quoted
+     * span and only records a split position when it finds a `,`
+     * outside quotes. Backslash-escaped characters inside a quoted
+     * string (including `\"`) are consumed as a single logical step so
+     * the closing `"` is never misidentified.
+     *
+     * @return list<string>
+     */
+    private function splitTomlInlineArray(string $body): array
+    {
+        $tokens = [];
+        $token = '';
+        $inString = false;
+        $len = strlen($body);
+
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $body[$i];
+
+            if ($inString) {
+                $token .= $ch;
+                if ($ch === '\\' && $i + 1 < $len) {
+                    // Consume the escaped character so a `\"` does not
+                    // end the string prematurely.
+                    $i++;
+                    $token .= $body[$i];
+                } elseif ($ch === '"') {
+                    $inString = false;
+                }
+            } elseif ($ch === '"') {
+                $inString = true;
+                $token .= $ch;
+            } elseif ($ch === ',') {
+                $tokens[] = trim($token);
+                $token = '';
+            } else {
+                $token .= $ch;
+            }
+        }
+
+        $tokens[] = trim($token);
+
+        return $tokens;
     }
 
     /**

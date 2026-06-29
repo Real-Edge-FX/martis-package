@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { BellIcon, CheckCircleIcon, WarningIcon, WarningCircleIcon, InfoIcon, TrashIcon } from '@phosphor-icons/react'
@@ -39,6 +40,7 @@ const POLL_DEFAULT = 90_000
  */
 export function NotificationBell() {
   const { t } = useTranslation('messages')
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -176,7 +178,7 @@ export function NotificationBell() {
                 if (item.action_url) {
                   setOpen(false)
                   if (item.action_url.startsWith('/')) {
-                    window.location.href = item.action_url
+                    navigate(item.action_url)
                   } else {
                     window.open(item.action_url, '_blank', 'noopener,noreferrer')
                   }

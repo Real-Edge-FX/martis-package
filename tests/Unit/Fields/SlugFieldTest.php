@@ -101,6 +101,25 @@ it('Slug::reserved() stores the reserved list', function () {
     expect($field->getReserved())->toBe(['admin', 'api', 'login']);
 });
 
+it('Slug::reserved() normalises mixed-case entries to lowercase', function () {
+    $field = Slug::make('slug')->reserved(['Admin', 'LOGIN', 'Api']);
+
+    expect($field->getReserved())->toBe(['admin', 'login', 'api']);
+});
+
+it('Slug validation rejects a mixed-case reserved word passed to reserved()', function () {
+    $field = Slug::make('slug')->reserved(['Admin']);
+    $rules = $field->buildRules();
+    $closure = $rules[count($rules) - 1];
+
+    $failed = null;
+    $closure('slug', 'admin', function ($msg) use (&$failed) {
+        $failed = $msg;
+    });
+
+    expect($failed)->toBeString()->and($failed)->toContain('admin');
+});
+
 it('Slug validation rule rejects a reserved slug', function () {
     $field = Slug::make('slug')->reserved(['admin']);
     $rules = $field->buildRules();

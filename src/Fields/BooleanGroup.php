@@ -150,7 +150,7 @@ class BooleanGroup extends Field
     /** ⭐ Sugar for `minChecked(count(options))`. Forces every flag on. */
     public function requireAll(): static
     {
-        return $this->minChecked(count($this->options));
+        return $this->minChecked(count($this->getOptions()));
     }
 
     /** ⭐ Sugar for `minChecked(1)`. Forces at least one flag on. */

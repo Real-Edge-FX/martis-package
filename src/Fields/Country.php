@@ -21,6 +21,9 @@ class Country extends Field
     /** @var list<array{label: string, value: string, flag?: string}> */
     protected array $countries = [];
 
+    /** @var list<array{label: string, value: string, flag: string}>|null Memoized country list — built once per process. */
+    protected static ?array $cachedCountryList = null;
+
     protected ?string $filterPlaceholder = null;
 
     /** {@inheritdoc} */
@@ -73,11 +76,18 @@ class Country extends Field
     /**
      * Get the full list of ISO 3166-1 countries with labels and codes.
      *
+     * The result is memoized in a static property so the array is constructed
+     * only once per process, regardless of how many Country fields are rendered.
+     *
      * @return list<array{label: string, value: string, flag: string}>
      */
     public static function countryList(): array
     {
-        return [
+        if (self::$cachedCountryList !== null) {
+            return self::$cachedCountryList;
+        }
+
+        self::$cachedCountryList = [
             ['label' => 'Afghanistan', 'value' => 'AF', 'flag' => '🇦🇫'],
             ['label' => 'Albania', 'value' => 'AL', 'flag' => '🇦🇱'],
             ['label' => 'Algeria', 'value' => 'DZ', 'flag' => '🇩🇿'],
@@ -275,6 +285,8 @@ class Country extends Field
             ['label' => 'Zambia', 'value' => 'ZM', 'flag' => '🇿🇲'],
             ['label' => 'Zimbabwe', 'value' => 'ZW', 'flag' => '🇿🇼'],
         ];
+
+        return self::$cachedCountryList;
     }
 
     /**

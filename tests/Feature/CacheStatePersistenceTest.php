@@ -115,6 +115,23 @@ it('reads default state (version=1, cleared_at=null, override=null) when no row 
     expect($status['runtime_override'])->toBeNull();
 });
 
+it('writeState() does not overwrite created_at on update', function () {
+    $cache = new MartisCache(Cache::store('array'));
+
+    // First clear creates the row — record the original created_at.
+    $cache->clear('schema');
+    $original = CacheState::find('schema')->created_at;
+    expect($original)->not->toBeNull();
+
+    // A second clear must not reset created_at to now().
+    $cache->clear('schema');
+    $after = CacheState::find('schema')->created_at;
+    expect($after->toIso8601String())->toBe($original->toIso8601String());
+
+    // version must have advanced correctly despite the change.
+    expect(CacheState::find('schema')->version)->toBe(3);
+});
+
 it('survives a full Cache::store()->flush() AND in-process state reset', function () {
     $cache = new MartisCache(Cache::store('array'));
 

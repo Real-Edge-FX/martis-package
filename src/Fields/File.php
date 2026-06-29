@@ -264,7 +264,7 @@ class File extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
-        if ($this->readonly) {
+        if ($this->isReadonly()) {
             return;
         }
 
@@ -321,10 +321,15 @@ class File extends Field
         /** @var array<mixed> $rawExisting */
         $rawExisting = $value['existing'] ?? [];
 
+        // Only honour "existing" paths the model actually owns. The list is
+        // client-supplied, so without this guard a caller could inject
+        // arbitrary disk paths (another record's uploads, a traversal) into
+        // the stored set. Any owned path omitted here is treated as a
+        // deletion below — so an injected value must never widen the set.
         /** @var list<string> $keepPaths */
         $keepPaths = [];
         foreach ($rawExisting as $p) {
-            if (is_string($p) && $p !== '') {
+            if (is_string($p) && $p !== '' && in_array($p, $existingPaths, true)) {
                 $keepPaths[] = $p;
             }
         }

@@ -6,7 +6,6 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Martis\Enums\AggregateFunction;
 use Martis\Enums\MetricType;
 use Martis\Enums\TrendPeriod;
@@ -137,26 +136,59 @@ abstract class TrendMetric extends Metric
             TrendPeriod::Month => $now->subMonths($range)->startOfMonth(),
         };
 
-        $dateFormat = match ($unit) {
-            TrendPeriod::Day => '%Y-%m-%d',
-            TrendPeriod::Week => '%x-%v',
-            TrendPeriod::Month => '%Y-%m',
-        };
-
-        $expression = $function === AggregateFunction::Count
-            ? DB::raw('count(*) as aggregate')
-            : DB::raw("{$function->value}({$column}) as aggregate");
-
-        $baseQuery = $this->applyFilterScope($model::query());
-
-        $results = $baseQuery
-            ->select(DB::raw("DATE_FORMAT({$dateColumn}, '{$dateFormat}') as date_key"), $expression)
+        // Fetch the rows in range and bucket them in PHP. This is correct
+        // on every database driver (MySQL / Postgres / SQLite) without any
+        // dialect-specific date function: the previous implementation used
+        // MySQL-only `DATE_FORMAT(...)`, which is `no such function` on
+        // SQLite and Postgres (500 on every non-MySQL trend metric). The
+        // bucket key is built with the SAME Carbon formats as the label
+        // loop below, so there is no SQL-vs-PHP key mismatch — notably for
+        // ISO week (`o-W`), which SQLite's strftime cannot express at all.
+        // Trend ranges are bounded, so the fetched row set is small.
+        $baseQuery = $this->applyFilterScope($model::query())
             ->where($dateColumn, '>=', $startDate)
-            ->where($dateColumn, '<=', $now)
-            ->groupBy('date_key')
-            ->orderBy('date_key')
-            ->pluck('aggregate', 'date_key')
-            ->all();
+            ->where($dateColumn, '<=', $now);
+
+        $columns = [$dateColumn];
+        if ($function !== AggregateFunction::Count && $column !== null) {
+            $columns[] = $column;
+        }
+
+        /** @var array<string, list<float>> $bucketValues */
+        $bucketValues = [];
+
+        foreach ($baseQuery->get($columns) as $row) {
+            $rawDate = $row->getAttribute($dateColumn);
+            if ($rawDate === null) {
+                continue;
+            }
+
+            $date = $rawDate instanceof \DateTimeInterface
+                ? CarbonImmutable::instance($rawDate)
+                : CarbonImmutable::parse((string) $rawDate);
+
+            $key = match ($unit) {
+                TrendPeriod::Day => $date->format('Y-m-d'),
+                TrendPeriod::Week => $date->format('o-W'),
+                TrendPeriod::Month => $date->format('Y-m'),
+            };
+
+            $bucketValues[$key][] = ($function === AggregateFunction::Count || $column === null)
+                ? 1.0
+                : (float) ($row->getAttribute($column) ?? 0);
+        }
+
+        /** @var array<string, float> $results */
+        $results = [];
+        foreach ($bucketValues as $key => $vals) {
+            $results[$key] = match ($function) {
+                AggregateFunction::Count => (float) count($vals),
+                AggregateFunction::Sum => array_sum($vals),
+                AggregateFunction::Avg => $vals === [] ? 0.0 : array_sum($vals) / count($vals),
+                AggregateFunction::Min => $vals === [] ? 0.0 : min($vals),
+                AggregateFunction::Max => $vals === [] ? 0.0 : max($vals),
+            };
+        }
 
         // Build complete series with zeroes for missing periods
         $labels = [];

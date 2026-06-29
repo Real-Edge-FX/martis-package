@@ -40,6 +40,29 @@ it('returns an error payload when the slug is missing', function () {
     expect($result['enabled'])->toBeTrue()->and($result['error'])->toContain('not-found');
 });
 
+it('strips non-alphanumeric characters from the slug reflected in the error message', function () {
+    $tools = new Tools(new DocLookup($this->dir));
+
+    // Backticks, null bytes, and terminal escape sequences must not appear in the error.
+    $result = $tools->readDoc('bad`slug\x00\x1b[31m');
+    expect($result)->toHaveKey('error');
+    expect($result['error'])->not->toContain('`bad`');
+    expect($result['error'])->not->toContain("\x00");
+    expect($result['error'])->not->toContain("\x1b");
+    // Only the safe subset survives: letters, digits, dots, underscores, hyphens.
+    expect($result['error'])->toContain('badslug');
+});
+
+it('error message is empty-slug-safe when every character is stripped', function () {
+    $tools = new Tools(new DocLookup($this->dir));
+
+    // A slug of only disallowed characters collapses to an empty string.
+    $result = $tools->readDoc('`\x00\x1b');
+    expect($result)->toHaveKey('error');
+    // The error string must still be a valid non-null string.
+    expect($result['error'])->toBeString();
+});
+
 it('returns disabled notices when MARTIS_MCP_ENABLED=false', function () {
     config()->set('martis.mcp.enabled', false);
     putenv('MARTIS_MCP_ENABLED=false');

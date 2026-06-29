@@ -416,6 +416,16 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     }
   }, [currentTitle])
 
+  // Stable key derived from BelongsToValue ids in the incoming value array.
+  // Avoids putting JSON.stringify() directly in the dependency array (lint anti-pattern).
+  const valueIdKey = useMemo(() => {
+    if (!isMultiple || !Array.isArray(value)) return ''
+    return (value as unknown[])
+      .filter(v => isBelongsToValue(v as BelongsToValue))
+      .map(v => (v as BelongsToValue).id)
+      .join(',')
+  }, [isMultiple, value])
+
   // Sync selectedItems when value changes in multiple mode (e.g. edit form loads from server)
   // Only sync when value contains BelongsToValue objects — skip when it contains plain IDs
   // (plain IDs come from onChange calls during user interaction and must not reset selectedItems)
@@ -430,7 +440,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
         )
       }
     }
-  }, [isMultiple, JSON.stringify(value)])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiple, valueIdKey])
 
   // Close dropdown on outside click
   useEffect(() => {

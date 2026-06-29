@@ -340,7 +340,10 @@ class MorphMany extends Field
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->showOnIndex) {
-            return $model->{$this->relationship}()->count();
+            $method = $this->relationship;
+            if (method_exists($model, $method)) {
+                return $model->{$method}()->count();
+            }
         }
 
         return null;

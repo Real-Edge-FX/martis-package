@@ -4,6 +4,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
+use Martis\Enums\NotificationLevel;
 use Martis\Notifications\MartisNotification;
 
 class NotificationTestUser extends User
@@ -64,7 +65,7 @@ it('returns the unread count', function () {
     $this->user->notify(MartisNotification::make(
         title: 'Hello',
         message: 'You have a new message.',
-        level: 'info',
+        level: NotificationLevel::Info,
     ));
 
     $response = $this->getJson('/martis/api/notifications/unread-count');
@@ -77,7 +78,7 @@ it('serialises a notification with the standard Martis data shape', function () 
     $this->user->notify(MartisNotification::make(
         title: 'Invoice paid',
         message: 'INV-2026-001 has been paid.',
-        level: 'success',
+        level: NotificationLevel::Success,
         icon: 'check-circle',
         actionUrl: '/martis/resources/invoices/42',
         actionLabel: 'View invoice',

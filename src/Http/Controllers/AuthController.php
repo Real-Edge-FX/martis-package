@@ -49,10 +49,14 @@ class AuthController extends MartisController
             return response('null', 200)->header('Content-Type', 'application/json');
         }
 
-        // Indicate pending 2FA challenge so the SPA can redirect without API calls
+        // Indicate pending 2FA challenge so the SPA can redirect without API calls.
+        // Treat any non-true session value as "not yet passed": the initial
+        // state is null (never set), and the old `=== false` check skipped it,
+        // so a 2FA-enabled user who had not cleared the challenge was reported
+        // as fully authenticated instead of pending.
         $twoFactorPassed = $request->session()->get('martis_two_factor_passed');
         $twoFactor = app(TwoFactorService::class);
-        if ($twoFactor->isEnabled($user) && $twoFactorPassed === false) {
+        if ($twoFactor->isEnabled($user) && $twoFactorPassed !== true) {
             return response()->json([
                 'two_factor_pending' => true,
                 'message' => 'Two-factor authentication required.',

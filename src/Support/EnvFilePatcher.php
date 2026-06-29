@@ -66,6 +66,14 @@ class EnvFilePatcher
                     array_pop($kept);
                 }
 
+                // Also remove any blank separator lines that set() wrote
+                // before the comment (or directly before the key when no
+                // comment was added). Without this, remove() leaves an
+                // orphaned blank line in the file.
+                while (count($kept) > 0 && trim($kept[count($kept) - 1]) === '') {
+                    array_pop($kept);
+                }
+
                 continue;
             }
             $kept[] = $line;

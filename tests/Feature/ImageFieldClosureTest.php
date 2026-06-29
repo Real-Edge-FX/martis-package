@@ -99,3 +99,54 @@ it('preview + thumbnail Closures compose without interfering with each other', f
     expect($resolved['url'])->toBe('https://cdn/full/7.jpg');
     expect($resolved['thumbnailUrl'])->toBe('https://cdn/thumb/7.jpg');
 });
+
+// ---------------------------------------------------------------------------
+// multiple() + Closure resolvers — resolveMultiple must honour closures
+// ---------------------------------------------------------------------------
+
+it('thumbnail(Closure) applies to every item in multiple mode', function () {
+    $field = Image::make('gallery')
+        ->multiple()
+        ->thumbnail(fn ($value, $model) => "https://cdn.example/thumbs/{$model->id}/{$value}");
+
+    Storage::disk('public')->put('uploads/a.png', 'fake');
+    Storage::disk('public')->put('uploads/b.png', 'fake');
+    $paths = json_encode(['uploads/a.png', 'uploads/b.png']);
+    $model = new ImageFieldTestModel(['id' => 10, 'gallery' => $paths]);
+
+    $resolved = $field->resolve($model);
+
+    expect($resolved)->toBeArray()->toHaveCount(2);
+    expect($resolved[0]['thumbnailUrl'])->toBe('https://cdn.example/thumbs/10/uploads/a.png');
+    expect($resolved[1]['thumbnailUrl'])->toBe('https://cdn.example/thumbs/10/uploads/b.png');
+});
+
+it('preview(Closure) applies to every item in multiple mode', function () {
+    $field = Image::make('gallery')
+        ->multiple()
+        ->preview(fn ($value, $model) => "https://cdn.example/full/{$model->id}/{$value}");
+
+    Storage::disk('public')->put('uploads/a.png', 'fake');
+    $paths = json_encode(['uploads/a.png']);
+    $model = new ImageFieldTestModel(['id' => 5, 'gallery' => $paths]);
+
+    $resolved = $field->resolve($model);
+
+    expect($resolved)->toBeArray()->toHaveCount(1);
+    expect($resolved[0]['url'])->toBe('https://cdn.example/full/5/uploads/a.png');
+});
+
+it('thumbnail(Closure) returning null falls back to the preview URL in multiple mode', function () {
+    $field = Image::make('gallery')
+        ->multiple()
+        ->preview(fn ($v, $m) => 'https://cdn.example/full/x.png')
+        ->thumbnail(fn ($v, $m) => null);
+
+    Storage::disk('public')->put('uploads/a.png', 'fake');
+    $model = new ImageFieldTestModel(['id' => 1, 'gallery' => json_encode(['uploads/a.png'])]);
+
+    $resolved = $field->resolve($model);
+
+    expect($resolved[0]['url'])->toBe('https://cdn.example/full/x.png');
+    expect($resolved[0]['thumbnailUrl'])->toBe('https://cdn.example/full/x.png');
+});

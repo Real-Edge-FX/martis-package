@@ -140,7 +140,7 @@ class Image extends File
      */
     public function fill(Model $model, mixed $value): void
     {
-        if ($this->readonly) {
+        if ($this->isReadonly()) {
             return;
         }
 
@@ -303,12 +303,20 @@ class Image extends File
         /** @var Cloud $disk */
         $disk = Storage::disk($this->disk);
 
-        return array_map(function (string $path) use ($disk): array {
-            $url = $disk->url($path);
-            $thumbPath = $this->getThumbnailPath($path);
-            $thumbnailUrl = ($thumbPath !== null && $disk->exists($thumbPath))
-                ? $disk->url($thumbPath)
-                : $url;
+        return array_map(function (string $path) use ($disk, $model): array {
+            // Mirror single-mode resolve(): apply closure-driven resolvers first.
+            $url = $this->previewResolver !== null
+                ? ((($this->previewResolver)($path, $model)) ?? $disk->url($path))
+                : $disk->url($path);
+
+            if ($this->thumbnailResolver !== null) {
+                $thumbnailUrl = (($this->thumbnailResolver)($path, $model)) ?? $url;
+            } else {
+                $thumbPath = $this->getThumbnailPath($path);
+                $thumbnailUrl = ($thumbPath !== null && $disk->exists($thumbPath))
+                    ? $disk->url($thumbPath)
+                    : $url;
+            }
 
             return [
                 'path' => $path,
@@ -420,7 +428,7 @@ class Image extends File
         $ext = pathinfo($path, PATHINFO_EXTENSION);
         $prefix = ($dir === '.' || $dir === '') ? '' : $dir.'/';
 
-        return $prefix.$filename.'_thumb.'.$ext;
+        return $prefix.$filename.'_thumb'.($ext !== '' ? '.'.$ext : '');
     }
 
     /** Generate and store a thumbnail for the uploaded image. */
@@ -450,6 +458,7 @@ class Image extends File
             'image/png' => @imagecreatefrompng($sourcePath),
             'image/gif' => @imagecreatefromgif($sourcePath),
             'image/webp' => @imagecreatefromwebp($sourcePath),
+            'image/bmp', 'image/x-bmp' => @imagecreatefrombmp($sourcePath),
             default => false,
         };
 
@@ -497,6 +506,7 @@ class Image extends File
             'image/png' => imagepng($thumb),
             'image/gif' => imagegif($thumb),
             'image/webp' => imagewebp($thumb, null, 85),
+            'image/bmp', 'image/x-bmp' => imagebmp($thumb),
             default => imagejpeg($thumb, null, 85),
         };
         $content = ob_get_clean();

@@ -196,3 +196,69 @@ it('CallableAdapter::forgetCallback wipes the registered closure', function () {
     $adapter->syncRoles($user, AdapterTestRoleStub::query()->get());
     expect(true)->toBeTrue();
 });
+
+// -----------------------------------------------------------------------------
+// NativeAdapter — non-standard primary key
+// -----------------------------------------------------------------------------
+
+class UuidRoleStub extends Model
+{
+    protected $table = 'uuid_roles';
+
+    protected $primaryKey = 'uuid';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
+
+it('NativeAdapter correctly syncs roles when the Role model uses a non-standard primary key', function () {
+    Schema::dropIfExists('uuid_model_has_roles');
+    Schema::create('uuid_model_has_roles', function ($table) {
+        $table->string('role_id');
+        $table->string('model_type');
+        $table->unsignedBigInteger('model_id');
+        $table->primary(['role_id', 'model_type', 'model_id']);
+    });
+
+    Schema::dropIfExists('uuid_roles');
+    Schema::create('uuid_roles', function ($table) {
+        $table->string('uuid')->primary();
+        $table->string('name');
+    });
+
+    $uuid1 = 'aaaaaaaa-0000-0000-0000-000000000001';
+    $uuid2 = 'aaaaaaaa-0000-0000-0000-000000000002';
+
+    UuidRoleStub::create(['uuid' => $uuid1, 'name' => 'admin']);
+    UuidRoleStub::create(['uuid' => $uuid2, 'name' => 'editor']);
+
+    $user = AdapterTestUser::query()->create([
+        'name' => 'H', 'email' => 'h@example.com', 'password' => bcrypt('x'),
+    ]);
+
+    config(['martis.auth.sso.native_pivot.table' => 'uuid_model_has_roles']);
+
+    $roles = UuidRoleStub::query()->get();
+
+    $adapter = new NativeAdapter;
+    $adapter->syncRoles($user, $roles);
+
+    $pivot = DB::table('uuid_model_has_roles')
+        ->where('model_type', AdapterTestUser::class)
+        ->where('model_id', $user->id)
+        ->pluck('role_id')
+        ->toArray();
+
+    expect($pivot)->toHaveCount(2);
+    expect($pivot)->toEqualCanonicalizing([$uuid1, $uuid2]);
+
+    // Clean up custom config override and tables.
+    config(['martis.auth.sso.native_pivot.table' => 'model_has_roles']);
+    Schema::dropIfExists('uuid_model_has_roles');
+    Schema::dropIfExists('uuid_roles');
+});

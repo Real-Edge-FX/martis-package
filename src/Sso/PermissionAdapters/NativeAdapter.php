@@ -30,7 +30,7 @@ class NativeAdapter implements PermissionAdapterContract
         $modelType = $user::class;
         $modelId = $user->getKey();
 
-        $resolvedIds = $resolvedRoles->pluck('id')->filter()->all();
+        $resolvedIds = $resolvedRoles->map(fn ($role) => $role->getKey())->filter()->all();
 
         DB::transaction(function () use ($pivotTable, $modelTypeColumn, $modelIdColumn, $roleIdColumn, $modelType, $modelId, $resolvedIds): void {
             DB::table($pivotTable)

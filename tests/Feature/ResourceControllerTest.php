@@ -405,6 +405,27 @@ it('index respects per_page param', function () {
     expect(count($response->json('data')))->toBe(3);
 });
 
+it('index clamps per_page=0 to 1 instead of returning an empty page', function () {
+    PostModel::create(['title' => 'Post A', 'body' => null]);
+    PostModel::create(['title' => 'Post B', 'body' => null]);
+
+    $response = $this->getJson('/martis/api/resources/post-models?per_page=0');
+
+    $response->assertStatus(200);
+    // per_page is floored to 1 — must return exactly one row, not zero
+    expect($response->json('meta.per_page'))->toBe(1);
+    expect(count($response->json('data')))->toBeGreaterThanOrEqual(1);
+});
+
+it('index clamps negative per_page to 1', function () {
+    PostModel::create(['title' => 'Post A', 'body' => null]);
+
+    $response = $this->getJson('/martis/api/resources/post-models?per_page=-5');
+
+    $response->assertStatus(200);
+    expect($response->json('meta.per_page'))->toBe(1);
+});
+
 // ---------------------------------------------------------------------------
 // Show
 // ---------------------------------------------------------------------------
@@ -733,4 +754,53 @@ it('schema contextual arrays are pre-filtered — frontend should not need to fi
     expect($attrs('fieldsForUpdate'))->toContain('plain');
     expect($attrs('fieldsForInlineCreate'))->toContain('plain');
     expect($attrs('fieldsForPreview'))->toContain('plain');
+});
+
+// ---------------------------------------------------------------------------
+// show ?context=update / =create must be gated by the matching ability
+// ---------------------------------------------------------------------------
+
+class ContextGatePostResource extends Resource
+{
+    public static function model(): string
+    {
+        return PostModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'context-gate-posts';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->required(),
+            Text::make('body'),
+        ];
+    }
+
+    public function authorizedToView(Request $request): bool
+    {
+        return true;
+    }
+
+    public function authorizedToUpdate(Request $request): bool
+    {
+        return false;
+    }
+}
+
+it('show ?context=update is forbidden for a user without update authorization', function () {
+    app(ResourceRegistry::class)->register(ContextGatePostResource::class);
+    $post = PostModel::create(['title' => 'Secret draft', 'body' => 'B']);
+
+    // Detail view is allowed.
+    $this->getJson("/martis/api/resources/context-gate-posts/{$post->id}?context=detail")
+        ->assertOk();
+
+    // ?context=update exposes the update field set (raw values) and must be
+    // gated by authorizedToUpdate — a view-only user gets 403, not the data.
+    $this->getJson("/martis/api/resources/context-gate-posts/{$post->id}?context=update")
+        ->assertForbidden();
 });

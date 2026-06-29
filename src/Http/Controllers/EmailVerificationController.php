@@ -93,7 +93,8 @@ class EmailVerificationController extends MartisController
 
         $userClass = $this->resolveUserModel();
         if ($userClass === null || ! is_subclass_of($userClass, Model::class)) {
-            abort(500, 'Auth user model is not configured.');
+            report(new \RuntimeException('Martis: auth user model is not configured — check auth.guards and auth.providers in your application config.'));
+            abort(500);
         }
 
         /** @var Model|null $user */

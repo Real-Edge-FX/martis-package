@@ -24,10 +24,16 @@ class Number extends Field
 
     /**
      * Set the minimum allowed value.
+     *
+     * Replaces any previously registered `min:` rule so repeated calls
+     * (including inside a `dependsOn` closure) do not accumulate stale entries.
      */
     public function min(int|float $min): static
     {
         $this->min = $min;
+        $this->extraRules = array_values(
+            array_filter($this->extraRules, fn ($r) => ! (is_string($r) && str_starts_with($r, 'min:')))
+        );
         $this->extraRules[] = "min:{$min}";
 
         return $this;
@@ -35,10 +41,16 @@ class Number extends Field
 
     /**
      * Set the maximum allowed value.
+     *
+     * Replaces any previously registered `max:` rule so repeated calls
+     * (including inside a `dependsOn` closure) do not accumulate stale entries.
      */
     public function max(int|float $max): static
     {
         $this->max = $max;
+        $this->extraRules = array_values(
+            array_filter($this->extraRules, fn ($r) => ! (is_string($r) && str_starts_with($r, 'max:')))
+        );
         $this->extraRules[] = "max:{$max}";
 
         return $this;

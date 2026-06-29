@@ -111,7 +111,7 @@ export function LoginPage() {
     setErrors({})
     setSubmitting(true)
     try {
-      await login(submittedEmail, submittedPassword)
+      await login(submittedEmail, submittedPassword, keepSignedIn)
     } catch (err) {
       if (err instanceof TwoFactorRequiredError) {
         navigate('/2fa/challenge', { replace: true })

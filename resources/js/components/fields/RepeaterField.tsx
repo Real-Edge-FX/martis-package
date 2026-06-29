@@ -331,7 +331,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                 <span
                   className="flex cursor-grab items-center active:cursor-grabbing"
                   style={{ color: 'var(--martis-text-muted)' }}
-                  title={tAct('reorder', 'Reorder')}
+                  data-pr-tooltip={tAct('reorder', 'Reorder')}
+                  data-pr-position="top"
                 >
                   <DotsSixVerticalIcon size={16} />
                 </span>
@@ -360,7 +361,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                   type="button"
                   onClick={() => toggleCollapse(rowKey)}
                   className="rounded p-1 hover:bg-[color:var(--martis-hover)]"
-                  title={isCollapsed ? tAct('expand', 'Expand') : tAct('collapse', 'Collapse')}
+                  data-pr-tooltip={isCollapsed ? tAct('expand', 'Expand') : tAct('collapse', 'Collapse')}
+                  data-pr-position="top"
                   style={{ color: 'var(--martis-text-muted)' }}
                 >
                   {isCollapsed ? <CaretDownIcon size={14} /> : <CaretUpIcon size={14} />}
@@ -373,7 +375,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                   disabled={atMax}
                   className="rounded p-1 hover:bg-[color:var(--martis-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ color: 'var(--martis-text-muted)' }}
-                  title={tAct('duplicate_row', 'Duplicate row')}
+                  data-pr-tooltip={tAct('duplicate_row', 'Duplicate row')}
+                  data-pr-position="top"
                 >
                   <CopyIcon size={14} />
                 </button>
@@ -383,7 +386,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                 onClick={() => removeRow(index)}
                 className="rounded p-1 hover:bg-[color:var(--martis-hover)]"
                 style={{ color: 'var(--martis-danger)' }}
-                title={tAct('remove', 'Remove')}
+                data-pr-tooltip={tAct('remove', 'Remove')}
+                data-pr-position="top"
               >
                 <TrashIcon size={14} />
               </button>
@@ -470,10 +474,11 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
               }}
               disabled={atMax || repeatables.length === 0}
               className="martis-btn-secondary inline-flex items-center gap-1.5"
-              title={tAct('paste_rows', 'Paste rows (CSV/TSV/JSON)')}
+              data-pr-tooltip={tAct('paste_rows', 'Paste rows (CSV/TSV/JSON)')}
+              data-pr-position="top"
             >
               <ClipboardIcon size={14} />
-              {tAct('paste_rows', 'Colar linhas')}
+              {tAct('paste_rows', 'Paste rows')}
             </button>
           )}
           <div className="relative" ref={addMenuRef}>
@@ -558,7 +563,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
               >
                 <PlusIcon size={14} />
                 {repeatables[0]?.label
-                  ? t('repeater_add_named', { label: repeatables[0].label, defaultValue: `Adicionar ${repeatables[0].label}` })
+                  ? t('repeater_add_named', { label: repeatables[0].label, defaultValue: `Add ${repeatables[0].label}` })
                   : tAct('add_row', 'Add row')}
               </button>
             )}
@@ -634,7 +639,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                 onClick={() => setBulkPasteOpen(false)}
               >
                 <XIcon size={14} />
-                {tAct('cancel', 'Cancelar')}
+                {tAct('cancel', 'Cancel')}
               </button>
               <button
                 type="button"
@@ -643,7 +648,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                   const targetType = isMultiType ? bulkPasteType : primaryType
                   const rep = repeatableFor(targetType)
                   if (!rep) {
-                    setBulkPasteError(t('repeater_paste_unknown_type', 'Tipo desconhecido.') as string)
+                    setBulkPasteError(t('repeater_paste_unknown_type', 'Unknown row type.') as string)
                     return
                   }
                   const parsed = parseBulkRows(bulkPasteText, rep)
@@ -652,7 +657,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                     return
                   }
                   if (parsed.length === 0) {
-                    setBulkPasteError(t('repeater_paste_empty', 'Nada detetado para importar.') as string)
+                    setBulkPasteError(t('repeater_paste_empty', 'Nothing detected to import.') as string)
                     return
                   }
                   const remaining = meta.maxRows != null ? meta.maxRows - rows.length : Infinity
@@ -669,7 +674,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                 }}
               >
                 <ClipboardIcon size={14} />
-                {t('repeater_paste_submit', 'Importar')}
+                {t('repeater_paste_submit', 'Import')}
               </button>
             </div>
           </div>
@@ -695,18 +700,18 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-semibold">{t('repeater_confirm_title', 'Remover linha?')}</h2>
+            <h2 className="text-base font-semibold">{t('repeater_confirm_title', 'Remove row?')}</h2>
             <p className="mt-1 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-              {t('repeater_confirm_body', { label: pendingRemoval.label, defaultValue: `Remover ${pendingRemoval.label}?` })}
+              {t('repeater_confirm_body', { label: pendingRemoval.label, defaultValue: `Remove ${pendingRemoval.label}?` })}
             </p>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button type="button" className="martis-btn-secondary" onClick={() => setPendingRemoval(null)}>
                 <XIcon size={14} />
-                {tAct('cancel', 'Cancelar')}
+                {tAct('cancel', 'Cancel')}
               </button>
               <button type="button" className="martis-btn-danger" onClick={confirmRemove}>
                 <TrashIcon size={14} />
-                {tAct('remove', 'Remover')}
+                {tAct('remove', 'Remove')}
               </button>
             </div>
           </div>
