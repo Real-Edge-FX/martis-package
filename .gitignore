@@ -34,3 +34,6 @@ pnpm-debug.log*
 docs/superpowers/
 .superpowers/
 .claude-flow/
+
+# Internal-only dev docs — never publish to the public package repo
+internal/
