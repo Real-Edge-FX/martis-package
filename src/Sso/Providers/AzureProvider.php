@@ -59,7 +59,11 @@ class AzureProvider extends AbstractSsoProvider
         $email = (string) ($user->getEmail() ?? $user->user['mail'] ?? $user->user['userPrincipalName'] ?? '');
         $name = $user->getName() ?? ($user->user['displayName'] ?? null);
         $externalId = (string) $user->getId();
-        $accessToken = method_exists($user, 'token') ? null : null;
+
+        // Socialite's Two\User exposes the OAuth token as a public `token`
+        // property. (The old `method_exists($user, 'token') ? null : null`
+        // here was dead code — both branches were null.)
+        $accessToken = null;
         if (property_exists($user, 'token')) {
             /** @phpstan-ignore-next-line */
             $accessToken = (string) $user->token;
@@ -118,7 +122,7 @@ class AzureProvider extends AbstractSsoProvider
         $url = sprintf(
             'https://graph.microsoft.com/v1.0/users/%s/appRoleAssignments?$filter=resourceId eq %s',
             urlencode($externalId),
-            $resourceId,
+            urlencode($resourceId),
         );
 
         return $this->graphCall($url, $accessToken, 'principalDisplayName');
@@ -162,6 +166,8 @@ class AzureProvider extends AbstractSsoProvider
     protected function graphCall(string $url, string $accessToken, string $fieldName): array
     {
         $response = Http::acceptJson()
+            ->timeout(10)
+            ->connectTimeout(5)
             ->withToken($accessToken)
             ->get($url);
 

@@ -31,3 +31,17 @@ fixing them would introduce a regression.
   level authz uses 403, but the per-model loop intentionally uses 404. If a future
   decision wants 403 everywhere, that is a product change (update tests + docs), not
   a bug fix.
+
+## MEDIUM — "No OAuth state parameter validation — CSRF on the SSO callback"
+
+- **File:** `src/Http/Controllers/SsoController.php::callback` / `src/Sso/Providers/AzureProvider.php::resolveIdentity`
+- **Verdict: FALSE POSITIVE for the default flow.** No manual state handling needed.
+- **Why:** `resolveIdentity()` resolves the user via Socialite's stateful
+  `$client->user()` (AzureProvider.php:57). In the default (stateful) flow Socialite
+  generates the `state` parameter on redirect, stores it in the session, and validates
+  it on `user()` — throwing `InvalidStateException` on mismatch, which the callback
+  catches (SsoController.php:67) and turns into a denied redirect. CSRF state validation
+  is therefore already enforced. `->stateless()` is only applied when the consumer opts
+  in via `stateless: true` config; in that explicit mode Socialite skips state by design
+  and the integrator owns CSRF protection (documented Socialite contract). Adding a second
+  manual state check would duplicate Socialite and risk double-consuming the session value.

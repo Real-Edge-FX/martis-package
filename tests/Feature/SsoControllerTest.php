@@ -236,6 +236,37 @@ it('callback denies login when user has no matching role and on_no_role_match is
     expect(auth()->check())->toBeFalse();
 });
 
+it('callback denies login when on_no_role_match is callable but no callback yields a response', function () {
+    // Regression: the controller fired the no-role-match hook for EVERY
+    // strategy and, when 'callable' + a null hook result, fell through to the
+    // 'guest' path — logging the user in with no roles. 'callable' with no
+    // registered callback (null return) must deny.
+    config()->set('martis.auth.sso.providers.azure.on_no_role_match', 'callable');
+
+    $identity = stubIdentity('callable-null@example.com', ['UNKNOWN_ROLE']);
+
+    MartisSso::resolveUserUsing(fn (SsoIdentity $id) => SsoTestUser::query()->updateOrCreate(['email' => $id->email], ['name' => $id->name, 'password' => bcrypt('x')]));
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
+        public function __construct(private SsoIdentity $stub) {}
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
+    });
+
+    $response = $this->get('/martis/sso/azure/callback');
+
+    $response->assertRedirect('/martis/login');
+    expect(auth()->check())->toBeFalse();
+});
+
 it('callback allows guest login when on_no_role_match is guest', function () {
     config()->set('martis.auth.sso.providers.azure.on_no_role_match', 'guest');
 

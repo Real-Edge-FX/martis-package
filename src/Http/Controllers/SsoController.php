@@ -93,9 +93,23 @@ class SsoController extends Controller
             $cfg = config("martis.auth.sso.providers.{$provider}", []);
             $strategy = (string) ($cfg['on_no_role_match'] ?? 'deny');
 
-            $hookResult = $this->manager->fireNoRoleMatch($identity, $provider);
-            if ($hookResult instanceof RedirectResponse) {
-                return $hookResult;
+            // The custom no-role-match hook is consulted ONLY for the
+            // 'callable' strategy (see SsoManager::onNoRoleMatchUsing). Firing
+            // it unconditionally let a registered callback override an explicit
+            // 'deny', and a 'callable' strategy whose callback returned null
+            // fell through to the 'guest' path — logging the user in with no
+            // roles. Both are now closed.
+            if ($strategy === 'callable') {
+                $hookResult = $this->manager->fireNoRoleMatch($identity, $provider);
+                if ($hookResult instanceof RedirectResponse) {
+                    return $hookResult;
+                }
+
+                // No callback registered, or it returned null: deny. A
+                // 'callable' strategy must never silently log in role-less.
+                return redirect()
+                    ->route('martis.login')
+                    ->withErrors(['sso' => __('martis::messages.sso_no_role_match')]);
             }
 
             if ($strategy === 'deny') {
