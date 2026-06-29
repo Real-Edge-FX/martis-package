@@ -141,6 +141,32 @@ it('Url buildRules fails on values that cannot be normalised to a URL', function
     expect($messages)->toHaveCount(1);
 });
 
+it('Url buildRules rejects dangerous URL schemes (defense-in-depth XSS guard)', function () {
+    // FILTER_VALIDATE_URL accepts some `javascript://`/`data://` forms,
+    // which would then be stored and rendered as a clickable href. The
+    // validator must restrict the stored scheme to http/https so a
+    // dangerous scheme never reaches the database.
+    $field = Url::make('website_url');
+    $closure = array_values(array_filter($field->buildRules(), fn ($r) => $r instanceof Closure))[0];
+
+    foreach (['javascript://alert(1)', 'data://text/html,x', 'vbscript://x'] as $danger) {
+        $messages = [];
+        $closure('website_url', $danger, function (string $msg) use (&$messages) {
+            $messages[] = $msg;
+        });
+        expect($messages)->not->toBeEmpty("dangerous scheme [{$danger}] must be rejected");
+    }
+
+    // http/https still pass.
+    foreach (['https://ok.com', 'http://ok.com', 'www.ok.com'] as $safe) {
+        $messages = [];
+        $closure('website_url', $safe, function (string $msg) use (&$messages) {
+            $messages[] = $msg;
+        });
+        expect($messages)->toBeEmpty("safe URL [{$safe}] must pass");
+    }
+});
+
 // ---------------------------------------------------------------------------
 // Normalisation — Martis accepts bare hostnames by auto-prepending the scheme
 // ---------------------------------------------------------------------------

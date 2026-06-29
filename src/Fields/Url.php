@@ -72,7 +72,23 @@ class Url extends Field
                     return;
                 }
                 $normalised = self::normaliseUrl($value);
-                if (filter_var($normalised, FILTER_VALIDATE_URL) === false) {
+
+                $invalid = filter_var($normalised, FILTER_VALIDATE_URL) === false;
+
+                // Defense-in-depth XSS guard: FILTER_VALIDATE_URL accepts
+                // some `javascript://` / `data://` / `vbscript://` forms.
+                // Restrict the stored scheme to http/https so a dangerous
+                // scheme can never reach the database (and therefore never
+                // be rendered as a clickable href). A normalised value
+                // always carries an explicit scheme.
+                if (! $invalid) {
+                    $scheme = strtolower((string) parse_url($normalised, PHP_URL_SCHEME));
+                    if (! in_array($scheme, ['http', 'https'], true)) {
+                        $invalid = true;
+                    }
+                }
+
+                if ($invalid) {
                     try {
                         $message = trans('validation.url', ['attribute' => $attribute]);
                     } catch (\Throwable) {
