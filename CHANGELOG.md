@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-06-29
+
+> **Security release — ecosystem audit sweep.** A full-ecosystem audit (PHP + React) found and fixed 2 critical and ~28 high-severity issues plus a long tail of medium/low fixes; each fix is regression-tested and several audit findings were verified as false positives and rejected (not "fixed"). **Contains one breaking change** — see `manage-martis-cache` below. Test health: 2137 Pest + 189 Vitest passing.
+
 ### Security (ecosystem audit)
 
 - **Action field-schema endpoint and replicate form leaked data past authorization (medium).** `ActionController::fields()` (`GET …/actions/{action}/fields`) returned the action's input field definitions with no authorization check — it now applies the same `authorizedToSee()` gate as `execute()`. `ResourceController::replicateFields()` returned every field's value without the per-model `isAuthorizedForModel()` filter the detail endpoint applies, so a field hidden for that record (`canSeeForModel` / `canSeeUsingPolicy`) leaked its value through the replicate form; it now skips unauthorized fields.
