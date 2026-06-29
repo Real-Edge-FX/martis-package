@@ -71,6 +71,16 @@ REJECTED (false positive, do NOT fix): impersonation `stop()` authz — see REJE
 
 Remaining inline (mine): ~18 security/high findings (SSO deny-bypass, 2FA guards, mass-assignment, config dup key, checkPolicy ignores $request, InstallCommand --force, UserCommand plaintext pw, etc.) + the 2 docs-sync batches.
 
+#### TAIL WORKFLOW — FULLY APPLIED (2026-06-29)
+
+All 23 tail batches landed in 2 commits: `5cb4d6f` (16 batches, 54 fixes) + `24fcbf0` (7 batches, 22 fixes) = **76 tail fixes**. Patches were applied with `.claude-flow` scratch-noise stripped (the agents' `git add -A` swept it in) and a few reject hunks resolved by hand. Fallout fixed during merge: KeyValue i18n (reverted — needs lang keys + translator-booted tests; DEFERRED), UserCommandTest (rewritten to the project's per-suite schema-bootstrap convention), TwoFactorService phpstan (@phpstan-assert on requireModel + property @var), MartisServiceProvider Octane events as strings (optional dep), ProfileResource non-package class ref, ParitySurfaceTest enum caller, EnvFilePatcherTest dotfile-safe teardown.
+
+**Verify-pass rejections/deferrals (do NOT blindly re-apply):** window.confirm→DeleteModal (needs controlled state), DrawerSlot::Quick orphan (needs FE consumer), HasPolicy self::→static:: policy cache (latent test-isolation hazard, no prod impact), KeyValue i18n default labels.
+
+Test health after tail: **2107 Pest + 184 Vitest passing, phpstan clean, pint clean.** Worktrees cleaned (`git worktree prune`). Frontend bundle rebuild STILL deferred to pre-release.
+
+**Next: inline security highs** (the ~18 above) then the 2 docs-sync batches. The v1.15.2 tag remains HELD.
+
 ### Run history
 
 - **Run 1 (task wlks2dsru):** hit session limit (resets 23:00 Lisbon) mid-way. Returned `{confirmed:44, critical:2, high:14, medium:15, low:13}` but `synth: null` — REPORT NOT WRITTEN. ~130 verify agents + fe-pages-lib finder + synth failed on the limit. ~227 agents / 5.8M tokens already cached on disk.
