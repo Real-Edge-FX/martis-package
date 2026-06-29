@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security (ecosystem audit)
 
+- **Action field-schema endpoint and replicate form leaked data past authorization (medium).** `ActionController::fields()` (`GET …/actions/{action}/fields`) returned the action's input field definitions with no authorization check — it now applies the same `authorizedToSee()` gate as `execute()`. `ResourceController::replicateFields()` returned every field's value without the per-model `isAuthorizedForModel()` filter the detail endpoint applies, so a field hidden for that record (`canSeeForModel` / `canSeeUsingPolicy`) leaked its value through the replicate form; it now skips unauthorized fields.
+
 - **`?context=update` / `?context=create` leaked field data to view-only users (high).** `ResourceController::show()` and `syncField()` honoured `?context=update`/`create` (which expose that context's raw, unmasked field set) after only a `view` check. `show()` now also requires `authorizedToUpdate`/`authorizedToCreate` for those contexts; `syncField()`'s update gate was `authorizedToCreate() || authorizedToViewAny()` — a view-only user passed it — and is now `authorizedToUpdate()`. RED-confirmed regression test: a view-but-not-update user gets 403 on `?context=update`.
 
 - **2FA setup could silently overwrite a confirmed secret (high).** `TwoFactorService::generateSetup()` generated and stored a fresh secret with no guard, so calling it again replaced the live, confirmed 2FA secret (and invalidated the recovery codes) without any re-authentication. It now throws if 2FA is already enabled — the user must disable it first (itself a gated action). RED-confirmed test.

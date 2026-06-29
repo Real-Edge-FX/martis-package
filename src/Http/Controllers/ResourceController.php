@@ -638,6 +638,13 @@ class ResourceController extends MartisController
             if ($field instanceof File) {
                 continue;
             }
+            // Respect per-model field authorization — a field hidden for this
+            // record (canSeeForModel / canSeeUsingPolicy) must not leak its
+            // value through the replicate form. Checked against the original
+            // model the replica was copied from.
+            if (method_exists($field, 'isAuthorizedForModel') && ! $field->isAuthorizedForModel($request, $model)) {
+                continue;
+            }
             $resolved = $field->resolve($replica);
             $values[$field->attribute()] = $resolved;
         }

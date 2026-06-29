@@ -110,6 +110,13 @@ class ActionController extends MartisController
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
         }
 
+        // Gate the field-schema endpoint with the same check execute() uses —
+        // a user who cannot see/run the action must not enumerate its input
+        // field definitions.
+        if (! $actionInstance->authorizedToSee($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         $fields = $actionInstance->fields($request);
 
         /** @var array<string, mixed> $data */
