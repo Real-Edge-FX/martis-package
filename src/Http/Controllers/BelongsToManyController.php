@@ -614,8 +614,13 @@ class BelongsToManyController extends MartisController
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
-        /** @phpstan-ignore staticMethod.notFound */
-        $parentModel = $modelClass::find($id); // @phpstan-ignore-line
+        // Resolve the parent through the resource's indexQuery scope + a key
+        // match, never a bare find(): a scoped-out id stays indistinguishable
+        // from a missing one (uniform 404) and the scope is enforced even for
+        // resources with no policy.
+        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
+            ->whereKey($id)
+            ->first();
 
         if ($parentModel === null) {
             return JsonErrorResponse::notFound('Parent record not found.')->toResponse();

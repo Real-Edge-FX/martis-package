@@ -82,6 +82,12 @@ class Url extends Field
                 // be rendered as a clickable href). A normalised value
                 // always carries an explicit scheme.
                 if (! $invalid) {
+                    // Write-validation deliberately accepts only http/https.
+                    // The frontend renderer (isSafeHref) additionally treats
+                    // already-stored mailto:/tel: values as safe for *display*,
+                    // but those don't pass FILTER_VALIDATE_URL above and are not
+                    // accepted on write — this asymmetry is intentional
+                    // (render-safe, store-strict), not an oversight.
                     $scheme = strtolower((string) parse_url($normalised, PHP_URL_SCHEME));
                     if (! in_array($scheme, ['http', 'https'], true)) {
                         $invalid = true;

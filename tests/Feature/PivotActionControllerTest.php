@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Http\Request;
@@ -339,4 +340,42 @@ it('returns validation error when no resources selected', function () {
     );
 
     $response->assertStatus(422);
+});
+
+// ── IDOR via indexQuery scope (whole-branch review finding) ──────────────────
+
+class PivotScopedParentResource extends PivotParentResource
+{
+    public static function uriKey(): string
+    {
+        return 'pivot-scoped-parents';
+    }
+
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        return $query->where('name', '!=', 'HIDDEN');
+    }
+}
+
+it('a pivot action cannot reach a parent outside the resource indexQuery scope (uniform 404)', function () {
+    app(ResourceRegistry::class)->register(PivotScopedParentResource::class);
+
+    $parent = PivotParentModel::create(['name' => 'HIDDEN']); // excluded by indexQuery
+    $child = PivotChildModel::create(['name' => 'Child']);
+    $parent->pivotChildren()->attach($child->id, ['priority' => 'normal']);
+
+    $response = $this->postJson(
+        route('martis.api.resources.belongs-to-many.actions.execute', [
+            'resource' => 'pivot-scoped-parents',
+            'id' => $parent->id,
+            'relationship' => 'pivotChildren',
+            'action' => 'pivot-test-action',
+        ]),
+        ['resources' => [$child->id], 'fields' => ['priority' => 'high']],
+    );
+
+    // The parent is scoped out → resolved as not-found (404, no existence
+    // oracle), and the pivot is never touched.
+    $response->assertNotFound();
+    expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('normal');
 });

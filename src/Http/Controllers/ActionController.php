@@ -559,7 +559,14 @@ class ActionController extends MartisController
         }
 
         $modelClass = $resourceClass::model();
-        $parentModel = $modelClass::find($id);
+        // Resolve the parent through the resource's indexQuery scope (tenant /
+        // ownership filters) + a key match — never a bare find(). This keeps a
+        // scoped-out id indistinguishable from a missing one (uniform 404, no
+        // existence oracle across ownership boundaries) and enforces the scope
+        // even for resources with no policy, matching resolveModels().
+        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
+            ->whereKey($id)
+            ->first();
         if ($parentModel === null) {
             return JsonErrorResponse::notFound("Parent record [{$id}] not found.")->toResponse();
         }

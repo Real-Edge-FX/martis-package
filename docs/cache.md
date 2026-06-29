@@ -152,7 +152,13 @@ For ad-hoc debugging without flipping any switch:
 - `X-Martis-No-Cache: 1` header.
 - `?nocache=1` query parameter (also accepts `?nocache=true`).
 
-Both work on every cached endpoint. Useful for testing whether an issue is cache-related before changing config.
+Both signals are **gated by the `bypass-martis-cache` ability, which denies by default** — an ordinary authenticated user cannot force expensive metric / navigation / schema re-computation on every request. Grant it to privileged users in your service provider:
+
+```php
+Gate::define('bypass-martis-cache', fn ($user) => $user->is_admin);
+```
+
+Once granted, the header / query param skip the cache layer on every cached endpoint. Useful for testing whether an issue is cache-related before changing config.
 
 ## Adding your own cache layer
 

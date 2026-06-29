@@ -193,12 +193,13 @@ it('martis:sso sanitizes a hyphenated custom provider name to a safe identifier'
         '--no-migrate' => true,
     ])->assertSuccessful();
 
-    // The sanitized name must appear in config as a valid column-name fragment.
-    if (file_exists(config_path('martis.php'))) {
-        $config = (string) file_get_contents(config_path('martis.php'));
-        expect($config)->toContain('my_provider');
-        expect($config)->not->toContain('my-provider');
-    }
+    // The command must write the provider block to config/martis.php — assert
+    // the file exists (not a silent skip) so the sanitization check can never
+    // vanish vacuously.
+    expect(file_exists(config_path('martis.php')))->toBeTrue();
+    $config = (string) file_get_contents(config_path('martis.php'));
+    expect($config)->toContain('my_provider')
+        ->and($config)->not->toContain('my-provider');
 });
 
 it('martis:sso rejects a provider name that reduces to empty after sanitization', function () {

@@ -120,12 +120,12 @@ class ExecuteAction implements ShouldQueue
                     ->update([
                         'status' => $status,
                         'exception' => $exception ?? '',
-                        // ActionEvent casts these to 'array' — pass the raw
-                        // arrays and let the cast encode once. json_encode()
-                        // here double-encoded them (a JSON string of a JSON
-                        // string), so reads returned a string, not an array.
-                        'original' => $originalDiff,
-                        'changes' => $changesDiff,
+                        // This is a query-builder update, NOT a model save, so
+                        // Eloquent's 'array' cast does NOT run — the JSON must
+                        // be encoded by hand here. (The cast still decodes on
+                        // read, yielding the array consumers expect.)
+                        'original' => json_encode($originalDiff),
+                        'changes' => json_encode($changesDiff),
                     ]);
             }
         } catch (\Throwable $e) {
