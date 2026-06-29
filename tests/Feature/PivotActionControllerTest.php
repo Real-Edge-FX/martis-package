@@ -118,6 +118,48 @@ class PivotChildResource extends Resource
     }
 }
 
+/** Parent resource the current user may NOT view — exercises the IDOR guard. */
+class PivotDeniedViewResource extends PivotParentResource
+{
+    public static function uriKey(): string
+    {
+        return 'pivot-denied-view-parents';
+    }
+
+    public function authorizedToView(Request $request): bool
+    {
+        return false;
+    }
+}
+
+/** Pivot action whose per-model canRun always denies. */
+class PivotDeniedRunAction extends PivotTestAction
+{
+    public function uriKey(): string
+    {
+        return 'pivot-denied-run-action';
+    }
+
+    public function authorizedToRun(Request $request, Model $model): bool
+    {
+        return false;
+    }
+}
+
+/** Parent resource that exposes the deny-run pivot action. */
+class PivotRunGuardResource extends PivotParentResource
+{
+    public static function uriKey(): string
+    {
+        return 'pivot-runguard-parents';
+    }
+
+    public function actions(Request $request): array
+    {
+        return [PivotDeniedRunAction::make()];
+    }
+}
+
 // ── Setup ───────────────────────────────────────────────────────────────────
 
 beforeEach(function () {
@@ -207,6 +249,48 @@ it('executes a pivot action and updates the pivot column', function () {
     foreach ($updated as $child) {
         expect($child->pivot->priority)->toBe('high');
     }
+});
+
+it('forbids executing a pivot action on a parent the user cannot view (IDOR)', function () {
+    app(ResourceRegistry::class)->register(PivotDeniedViewResource::class);
+
+    $parent = PivotParentModel::create(['name' => 'Secret']);
+    $child = PivotChildModel::create(['name' => 'Child']);
+    $parent->pivotChildren()->attach($child->id, ['priority' => 'normal']);
+
+    $response = $this->postJson(
+        route('martis.api.resources.belongs-to-many.actions.execute', [
+            'resource' => 'pivot-denied-view-parents',
+            'id' => $parent->id,
+            'relationship' => 'pivotChildren',
+            'action' => 'pivot-test-action',
+        ]),
+        ['resources' => [$child->id], 'fields' => ['priority' => 'high']],
+    );
+
+    $response->assertStatus(403);
+    expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('normal');
+});
+
+it('denies a pivot action when per-model authorizedToRun returns false', function () {
+    app(ResourceRegistry::class)->register(PivotRunGuardResource::class);
+
+    $parent = PivotParentModel::create(['name' => 'Parent']);
+    $child = PivotChildModel::create(['name' => 'Child']);
+    $parent->pivotChildren()->attach($child->id, ['priority' => 'normal']);
+
+    $response = $this->postJson(
+        route('martis.api.resources.belongs-to-many.actions.execute', [
+            'resource' => 'pivot-runguard-parents',
+            'id' => $parent->id,
+            'relationship' => 'pivotChildren',
+            'action' => 'pivot-denied-run-action',
+        ]),
+        ['resources' => [$child->id], 'fields' => ['priority' => 'high']],
+    );
+
+    $response->assertStatus(404);
+    expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('normal');
 });
 
 it('returns 404 when the parent resource does not exist', function () {

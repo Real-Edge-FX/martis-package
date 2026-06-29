@@ -553,6 +553,15 @@ class ActionController extends MartisController
             return JsonErrorResponse::notFound("Relationship [{$relationship}] not found on resource.")->toResponse();
         }
 
+        // Authorize access to the PARENT record before anything else.
+        // Without this a caller could run a pivot action against any
+        // parent row by guessing its id (IDOR) — the relationship index
+        // controllers gate the parent the same way.
+        $parentInstance = new $resourceClass($parentModel);
+        if (! $parentInstance->authorizedToView($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         $instance = new $resourceClass;
         $actionInstance = $this->findAction($instance, $action, $request);
         if ($actionInstance === null) {
@@ -568,7 +577,6 @@ class ActionController extends MartisController
         }
 
         // Resolve pivot columns from the BelongsToMany field definition
-        $parentInstance = new $resourceClass($parentModel);
         $pivotColumns = $this->resolvePivotColumns($parentInstance, $request, $relationship);
 
         /** @var list<int|string> $relatedIds */
@@ -593,6 +601,17 @@ class ActionController extends MartisController
             return JsonErrorResponse::validation(
                 ['resources' => ['This action requires exactly one selected resource.']],
             )->toResponse();
+        }
+
+        // Per-model authorization — mirrors the non-pivot execute() path.
+        // Without this, a visible pivot action ran on every selected
+        // related record regardless of the action's own canRun rule.
+        if (! $actionInstance->isStandalone()) {
+            foreach ($models as $model) {
+                if (! $actionInstance->authorizedToRun($request, $model)) {
+                    return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
+                }
+            }
         }
 
         $actionFields = $actionInstance->fields($request);

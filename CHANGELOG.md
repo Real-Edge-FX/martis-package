@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security (ecosystem audit)
 
+- **Pivot action execution skipped authorization (critical).** `ActionController::executePivot()` loaded the parent record with a raw `find($id)` and never checked `authorizedToView` — any authenticated user could run a pivot action against any parent row by guessing its id (IDOR). It also ran the action handler without the per-model `authorizedToRun()` loop the non-pivot `execute()` path enforces, so a visible pivot action fired on every selected related record regardless of its `canRun` rule. Both gates are now applied: the parent is authorized before resolving the action (403 on denial), and each related model is checked against `authorizedToRun()` (404 on denial). Regression tests cover both.
+
 - **Stored XSS in `MarkdownField` (critical).** Both the display renderer and the input live-preview fed `marked.parse()` output straight into `dangerouslySetInnerHTML`. `marked` does not sanitize HTML, so a stored markdown value containing raw `<script>`, event-handler attributes (`onerror`, …), or `javascript:` URLs executed in the browser of every user who viewed the record. `renderMarkdown()` now runs the parsed HTML through DOMPurify (new `dompurify` dependency). The `zero` preset's entity-escaping is unchanged. Exported `renderMarkdown` is covered by a sanitization regression test.
 
 ### Fixed (ecosystem audit)
