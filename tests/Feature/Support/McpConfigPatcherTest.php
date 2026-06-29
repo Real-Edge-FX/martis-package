@@ -114,3 +114,28 @@ it('writes a backup file before mutating an existing config', function () {
 
     expect(file_exists($this->base.'/.mcp.json.bak'))->toBeTrue();
 });
+
+it('round-trips a TOML inline array whose string values contain commas', function () {
+    // Manually craft a TOML file with an args array where one element
+    // contains a comma inside a quoted string. The naive explode(',', …)
+    // implementation would split that element into two, corrupting the
+    // round-trip. The fixed splitTomlInlineArray() must keep quoted commas
+    // as part of their enclosing token.
+    $toml = <<<'TOML'
+[mcp_servers.other]
+args = ["artisan", "foo,bar", "baz"]
+TOML;
+
+    mkdir($this->base.'/.codex', 0755, true);
+    file_put_contents($this->base.'/.codex/config.toml', $toml);
+
+    $patcher = new McpConfigPatcher($this->base);
+    $entry = ['command' => 'php', 'args' => ['artisan', 'martis:mcp-serve'], 'cwd' => $this->base];
+    $patcher->patch(codexProfile(), $entry);
+
+    // The "other" section args must still be intact after patching.
+    $written = (string) file_get_contents($this->base.'/.codex/config.toml');
+
+    // The comma-containing token must appear unmodified in the output.
+    expect($written)->toContain('"foo,bar"');
+});

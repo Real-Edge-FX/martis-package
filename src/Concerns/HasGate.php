@@ -39,8 +39,8 @@ use Martis\Gates\PlanRanker;
  *
  * Consumers using the {@see HasBadge} trait already have `withBadge`
  * declared; `lockPreset` calls into that setter when the preset
- * carries a `badge` key. The trait gracefully no-ops on the badge
- * side when `HasBadge` is absent (the `method_exists` guard below).
+ * carries a `badge` key. `withBadge()` is always available because
+ * every HasGate consumer also uses HasBadge (enforced by convention).
  */
 trait HasGate
 {

@@ -182,6 +182,7 @@
                 ],
                 'avatar' => [
                     'enabled' => (bool) config('martis.profile.avatar.enabled', true),
+                    'max_size_kb' => (int) config('martis.profile.avatar.max_size_kb', 2048),
                 ],
                 'two_factor' => [
                     'enabled' => (bool) config('martis.profile.two_factor.enabled', true),

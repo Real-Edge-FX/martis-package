@@ -31,9 +31,19 @@ use Illuminate\Http\Request;
  *     ],
  *
  * `requirePlan('pro')` then translates into "locked when the user's
- * resolved plan rank sits below the required rank". Without the
- * config in place the ranker degrades quietly: unknown plans rank
- * `-1`, comparisons fail open (no lock), and the trait stays inert.
+ * resolved plan rank sits below the required rank".
+ *
+ * Failure modes when the config is absent or incomplete:
+ *   - **Unknown required tier** (the string passed to `requirePlan` is
+ *     not in `plan_rank`): fails **open** — the gate is skipped so a
+ *     typo does not accidentally hide features.
+ *   - **Resolver not configured or returns null**: fails **closed** —
+ *     the user is treated as having no plan (rank -1) and is locked
+ *     below every declared tier.
+ *   - **User's resolved plan not in the rank table**: also fails
+ *     **closed** — the unknown plan receives implicit rank -1, which
+ *     is less than every declared rank (minimum 0), so the user is
+ *     locked.
  */
 class PlanRanker
 {

@@ -10,6 +10,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 use Martis\Models\CacheState;
 
 /**
@@ -220,14 +221,40 @@ class MartisCache
         foreach ($types as $t) {
             $this->assertKnownType($t);
 
-            $current = $this->state($t);
-            $next = [
-                'version' => $current['version'] + 1,
-                'cleared_at' => $now->toIso8601String(),
-                'override' => $current['override'],
-            ];
+            try {
+                DB::transaction(function () use ($t, $now): void {
+                    // Lock the row so concurrent clear() calls cannot both read
+                    // the same version N and each write N+1 — one would read
+                    // the other's committed N+1 and write N+2 instead.
+                    $row = CacheState::query()->lockForUpdate()->where('type', $t)->first();
 
-            $this->writeState($t, $next);
+                    $current = $row
+                        ? [
+                            'version' => (int) $row->version,
+                            'cleared_at' => $row->cleared_at?->toIso8601String(),
+                            'override' => $row->override === null ? null : (bool) $row->override,
+                        ]
+                        : ['version' => 1, 'cleared_at' => null, 'override' => null];
+
+                    $next = [
+                        'version' => $current['version'] + 1,
+                        'cleared_at' => $now->toIso8601String(),
+                        'override' => $current['override'],
+                    ];
+
+                    $this->writeState($t, $next);
+                });
+            } catch (QueryException) {
+                // Table not yet migrated — fall back to a best-effort
+                // non-atomic bump (historical behaviour before v1.8.8).
+                $current = $this->state($t);
+                $next = [
+                    'version' => $current['version'] + 1,
+                    'cleared_at' => $now->toIso8601String(),
+                    'override' => $current['override'],
+                ];
+                $this->writeState($t, $next);
+            }
         }
     }
 
@@ -352,7 +379,10 @@ class MartisCache
         // extension is the source of truth when no config exists.
         if ($raw === null) {
             if ($extension !== null) {
-                return $extension;
+                return [
+                    'enabled' => $extension['enabled'],
+                    'ttl' => $this->normalizeTtl($extension['ttl']),
+                ];
             }
 
             return ['enabled' => false, 'ttl' => null];
@@ -469,17 +499,29 @@ class MartisCache
      */
     protected function writeState(string $type, array $next): void
     {
+        $now = Date::now();
+
         try {
-            CacheState::query()->updateOrInsert(
-                ['type' => $type],
-                [
+            $affected = CacheState::query()
+                ->where('type', $type)
+                ->update([
                     'version' => $next['version'],
                     'cleared_at' => $next['cleared_at'],
                     'override' => $next['override'],
-                    'updated_at' => Date::now(),
-                    'created_at' => Date::now(),
-                ],
-            );
+                    'updated_at' => $now,
+                ]);
+
+            if ($affected === 0) {
+                // Row does not exist yet — insert with created_at.
+                CacheState::query()->insert([
+                    'type' => $type,
+                    'version' => $next['version'],
+                    'cleared_at' => $next['cleared_at'],
+                    'override' => $next['override'],
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]);
+            }
         } catch (QueryException) {
             // Migration pending — silently degrade. The historical
             // semantics (state lost on Cache::flush()) reapply until

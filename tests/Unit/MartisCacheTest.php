@@ -269,6 +269,28 @@ it('runtime disable on a custom layer wins over the extension defaults', functio
     }
 });
 
+it('normalizedConfig() normalizes a zero TTL on an extension to null (no expiry)', function () {
+    // Passing ttl: 0 to extend() must result in no-expiry semantics
+    // (null TTL) rather than addMinutes(0) = immediate expiry.
+    MartisCache::extend('orders', enabled: true, ttl: 0);
+
+    try {
+        expect($this->cache->ttl('orders'))->toBeNull();
+    } finally {
+        MartisCache::forgetExtension('orders');
+    }
+});
+
+it('normalizedConfig() normalizes a negative TTL on an extension to null', function () {
+    MartisCache::extend('orders', enabled: true, ttl: -5);
+
+    try {
+        expect($this->cache->ttl('orders'))->toBeNull();
+    } finally {
+        MartisCache::forgetExtension('orders');
+    }
+});
+
 it('clear() with no argument also clears custom layers', function () {
     MartisCache::extend('orders');
 

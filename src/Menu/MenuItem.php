@@ -333,9 +333,11 @@ class MenuItem
             'type' => MenuItemType::Dashboard->value,
             'label' => $this->label ?? $dashboard->name(),
             'url' => $this->url ?? '/dashboards/'.$dashboard->uriKey(),
-            // Dashboard does not expose icon() in the contract — only override
-            // when the consumer explicitly set one on the menu item.
-            'icon' => $this->icon,
+            // Prefer the MenuItem-level icon override; fall back to the
+            // dashboard's own icon() (set via withIcon()). The instanceof
+            // Dashboard guard above makes the call safe even though
+            // DashboardContract does not declare icon().
+            'icon' => $this->icon ?? $dashboard->icon(),
             'external' => $this->external,
             'uriKey' => $dashboard->uriKey(),
         ], $this->meta);

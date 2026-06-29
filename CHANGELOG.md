@@ -76,6 +76,29 @@ Verified-then-fixed in a parallel worktree-isolated pass (each finding re-checke
 - **Fix** `ProgressResult` constructor now throws `InvalidArgumentException` when `target` is negative, replacing the previous silent-zero behaviour.
 - **fix(sso):** `NativeAdapter::syncRoles` now uses `getKey()` instead of `pluck('id')` to resolve role primary keys, preventing silent role-stripping for host apps with UUID or custom-named primary keys on their Role model.
 
+- **MartisCache::clear()** now wraps the version read+write pair in a DB transaction with `lockForUpdate` to prevent lost increments under concurrent invalidation.
+- **MartisCache::writeState()** no longer overwrites `created_at` on UPDATE — the original row creation timestamp is now preserved across every version bump.
+- **MartisCache::normalizedConfig()** now passes the extension TTL through `normalizeTtl()` on the extension fast-path, so `ttl: 0` and negative values correctly resolve to no-expiry (`null`) instead of immediate expiry.
+- **HasGate docblock**: removed stale reference to a `method_exists` guard that was never present; docblock now accurately describes the HasBadge convention.
+- **MartisServiceProvider**: removed duplicate `publishes()` call that registered the `action_events` migration stub twice under the `martis-migrations` tag (dead code — the bundle block already covers it).
+- **McpConfigPatcher**: fixed TOML inline-array parser to respect quoted strings when splitting on commas; prevents corruption of values like `"hello, world"` during round-trip.
+- **EnvFilePatcher**: `remove()` now cleans up the blank separator line that `set()` writes before each key, leaving no orphaned blank lines in `.env` / `.env.example` after unwiring.
+- **MartisServiceProvider**: register Octane `RequestTerminated` / `TaskTerminated` listeners that flush the static policy-resolution caches (`Resource` + `HasPolicy`) between requests in persistent-process deployments.
+- **Fix** `Image::resolveMultiple` now applies `thumbnail(Closure)` and `preview(Closure)` resolvers to every item in multiple mode (was silently falling back to disk URLs).
+- **Fix** `Image::getThumbnailPath` no longer produces a trailing dot when the stored path has no file extension.
+- **Fix** `Image::generateThumbnailWithGd` now handles BMP images (`image/bmp`, `image/x-bmp`) in both source-load and output match expressions.
+- **fix(notifications):** `markRead` no longer crashes with `TypeError` when a concurrent delete removes the notification between `markAsRead()` and the response serialization — uses in-memory model instead of `fresh()`
+- **Fix** `MenuItem::dashboard()` now correctly falls back to the dashboard's own `withIcon()` value when no icon is set on the `MenuItem` wrapper (`resolveDashboardItem` was hardcoded to `$this->icon`, silently discarding `Dashboard::icon()`).
+- **Fix** `RecordImpersonation`: removed dead ternary `$target instanceof Model ? $target::class : $target::class` — both branches returned identical values; simplified to `$target::class`.
+- **Docs** `PlanRanker`: corrected class docblock failure-mode description — unknown required tier fails open, unconfigured resolver and unknown user plan both fail closed (was previously misleadingly stated as all cases failing open).
+- **Docs** `RequestScopedAbilityCache`: added docblock note clarifying that `lookup()` is public API for host-app and future internal use; the package does not yet consume it internally (observe-only design is intentional).
+- **fix(2fa)** Replace process-persistent `static $cached` in `TwoFactorService::hasLastUsedColumn()` with a per-instance array cache keyed by connection+table, preventing stale schema state under Octane/long-running workers.
+- **fix(profile)** Align client-side avatar size guard with the server config: `AvatarSection` now reads `config.profile.avatar.max_size_kb` from the boot payload (default 2048 KB) instead of a hardcoded 5 MB constant.
+- **fix(notifications)** Replace `$notification->fresh()` (nullable) with `$notification->refresh()` in `NotificationController::markRead()`, eliminating a potential `TypeError` on concurrent deletes.
+- **fix(profile)** `ProfileResource::updateRules()` now derives the table name from `config('auth.providers.users.model')` instead of hardcoding `'users'`, fixing uniqueness checks for consumers with a custom auth model.
+- **feat(notifications)** Add `Martis\Enums\NotificationLevel` enum (Info, Success, Warning, Danger); `MartisNotification` now enforces the finite level set at the type level and fixes the stale docblock reference.
+- **fix(2fa)** Replace `assert($user instanceof Model)` with an explicit `InvalidArgumentException` guard in all public `TwoFactorService` methods, ensuring the contract is enforced regardless of `zend.assertions`.
+
 ## [1.15.2] — 2026-06-28
 
 ### Fixed

@@ -24,6 +24,13 @@ class TwoFactorService
     private const WINDOW = 1; // Time steps to check around current time
 
     /**
+     * Per-instance cache for {@see hasLastUsedColumn()}. Keyed by "connection.table".
+     *
+     * @var array<string, bool>
+     */
+    private array $lastUsedColumnCache = [];
+
+    /**
      * Generate a new TOTP secret and return setup data.
      *
      * @return array{secret: string, qr_code_svg: string, otpauth_uri: string}
@@ -43,7 +50,7 @@ class TwoFactorService
         );
 
         // Store pending secret on user (not confirmed yet)
-        assert($user instanceof Model);
+        $this->requireModel($user);
         $user->two_factor_secret = encrypt($secret);
         $user->save();
 
@@ -63,7 +70,7 @@ class TwoFactorService
      */
     public function confirm(Authenticatable $user, string $code): array
     {
-        assert($user instanceof Model);
+        $this->requireModel($user);
         if (! $user->two_factor_secret) {
             throw new \InvalidArgumentException('No pending 2FA setup found.');
         }
@@ -89,7 +96,7 @@ class TwoFactorService
      */
     public function disable(Authenticatable $user): void
     {
-        assert($user instanceof Model);
+        $this->requireModel($user);
         $user->two_factor_secret = null;
         $user->two_factor_confirmed_at = null;
         $user->two_factor_recovery_codes = null;
@@ -104,7 +111,7 @@ class TwoFactorService
      */
     public function verifyForUser(Authenticatable $user, string $code): bool
     {
-        assert($user instanceof Model);
+        $this->requireModel($user);
         if (! $user->two_factor_secret || ! $user->two_factor_confirmed_at) {
             return false;
         }
@@ -121,7 +128,7 @@ class TwoFactorService
      */
     public function verifyRecoveryCode(Authenticatable $user, string $code): bool
     {
-        assert($user instanceof Model);
+        $this->requireModel($user);
         if (! $user->two_factor_recovery_codes) {
             return false;
         }
@@ -152,7 +159,7 @@ class TwoFactorService
      */
     public function regenerateRecoveryCodes(Authenticatable $user): array
     {
-        assert($user instanceof Model);
+        $this->requireModel($user);
 
         if (! $this->isEnabled($user)) {
             throw new \InvalidArgumentException('2FA is not enabled for this user.');
@@ -172,9 +179,32 @@ class TwoFactorService
      */
     public function isEnabled(Authenticatable $user): bool
     {
-        assert($user instanceof Model);
+        $this->requireModel($user);
 
         return ! is_null($user->two_factor_confirmed_at ?? null);
+    }
+
+    /**
+     * Ensure the given Authenticatable is also an Eloquent Model.
+     *
+     * All public methods in this service read and persist Eloquent-specific
+     * properties (`save()`, dynamic attributes). A non-Model Authenticatable
+     * would cause a fatal Error at the first property access, so we fail
+     * fast with a clear message instead of relying on `assert()`, which is
+     * compiled out when `zend.assertions = -1`.
+     *
+     * @throws \InvalidArgumentException if $user is not an Eloquent Model.
+     *
+     * @phpstan-assert Model $user
+     */
+    private function requireModel(Authenticatable $user): void
+    {
+        if (! $user instanceof Model) {
+            throw new \InvalidArgumentException(
+                'TwoFactorService requires an Eloquent Model user (Model&Authenticatable). '.
+                'The provided Authenticatable is '.get_class($user).'.'
+            );
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -307,21 +337,20 @@ class TwoFactorService
      *  (e.g. multi-connection test suites) each get an independent result. */
     private function hasLastUsedColumn(Model $user): bool
     {
-        static $cache = [];
         $key = $user->getConnectionName().':'.$user->getTable();
 
-        if (array_key_exists($key, $cache)) {
-            return $cache[$key];
+        if (array_key_exists($key, $this->lastUsedColumnCache)) {
+            return $this->lastUsedColumnCache[$key];
         }
 
         try {
-            $cache[$key] = Schema::connection($user->getConnectionName())
+            $this->lastUsedColumnCache[$key] = Schema::connection($user->getConnectionName())
                 ->hasColumn($user->getTable(), 'two_factor_last_used_at');
         } catch (Throwable) {
-            $cache[$key] = false;
+            $this->lastUsedColumnCache[$key] = false;
         }
 
-        return $cache[$key];
+        return $this->lastUsedColumnCache[$key];
     }
 
     /**

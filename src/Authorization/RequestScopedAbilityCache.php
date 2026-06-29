@@ -41,6 +41,15 @@ use Illuminate\Database\Eloquent\Model;
  * the gate — every check still hits the policy at least once per
  * request. Subsequent checks read from `Map<string, bool>`.
  *
+ * Note: `lookup()` is a public API intended for host-application code
+ * and future internal consumers (Resource layer sidebar, per-record
+ * authorization block, action visibility) to short-circuit redundant
+ * `$user->can()` calls within the same request. The package does not
+ * yet call `lookup()` internally; when wiring it in, call
+ * `app(RequestScopedAbilityCache::class)->lookup($userId, $ability, $model)`
+ * before any redundant `can()` check and skip the check when the
+ * returned value is non-null.
+ *
  * Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` to enable.
  */
 class RequestScopedAbilityCache

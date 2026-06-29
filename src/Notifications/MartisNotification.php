@@ -5,6 +5,7 @@ namespace Martis\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
+use Martis\Enums\NotificationLevel;
 
 /**
  * Base class for in-app notifications surfaced in the Martis bell
@@ -36,7 +37,7 @@ class MartisNotification extends Notification
     public function __construct(
         public readonly string $title,
         public readonly string $message = '',
-        public readonly string $level = 'info',
+        public readonly NotificationLevel $level = NotificationLevel::Info,
         public readonly ?string $icon = null,
         public readonly ?string $actionUrl = null,
         public readonly ?string $actionLabel = null,
@@ -53,7 +54,7 @@ class MartisNotification extends Notification
     public static function make(
         string $title,
         string $message = '',
-        string $level = 'info',
+        NotificationLevel $level = NotificationLevel::Info,
         ?string $icon = null,
         ?string $actionUrl = null,
         ?string $actionLabel = null,
@@ -84,7 +85,7 @@ class MartisNotification extends Notification
         return [
             'title' => $this->title,
             'message' => $this->message,
-            'level' => $this->level,
+            'level' => $this->level->value,
             'icon' => $this->icon,
             'action_url' => $this->actionUrl,
             'action_label' => $this->actionLabel,

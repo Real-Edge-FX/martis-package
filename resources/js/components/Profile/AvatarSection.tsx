@@ -3,9 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { CameraIcon, TrashIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { config } from '@/lib/config'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_SIZE_MB = 5
+// Server default: 2048 KB (2 MB). Read from the boot payload so client and
+// server limits stay in sync even when `martis.profile.avatar.max_size_kb` is
+// customised without republishing assets.
+const MAX_SIZE_KB = config.profile?.avatar?.max_size_kb ?? 2048
 
 interface AvatarSectionProps {
   avatarUrl: string | null
@@ -37,8 +41,8 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
       addToast('error', t('avatar_invalid_type'))
       return
     }
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      addToast('error', t('avatar_too_large', { size: String(MAX_SIZE_MB) }))
+    if (file.size > MAX_SIZE_KB * 1024) {
+      addToast('error', t('avatar_too_large', { size: String(MAX_SIZE_KB / 1024) }))
       return
     }
 

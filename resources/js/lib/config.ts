@@ -165,7 +165,8 @@ export interface MartisProfileMenuConfig {
 
 export interface MartisProfileAvatarConfig {
   enabled?: boolean
-  maxSize?: number
+  /** Maximum allowed upload size in kilobytes. Mirrors `martis.profile.avatar.max_size_kb`. Default: 2048 (2 MB). */
+  max_size_kb?: number
 }
 
 export interface MartisProfileTwoFactorConfig {

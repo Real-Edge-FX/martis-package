@@ -52,7 +52,7 @@ class ProfileResource implements ProfileResourceContract
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->getAuthIdentifier())],
+            'email' => ['required', 'email', 'max:255', Rule::unique(config('auth.providers.users.model', 'App\\Models\\User'))->ignore($user->getAuthIdentifier())],
         ];
     }
 
