@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.1] — 2026-06-29
+
+### Changed
+
+- **Dropped Laravel 11 from the supported range.** `laravel/framework` is now `^12.0|^13.0` (was `^11.0|^12.0|^13.0`). Laravel 11 was already absent from the CI matrix — every v11.x release on Packagist carries a security advisory that blocks `composer install` without an opt-in — so the constraint now matches reality. Laravel 12 (current) and 13 are supported. A regression test pins the constraint.
+
+### Docs
+
+- **Corrected the requirements: MySQL 8.0+ is not a Martis requirement.** The installation guide listed `MySQL 8.0+` as a requirement, which is false — Martis is database-agnostic (no driver-specific SQL on its query paths; metric period bucketing runs in PHP). The Requirements table now reads "any Laravel-supported database (MySQL, PostgreSQL, SQLite, SQL Server), no specific version".
+- **Removed all Laravel 11 references** from the README badge/table, installation guide, troubleshooting, configuration, roles, and the roadmap doc — now Laravel 12+/12·13.
+- **Documented the notifications master switch.** `notifications.enabled` (env `MARTIS_NOTIFICATIONS_ENABLED`, default `true`) is the single toggle to show/hide the topbar notification bell **and** enable/disable the subsystem — clarified in `docs/notifications.md` and `docs/configuration.md` (with a note in the `user_menu` section that the bell is not a `user_menu` option). No code change — this control already existed.
+
 ## [1.16.0] — 2026-06-29
 
 > **Security release — ecosystem audit sweep.** A full-ecosystem audit (PHP + React) found and fixed 2 critical and ~28 high-severity issues plus a long tail of medium/low fixes; each fix is regression-tested and several audit findings were verified as false positives and rejected (not "fixed"). **Contains one breaking change** — see `manage-martis-cache` below. Test health: 2137 Pest + 189 Vitest passing.

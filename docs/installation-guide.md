@@ -7,13 +7,13 @@ Add Martis to any existing Laravel application as a Composer package.
 | Requirement | Minimum Version |
 |-------------|-----------------|
 | PHP | 8.3+ |
-| Laravel | 11.x, 12.x, or 13.x |
+| Laravel | 12.x or 13.x |
 | Node.js | 20+ (contributors only) |
 | PNPM | 9+ (or npm/yarn, contributors only) |
-| MySQL | 8.0+ |
+| Database | Any driver Laravel supports — MySQL, PostgreSQL, SQLite, or SQL Server (no specific version required) |
 | Redis | 7+ (optional, for cache/queue) |
 
-The CI matrix runs Pest against PHP 8.3 and 8.4 on Laravel 11, 12, and 13. End-user apps consume the precompiled frontend assets — no Node toolchain required.
+Martis is database-agnostic: it issues no driver-specific SQL on its query paths (metric period bucketing, for example, runs in PHP), so any database your Laravel app already uses works. The CI matrix runs Pest against PHP 8.3 and 8.4 on Laravel 12 and 13. End-user apps consume the precompiled frontend assets — no Node toolchain required.
 
 ## Quick Install
 
