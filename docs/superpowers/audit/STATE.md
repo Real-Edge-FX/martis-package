@@ -54,6 +54,23 @@ The run-2 synth agent stalled (wrote only a stray `severity_tally.txt`); `findin
 
 **3 criticals:** (1) pivot action execution skips per-model canRun + resource authz; (2) impersonation `stop()` endpoint missing authz; (3) MarkdownField unsanitized `marked.parse()` → `dangerouslySetInnerHTML` (XSS). Workflow run is gone (TaskStop reports no such task) — no zombie. Phase 3 = fix all (dedupe the 2 already-[FIXED]).
 
+### PHASE 3 — fixing in progress (2026-06-28/29)
+
+Inline security fixes already committed + pushed on `audit/ecosystem-sweep-2026-06-28`:
+- `e710016` MarkdownField stored XSS (critical, DOMPurify)
+- `bc9ac7e` pivot action authz: parent view + per-model canRun (critical)
+- `409277` Url field javascript:/data: XSS allowlist (high, FE+BE)
+- `7c25ef8` Lens cache cross-user leak: user-scoped key (high)
+- (+ prior `d28121e` sort whitelist, `ced5c50` TrendMetric cross-driver)
+
+REJECTED (false positive, do NOT fix): impersonation `stop()` authz — see REJECTED.md.
+
+**Parallel tail fix workflow:** run `wf_4f1bdbd4-e1b` (task wjh5leyhn). 23 worktree-isolated agents, one per non-security subsystem batch (96 tail findings total; the 2 docs-sync batches excluded — handled separately because they span the martis-docs repo). Each agent verifies-then-fixes-or-rejects, writes a patch to `<scratch>/audit-patches/<key>.patch` + a report `<key>.report.json`, does NOT commit/CHANGELOG/build. Batch findings live at `<scratch>/audit-batches/<key>.json`.
+- **On completion:** `git apply` each patch onto the audit branch (file-disjoint → clean), assemble CHANGELOG from the report `changelogLines`, run full pest+vitest+phpstan+pint, rebuild public/ if any FE batch changed, commit.
+- Scratch (EPHEMERAL): `/private/tmp/claude-72892903/-Users-lmoura-projects-martis/8c99f15c-6537-4b99-a9db-8f2073119f8e/scratchpad/audit-patches/`. If the session dies before applying, the patches are lost — re-run the tail workflow (`scriptPath` in the workflows dir, the keys are hardcoded now).
+
+Remaining inline (mine): ~18 security/high findings (SSO deny-bypass, 2FA guards, mass-assignment, config dup key, checkPolicy ignores $request, InstallCommand --force, UserCommand plaintext pw, etc.) + the 2 docs-sync batches.
+
 ### Run history
 
 - **Run 1 (task wlks2dsru):** hit session limit (resets 23:00 Lisbon) mid-way. Returned `{confirmed:44, critical:2, high:14, medium:15, low:13}` but `synth: null` — REPORT NOT WRITTEN. ~130 verify agents + fe-pages-lib finder + synth failed on the limit. ~227 agents / 5.8M tokens already cached on disk.
