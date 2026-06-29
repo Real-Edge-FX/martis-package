@@ -37,6 +37,16 @@ class TwoFactorService
      */
     public function generateSetup(Authenticatable $user): array
     {
+        $this->requireModel($user);
+
+        // Refuse to overwrite an already-confirmed secret. Without this, a
+        // fresh setup call would silently replace the live 2FA secret (and
+        // invalidate the user's recovery codes) with no re-authentication —
+        // the caller must disable 2FA first (which is itself gated).
+        if ($this->isEnabled($user)) {
+            throw new \InvalidArgumentException('Two-factor authentication is already enabled. Disable it before generating a new secret.');
+        }
+
         $secret = $this->generateSecret();
         $issuer = (string) config('martis.brand.name', 'Martis');
         $email = (string) ($user->email ?? 'user');
@@ -50,7 +60,6 @@ class TwoFactorService
         );
 
         // Store pending secret on user (not confirmed yet)
-        $this->requireModel($user);
         $user->two_factor_secret = encrypt($secret);
         $user->save();
 

@@ -120,8 +120,12 @@ class ExecuteAction implements ShouldQueue
                     ->update([
                         'status' => $status,
                         'exception' => $exception ?? '',
-                        'original' => json_encode($originalDiff),
-                        'changes' => json_encode($changesDiff),
+                        // ActionEvent casts these to 'array' — pass the raw
+                        // arrays and let the cast encode once. json_encode()
+                        // here double-encoded them (a JSON string of a JSON
+                        // string), so reads returned a string, not an array.
+                        'original' => $originalDiff,
+                        'changes' => $changesDiff,
                     ]);
             }
         } catch (\Throwable $e) {

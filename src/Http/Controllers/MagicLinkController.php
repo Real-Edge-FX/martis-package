@@ -129,13 +129,17 @@ class MagicLinkController
             return null;
         }
 
+        // forceFill (not the mass-assignment constructor): a host User model
+        // that doesn't list email/name/password in $fillable would otherwise
+        // silently drop them, creating a broken account with a null email /
+        // password. These are package-controlled values, not raw user input.
         /** @var Model $user */
-        $user = new $userClass([
+        $user = new $userClass;
+        $user->forceFill([
             'email' => $email,
             'name' => $email,
             'password' => bcrypt(Str::random(40)),
-        ]);
-        $user->save();
+        ])->save();
 
         return $user instanceof Authenticatable ? $user : null;
     }

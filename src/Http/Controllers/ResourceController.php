@@ -217,13 +217,23 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Support ?context=update so edit forms get raw attribute values
+        // Support ?context=update so edit forms get raw attribute values.
+        // Each non-detail context exposes that context's field set with raw,
+        // unmasked values, so it must be gated by the matching ability —
+        // otherwise a view-only user could read update/create field data by
+        // switching the query param.
         $context = $request->query('context', 'detail');
         $forDisplay = true;
         if ($context === 'update') {
+            if (! $res->authorizedToUpdate($request)) {
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            }
             $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
             $forDisplay = false;
         } elseif ($context === 'create') {
+            if (! $res->authorizedToCreate($request)) {
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            }
             $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
             $forDisplay = false;
         } else {
@@ -730,9 +740,11 @@ class ResourceController extends MartisController
 
         // Resolve the field set for the current context, flatten layout
         // containers (Panel/Section/TabGroup), and locate the requested
-        // attribute. We hit the standard authorization gates so a user
-        // who cannot create/update the resource cannot probe sync data.
-        if ($context === 'update' && ! $instance->authorizedToCreate($request) && ! $instance->authorizedToViewAny($request)) {
+        // attribute. Gate on the ability that matches the context so a user
+        // who cannot create/update the resource cannot probe its sync data —
+        // the previous update check (create OR viewAny) let a view-only user
+        // reach update-field metadata.
+        if ($context === 'update' && ! $instance->authorizedToUpdate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
         if ($context === 'create' && ! $instance->authorizedToCreate($request)) {

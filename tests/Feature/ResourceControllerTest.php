@@ -755,3 +755,52 @@ it('schema contextual arrays are pre-filtered — frontend should not need to fi
     expect($attrs('fieldsForInlineCreate'))->toContain('plain');
     expect($attrs('fieldsForPreview'))->toContain('plain');
 });
+
+// ---------------------------------------------------------------------------
+// show ?context=update / =create must be gated by the matching ability
+// ---------------------------------------------------------------------------
+
+class ContextGatePostResource extends Resource
+{
+    public static function model(): string
+    {
+        return PostModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'context-gate-posts';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->required(),
+            Text::make('body'),
+        ];
+    }
+
+    public function authorizedToView(Request $request): bool
+    {
+        return true;
+    }
+
+    public function authorizedToUpdate(Request $request): bool
+    {
+        return false;
+    }
+}
+
+it('show ?context=update is forbidden for a user without update authorization', function () {
+    app(ResourceRegistry::class)->register(ContextGatePostResource::class);
+    $post = PostModel::create(['title' => 'Secret draft', 'body' => 'B']);
+
+    // Detail view is allowed.
+    $this->getJson("/martis/api/resources/context-gate-posts/{$post->id}?context=detail")
+        ->assertOk();
+
+    // ?context=update exposes the update field set (raw values) and must be
+    // gated by authorizedToUpdate — a view-only user gets 403, not the data.
+    $this->getJson("/martis/api/resources/context-gate-posts/{$post->id}?context=update")
+        ->assertForbidden();
+});
