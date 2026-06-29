@@ -34,7 +34,13 @@ class LoginController extends MartisController
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'keep_signed_in' => ['sometimes', 'boolean'],
         ]);
+
+        // "Keep me signed in" — when set, forward it to attempt() so Laravel
+        // issues the long-lived remember-me cookie. Without this the session
+        // only lives for config('session.lifetime') and the toggle is a no-op.
+        $remember = $request->boolean('keep_signed_in');
 
         /** @var string|null $guardName */
         $guardName = config('martis.guard');
@@ -42,7 +48,7 @@ class LoginController extends MartisController
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
 
-        if (! $auth->attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
+        if (! $auth->attempt(['email' => $credentials['email'], 'password' => $credentials['password']], $remember)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => __('auth.failed'),

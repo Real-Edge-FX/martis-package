@@ -35,7 +35,7 @@ export class EmailVerificationRequiredError extends Error {
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, keepSignedIn?: boolean) => Promise<void>
   logout: () => Promise<void>
   updateUser: (partial: Partial<User>) => void
 }
@@ -76,11 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false))
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, keepSignedIn = false) => {
     const res = await api.post<User & {
       two_factor_required?: boolean
       email_verification_required?: boolean
-    }>('/api/auth/login', { email, password })
+    }>('/api/auth/login', { email, password, keep_signed_in: keepSignedIn })
     if (res && typeof res === 'object' && res.two_factor_required) {
       // Backend signals that 2FA challenge is required before full session
       throw new TwoFactorRequiredError()
