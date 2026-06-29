@@ -188,6 +188,8 @@ In addition to the keys above, every row carries Laravel's standard notification
 | `poll_interval` | How often the bell badge polls `/api/notifications/unread-count` (ms). **Default 90000 (90 s)** — bumped from 60 s in v1.8.8 to halve idle traffic without a UX regression for typical workflows. Set to `0` to disable polling — refresh manually via React Query / broadcast events. |
 | `max_in_dropdown` | Maximum entries shown in the dropdown. Older entries live behind a future "View all" link. Capped at 50 server-side. |
 
+**Hiding notifications + the bell.** `enabled` is the single switch for "do I want system notifications in this panel?" Set it to `false` (or `MARTIS_NOTIFICATIONS_ENABLED=false`) and the bell icon next to the user profile disappears, polling stops, and the REST endpoints return empty payloads. There is no separate `user_menu` toggle for the bell — this is it.
+
 ## REST API
 
 All endpoints live under `/{martis-path}/api/notifications`, scope to the authenticated user, and silently no-op when there's no user (keeps polling cheap on the login screen).

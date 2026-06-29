@@ -514,6 +514,8 @@ Both flags are read live, so mid-session toggles via `window.MartisConfig` take 
 | `showProfile` | `bool` | `true` | Show profile page link. Override with `MARTIS_SHOW_PROFILE_MENU=false`. |
 | `customItems` | `?array` | `null` | Array of custom menu items (see example below). |
 
+> **The notifications bell** next to the profile is not a `user_menu` option — it is controlled by the `notifications.enabled` master switch (see the Notifications section). Set `MARTIS_NOTIFICATIONS_ENABLED=false` to hide it.
+
 ### Custom Menu Items
 
 ```php
@@ -700,7 +702,7 @@ Individual actions can opt out via `->withoutActionEvents()`.
 | **Static config** | Paths, throttle, theme, profile, cache TTLs, drawer widths, sticky-views scope, notifications poll interval, … | `config/martis.php` |
 | **Code registrations** | Main menu resolver, dashboards, custom cache layers, gate definitions, page-title closures | `app/Providers/MartisServiceProvider.php` |
 
-`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` (Laravel 11+) or `config/app.php` (Laravel 10) automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. Use `--force` to refresh the stub.
+`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. Use `--force` to refresh the stub.
 
 The stub ships every section commented-out, so an unmodified provider registers nothing and Martis runs on its built-in defaults. Uncomment what you need:
 
@@ -1098,7 +1100,7 @@ Off by default. When enabled, mounts the Scramble-generated OpenAPI 3.1 surface 
 ],
 ```
 
-Controls the in-app notifications dropdown in the topbar.
+Controls the in-app notifications subsystem. `enabled` is the master switch: set it to `false` (env `MARTIS_NOTIFICATIONS_ENABLED=false`) to hide the topbar bell icon next to the user profile entirely, stop polling, and make the REST endpoints return empty payloads. This is the single toggle for "show / enable system notifications" — there is no separate `user_menu` option for the bell.
 
 ## Cache (per-type tuning)
 

@@ -22,11 +22,10 @@ jobs:
         # from the matrix on 2026-06-11: every v11.x release on packagist
         # is flagged with security advisories (PKSA-mdq4-51ck-6kdq and
         # 4 others), so composer refuses to install any v11.* version
-        # without an `policy.advisories.ignore-id` opt-in. ^11 is still
-        # declared in `composer.json` for self-hosting users who accept
-        # the trade-off, but the CI lane has no path to a green run
-        # against L11 today. ^12 is current, ^13 is supported since
-        # v1.3.0.
+        # without an `policy.advisories.ignore-id` opt-in. As of v1.16.1 ^11
+        # is also removed from the `composer.json` constraint, so it is no
+        # longer advertised as supported. ^12 is current, ^13 is supported
+        # since v1.3.0.
 
     steps:
       - uses: actions/checkout@v4

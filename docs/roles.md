@@ -348,9 +348,9 @@ class TenantResource extends Resource
 
 The label "System" is published via `martis::messages.system`. Override it via `vendor:publish --tag=martis-lang` for per-locale customisation.
 
-## Laravel 11+ note
+## Registering policies (no AuthServiceProvider)
 
-On Laravel 11+, `App\Providers\AuthServiceProvider` no longer ships by default. The command emits a warning + manual instructions; register the policies inside any service provider's `boot()` method:
+Laravel (12+) no longer ships `App\Providers\AuthServiceProvider` by default. The command emits a warning + manual instructions; register the policies inside any service provider's `boot()` method:
 
 ```php
 use App\Policies\PermissionPolicy;

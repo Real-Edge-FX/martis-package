@@ -16,7 +16,7 @@
 | Documentation | 33 docs files; broken links / orphan docs = 0 |
 | ParitySurface tripwire | Locks v0.8 / v0.9 / v0.10 public API |
 | CHANGELOG.md | Keep-a-Changelog format; current to v0.10.0-rc1 + `[Unreleased]` |
-| GitHub Actions CI | PHP 8.2/8.3 × Laravel 11/12 + PHPStan + Pint + Vitest |
+| GitHub Actions CI | PHP 8.3/8.4 × Laravel 12/13 + PHPStan + Pint + Vitest |
 | License | MIT (composer.json + LICENSE) |
 | Greenfield install | Verified on Laravel 12 + PHP 8.4 |
 
@@ -73,7 +73,7 @@ The list is short.
 
 ### 6. CI matrix expansion ✅
 
-- [x] `.github/workflows/ci.yml` runs `pest` against the matrix: PHP 8.2 × Laravel 11.*, PHP 8.2 × Laravel 12.*, PHP 8.3 × Laravel 11.*, PHP 8.3 × Laravel 12.* (4 combinations).
+- [x] `.github/workflows/ci.yml` runs `pest` against the matrix: PHP 8.3 and 8.4 × Laravel 12.* and 13.*.
 - [x] Separate jobs run `phpstan analyse` and `pint --test` on PHP 8.3.
 - [x] `vitest` job runs the JS test suite on Node 20.
 - [x] Triggers on push to `main` / `release/**` and on PRs to those branches.

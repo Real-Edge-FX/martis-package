@@ -6,7 +6,7 @@ Common problems when installing or running Martis, and how to fix them. If your 
 
 ### `composer require martis/martis` cannot resolve the version
 
-Martis requires PHP 8.3+ and Laravel 11.x, 12.x, or 13.x. Check `php -v` and the `laravel/framework` constraint in your application's `composer.json`.
+Martis requires PHP 8.3+ and Laravel 12.x or 13.x. Check `php -v` and the `laravel/framework` constraint in your application's `composer.json`.
 
 ```bash
 php -v
