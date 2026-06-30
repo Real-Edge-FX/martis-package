@@ -103,8 +103,15 @@ export function ResourceDetailPage() {
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
 
-  const recordTitle = record && schema?.titleAttribute
-    ? String(record[schema.titleAttribute] ?? '')
+  // Prefer the framework-resolved `_title` string (mirrors DrawerDetail):
+  // a titleAttribute field with a `displayUsing()` callback serialises a
+  // rich-cell object, so `String(record[titleAttribute])` would render
+  // "[object Object]" in the browser tab. `_title` is the canonical
+  // scalar; fall back to the raw attribute for records without it.
+  const recordTitle = record
+    ? String((record as { _title?: unknown })._title
+        ?? (schema?.titleAttribute ? record[schema.titleAttribute] : '')
+        ?? '')
     : ''
   usePageTitle(schema ? `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ''}` : null)
   const accentProps = useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)

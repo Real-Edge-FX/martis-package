@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`DrawerShell` is now exposed on the `@martis/runtime` barrel** (`runtime.DrawerShell` + the `DrawerShellProps` type). Consumer Tools built into the separate extension bundle can now host edit/add/detail forms in the native slide-over drawer — composed from `runtime.FieldInput` — without reimplementing the shell, mirroring the v1.14.0 `FieldInput`/`FieldDisplay` exposure. The Tool controls open/close from its own state; the resource-bound `martis:drawer-*` registry wrappers are unchanged. Non-breaking (semver minor). Documented in `docs/overrides.md` §5.A.
+
+### Fixed
+
+- **Resource detail browser-tab title rendered `[object Object]`** when the resource's `titleAttribute` field used a custom display component (`->component('field:...')->displayUsing(fn => [...])`) returning a non-scalar rich-cell value. `pages/ResourceDetail.tsx` built the tab title from `String(record[titleAttribute])`; it now prefers the framework-resolved `record._title` scalar (falling back to the raw attribute), matching `DrawerDetail`. The on-page H1, breadcrumb, and details panel were already correct. Cosmetic, no behaviour change for scalar title fields.
+
 ## [1.16.1] — 2026-06-29
 
 ### Changed

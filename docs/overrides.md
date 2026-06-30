@@ -498,6 +498,8 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `FieldDisplay` | The read-mode renderer. Receives `FieldDisplayProps`. |
 | `FieldDefinition` (type) | Re-exported so you can type your `field` payload without reaching into internal paths. |
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
+| `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |
+| `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
 
 ### Example — Select inside a custom Action component
 
@@ -533,6 +535,37 @@ export function CandidateReview() {
 ```
 
 The component you receive is **the real Martis renderer** — same look, same behaviour, same i18n. No duplicate CSS, no rebuilt search, no drift over time. If a host project has registered an override for `select`, `FieldInput` will resolve to the override for free.
+
+### Example — a Tool hosting fields in a native drawer
+
+`DrawerShell` is the bare, resource-agnostic slide-over used by the built-in
+`martis:drawer-*` wrappers. A Tool can mount it directly to host its own
+edit/add/detail form composed from `FieldInput`, controlling open/close from
+its own state:
+
+```tsx
+import { useState } from 'react'
+import { martisRuntime } from '@martis/runtime'
+
+const { DrawerShell, FieldInput } = martisRuntime
+
+export function ReviewTool() {
+    const [open, setOpen] = useState(false)
+    const [docType, setDocType] = useState('note')
+    if (!open) return <button onClick={() => setOpen(true)}>Review</button>
+    return (
+        <DrawerShell title="Review candidate" onClose={() => setOpen(false)}>
+            <div className="martis-action-form">
+                <FieldInput
+                    field={{ type: 'select', attribute: 'document_type', label: 'Document type', options: [] } as any}
+                    value={docType}
+                    onChange={(v) => setDocType(v as string)}
+                />
+            </div>
+        </DrawerShell>
+    )
+}
+```
 
 ### Caveats
 
