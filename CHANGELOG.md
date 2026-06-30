@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] — 2026-06-30
+
+### Fixed
+
+- **Rebuilt and shipped the compiled frontend bundle.** v1.17.0 tagged the source changes (DrawerShell runtime export, ResourceDetail tab-title fix) but shipped a **stale `public/`** bundle (still reporting 1.16.1), so consumers got the old compiled JS after `composer update` and the fixes were invisible. v1.17.1 rebuilds `public/` from source: the bundle now reports `1.17.1` and includes both changes. Assets-only re-ship, no source change vs 1.17.0. The frontend version constant (`__MARTIS_VERSION__`, from `package.json` `version`) is bumped to match the tag.
+
 ## [1.17.0] — 2026-06-30
 
 ### Added
