@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-06-30
+
 ### Added
 
 - **`DrawerShell` is now exposed on the `@martis/runtime` barrel** (`runtime.DrawerShell` + the `DrawerShellProps` type). Consumer Tools built into the separate extension bundle can now host edit/add/detail forms in the native slide-over drawer — composed from `runtime.FieldInput` — without reimplementing the shell, mirroring the v1.14.0 `FieldInput`/`FieldDisplay` exposure. The Tool controls open/close from its own state; the resource-bound `martis:drawer-*` registry wrappers are unchanged. Non-breaking (semver minor). Documented in `docs/overrides.md` §5.A.
