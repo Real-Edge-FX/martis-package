@@ -45,6 +45,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
 import { Footer } from '@/components/Footer'
 import { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
+import { DrawerShell } from '@/components/overrides/DrawerShell'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -86,6 +87,14 @@ export const martisRuntime = {
   FieldInput,
   FieldDisplay,
 
+  // Generic slide-over drawer shell. Lets consumer Tools host
+  // edit/add/detail forms (composed from FieldInput) in a native
+  // drawer without re-implementing the shell — the Tool controls
+  // open/close via its own state, like a modal. The resource-bound
+  // `martis:drawer-*` registry entries are separate; this is the bare
+  // shell. Pair with the DrawerShellProps type re-exported below.
+  DrawerShell,
+
   // 3rd-party re-exports — consumers don't need to npm install these.
   // Saves ~150 KB across the typical override stub graph and lets us
   // pin a single version of each in the host SPA bundle.
@@ -107,3 +116,4 @@ export type MartisRuntime = typeof martisRuntime
  */
 export type { FieldDefinition } from '@/types'
 export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
+export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
