@@ -3,30 +3,31 @@ name: Release
 # Standard Martis release: create a GitHub-SIGNED (Verified) annotated tag
 # and a GitHub Release whose notes come from CHANGELOG.md.
 #
-# Why this exists: the manual `git tag && git push` path produces UNSIGNED
-# tags (no "Verified" badge) and NO GitHub Release / notes — v1.17.0 and
-# v1.17.1 hit exactly that. Tag objects created through the GitHub API with
-# the Actions token are signed by GitHub, so they show "Verified", and the
-# release notes are generated from the matching CHANGELOG section. This is
-# the same API approach the old release playbook used, now standardised.
+# Why: manual `git tag && git push` produces UNSIGNED tags (no "Verified")
+# and NO Release/notes — v1.17.0/v1.17.1 hit exactly that. Tag objects
+# created through the GitHub API with the Actions token are signed by
+# GitHub (Verified), and notes come from the matching CHANGELOG section.
 #
-# Do NOT create release tags locally anymore. Cut every release from here:
-#   Actions -> Release -> Run workflow -> version = 1.17.2  (no "v")
-# Backfill an existing tag by passing its commit `sha` too (the old tag ref
-# is recreated via the API so it becomes Verified, pointing at the same
-# commit — Packagist re-syncs via the webhook, commit SHA is unchanged).
+# Two ways to run:
+#   - Push a `v*` tag (e.g. from git) → this recreates it SIGNED + publishes
+#     the Release. (The API-recreated tag is pushed by the Actions token, so
+#     it does NOT re-trigger this workflow — no loop.)
+#   - Actions → Release → Run workflow → version = 1.17.2 (backfill an old
+#     one by also passing its commit `sha`).
 #
-# Prerequisite (one-time): Settings -> Actions -> General -> Workflow
-# permissions -> "Read and write permissions".
+# One-time prerequisite: Settings → Actions → General → Workflow permissions
+# → "Read and write permissions".
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version WITHOUT the v prefix (e.g. 1.17.2). Must have a matching "## [x]" section in CHANGELOG.md.'
+        description: 'Version WITHOUT the v prefix (e.g. 1.17.2). Needs a matching "## [x]" section in CHANGELOG.md.'
         required: true
       sha:
-        description: 'Commit SHA to tag. Leave empty to tag current main HEAD (use it to backfill an old release).'
+        description: 'Commit SHA to tag. Empty = current main HEAD (use it to backfill an old release).'
         required: false
 
 permissions:
@@ -34,62 +35,59 @@ permissions:
 
 jobs:
   release:
-    name: Tag + Release v${{ inputs.version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Resolve target commit
-        id: target
+      - name: Resolve tag / version / commit
+        id: r
         run: |
           set -euo pipefail
-          SHA="${{ inputs.sha }}"
-          [ -z "$SHA" ] && SHA="$(git rev-parse HEAD)"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Tagging commit $SHA"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"; VER="${TAG#v}"; SHA="${GITHUB_SHA}"
+          else
+            VER="${{ inputs.version }}"; TAG="v${VER}"
+            SHA="${{ inputs.sha }}"; [ -z "$SHA" ] && SHA="$(git rev-parse HEAD)"
+          fi
+          echo "ver=$VER"  >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"  >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA"  >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG at $SHA"
 
       - name: Extract CHANGELOG notes
         run: |
           set -euo pipefail
-          VER="${{ inputs.version }}"
-          awk -v v="$VER" '
+          awk -v v="${{ steps.r.outputs.ver }}" '
             $0 ~ "^## \\[" v "\\]" { f=1; next }
             f && /^## \[/ { exit }
             f { print }
           ' CHANGELOG.md > NOTES.md
           if [ ! -s NOTES.md ]; then
-            echo "::error::No CHANGELOG.md section found for [$VER] — write the release notes there first."
+            echo "::error::No CHANGELOG.md section for [${{ steps.r.outputs.ver }}]"
             exit 1
           fi
-          echo "----- release notes -----"; cat NOTES.md
+          echo "----- notes -----"; cat NOTES.md
 
-      - name: Create Verified annotated tag via API
+      - name: Recreate tag as a Verified (GitHub-signed) annotated tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="v${{ inputs.version }}"
-          SHA="${{ steps.target.outputs.sha }}"
-          REPO="${{ github.repository }}"
-          # Idempotent / backfill: drop an existing (unsigned) tag ref so we
-          # can recreate it signed. The commit is untouched.
+          TAG="${{ steps.r.outputs.tag }}"; SHA="${{ steps.r.outputs.sha }}"; REPO="${{ github.repository }}"
           gh api -X DELETE "repos/$REPO/git/refs/tags/$TAG" 2>/dev/null || true
-          # Annotated tag object created via API → GitHub signs it → Verified.
           OBJ="$(gh api -X POST "repos/$REPO/git/tags" \
-                  -f tag="$TAG" -f message="$TAG" -f object="$SHA" -f type=commit \
-                  --jq .sha)"
-          gh api -X POST "repos/$REPO/git/refs" \
-                  -f ref="refs/tags/$TAG" -f sha="$OBJ"
-          echo "Created signed tag $TAG -> $OBJ"
+                  -f tag="$TAG" -f message="$TAG" -f object="$SHA" -f type=commit --jq .sha)"
+          gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$OBJ"
+          echo "Signed tag $TAG -> $OBJ"
 
       - name: Create or update the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="v${{ inputs.version }}"
+          TAG="${{ steps.r.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TAG" --notes-file NOTES.md
           else
