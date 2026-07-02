@@ -1,22 +1,20 @@
 name: Release
 
-# Standard Martis release: create a GitHub-SIGNED (Verified) annotated tag
-# and a GitHub Release whose notes come from CHANGELOG.md.
+# Create/update a GitHub Release whose notes come from the matching
+# CHANGELOG.md section. Trigger by pushing a `v*` tag (from a release cut
+# on main) or by dispatching with a version (+ optional sha for backfill).
 #
-# Why: manual `git tag && git push` produces UNSIGNED tags (no "Verified")
-# and NO Release/notes — v1.17.0/v1.17.1 hit exactly that. Tag objects
-# created through the GitHub API with the Actions token are signed by
-# GitHub (Verified), and notes come from the matching CHANGELOG section.
+# ABOUT THE "Verified" BADGE: it comes from the TAGGED COMMIT being signed,
+# NOT from this workflow or from creating the tag via the API. GitHub signs
+# merge commits made through the web UI, so merging PRs on github.com yields
+# Verified tags automatically (that is how v1.16.x got the badge). Locally
+# made, unsigned commits are not Verified. To get Verified you must either
+# merge via the GitHub web UI, or configure signed commits/tags with a key
+# registered on the account (Settings -> SSH and GPG keys -> signing key).
+# This workflow deliberately does not touch signing.
 #
-# Two ways to run:
-#   - Push a `v*` tag (e.g. from git) → this recreates it SIGNED + publishes
-#     the Release. (The API-recreated tag is pushed by the Actions token, so
-#     it does NOT re-trigger this workflow — no loop.)
-#   - Actions → Release → Run workflow → version = 1.17.2 (backfill an old
-#     one by also passing its commit `sha`).
-#
-# One-time prerequisite: Settings → Actions → General → Workflow permissions
-# → "Read and write permissions".
+# One-time prerequisite: Settings -> Actions -> General -> Workflow
+# permissions -> "Read and write permissions".
 
 on:
   push:
@@ -27,7 +25,7 @@ on:
         description: 'Version WITHOUT the v prefix (e.g. 1.17.2). Needs a matching "## [x]" section in CHANGELOG.md.'
         required: true
       sha:
-        description: 'Commit SHA to tag. Empty = current main HEAD (use it to backfill an old release).'
+        description: 'Commit SHA to tag (only used when the tag does not exist yet). Empty = current main HEAD.'
         required: false
 
 permissions:
@@ -41,20 +39,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve tag / version / commit
+      - name: Resolve tag / version
         id: r
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${GITHUB_REF_NAME}"; VER="${TAG#v}"; SHA="${GITHUB_SHA}"
+            TAG="${GITHUB_REF_NAME}"
           else
-            VER="${{ inputs.version }}"; TAG="v${VER}"
-            SHA="${{ inputs.sha }}"; [ -z "$SHA" ] && SHA="$(git rev-parse HEAD)"
+            TAG="v${{ inputs.version }}"
           fi
-          echo "ver=$VER"  >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"  >> "$GITHUB_OUTPUT"
-          echo "sha=$SHA"  >> "$GITHUB_OUTPUT"
-          echo "Releasing $TAG at $SHA"
+          echo "tag=$TAG"      >> "$GITHUB_OUTPUT"
+          echo "ver=${TAG#v}"  >> "$GITHUB_OUTPUT"
+
+      - name: Ensure the tag exists (dispatch/backfill only)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.r.outputs.tag }}"; REPO="${{ github.repository }}"
+          if ! gh api "repos/$REPO/git/refs/tags/$TAG" >/dev/null 2>&1; then
+            SHA="${{ inputs.sha }}"; [ -z "$SHA" ] && SHA="$(git rev-parse HEAD)"
+            gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA"
+            echo "Created tag $TAG at $SHA"
+          fi
 
       - name: Extract CHANGELOG notes
         run: |
@@ -69,18 +77,6 @@ jobs:
             exit 1
           fi
           echo "----- notes -----"; cat NOTES.md
-
-      - name: Recreate tag as a Verified (GitHub-signed) annotated tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TAG="${{ steps.r.outputs.tag }}"; SHA="${{ steps.r.outputs.sha }}"; REPO="${{ github.repository }}"
-          gh api -X DELETE "repos/$REPO/git/refs/tags/$TAG" 2>/dev/null || true
-          OBJ="$(gh api -X POST "repos/$REPO/git/tags" \
-                  -f tag="$TAG" -f message="$TAG" -f object="$SHA" -f type=commit --jq .sha)"
-          gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$OBJ"
-          echo "Signed tag $TAG -> $OBJ"
 
       - name: Create or update the GitHub Release
         env:
