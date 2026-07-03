@@ -266,6 +266,31 @@ describe('ResourceCreatePage — basic field rendering', () => {
 })
 
 // ---------------------------------------------------------------------------
+// (3) Full page — belongs_to field renders (no interaction, no relatable fetch)
+// ---------------------------------------------------------------------------
+
+describe('ResourceCreatePage — belongs_to field', () => {
+  it('renders a belongs_to field trigger', async () => {
+    const belongsToField = baseField({
+      attribute: 'author_id',
+      label: 'Author',
+      type: 'belongs_to',
+      relatedResource: 'authors',
+      nullable: true,
+    })
+    mockSchema([belongsToField])
+
+    renderCreatePage()
+
+    expect(await screen.findByText('Author')).toBeTruthy()
+    // BelongsToFieldInput renders a trigger button; with no value selected and
+    // no `select_field` translation registered in the test i18n bundle, i18next
+    // falls back to rendering the raw key.
+    expect(screen.getByText('select_field')).toBeTruthy()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // (3) Full page — layout containers render their child fields
 // ---------------------------------------------------------------------------
 
