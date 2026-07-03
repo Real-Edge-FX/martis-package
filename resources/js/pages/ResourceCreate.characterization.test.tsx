@@ -346,3 +346,101 @@ describe('ResourceCreatePage — layout containers render child fields', () => {
     expect(document.getElementById('title')).toBeTruthy()
   })
 })
+
+// ---------------------------------------------------------------------------
+// dependsOn reactivity for fields nested inside layout containers.
+//
+// Regression guard (Task 4): when ResourceCreate converged onto
+// useMartisForm/FieldsForm, the dependsOn override machinery stopped reaching
+// fields nested inside `section` / `tab_group` / `panel` because the hook fed
+// the container tree (not the flattened leaf list) to useDependsOnSync and
+// applied overrides with a flat `.map()` instead of walking containers.
+//
+// These tests mount a schema with a dependsOn field INSIDE a container, drive
+// the watched sibling, and assert the server override (required: true) reaches
+// the nested field — visible as the FieldWrapper required asterisk.
+// ---------------------------------------------------------------------------
+
+describe('ResourceCreatePage — nested-container dependsOn reactivity', () => {
+  // A field that watches `title` and, per the server sync, becomes required.
+  const dependentInSection = baseField({
+    attribute: 'subtitle',
+    label: 'Subtitle',
+    type: 'text',
+    dependsOn: { fields: ['title'] },
+  })
+
+  function mockSchemaWithSync(fieldsForCreate: unknown[]) {
+    apiGetMock.mockImplementation((path: string) => {
+      if (path.includes('/schema')) {
+        return Promise.resolve({ data: makeSchema(fieldsForCreate) })
+      }
+      return Promise.resolve({ data: [] })
+    })
+    // sync-field returns the resolved override for the dependent field.
+    apiPostMock.mockImplementation((path: string) => {
+      if (path.includes('/sync-field')) {
+        return Promise.resolve({ ...dependentInSection, required: true })
+      }
+      return Promise.resolve({ data: {} })
+    })
+  }
+
+  it('applies a dependsOn override to a field nested inside a section', async () => {
+    mockSchemaWithSync([
+      titleField,
+      {
+        type: 'section',
+        title: 'Details',
+        fields: [dependentInSection],
+        columns: 12,
+        collapsible: false,
+        collapsedByDefault: false,
+        limit: null,
+      },
+    ])
+
+    renderCreatePage()
+
+    // Subtitle renders nested; it is NOT required yet (no watched change).
+    expect(await screen.findByText('Subtitle')).toBeTruthy()
+    const subtitleLabel = screen.getByText('Subtitle').closest('label')
+    expect(subtitleLabel?.querySelector('.martis-input-required')).toBeNull()
+
+    // Drive the watched sibling — triggers a sync-field POST whose override
+    // must reach the nested field.
+    fireEvent.change(document.getElementById('title') as HTMLInputElement, {
+      target: { value: 'Hello' },
+    })
+
+    await waitFor(() => {
+      const label = screen.getByText('Subtitle').closest('label')
+      expect(label?.querySelector('.martis-input-required')).not.toBeNull()
+    })
+  })
+
+  it('applies a dependsOn override to a field nested inside a tab_group', async () => {
+    mockSchemaWithSync([
+      titleField,
+      {
+        type: 'tab_group',
+        tabs: [{ title: 'General', fields: [dependentInSection] }],
+      },
+    ])
+
+    renderCreatePage()
+
+    expect(await screen.findByText('Subtitle')).toBeTruthy()
+    const before = screen.getByText('Subtitle').closest('label')
+    expect(before?.querySelector('.martis-input-required')).toBeNull()
+
+    fireEvent.change(document.getElementById('title') as HTMLInputElement, {
+      target: { value: 'Hello' },
+    })
+
+    await waitFor(() => {
+      const label = screen.getByText('Subtitle').closest('label')
+      expect(label?.querySelector('.martis-input-required')).not.toBeNull()
+    })
+  })
+})
