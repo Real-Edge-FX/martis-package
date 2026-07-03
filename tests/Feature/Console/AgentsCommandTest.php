@@ -66,7 +66,8 @@ it('includes the MCP section when --with-mcp is set', function () {
         ->and($body)->toContain('exclusively')
         ->and($body)->not->toContain('vendor/martis/martis/docs')
         ->and($body)->not->toContain('Read these directly with your file-read tool')
-        ->and($body)->not->toContain('fall back to reading');
+        // the disabled-MCP guidance must steer to the operator, not the files
+        ->and($body)->toContain('re-enable/restart the MCP');
 
     // Since v1.15.0 the scaffold default is HTTP, so the .mcp.json
     // entry is the URL connection ({"type":"http","url":"…/mcp"})
