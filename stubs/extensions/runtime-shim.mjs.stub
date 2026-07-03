@@ -65,6 +65,14 @@ export const FieldDisplay = R.FieldDisplay
 export const DrawerShell = R.DrawerShell
 export const Tooltip = R.Tooltip
 
+// Shared field-form harness (v1.20.0+). `useMartisForm` owns the form state
+// and yields `fieldProps(field)` for a `FieldInput`; `FieldsForm` renders a
+// whole field set incl. tab_group/section/panel containers. Same machinery
+// the Resource pages use, so a Tool gets identical field behaviour. See
+// docs/tool-fields.md.
+export const useMartisForm = R.useMartisForm
+export const FieldsForm = R.FieldsForm
+
 // `react-router-dom` re-exports flattened on the top level so legacy
 // stub imports `import {useNavigate} from 'react-router-dom'` resolve
 // when the consumer's vite alias points the bare module specifier
