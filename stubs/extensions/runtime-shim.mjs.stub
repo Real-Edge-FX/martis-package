@@ -54,6 +54,17 @@ export const Sidebar = R.Sidebar
 export const Topbar = R.Topbar
 export const Footer = R.Footer
 
+// Composition components consumer Tools/Actions/cards render natively:
+// the canonical field renderer, the generic drawer shell, and the
+// PrimeReact Tooltip (for rich/HTML tooltips via `escape={false}` — the
+// global `[data-pr-tooltip]` provider escapes HTML). These live in the
+// host bundle and are reached through the runtime, since the extension
+// build does not alias `primereact` / internal component paths.
+export const FieldInput = R.FieldInput
+export const FieldDisplay = R.FieldDisplay
+export const DrawerShell = R.DrawerShell
+export const Tooltip = R.Tooltip
+
 // `react-router-dom` re-exports flattened on the top level so legacy
 // stub imports `import {useNavigate} from 'react-router-dom'` resolve
 // when the consumer's vite alias points the bare module specifier

@@ -751,6 +751,30 @@ const btnRef = useRef(null)
 <Tooltip target={btnRef} content="Save record" position="top" />
 ```
 
+> **Rich / HTML content:** the global `[data-pr-tooltip]` provider registers with
+> the default `escape` (HTML is escaped), so `data-pr-tooltip="<b>…</b>"` renders
+> the literal markup. Rich content therefore **must** use the ref-based component
+> with `escape={false}`:
+>
+> ```tsx
+> <Tooltip target={ref} position="top" content={<div><b>Re-index</b><br/>…</div>} escape={false} />
+> ```
+
+### From a consumer Tool / extension
+
+Extension bundles can't `import { Tooltip } from 'primereact/tooltip'` — the
+extension build doesn't alias `primereact`. Reach the same component off the
+runtime surface (`window.Martis.runtime`, since v1.19.0), exactly like
+`FieldInput` / `DrawerShell`:
+
+```tsx
+import { Tooltip } from '@martis/runtime' // shim → window.Martis.runtime.Tooltip
+
+<button ref={ref}>Re-index</button>
+<Tooltip target={ref} position="top" escape={false}
+  content={<div className="martis-…"><b>Re-index</b><br/>Rebuilds the index.</div>} />
+```
+
 ### Rules
 
 | Rule | Detail |

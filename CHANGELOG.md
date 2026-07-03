@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] — 2026-07-03
+
+### Added
+
+- **`Tooltip` (PrimeReact) is now exposed on `window.Martis.runtime`** (plus the `TooltipProps` type), alongside `FieldInput`/`FieldDisplay`/`DrawerShell`. Consumer Tools/extensions cannot `import { Tooltip } from 'primereact/tooltip'` (the extension build does not alias `primereact`), so the documented rich/HTML tooltip — the ref-based `<Tooltip escape={false}>` — was unreachable and teams had to hand-roll a popover. Reach it via `import { Tooltip } from '@martis/runtime'` now. The published `@martis/runtime` shim also gained named exports for the composition components it had been missing (`FieldInput`, `FieldDisplay`, `DrawerShell`, `Tooltip`). Documented in the `docs/components.md` "Tooltip Standard" section. Non-breaking (semver minor).
+
 ## [1.18.0] — 2026-07-03
 
 ### Changed

@@ -39,6 +39,11 @@ describe('martisRuntime', () => {
         expect(martisRuntime.FieldInput).toBeTypeOf('function')
         expect(martisRuntime.FieldDisplay).toBeTypeOf('function')
 
+        // Composition components
+        expect(martisRuntime.DrawerShell).toBeTypeOf('function')
+        // PrimeReact Tooltip is a forwardRef object, not a plain function.
+        expect(martisRuntime.Tooltip).toBeDefined()
+
         // 3rd-party re-exports
         expect(martisRuntime.reactRouterDom).toBeTypeOf('object')
         expect(martisRuntime.reactI18next).toBeTypeOf('object')
