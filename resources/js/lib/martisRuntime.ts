@@ -46,6 +46,7 @@ import { Topbar } from '@/components/Topbar'
 import { Footer } from '@/components/Footer'
 import { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DrawerShell } from '@/components/overrides/DrawerShell'
+import { Tooltip } from 'primereact/tooltip'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -95,6 +96,13 @@ export const martisRuntime = {
   // shell. Pair with the DrawerShellProps type re-exported below.
   DrawerShell,
 
+  // PrimeReact Tooltip. The global `[data-pr-tooltip]` provider escapes
+  // HTML, so rich/HTML tooltip content must use this ref-based component
+  // with `escape={false}` (see docs/components.md "Tooltip Standard").
+  // Consumer Tools can't import `primereact/tooltip` (the extension build
+  // doesn't alias `primereact`), so it is exposed here.
+  Tooltip,
+
   // 3rd-party re-exports — consumers don't need to npm install these.
   // Saves ~150 KB across the typical override stub graph and lets us
   // pin a single version of each in the host SPA bundle.
@@ -117,3 +125,4 @@ export type MartisRuntime = typeof martisRuntime
 export type { FieldDefinition } from '@/types'
 export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
 export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
+export type { TooltipProps } from 'primereact/tooltip'
