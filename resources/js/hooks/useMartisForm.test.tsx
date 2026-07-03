@@ -1,3 +1,4 @@
+import { it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import type { FieldDefinition } from '@/types'
@@ -7,8 +8,8 @@ vi.mock('@/hooks/useDependsOnSync', () => ({
 }))
 
 const fields: FieldDefinition[] = [
-  { type: 'text', attribute: 'title', label: 'Title' } as FieldDefinition,
-  { type: 'slug', attribute: 'slug', label: 'Slug' } as FieldDefinition,
+  { type: 'text', attribute: 'title', label: 'Title' } as unknown as FieldDefinition,
+  { type: 'slug', attribute: 'slug', label: 'Slug' } as unknown as FieldDefinition,
 ]
 
 it('tracks values, threads fieldProps, and surfaces errors', () => {
