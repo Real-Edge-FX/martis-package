@@ -1,24 +1,25 @@
 name: Release
 
 # Create/update a GitHub Release whose notes come from the matching
-# CHANGELOG.md section. Trigger by pushing a `v*` tag (from a release cut
-# on main) or by dispatching with a version (+ optional sha for backfill).
+# CHANGELOG.md section. DISPATCH-ONLY fallback/backfill tool.
+#
+# The primary release path is manual, from the workstation:
+#   gh release create vX.Y.Z --target <merge-commit-sha> --notes-file <notes>
+# which creates the tag + Release in one shot. This workflow is NOT wired to
+# `on: push: tags` on purpose — doing so made it re-fire on every gh-created
+# tag and fail (it looked for a CHANGELOG section that the tagged merge commit
+# did not yet carry). Run it by hand only when you need to (re)publish a
+# Release for a tag without the workstation gh.
 #
 # ABOUT THE "Verified" BADGE: it comes from the TAGGED COMMIT being signed,
-# NOT from this workflow or from creating the tag via the API. GitHub signs
-# merge commits made through the web UI, so merging PRs on github.com yields
-# Verified tags automatically (that is how v1.16.x got the badge). Locally
-# made, unsigned commits are not Verified. To get Verified you must either
-# merge via the GitHub web UI, or configure signed commits/tags with a key
-# registered on the account (Settings -> SSH and GPG keys -> signing key).
-# This workflow deliberately does not touch signing.
+# NOT from this workflow or the API. GitHub signs merge commits made through
+# the web UI, so tagging a web-merge commit yields a Verified tag (that is how
+# v1.16.x+ got the badge). This workflow does not touch signing.
 #
 # One-time prerequisite: Settings -> Actions -> General -> Workflow
 # permissions -> "Read and write permissions".
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
