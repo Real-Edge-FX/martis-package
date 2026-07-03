@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`martis:agents` now routes ALL documentation reads through the docs MCP** and never points agents at the raw `vendor/martis/martis/docs/*.md` files when the MCP is wired. The generated `AGENTS.md`/`CLAUDE.md` previously carried contradictory guidance (four places told the agent to read the raw files, one softly preferred the MCP), so models honestly followed the file and bypassed the MCP. The stub's §10/§11 now state a hard "read exclusively via the MCP" rule, and the `enabled: false` fallback tells the agent to stop and ask the operator to re-enable/restart the MCP instead of reading the files. When no MCP is wired, the guidelines still list the file paths (the only source then) via a new inverse `{{^MCP_SECTION}}` template block.
+
+### Added
+
+- **`martis:agents --with-doc-guard` (Claude Code)** — optional machine-enforced guard for teams that want the MCP-only policy to be fool-proof, not advisory. It installs `.claude/martis-doc-guard.php` and a `PreToolUse` hook (matcher `Bash|Read|Grep|Glob`) that blocks tool calls which *read* a Martis doc from the filesystem while allowing commands that merely mention the path as a search string (it inspects the specific tool-input fields — `Read.file_path`, `Grep`/`Glob.path`/`pattern`, and Bash commands that open a concrete `docs/<slug>.md` file). Idempotent; preserves existing hooks. Documented in `docs/agent-guidelines.md`.
+
 ## [1.17.1] — 2026-06-30
 
 ### Fixed

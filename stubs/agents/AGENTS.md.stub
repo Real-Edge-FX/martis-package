@@ -101,7 +101,7 @@ When unsure which generator to call, run `php artisan list martis` and read the 
 
 ## 10. Deep-dive pointer
 
-This file is dense and prescriptive on purpose. For exhaustive treatment of any topic, read the full Martis doc directly — they live under `vendor/martis/martis/docs/`:
+This file is dense and prescriptive on purpose. For exhaustive treatment of any topic, consult the full Martis doc for that slug. **How** you read it depends on whether the Martis docs MCP is wired into this project (see the access rule right after the table):
 
 | Slug | Topic |
 |---|---|
@@ -145,7 +145,12 @@ This file is dense and prescriptive on purpose. For exhaustive treatment of any 
 | `troubleshooting` | Common failures + fixes. |
 | `v1-roadmap` | What's coming. |
 
-Read these directly with your file-read tool when you need depth.
+{{MCP_SECTION}}
+**Access rule (this project has the docs MCP wired):** read any of these slugs **only** through the Martis docs MCP — `martis_doc_search(query)` for a targeted lookup, `martis_doc_read('<slug>')` for the full page (see §11). **Never** open the raw `docs/*.md` files with your file-read/grep tools. The MCP is the single source of truth.
+{{/MCP_SECTION}}
+{{^MCP_SECTION}}
+**Access rule (no docs MCP wired here):** read the page for a slug from the installed package's `vendor/martis/martis/docs/<slug>.md`. If this project later wires the Martis docs MCP (`php artisan martis:agents`), switch to the MCP tools and stop reading the files.
+{{/^MCP_SECTION}}
 
 {{MCP_SECTION}}
 ## 11. Martis MCP server
@@ -156,7 +161,7 @@ This project also exposes the Martis docs through an MCP server (`php artisan ma
 - `martis_doc_read(slug)` — full markdown of one page.
 - `martis_doc_search(query, limit?)` — top matches across all docs with snippets.
 
-When you need depth on a specific topic, **prefer these MCP tools** over scanning `vendor/martis/martis/docs/` with the file-read tool: the server returns scoped, ranked results with lower token cost.
+Documentation is read **exclusively** through these MCP tools (`martis_doc_search` / `martis_doc_read` / `martis_doc_list`). Do **not** read the raw `docs/*.md` files from the filesystem with your file-read/grep tools. The server returns scoped, ranked results at lower token cost and is the single source of truth.
 
 ### Transport
 
@@ -169,10 +174,10 @@ Which transport you reach depends on how the host wired it. Both expose the same
 
 ### Runtime knobs (host operator's concern, not yours)
 
-- `MARTIS_MCP_ENABLED=true|false` — toggle the server without un-wiring. When `false`, `tools/list` keeps publishing the three tool definitions but every `tools/call` returns an `enabled: false` payload with an explanatory message. Treat that as "MCP temporarily off, fall back to reading `vendor/martis/martis/docs/<slug>.md` directly".
+- `MARTIS_MCP_ENABLED=true|false` — toggle the server without un-wiring. When `false`, `tools/list` keeps publishing the three tool definitions but every `tools/call` returns an `enabled: false` payload with an explanatory message. When you hit that, treat the docs as temporarily unavailable: **do not** read the raw files — stop and tell the operator to re-enable the MCP (`MARTIS_MCP_ENABLED=true`) or restart the server.
 - `MARTIS_MCP_TRANSPORT`, `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT`, `MARTIS_MCP_PATH`, `MARTIS_MCP_URL` — transport configuration.
 - `MARTIS_MCP_HTTP_TOKEN` — optional bearer token. When set, the HTTP server requires `Authorization: Bearer <token>` on `/mcp`; mismatch returns 401. The MCP client config the host writes already carries the right header if the operator wired the token.
 - `MARTIS_MCP_HEALTH_PORT` — opt-in `/health` endpoint on a dedicated port. Returns `{status, version, transport, uptime_s, tool_count}` — for ops, not for you.
 
-You do not need to set any of these. If a tool call returns `enabled: false`, fall back to reading the docs directly via `vendor/martis/martis/docs/<slug>.md`. If you get a 401 or connection error, tell the user — the operator's setup is the problem, not yours.
+You do not need to set any of these. If a tool call returns `enabled: false`, or you get a 401 / connection error, **stop and tell the operator** to re-enable/restart the MCP (`MARTIS_MCP_ENABLED=true`, then `php artisan martis:mcp-serve`). Do **not** fall back to reading the raw `docs/*.md` files — the operator's setup is the problem to fix, not a reason to bypass the MCP.
 {{/MCP_SECTION}}

@@ -42,7 +42,12 @@ it('writes AGENTS.md and the per-agent guideline file when --agent is set', func
     expect($body)->toContain('Working with Martis')
         ->and($body)->not->toContain('{{project_name}}')
         ->and($body)->not->toContain('{{MCP_SECTION}}')
-        ->and($body)->not->toContain('martis_doc_search');
+        ->and($body)->not->toContain('{{^MCP_SECTION}}')
+        ->and($body)->not->toContain('martis_doc_search')
+        // With no MCP wired, the raw files are the only source, so the
+        // inverse block must point at them.
+        ->and($body)->toContain('no docs MCP wired')
+        ->and($body)->toContain('vendor/martis/martis/docs');
 });
 
 it('includes the MCP section when --with-mcp is set', function () {
@@ -55,7 +60,13 @@ it('includes the MCP section when --with-mcp is set', function () {
 
     $body = (string) file_get_contents($this->base.'/AGENTS.md');
     expect($body)->toContain('martis_doc_search')
-        ->and($body)->toContain('MARTIS_MCP_ENABLED');
+        ->and($body)->toContain('MARTIS_MCP_ENABLED')
+        // When the MCP is wired the guidelines must route ALL doc reads
+        // through it and never point the agent at the raw files.
+        ->and($body)->toContain('exclusively')
+        ->and($body)->not->toContain('vendor/martis/martis/docs')
+        ->and($body)->not->toContain('Read these directly with your file-read tool')
+        ->and($body)->not->toContain('fall back to reading');
 
     // Since v1.15.0 the scaffold default is HTTP, so the .mcp.json
     // entry is the URL connection ({"type":"http","url":"…/mcp"})

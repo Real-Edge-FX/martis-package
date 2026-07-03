@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Martis\Support\AgentDetector;
 use Martis\Support\AgentProfile;
+use Martis\Support\DocGuardWriter;
 use Martis\Support\EnvFilePatcher;
 use Martis\Support\McpConfigPatcher;
 
@@ -35,6 +36,7 @@ class AgentsCommand extends Command
         {--without-mcp : Skip the MCP wiring entirely}
         {--mcp-only : Only patch the MCP config + .env; do not touch guideline files}
         {--mcp-unwire : Remove the Martis MCP entry + env var; do not touch guideline files}
+        {--with-doc-guard : (Claude Code) install a PreToolUse hook that blocks filesystem reads of the Martis docs, forcing use of the docs MCP}
         {--force : Overwrite existing guideline files without prompting}
         {--dry-run : Print the actions instead of executing them}';
 
@@ -68,9 +70,42 @@ class AgentsCommand extends Command
             $this->wireMcp($profiles, $mcp, $env);
         }
 
+        if ($this->option('with-doc-guard')) {
+            $this->installDocGuard($profiles);
+        }
+
         $this->components->info('Done.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Install the Claude Code doc-guard hook (blocks filesystem reads of the
+     * Martis docs so agents only reach them through the docs MCP). Claude
+     * Code specific; a no-op with a warning when no Claude profile is in play.
+     *
+     * @param  list<AgentProfile>  $profiles
+     */
+    private function installDocGuard(array $profiles): void
+    {
+        $hasClaude = array_filter($profiles, static fn (AgentProfile $p): bool => $p->key === 'claude') !== [];
+        if (! $hasClaude) {
+            $this->components->warn('--with-doc-guard targets Claude Code; no `claude` agent selected — skipping the guard.');
+
+            return;
+        }
+
+        if ($this->option('dry-run')) {
+            $this->components->info('[dry-run] install doc-guard: write .claude/martis-doc-guard.php + patch .claude/settings.json (PreToolUse)');
+
+            return;
+        }
+
+        $result = (new DocGuardWriter(base_path()))->install();
+        $this->components->info('Doc guard script at .claude/martis-doc-guard.php');
+        $this->components->info($result['action'] === 'patched'
+            ? 'Installed PreToolUse doc-guard hook in .claude/settings.json'
+            : 'PreToolUse doc-guard hook already present in .claude/settings.json');
     }
 
     /**
@@ -337,11 +372,19 @@ class AgentsCommand extends Command
             '{{martis_version}}' => $version,
         ]);
 
+        // Two conditional block kinds:
+        //   {{MCP_SECTION}}…{{/MCP_SECTION}}    — kept only when the MCP is wired
+        //   {{^MCP_SECTION}}…{{/^MCP_SECTION}}  — kept only when it is NOT wired
+        // (the inverse block is stripped first so its inner text can never be
+        // mistaken for a positive block by the marker passes).
         if ($withMcp) {
+            $rendered = preg_replace('/{{\^MCP_SECTION}}.*?{{\/\^MCP_SECTION}}\n?/s', '', $rendered) ?? $rendered;
             $rendered = preg_replace('/{{MCP_SECTION}}\n?/', '', $rendered) ?? $rendered;
             $rendered = preg_replace('/{{\/MCP_SECTION}}\n?/', '', $rendered) ?? $rendered;
         } else {
             $rendered = preg_replace('/{{MCP_SECTION}}.*?{{\/MCP_SECTION}}\n?/s', '', $rendered) ?? $rendered;
+            $rendered = preg_replace('/{{\^MCP_SECTION}}\n?/', '', $rendered) ?? $rendered;
+            $rendered = preg_replace('/{{\/\^MCP_SECTION}}\n?/', '', $rendered) ?? $rendered;
         }
 
         return $rendered;
