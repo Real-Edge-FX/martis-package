@@ -7,6 +7,13 @@ export interface MartisFormOptions {
   initialValues?: Record<string, unknown>
   resourceKey?: string
   context?: 'create' | 'update'
+  /**
+   * Id of the record this form edits, when bound to one. Threaded to fields so
+   * relatable behaviours (BelongsTo / MorphTo / Tag search + peek) scope their
+   * queries to the right record. Resource pages pass the route id; Tools binding
+   * to an existing record (Mode C) pass it explicitly. Omit for create forms.
+   */
+  recordId?: string | number
 }
 
 export interface MartisForm {
@@ -16,12 +23,14 @@ export interface MartisForm {
   errors: Record<string, string>
   setErrors: (e: Record<string, string>) => void
   resolvedFields: FieldDefinition[]
+  recordId?: string | number
   fieldProps: (field: FieldDefinition) => {
     field: FieldDefinition
     value: unknown
     onChange: (v: unknown) => void
     error?: string
     resourceKey?: string
+    recordId?: string | number
     formValues: Record<string, unknown>
   }
 }
@@ -84,7 +93,7 @@ function applyOverrides(
 }
 
 export function useMartisForm(options: MartisFormOptions): MartisForm {
-  const { fields, initialValues, resourceKey, context = 'create' } = options
+  const { fields, initialValues, resourceKey, context = 'create', recordId } = options
   const [values, setValues] = useState<Record<string, unknown>>(initialValues ?? {})
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -122,8 +131,9 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     onChange: (v: unknown) => setValue(field.attribute, v),
     error: errors[field.attribute],
     resourceKey,
+    recordId,
     formValues: values,
   })
 
-  return { values, setValue, setValues, errors, setErrors, resolvedFields, fieldProps }
+  return { values, setValue, setValues, errors, setErrors, resolvedFields, recordId, fieldProps }
 }

@@ -61,7 +61,7 @@ export function ResourceUpdatePage() {
   // useDependsOnSync) and the container-aware `resolvedFields` are all owned by
   // useMartisForm. The page keeps only the update-specific concerns below
   // (record pre-fill, dirty baseline, smart submit filtering, redirects).
-  const form = useMartisForm({ fields: allFormFields, resourceKey: resource, context: 'update' })
+  const form = useMartisForm({ fields: allFormFields, resourceKey: resource, context: 'update', recordId: id })
   const [initialized, setInitialized] = useState(false)
   const baselineRef = useRef<string | null>(null)
 
