@@ -33,6 +33,7 @@ The primer covers Martis idioms: the 31 generators, field rules, resource conven
 | `--without-mcp` | Skip the MCP question, do not wire. |
 | `--mcp-only` | Only patch the MCP config + `.env`. Do not touch guideline files. |
 | `--mcp-unwire` | Remove the Martis entry from the agent's MCP config and `MARTIS_MCP_ENABLED` from `.env`. |
+| `--with-doc-guard` | (Claude Code) install a PreToolUse hook that blocks filesystem reads of the Martis docs, forcing use of the docs MCP. See "Docs are read through the MCP" below. |
 | `--force` | Overwrite existing guideline files without prompting. |
 | `--dry-run` | Print the planned actions, write nothing. |
 | `--no-interaction` | Disable prompts (combine with `--agent` and `--with-mcp` / `--without-mcp` for CI). |
@@ -48,6 +49,37 @@ The primer covers Martis idioms: the 31 generators, field rules, resource conven
 | Remove MCP entirely | `php artisan martis:agents --mcp-unwire` |
 | Re-generate guidelines after a package upgrade | `php artisan martis:agents --force` |
 | Add support for a second agent later | `php artisan martis:agents --agent=cursor` (additive) |
+| Enforce MCP-only doc reads (Claude Code) | `php artisan martis:agents --with-mcp --with-doc-guard` |
+
+## Docs are read through the MCP
+
+When the MCP is wired, the generated `AGENTS.md` / `CLAUDE.md` route **every**
+documentation lookup through the MCP tools (`martis_doc_search`,
+`martis_doc_read`, `martis_doc_list`) and never point the agent at the raw
+`docs/*.md` files in `vendor/`. This is deliberate: the MCP returns scoped,
+ranked, token-cheap results and is the single source of truth. If a tool call
+reports `enabled: false` (or errors), the guidance is to **stop and ask the
+operator to re-enable/restart the MCP**, not to fall back to the files. When no
+MCP is wired, the guidelines list the file paths, because then the files are the
+only source.
+
+### Optional: machine-enforced doc guard (`--with-doc-guard`)
+
+Prose relies on the model complying. For a fool-proof guarantee on **Claude
+Code**, `--with-doc-guard` installs:
+
+- `.claude/martis-doc-guard.php` — a small guard script, and
+- a `PreToolUse` hook in `.claude/settings.json` (matcher `Bash|Read|Grep|Glob`)
+  that runs it.
+
+The guard blocks any tool call that **reads** a Martis doc from the filesystem
+(`Read`/`Grep`/`Glob` on the docs dir, or a Bash command that opens a concrete
+`docs/<slug>.md` file) and steers the agent to the MCP. It inspects the specific
+tool-input fields, so a command that merely *mentions* the docs directory as a
+search string (e.g. `grep 'vendor/martis/martis/docs' somefile`) is **not**
+blocked. Re-running the command is idempotent, and it preserves any hooks you
+already have. Pair it with `--with-mcp` so the agent has the MCP to fall back to.
+The guard is Claude-Code specific; other agents use different hook mechanisms.
 
 ## The MCP server
 

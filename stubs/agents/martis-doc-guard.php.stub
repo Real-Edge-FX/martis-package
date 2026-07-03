@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * martis-doc-guard — Claude Code PreToolUse hook.
+ *
+ * Blocks agent tool calls that READ the Martis docs from the filesystem,
+ * so documentation is only ever read through the Martis docs MCP tools
+ * (martis_doc_search / martis_doc_read / martis_doc_list).
+ *
+ * Installed by `php artisan martis:agents --with-doc-guard`.
+ *
+ * Contract (Claude Code): the tool call arrives as JSON on stdin,
+ *   {"tool_name": "...", "tool_input": { ... }}.
+ * Exit 2 + stderr message => block the call. Exit 0 => allow.
+ *
+ * Precision: for the structured tools (Read/Grep/Glob) we inspect the
+ * exact path field. For Bash we only block when the command names a
+ * concrete `docs/<slug>.md` FILE — a bare mention of the docs directory
+ * (e.g. `grep 'vendor/martis/martis/docs' somefile`, a search whose
+ * pattern is the string, not a docs read) is allowed on purpose.
+ */
+const MARTIS_DOCS_DIR = 'vendor/martis/martis/docs';
+
+$raw = stream_get_contents(STDIN);
+$data = is_string($raw) ? json_decode($raw, true) : null;
+if (! is_array($data)) {
+    exit(0); // not a tool call we understand — don't interfere
+}
+
+$tool = is_string($data['tool_name'] ?? null) ? $data['tool_name'] : '';
+$input = is_array($data['tool_input'] ?? null) ? $data['tool_input'] : [];
+
+$mentionsDir = static fn (?string $v): bool => is_string($v) && $v !== '' && str_contains($v, MARTIS_DOCS_DIR);
+$namesDocFile = static fn (string $s): bool => (bool) preg_match(
+    '#'.preg_quote(MARTIS_DOCS_DIR, '#').'/[^\s\'"|;&>]+\.md#',
+    $s
+);
+
+$block = static function (): never {
+    fwrite(
+        STDERR,
+        "BLOCKED: read Martis docs via the docs MCP tools "
+        ."(martis_doc_search / martis_doc_read / martis_doc_list), never from the filesystem.\n"
+    );
+    exit(2);
+};
+
+switch ($tool) {
+    case 'Read':
+        if ($mentionsDir(is_string($input['file_path'] ?? null) ? $input['file_path'] : null)) {
+            $block();
+        }
+        break;
+
+    case 'Grep':
+    case 'Glob':
+        // `path` = where it searches/globs; `pattern` for Glob may itself
+        // be a docs glob (e.g. vendor/.../docs/*.md).
+        foreach (['path', 'pattern'] as $field) {
+            $v = is_string($input[$field] ?? null) ? $input[$field] : null;
+            if ($mentionsDir($v)) {
+                $block();
+            }
+        }
+        break;
+
+    case 'Bash':
+        $cmd = is_string($input['command'] ?? null) ? $input['command'] : '';
+        if ($namesDocFile($cmd)) {
+            $block();
+        }
+        break;
+}
+
+exit(0);
