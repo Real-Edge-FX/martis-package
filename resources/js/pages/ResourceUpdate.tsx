@@ -2,12 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
-import { FieldInput } from '@/components/fields/FieldRenderer'
-import { PanelInput } from '@/components/fields/PanelRenderer'
-import { SectionInput } from '@/components/fields/SectionRenderer'
-import { TabsInput } from '@/components/fields/TabsRenderer'
-import { FieldWrapper } from '@/components/fields/FieldWrapper'
+import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition } from '@/types'
+import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
@@ -18,7 +14,7 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
-import { useDependsOnSync } from '@/hooks/useDependsOnSync'
+import { useMartisForm } from '@/hooks/useMartisForm'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -56,10 +52,16 @@ export function ResourceUpdatePage() {
   const { t: tNav } = useTranslation('navigation')
   usePageTitle(schema ? `${tNav('edit', { defaultValue: 'Edit' })} ${schema.singularLabel}` : null)
 
-  const allFormFields = (schema?.fieldsForUpdate ?? [])
+  const allFormFields = useMemo<FieldDefinition[]>(
+    () => (schema?.fieldsForUpdate ?? []) as FieldDefinition[],
+    [schema],
+  )
 
-  const [values, setValues] = useState<Record<string, unknown>>({})
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  // Shared form state — `values`/`errors`, dependsOn override resolution (via
+  // useDependsOnSync) and the container-aware `resolvedFields` are all owned by
+  // useMartisForm. The page keeps only the update-specific concerns below
+  // (record pre-fill, dirty baseline, smart submit filtering, redirects).
+  const form = useMartisForm({ fields: allFormFields, resourceKey: resource, context: 'update' })
   const [initialized, setInitialized] = useState(false)
   const baselineRef = useRef<string | null>(null)
 
@@ -73,64 +75,9 @@ export function ResourceUpdatePage() {
    */
   const submitModeRef = useRef<'detail' | 'continue_editing' | 'list'>('detail')
 
-  // Reactive `dependsOn(...)` fields — server-side closures re-evaluate
-  // whenever a watched sibling changes. See `useDependsOnSync` for the
-  // debounce + cancellation contract. We feed it the FLAT field list so
-  // the watch detection is O(n); layout containers are walked separately.
-  const flatFormFields = useMemo<FieldDefinition[]>(() => {
-    const out: FieldDefinition[] = []
-    const walk = (items: unknown[]): void => {
-      for (const item of items as Record<string, unknown>[]) {
-        if (item.type === 'panel' || item.type === 'section') {
-          walk((item.fields as unknown[]) ?? [])
-        } else if (item.type === 'tab_group') {
-          const tabs = (item.tabs as { fields?: unknown[] }[]) ?? []
-          for (const t of tabs) walk(t.fields ?? [])
-        } else {
-          out.push(item as unknown as FieldDefinition)
-        }
-      }
-    }
-    walk(allFormFields as unknown[])
-    return out
-  }, [allFormFields])
-
-  const dependsOnOverrides = useDependsOnSync({
-    resource: resource ?? '',
-    context: 'update',
-    fields: flatFormFields,
-    formValues: values,
-    disabled: !resource || !initialized,
-  })
-
-  function applyOverride(field: FieldDefinition): FieldDefinition {
-    const override = dependsOnOverrides.get(field.attribute)
-    return override ? { ...field, ...override } : field
-  }
-
-  const renderedFormFields = useMemo(() => {
-    if (dependsOnOverrides.size === 0) return allFormFields
-    const walk = (items: unknown[]): unknown[] =>
-      items.map((item) => {
-        const f = item as Record<string, unknown>
-        if (f.type === 'panel' || f.type === 'section') {
-          return { ...f, fields: walk((f.fields as unknown[]) ?? []) }
-        }
-        if (f.type === 'tab_group') {
-          const tabs = ((f.tabs as { fields?: unknown[] }[]) ?? []).map((t) => ({
-            ...t,
-            fields: walk(t.fields ?? []),
-          }))
-          return { ...f, tabs }
-        }
-        return applyOverride(item as FieldDefinition)
-      })
-    return walk(allFormFields as unknown[])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allFormFields, dependsOnOverrides])
-
   // Pre-populate form only after BOTH schema and record are loaded.
-  // Walks all form items (scalar fields + layout containers) to extract field attributes.
+  // Walks all form items (scalar fields + layout containers) to extract field
+  // attributes, then seeds the shared form state via `form.setValues`.
   useEffect(() => {
     if (record && schema && !initialized) {
       const initial: Record<string, unknown> = {}
@@ -153,13 +100,14 @@ export function ResourceUpdatePage() {
       }
       extractFields(allFormFields)
       baselineRef.current = JSON.stringify(initial)
-      setValues(initial)
+      form.setValues(initial)
       setInitialized(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record, schema, allFormFields, initialized])
 
   const { dialog: unsavedGuardDialog, markSaved } = useUnsavedChangesGuard({
-    values,
+    values: form.values,
     initialSnapshot: initialized ? baselineRef.current : null,
     schema,
   })
@@ -197,7 +145,7 @@ export function ResourceUpdatePage() {
       // defaults back to "detail".
       if (mode === 'continue_editing') {
         submitModeRef.current = 'detail'
-        baselineRef.current = JSON.stringify(values)
+        baselineRef.current = JSON.stringify(form.values)
         return
       }
 
@@ -234,7 +182,7 @@ export function ResourceUpdatePage() {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         const errorDisplay = schema?.errorDisplay ?? 'inline'
         if (errorDisplay === 'inline') {
-          setErrors(err.errorsByField())
+          form.setErrors(err.errorsByField())
           addToast('error', err.message || tMsg('validation_errors', 'Please fix the errors below.'))
         } else {
           for (const e of err.errors) {
@@ -249,17 +197,12 @@ export function ResourceUpdatePage() {
     },
   })
 
-  function handleChange(attribute: string, value: unknown) {
-    setValues((prev) => ({ ...prev, [attribute]: value }))
-    if (errors[attribute]) setErrors((prev) => ({ ...prev, [attribute]: '' }))
-  }
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setErrors({})
+    form.setErrors({})
     // Filter values: skip file/image fields that haven't changed (still object from API)
     const submitValues: Record<string, unknown> = {}
-    for (const [key, val] of Object.entries(values)) {
+    for (const [key, val] of Object.entries(form.values)) {
       if (val === null || val === undefined) {
         submitValues[key] = val
         continue
@@ -381,42 +324,11 @@ export function ResourceUpdatePage() {
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
-          {/* Fields rendered in declaration order */}
-          <div className="martis-form-body martis-form-stack">
-            {(renderedFormFields as Array<Record<string, unknown>>).map((item, idx) => {
-              if (item.type === 'tab_group') {
-                return <TabsInput key={idx} tabGroup={item as unknown as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
-              }
-              if (item.type === 'section') {
-                return <SectionInput key={idx} section={item as unknown as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
-              }
-              if (item.type === 'panel') {
-                return <PanelInput key={idx} panel={item as unknown as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={id} context="update" />
-              }
-              const field = item as unknown as FieldDefinition
-              return (
-                <FieldWrapper
-                  key={field.attribute}
-                  htmlFor={field.attribute}
-                  label={field.label}
-                  required={field.required}
-                  tooltip={field.tooltip}
-                  help={field.helpText}
-                >
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    recordId={id ?? undefined}
-                    context="update"
-                    formValues={values}
-                  />
-                </FieldWrapper>
-              )
-            })}
-          </div>
+          {/* Fields rendered in declaration order — layout containers and
+              scalar fields interleaved. The render loop (including dependsOn
+              override resolution) is now owned by <FieldsForm>, driven by
+              useMartisForm's resolvedFields + fieldProps. */}
+          <FieldsForm form={form} context="update" />
 
           {/* Footer */}
           <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4"
