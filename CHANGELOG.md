@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] — 2026-07-03
+
+### Added
+
+- **Reuse Martis Fields inside Tools.** Consumer Tools (and any custom full-canvas React page) can now host real Martis fields (`Slug`, `Text`, `BelongsTo`, …) with the exact behaviour they have in a Resource form — slug-from-source, `dependsOn`, validation display — instead of being locked to the Resource pages. The Resource form machinery is extracted once into a shared harness and exposed on `window.Martis.runtime`:
+  - **`useMartisForm(options)`** — owns the form state (`values`, `dependsOn` override resolution via the existing `useDependsOnSync`, `errors`) and yields the `fieldProps(field)` bundle for a `FieldInput`. Options: `{ fields, initialValues?, resourceKey?, context?, recordId?, syncDisabled? }`.
+  - **`FieldsForm`** — renders a whole field set including `tab_group`/`section`/`panel` containers (the same render loop the Resource create/update pages use, now shared — one code path, no duplication).
+  - **`useToolFields(toolKey)`** — fetches a Tool's PHP-declared fields (Mode B) from the new endpoint.
+  - Types `MartisFormOptions`, `MartisForm`, `UseToolFieldsResult` are re-exported; the published `@martis/runtime` shim gained the matching named exports.
+- **Opt-in `Tool::fields()`.** A Tool declares fields the same way an Action does by implementing the new `Martis\Contracts\ProvidesFields` contract and using the `Martis\Concerns\ProvidesToolFields` trait (default `[]`). Tools that don't opt in are unaffected.
+- **`GET /api/tools/{uriKey}/fields`** (`ToolFieldsController`) — serializes a Tool's fields via the existing `Field::toArray()`, **authorization-gated**: a user who cannot see the Tool gets `404` (no field-definition leak), because `Martis::findTool()` filters on `authorizedToSee`.
+- **Docs:** new `docs/tool-fields.md` (served by the MCP and the docs site) covering the three modes (hand-defined TS, PHP `Tool::fields()`, Resource-bound), the anchor project-creation-drawer example, the full API contracts, the "whole form vs standalone field" freedom, server-backed scope binding, and the caveats. Cross-linked from `docs/tools.md` and `docs/overrides.md`.
+
+The Resource create/update pages were converged onto the shared harness behaviour-preservingly, guarded by characterization tests written first. Everything is additive — no existing route, serializer, or Field class changed. Non-breaking (semver minor).
+
 ## [1.19.0] — 2026-07-03
 
 ### Added
