@@ -14,6 +14,15 @@ export interface MartisFormOptions {
    * to an existing record (Mode C) pass it explicitly. Omit for create forms.
    */
   recordId?: string | number
+  /**
+   * Suppress the server-side `dependsOn` sync while the form is not yet ready
+   * (e.g. an update form whose record has not hydrated). When true, no
+   * `sync-field` round-trip fires — mirroring the Resource update page's
+   * `disabled: !initialized` gate, so an override is never computed from
+   * empty form data on mount. Defaults to false. (A form with no `resourceKey`
+   * never syncs regardless.)
+   */
+  syncDisabled?: boolean
 }
 
 export interface MartisForm {
@@ -23,6 +32,7 @@ export interface MartisForm {
   errors: Record<string, string>
   setErrors: (e: Record<string, string>) => void
   resolvedFields: FieldDefinition[]
+  resourceKey?: string
   recordId?: string | number
   fieldProps: (field: FieldDefinition) => {
     field: FieldDefinition
@@ -93,7 +103,7 @@ function applyOverrides(
 }
 
 export function useMartisForm(options: MartisFormOptions): MartisForm {
-  const { fields, initialValues, resourceKey, context = 'create', recordId } = options
+  const { fields, initialValues, resourceKey, context = 'create', recordId, syncDisabled } = options
   const [values, setValues] = useState<Record<string, unknown>>(initialValues ?? {})
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -110,7 +120,9 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     context,
     fields: flatFields,
     formValues: values,
-    disabled: !resourceKey, // no server round-trip when there is no scope
+    // No server round-trip when there is no scope, or while the caller marks
+    // the form not-ready (e.g. update form before the record hydrates).
+    disabled: !resourceKey || Boolean(syncDisabled),
   })
 
   const resolvedFields = useMemo(() => {
@@ -135,5 +147,5 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     formValues: values,
   })
 
-  return { values, setValue, setValues, errors, setErrors, resolvedFields, recordId, fieldProps }
+  return { values, setValue, setValues, errors, setErrors, resolvedFields, resourceKey, recordId, fieldProps }
 }

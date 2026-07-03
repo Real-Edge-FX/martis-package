@@ -18,9 +18,14 @@ export interface UseToolFieldsResult {
  */
 export function useToolFields(toolKey: string): UseToolFieldsResult {
   const { data, isLoading, error } = useQuery({
+    // The endpoint returns the standard Martis envelope `{ data: { fields } }`
+    // (JsonResponse::make wraps under `data`), and `api.get` returns the raw
+    // body un-unwrapped — so read `data.data.fields`, exactly like the sibling
+    // action-fields consumer (ActionModal). Reading `data.fields` here would
+    // silently always yield `[]`.
     queryKey: ['martis', 'tool-fields', toolKey],
-    queryFn: () => api.get<{ fields: FieldDefinition[] }>(`/api/tools/${toolKey}/fields`),
+    queryFn: () => api.get<{ data: { fields: FieldDefinition[] } }>(`/api/tools/${toolKey}/fields`),
     enabled: Boolean(toolKey),
   })
-  return { fields: data?.fields ?? [], isLoading, error }
+  return { fields: data?.data?.fields ?? [], isLoading, error }
 }

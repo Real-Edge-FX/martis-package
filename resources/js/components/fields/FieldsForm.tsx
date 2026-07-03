@@ -21,9 +21,8 @@ export interface FieldsFormProps {
  * `resolvedFields` + `fieldProps`.
  */
 export function FieldsForm({ form, context = 'create' }: FieldsFormProps): JSX.Element {
-  const { resolvedFields, values, errors, setValue, recordId } = form
+  const { resolvedFields, values, errors, setValue, recordId, resourceKey } = form
   const handleChange = (attribute: string, value: unknown) => setValue(attribute, value)
-  const resourceKey = form.fieldProps(resolvedFields[0] ?? ({} as FieldDefinition)).resourceKey
 
   return (
     <div className="martis-form-body martis-form-stack">

@@ -61,8 +61,18 @@ export function ResourceUpdatePage() {
   // useDependsOnSync) and the container-aware `resolvedFields` are all owned by
   // useMartisForm. The page keeps only the update-specific concerns below
   // (record pre-fill, dirty baseline, smart submit filtering, redirects).
-  const form = useMartisForm({ fields: allFormFields, resourceKey: resource, context: 'update', recordId: id })
+  // `initialized` flips true once the record has hydrated the form. Declared
+  // before useMartisForm so we can gate the server dependsOn sync on it —
+  // preserving the pre-refactor `disabled: !resource || !initialized` behaviour
+  // (no sync-field round-trip with empty form data on mount).
   const [initialized, setInitialized] = useState(false)
+  const form = useMartisForm({
+    fields: allFormFields,
+    resourceKey: resource,
+    context: 'update',
+    recordId: id,
+    syncDisabled: !initialized,
+  })
   const baselineRef = useRef<string | null>(null)
 
   /**

@@ -42,7 +42,7 @@ const { useMartisForm, FieldsForm } = martisRuntime
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
   // A real Martis Slug field: generates from `title`, formats as you type.
-  { type: 'slug', attribute: 'slug', label: 'Slug', from: 'title' },
+  { type: 'slug', attribute: 'slug', label: 'Slug', sourceAttribute: 'title' },
 ]
 
 export function CreateProjectTool() {
@@ -113,7 +113,7 @@ const { useMartisForm, FieldsForm } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
-  { type: 'slug', attribute: 'slug', label: 'Slug', from: 'title' },
+  { type: 'slug', attribute: 'slug', label: 'Slug', sourceAttribute: 'title' },
 ]
 
 export function CreateProjectTool() {
@@ -147,7 +147,7 @@ const { DrawerShell, useMartisForm, FieldsForm, api } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
-  { type: 'slug', attribute: 'slug', label: 'Slug', from: 'title' },
+  { type: 'slug', attribute: 'slug', label: 'Slug', sourceAttribute: 'title' },
 ]
 
 export function CreateProjectTool() {
@@ -191,7 +191,7 @@ import type { FieldDefinition } from '@martis/runtime'
 const { useMartisForm, FieldInput } = martisRuntime
 
 const titleField: FieldDefinition = { type: 'text', attribute: 'title', label: 'Title' }
-const slugField: FieldDefinition = { type: 'slug', attribute: 'slug', label: 'Slug', from: 'title' }
+const slugField: FieldDefinition = { type: 'slug', attribute: 'slug', label: 'Slug', sourceAttribute: 'title' }
 
 export function CreateProjectTool() {
   const form = useMartisForm({ fields: [titleField, slugField] })

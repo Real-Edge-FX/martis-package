@@ -42,7 +42,9 @@ describe('useToolFields', () => {
   })
 
   it('fetches and returns the Tool field definitions', async () => {
-    apiGetMock.mockResolvedValue({ fields: [titleField, slugField] })
+    // Match the real endpoint envelope: `api.get` returns the raw body and
+    // JsonResponse::make wraps the payload under `data`.
+    apiGetMock.mockResolvedValue({ data: { fields: [titleField, slugField] } })
 
     const { result } = renderHook(() => useToolFields('projects'), { wrapper })
 
