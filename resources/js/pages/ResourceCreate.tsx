@@ -2,12 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
-import { FieldInput } from '@/components/fields/FieldRenderer'
-import { PanelInput } from '@/components/fields/PanelRenderer'
-import { SectionInput } from '@/components/fields/SectionRenderer'
-import { TabsInput } from '@/components/fields/TabsRenderer'
-import { FieldWrapper } from '@/components/fields/FieldWrapper'
+import type { ResourceSchema, OverrideProps, FieldDefinition } from '@/types'
+import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { ResourceErrorPage } from '@/pages/ResourceError'
@@ -17,7 +13,7 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
-import { useDependsOnSync } from '@/hooks/useDependsOnSync'
+import { useMartisForm } from '@/hooks/useMartisForm'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -84,9 +80,8 @@ export function ResourceCreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawFormFields, isViaRelation, viaResource])
 
-  const [values, setValues] = useState<Record<string, unknown>>({})
+  const form = useMartisForm({ fields: allFormFields as FieldDefinition[], resourceKey: resource, context: 'create' })
   const [replicateApplied, setReplicateApplied] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
   const baselineRef = useRef<string | null>(null)
 
   /**
@@ -99,71 +94,18 @@ export function ResourceCreatePage() {
    */
   const submitModeRef = useRef<'detail' | 'add_another' | 'list'>('detail')
 
-  // Reactive `dependsOn(...)` fields — server-side closures re-evaluate
-  // whenever a watched sibling changes. The hook returns the latest
-  // overrides so the renderer can layer them on top of the static
-  // schema. We feed it the FLAT field list so the watch detection is
-  // O(n) — layout containers are walked separately by the renderer.
-  const flatFormFields = useMemo<FieldDefinition[]>(() => {
-    const out: FieldDefinition[] = []
-    const walk = (items: unknown[]): void => {
-      for (const item of items as Record<string, unknown>[]) {
-        if (item.type === 'panel' || item.type === 'section') {
-          walk((item.fields as unknown[]) ?? [])
-        } else if (item.type === 'tab_group') {
-          const tabs = (item.tabs as { fields?: unknown[] }[]) ?? []
-          for (const t of tabs) walk(t.fields ?? [])
-        } else {
-          out.push(item as unknown as FieldDefinition)
-        }
-      }
-    }
-    walk(allFormFields as unknown[])
-    return out
-  }, [allFormFields])
-
-  const dependsOnOverrides = useDependsOnSync({
-    resource: resource ?? '',
-    context: 'create',
-    fields: flatFormFields,
-    formValues: values,
-    disabled: !resource,
-  })
-
-  /** Layer the latest sync override (if any) on top of the static descriptor. */
-  function applyOverride(field: FieldDefinition): FieldDefinition {
-    const override = dependsOnOverrides.get(field.attribute)
-    return override ? { ...field, ...override } : field
-  }
-
-  /** Walk layout containers and apply scalar overrides everywhere. */
-  const renderedFormFields = useMemo(() => {
-    if (dependsOnOverrides.size === 0) return allFormFields
-    const walk = (items: unknown[]): unknown[] =>
-      items.map((item) => {
-        const f = item as Record<string, unknown>
-        if (f.type === 'panel' || f.type === 'section') {
-          return { ...f, fields: walk((f.fields as unknown[]) ?? []) }
-        }
-        if (f.type === 'tab_group') {
-          const tabs = ((f.tabs as { fields?: unknown[] }[]) ?? []).map((t) => ({
-            ...t,
-            fields: walk(t.fields ?? []),
-          }))
-          return { ...f, tabs }
-        }
-        return applyOverride(item as FieldDefinition)
-      })
-    return walk(allFormFields as unknown[])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allFormFields, dependsOnOverrides])
+  // Reactive `dependsOn(...)` overrides and the shared `values`/`errors`
+  // state are now owned by `useMartisForm` (which runs `useDependsOnSync`
+  // internally and exposes `resolvedFields`). The page keeps only the
+  // page-level concerns below.
 
   // Pre-fill form with replicated values when data loads
   useEffect(() => {
     if (isReplicate && replicateQuery.data?.data?.values && !replicateApplied) {
-      setValues(replicateQuery.data.data.values)
+      form.setValues(replicateQuery.data.data.values)
       setReplicateApplied(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReplicate, replicateQuery.data, replicateApplied])
 
   // Pre-fill the FK when creating via a relationship (viaResource points
@@ -207,21 +149,16 @@ export function ResourceCreatePage() {
       .then((res) => {
         if (cancelled) return
         const title = res.data?._title ?? ''
-        setValues((prev) => ({
-          ...prev,
-          [fkAttr]: { id: viaResourceId, title },
-        }))
+        form.setValue(fkAttr, { id: viaResourceId, title })
         setViaFkApplied(true)
       })
       .catch(() => {
         if (cancelled) return
-        setValues((prev) => ({
-          ...prev,
-          [fkAttr]: { id: viaResourceId, title: '' },
-        }))
+        form.setValue(fkAttr, { id: viaResourceId, title: '' })
         setViaFkApplied(true)
       })
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isViaRelation, viaFkApplied, schema, allFormFields, viaResource, viaResourceId])
 
   // Capture a baseline once the form has its real starting values
@@ -235,14 +172,14 @@ export function ResourceCreatePage() {
     if (isReplicate && !replicateApplied) return null
     if (isViaRelation && !viaFkApplied) return null
     if (baselineRef.current === null) {
-      baselineRef.current = JSON.stringify(values)
+      baselineRef.current = JSON.stringify(form.values)
     }
     return baselineRef.current
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema, isReplicate, replicateApplied, isViaRelation, viaFkApplied])
 
   const { dialog: unsavedGuardDialog, markSaved } = useUnsavedChangesGuard({
-    values,
+    values: form.values,
     initialSnapshot,
     schema,
   })
@@ -267,8 +204,8 @@ export function ResourceCreatePage() {
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
       // Clear form
-      setValues({})
-      setErrors({})
+      form.setValues({})
+      form.setErrors({})
 
       const mode = submitModeRef.current
       // "Create & add another" stays on the create page so the user can
@@ -317,7 +254,7 @@ export function ResourceCreatePage() {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         const errorDisplay = schema?.errorDisplay ?? 'inline'
         if (errorDisplay === 'inline') {
-          setErrors(err.errorsByField())
+          form.setErrors(err.errorsByField())
           addToast('error', err.message || tMsg('validation_errors', 'Please fix the errors below.'))
         } else {
           // toast mode: show all errors as individual toasts
@@ -333,15 +270,10 @@ export function ResourceCreatePage() {
     },
   })
 
-  function handleChange(attribute: string, value: unknown) {
-    setValues((prev) => ({ ...prev, [attribute]: value }))
-    if (errors[attribute]) setErrors((prev) => ({ ...prev, [attribute]: '' }))
-  }
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setErrors({})
-    createMutation.mutate(values)
+    form.setErrors({})
+    createMutation.mutate(form.values)
   }
 
   if (schemaQuery.isLoading || (isReplicate && replicateQuery.isLoading)) return <FormSkeleton />
@@ -430,45 +362,11 @@ export function ResourceCreatePage() {
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
-          {/* Fields rendered in declaration order — layout containers and scalar fields interleaved */}
-          <div className="martis-form-body martis-form-stack">
-            {renderedFormFields.map((raw, idx) => {
-              const item = raw as { type?: string } & Record<string, unknown>
-              if (item.type === 'tab_group') {
-                return <TabsInput key={idx} tabGroup={item as unknown as TabGroupDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-              }
-              if (item.type === 'section') {
-                return <SectionInput key={idx} section={item as unknown as SectionDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-              }
-              if (item.type === 'panel') {
-                return <PanelInput key={idx} panel={item as unknown as PanelDefinition} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-              }
-              // Scalar field — re-resolve through dependsOn() overrides so
-              // visibility, readonly, required, options, etc. reflect the
-              // server-side reactive callback's latest decision.
-              const field = applyOverride(item as FieldDefinition)
-              return (
-                <FieldWrapper
-                  key={field.attribute}
-                  htmlFor={field.attribute}
-                  label={field.label}
-                  required={field.required}
-                  tooltip={field.tooltip}
-                  help={field.helpText}
-                >
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    context="create"
-                    formValues={values}
-                  />
-                </FieldWrapper>
-              )
-            })}
-          </div>
+          {/* Fields rendered in declaration order — layout containers and
+              scalar fields interleaved. The render loop (including dependsOn
+              override resolution) is now owned by <FieldsForm>, driven by
+              useMartisForm's resolvedFields + fieldProps. */}
+          <FieldsForm form={form} context="create" />
 
           {/* Footer */}
           <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
