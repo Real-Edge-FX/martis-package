@@ -536,6 +536,8 @@ export function CandidateReview() {
 
 The component you receive is **the real Martis renderer** — same look, same behaviour, same i18n. No duplicate CSS, no rebuilt search, no drift over time. If a host project has registered an override for `select`, `FieldInput` will resolve to the override for free.
 
+> **Need a whole form, not a single field?** For *form-level* behaviour inside a Tool — shared `values` state across fields, the `dependsOn` sync, per-field error clearing, and the `tab_group`/`section`/`panel` render loop — use the `useMartisForm` + `FieldsForm` harness (and optionally declare the fields in PHP with `Tool::fields()`). See [tool-fields.md](tool-fields.md). The two caveats below apply there too.
+
 ### Example — a Tool hosting fields in a native drawer
 
 `DrawerShell` is the bare, resource-agnostic slide-over used by the built-in
