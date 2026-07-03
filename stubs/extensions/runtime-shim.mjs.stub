@@ -72,6 +72,7 @@ export const Tooltip = R.Tooltip
 // docs/tool-fields.md.
 export const useMartisForm = R.useMartisForm
 export const FieldsForm = R.FieldsForm
+export const useToolFields = R.useToolFields
 
 // `react-router-dom` re-exports flattened on the top level so legacy
 // stub imports `import {useNavigate} from 'react-router-dom'` resolve

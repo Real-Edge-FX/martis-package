@@ -49,6 +49,7 @@ import { FieldsForm } from '@/components/fields/FieldsForm'
 import { DrawerShell } from '@/components/overrides/DrawerShell'
 import { Tooltip } from 'primereact/tooltip'
 import { useMartisForm } from '@/hooks/useMartisForm'
+import { useToolFields } from '@/hooks/useToolFields'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -100,6 +101,7 @@ export const martisRuntime = {
   // docs/tool-fields.md. Pair with MartisFormOptions/MartisForm re-exported below.
   useMartisForm,
   FieldsForm,
+  useToolFields,
 
   // Generic slide-over drawer shell. Lets consumer Tools host
   // edit/add/detail forms (composed from FieldInput) in a native
@@ -146,3 +148,10 @@ export type { TooltipProps } from 'primereact/tooltip'
  * form object without reaching into internal `@/hooks/...` paths.
  */
 export type { MartisFormOptions, MartisForm } from '@/hooks/useMartisForm'
+
+/**
+ * `useToolFields` result type re-exported so consumer Tools calling
+ * `runtime.useToolFields` can type their destructured result without
+ * reaching into internal `@/hooks/...` paths.
+ */
+export type { UseToolFieldsResult } from '@/hooks/useToolFields'

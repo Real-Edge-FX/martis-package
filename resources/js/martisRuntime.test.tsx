@@ -47,6 +47,7 @@ describe('martisRuntime', () => {
         // Shared field-form harness (v1.20.0)
         expect(martisRuntime.useMartisForm).toBeTypeOf('function')
         expect(martisRuntime.FieldsForm).toBeTypeOf('function')
+        expect(martisRuntime.useToolFields).toBeTypeOf('function')
 
         // 3rd-party re-exports
         expect(martisRuntime.reactRouterDom).toBeTypeOf('object')
