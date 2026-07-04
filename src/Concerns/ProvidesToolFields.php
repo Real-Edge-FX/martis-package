@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Concerns;
 
 use Illuminate\Http\Request;
+use Martis\Contracts\FieldContract;
 
 /**
  * Default `fields()` implementation for `Martis\Contracts\ProvidesFields`.
@@ -22,7 +23,7 @@ trait ProvidesToolFields
      * Define the fields for this entity. Empty by default — override
      * to return a `list<FieldContract>` (e.g. `[Text::make('Title')]`).
      *
-     * @return list<\Martis\Contracts\FieldContract>
+     * @return list<FieldContract>
      */
     public function fields(Request $request): array
     {
