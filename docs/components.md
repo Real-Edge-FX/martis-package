@@ -622,6 +622,14 @@ function MyManualFetchTool() {
 
 The hook takes a single `onRevalidate: () => void` callback, subscribes to `document`'s `visibilitychange` (firing only when the page becomes visible) and `window`'s `focus`, and cleans both listeners up on unmount. It has no dependencies of its own and does not touch react-query — it is purely a DOM-event seam for manual-fetch Tools.
 
+### Data freshness across sessions — the mental model
+
+Reason about staleness explicitly rather than discovering it via a duplicate action:
+
+- **On focus (built-in).** Resource lists/details and any Tool query built on `useQuery` revalidate when the tab regains focus or the network reconnects — the react-query defaults are on. This is **gated by `staleTime` (30 s)**: within 30 s of the last fetch the cached data is treated as fresh and no refetch fires; after that, returning to the tab refetches. So a second tab converges on its own, but only after the data has gone stale — not instantly.
+- **Push (opt-in, no broadcaster).** For immediate cross-session convergence, bridge your own transport (ws-gateway, SSE, or an Echo listener you write) to `martisEventBus`: emit `martis:refresh-index` (`{ resourceKey }`) when another session mutates a resource, and use `useRevalidateOnFocus` for manual-fetch Tools. Martis ships **no broadcaster** — it exposes the seams, you feed them (the same pattern as the notification bell's `martis:notification-received` / `martis:notifications-changed`).
+- **No polling for lists.** Unlike the notification bell (which polls), Resource/Tool data is not polled — freshness comes from focus-revalidation + whatever push you wire. If you need tighter guarantees on a specific mutation, pair a backend conflict guard (e.g. a 409 on a stale write) with the push seam above.
+
 ---
 
 ## useUnsavedChangesGuard Hook
