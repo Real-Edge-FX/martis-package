@@ -79,7 +79,8 @@ export const martisRuntime = {
   // transport (ws-gateway, SSE, or an Echo listener they write) push
   // events — e.g. `martis:notification-received` — into native Martis
   // UI (the notification bell) instantly, without the package taking
-  // an opinion on the transport. See docs/events.md.
+  // an opinion on the transport. See docs/notifications.md ("Pluggable
+  // real-time feed") and docs/components.md ("Event Bus").
   martisEventBus,
 
   // Components consumer overrides typically compose with.
