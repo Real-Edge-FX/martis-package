@@ -227,11 +227,14 @@ describe('ResourceUpdatePage — immutable field', () => {
 
     renderUpdatePage()
 
+    // Wait for the record pre-fill to seed the value, not merely for the input
+    // to mount — the input renders as soon as the schema loads, but its value
+    // is populated later by the record query + setValues (racy otherwise).
     await waitFor(() => {
-      expect(document.getElementById('uuid')).toBeTruthy()
+      const el = document.getElementById('uuid') as HTMLInputElement | null
+      expect(el?.value).toBe('abc-123')
     })
     const uuidInput = document.getElementById('uuid') as HTMLInputElement
-    expect(uuidInput.value).toBe('abc-123')
     expect(uuidInput.disabled).toBe(true)
   })
 })
