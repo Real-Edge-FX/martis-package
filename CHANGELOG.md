@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] — 2026-07-04
+
+### Added
+
+- **`martis:notifications-changed` reconcile event.** Companion to `martis:notification-received` (v1.21.0), which only moves the unread badge *up*. When a notification is read / read-all / deleted in another session, a second open session stays inflated until its next poll. Emitting the payload-less `martisEventBus.emit('martis:notifications-changed', {})` now makes the bell immediately re-fetch `/api/notifications/unread-count` (and the open list), reconciling in whichever direction the server reports — the down-direction mirror of the received event. A consumer bridges it from the same transport that already feeds the received event; no Martis broadcaster required, no new dependencies. Polling remains the fallback. Additive (semver-minor).
+
+_Note: the separately reported request for a built-in Echo/websocket client in the bell was intentionally not implemented — it would pull `laravel-echo` + `pusher-js` into the package. The pluggable path (shipped in v1.21.0: emit `martis:notification-received` from your own transport, incl. an Echo listener you write) already covers this without adding dependencies._
+
 ## [1.21.0] — 2026-07-04
 
 ### Fixed
