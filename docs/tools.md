@@ -335,6 +335,8 @@ The Martis `ToolPage` shell (route `/tools/:uriKey`) fetches `/api/tools/{uriKey
 
 If your tool's `component()` returns a key that has no registration in `componentRegistry`, `ToolPage` renders a developer-friendly error UI (the tool name as the heading, then a translated message pointing you at the missing `componentRegistry.register(...)` call). The error is rendered to the DOM, not the console — it is hard to miss during local dev and is harmless in production beyond the visible message. To ship a config-only tool without a React body, simply do not call `withComponent()`; `ToolPage` then renders just the standard header and no content panel.
 
+> **Navigating between tools.** Switching from one Tool to another (`/tools/:uriKey` → `/tools/:otherUriKey`) fully unmounts and remounts `ToolPage`, so the outgoing tool's state and in-flight fetch are torn down cleanly instead of flashing stale data from the previous tool. A top progress bar (mounted once in the shell layout) reflects any in-flight navigation or query across the whole app, tool pages included.
+
 ## The `martis:tool` generator
 
 ```bash
