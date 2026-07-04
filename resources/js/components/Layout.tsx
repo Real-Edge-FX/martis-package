@@ -8,6 +8,7 @@ import { Topbar } from "@/components/Topbar"
 import { Footer } from "@/components/Footer"
 import { ImpersonationBanner as BundledImpersonationBanner } from "@/components/ImpersonationBanner"
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp"
+import { NavigationProgress } from "@/components/NavigationProgress"
 import { TopnavLayout } from "@/components/layouts/TopnavLayout"
 import { MinimalLayout } from "@/components/layouts/MinimalLayout"
 import { TableSkeleton } from "@/components/LoadingSkeleton"
@@ -102,6 +103,8 @@ function SidebarLayout() {
       data-mobile={isMobile ? "true" : undefined}
       data-sidebar-collapsed={!isMobile && collapsed ? "true" : undefined}
     >
+      <NavigationProgress />
+
       <SidebarComponent
         mobileOpen={isMobile ? mobileSidebarOpen : undefined}
         onMobileClose={() => setMobileSidebarOpen(false)}
