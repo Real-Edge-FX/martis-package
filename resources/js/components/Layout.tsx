@@ -103,8 +103,6 @@ function SidebarLayout() {
       data-mobile={isMobile ? "true" : undefined}
       data-sidebar-collapsed={!isMobile && collapsed ? "true" : undefined}
     >
-      <NavigationProgress />
-
       <SidebarComponent
         mobileOpen={isMobile ? mobileSidebarOpen : undefined}
         onMobileClose={() => setMobileSidebarOpen(false)}
@@ -212,6 +210,10 @@ export function Layout() {
   return (
     <>
       <MartisTooltip />
+      {/* Mounted here (not inside a preset) so every built-in layout
+          preset — sidebar / topnav / minimal — gets the in-flight
+          navigation indicator. Custom shells own their own chrome. */}
+      <NavigationProgress />
       <LayoutComponent />
     </>
   )
