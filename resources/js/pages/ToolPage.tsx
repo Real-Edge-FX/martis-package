@@ -80,7 +80,23 @@ function filenameHintFor(componentKey: string): string {
  *  - Unknown component key → renders a developer-friendly warning so the
  *    consumer knows they forgot the `componentRegistry.register(...)` call.
  */
-export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
+/**
+ * Thin wrapper that forces a clean unmount/remount of `ToolPageInner`
+ * whenever the sidebar navigates to a different tool. Without this,
+ * `ToolPageInner` stays mounted across a `uriKey` change (React Router
+ * does not remount on param changes by default), so its `descriptor`
+ * state — and any in-flight effects, including the previous tool's own
+ * `setSearchParams` calls — kept leaking into the newly selected tool.
+ * Keying on `uriKey` is a no-op for the `prefilled` drawer-hosted path
+ * (the key is harmless there since the drawer usually mounts one tool
+ * at a time), so that caller keeps working unchanged.
+ */
+export function ToolPage(props: ToolPageProps = {}) {
+  const { uriKey } = useParams<{ uriKey: string }>()
+  return <ToolPageInner key={uriKey ?? '__none__'} {...props} />
+}
+
+function ToolPageInner({ descriptor: prefilled }: ToolPageProps = {}) {
   const { uriKey } = useParams<{ uriKey: string }>()
   const { t } = useTranslation('messages')
   const { addToast } = useToast()
@@ -103,10 +119,11 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
     if (!uriKey || prefilled) return
 
     let cancelled = false
+    const ac = new AbortController()
     setError(null)
 
     api
-      .get<ToolDescriptor | LockedToolResponse>(`/api/tools/${encodeURIComponent(uriKey)}`)
+      .get<ToolDescriptor | LockedToolResponse>(`/api/tools/${encodeURIComponent(uriKey)}`, ac.signal)
       .then((data) => {
         if (cancelled) return
         if ('locked' in data && data.locked === true) {
@@ -118,6 +135,10 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
       })
       .catch((e: unknown) => {
         if (cancelled) return
+        // The remount wrapper (`ToolPage`) aborts this fetch whenever the
+        // sidebar navigates away before it resolves. That is expected
+        // teardown, not a user-facing failure — swallow it silently.
+        if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return
         if (e instanceof ApiError && e.status === 404) {
           setError('not-found')
           return
@@ -128,6 +149,7 @@ export function ToolPage({ descriptor: prefilled }: ToolPageProps = {}) {
 
     return () => {
       cancelled = true
+      ac.abort()
     }
   }, [uriKey, prefilled, addToast, t, gate])
 
