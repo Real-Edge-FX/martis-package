@@ -581,6 +581,7 @@ emit('martis:record-created', { resourceKey: 'posts', id: 1 })
 | `martis:action-executed` | `{ actionKey, resourceKey }` | After an action completes |
 | `martis:refresh-index` | `{ resourceKey }` | Request a full index refresh |
 | `martis:notification-received` | `{ id?, title?, message? }` | Pluggable real-time feed for the notification bell — emit this from any transport (a consumer's own ws-gateway, SSE, or an Echo listener) to push a notification into the bell instantly. See `docs/notifications.md` "Real-time delivery". |
+| `martis:notifications-changed` | `{}` (no payload) | Ask the notification bell to re-fetch its unread count + open list (reconcile after a read / read-all / delete happened elsewhere — the down-direction mirror of `martis:notification-received`). See `docs/notifications.md` "Reconciling reads across sessions". |
 
 Custom events can use any string key. Martis prefixes built-in events with `martis:`.
 
