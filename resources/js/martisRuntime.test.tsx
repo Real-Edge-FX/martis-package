@@ -51,6 +51,7 @@ describe('martisRuntime', () => {
         expect(martisRuntime.useMartisForm).toBeTypeOf('function')
         expect(martisRuntime.FieldsForm).toBeTypeOf('function')
         expect(martisRuntime.useToolFields).toBeTypeOf('function')
+        expect(martisRuntime.useRevalidateOnFocus).toBeTypeOf('function')
 
         // 3rd-party re-exports
         expect(martisRuntime.reactRouterDom).toBeTypeOf('object')

@@ -14,6 +14,9 @@
  *     notification bell; any transport (consumer ws-gateway, SSE, Echo
  *     listener) can emit this to push a notification instantly instead
  *     of waiting for the bell's poll interval
+ *   - martis:notifications-changed — request the notification bell to
+ *     re-fetch its unread count + list (reconcile after a read/delete
+ *     elsewhere)
  *
  * Usage:
  * ```ts
@@ -42,6 +45,7 @@ interface EventBusEvents {
   'martis:action-executed': { resourceKey: string; action: string; ids: (number | string)[] }
   'martis:refresh-index': { resourceKey?: string }
   'martis:notification-received': { id?: string | number; title?: string; message?: string }
+  'martis:notifications-changed': Record<string, never>
 }
 
 /** All known event names plus any custom string key. */

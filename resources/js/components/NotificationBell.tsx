@@ -119,8 +119,22 @@ export function NotificationBell() {
       }
     }
 
+    // Reconcile feed (v1.x+): any transport can also emit
+    // `martis:notifications-changed` (no meaningful payload) to tell the
+    // bell "a read/read-all/delete happened elsewhere — re-fetch and
+    // reconcile." Unlike the optimistic increment above, this lets the
+    // count go DOWN; it just invalidates the same query key the mutations
+    // below already use, so unread-count + the open list both re-fetch.
+    function handleNotificationsChanged() {
+      void qc.invalidateQueries({ queryKey: ['notifications'] })
+    }
+
     martisEventBus.on('martis:notification-received', handleRealtimeNotification)
-    return () => martisEventBus.off('martis:notification-received', handleRealtimeNotification)
+    martisEventBus.on('martis:notifications-changed', handleNotificationsChanged)
+    return () => {
+      martisEventBus.off('martis:notification-received', handleRealtimeNotification)
+      martisEventBus.off('martis:notifications-changed', handleNotificationsChanged)
+    }
   }, [qc])
 
   const unreadCount = unreadQuery.data?.unread ?? 0

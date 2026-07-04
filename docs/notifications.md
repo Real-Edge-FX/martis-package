@@ -253,6 +253,19 @@ The notification bell (`NotificationBell.tsx`) is poll-only by default, but it a
 
 Polling (`MARTIS_NOTIFICATIONS_POLL_INTERVAL`, default 90 s) keeps running underneath as the reconciliation fallback, so a missed or dropped push self-heals on the next poll tick instead of leaving the badge permanently stale. The real-time feed is additive, not a replacement — Martis ships no transport of its own, only the event contract the bell listens for.
 
+#### Reconciling reads across sessions
+
+`martis:notification-received` only moves the badge **up**. When a notification is marked read (or read-all / deleted) in *another* session, that session's own count goes down, but a second open session keeps showing the inflated count until its next poll. To converge immediately, emit the payload-less companion event:
+
+```ts
+import { martisEventBus } from '@martis/runtime'
+
+// e.g. when your socket/SSE tells this tab a read happened elsewhere:
+martisEventBus.emit('martis:notifications-changed', {})
+```
+
+The bell responds by re-fetching `/api/notifications/unread-count` (and the open list) right away, so the badge reconciles in whichever direction the server now reports — the down-direction mirror of `martis:notification-received`. Bridge it from the same transport that already feeds the received event. As always, the poll remains the fallback if no transport fires it.
+
 ## Migration
 
 The `martis:install --force` command publishes a migration that creates the standard Laravel `notifications` table (idempotent — skipped when the table already exists). Apps that already ran `php artisan notifications:table` are compatible with no migration needed.

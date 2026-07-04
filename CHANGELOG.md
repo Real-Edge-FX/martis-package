@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] — 2026-07-04
+
+### Added
+
+- **`martis:notifications-changed` reconcile event.** Companion to `martis:notification-received` (v1.21.0), which only moves the unread badge *up*. When a notification is read / read-all / deleted in another session, a second open session stays inflated until its next poll. Emitting the payload-less `martisEventBus.emit('martis:notifications-changed', {})` now makes the bell immediately re-fetch `/api/notifications/unread-count` (and the open list), reconciling in whichever direction the server reports — the down-direction mirror of the received event. A consumer bridges it from the same transport that already feeds the received event; no Martis broadcaster required, no new dependencies. Polling remains the fallback. Additive (semver-minor).
+- **Cross-session data revalidation seam.** For the app-wide "session B shows a stale list after session A mutated it" gap: the previously-orphan `martis:refresh-index` event is now consumed by `ResourceIndexPage` — emit `martisEventBus.emit('martis:refresh-index', { resourceKey })` from your own transport (ws-gateway / SSE / an Echo listener you write) and the matching index revalidates its `['resources', <uriKey>]` query immediately (or every index when `resourceKey` is omitted). New `useRevalidateOnFocus(onRevalidate)` hook (exposed on `@martis/runtime`) gives manual-fetch Tools the same focus/visibility revalidation that `useQuery`-based Resources and Tools already get from react-query's defaults. No new dependencies, no broadcaster. Documented under "Data freshness across sessions" in `docs/components.md`. Additive (semver-minor). _(Note: `refetchOnWindowFocus` was already active by default — the report's "no revalidation on focus" was a misdiagnosis; it is gated by the 30 s `staleTime`. The broadcast-driven option was declined: it would require a broadcaster client dependency.)_
+
+_Note: the separately reported request for a built-in Echo/websocket client in the bell was intentionally not implemented — it would pull `laravel-echo` + `pusher-js` into the package. The pluggable path (shipped in v1.21.0: emit `martis:notification-received` from your own transport, incl. an Echo listener you write) already covers this without adding dependencies._
+
 ## [1.21.0] — 2026-07-04
 
 ### Fixed

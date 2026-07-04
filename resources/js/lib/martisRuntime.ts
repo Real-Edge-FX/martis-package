@@ -51,6 +51,7 @@ import { DrawerShell } from '@/components/overrides/DrawerShell'
 import { Tooltip } from 'primereact/tooltip'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { useToolFields } from '@/hooks/useToolFields'
+import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -111,6 +112,13 @@ export const martisRuntime = {
   useMartisForm,
   FieldsForm,
   useToolFields,
+
+  // Focus/visibility revalidation seam (v1.x+) for Tools that fetch data
+  // manually instead of via `useQuery` (which already gets
+  // `refetchOnWindowFocus` from the react-query default). Call with a
+  // refetch callback to opt a manual-fetch Tool into the same
+  // "revalidate when the operator returns to this tab" behaviour.
+  useRevalidateOnFocus,
 
   // Generic slide-over drawer shell. Lets consumer Tools host
   // edit/add/detail forms (composed from FieldInput) in a native

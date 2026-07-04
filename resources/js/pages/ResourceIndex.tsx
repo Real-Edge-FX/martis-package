@@ -24,6 +24,7 @@ import { useResourceAccent } from '@/lib/useResourceAccent'
 import { useResourceLoaderConfig } from '@/contexts/LoaderConfigContext'
 import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
+import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -320,6 +321,22 @@ export function ResourceIndexPage() {
       return undefined
     },
   })
+
+  // Cross-session revalidation seam: any transport (consumer ws-gateway,
+  // SSE, Echo listener) can emit `martis:refresh-index` to tell this index
+  // "another session mutated this resource — revalidate." Mirrors the same
+  // `['resources', resource]` key the mutations above already invalidate,
+  // so a targeted or untargeted (resourceKey omitted) event re-fetches.
+  useEffect(() => {
+    function handleRefreshIndex(payload: EventPayload) {
+      const resourceKey = (payload as { resourceKey?: string }).resourceKey
+      if (!resourceKey || resourceKey === resource) {
+        void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      }
+    }
+    martisEventBus.on('martis:refresh-index', handleRefreshIndex)
+    return () => martisEventBus.off('martis:refresh-index', handleRefreshIndex)
+  }, [resource, qc])
 
   // Actions are included in the schema payload — no separate query needed.
   // This eliminates the "inline actions flash" on refresh where buttons
