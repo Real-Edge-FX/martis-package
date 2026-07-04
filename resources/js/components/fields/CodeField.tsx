@@ -70,12 +70,9 @@ function getLanguageExtension(lang: string): Extension | null {
 }
 
 export function CodeFieldDisplay({ field, value }: FieldDisplayProps) {
-  if (value === null || value === undefined || value === "") {
-    return <span className="text-gray-400 dark:text-gray-500">&mdash;</span>
-  }
-
   const language =
     ((field as Record<string, unknown>).language as string) ?? "javascript"
+  // Hooks must run unconditionally, before any early return (rules-of-hooks).
   const langExt = useMemo(() => getLanguageExtension(language), [language])
   const dark = useMemo(() => isDarkMode(), [])
   const extensions = useMemo(() => {
@@ -84,6 +81,10 @@ export function CodeFieldDisplay({ field, value }: FieldDisplayProps) {
     if (dark) exts.push(oneDark)
     return exts
   }, [langExt, dark])
+
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-gray-400 dark:text-gray-500">&mdash;</span>
+  }
 
   return (
     <div className="rounded overflow-hidden" style={{ border: "1px solid var(--martis-border)" }}>

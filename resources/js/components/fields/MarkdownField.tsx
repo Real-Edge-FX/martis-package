@@ -38,14 +38,15 @@ export function renderMarkdown(content: string, preset: string): string {
 
 export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
   const { t } = useTranslation('messages')
+  const alwaysShow = (field as Record<string, unknown>).alwaysShow as boolean ?? false
+  const preset = (field as Record<string, unknown>).preset as string ?? 'default'
+  // Hooks must run unconditionally, before any early return (rules-of-hooks).
+  const [expanded, setExpanded] = useState(alwaysShow)
+  const html = useMemo(() => renderMarkdown(String(value ?? ''), preset), [value, preset])
+
   if (value === null || value === undefined || value === '') {
     return <span className="martis-text-muted">—</span>
   }
-
-  const alwaysShow = (field as Record<string, unknown>).alwaysShow as boolean ?? false
-  const preset = (field as Record<string, unknown>).preset as string ?? 'default'
-  const [expanded, setExpanded] = useState(alwaysShow)
-  const html = useMemo(() => renderMarkdown(String(value), preset), [value, preset])
 
   if (!expanded) {
     return (

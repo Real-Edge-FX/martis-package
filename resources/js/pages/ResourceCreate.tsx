@@ -81,7 +81,6 @@ export function ResourceCreatePage() {
         return f
       })
     return walk(rawFormFields)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawFormFields, isViaRelation, viaResource])
 
   const [values, setValues] = useState<Record<string, unknown>>({})

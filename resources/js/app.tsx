@@ -110,12 +110,10 @@ async function loadConsumerExtensions(): Promise<void> {
       .filter((url): url is string => typeof url === 'string' && url !== '')
       .map((url) => {
         const load = import(/* @vite-ignore */ url).catch((err: unknown) => {
-          // eslint-disable-next-line no-console
           console.error('[martis] failed to load extension', url, err)
         })
         const timeout = new Promise<void>((resolve) =>
           setTimeout(() => {
-            // eslint-disable-next-line no-console
             console.warn('[martis] extension load exceeded', EXTENSION_LOAD_TIMEOUT_MS, 'ms; mounting without it', url)
             resolve()
           }, EXTENSION_LOAD_TIMEOUT_MS),

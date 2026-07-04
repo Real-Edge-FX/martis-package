@@ -20,15 +20,12 @@ export default [
         rules: {
             '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
             '@typescript-eslint/no-explicit-any': 'warn',
-            // Restore the React Hooks lint coverage the codebase already relies
-            // on (it carries `eslint-disable react-hooks/exhaustive-deps`
-            // directives that, with the rule unregistered, made every such file
-            // error with "rule not found"). Both rules are `warn` for now:
-            // `rules-of-hooks` surfaces ~13 pre-existing conditional-hook
-            // violations (hooks after an early return) in field/profile
-            // components — genuine latent bugs tracked for a dedicated fix, after
-            // which this should be promoted to `error`.
-            'react-hooks/rules-of-hooks': 'warn',
+            // React Hooks lint coverage. `rules-of-hooks` is an error — the
+            // pre-existing conditional-hook violations (hooks after an early
+            // return in CodeField/IconField/MarkdownField/TrixField) have been
+            // fixed. `exhaustive-deps` stays `warn` (advisory; several call sites
+            // intentionally narrow their dep arrays via inline disable comments).
+            'react-hooks/rules-of-hooks': 'error',
             'react-hooks/exhaustive-deps': 'warn',
         },
     },

@@ -63,12 +63,9 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
   const ext = field as unknown as Record<string, unknown>
   const imageClickBehavior = (ext.imageClickBehavior as string) || 'modal'
   const linkClickBehavior = (ext.linkClickBehavior as string) || 'same_page'
-
-  if (value === null || value === undefined || value === "") {
-    return <span className="martis-text-muted">&mdash;</span>
-  }
-
   const alwaysShow = (ext.alwaysShow as boolean) ?? false
+  // Hooks must run unconditionally, before any early return (rules-of-hooks);
+  // the empty-value guard is moved below, after the effect.
   const [expanded, setExpanded] = useState(alwaysShow)
 
   // Intercept image + attachment link clicks inside trix content
@@ -168,6 +165,10 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
 
     return () => el.removeEventListener('click', handleClick)
   }, [expanded, imageClickBehavior, linkClickBehavior, value])
+
+  if (value === null || value === undefined || value === "") {
+    return <span className="martis-text-muted">&mdash;</span>
+  }
 
   if (!expanded) {
     return (
