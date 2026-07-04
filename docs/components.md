@@ -580,8 +580,17 @@ emit('martis:record-created', { resourceKey: 'posts', id: 1 })
 | `martis:record-restored` | `{ resourceKey, id }` | After a soft-deleted record is restored |
 | `martis:action-executed` | `{ actionKey, resourceKey }` | After an action completes |
 | `martis:refresh-index` | `{ resourceKey }` | Request a full index refresh |
+| `martis:notification-received` | `{ id?, title?, message? }` | Pluggable real-time feed for the notification bell — emit this from any transport (a consumer's own ws-gateway, SSE, or an Echo listener) to push a notification into the bell instantly. See `docs/notifications.md` "Real-time delivery". |
 
 Custom events can use any string key. Martis prefixes built-in events with `martis:`.
+
+The event bus is also exposed on the `@martis/runtime` barrel as `martisEventBus` (the singleton instance, not the hook) so consumer-extension bundles can emit into native Martis UI without importing `@/lib/eventBus` directly:
+
+```ts
+import { martisEventBus } from '@martis/runtime'
+
+martisEventBus.emit('martis:notification-received', { id: 42, title: 'New order' })
+```
 
 ---
 

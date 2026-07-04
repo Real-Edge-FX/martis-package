@@ -8,6 +8,7 @@ import { Topbar } from "@/components/Topbar"
 import { Footer } from "@/components/Footer"
 import { ImpersonationBanner as BundledImpersonationBanner } from "@/components/ImpersonationBanner"
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp"
+import { NavigationProgress } from "@/components/NavigationProgress"
 import { TopnavLayout } from "@/components/layouts/TopnavLayout"
 import { MinimalLayout } from "@/components/layouts/MinimalLayout"
 import { TableSkeleton } from "@/components/LoadingSkeleton"
@@ -209,6 +210,10 @@ export function Layout() {
   return (
     <>
       <MartisTooltip />
+      {/* Mounted here (not inside a preset) so every built-in layout
+          preset — sidebar / topnav / minimal — gets the in-flight
+          navigation indicator. Custom shells own their own chrome. */}
+      <NavigationProgress />
       <LayoutComponent />
     </>
   )

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] — 2026-07-04
+
+### Fixed
+
+- **Tool→tool navigation no longer reuses the previous tool.** Switching sidebar Tools kept the outgoing tool mounted (`ToolPage` never reset its descriptor and the route had no remount key), so the old tool's effects kept firing during the transition — including `setSearchParams`, which made the previous tool's `?id=` appear to "leak" into the next tool (spurious 404/403). `ToolPage` now remounts on `uriKey` change and aborts the in-flight fetch, so the outgoing tool tears down cleanly and each tool starts from a clean state. (The reported query-string "leak" was a symptom of this, not a router bug — React Router already clears the query on a path-only navigation.)
+
+### Added
+
+- **Navigation progress bar.** A top progress indicator now reflects in-flight navigation across all layout presets (sidebar / topnav / minimal), driven by route changes + in-flight queries. Fills the previous gap where a tool/resource switch on a slow connection gave no "page is loading" signal.
+- **Pluggable real-time notification feed.** The topbar bell is still poll-only by default, but now also updates instantly when any transport emits `martis:notification-received` on the event bus: `martisEventBus.emit('martis:notification-received', { id, title, message })` bumps the unread badge and prepends to the open dropdown, no Reverb required. `martisEventBus` is exposed on `@martis/runtime` so a consumer's own websocket gateway (or an Echo listener they write) can feed the bell. Polling remains the reconciliation fallback. Additive (semver-minor).
+
+### Docs
+
+- Corrected the notifications "real-time delivery" section: `toBroadcast()` only emits the Laravel broadcast event; the host app must supply the broadcaster (Reverb/Pusher), `routes/channels.php`, and an Echo client — Martis ships none of that, and the bell has no built-in Echo consumer. Documented the pluggable `martisEventBus` feed as the no-infrastructure path.
+
+_Note: the previously reported `ResourceRegistry::resolve()` 500 on resource-metric cards was already fixed in v1.16.0 (canonical `has()`-guard + `get()` pattern, with HTTP-level regression coverage); no change needed here._
+
 ## [1.20.0] — 2026-07-03
 
 ### Added

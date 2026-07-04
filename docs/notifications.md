@@ -154,7 +154,7 @@ echo $u->unreadNotifications()->count(), "\n";
 '
 ```
 
-To deliver instantly (no polling delay) add the `broadcast` channel to `via()` and have your app listen for `Illuminate\Notifications\Events\BroadcastNotificationCreated` on the front end (`echo.private('App.Models.User.{id}')`).
+To deliver instantly (no polling delay), see "Real-time delivery" below — it requires standing up your own broadcaster and Echo client (Martis ships neither), or wiring the pluggable `martisEventBus` feed, which needs no broadcaster at all.
 
 ### Reference: data shape
 
@@ -205,17 +205,53 @@ All endpoints live under `/{martis-path}/api/notifications`, scope to the authen
 
 ## Real-time delivery
 
-Polling defaults to 90 s — fine for most apps. For instant updates (Slack-like), add the `broadcast` channel to your notification's `via()` and listen for the event on the React side. The `MartisNotification` base ships a default `toBroadcast()` payload so this works without extra work:
+Polling defaults to 90 s — fine for most apps. Two honest facts up front:
 
-```php
-class MyNotification extends MartisNotification
-{
-    public function via(mixed $notifiable): array
-    {
-        return ['database', 'broadcast'];
-    }
-}
+- `MartisNotification::toBroadcast()` only emits Laravel's own `Illuminate\Notifications\Events\BroadcastNotificationCreated` event on the server side. It does **not** deliver anything to the browser by itself.
+- **Martis ships no broadcaster, no `routes/channels.php`, and no Echo client.** The bell has no built-in Echo consumer. Getting an actual instant push to the browser via Laravel broadcasting is entirely on the host app to build — see option 1 below. If you want instant delivery without any of that infrastructure, use the pluggable feed in option 2 instead.
+
+### Option 1 — Laravel broadcasting (Reverb/Pusher), wired by you
+
+To get real Slack-like push delivery through Laravel's broadcasting layer, the host app must:
+
+1. Stand up a broadcaster (Reverb, Pusher, or another `BROADCAST_CONNECTION` driver) and configure it in `config/broadcasting.php` / `.env`.
+2. Publish `routes/channels.php` with a `Broadcast::channel('App.Models.User.{id}', function ($user, $id) { return (int) $user->id === (int) $id; })` authorization callback, since notifications broadcast on the notifiable's private channel.
+3. Add the `broadcast` channel to your notification's `via()`:
+
+   ```php
+   class MyNotification extends MartisNotification
+   {
+       public function via(mixed $notifiable): array
+       {
+           return ['database', 'broadcast'];
+       }
+   }
+   ```
+
+   The `MartisNotification` base provides a default `toBroadcast()` payload (the same array as `toArray()`), so you don't need to implement that method yourself — but everything in steps 1-2, plus step 4 below, is still on you.
+4. Install and bootstrap an Echo client (`laravel-echo` + a driver package such as `pusher-js`) in your own extension bundle, and subscribe: `echo.private('App.Models.User.{id}').notification(n => martisEventBus.emit('martis:notification-received', n))`. This is exactly the seam described in option 2 — Echo just becomes one more transport feeding it.
+
+Martis intentionally ships none of this (no bundled Echo/Pusher/websocket client, no channel routes) to stay broadcaster-agnostic and avoid forcing a dependency on apps that don't need real-time delivery.
+
+### Option 2 — Pluggable real-time feed (no Reverb required)
+
+Any transport — your own WebSocket gateway, Server-Sent Events, or an Echo listener you write per option 1 — can push a notification into the bell instantly, with zero broadcaster setup, by emitting on the shared Martis event bus (see `docs/components.md` "Event Bus"):
+
+```ts
+import { martisEventBus } from '@martis/runtime'
+
+// e.g. inside your own WebSocket `onmessage` handler, SSE `onmessage`,
+// or an Echo `.notification()` callback:
+martisEventBus.emit('martis:notification-received', {
+  id: payload.id,
+  title: payload.title,
+  message: payload.message,
+})
 ```
+
+The notification bell (`NotificationBell.tsx`) is poll-only by default, but it also subscribes to this event: emitting `martis:notification-received` bumps the unread badge and, if the dropdown is already open, prepends the item to the visible list — immediately, no waiting for the next poll.
+
+Polling (`MARTIS_NOTIFICATIONS_POLL_INTERVAL`, default 90 s) keeps running underneath as the reconciliation fallback, so a missed or dropped push self-heals on the next poll tick instead of leaving the badge permanently stale. The real-time feed is additive, not a replacement — Martis ships no transport of its own, only the event contract the bell listens for.
 
 ## Migration
 

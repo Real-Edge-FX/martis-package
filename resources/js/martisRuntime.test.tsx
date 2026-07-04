@@ -29,6 +29,9 @@ describe('martisRuntime', () => {
         expect(martisRuntime.ApiError).toBeTypeOf('function')
         expect(martisRuntime.config).toBeTypeOf('object')
 
+        // Event bus (pluggable real-time feed)
+        expect(martisRuntime.martisEventBus).toBeTypeOf('object')
+
         // Layout components
         expect(martisRuntime.AuthFrame).toBeTypeOf('function')
         expect(martisRuntime.Sidebar).toBeTypeOf('function')

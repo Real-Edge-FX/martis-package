@@ -40,6 +40,7 @@ import { useToast, useToastSafe } from '@/contexts/ToastContext'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
+import { martisEventBus } from '@/lib/eventBus'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
@@ -73,6 +74,14 @@ export const martisRuntime = {
   api,
   ApiError,
   config,
+
+  // Singleton pub/sub event bus (since v1.x). Lets a consumer's own
+  // transport (ws-gateway, SSE, or an Echo listener they write) push
+  // events — e.g. `martis:notification-received` — into native Martis
+  // UI (the notification bell) instantly, without the package taking
+  // an opinion on the transport. See docs/notifications.md ("Pluggable
+  // real-time feed") and docs/components.md ("Event Bus").
+  martisEventBus,
 
   // Components consumer overrides typically compose with.
   AuthFrame,
@@ -155,3 +164,10 @@ export type { MartisFormOptions, MartisForm } from '@/hooks/useMartisForm'
  * reaching into internal `@/hooks/...` paths.
  */
 export type { UseToolFieldsResult } from '@/hooks/useToolFields'
+
+/**
+ * Event bus payload map re-exported so consumers calling
+ * `runtime.martisEventBus.emit(...)` / `.on(...)` get typed event
+ * names and payloads without reaching into `@/lib/eventBus` directly.
+ */
+export type { EventBusEvents } from '@/lib/eventBus'

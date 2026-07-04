@@ -10,6 +10,10 @@
  *   - martis:record-restored — fired after a record is restored
  *   - martis:action-executed — fired after an action completes
  *   - martis:refresh-index   — request index table to refresh its data
+ *   - martis:notification-received — pluggable real-time feed for the
+ *     notification bell; any transport (consumer ws-gateway, SSE, Echo
+ *     listener) can emit this to push a notification instantly instead
+ *     of waiting for the bell's poll interval
  *
  * Usage:
  * ```ts
@@ -37,6 +41,7 @@ interface EventBusEvents {
   'martis:record-restored': { resourceKey: string; id: number | string }
   'martis:action-executed': { resourceKey: string; action: string; ids: (number | string)[] }
   'martis:refresh-index': { resourceKey?: string }
+  'martis:notification-received': { id?: string | number; title?: string; message?: string }
 }
 
 /** All known event names plus any custom string key. */
