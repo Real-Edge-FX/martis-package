@@ -6,6 +6,7 @@ import { BellIcon, CheckCircleIcon, WarningIcon, WarningCircleIcon, InfoIcon, Tr
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 
 interface NotificationItem {
   id: string
@@ -74,6 +75,53 @@ export function NotificationBell() {
     queryFn: () => api.get<ListResponse>('/api/notifications'),
     enabled: enabled && open,
   })
+
+  // Real-time feed (v1.x+): any transport (consumer ws-gateway, SSE, an
+  // Echo listener the consumer writes) can push a notification into the
+  // bell instantly by emitting `martis:notification-received` on the
+  // shared event bus. Polling above stays as the fallback/reconciliation
+  // path — this effect only updates the cache eagerly on emission.
+  useEffect(() => {
+    function handleRealtimeNotification(payload: EventPayload) {
+      // Bump the unread badge immediately, matching the real
+      // UnreadCountResponse shape ({ unread: number }).
+      qc.setQueryData<UnreadCountResponse>(['notifications', 'unread-count'], (prev) => ({
+        unread: (prev?.unread ?? 0) + 1,
+      }))
+
+      // Prepend to the open dropdown's list if it's already cached;
+      // otherwise let the next open (or poll) fetch it fresh.
+      const hasListCache = qc.getQueryData(['notifications', 'list']) !== undefined
+      if (hasListCache) {
+        qc.setQueryData<ListResponse>(['notifications', 'list'], (prev) => {
+          const newItem: NotificationItem = {
+            id: String(payload.id ?? `realtime-${Date.now()}`),
+            type: 'realtime',
+            title: typeof payload.title === 'string' ? payload.title : '',
+            message: typeof payload.message === 'string' ? payload.message : null,
+            level: 'info',
+            icon: null,
+            action_url: null,
+            action_label: null,
+            read_at: null,
+            created_at: new Date().toISOString(),
+          }
+          if (!prev) {
+            return { data: [newItem], meta: { total: 1, unread: 1 } }
+          }
+          return {
+            data: [newItem, ...prev.data],
+            meta: { total: prev.meta.total + 1, unread: prev.meta.unread + 1 },
+          }
+        })
+      } else {
+        void qc.invalidateQueries({ queryKey: ['notifications', 'list'] })
+      }
+    }
+
+    martisEventBus.on('martis:notification-received', handleRealtimeNotification)
+    return () => martisEventBus.off('martis:notification-received', handleRealtimeNotification)
+  }, [qc])
 
   const unreadCount = unreadQuery.data?.unread ?? 0
   const items = listQuery.data?.data ?? []

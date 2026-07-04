@@ -48,6 +48,13 @@ export const api = R.api
 export const ApiError = R.ApiError
 export const config = R.config
 
+// Singleton pub/sub event bus. Lets a consumer's own transport
+// (ws-gateway, SSE, an Echo listener they write) push events — e.g.
+// `martis:notification-received` — into native Martis UI (the
+// notification bell) instantly, without the package taking an
+// opinion on the transport.
+export const martisEventBus = R.martisEventBus
+
 // Components
 export const AuthFrame = R.AuthFrame
 export const Sidebar = R.Sidebar

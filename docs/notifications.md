@@ -217,6 +217,23 @@ class MyNotification extends MartisNotification
 }
 ```
 
+### Pushing into the bell instantly (transport-agnostic)
+
+The notification bell (`NotificationBell.tsx`) is poll-only by default, but it also subscribes to the shared Martis event bus (see `docs/components.md` "Event Bus"). Any transport you wire up yourself — a ws-gateway, SSE, or a Laravel Echo listener in your own extension bundle — can emit `martis:notification-received` to update the bell's unread count and (if the dropdown is open) prepend to the list, without waiting for the next poll:
+
+```ts
+import { martisEventBus } from '@martis/runtime'
+
+// e.g. inside your own WebSocket `onmessage` handler:
+martisEventBus.emit('martis:notification-received', {
+  id: payload.id,
+  title: payload.title,
+  message: payload.message,
+})
+```
+
+Martis ships no transport of its own (no bundled Echo/Pusher/websocket client) — this is intentionally just the event contract the bell listens for. Polling (default 90 s) keeps working underneath as the fallback/reconciliation path, so the real-time feed is additive, not a replacement.
+
 ## Migration
 
 The `martis:install --force` command publishes a migration that creates the standard Laravel `notifications` table (idempotent — skipped when the table already exists). Apps that already ran `php artisan notifications:table` are compatible with no migration needed.
