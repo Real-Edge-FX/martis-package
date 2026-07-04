@@ -81,6 +81,10 @@ export const useMartisForm = R.useMartisForm
 export const FieldsForm = R.FieldsForm
 export const useToolFields = R.useToolFields
 
+// Focus/visibility revalidation seam for Tools that fetch data manually
+// (no react-query, which already revalidates on window focus by default).
+export const useRevalidateOnFocus = R.useRevalidateOnFocus
+
 // `react-router-dom` re-exports flattened on the top level so legacy
 // stub imports `import {useNavigate} from 'react-router-dom'` resolve
 // when the consumer's vite alias points the bare module specifier

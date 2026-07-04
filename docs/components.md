@@ -579,7 +579,7 @@ emit('martis:record-created', { resourceKey: 'posts', id: 1 })
 | `martis:record-deleted` | `{ resourceKey, id }` | After a record is deleted |
 | `martis:record-restored` | `{ resourceKey, id }` | After a soft-deleted record is restored |
 | `martis:action-executed` | `{ actionKey, resourceKey }` | After an action completes |
-| `martis:refresh-index` | `{ resourceKey }` | Request a full index refresh |
+| `martis:refresh-index` | `{ resourceKey? }` | Request a Resource index to revalidate. Any transport (a consumer's own ws-gateway, SSE, or an Echo listener) can emit this to tell a `ResourceIndexPage` "another session mutated this resource — refetch." The index invalidates its `['resources', <uriKey>]` query when the payload's `resourceKey` matches its own resource, or on every index when `resourceKey` is omitted. |
 | `martis:notification-received` | `{ id?, title?, message? }` | Pluggable real-time feed for the notification bell — emit this from any transport (a consumer's own ws-gateway, SSE, or an Echo listener) to push a notification into the bell instantly. See `docs/notifications.md` "Real-time delivery". |
 | `martis:notifications-changed` | `{}` (no payload) | Ask the notification bell to re-fetch its unread count + open list (reconcile after a read / read-all / delete happened elsewhere — the down-direction mirror of `martis:notification-received`). See `docs/notifications.md` "Reconciling reads across sessions". |
 
@@ -592,6 +592,35 @@ import { martisEventBus } from '@martis/runtime'
 
 martisEventBus.emit('martis:notification-received', { id: 42, title: 'New order' })
 ```
+
+---
+
+## useRevalidateOnFocus Hook
+
+Resources and Tools built on `useQuery` already get `refetchOnWindowFocus` from the react-query default: the data revalidates automatically when the operator returns to a backgrounded Martis tab. Custom Tools that fetch data manually (no react-query) don't get this for free — `useRevalidateOnFocus` closes that gap.
+
+```tsx
+import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
+// or, from a consumer-extension bundle:
+import { useRevalidateOnFocus } from '@martis/runtime'
+
+function MyManualFetchTool() {
+  const [data, setData] = useState(null)
+
+  const refetch = useCallback(() => {
+    fetch('/api/my-tool-data').then(res => res.json()).then(setData)
+  }, [])
+
+  useEffect(() => { refetch() }, [refetch])
+
+  // Re-fetch whenever the tab becomes visible again or the window regains focus.
+  useRevalidateOnFocus(refetch)
+
+  return <div>{/* ... */}</div>
+}
+```
+
+The hook takes a single `onRevalidate: () => void` callback, subscribes to `document`'s `visibilitychange` (firing only when the page becomes visible) and `window`'s `focus`, and cleans both listeners up on unmount. It has no dependencies of its own and does not touch react-query — it is purely a DOM-event seam for manual-fetch Tools.
 
 ---
 
