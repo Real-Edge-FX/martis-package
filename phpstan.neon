@@ -18,5 +18,10 @@ parameters:
             identifier: trait.unused
             path: src/Concerns/Actionable.php
         -
+            # Public-API trait for consumer Tools (used via `use ProvidesToolFields`
+            # in downstream apps), so it is never referenced inside the package.
+            identifier: trait.unused
+            path: src/Concerns/ProvidesToolFields.php
+        -
             identifier: property.notFound
             path: src/Profile/TwoFactorService.php

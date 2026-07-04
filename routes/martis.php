@@ -29,6 +29,7 @@ use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\SlugController;
 use Martis\Http\Controllers\SsoController;
+use Martis\Http\Controllers\ToolFieldsController;
 use Martis\Http\Controllers\ToolsController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
@@ -224,6 +225,7 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // key.
                                 Route::get('/tools', [ToolsController::class, 'index'])->name('tools.index');
                                 Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])->name('tools.show');
+                                Route::get('/tools/{uriKey}/fields', [ToolFieldsController::class, 'fields'])->name('tools.fields');
 
                                 // Impersonation — v0.10 opt-in subsystem.
                                 // Master switch is off by default; gate

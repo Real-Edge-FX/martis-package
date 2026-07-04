@@ -45,8 +45,11 @@ import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
 import { Footer } from '@/components/Footer'
 import { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
+import { FieldsForm } from '@/components/fields/FieldsForm'
 import { DrawerShell } from '@/components/overrides/DrawerShell'
 import { Tooltip } from 'primereact/tooltip'
+import { useMartisForm } from '@/hooks/useMartisForm'
+import { useToolFields } from '@/hooks/useToolFields'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -88,6 +91,18 @@ export const martisRuntime = {
   FieldInput,
   FieldDisplay,
 
+  // Shared field-form harness (since v1.20.0). `useMartisForm` owns the
+  // form state (values, dependsOn override resolution, errors) and yields
+  // the `fieldProps(field)` bundle for a `FieldInput`; `FieldsForm` renders
+  // a whole field set (fields + tab_group/section/panel containers). These
+  // are the SAME machinery the Resource create/update pages use, so a Tool
+  // gets identical field behaviour (slug-from-source, dependsOn, validation
+  // display). Bind server-backed behaviour with `resourceKey`/`recordId`; see
+  // docs/tool-fields.md. Pair with MartisFormOptions/MartisForm re-exported below.
+  useMartisForm,
+  FieldsForm,
+  useToolFields,
+
   // Generic slide-over drawer shell. Lets consumer Tools host
   // edit/add/detail forms (composed from FieldInput) in a native
   // drawer without re-implementing the shell — the Tool controls
@@ -126,3 +141,17 @@ export type { FieldDefinition } from '@/types'
 export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
 export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
 export type { TooltipProps } from 'primereact/tooltip'
+
+/**
+ * Shared field-form harness types re-exported so consumer Tools calling
+ * `runtime.useMartisForm` / `runtime.FieldsForm` can type their options and
+ * form object without reaching into internal `@/hooks/...` paths.
+ */
+export type { MartisFormOptions, MartisForm } from '@/hooks/useMartisForm'
+
+/**
+ * `useToolFields` result type re-exported so consumer Tools calling
+ * `runtime.useToolFields` can type their destructured result without
+ * reaching into internal `@/hooks/...` paths.
+ */
+export type { UseToolFieldsResult } from '@/hooks/useToolFields'

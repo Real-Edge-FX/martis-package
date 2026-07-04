@@ -331,6 +331,8 @@ export function FinanceImportsTool({ tool }: { tool: ToolDescriptor }) {
 
 The Martis `ToolPage` shell (route `/tools/:uriKey`) fetches `/api/tools/{uriKey}`, looks up the registered component by key, and mounts it inside the standard layout (topbar, sidebar, breadcrumbs, theme — all wired automatically).
 
+> **Reusing Martis Fields inside a Tool.** A Tool can host real Martis fields (`Slug`, `Text`, `BelongsTo`, …) with the exact behaviour they have in a Resource form — slug-from-source, `dependsOn`, validation display — via the shared `useMartisForm` + `FieldsForm` harness, optionally declaring the fields in PHP with `Tool::fields()`. See [tool-fields.md](tool-fields.md).
+
 If your tool's `component()` returns a key that has no registration in `componentRegistry`, `ToolPage` renders a developer-friendly error UI (the tool name as the heading, then a translated message pointing you at the missing `componentRegistry.register(...)` call). The error is rendered to the DOM, not the console — it is hard to miss during local dev and is harmless in production beyond the visible message. To ship a config-only tool without a React body, simply do not call `withComponent()`; `ToolPage` then renders just the standard header and no content panel.
 
 ## The `martis:tool` generator
