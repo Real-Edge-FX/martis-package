@@ -83,12 +83,14 @@ it('martis:install is registered and runs successfully', function () {
 });
 
 it('martis:install publishes the frontend manifest', function () {
-    $this->artisan('martis:install')->assertSuccessful();
+    try {
+        $this->artisan('martis:install')->assertSuccessful();
 
-    expect(file_exists(public_path('vendor/martis/manifest.json')))->toBeTrue();
-})->afterEach(function () {
-    (new Filesystem)->deleteDirectory(public_path('vendor/martis'));
-    (new Filesystem)->deleteDirectory(app_path('Martis'));
+        expect(file_exists(public_path('vendor/martis/manifest.json')))->toBeTrue();
+    } finally {
+        (new Filesystem)->deleteDirectory(public_path('vendor/martis'));
+        (new Filesystem)->deleteDirectory(app_path('Martis'));
+    }
 });
 
 it('martis:install publishes the action events migration once', function () {
@@ -177,32 +179,36 @@ it('martis:install can publish the optional profile migration without duplicatio
 it('martis:install creates the expected Martis directories', function () {
     $base = app_path('Martis');
 
-    $this->artisan('martis:install')->assertSuccessful();
+    try {
+        $this->artisan('martis:install')->assertSuccessful();
 
-    expect(is_dir($base))->toBeTrue();
-    expect(is_dir($base.'/Resources'))->toBeTrue();
-    expect(is_dir($base.'/Fields'))->toBeTrue();
-    expect(is_dir($base.'/Actions'))->toBeTrue();
-    expect(is_dir($base.'/Filters'))->toBeTrue();
-    expect(is_dir($base.'/Lenses'))->toBeTrue();
-    expect(is_dir($base.'/Dashboards'))->toBeTrue();
-    expect(is_dir($base.'/Metrics'))->toBeTrue();
-})->afterEach(function () {
-    (new Filesystem)->deleteDirectory(app_path('Martis'));
+        expect(is_dir($base))->toBeTrue();
+        expect(is_dir($base.'/Resources'))->toBeTrue();
+        expect(is_dir($base.'/Fields'))->toBeTrue();
+        expect(is_dir($base.'/Actions'))->toBeTrue();
+        expect(is_dir($base.'/Filters'))->toBeTrue();
+        expect(is_dir($base.'/Lenses'))->toBeTrue();
+        expect(is_dir($base.'/Dashboards'))->toBeTrue();
+        expect(is_dir($base.'/Metrics'))->toBeTrue();
+    } finally {
+        (new Filesystem)->deleteDirectory(app_path('Martis'));
+    }
 });
 
 it('martis:install skips config publish when config already exists', function () {
-    // Pre-create the config file to simulate already-published state
-    (new Filesystem)->ensureDirectoryExists(config_path());
-    (new Filesystem)->put(config_path('martis.php'), '<?php return [];');
+    try {
+        // Pre-create the config file to simulate already-published state
+        (new Filesystem)->ensureDirectoryExists(config_path());
+        (new Filesystem)->put(config_path('martis.php'), '<?php return [];');
 
-    $this->artisan('martis:install')->assertSuccessful();
+        $this->artisan('martis:install')->assertSuccessful();
 
-    // Config file is still the stub (not overwritten)
-    expect(file_get_contents(config_path('martis.php')))->toBe('<?php return [];');
-})->afterEach(function () {
-    (new Filesystem)->delete(config_path('martis.php'));
-    (new Filesystem)->deleteDirectory(app_path('Martis'));
+        // Config file is still the stub (not overwritten)
+        expect(file_get_contents(config_path('martis.php')))->toBe('<?php return [];');
+    } finally {
+        (new Filesystem)->delete(config_path('martis.php'));
+        (new Filesystem)->deleteDirectory(app_path('Martis'));
+    }
 });
 
 it('InstallCommand class is registered in the service provider', function () {
@@ -211,32 +217,36 @@ it('InstallCommand class is registered in the service provider', function () {
 });
 
 it('martis:install publishes the host MartisServiceProvider stub', function () {
-    $providerPath = app_path('Providers/MartisServiceProvider.php');
-    expect(file_exists($providerPath))->toBeFalse();
+    try {
+        $providerPath = app_path('Providers/MartisServiceProvider.php');
+        expect(file_exists($providerPath))->toBeFalse();
 
-    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
-    expect(file_exists($providerPath))->toBeTrue();
-    $contents = (string) file_get_contents($providerPath);
-    expect($contents)->toContain('class MartisServiceProvider');
-    expect($contents)->toContain('Martis::dashboards');
-    expect($contents)->toContain('Martis::mainMenu');
-    expect($contents)->toContain('MartisCache::extend');
-    expect($contents)->toContain('manage-martis-cache');
-})->afterEach(function () {
-    cleanupMartisInstallArtifacts();
+        expect(file_exists($providerPath))->toBeTrue();
+        $contents = (string) file_get_contents($providerPath);
+        expect($contents)->toContain('class MartisServiceProvider');
+        expect($contents)->toContain('Martis::dashboards');
+        expect($contents)->toContain('Martis::mainMenu');
+        expect($contents)->toContain('MartisCache::extend');
+        expect($contents)->toContain('manage-martis-cache');
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
 });
 
 it('martis:install does not overwrite an existing host MartisServiceProvider', function () {
-    $providerPath = app_path('Providers/MartisServiceProvider.php');
-    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
-    (new Filesystem)->put($providerPath, '<?php // custom user content');
+    try {
+        $providerPath = app_path('Providers/MartisServiceProvider.php');
+        (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+        (new Filesystem)->put($providerPath, '<?php // custom user content');
 
-    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
-    expect(file_get_contents($providerPath))->toBe('<?php // custom user content');
-})->afterEach(function () {
-    cleanupMartisInstallArtifacts();
+        expect(file_get_contents($providerPath))->toBe('<?php // custom user content');
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
 });
 
 it('martis:install --force preserves an existing host MartisServiceProvider (v1.10.2+)', function () {
@@ -244,51 +254,57 @@ it('martis:install --force preserves an existing host MartisServiceProvider (v1.
     // longer overwrites the host app's provider, where dashboards,
     // menus, gates, and cache layers are registered. Republishing the
     // provider now requires `--force-provider`.
-    $providerPath = app_path('Providers/MartisServiceProvider.php');
-    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
-    (new Filesystem)->put($providerPath, '<?php // custom user content');
+    try {
+        $providerPath = app_path('Providers/MartisServiceProvider.php');
+        (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+        (new Filesystem)->put($providerPath, '<?php // custom user content');
 
-    $this->artisan('martis:install', ['--no-interaction' => true, '--force' => true])->assertSuccessful();
+        $this->artisan('martis:install', ['--no-interaction' => true, '--force' => true])->assertSuccessful();
 
-    expect(file_get_contents($providerPath))->toBe('<?php // custom user content');
-})->afterEach(function () {
-    cleanupMartisInstallArtifacts();
+        expect(file_get_contents($providerPath))->toBe('<?php // custom user content');
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
 });
 
 it('martis:install --force-provider overwrites an existing host MartisServiceProvider', function () {
-    $providerPath = app_path('Providers/MartisServiceProvider.php');
-    (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
-    (new Filesystem)->put($providerPath, '<?php // custom user content');
+    try {
+        $providerPath = app_path('Providers/MartisServiceProvider.php');
+        (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+        (new Filesystem)->put($providerPath, '<?php // custom user content');
 
-    $this->artisan('martis:install', ['--no-interaction' => true, '--force-provider' => true])->assertSuccessful();
+        $this->artisan('martis:install', ['--no-interaction' => true, '--force-provider' => true])->assertSuccessful();
 
-    expect(file_get_contents($providerPath))->toContain('class MartisServiceProvider');
-})->afterEach(function () {
-    cleanupMartisInstallArtifacts();
+        expect(file_get_contents($providerPath))->toContain('class MartisServiceProvider');
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
 });
 
 it('martis:install registers the host MartisServiceProvider in bootstrap/providers.php', function () {
-    $bootstrapPath = base_path('bootstrap/providers.php');
-    if (! file_exists($bootstrapPath)) {
-        // Some testbench setups don't have this file. Skip.
-        return;
+    try {
+        $bootstrapPath = base_path('bootstrap/providers.php');
+        if (! file_exists($bootstrapPath)) {
+            // Some testbench setups don't have this file. Skip.
+            return;
+        }
+
+        // Reset to a clean providers.php with no Martis entry.
+        (new Filesystem)->put($bootstrapPath, "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n");
+
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+        $contents = (string) file_get_contents($bootstrapPath);
+        expect($contents)->toContain('App\\Providers\\MartisServiceProvider::class');
+
+        // Re-running install does not duplicate the entry.
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+        $occurrences = substr_count((string) file_get_contents($bootstrapPath), 'App\\Providers\\MartisServiceProvider::class');
+        expect($occurrences)->toBe(1);
+    } finally {
+        cleanupMartisInstallArtifacts();
     }
-
-    // Reset to a clean providers.php with no Martis entry.
-    (new Filesystem)->put($bootstrapPath, "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n");
-
-    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
-
-    $contents = (string) file_get_contents($bootstrapPath);
-    expect($contents)->toContain('App\\Providers\\MartisServiceProvider::class');
-
-    // Re-running install does not duplicate the entry.
-    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
-
-    $occurrences = substr_count((string) file_get_contents($bootstrapPath), 'App\\Providers\\MartisServiceProvider::class');
-    expect($occurrences)->toBe(1);
-})->afterEach(function () {
-    cleanupMartisInstallArtifacts();
 });
 
 // ---------------------------------------------------------------------------
@@ -347,19 +363,21 @@ it('ResourceMakeCommand is registered in the service provider', function () {
 // ---------------------------------------------------------------------------
 
 it('martis:field generates a PHP Field class', function () {
-    $phpPath = app_path('Martis/Fields/RatingField.php');
+    try {
+        $phpPath = app_path('Martis/Fields/RatingField.php');
 
-    $this->artisan('martis:field', ['name' => 'Rating'])->assertSuccessful();
+        $this->artisan('martis:field', ['name' => 'Rating'])->assertSuccessful();
 
-    expect(file_exists($phpPath))->toBeTrue();
+        expect(file_exists($phpPath))->toBeTrue();
 
-    $contents = file_get_contents($phpPath);
-    expect($contents)
-        ->toContain('class RatingField extends Field')
-        ->toContain("return 'rating'");
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Fields/RatingField.php'));
-    (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Rating.tsx'));
+        $contents = file_get_contents($phpPath);
+        expect($contents)
+            ->toContain('class RatingField extends Field')
+            ->toContain("return 'rating'");
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Fields/RatingField.php'));
+        (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Rating.tsx'));
+    }
 });
 
 it('martis:field drops the TSX in the auto-discovery fields/ bucket', function () {
@@ -367,35 +385,39 @@ it('martis:field drops the TSX in the auto-discovery fields/ bucket', function (
     // "Field" suffix) inside resources/js/martis-extensions/fields/.
     // Auto-discovery derives the registry key from the filename:
     // Rating.tsx → "field:rating".
-    $tsxPath = base_path('resources/js/martis-extensions/fields/Rating.tsx');
+    try {
+        $tsxPath = base_path('resources/js/martis-extensions/fields/Rating.tsx');
 
-    $this->artisan('martis:field', ['name' => 'Rating'])->assertSuccessful();
+        $this->artisan('martis:field', ['name' => 'Rating'])->assertSuccessful();
 
-    expect(file_exists($tsxPath))->toBeTrue();
+        expect(file_exists($tsxPath))->toBeTrue();
 
-    $contents = (string) file_get_contents($tsxPath);
-    expect($contents)
-        // Auto-discovery looks for named exports `Display` / `Input`.
-        ->toContain('export function Display')
-        ->toContain('export function Input')
-        // Stub is now self-contained — no @martis/types import.
-        ->not->toContain('@martis/types')
-        ->not->toContain('componentRegistry.register');
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Fields/RatingField.php'));
-    (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Rating.tsx'));
+        $contents = (string) file_get_contents($tsxPath);
+        expect($contents)
+            // Auto-discovery looks for named exports `Display` / `Input`.
+            ->toContain('export function Display')
+            ->toContain('export function Input')
+            // Stub is now self-contained — no @martis/types import.
+            ->not->toContain('@martis/types')
+            ->not->toContain('componentRegistry.register');
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Fields/RatingField.php'));
+        (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Rating.tsx'));
+    }
 });
 
 it('martis:field does not duplicate Field suffix', function () {
-    $phpPath = app_path('Martis/Fields/ColorField.php');
+    try {
+        $phpPath = app_path('Martis/Fields/ColorField.php');
 
-    $this->artisan('martis:field', ['name' => 'ColorField'])->assertSuccessful();
+        $this->artisan('martis:field', ['name' => 'ColorField'])->assertSuccessful();
 
-    expect(file_exists($phpPath))->toBeTrue();
-    expect(file_exists(app_path('Martis/Fields/ColorFieldField.php')))->toBeFalse();
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Fields/ColorField.php'));
-    (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Color.tsx'));
+        expect(file_exists($phpPath))->toBeTrue();
+        expect(file_exists(app_path('Martis/Fields/ColorFieldField.php')))->toBeFalse();
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Fields/ColorField.php'));
+        (new Filesystem)->delete(base_path('resources/js/martis-extensions/fields/Color.tsx'));
+    }
 });
 
 it('FieldMakeCommand is registered in the service provider', function () {
@@ -478,22 +500,24 @@ it('metric generators write the expected class file', function (
     string $declaration,
     string $namespacePart,
 ) {
-    $path = app_path("Martis/Metrics/{$name}.php");
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Metrics'));
+    try {
+        $path = app_path("Martis/Metrics/{$name}.php");
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Metrics'));
 
-    $this->artisan($command, ['name' => $name])->assertSuccessful();
+        $this->artisan($command, ['name' => $name])->assertSuccessful();
 
-    expect(file_exists($path))->toBeTrue();
+        expect(file_exists($path))->toBeTrue();
 
-    $contents = file_get_contents($path);
-    expect($contents)
-        ->toContain($declaration)
-        ->toContain("namespace {$namespacePart}");
-})->with('metric_generators')->afterEach(function () {
-    foreach (['TotalUsers', 'UsersPerDay', 'UsersByRole', 'MonthlyGoal', 'RecentDeploys', 'TopEndpoints'] as $cls) {
-        (new Filesystem)->delete(app_path("Martis/Metrics/{$cls}.php"));
+        $contents = file_get_contents($path);
+        expect($contents)
+            ->toContain($declaration)
+            ->toContain("namespace {$namespacePart}");
+    } finally {
+        foreach (['TotalUsers', 'UsersPerDay', 'UsersByRole', 'MonthlyGoal', 'RecentDeploys', 'TopEndpoints'] as $cls) {
+            (new Filesystem)->delete(app_path("Martis/Metrics/{$cls}.php"));
+        }
     }
-});
+})->with('metric_generators');
 
 it('metric generator commands are registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();
@@ -511,19 +535,21 @@ it('metric generator commands are registered in the service provider', function 
 // ---------------------------------------------------------------------------
 
 it('martis:dashboard generates a Dashboard class file', function () {
-    $path = app_path('Martis/Dashboards/SalesDashboard.php');
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Dashboards'));
+    try {
+        $path = app_path('Martis/Dashboards/SalesDashboard.php');
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Dashboards'));
 
-    $this->artisan('martis:dashboard', ['name' => 'SalesDashboard'])->assertSuccessful();
+        $this->artisan('martis:dashboard', ['name' => 'SalesDashboard'])->assertSuccessful();
 
-    expect(file_exists($path))->toBeTrue();
+        expect(file_exists($path))->toBeTrue();
 
-    $contents = file_get_contents($path);
-    expect($contents)
-        ->toContain('class SalesDashboard extends Dashboard')
-        ->toContain('namespace App\\Martis\\Dashboards');
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Dashboards/SalesDashboard.php'));
+        $contents = file_get_contents($path);
+        expect($contents)
+            ->toContain('class SalesDashboard extends Dashboard')
+            ->toContain('namespace App\\Martis\\Dashboards');
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Dashboards/SalesDashboard.php'));
+    }
 });
 
 it('DashboardMakeCommand is registered in the service provider', function () {
@@ -536,65 +562,73 @@ it('DashboardMakeCommand is registered in the service provider', function () {
 // ---------------------------------------------------------------------------
 
 it('martis:tool generates a Tool class with the documented stub shape', function () {
-    $path = app_path('Martis/Tools/SystemHealth.php');
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+    try {
+        $path = app_path('Martis/Tools/SystemHealth.php');
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
 
-    $this->artisan('martis:tool', ['name' => 'SystemHealth'])->assertSuccessful();
+        $this->artisan('martis:tool', ['name' => 'SystemHealth'])->assertSuccessful();
 
-    expect(file_exists($path))->toBeTrue();
+        expect(file_exists($path))->toBeTrue();
 
-    $contents = (string) file_get_contents($path);
-    expect($contents)
-        ->toContain('class SystemHealth extends Tool')
-        ->toContain('namespace App\\Martis\\Tools')
-        ->toContain("uriKey: 'system-health'")
-        ->toContain("withComponent('tool:system-health')")
-        ->toContain("withIcon('wrench')");
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Tools/SystemHealth.php'));
+        $contents = (string) file_get_contents($path);
+        expect($contents)
+            ->toContain('class SystemHealth extends Tool')
+            ->toContain('namespace App\\Martis\\Tools')
+            ->toContain("uriKey: 'system-health'")
+            ->toContain("withComponent('tool:system-health')")
+            ->toContain("withIcon('wrench')");
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Tools/SystemHealth.php'));
+    }
 });
 
 it('martis:tool --use-bundled binds to the package SystemStatusDemo component key', function () {
-    $path = app_path('Martis/Tools/Quick.php');
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+    try {
+        $path = app_path('Martis/Tools/Quick.php');
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
 
-    $this->artisan('martis:tool', ['name' => 'Quick', '--use-bundled' => true])->assertSuccessful();
+        $this->artisan('martis:tool', ['name' => 'Quick', '--use-bundled' => true])->assertSuccessful();
 
-    $contents = (string) file_get_contents($path);
-    expect($contents)
-        ->toContain("withComponent('martis:tool:system-status-demo')");
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Tools/Quick.php'));
+        $contents = (string) file_get_contents($path);
+        expect($contents)
+            ->toContain("withComponent('martis:tool:system-status-demo')");
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Tools/Quick.php'));
+    }
 });
 
 it('martis:tool --component-key honours the explicit React component key', function () {
-    $path = app_path('Martis/Tools/Reports.php');
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+    try {
+        $path = app_path('Martis/Tools/Reports.php');
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
 
-    $this->artisan('martis:tool', [
-        'name' => 'Reports',
-        '--component-key' => 'app:reports-page',
-    ])->assertSuccessful();
+        $this->artisan('martis:tool', [
+            'name' => 'Reports',
+            '--component-key' => 'app:reports-page',
+        ])->assertSuccessful();
 
-    $contents = (string) file_get_contents($path);
-    expect($contents)->toContain("withComponent('app:reports-page')");
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Tools/Reports.php'));
+        $contents = (string) file_get_contents($path);
+        expect($contents)->toContain("withComponent('app:reports-page')");
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Tools/Reports.php'));
+    }
 });
 
 it('martis:tool --menu-section embeds the section call in the Tool stub', function () {
-    $path = app_path('Martis/Tools/Backups.php');
-    (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+    try {
+        $path = app_path('Martis/Tools/Backups.php');
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
 
-    $this->artisan('martis:tool', [
-        'name' => 'Backups',
-        '--menu-section' => 'Operations',
-    ])->assertSuccessful();
+        $this->artisan('martis:tool', [
+            'name' => 'Backups',
+            '--menu-section' => 'Operations',
+        ])->assertSuccessful();
 
-    $contents = (string) file_get_contents($path);
-    expect($contents)->toContain("withMenuSection('Operations')");
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Tools/Backups.php'));
+        $contents = (string) file_get_contents($path);
+        expect($contents)->toContain("withMenuSection('Operations')");
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Tools/Backups.php'));
+    }
 });
 
 it('martis:tool --with-component drops the TSX stub in the auto-discovery bucket', function () {
@@ -605,47 +639,49 @@ it('martis:tool --with-component drops the TSX stub in the auto-discovery bucket
     // suffix), bucket lives under resources/js/martis-extensions/.
     $tsx = base_path('resources/js/martis-extensions/tools/StubAutoDiscoveryTool.tsx');
     $fs = new Filesystem;
-    $fs->ensureDirectoryExists(app_path('Martis/Tools'));
 
-    // Wipe both potential leftovers from a prior failing run before
-    // running the artisan command. parent::handle() returns false
-    // when the destination PHP class already exists, which would
-    // cascade into "TSX never scaffolded" and confuse the assertion.
-    if ($fs->exists($php)) {
+    try {
+        $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+
+        // Wipe both potential leftovers from a prior failing run before
+        // running the artisan command. parent::handle() returns false
+        // when the destination PHP class already exists, which would
+        // cascade into "TSX never scaffolded" and confuse the assertion.
+        if ($fs->exists($php)) {
+            $fs->delete($php);
+        }
+        if ($fs->exists($tsx)) {
+            $fs->delete($tsx);
+        }
+
+        $this->artisan('martis:tool', [
+            'name' => 'StubAutoDiscoveryTool',
+            '--with-component' => true,
+        ])->assertSuccessful();
+
+        clearstatcache();
+        expect(file_exists($php))->toBeTrue();
+        expect(file_exists($tsx))->toBeTrue();
+
+        $contents = (string) file_get_contents($tsx);
+        expect($contents)
+            ->toContain('export default function StubAutoDiscoveryToolTool')
+            // Auto-discovery uses `import.meta.glob` + filename → key
+            // mapping; the stub no longer contains a manual register call.
+            ->not->toContain('componentRegistry.register')
+            ->not->toContain('@martis/admin')
+            ->toContain('"tool:stub-auto-discovery-tool"');
+    } finally {
         $fs->delete($php);
-    }
-    if ($fs->exists($tsx)) {
         $fs->delete($tsx);
-    }
-
-    $this->artisan('martis:tool', [
-        'name' => 'StubAutoDiscoveryTool',
-        '--with-component' => true,
-    ])->assertSuccessful();
-
-    clearstatcache();
-    expect(file_exists($php))->toBeTrue();
-    expect(file_exists($tsx))->toBeTrue();
-
-    $contents = (string) file_get_contents($tsx);
-    expect($contents)
-        ->toContain('export default function StubAutoDiscoveryToolTool')
-        // Auto-discovery uses `import.meta.glob` + filename → key
-        // mapping; the stub no longer contains a manual register call.
-        ->not->toContain('componentRegistry.register')
-        ->not->toContain('@martis/admin')
-        ->toContain('"tool:stub-auto-discovery-tool"');
-})->afterEach(function () {
-    $fs = new Filesystem;
-    $fs->delete(app_path('Martis/Tools/StubAutoDiscoveryTool.php'));
-    $fs->delete(base_path('resources/js/martis-extensions/tools/StubAutoDiscoveryTool.tsx'));
-    $bucketDir = base_path('resources/js/martis-extensions/tools');
-    if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
-        rmdir($bucketDir);
-    }
-    $rootDir = base_path('resources/js/martis-extensions');
-    if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
-        rmdir($rootDir);
+        $bucketDir = base_path('resources/js/martis-extensions/tools');
+        if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
+            rmdir($bucketDir);
+        }
+        $rootDir = base_path('resources/js/martis-extensions');
+        if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
+            rmdir($rootDir);
+        }
     }
 });
 
@@ -653,32 +689,33 @@ it('martis:tool --with-component aborts on TSX collision when not interactive an
     $tsx = base_path('resources/js/martis-extensions/tools/CollisionAbortTool.tsx');
     $fs = new Filesystem;
 
-    $fs->ensureDirectoryExists(dirname($tsx));
-    $fs->put($tsx, '// custom content I do not want overwritten');
-    $fs->ensureDirectoryExists(app_path('Martis/Tools'));
-    // Pre-wipe stale PHP from a prior run so parent::handle() does
-    // not short-circuit before scaffoldReactComponent runs.
-    if ($fs->exists(app_path('Martis/Tools/CollisionAbortTool.php'))) {
+    try {
+        $fs->ensureDirectoryExists(dirname($tsx));
+        $fs->put($tsx, '// custom content I do not want overwritten');
+        $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+        // Pre-wipe stale PHP from a prior run so parent::handle() does
+        // not short-circuit before scaffoldReactComponent runs.
+        if ($fs->exists(app_path('Martis/Tools/CollisionAbortTool.php'))) {
+            $fs->delete(app_path('Martis/Tools/CollisionAbortTool.php'));
+        }
+
+        $this->artisan('martis:tool', [
+            'name' => 'CollisionAbortTool',
+            '--with-component' => true,
+        ])->assertSuccessful(); // PHP class still scaffolds; TSX scaffold aborts with a non-fatal error.
+
+        expect((string) $fs->get($tsx))->toBe('// custom content I do not want overwritten');
+    } finally {
         $fs->delete(app_path('Martis/Tools/CollisionAbortTool.php'));
-    }
-
-    $this->artisan('martis:tool', [
-        'name' => 'CollisionAbortTool',
-        '--with-component' => true,
-    ])->assertSuccessful(); // PHP class still scaffolds; TSX scaffold aborts with a non-fatal error.
-
-    expect((string) $fs->get($tsx))->toBe('// custom content I do not want overwritten');
-})->afterEach(function () {
-    $fs = new Filesystem;
-    $fs->delete(app_path('Martis/Tools/CollisionAbortTool.php'));
-    $fs->delete(base_path('resources/js/martis-extensions/tools/CollisionAbortTool.tsx'));
-    $bucketDir = base_path('resources/js/martis-extensions/tools');
-    if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
-        rmdir($bucketDir);
-    }
-    $rootDir = base_path('resources/js/martis-extensions');
-    if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
-        rmdir($rootDir);
+        $fs->delete(base_path('resources/js/martis-extensions/tools/CollisionAbortTool.tsx'));
+        $bucketDir = base_path('resources/js/martis-extensions/tools');
+        if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
+            rmdir($bucketDir);
+        }
+        $rootDir = base_path('resources/js/martis-extensions');
+        if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
+            rmdir($rootDir);
+        }
     }
 });
 
@@ -686,34 +723,35 @@ it('martis:tool --with-component --force overwrites an existing TSX', function (
     $tsx = base_path('resources/js/martis-extensions/tools/CollisionForceTool.tsx');
     $fs = new Filesystem;
 
-    $fs->ensureDirectoryExists(dirname($tsx));
-    $fs->put($tsx, '// stale content that should be replaced');
-    $fs->ensureDirectoryExists(app_path('Martis/Tools'));
-    if ($fs->exists(app_path('Martis/Tools/CollisionForceTool.php'))) {
+    try {
+        $fs->ensureDirectoryExists(dirname($tsx));
+        $fs->put($tsx, '// stale content that should be replaced');
+        $fs->ensureDirectoryExists(app_path('Martis/Tools'));
+        if ($fs->exists(app_path('Martis/Tools/CollisionForceTool.php'))) {
+            $fs->delete(app_path('Martis/Tools/CollisionForceTool.php'));
+        }
+
+        $this->artisan('martis:tool', [
+            'name' => 'CollisionForceTool',
+            '--with-component' => true,
+            '--force' => true,
+        ])->assertSuccessful();
+
+        $contents = (string) $fs->get($tsx);
+        expect($contents)
+            ->toContain('export default function CollisionForceToolTool')
+            ->not->toContain('stale content');
+    } finally {
         $fs->delete(app_path('Martis/Tools/CollisionForceTool.php'));
-    }
-
-    $this->artisan('martis:tool', [
-        'name' => 'CollisionForceTool',
-        '--with-component' => true,
-        '--force' => true,
-    ])->assertSuccessful();
-
-    $contents = (string) $fs->get($tsx);
-    expect($contents)
-        ->toContain('export default function CollisionForceToolTool')
-        ->not->toContain('stale content');
-})->afterEach(function () {
-    $fs = new Filesystem;
-    $fs->delete(app_path('Martis/Tools/CollisionForceTool.php'));
-    $fs->delete(base_path('resources/js/martis-extensions/tools/CollisionForceTool.tsx'));
-    $bucketDir = base_path('resources/js/martis-extensions/tools');
-    if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
-        rmdir($bucketDir);
-    }
-    $rootDir = base_path('resources/js/martis-extensions');
-    if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
-        rmdir($rootDir);
+        $fs->delete(base_path('resources/js/martis-extensions/tools/CollisionForceTool.tsx'));
+        $bucketDir = base_path('resources/js/martis-extensions/tools');
+        if (is_dir($bucketDir) && count(scandir($bucketDir)) === 2) {
+            rmdir($bucketDir);
+        }
+        $rootDir = base_path('resources/js/martis-extensions');
+        if (is_dir($rootDir) && count(scandir($rootDir)) === 2) {
+            rmdir($rootDir);
+        }
     }
 });
 
