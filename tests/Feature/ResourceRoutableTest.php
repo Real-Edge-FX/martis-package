@@ -133,6 +133,72 @@ class RoutableHeadlessResource extends Resource
     }
 }
 
+// A non-routable resource that DENIES all authorization. Proves the
+// routable() flag never bypasses policies on the endpoints that still
+// respond for a non-routable resource (relatable, slug-check, peek, …):
+// authorization must still be enforced, so these must 403, never 200.
+class RoutableDeniedModel extends Model
+{
+    protected $table = 'routable_denied_items';
+
+    protected $fillable = ['title', 'slug', 'team_id'];
+}
+
+class RoutableDeniedResource extends Resource
+{
+    public static function model(): string
+    {
+        return RoutableDeniedModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'routable-denied-items';
+    }
+
+    public static function titleAttribute(): string
+    {
+        return 'title';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+
+    public function authorizedToViewAny(Request $request): bool
+    {
+        return false;
+    }
+
+    public function authorizedToView(Request $request): bool
+    {
+        return false;
+    }
+
+    public function authorizedToCreate(Request $request): bool
+    {
+        return false;
+    }
+
+    public function authorizedToUpdate(Request $request): bool
+    {
+        return false;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->searchable()->required(),
+            Slug::make('slug')->from('title'),
+            BelongsTo::make('team_id', 'Team')
+                ->relatedResource('routable-teams')
+                ->titleAttribute('name')
+                ->nullable(),
+        ];
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -162,20 +228,31 @@ beforeEach(function () {
         $table->timestamps();
     });
 
+    Schema::create('routable_denied_items', function (Blueprint $table) {
+        $table->id();
+        $table->string('title');
+        $table->string('slug')->unique();
+        $table->foreignId('team_id')->nullable();
+        $table->timestamps();
+    });
+
     $registry = app(ResourceRegistry::class);
     $registry->register(RoutableTeamResource::class);
     $registry->register(RoutableNormalResource::class);
     $registry->register(RoutableHeadlessResource::class);
+    $registry->register(RoutableDeniedResource::class);
 
     RoutableTeamModel::create(['name' => 'Alpha Team']);
 
     RoutableNormalModel::create(['title' => 'Normal One', 'slug' => 'normal-one']);
     RoutableHeadlessModel::create(['title' => 'Headless One', 'slug' => 'headless-one']);
+    RoutableDeniedModel::create(['title' => 'Denied One', 'slug' => 'denied-one']);
 });
 
 afterEach(function () {
     Schema::dropIfExists('routable_normal_items');
     Schema::dropIfExists('routable_headless_items');
+    Schema::dropIfExists('routable_denied_items');
     Schema::dropIfExists('routable_teams');
 
     app(ResourceRegistry::class)->flush();
@@ -300,4 +377,30 @@ it('excludes the non-routable resource from global search results', function () 
     $json = json_encode($response->json());
 
     expect($json)->not->toContain('routable-headless-items');
+});
+
+// ---------------------------------------------------------------------------
+// Security: routable() must NEVER bypass policies. Every endpoint that still
+// responds for a non-routable resource (relatable, slug-check, peek, …) must
+// still enforce the resource's own authorizedTo* — a denied user gets 403,
+// never 200. These guard against a future change that drops those gates.
+// ---------------------------------------------------------------------------
+
+it('still enforces authorization on the relatable endpoint for a non-routable resource (403 when denied)', function () {
+    // Denied resource as the BelongsTo target: authorizedToViewAny denies, so
+    // relatable must 403 — routable=false does not open the relation up.
+    $this->getJson('/martis/api/resources/_/_/relatable/team_id?related_resource=routable-denied-items')
+        ->assertForbidden();
+});
+
+it('still enforces authorization on slug-check for a non-routable resource (403 when denied)', function () {
+    $this->getJson('/martis/api/resources/routable-denied-items/slug-check/slug?value=whatever')
+        ->assertForbidden();
+});
+
+it('still enforces authorization on peek for a non-routable resource (403 when denied)', function () {
+    $item = RoutableDeniedModel::first();
+
+    $this->getJson("/martis/api/resources/routable-denied-items/{$item->id}/peek")
+        ->assertForbidden();
 });
