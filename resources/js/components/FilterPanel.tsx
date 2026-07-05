@@ -299,7 +299,7 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
             {...dropdownProps}
             onChange={(e) => onChange(e.value)}
             showClear
-            placeholder={filter.name}
+            placeholder={filter.placeholder ?? filter.name}
             filter={!!filter.meta?.searchable}
             className="w-full martis-filter-dropdown"
           />
@@ -348,7 +348,7 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
           showButtonBar
           locale={calendarLocale}
           dateFormat="yy-mm-dd"
-          placeholder={filter.name}
+          placeholder={filter.placeholder ?? filter.name}
           className="w-full"
           inputClassName="text-sm"
         />

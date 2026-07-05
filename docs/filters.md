@@ -311,6 +311,18 @@ public function filters(Request $request): array
 
 Default spans: select/boolean = 3 columns, date-range = 6 columns. Override with `->span()`.
 
+## Placeholder
+
+> **Martis extension** — placeholder distinct from the filter name.
+
+By default, a filter's empty-state placeholder (shown in the select/date control before a value is chosen) is the same as its display label. Use `->placeholder()` to make them differ:
+
+```php
+SelectFilter::make('Project')->searchable()->placeholder('Select…')
+```
+
+Here the field label above the control still reads "Project", but the dropdown itself shows "Select…" until a value is picked. Passing `null` (or omitting the call) restores the default behaviour of falling back to the filter name.
+
 ## Filter Interaction
 
 - Filters combine with **search**, **sort**, **pagination**, and **trashed** controls.
@@ -369,6 +381,7 @@ Each filter in the `filters` array includes:
     { "label": "Inactive", "value": "inactive" }
   ],
   "default": null,
+  "placeholder": null,
   "meta": { "searchable": false }
 }
 ```

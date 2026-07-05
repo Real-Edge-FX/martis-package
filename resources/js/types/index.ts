@@ -129,6 +129,8 @@ export interface FilterDefinition {
   options: FilterOption[]
   default: unknown
   span?: number | null
+  /** Placeholder shown in the control when empty. Falls back to `name` when absent. */
+  placeholder?: string | null
   meta: Record<string, unknown>
 }
 
