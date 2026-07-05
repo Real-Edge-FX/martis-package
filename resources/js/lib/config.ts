@@ -416,6 +416,14 @@ export interface MartisConfigShape {
      */
     toolsEnabled?: boolean
   }
+  /**
+   * Per-resource record URL templates, keyed by `uriKey`. Used by
+   * `recordHref()` to resolve a record's destination when it diverges
+   * from the default `/resources/{uriKey}/{id}` path (e.g. a headless
+   * resource that should link to its owning Tool instead). Each
+   * template may contain an `{id}` placeholder.
+   */
+  resourceRecordUrls?: Record<string, string>
 }
 
 /**
