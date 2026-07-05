@@ -13,6 +13,7 @@ import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon, WarningIcon } from '@phosphor-icons/react'
 import { EditPivotModal } from './BelongsToManyField'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
+import { recordHref } from '@/lib/recordHref'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -169,7 +170,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
         fetchUrl={(params) =>
           `/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}?${params.toString()}`
         }
-        viewUrl={(id) => `/resources/${relatedResource}/${id}`}
+        viewUrl={(id) => recordHref(relatedResource, id)}
         pivotFields={pivotFields}
         selectable={hasPivotActions}
         selectedRows={selectedRows}

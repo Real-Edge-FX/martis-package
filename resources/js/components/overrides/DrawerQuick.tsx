@@ -6,6 +6,7 @@ import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
 import { useTranslation } from 'react-i18next'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
+import { recordHref } from '@/lib/recordHref'
 
 /**
  * Quick-look drawer override.
@@ -57,7 +58,7 @@ export function DrawerQuick(props: OverrideProps) {
         <button
           type="button"
           onClick={() => {
-            navigate(`/resources/${resource}/${recordId}`)
+            navigate(recordHref(resource, recordId!))
             onClose()
           }}
           className="martis-btn martis-btn-primary inline-flex items-center gap-2"

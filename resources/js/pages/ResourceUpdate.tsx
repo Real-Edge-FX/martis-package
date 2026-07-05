@@ -15,6 +15,7 @@ import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
+import { recordHref } from '@/lib/recordHref'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -183,9 +184,9 @@ export function ResourceUpdatePage() {
       if (fromParam) {
         navigate(fromParam)
       } else if (isViaRelation && redirectMode === 'parent') {
-        navigate(`/resources/${viaResource}/${viaResourceId}`)
+        navigate(recordHref(viaResource!, viaResourceId!))
       } else {
-        navigate(`/resources/${resource}/${id}`)
+        navigate(recordHref(resource!, id!))
       }
     },
     onError: (err) => {
@@ -261,7 +262,7 @@ export function ResourceUpdatePage() {
         record,
         recordId: id ?? null,
         navigate: (to: string) => navigate(to),
-        onClose: () => navigate(`/resources/${resource}/${id}`),
+        onClose: () => navigate(recordHref(resource!, id!)),
         onCreated: (rec) => {
           void qc.invalidateQueries({ queryKey: ['resources', resource] })
           addToast('success', schema.messages?.created ?? 'Record created successfully.')
@@ -284,7 +285,7 @@ export function ResourceUpdatePage() {
           const targetId = editId ?? id
           if (targetId) navigate(`/resources/${resource}/${targetId}/edit`)
         },
-        onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
+        onView: (viewId) => navigate(recordHref(resource!, viewId)),
         addToast,
       }
       return <C {...overrideProps} />
@@ -293,16 +294,16 @@ export function ResourceUpdatePage() {
 
   // Back link: go to parent detail when via HasMany, otherwise to record detail
   const backLink = isViaHasMany
-    ? `/resources/${viaResource}/${viaResourceId}`
-    : `/resources/${resource}/${id}`
+    ? recordHref(viaResource!, viaResourceId!)
+    : recordHref(resource!, id!)
   const backLabel = isViaHasMany
     ? `← ${viaResource} #${viaResourceId}`
     : (record._title ? String(record._title) : `${schema.singularLabel} #${id}`)
 
   // Cancel link: go back to parent if via HasMany
   const cancelLink = isViaHasMany
-    ? `/resources/${viaResource}/${viaResourceId}`
-    : `/resources/${resource}/${id}`
+    ? recordHref(viaResource!, viaResourceId!)
+    : recordHref(resource!, id!)
 
   return (
     <div className="space-y-6">

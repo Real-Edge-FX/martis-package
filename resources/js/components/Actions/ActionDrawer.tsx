@@ -5,6 +5,7 @@ import { componentRegistry } from "@/lib/componentRegistry"
 import { useToast } from "@/contexts/ToastContext"
 import type { OverrideProps, ResourceSchema } from "@/types"
 import { MartisLoader } from "@/components/Loader"
+import { recordHref } from "@/lib/recordHref"
 
 interface ActionDrawerProps {
   type: "create" | "detail" | "update"
@@ -98,7 +99,7 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess, onS
         onSwitchTo({ type: "detail", resource, recordId: id })
         return
       }
-      navigate(`/resources/${resource}/${id}`)
+      navigate(recordHref(resource, id))
     },
     addToast,
   }

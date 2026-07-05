@@ -14,6 +14,7 @@ import { resolveRedirect } from '@/lib/resolveRedirect'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
+import { recordHref } from '@/lib/recordHref'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -245,9 +246,9 @@ export function ResourceCreatePage() {
       if (fromParam) {
         navigate(fromParam)
       } else if (isViaRelation && redirectMode === 'parent') {
-        navigate(`/resources/${viaResource}/${viaResourceId}`)
+        navigate(recordHref(viaResource!, viaResourceId!))
       } else {
-        navigate(`/resources/${resource}/${res.data.id}`)
+        navigate(recordHref(resource!, res.data.id))
       }
     },
     onError: (err) => {
@@ -325,7 +326,7 @@ export function ResourceCreatePage() {
           navigate(`/resources/${resource}`)
         },
         onEdit: (id) => { if (id) navigate(`/resources/${resource}/${id}/edit`) },
-        onView: (id) => navigate(`/resources/${resource}/${id}`),
+        onView: (id) => navigate(recordHref(resource!, id)),
         addToast,
       }
       return <C {...overrideProps} />
@@ -387,7 +388,7 @@ export function ResourceCreatePage() {
                 } else if (window.history.length > 1) {
                   navigate(-1)
                 } else if (isViaRelation) {
-                  navigate(`/resources/${viaResource}/${viaResourceId}`)
+                  navigate(recordHref(viaResource!, viaResourceId!))
                 } else {
                   navigate(`/resources/${resource}`)
                 }

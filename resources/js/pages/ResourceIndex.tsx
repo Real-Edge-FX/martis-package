@@ -23,6 +23,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useResourceAccent } from '@/lib/useResourceAccent'
 import { useResourceLoaderConfig } from '@/contexts/LoaderConfigContext'
 import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
+import { recordHref } from '@/lib/recordHref'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 
@@ -488,7 +489,7 @@ export function ResourceIndexPage() {
         addToast('success', schema!.messages?.deleted ?? tMsg('record_deleted'))
       },
       onEdit: (id) => { if (id) navigate(`/resources/${resource}/${id}/edit`) },
-      onView: (id) => navigate(`/resources/${resource}/${id}`),
+      onView: (id) => navigate(recordHref(resource!, id)),
       addToast,
       ...extra,
     }
@@ -781,7 +782,7 @@ export function ResourceIndexPage() {
           // Always navigate — see `onDefaultView` for the rationale. Short
           // version: drawer overlay needs the record id in the URL so
           // nested has-many/morph-many queries can resolve their parent.
-          navigate(`/resources/${resource}/${row.id}`)
+          navigate(recordHref(resource!, row.id))
         }}
         resourceKey={resource}
         selectable={selectable}
@@ -795,7 +796,7 @@ export function ResourceIndexPage() {
           // plus the drawer on top — same visual, but now the URL carries
           // the record id which the nested relationship fields parse to
           // fire their has-many queries.
-          navigate(`/resources/${resource}/${row.id}`)
+          navigate(recordHref(resource!, row.id))
         }}
         onDefaultEdit={(row) => {
           if (schema.overrides?.update) {

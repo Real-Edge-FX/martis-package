@@ -26,6 +26,7 @@ import { ResourceErrorPage } from '@/pages/ResourceError'
 import { MartisLoader } from '@/components/Loader'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { recordHref } from '@/lib/recordHref'
 
 /**
  * Page: `/resources/{resource}/lens/{lens}`.
@@ -447,7 +448,7 @@ export function ResourceLensPage() {
             if (schema.overrides?.detail) {
               setActionDrawer({ type: 'detail', resource: resource!, recordId: row.id })
             } else {
-              navigate(`/resources/${resource}/${row.id}`)
+              navigate(recordHref(resource!, row.id))
             }
           }}
           resourceKey={resource}
@@ -460,7 +461,7 @@ export function ResourceLensPage() {
             if (schema.overrides?.detail) {
               setActionDrawer({ type: 'detail', resource: resource!, recordId: row.id })
             } else {
-              navigate(`/resources/${resource}/${row.id}`)
+              navigate(recordHref(resource!, row.id))
             }
           }}
           onDefaultEdit={(row) => {

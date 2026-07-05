@@ -1,6 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
+import { recordHref } from '@/lib/recordHref'
 
 /**
  * MorphMany field display — renders differently based on context:
@@ -85,7 +86,7 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
       }
       createUrl={`/resources/${relatedResource}/create${viaParams}`}
       editUrl={(id) => `/resources/${relatedResource}/${id}/edit${viaParams}`}
-      viewUrl={(id) => `/resources/${relatedResource}/${id}`}
+      viewUrl={(id) => recordHref(relatedResource, id)}
       perPage={meta?.perPage ?? 10}
       perPageOptions={meta?.perPageOptions ?? [10, 25, 50]}
       searchable={!!meta?.searchable}

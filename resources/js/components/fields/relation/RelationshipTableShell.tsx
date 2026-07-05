@@ -16,6 +16,7 @@ import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { Pagination } from '@/components/Pagination'
+import { recordHref } from '@/lib/recordHref'
 
 /**
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
@@ -410,7 +411,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   body={(row: ResourceRecord) => (
                     f.attribute === 'id' ? (
                       <Link
-                        to={viewUrl ? viewUrl(row.id as string | number) : `/resources/${relatedResource}/${row.id}`}
+                        to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"
                         style={{ color: 'var(--martis-primary)' }}
                       >
@@ -453,7 +454,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                       <div className="flex items-center justify-end gap-1">
                         {showView && (
                           <Link
-                            to={viewUrl ? viewUrl(row.id as string | number) : `/resources/${relatedResource}/${row.id}`}
+                            to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                             className="rounded p-1.5 transition-colors no-underline"
                             style={{ color: 'var(--martis-text-muted)' }}
                             data-pr-tooltip={tAct('view', 'View')}
