@@ -225,6 +225,9 @@ interface ResourceContract
     /** Determine whether this resource should appear in the navigation menu. */
     public static function displayInNavigation(): bool;
 
+    /** Determine whether this resource has a routable human page surface (see Resource::routable()). */
+    public static function routable(): bool;
+
     /** Whether the navigation should show a count badge for this resource. */
     public static function showMenuCount(): bool;
 

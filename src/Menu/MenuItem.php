@@ -451,7 +451,7 @@ class MenuItem
 
         $resource = new $resourceClass;
 
-        if (! $resourceClass::displayInNavigation()) {
+        if (! $resourceClass::displayInNavigation() || ! $resourceClass::routable()) {
             return null;
         }
 

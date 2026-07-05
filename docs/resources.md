@@ -331,6 +331,27 @@ public static function displayInNavigation(): bool
 
 `displayInNavigation()` is still respected even when the main menu is customized through the menu builder.
 
+### routable()
+
+Controls whether the resource has a routable **human page surface**. Default `true`. Override to `false` to make the resource a headless data source: it stays registered and fully usable as a relation target, but its index/detail/create/edit pages disappear.
+
+```php
+public static function routable(): bool
+{
+    return false; // Headless: not a page, still a valid relation target
+}
+```
+
+When `routable()` returns `false`:
+
+- The index, show, store, update, destroy, restore, schema, and replicate-fields endpoints all return 404 — the resource has no human-facing page surface.
+- The resource is excluded from the sidebar navigation, badge counts, global search, and the command palette (in addition to whatever `displayInNavigation()` already controls).
+- The resource **remains fully usable as a relation target and data source**: the relatable endpoint (`BelongsTo`/`BelongsToMany`/etc. option lists), the Slug field's slug-check endpoint, `dependsOn` field sync, inline-create, and peek all keep working, still gated by the resource's own `authorizedTo*` methods.
+
+Use this for the "a Tool owns the domain; the Resource is a headless data source" pattern: a custom Tool provides the human-facing UI and workflow for a model, while the underlying Resource definition is kept around purely so other resources can relate to it, validate slugs against it, or inline-create records of it, without exposing a redundant (and potentially confusing) standalone CRUD page for it.
+
+Unlike `displayInNavigation()`, which only hides the resource from menus while leaving its endpoints reachable by direct URL, `routable(false)` fully removes the human page surface (404) while deliberately preserving the internal/relation surface.
+
 ### menuItem()
 
 Customize the navigation item generated for a resource.

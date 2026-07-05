@@ -57,7 +57,7 @@ class CommandPaletteController extends MartisController
             /** @var resource $instance */
             $instance = new $class;
 
-            if (! $class::displayInNavigation()) {
+            if (! $class::displayInNavigation() || ! $class::routable()) {
                 continue;
             }
 
@@ -86,6 +86,10 @@ class CommandPaletteController extends MartisController
     {
         $out = [];
         foreach ($this->registry->list() as $class) {
+            if (! $class::routable()) {
+                continue;
+            }
+
             /** @var resource $instance */
             $instance = new $class;
 

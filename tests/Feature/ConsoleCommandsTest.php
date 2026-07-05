@@ -300,17 +300,25 @@ it('martis:resource generates a Resource class file', function () {
 
     (new Filesystem)->ensureDirectoryExists(app_path('Martis/Resources'));
 
-    $this->artisan('martis:resource', ['name' => 'Post'])->assertSuccessful();
+    try {
+        $this->artisan('martis:resource', ['name' => 'Post'])->assertSuccessful();
 
-    expect(file_exists($path))->toBeTrue();
+        expect(file_exists($path))->toBeTrue();
 
-    $contents = file_get_contents($path);
-    expect($contents)
-        ->toContain('class PostResource extends Resource')
-        ->toContain('namespace App\\Martis\\Resources')
-        ->toContain('return Post::class');
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Resources/PostResource.php'));
+        $contents = file_get_contents($path);
+        expect($contents)
+            ->toContain('class PostResource extends Resource')
+            ->toContain('namespace App\\Martis\\Resources')
+            ->toContain('return Post::class');
+    } finally {
+        // NOTE: chaining ->afterEach() on an it() call does not register a
+        // real Pest hook (Pest\PendingCalls\TestCall::__call swallows it as
+        // a higher-order-test chain), so cleanup must happen inline. A
+        // leftover file here is auto-discovered by ResourceDiscovery on
+        // every later test's app boot and pollutes the resource registry
+        // process-wide (see ResourceRoutableTest for the fallout).
+        (new Filesystem)->delete($path);
+    }
 });
 
 it('martis:resource does not duplicate the Resource suffix', function () {
@@ -318,12 +326,15 @@ it('martis:resource does not duplicate the Resource suffix', function () {
 
     (new Filesystem)->ensureDirectoryExists(app_path('Martis/Resources'));
 
-    $this->artisan('martis:resource', ['name' => 'CommentResource'])->assertSuccessful();
+    try {
+        $this->artisan('martis:resource', ['name' => 'CommentResource'])->assertSuccessful();
 
-    expect(file_exists($path))->toBeTrue();
-    expect(file_exists(app_path('Martis/Resources/CommentResourceResource.php')))->toBeFalse();
-})->afterEach(function () {
-    (new Filesystem)->delete(app_path('Martis/Resources/CommentResource.php'));
+        expect(file_exists($path))->toBeTrue();
+        expect(file_exists(app_path('Martis/Resources/CommentResourceResource.php')))->toBeFalse();
+    } finally {
+        // See note above: ->afterEach() chained on it() is a no-op in Pest.
+        (new Filesystem)->delete($path);
+    }
 });
 
 it('ResourceMakeCommand is registered in the service provider', function () {

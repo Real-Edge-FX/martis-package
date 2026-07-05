@@ -1087,6 +1087,21 @@ abstract class Resource implements ResourceContract
         return true;
     }
 
+    /**
+     * When false, the resource is NOT exposed as a routable/human surface:
+     * its index/detail/create/edit/schema endpoints return 404, and it is
+     * excluded from the sidebar navigation, badge counts, global search, and
+     * the command palette. It REMAINS registered and usable as a relation
+     * target and data source: the relatable endpoint, Slug slug-check,
+     * dependsOn sync, inline-create and peek keep working, still gated by the
+     * resource's own authorizedTo* methods. Default true. Use it for a
+     * resource that a custom Tool fully owns.
+     */
+    public static function routable(): bool
+    {
+        return true;
+    }
+
     /** {@inheritdoc} */
     public static function showMenuCount(): bool
     {

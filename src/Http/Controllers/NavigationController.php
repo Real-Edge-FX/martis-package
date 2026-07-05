@@ -114,7 +114,7 @@ class NavigationController extends MartisController
         $counts = [];
 
         foreach ($this->registry->list() as $resourceClass) {
-            if (! $resourceClass::displayInNavigation()) {
+            if (! $resourceClass::displayInNavigation() || ! $resourceClass::routable()) {
                 continue;
             }
 
@@ -157,7 +157,7 @@ class NavigationController extends MartisController
         foreach ($this->registry->list() as $resourceClass) {
             $instance = new $resourceClass;
 
-            if (! $resourceClass::displayInNavigation()) {
+            if (! $resourceClass::displayInNavigation() || ! $resourceClass::routable()) {
                 continue;
             }
 
