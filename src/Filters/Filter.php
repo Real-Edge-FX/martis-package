@@ -36,6 +36,12 @@ abstract class Filter implements FilterContract
     /** Grid span in 12-column system (default: auto). Martis extension. */
     protected ?int $span = null;
 
+    /**
+     * Placeholder shown in the filter's control when no value is
+     * selected. Defaults to the filter name when unset. Martis extension.
+     */
+    protected ?string $placeholder = null;
+
     /** Authorization callback — Martis extension. */
     protected ?Closure $canSeeCallback = null;
 
@@ -101,6 +107,19 @@ abstract class Filter implements FilterContract
     public function span(int $columns): static
     {
         $this->span = max(1, min(12, $columns));
+
+        return $this;
+    }
+
+    /**
+     * Set the placeholder shown in the filter's control when no value is
+     * selected. Defaults to the filter name when unset, so the visible
+     * label and the empty-state placeholder can differ (e.g. label
+     * "Project", placeholder "Select…").
+     */
+    public function placeholder(?string $placeholder): static
+    {
+        $this->placeholder = $placeholder;
 
         return $this;
     }
@@ -246,6 +265,7 @@ abstract class Filter implements FilterContract
             'options' => $this->resolvedOptions,
             'default' => $this->default(),
             'span' => $this->span,
+            'placeholder' => $this->placeholder,
             'badge' => $this->badge(),
             'lock' => $this->lockPayloadNow(),
             'meta' => $this->meta(),

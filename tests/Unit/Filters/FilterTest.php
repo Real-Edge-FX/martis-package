@@ -264,3 +264,31 @@ it('Filter resolves grouped options correctly', function () {
         ->and($options[2])->toBe(['label' => 'Vowels', 'value' => 'vowels', 'group' => 'Letters'])
         ->and($options[3])->toBe(['label' => 'Consonants', 'value' => 'consonants', 'group' => 'Letters']);
 });
+
+// ---------------------------------------------------------------------------
+// placeholder — Martis extension
+// ---------------------------------------------------------------------------
+
+it('Filter toArray serializes placeholder as null when not set', function () {
+    $filter = TestStatusFilter::make('Status');
+    $filter->resolveForSchema(Request::create('/'));
+
+    $arr = $filter->toArray();
+
+    expect($arr)->toHaveKey('placeholder', null);
+});
+
+it('Filter toArray serializes the configured placeholder', function () {
+    $filter = TestStatusFilter::make('Status')->placeholder('Select…');
+    $filter->resolveForSchema(Request::create('/'));
+
+    $arr = $filter->toArray();
+
+    expect($arr)->toHaveKey('placeholder', 'Select…');
+});
+
+it('placeholder() returns the filter instance for chaining', function () {
+    $filter = TestStatusFilter::make('Status');
+
+    expect($filter->placeholder('Select…'))->toBe($filter);
+});
