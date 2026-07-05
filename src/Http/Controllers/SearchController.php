@@ -64,6 +64,10 @@ class SearchController extends MartisController
 
         foreach ($this->registry->list() as $resourceClass) {
             /** @var class-string<resource> $resourceClass */
+            if (! $resourceClass::routable()) {
+                continue;
+            }
+
             $config = $this->resolveResourceConfig($resourceClass, $globalDefaults);
 
             if (! $config['enabled']) {

@@ -77,7 +77,7 @@ class ResourceController extends MartisController
     #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string', example: 'with')]
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -198,7 +198,7 @@ class ResourceController extends MartisController
      */
     public function show(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -265,7 +265,7 @@ class ResourceController extends MartisController
      */
     public function store(Request $request, string $resource): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -338,7 +338,7 @@ class ResourceController extends MartisController
      */
     public function update(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -422,7 +422,7 @@ class ResourceController extends MartisController
      */
     public function destroy(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -495,7 +495,7 @@ class ResourceController extends MartisController
      */
     public function restore(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -607,7 +607,7 @@ class ResourceController extends MartisController
      */
     public function replicateFields(Request $request, string $resource, int|string $id): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -887,7 +887,7 @@ class ResourceController extends MartisController
      */
     public function schema(Request $request, string $resource): IlluminateJsonResponse
     {
-        [$resourceClass, $error] = $this->resolveResource($resource);
+        [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
             return $error;
@@ -1547,6 +1547,29 @@ class ResourceController extends MartisController
         }
 
         return [$this->registry->get($uriKey), null];
+    }
+
+    /**
+     * Resolve a resource for a HUMAN/routable surface: 404 if not registered
+     * OR not routable. Internal/relation endpoints use resolveResource() so a
+     * non-routable resource stays usable as a data source.
+     *
+     * @return array{class-string<resource>|null, IlluminateJsonResponse|null}
+     */
+    private function resolveRoutableResource(string $uriKey): array
+    {
+        [$resourceClass, $error] = $this->resolveResource($uriKey);
+
+        if ($error !== null) {
+            return [null, $error];
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        if (! $resourceClass::routable()) {
+            return [null, JsonErrorResponse::notFound("Resource '{$uriKey}' not found.")->toResponse()];
+        }
+
+        return [$resourceClass, null];
     }
 
     /**
