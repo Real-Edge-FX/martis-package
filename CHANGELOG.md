@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] — 2026-07-05
+
+### Added
+
+- **`Resource::routable(): bool` opt-out (default `true`).** A resource returning `false` stays **registered and usable as a relation / data source** — the BelongsTo relatable endpoint, the Slug slug-check, `dependsOn` sync, inline-create and peek all keep working — but its **human page surface returns 404** (direct URL to `/martis/resources/{key}` and the index/detail/create/edit/schema/replicate endpoints) and it is **excluded** from the sidebar navigation, badge counts, global search, and the command palette. This cleanly enables the "a custom Tool owns the domain; the Resource is a headless data source" pattern (e.g. a `ProjectResource` kept only so a Tool's native BelongsTo picker and Slug field resolve), with no route-path sniffing, no dangling URL, and accurate resource listings. Backward-compatible (default `true` preserves current behaviour). Additive (semver-minor).
+  - **Security:** the flag never bypasses policies. Every endpoint that still responds for a non-routable resource remains gated by the resource's own `authorizedTo*` — a user who cannot see the resource gets `403`, not `200`. This is proven by dedicated tests (a non-routable resource that denies authorization must 403 on relatable, slug-check and peek).
+
+### Internal
+
+- Test hygiene in `tests/Feature/ConsoleCommandsTest.php`: converted 20 broken `it()->afterEach(...)` chains (which silently never ran — `TestCall` has no real `afterEach`) to inline `try/finally`, and centralised removal of published assets (`public/vendor/martis`) and generated `app/Martis` files in the shared cleanup hook, so no generator/install test leaks artifacts that would pollute `ResourceDiscovery` for later tests in the same process.
+
 ## [1.23.0] — 2026-07-05
 
 ### Added
