@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] — 2026-07-05
+
+### Added
+
+- **`Resource::recordUrl(): ?string`** — a per-record URL template (`{id}` placeholder) that defines where a record of this resource lives. It plays a **dual role**: (1) it is the destination for **every** record link — global search hits, `BelongsTo`/`MorphTo`/`HasMany` displays, breadcrumbs, index row-click, post-save redirects (all now resolve through `recordHref`); and (2) it lets a **non-routable** resource (`routable() === false`, v1.24) re-enter **global search / the ⌘K palette** — a non-routable resource appears in search **iff** it declares `recordUrl` (and `globallySearchable()` is on, and the user passes `authorizedToViewAny`). Completes the "a custom Tool owns the domain; the Resource is a headless data source" pattern: e.g. `ProjectResource::recordUrl(): ?string { return '/tools/project-knowledge?id={id}'; }` makes projects findable in search again, with every project link opening the owning Tool. `viewAllUrl` is omitted for non-routable resources (no index page). **Fully backward-compatible** — for a routable resource `recordUrl()` is `null`, so `recordHref` returns the unchanged `/resources/{key}/{id}` everywhere. **Security unchanged** — `recordUrl` is only a destination string; authorization is still enforced by `authorizedToViewAny` (a user who cannot see a record never gets it in search). Additive (semver-minor).
+
 ## [1.24.0] — 2026-07-05
 
 ### Added
