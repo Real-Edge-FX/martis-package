@@ -1723,7 +1723,7 @@ abstract class Resource implements ResourceContract
             'title' => $this->title(),
             'subtitle' => $this->searchSubtitle($model),
             'image' => $this->searchImage($model),
-            'url' => '/resources/'.static::uriKey().'/'.$model->getKey(),
+            'url' => static::recordHref($model->getKey()),
         ];
     }
 

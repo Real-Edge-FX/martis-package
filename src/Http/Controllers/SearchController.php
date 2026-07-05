@@ -64,7 +64,10 @@ class SearchController extends MartisController
 
         foreach ($this->registry->list() as $resourceClass) {
             /** @var class-string<resource> $resourceClass */
-            if (! $resourceClass::routable()) {
+            // Non-routable resources are out of search UNLESS they declare a custom
+            // record destination — they can only appear if they know where to send the
+            // click. globallySearchable() remains the toggle on top (checked below).
+            if (! $resourceClass::routable() && $resourceClass::recordUrl() === null) {
                 continue;
             }
 
@@ -117,7 +120,9 @@ class SearchController extends MartisController
                 'resource' => $resourceClass::uriKey(),
                 'label' => $resourceClass::label(),
                 'items' => $items,
-                'viewAllUrl' => '/resources/'.$resourceClass::uriKey().'?search='.rawurlencode($q),
+                'viewAllUrl' => $resourceClass::routable()
+                    ? '/resources/'.$resourceClass::uriKey().'?search='.rawurlencode($q)
+                    : null,
             ];
 
             // ⭐ Differential 2 — surface a total count ONLY when the

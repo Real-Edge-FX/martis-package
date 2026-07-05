@@ -164,8 +164,8 @@ class CommandPaletteController extends MartisController
                 'subtitle' => $e->model_id !== null && $uriKey !== null
                     ? $uriKey.' #'.$e->model_id
                     : ((string) $e->status),
-                'url' => $uriKey !== null && $e->model_id !== null
-                    ? '/resources/'.$uriKey.'/'.$e->model_id
+                'url' => $uriKey !== null && $e->model_id !== null && $this->registry->has($uriKey)
+                    ? $this->registry->get($uriKey)::recordHref($e->model_id)
                     : null,
                 'created_at' => $e->created_at?->toIso8601String() ?? '',
             ];
