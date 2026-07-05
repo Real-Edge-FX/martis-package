@@ -64,6 +64,19 @@ function cleanupMartisInstallArtifacts(): void
         $stripped = preg_replace('/^MARTIS_[A-Z0-9_]+=.*$\n?/m', '', $contents) ?? '';
         $filesystem->put($envPath, $stripped);
     }
+
+    // Published frontend assets (martis:install) and generated class files
+    // (martis:resource / :metric / :dashboard / :tool …). Remove them so no
+    // test leaks them onto disk — otherwise ResourceDiscovery boots them as
+    // real resources in later tests of the same PHP process and crashes on
+    // their nonexistent model classes. Parallel-safe: guard each delete.
+    foreach ([public_path('vendor/martis'), app_path('Martis')] as $dir) {
+        try {
+            $filesystem->deleteDirectory($dir);
+        } catch (Throwable) {
+            // Another worker beat us to it — ignore.
+        }
+    }
 }
 
 beforeEach(function () {
