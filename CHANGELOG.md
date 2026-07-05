@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] — 2026-07-05
+
+### Added
+
+- **`Filter::placeholder(?string)`** — a filter's empty-state placeholder can now differ from its visible label. Previously the frontend hardcoded the placeholder to the filter name; now `Filter::toArray()` serializes a `placeholder` field and `FilterPanel` uses `filter.placeholder ?? filter.name`. So `SelectFilter::make('Project')->searchable()->placeholder('Select…')` keeps the label "Project" while the dropdown shows "Select…". Fully backward-compatible — filters without a placeholder render exactly as before. Additive (semver-minor).
+
 ## [1.22.0] — 2026-07-04
 
 ### Added
