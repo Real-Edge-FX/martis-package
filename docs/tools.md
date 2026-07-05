@@ -545,6 +545,22 @@ In `composer.json`:
 
 Consumer: `composer require your-vendor/martis-backups` and they get a working Backups page in their sidebar.
 
+## Making a headless resource findable through its Tool
+
+Pattern B in [Distribution patterns](#distribution-patterns) aside, the common in-app shape is: "a Tool owns the domain, and a Resource is kept around headless (`routable() === false`) purely as a relation target / data source" (see [`routable()`](resources.md#routable) in the Resources reference).
+
+That headless Resource can still be **findable in global search**, and every link to one of its records can still **deep-link to the Tool**, by declaring `recordUrl()`:
+
+```php
+class ProjectResource extends Resource
+{
+    public static function routable(): bool { return false; }
+    public static function recordUrl(): ?string { return '/tools/project-knowledge?id={id}'; }
+}
+```
+
+With that in place, projects surface in the ⌘K palette and any `BelongsTo`/breadcrumb/search-result link to a project opens `/tools/project-knowledge?id={id}` instead of a 404. See [`recordUrl()`](resources.md#recordurl) in the Resources reference for the full contract (the dual role, the `routable()`/`globallySearchable()` interaction table, and the authorization guarantee).
+
 ## Anti-patterns
 
 - **Don't use a Tool to render a Resource.** If you need a custom CRUD UI for a model, override the resource page or define a Lens.

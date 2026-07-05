@@ -352,6 +352,65 @@ Use this for the "a Tool owns the domain; the Resource is a headless data source
 
 Unlike `displayInNavigation()`, which only hides the resource from menus while leaving its endpoints reachable by direct URL, `routable(false)` fully removes the human page surface (404) while deliberately preserving the internal/relation surface.
 
+A non-routable resource has no page to link to — see [`recordUrl()`](#recordurl) below for how to give it one anyway (and re-enter global search in the process).
+
+### recordUrl()
+
+Declares a URL template for a single record of this resource, with an `{id}` placeholder. Default `null`. `Resource::recordHref(int|string $id): string` interpolates the template (URL-encoding the id); when `recordUrl()` is `null`, `recordHref()` falls back to the standard `/resources/{uriKey}/{id}` path.
+
+```php
+public static function recordUrl(): ?string
+{
+    return '/tools/project-knowledge?id={id}'; // {id} is interpolated, URL-encoded
+}
+```
+
+**Anchor example — a headless resource whose records live in a Tool:**
+
+```php
+class ProjectResource extends Resource
+{
+    public static function routable(): bool { return false; }
+    public static function recordUrl(): ?string { return '/tools/project-knowledge?id={id}'; }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Id::make('id'),
+            Text::make('name')->sortable()->searchable(),
+            Text::make('code')->searchable(),
+        ];
+    }
+}
+```
+
+`ProjectResource` has no index/detail page of its own (`routable()` is `false`), but because it declares `recordUrl()`, projects are findable in global search and every project link — a search hit, a `BelongsTo` display pointing at a project, a breadcrumb — opens `/tools/project-knowledge?id={id}` instead of a 404'd `/resources/projects/{id}`.
+
+#### Dual role
+
+`recordUrl()` does two things at once:
+
+1. **Destination for every record link.** The template drives `Resource::recordHref()` on the backend and the frontend `recordHref(uriKey, id)` helper (fed by a `resourceRecordUrls` map on `window.MartisConfig`, built from `MartisManager::recordUrlMap()`). Every surface that links to a record — global search results, `BelongsTo`/`MorphTo`/`HasMany`/`MorphMany`/`BelongsToMany`/`MorphToMany` displays, breadcrumbs, index row-click, post-save redirects — resolves through one of these two functions, so declaring `recordUrl()` once retargets the record everywhere.
+2. **Opt-in back into global search for a non-routable resource.** `SearchController` skips a resource when `! routable() && recordUrl() === null` — i.e. a non-routable resource is excluded from search unless it declares a `recordUrl`, in which case it participates like any other resource (subject to the same `globallySearchable()` and authorization gates below).
+
+The exact rule: **a non-routable resource appears in global search / the ⌘K palette if and only if it declares `recordUrl()`** — and its results deep-link to that template instead of a resource detail page.
+
+#### Interaction with `routable()` / `globallySearchable()`
+
+| Resource type | To be searchable, needs | Record links resolve to |
+|---|---|---|
+| Normal (`routable()` default `true`) | At least one `searchable()` field; `globallySearchable()` on (default `true`) | `/resources/{uriKey}/{id}` |
+| Headless (`routable() === false`) | The above, **plus** a non-null `recordUrl()` | The `recordUrl()` template, interpolated |
+
+- `globallySearchable()` remains the on/off toggle on top of everything above — a headless resource with `recordUrl()` still needs `globallySearchable()` to not return `false`.
+- `authorizedToViewAny()` still gates search participation per request. A denied user never sees the resource's results, `recordUrl()` or not.
+- For a **routable** resource, `recordUrl()` stays `null` by default, so `recordHref()` returns the unchanged `/resources/{key}/{id}` — fully backward-compatible; nothing changes unless you opt in.
+- `viewAllUrl` ("View all N") is omitted (`null`) from a non-routable resource's search group, since it has no index page to send the user to.
+
+**Security note:** `recordUrl()` only supplies a destination string — it does not change authorization. The v1.24 guarantee still holds: a user who fails `authorizedToViewAny()` never sees the resource's records in search, regardless of whether `recordUrl()` is set.
+
+Source: `src/Resource.php::recordUrl()` / `recordHref()`, `src/Http/Controllers/SearchController.php`, `src/MartisManager.php::recordUrlMap()`, `resources/js/lib/recordHref.ts`.
+
 ### menuItem()
 
 Customize the navigation item generated for a resource.
