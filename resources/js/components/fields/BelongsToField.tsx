@@ -9,6 +9,7 @@ import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIco
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQueryClient } from '@tanstack/react-query'
+import { recordHref } from '@/lib/recordHref'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface BelongsToValue {
@@ -271,7 +272,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
             return (
               <Link
                 key={item.id}
-                to={`/resources/${relatedResourceMulti}/${item.id}`}
+                to={recordHref(relatedResourceMulti, item.id)}
                 className="martis-badge hover:underline"
                 style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-accent)', borderColor: 'var(--martis-border)' }}
               >
@@ -306,7 +307,7 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
           className="inline-flex items-center gap-1"
         >
           <Link
-            to={`/resources/${relatedResource}/${value.id}`}
+            to={recordHref(relatedResource, value.id)}
             className="text-sm hover:underline"
             style={{ color: 'var(--martis-accent)' }}
           >

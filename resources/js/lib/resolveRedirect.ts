@@ -1,3 +1,5 @@
+import { recordHref } from '@/lib/recordHref'
+
 /**
  * Resolves the target path after a create/update action, based on the
  * override's `redirectAfter` configuration.
@@ -19,7 +21,7 @@ export function resolveRedirect(
 
   switch (target) {
     case 'detail':
-      return `/resources/${resource}/${recordId}`
+      return recordHref(resource, recordId)
     case 'index':
       return `/resources/${resource}`
     case 'edit':

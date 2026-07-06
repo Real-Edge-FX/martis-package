@@ -8,6 +8,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import { Pagination } from '@/components/Pagination'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
+import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/contexts/ToastContext'
@@ -170,7 +171,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
         fetchUrl={(params) =>
           `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}?${params.toString()}`
         }
-        viewUrl={(id) => `/resources/${relatedResource}/${id}`}
+        viewUrl={(id) => recordHref(relatedResource, id)}
         pivotFields={pivotFields}
         selectable={hasPivotActions}
         selectedRows={selectedRows}

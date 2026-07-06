@@ -1723,8 +1723,34 @@ abstract class Resource implements ResourceContract
             'title' => $this->title(),
             'subtitle' => $this->searchSubtitle($model),
             'image' => $this->searchImage($model),
-            'url' => '/resources/'.static::uriKey().'/'.$model->getKey(),
+            'url' => static::recordHref($model->getKey()),
         ];
+    }
+
+    /**
+     * URL template for a single record of this resource, with an `{id}`
+     * placeholder. Return null to use the default /resources/{uriKey}/{id}.
+     * Point a non-routable resource's records at the Tool that owns them,
+     * e.g. '/tools/project-knowledge?id={id}'. Also opts a non-routable
+     * resource back into global search (see SearchController).
+     */
+    public static function recordUrl(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Resolve the destination URL for one record — interpolates recordUrl()'s
+     * template, else the default detail path. Used wherever the backend
+     * serializes a record link.
+     */
+    public static function recordHref(int|string $id): string
+    {
+        $template = static::recordUrl();
+
+        return $template !== null
+            ? str_replace('{id}', rawurlencode((string) $id), $template)
+            : '/resources/'.static::uriKey().'/'.$id;
     }
 
     /**

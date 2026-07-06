@@ -77,6 +77,7 @@
                 'auth' => (int) (config('martis.brand.logo_height.auth') ?? 48),
             ]) !!},
             version: {!! json_encode(app(\Martis\MartisManager::class)->version()) !!},
+            resourceRecordUrls: {!! json_encode(app(\Martis\MartisManager::class)->recordUrlMap()) !!},
             docsUrl: {!! json_encode(config('martis.brand.docs_url')) !!},
             theme: {!! json_encode(config('martis.theme', ['default' => 'dark', 'allowToggle' => true])) !!},
             keyboardShortcuts: {!! json_encode(config('martis.keyboard_shortcuts', ['enabled' => true, 'helpOverlay' => true])) !!},

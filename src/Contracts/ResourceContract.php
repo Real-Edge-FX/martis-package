@@ -228,6 +228,9 @@ interface ResourceContract
     /** Determine whether this resource has a routable human page surface (see Resource::routable()). */
     public static function routable(): bool;
 
+    /** URL template for a single record ({id} placeholder), or null for the default detail path. */
+    public static function recordUrl(): ?string;
+
     /** Whether the navigation should show a count badge for this resource. */
     public static function showMenuCount(): bool;
 

@@ -470,4 +470,22 @@ class MartisManager
 
         return null;
     }
+
+    // -------------------------------------------------------------------------
+    // Record URL map
+    // -------------------------------------------------------------------------
+
+    /** @return array<string,string> uriKey => recordUrl template, for resources that declare one. */
+    public function recordUrlMap(): array
+    {
+        $map = [];
+        foreach (app(ResourceRegistry::class)->list() as $resourceClass) {
+            $t = $resourceClass::recordUrl();
+            if ($t !== null) {
+                $map[$resourceClass::uriKey()] = $t;
+            }
+        }
+
+        return $map;
+    }
 }

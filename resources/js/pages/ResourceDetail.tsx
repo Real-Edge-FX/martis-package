@@ -23,6 +23,7 @@ import { MartisLoader } from "@/components/Loader"
 import { usePageTitle } from "@/hooks/usePageTitle"
 import { useResourceAccent } from "@/lib/useResourceAccent"
 import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"
+import { recordHref } from "@/lib/recordHref"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -184,7 +185,7 @@ export function ResourceDetailPage() {
           }
           navigate(`/resources/${resource}/${targetId}/edit`)
         },
-        onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
+        onView: (viewId) => navigate(recordHref(resource!, viewId)),
         addToast,
       }
       // Deep-linking to `/resources/:resource/:id` with a drawer detail
@@ -463,7 +464,7 @@ export function ResourceDetailPage() {
             const targetId = editId ?? id
             if (targetId) navigate(`/resources/${resource}/${targetId}/edit`)
           },
-          onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
+          onView: (viewId) => navigate(recordHref(resource!, viewId)),
           addToast,
         }
         return <C {...updateOverrideProps} />
@@ -491,7 +492,7 @@ export function ResourceDetailPage() {
           onUpdated: () => {},
           onDeleted: () => {},
           onEdit: (editId) => { if (editId) navigate(`/resources/${resource}/${editId}/edit`) },
-          onView: (viewId) => navigate(`/resources/${resource}/${viewId}`),
+          onView: (viewId) => navigate(recordHref(resource!, viewId)),
           addToast,
         }
         return <C {...createOverrideProps} />

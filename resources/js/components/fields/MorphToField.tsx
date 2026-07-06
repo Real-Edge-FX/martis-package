@@ -8,6 +8,7 @@ import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
+import { recordHref } from '@/lib/recordHref'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface MorphToValue {
@@ -198,7 +199,7 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
             {typeLabel}:
           </span>
           <Link
-            to={`/resources/${resourceType}/${value.id}`}
+            to={recordHref(resourceType, value.id)}
             className="text-sm hover:underline"
             style={{ color: 'var(--martis-accent)' }}
           >
