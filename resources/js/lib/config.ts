@@ -227,11 +227,34 @@ export interface MartisCustomAccent {
 export interface MartisPreferencesConfig {
   enabled: boolean
   allowBrandColor: boolean
+  /** Locale codes the language picker offers (`martis.preferences.locales`).
+   *  Available before login (unlike the authenticated `/api/preferences`
+   *  meta), so the login picker can honour the configured restriction. */
+  locales?: string[]
   /** Map of locale code → human-readable label (e.g. `en` → "English"). */
   localeLabels?: Record<string, string>
   initial: MartisPreferencesInitialPayload | null
   /** Custom accent swatches surfaced in the PreferencesMenu picker (v1.7.0). */
   customAccents?: MartisCustomAccent[]
+}
+
+/** The locales Martis ships translations for — the last-resort fallback when
+ *  neither the authenticated meta nor `preferences.locales` is available. */
+export const BUNDLED_LOCALES = ['en', 'pt_PT', 'pt_BR']
+
+/**
+ * Resolve the locale list a language picker should offer. Precedence:
+ * authenticated `meta.locales` (from `/api/preferences`, reflects
+ * `martis.preferences.locales`) → the pre-login `preferences.locales`
+ * bootstrapped into `window.MartisConfig` → the bundled default. This keeps
+ * the login picker (where `meta` is null) honouring the configured
+ * restriction instead of always showing all three bundled locales.
+ */
+export function resolvePickerLocales(metaLocales?: string[] | null): string[] {
+  if (metaLocales && metaLocales.length > 0) return metaLocales
+  const configured = config.preferences?.locales
+  if (configured && configured.length > 0) return configured
+  return BUNDLED_LOCALES
 }
 
 /** Generic shape for each alternative auth flow (SSO, Google, password reset,

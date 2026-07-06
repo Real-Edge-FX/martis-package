@@ -37,6 +37,10 @@
         $prefsConfig = [
             'enabled' => $prefsEnabled,
             'allowBrandColor' => (bool) config('martis.preferences.allowBrandColor', false),
+            // Locales the language picker (login + in-app Preferences) offers.
+            // Passed through so `martis.preferences.locales` actually restricts
+            // the list; when empty the SPA falls back to its bundled default.
+            'locales' => array_values((array) config('martis.preferences.locales', [])),
             'localeLabels' => (array) config('martis.preferences.locale_labels', []),
             'initial' => $prefsPayload,
             'customAccents' => array_map(

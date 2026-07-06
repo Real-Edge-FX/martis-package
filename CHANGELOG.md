@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.2] — 2026-07-06
+
+### Fixed
+
+- **`preferences.locales` was inert — the language picker ignored it.** `config('martis.preferences.locales')` (documented as the locales the picker offers) was never bootstrapped into the SPA, so the login and in-app language pickers always fell back to the three bundled locales (`en`, `pt_PT`, `pt_BR`). Restricting it (e.g. `['en','pt_PT']` to hide pt_BR) had no effect. `app.blade.php` now passes it through as `window.MartisConfig.preferences.locales`, and both pickers resolve their list via a shared `resolvePickerLocales()`: authenticated `/api/preferences` meta → `preferences.locales` (available pre-login, so the **login** picker honours it) → the bundled default. The in-app picker already read the config via the authenticated meta; this closes the login-screen gap (where no meta exists) that made the config look inert.
+
 ## [1.28.1] — 2026-07-06
 
 ### Fixed
