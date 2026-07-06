@@ -11,6 +11,7 @@ import {
   ClockCounterClockwiseIcon,
   FileIcon,
   ArrowRightIcon,
+  ListBulletsIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { isMacPlatform } from "@/lib/platform"
@@ -72,7 +73,10 @@ interface SearchRecordGroup {
    *  hit the resource's per-search limit. Used to render the "View all"
    *  footer item with the real count. */
   total?: number
-  viewAllUrl: string
+  /** Destination for the "View all" affordance. Null when the resource has
+   *  no listing page (non-routable without a searchIndexUrl) — the frontend
+   *  then renders the count as a non-clickable label instead of a dead link. */
+  viewAllUrl: string | null
 }
 
 interface SearchRecordsResponse {
@@ -84,7 +88,7 @@ type PaletteItem =
   | { kind: 'action'; label: string; hint: string | null; url: string; icon: string | null; destructive: boolean }
   | { kind: 'recent'; label: string; hint: string | null; url: string | null; icon: ReactNode }
   | { kind: 'record'; label: string; hint: string | null; url: string; image?: string | null }
-  | { kind: 'view-all'; label: string; hint: string | null; url: string }
+  | { kind: 'view-all'; label: string; hint: string | null; url: string | null }
   | { kind: 'recent-query'; label: string; hint: string | null; url: null; query: string }
 
 interface PaletteSection {
@@ -123,6 +127,15 @@ function pushRecentQuery(q: string): void {
   } catch {
     // sessionStorage may throw under quota or privacy modes — drop silently.
   }
+}
+
+// A palette row is interactive when running it does something: recent-query
+// rows re-fill the input, everything else navigates via its `url`. A
+// `view-all` row whose `url` is null (non-routable resource, no listing) is
+// the sole non-interactive case — it renders as a static count label and is
+// skipped by keyboard navigation so Enter never lands on a dead row.
+function isInteractive(item: PaletteItem): boolean {
+  return item.kind === 'recent-query' || item.url != null
 }
 
 function matches(item: PaletteItem, query: string): boolean {
@@ -312,10 +325,20 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
       onClose()
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveIndex((i) => Math.min(i + 1, flatItems.length - 1))
+      setActiveIndex((i) => {
+        for (let j = i + 1; j < flatItems.length; j++) {
+          if (isInteractive(flatItems[j])) return j
+        }
+        return i
+      })
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActiveIndex((i) => Math.max(i - 1, 0))
+      setActiveIndex((i) => {
+        for (let j = i - 1; j >= 0; j--) {
+          if (isInteractive(flatItems[j])) return j
+        }
+        return i
+      })
     } else if (e.key === 'Enter' && flatItems[activeIndex]) {
       e.preventDefault()
       runItem(flatItems[activeIndex])
@@ -357,11 +380,30 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
               <div className="martis-cmdk-group">{section.label}</div>
               {section.items.map((item) => {
                 const globalIdx = flatCursor++
-                const isActive = globalIdx === activeIndex
                 const recordImage = item.kind === 'record' ? (item.image ?? null) : null
                 const icon = recordImage
                   ? <img src={recordImage} alt="" className="martis-cmdk-avatar" />
                   : renderItemIcon(item)
+
+                // Non-interactive rows (a view-all count with no listing
+                // destination) render as a static label: no button, no
+                // active state, no hover selection — the click that "did
+                // nothing" is gone because there is nothing to click.
+                if (!isInteractive(item)) {
+                  return (
+                    <div
+                      key={`${section.label}:${globalIdx}:${item.label}`}
+                      className="martis-cmdk-item is-static"
+                      aria-disabled="true"
+                    >
+                      {icon}
+                      <span className="martis-cmdk-name">{item.label}</span>
+                      {item.hint && <span className="martis-cmdk-hint">{item.hint}</span>}
+                    </div>
+                  )
+                }
+
+                const isActive = globalIdx === activeIndex
                 return (
                   <button
                     key={`${section.label}:${globalIdx}:${item.label}`}
@@ -419,7 +461,11 @@ function renderItemIcon(item: PaletteItem): ReactNode {
     return <FileIcon size={16} />
   }
   if (item.kind === 'view-all') {
-    return <ArrowRightIcon size={16} weight="bold" />
+    // Arrow (navigates) only when there's a destination; otherwise a
+    // neutral list glyph so the static count doesn't imply an action.
+    return item.url != null
+      ? <ArrowRightIcon size={16} weight="bold" />
+      : <ListBulletsIcon size={16} />
   }
   if (item.kind === 'recent-query') {
     return <MagnifyingGlassIcon size={16} />

@@ -52,7 +52,7 @@ class SearchController extends MartisController
      *   label: string,
      *   items: array<int, array<string, mixed>>,
      *   total?: int,
-     *   viewAllUrl: string
+     *   viewAllUrl: string|null
      * }>}
      */
     public function search(Request $request): JsonResponse
@@ -120,9 +120,12 @@ class SearchController extends MartisController
                 'resource' => $resourceClass::uriKey(),
                 'label' => $resourceClass::label(),
                 'items' => $items,
-                'viewAllUrl' => $resourceClass::routable()
-                    ? '/resources/'.$resourceClass::uriKey().'?search='.rawurlencode($q)
-                    : null,
+                // Precedence lives in Resource::searchIndexHref(): an explicit
+                // searchIndexUrl() template wins; else routable resources get
+                // the default /resources/{uriKey} search page; else null (a
+                // non-routable resource with no listing renders as a
+                // non-clickable count in the palette).
+                'viewAllUrl' => $resourceClass::searchIndexHref($q),
             ];
 
             // ⭐ Differential 2 — surface a total count ONLY when the

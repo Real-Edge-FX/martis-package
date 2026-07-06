@@ -405,11 +405,37 @@ The exact rule: **a non-routable resource appears in global search / the ⌘K pa
 - `globallySearchable()` remains the on/off toggle on top of everything above — a headless resource with `recordUrl()` still needs `globallySearchable()` to not return `false`.
 - `authorizedToViewAny()` still gates search participation per request. A denied user never sees the resource's results, `recordUrl()` or not.
 - For a **routable** resource, `recordUrl()` stays `null` by default, so `recordHref()` returns the unchanged `/resources/{key}/{id}` — fully backward-compatible; nothing changes unless you opt in.
-- `viewAllUrl` ("View all N") is omitted (`null`) from a non-routable resource's search group, since it has no index page to send the user to.
+- `viewAllUrl` ("View all N") defaults to `null` for a non-routable resource, since it has no index page to send the user to — the palette then renders the count as a static, non-clickable label instead of a dead link. To give it a real destination, declare [`searchIndexUrl()`](#searchindexurl) below.
 
 **Security note:** `recordUrl()` only supplies a destination string — it does not change authorization. The v1.24 guarantee still holds: a user who fails `authorizedToViewAny()` never sees the resource's records in search, regardless of whether `recordUrl()` is set.
 
 Source: `src/Resource.php::recordUrl()` / `recordHref()`, `src/Http/Controllers/SearchController.php`, `src/MartisManager.php::recordUrlMap()`, `resources/js/lib/recordHref.ts`.
+
+### searchIndexUrl()
+
+Declares the destination for the **"View all N matches"** affordance in global search / the ⌘K palette, with an optional `{search}` placeholder (the searched term, URL-encoded). Default `null`. Companion of `recordUrl()`: `recordUrl()` resolves a single record (`{id}`), `searchIndexUrl()` resolves the listing.
+
+```php
+public static function searchIndexUrl(): ?string
+{
+    return '/tools/normas?search={search}';
+}
+```
+
+`Resource::searchIndexHref(string $search): ?string` resolves the value the backend serializes as the group's `viewAllUrl`, by this precedence:
+
+| Resource | `searchIndexUrl()` | Resolved `viewAllUrl` |
+|---|---|---|
+| Routable (default) | `null` | `/resources/{uriKey}?search={term}` (unchanged) |
+| Any | non-null template | template with `{search}` interpolated (URL-encoded) |
+| Non-routable | `null` | `null` → static, non-clickable count in the palette |
+
+This closes the one gap the headless pattern left open: a non-routable resource (v1.24) that opts back into search via `recordUrl()` (v1.25) previously showed a "View all N" row that navigated nowhere. Point `searchIndexUrl()` at the Tool that owns the listing and the affordance sends the user there, pre-filtered by the searched term.
+
+- **Backward-compatible.** A routable resource leaves `searchIndexUrl()` at `null`, so `viewAllUrl` stays byte-for-byte `/resources/{uriKey}?search={term}`. Nothing changes unless you opt in.
+- **Security.** Like `recordUrl()`, `searchIndexUrl()` is only a destination string. It never widens authorization — the group still only appears after `globallySearchable()` and `authorizedToViewAny()` pass.
+
+Source: `src/Resource.php::searchIndexUrl()` / `searchIndexHref()`, `src/Http/Controllers/SearchController.php`, `resources/js/components/GlobalSearch.tsx`.
 
 ### menuItem()
 

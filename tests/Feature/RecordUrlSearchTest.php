@@ -41,6 +41,13 @@ class RecordUrlDeniedHeadlessWithUrlModel extends Model
     protected $fillable = ['title'];
 }
 
+class RecordUrlHeadlessWithSearchIndexModel extends Model
+{
+    protected $table = 'record_url_headless_with_search_index_items';
+
+    protected $fillable = ['title'];
+}
+
 // ---------------------------------------------------------------------------
 // Test fixtures — Resources
 // ---------------------------------------------------------------------------
@@ -183,6 +190,49 @@ class DeniedHeadlessWithUrlResource extends Resource
     }
 }
 
+// Non-routable, declares recordUrl() AND searchIndexUrl() with a {search}
+// placeholder — its "view all" affordance must resolve to the owning Tool,
+// filtered by the searched term.
+class HeadlessWithSearchIndexResource extends Resource
+{
+    public static function model(): string
+    {
+        return RecordUrlHeadlessWithSearchIndexModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'record-url-headless-with-search-index-items';
+    }
+
+    public static function titleAttribute(): string
+    {
+        return 'title';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+
+    public static function recordUrl(): ?string
+    {
+        return '/tools/normas?id={id}';
+    }
+
+    public static function searchIndexUrl(): ?string
+    {
+        return '/tools/normas?search={search}';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->searchable()->required(),
+        ];
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -214,16 +264,24 @@ beforeEach(function () {
         $table->timestamps();
     });
 
+    Schema::create('record_url_headless_with_search_index_items', function (Blueprint $table) {
+        $table->id();
+        $table->string('title');
+        $table->timestamps();
+    });
+
     $registry = app(ResourceRegistry::class);
     $registry->register(HeadlessWithUrlResource::class);
     $registry->register(HeadlessNoUrlResource::class);
     $registry->register(NormalResource::class);
     $registry->register(DeniedHeadlessWithUrlResource::class);
+    $registry->register(HeadlessWithSearchIndexResource::class);
 
     RecordUrlHeadlessWithUrlModel::create(['title' => 'Findable Widget']);
     RecordUrlHeadlessNoUrlModel::create(['title' => 'Findable Widget']);
     RecordUrlNormalModel::create(['title' => 'Findable Widget']);
     RecordUrlDeniedHeadlessWithUrlModel::create(['title' => 'Findable Widget']);
+    RecordUrlHeadlessWithSearchIndexModel::create(['title' => 'Findable Widget']);
 });
 
 afterEach(function () {
@@ -231,6 +289,7 @@ afterEach(function () {
     Schema::dropIfExists('record_url_headless_no_url_items');
     Schema::dropIfExists('record_url_normal_items');
     Schema::dropIfExists('record_url_denied_headless_with_url_items');
+    Schema::dropIfExists('record_url_headless_with_search_index_items');
 
     app(ResourceRegistry::class)->flush();
 });
@@ -302,4 +361,21 @@ it('excludes a non-routable resource with recordUrl() when authorizedToViewAny d
     $group = $groups->firstWhere('resource', 'record-url-denied-headless-with-url-items');
 
     expect($group)->toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// Case 5: non-routable + searchIndexUrl() resolves the "view all" affordance
+// to the owning Tool, filtered by the searched term (URL-encoded).
+// ---------------------------------------------------------------------------
+
+it('resolves viewAllUrl via searchIndexUrl() for a non-routable resource, interpolating the {search} term', function () {
+    $response = $this->getJson('/martis/api/search?q=Findable');
+
+    $response->assertOk();
+
+    $groups = collect($response->json('results'));
+    $group = $groups->firstWhere('resource', 'record-url-headless-with-search-index-items');
+
+    expect($group)->not->toBeNull();
+    expect($group['viewAllUrl'])->toBe('/tools/normas?search=Findable');
 });

@@ -1063,6 +1063,17 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
 .martis-cmdk-item svg { color: var(--martis-text-muted); flex-shrink: 0; }
 .martis-cmdk-item:hover svg,
 .martis-cmdk-item.is-active svg { color: var(--martis-accent); }
+/* Static count row (view-all with no listing destination): informational,
+   not a control — no pointer, no hover/active highlight, muted text. */
+.martis-cmdk-item.is-static {
+  cursor: default;
+  color: var(--martis-text-muted);
+}
+.martis-cmdk-item.is-static:hover,
+.martis-cmdk-item.is-static:hover svg {
+  background: transparent;
+  color: var(--martis-text-muted);
+}
 /* Avatar slot for record items whose Resource implements searchImage(). */
 .martis-cmdk-avatar {
   width: 20px;

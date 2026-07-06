@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] — 2026-07-06
+
+### Added
+
+- **`Resource::searchIndexUrl(): ?string`** — a per-resource URL template (optional `{search}` placeholder, URL-encoded) for the **"View all N matches"** affordance in global search / the ⌘K palette. Companion of `recordUrl()`: `recordUrl()` resolves a single record (`{id}`), `searchIndexUrl()` resolves the listing. `Resource::searchIndexHref(string $search): ?string` computes the group's `viewAllUrl` by precedence — an explicit template wins (interpolated); else a **routable** resource keeps the unchanged `/resources/{uriKey}?search={term}`; else (non-routable, no template) `null`. Closes the gap the headless pattern left open: a non-routable resource (v1.24) opted back into search via `recordUrl()` (v1.25) used to show a "View all N" row that navigated nowhere — now point `searchIndexUrl()` at the owning Tool (e.g. `'/tools/normas?search={search}'`) and the affordance deep-links there, pre-filtered by the searched term.
+
+### Fixed
+
+- **Dead "View all N" row in the palette for non-routable resources.** When `viewAllUrl` is `null` (a non-routable resource with no `searchIndexUrl()`), the palette now renders the match count as a **static, non-clickable label** — no button, no keyboard selection, no hover highlight — instead of a clickable row that silently did nothing. The `viewAllUrl` payload type is corrected to `string|null` across the backend PHPDoc and the frontend `SearchRecordGroup` / `PaletteItem` types.
+
+### Compatibility
+
+- **Fully backward-compatible.** A routable resource leaves `searchIndexUrl()` at `null`, so its `viewAllUrl` stays byte-for-byte `/resources/{uriKey}?search={term}`. **Security unchanged** — `searchIndexUrl()` is only a destination string; a group still appears only after `globallySearchable()` and `authorizedToViewAny()` pass. Additive (semver-minor).
+
 ## [1.25.0] — 2026-07-05
 
 ### Added
