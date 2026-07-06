@@ -298,11 +298,15 @@ The palette renders six kinds of sections, each grown from a different data sour
 1. **Resources** — every resource the user can view, filtered by query (client-side).
 2. **⭐ Tools** — every registered custom Tool the user is authorised to see (same `authorizedToSee` gate as the sidebar), so ⌘K can jump to a Tool by name just like a resource. Each links to `/tools/{uriKey}`.
 3. **Actions** — standalone resource actions (`showInline=false`, `standalone=true`), filtered by query.
-4. **Recent activity** — the last few records the user opened (drawn from action events).
+4. **Recent activity** — the last 5 records the user opened (drawn from action events).
 5. **⭐ Recent searches** — the user's last 5 successful queries, persisted in `sessionStorage`. Visible only when the input is empty. Clicking re-runs the query.
 6. **Records** — live hits per resource via `/api/search`. Each resource gets its own labelled section with the optional "View all" footer.
 
 Sections 1–4 are loaded from `/api/command-palette` once per session and cached for 30 s. The Recent searches section is purely client-side (no backend, no roundtrip). The Records section debounces 300 ms before firing `/api/search`.
+
+### Section length cap
+
+The **Resources**, **Tools**, and **Actions** sections are each capped at **5 visible rows**. When a section has more, it's trimmed and gets a subtle **"Show N more"** row; clicking it (or pressing Enter on it) reveals the rest of that section in place — no navigation. This keeps the empty-state palette scannable: an app with 50 resources shows 5 + "Show 45 more" instead of dumping the full catalogue before the user types anything. Record groups (which carry their own "View all" footer) and the already-short recent sections are exempt from the cap.
 
 ---
 

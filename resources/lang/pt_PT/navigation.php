@@ -38,6 +38,7 @@ return [
     'palette_placeholder' => 'Escreva um comando ou pesquise…',
     'palette_resources' => 'Recursos',
     'palette_tools' => 'Ferramentas',
+    'palette_show_more' => 'Mostrar mais {{count}}',
     'palette_actions' => 'Ações',
     'palette_recent' => 'Atividade recente',
     'palette_records' => 'Registos',

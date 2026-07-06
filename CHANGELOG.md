@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] — 2026-07-06
+
+### Changed
+
+- **⌘K palette section length cap.** The **Resources**, **Tools**, and **Actions** sections are now each capped at **5 visible rows**, with a subtle **"Show N more"** expander that reveals the rest of that section in place (no navigation) when clicked or Enter'd. Previously the empty-state palette dumped the full catalogue — an app with 50 resources rendered 50 rows before the user typed a key. Record groups (their own "View all" footer) and the recent sections are exempt. Also reduces **Recent activity** from 8 to 5 rows. Frontend-only for the cap; the recent limit is a one-line backend change. No API shape change.
+
 ## [1.27.0] — 2026-07-06
 
 ### Fixed
