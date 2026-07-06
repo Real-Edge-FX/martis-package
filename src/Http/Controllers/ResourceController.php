@@ -1321,15 +1321,22 @@ class ResourceController extends MartisController
                 fn (FieldContract $field): bool => $field->isSearchable(),
             );
 
+            // Case-insensitive on PostgreSQL (ilike) too — same rule and
+            // single source of truth as the global-search pipeline.
+            $connection = $query->getConnection();
+            $likeOp = SearchResolver::likeOperator(
+                method_exists($connection, 'getDriverName') ? $connection->getDriverName() : null
+            );
+
             if (empty($searchableFields)) {
                 $titleAttr = $relatedResourceClass::titleAttribute();
                 if ($titleAttr !== 'id') {
-                    $query->where($titleAttr, 'like', "%{$search}%");
+                    $query->where($titleAttr, $likeOp, "%{$search}%");
                 }
             } else {
-                $query->where(function (Builder $q) use ($searchableFields, $search): void {
+                $query->where(function (Builder $q) use ($searchableFields, $search, $likeOp): void {
                     foreach ($searchableFields as $field) {
-                        $q->orWhere($field->attribute(), 'like', "%{$search}%");
+                        $q->orWhere($field->attribute(), $likeOp, "%{$search}%");
                     }
                 });
             }

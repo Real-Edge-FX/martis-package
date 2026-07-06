@@ -12,6 +12,7 @@ import {
   FileIcon,
   ArrowRightIcon,
   ListBulletsIcon,
+  PlugIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { isMacPlatform } from "@/lib/platform"
@@ -49,6 +50,7 @@ interface PaletteRecent {
 
 interface PaletteResponse {
   resources: PaletteResource[]
+  tools: PaletteResource[]
   actions: PaletteAction[]
   recent: PaletteRecent[]
 }
@@ -85,6 +87,7 @@ interface SearchRecordsResponse {
 
 type PaletteItem =
   | { kind: 'resource'; label: string; hint: string | null; url: string; icon: string | null }
+  | { kind: 'tool'; label: string; hint: string | null; url: string; icon: string | null }
   | { kind: 'action'; label: string; hint: string | null; url: string; icon: string | null; destructive: boolean }
   | { kind: 'recent'; label: string; hint: string | null; url: string | null; icon: ReactNode }
   | { kind: 'record'; label: string; hint: string | null; url: string; image?: string | null }
@@ -213,6 +216,19 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     .filter((i) => matches(i, query))
   if (resourceItems.length > 0) {
     sections.push({ label: t('palette_resources', 'Resources'), items: resourceItems })
+  }
+
+  const toolItems: PaletteItem[] = (palette?.tools ?? [])
+    .map((tItem) => ({
+      kind: 'tool' as const,
+      label: tItem.label,
+      hint: tItem.group,
+      url: tItem.url,
+      icon: tItem.icon,
+    }))
+    .filter((i) => matches(i, query))
+  if (toolItems.length > 0) {
+    sections.push({ label: t('palette_tools', 'Tools'), items: toolItems })
   }
 
   const actionItems: PaletteItem[] = (palette?.actions ?? [])
@@ -451,6 +467,11 @@ function renderItemIcon(item: PaletteItem): ReactNode {
     return item.icon
       ? <ResourceIcon iconName={item.icon} size={16} />
       : <DatabaseIcon size={16} />
+  }
+  if (item.kind === 'tool') {
+    return item.icon
+      ? <ResourceIcon iconName={item.icon} size={16} />
+      : <PlugIcon size={16} />
   }
   if (item.kind === 'action') {
     return item.icon

@@ -37,6 +37,7 @@ return [
     'docs' => 'Docs',
     'palette_placeholder' => 'Type a command or search…',
     'palette_resources' => 'Resources',
+    'palette_tools' => 'Tools',
     'palette_actions' => 'Actions',
     'palette_recent' => 'Recent activity',
     'palette_records' => 'Records',
