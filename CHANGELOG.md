@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.1] — 2026-07-06
+
+### Fixed
+
+- **`martis:theme:diff` flagged referenced-only tokens as "Unknown to package".** The command built its package token set from **declarations** (`--x: …`) only, ignoring **references** (`var(--x)`). A token the engine uses via a `var()` fallback but never declares — e.g. `--martis-accent-contrast` (`var(--martis-accent-contrast, #fff)`) — was therefore reported as "Unknown" when a consumer correctly declared it, so a fully-declared consumer theme could never reach `exit 0` (breaking its use as a CI drift gate). The package "known" set is now **declarations ∪ `var()` references**: a referenced-only token declared by a consumer is a Match, not Unknown, and is not treated as "Missing" when omitted (it has a baked-in fallback). Output now reports declared vs referenced-only counts.
+- **Docs: removed the stale `--martis-text-faint` token** from the theming token tables. It was intentionally dropped from the default CSS (comment F7-23 — the engine uses `--martis-text-muted` directly) but the theming guide still listed it, so a consumer declaring it got a legitimate "Unknown". The "Text & Borders" group is now 3 variables.
+
 ## [1.28.0] — 2026-07-06
 
 ### Changed
