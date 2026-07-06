@@ -231,6 +231,9 @@ interface ResourceContract
     /** URL template for a single record ({id} placeholder), or null for the default detail path. */
     public static function recordUrl(): ?string;
 
+    /** URL template for the "view all" search affordance ({search} placeholder), or null for the default. */
+    public static function searchIndexUrl(): ?string;
+
     /** Whether the navigation should show a count badge for this resource. */
     public static function showMenuCount(): bool;
 

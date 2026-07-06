@@ -1754,6 +1754,40 @@ abstract class Resource implements ResourceContract
     }
 
     /**
+     * URL template for the "view all N matches" affordance in Global Search,
+     * with an optional `{search}` placeholder (the searched term, url-encoded).
+     * Return null to use the default: routable resources fall back to
+     * /resources/{uriKey}?search={term}; non-routable resources render the
+     * count as a non-clickable label (no listing page exists). Point a
+     * non-routable resource at the Tool that owns its listing, e.g.
+     * '/tools/normas?search={search}'. Companion of recordUrl(): recordUrl()
+     * resolves one record ({id}), searchIndexUrl() resolves the listing.
+     */
+    public static function searchIndexUrl(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Resolve the "view all" URL for a given search term, or null when there
+     * is no listing destination. Precedence: an explicit searchIndexUrl()
+     * template (interpolated) wins; else the default /resources/{uriKey}
+     * search page for routable resources; else null (non-routable, no seam).
+     */
+    public static function searchIndexHref(string $search): ?string
+    {
+        $template = static::searchIndexUrl();
+
+        if ($template !== null) {
+            return str_replace('{search}', rawurlencode($search), $template);
+        }
+
+        return static::routable()
+            ? '/resources/'.static::uriKey().'?search='.rawurlencode($search)
+            : null;
+    }
+
+    /**
      * Dot-notation relation paths searched alongside this resource's own
      * fields when Global Search runs a LIKE pipeline. Each entry is a
      * `relation.attribute` pair. The resolver joins (or falls back to a
