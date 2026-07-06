@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Martis\Contracts\ActionContract;
+use Martis\MartisManager;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -14,28 +15,35 @@ use Throwable;
 /**
  * Backend for the global command palette (⌘K / "/").
  *
- * Aggregates three live sections in a single response so the overlay
+ * Aggregates four live sections in a single response so the overlay
  * avoids the chattiness of hitting `/api/navigation`, `/api/resources/*`
  * and `/api/action-events` separately on every keystroke:
  *
  *  - **Resources** — every registered resource the current user is
  *    authorised to view. Same filter the sidebar applies.
+ *  - **Tools** — every registered custom Tool the current user is
+ *    authorised to see (same `authorizedToSee` gate as the sidebar), so
+ *    ⌘K can jump to a Tool by name just like a resource.
  *  - **Actions** — every standalone action (`Action::standalone()`) across
  *    every resource, tagged with the owning resource so the frontend can
  *    render "Run <action> on <resource>".
  *  - **Recent** — the authenticated user's latest 8 `martis_action_events`
  *    rows, linking back to the affected record when `model_id` is set.
  *
- * All three arrays come out ordered for deterministic rendering — any
+ * All arrays come out ordered for deterministic rendering — any
  * fuzzy match / scoring happens client-side.
  */
 class CommandPaletteController extends MartisController
 {
-    public function __construct(private readonly ResourceRegistry $registry) {}
+    public function __construct(
+        private readonly ResourceRegistry $registry,
+        private readonly MartisManager $martis,
+    ) {}
 
     /**
      * @response array{
      *   resources: list<array{key: string, uriKey: string, label: string, icon: string|null, group: string|null, url: string}>,
+     *   tools: list<array{key: string, uriKey: string, label: string, icon: string|null, group: string|null, url: string}>,
      *   actions: list<array{key: string, label: string, icon: string|null, destructive: bool, resource: string, resourceUriKey: string, url: string}>,
      *   recent: list<array{key: int, label: string, subtitle: string|null, url: string|null, created_at: string}>,
      * }
@@ -44,6 +52,7 @@ class CommandPaletteController extends MartisController
     {
         return response()->json([
             'resources' => $this->resources($request),
+            'tools' => $this->tools($request),
             'actions' => $this->actions($request),
             'recent' => $this->recent($request),
         ]);
@@ -73,6 +82,35 @@ class CommandPaletteController extends MartisController
                 'icon' => $instance->icon(),
                 'group' => $instance->group(),
                 'url' => '/resources/'.$uriKey,
+            ];
+        }
+
+        usort($out, fn ($a, $b) => strcasecmp((string) $a['label'], (string) $b['label']));
+
+        return $out;
+    }
+
+    /**
+     * Every registered custom Tool the user is authorised to see. Uses the
+     * same `authorizedToSee` gate as the sidebar (via
+     * `MartisManager::resolveTools()`), so a Tool never surfaces in ⌘K for a
+     * user who cannot open it. Shaped like a resource row so the frontend
+     * renders it in an identical "jump to" section.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function tools(Request $request): array
+    {
+        $out = [];
+        foreach ($this->martis->resolveTools($request) as $tool) {
+            $uriKey = $tool->uriKey();
+            $out[] = [
+                'key' => 'tool:'.$uriKey,
+                'uriKey' => $uriKey,
+                'label' => $tool->name(),
+                'icon' => $tool->icon(),
+                'group' => $tool->menuSection(),
+                'url' => '/tools/'.$uriKey,
             ];
         }
 
@@ -117,7 +155,7 @@ class CommandPaletteController extends MartisController
                 $out[] = [
                     'key' => 'action:'.$uriKey.':'.$action->uriKey(),
                     'label' => $action->name(),
-                    'icon' => $action->icon,
+                    'icon' => $action->getIcon(),
                     'destructive' => $action->isDestructive(),
                     'resource' => $class::label(),
                     'resourceUriKey' => $uriKey,

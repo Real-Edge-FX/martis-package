@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] — 2026-07-06
+
+### Fixed
+
+- **Command palette 500 (protected `Action::$icon` access).** `CommandPaletteController::actions()` read the **protected** `$action->icon` property directly instead of the public `getIcon()` accessor. As soon as any registered resource exposed a **standalone** action, `GET /api/command-palette` threw `Error: Cannot access protected property …::$icon` and 500'd — blanking the **entire** palette (Resources, Tools, Actions, and Recent all come from that one endpoint). Now uses `$action->getIcon()`. The demo app has no standalone actions, so the package suite never tripped it; a `CommandPaletteControllerTest` fixture with a standalone action now guards it.
+- **Global search was case-sensitive on PostgreSQL (`RP` ≠ `rp`).** The `LIKE` pipeline emitted a bare `like`, which Postgres treats as case-sensitive. `SearchResolver` and the relatable / BelongsTo dropdown search in `ResourceController` now choose the operator per driver via a single `SearchResolver::likeOperator(?string $driver)` helper — `ilike` on `pgsql`, `like` everywhere else. MySQL/SQLite/SQL Server are **byte-for-byte unchanged** (their `LIKE` is already case-insensitive). Mirrors Laravel's own `whereLike(caseSensitive: false)` default; column type / collation is irrelevant. (The Pest suite runs on SQLite, whose `LIKE` is already insensitive, so the fix is guarded by a unit test on the operator choice — `pgsql → ilike`, others → `like` — not a SQLite search test that would pass regardless.)
+
+### Added
+
+- **Tools section in the ⌘K command palette.** `/api/command-palette` now returns a `tools` array — every registered custom Tool the user is authorised to see (same `authorizedToSee` gate as the sidebar, via `MartisManager::resolveTools()`), shaped like a resource row and linking to `/tools/{uriKey}`. The palette renders it as its own "Tools" section, so users can jump to a Tool by name just like a resource. Additive (semver-minor); the section is empty (and hidden) for apps with no Tools.
+
 ## [1.26.0] — 2026-07-06
 
 ### Added

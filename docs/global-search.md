@@ -283,21 +283,26 @@ Both values are clamped to a minimum of 1 at request time, so a misconfigured en
 
 Both paths integrate identically with the Cmd+K palette — `searchOrderBy()` runs in either case.
 
+### Case-insensitivity across drivers
+
+The `LIKE` pipeline is **case-insensitive on every supported database**. PostgreSQL's `LIKE` is case-sensitive, so the resolver emits `ILIKE` there; MySQL, SQLite, and SQL Server treat `LIKE` case-insensitively already and keep `LIKE` (byte-for-byte unchanged). The operator is chosen once per query by `SearchResolver::likeOperator($driver)` — the single source of truth reused by both the global-search pipeline and the relatable / BelongsTo dropdown search in `ResourceController`. So `RP` and `rp` return the same results regardless of the underlying database. This mirrors Laravel's own `whereLike($col, $val, caseSensitive: false)` default; column type / collation is irrelevant.
+
 See [resources.md](resources.md#laravel-scout-integration) for full Scout integration notes.
 
 ---
 
 ## Cmd+K palette sections
 
-The palette renders five kinds of sections, each grown from a different data source:
+The palette renders six kinds of sections, each grown from a different data source:
 
 1. **Resources** — every resource the user can view, filtered by query (client-side).
-2. **Actions** — standalone resource actions (`showInline=false`, `standalone=true`), filtered by query.
-3. **Recent activity** — the last few records the user opened (drawn from action events).
-4. **⭐ Recent searches** — the user's last 5 successful queries, persisted in `sessionStorage`. Visible only when the input is empty. Clicking re-runs the query.
-5. **Records** — live hits per resource via `/api/search`. Each resource gets its own labelled section with the optional "View all" footer.
+2. **⭐ Tools** — every registered custom Tool the user is authorised to see (same `authorizedToSee` gate as the sidebar), so ⌘K can jump to a Tool by name just like a resource. Each links to `/tools/{uriKey}`.
+3. **Actions** — standalone resource actions (`showInline=false`, `standalone=true`), filtered by query.
+4. **Recent activity** — the last few records the user opened (drawn from action events).
+5. **⭐ Recent searches** — the user's last 5 successful queries, persisted in `sessionStorage`. Visible only when the input is empty. Clicking re-runs the query.
+6. **Records** — live hits per resource via `/api/search`. Each resource gets its own labelled section with the optional "View all" footer.
 
-Sections 1–3 are loaded from `/api/command-palette` once per session and cached for 30 s. The Recent searches section is purely client-side (no backend, no roundtrip). The Records section debounces 300 ms before firing `/api/search`.
+Sections 1–4 are loaded from `/api/command-palette` once per session and cached for 30 s. The Recent searches section is purely client-side (no backend, no roundtrip). The Records section debounces 300 ms before firing `/api/search`.
 
 ---
 

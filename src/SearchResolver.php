@@ -150,6 +150,16 @@ class SearchResolver
     ): Builder {
         $instance = new $resourceClass;
 
+        // Case-insensitive matching across every driver: PostgreSQL's `LIKE`
+        // is case-sensitive, so we emit `ILIKE` there (mirroring Laravel's
+        // own `whereLike($col, $val, caseSensitive: false)` default and the
+        // Nova/Filament precedent). MySQL/SQLite `LIKE` is already
+        // case-insensitive, so they keep `like` — byte-for-byte unchanged.
+        $connection = $query->getConnection();
+        $likeOp = static::likeOperator(
+            method_exists($connection, 'getDriverName') ? $connection->getDriverName() : null
+        );
+
         // `fields()` may return Section / Panel / TabGroup layout
         // wrappers alongside real FieldContract instances. Flatten the
         // tree FIRST so searchable fields nested inside a layout are
@@ -182,8 +192,8 @@ class SearchResolver
                 continue;
             }
             $value = $token['value'];
-            $query->where(function (Builder $q) use ($byAttribute, $token, $value): void {
-                $q->where($byAttribute[$token['field']]->attribute(), 'like', "%{$value}%");
+            $query->where(function (Builder $q) use ($byAttribute, $token, $value, $likeOp): void {
+                $q->where($byAttribute[$token['field']]->attribute(), $likeOp, "%{$value}%");
             });
             $appliedTokens++;
         }
@@ -216,9 +226,9 @@ class SearchResolver
         // sits inside one `where(Closure)` so it composes correctly with
         // any AND filters already on the builder.
         if ($freeText !== '' && ($searchableFields !== [] || $relations !== [])) {
-            $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText): void {
+            $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText, $likeOp): void {
                 foreach ($searchableFields as $field) {
-                    $q->orWhere($field->attribute(), 'like', "%{$freeText}%");
+                    $q->orWhere($field->attribute(), $likeOp, "%{$freeText}%");
                 }
 
                 foreach ($relations as $path) {
@@ -229,8 +239,8 @@ class SearchResolver
                     $attribute = array_pop($segments);
                     $relation = implode('.', $segments);
 
-                    $q->orWhereHas($relation, function (Builder $sub) use ($attribute, $freeText): void {
-                        $sub->where($attribute, 'like', "%{$freeText}%");
+                    $q->orWhereHas($relation, function (Builder $sub) use ($attribute, $freeText, $likeOp): void {
+                        $sub->where($attribute, $likeOp, "%{$freeText}%");
                     });
                 }
             });
@@ -310,5 +320,18 @@ class SearchResolver
     public static function isUsingScout(string $resourceClass): bool
     {
         return $resourceClass::usesScout();
+    }
+
+    /**
+     * The case-insensitive LIKE operator for a database driver. PostgreSQL's
+     * `LIKE` is case-sensitive, so it needs `ILIKE`; every other supported
+     * driver (`mysql`, `sqlite`, `sqlsrv`) treats `LIKE` case-insensitively
+     * already, so they keep `like` — byte-for-byte identical to before. This
+     * is the single source of truth reused by every filter call-site (here
+     * and in ResourceController) so driver detection is never duplicated.
+     */
+    public static function likeOperator(?string $driver): string
+    {
+        return $driver === 'pgsql' ? 'ilike' : 'like';
     }
 }
