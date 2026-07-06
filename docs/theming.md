@@ -65,13 +65,12 @@ Surface and background colors used throughout the UI.
 | `--martis-card` | Card components |
 | `--martis-input-bg` | Form input backgrounds |
 
-### 2. Text & Borders (4 variables)
+### 2. Text & Borders (3 variables)
 
 | Variable | Purpose |
 |----------|---------|
 | `--martis-text` | Primary text color |
-| `--martis-text-muted` | Secondary, placeholder, label text |
-| `--martis-text-faint` | Tertiary text (footers, timestamps, helper text) |
+| `--martis-text-muted` | Secondary, placeholder, label, and dimmed/tertiary text |
 | `--martis-border` | Default border color (inputs, panels, table cells) |
 
 ### 3. Accent / Brand (7 variables)

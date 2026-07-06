@@ -55,6 +55,29 @@ it('returns SUCCESS when consumer theme is fully aligned', function () {
     $fs->delete($themeDir.'/diff-aligned.css');
 });
 
+it('treats a referenced-only package token as known, not unknown (reaches exit 0)', function () {
+    // Regression: the package uses --martis-accent-contrast via
+    // `var(--martis-accent-contrast, #fff)` but never declares it. A
+    // consumer that legitimately declares it used to be flagged "unknown",
+    // making exit 0 unreachable for a fully-declared theme. It must now be
+    // treated as known (Match), so the diff exits 0.
+    $fs = new Filesystem;
+    $themeDir = public_path('vendor/martis/themes');
+    $fs->ensureDirectoryExists($themeDir);
+
+    $packageCss = file_get_contents(__DIR__.'/../../resources/css/martis.css');
+    $fs->put(
+        $themeDir.'/diff-ref.css',
+        $packageCss."\n:root { --martis-accent-contrast: #fff; }\n"
+    );
+
+    $this->artisan('martis:theme:diff', ['theme' => 'diff-ref'])
+        ->expectsOutputToContain('referenced-only')
+        ->assertExitCode(0);
+
+    $fs->delete($themeDir.'/diff-ref.css');
+});
+
 it('fails when the consumer theme file is missing', function () {
     $this->artisan('martis:theme:diff', ['theme' => 'never-existed-theme'])
         ->assertExitCode(1);
