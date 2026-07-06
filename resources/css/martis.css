@@ -1074,6 +1074,16 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
   background: transparent;
   color: var(--martis-text-muted);
 }
+/* "+N more" section expander: interactive but visually quieter than a real
+   entry — smaller, muted label so it reads as a control, not a result. */
+.martis-cmdk-item.is-more .martis-cmdk-name {
+  font-size: 13px;
+  color: var(--martis-text-muted);
+}
+.martis-cmdk-item.is-more.is-active .martis-cmdk-name,
+.martis-cmdk-item.is-more:hover .martis-cmdk-name {
+  color: var(--martis-accent);
+}
 /* Avatar slot for record items whose Resource implements searchImage(). */
 .martis-cmdk-avatar {
   width: 20px;

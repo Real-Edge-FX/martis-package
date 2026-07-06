@@ -13,6 +13,7 @@ import {
   ArrowRightIcon,
   ListBulletsIcon,
   PlugIcon,
+  CaretDownIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { isMacPlatform } from "@/lib/platform"
@@ -93,6 +94,7 @@ type PaletteItem =
   | { kind: 'record'; label: string; hint: string | null; url: string; image?: string | null }
   | { kind: 'view-all'; label: string; hint: string | null; url: string | null }
   | { kind: 'recent-query'; label: string; hint: string | null; url: null; query: string }
+  | { kind: 'view-more'; label: string; hint: string | null; section: string }
 
 interface PaletteSection {
   label: string
@@ -100,6 +102,14 @@ interface PaletteSection {
 }
 
 const MIN_QUERY_LEN_RECORDS = 2
+
+// Cap the Resources / Tools / Actions sections so the empty-state palette
+// stays scannable instead of dumping the full catalogue (an app with 50
+// resources would otherwise render 50 rows before the user types a key). A
+// section over this length is trimmed and gets a "+N more" expander row;
+// clicking it reveals the rest in place. Record groups (their own "View all")
+// and the already-short recent sections are exempt.
+const SECTION_LIMIT = 5
 
 // Recent queries — persisted in sessionStorage under this key so they
 // survive client-side navigation but die with the tab. Capped at 5 to
@@ -138,7 +148,7 @@ function pushRecentQuery(q: string): void {
 // the sole non-interactive case — it renders as a static count label and is
 // skipped by keyboard navigation so Enter never lands on a dead row.
 function isInteractive(item: PaletteItem): boolean {
-  return item.kind === 'recent-query' || item.url != null
+  return item.kind === 'recent-query' || item.kind === 'view-more' || item.url != null
 }
 
 function matches(item: PaletteItem, query: string): boolean {
@@ -158,6 +168,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
   const [query, setQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [recentQueries, setRecentQueries] = useState<string[]>(() => readRecentQueries())
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -205,6 +216,28 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
   // Build the rendered sections from palette data + live record hits.
   const sections: PaletteSection[] = []
 
+  // Push a section, trimming it to SECTION_LIMIT rows (plus a "+N more"
+  // expander) unless the user already expanded it. Keeps the empty-state
+  // palette scannable when a section has dozens of entries.
+  const pushCapped = (label: string, items: PaletteItem[]): void => {
+    if (items.length === 0) return
+    if (items.length > SECTION_LIMIT && !expandedSections.has(label)) {
+      const shown = items.slice(0, SECTION_LIMIT)
+      shown.push({
+        kind: 'view-more',
+        label: t('palette_show_more', {
+          count: items.length - SECTION_LIMIT,
+          defaultValue: 'Show {{count}} more',
+        }),
+        hint: null,
+        section: label,
+      })
+      sections.push({ label, items: shown })
+    } else {
+      sections.push({ label, items })
+    }
+  }
+
   const resourceItems: PaletteItem[] = (palette?.resources ?? [])
     .map((r) => ({
       kind: 'resource' as const,
@@ -214,9 +247,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
       icon: r.icon,
     }))
     .filter((i) => matches(i, query))
-  if (resourceItems.length > 0) {
-    sections.push({ label: t('palette_resources', 'Resources'), items: resourceItems })
-  }
+  pushCapped(t('palette_resources', 'Resources'), resourceItems)
 
   const toolItems: PaletteItem[] = (palette?.tools ?? [])
     .map((tItem) => ({
@@ -227,9 +258,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
       icon: tItem.icon,
     }))
     .filter((i) => matches(i, query))
-  if (toolItems.length > 0) {
-    sections.push({ label: t('palette_tools', 'Tools'), items: toolItems })
-  }
+  pushCapped(t('palette_tools', 'Tools'), toolItems)
 
   const actionItems: PaletteItem[] = (palette?.actions ?? [])
     .map((a) => ({
@@ -241,9 +270,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
       destructive: a.destructive,
     }))
     .filter((i) => matches(i, query))
-  if (actionItems.length > 0) {
-    sections.push({ label: t('palette_actions', 'Actions'), items: actionItems })
-  }
+  pushCapped(t('palette_actions', 'Actions'), actionItems)
 
   const recentItems: PaletteItem[] = (palette?.recent ?? [])
     .filter((r) => r.url !== null)
@@ -327,6 +354,12 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
       setQuery(item.query)
       setDebouncedQuery(item.query)
       inputRef.current?.focus()
+      return
+    }
+
+    // Expander row — reveal the rest of its section in place, no navigation.
+    if (item.kind === 'view-more') {
+      setExpandedSections((prev) => new Set(prev).add(item.section))
       return
     }
 
@@ -420,11 +453,12 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                 }
 
                 const isActive = globalIdx === activeIndex
+                const moreClass = item.kind === 'view-more' ? ' is-more' : ''
                 return (
                   <button
                     key={`${section.label}:${globalIdx}:${item.label}`}
                     type="button"
-                    className={`martis-cmdk-item ${isActive ? 'is-active' : ''}`}
+                    className={`martis-cmdk-item${moreClass} ${isActive ? 'is-active' : ''}`}
                     data-cmdk-active={isActive ? 'true' : undefined}
                     onClick={() => runItem(item)}
                     onMouseEnter={() => setActiveIndex(globalIdx)}
@@ -490,6 +524,9 @@ function renderItemIcon(item: PaletteItem): ReactNode {
   }
   if (item.kind === 'recent-query') {
     return <MagnifyingGlassIcon size={16} />
+  }
+  if (item.kind === 'view-more') {
+    return <CaretDownIcon size={16} />
   }
   return item.icon ?? <ClockCounterClockwiseIcon size={16} />
 }

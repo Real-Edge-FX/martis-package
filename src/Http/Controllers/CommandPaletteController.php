@@ -27,7 +27,7 @@ use Throwable;
  *  - **Actions** — every standalone action (`Action::standalone()`) across
  *    every resource, tagged with the owning resource so the frontend can
  *    render "Run <action> on <resource>".
- *  - **Recent** — the authenticated user's latest 8 `martis_action_events`
+ *  - **Recent** — the authenticated user's latest 5 `martis_action_events`
  *    rows, linking back to the affected record when `model_id` is set.
  *
  * All arrays come out ordered for deterministic rendering — any
@@ -186,7 +186,7 @@ class CommandPaletteController extends MartisController
             $rows = ActionEvent::query()
                 ->where('user_id', $user->getAuthIdentifier())
                 ->orderByDesc('id')
-                ->limit(8)
+                ->limit(5)
                 ->get(['id', 'name', 'model_type', 'model_id', 'target_type', 'status', 'created_at']);
         } catch (Throwable) {
             // Table missing (consumer skipped the audit migration) — silently drop.
