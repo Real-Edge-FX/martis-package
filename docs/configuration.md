@@ -851,6 +851,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 'preferences' => [
     'enabled' => env('MARTIS_PREFERENCES_ENABLED', true),
     'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
+    'locales' => ['en', 'pt_PT', 'pt_BR'],
     'locale_labels' => [
         // 'pt_BR' => 'Português (Brasil)',
     ],
@@ -861,6 +862,7 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 |---|---|---|---|
 | `enabled` | bool | `true` | Master switch for the per-user preferences panel (theme, density, locale, accent). |
 | `allowBrandColor` | bool | `false` | When true, exposes a custom-hex brand colour picker in the preferences panel. |
+| `locales` | array | `['en','pt_PT','pt_BR']` | The exact locale codes the language picker offers — on **both** the login screen and the in-app Preferences panel. Restrict it (e.g. `['en','pt_PT']`) to hide a bundled locale. When empty, the SPA falls back to the three bundled locales. |
 | `locale_labels` | array | `[]` | Override the human-readable labels surfaced in the locale dropdown. |
 
 See [User Preferences](preferences.md) for the D1/D2/D3 spec and [i18n](i18n.md) for the locale layer.

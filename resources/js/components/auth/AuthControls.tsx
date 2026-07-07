@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { MoonIcon, SunIcon, MonitorIcon, TranslateIcon } from '@phosphor-icons/react'
 import { usePreferencesOptional, type ThemeMode } from '@/contexts/PreferencesContext'
-import { config } from '@/lib/config'
+import { config, resolvePickerLocales } from '@/lib/config'
 import { loadLocale } from '@/lib/i18n'
 
 /** Built-in labels for the locales Martis ships translations for.
@@ -52,7 +52,7 @@ export function AuthControls() {
   // empty padded container in the corner.
   if (!showTheme && !showLocale) return null
 
-  const availableLocales = meta?.locales ?? ['en', 'pt_PT', 'pt_BR']
+  const availableLocales = resolvePickerLocales(meta?.locales)
   const localeLabels = { ...BUILTIN_LOCALE_LABELS, ...(config.preferences?.localeLabels ?? {}) }
 
   const themeIcon =

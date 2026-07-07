@@ -3,7 +3,7 @@ import { OverlayPanel } from 'primereact/overlaypanel'
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontalIcon, SunIcon, MoonIcon, MonitorIcon, CheckIcon, ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
 import { usePreferences, type AccentColor, type ThemeMode, type UiDensity } from '@/contexts/PreferencesContext'
-import { config } from '@/lib/config'
+import { config, resolvePickerLocales } from '@/lib/config'
 import { loadLocale } from '@/lib/i18n'
 import { Segmented } from '@/components/ui/Segmented'
 
@@ -88,7 +88,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
   if (!enabled) return null
 
   const allowBrandColor = config.preferences?.allowBrandColor === true
-  const locales = meta?.locales ?? ['en', 'pt_PT', 'pt_BR']
+  const locales = resolvePickerLocales(meta?.locales)
   const localeLabels = { ...BUILTIN_LOCALE_LABELS, ...(config.preferences?.localeLabels ?? {}) }
 
   const onThemePick = (theme: ThemeMode) => { void update({ theme }) }

@@ -34,6 +34,13 @@ vi.mock('@/contexts/PreferencesContext', () => ({
 const configMock = vi.hoisted(() => ({ value: {} as Record<string, unknown> }))
 vi.mock('@/lib/config', () => ({
   get config() { return configMock.value },
+  BUNDLED_LOCALES: ['en', 'pt_PT', 'pt_BR'],
+  resolvePickerLocales: (metaLocales?: string[] | null) => {
+    if (metaLocales && metaLocales.length > 0) return metaLocales
+    const configured = (configMock.value as { preferences?: { locales?: string[] } }).preferences?.locales
+    if (configured && configured.length > 0) return configured
+    return ['en', 'pt_PT', 'pt_BR']
+  },
 }))
 
 vi.mock('@/lib/i18n', () => ({
