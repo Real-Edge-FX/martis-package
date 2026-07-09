@@ -27,6 +27,7 @@ import { MartisLoader } from '@/components/Loader'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { recordHref } from '@/lib/recordHref'
+import { filterIndexActions, filterInlineActions } from '@/lib/actionVisibility'
 
 /**
  * Page: `/resources/{resource}/lens/{lens}`.
@@ -168,8 +169,8 @@ export function ResourceLensPage() {
 
   // ── Actions (lens inherits resource actions; handled identically) ─
   const allActions = (dataQuery.data?.meta.actions ?? []) as ActionMeta[]
-  const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
-  const inlineActions = allActions.filter((a) => a.showInline)
+  const indexActions = filterIndexActions(allActions)
+  const inlineActions = filterInlineActions(allActions)
   const standaloneActions = allActions.filter((a) => a.standalone)
   const hasBulkActions = indexActions.length > 0
 

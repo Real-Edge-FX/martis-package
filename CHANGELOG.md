@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.3] — 2026-07-07
+
+### Fixed
+
+- **`showInline()` actions vanished from the index dropdown (should be additive).** The index toolbar dropdown filtered actions with `showOnIndex && !showInline`, so an action flagged `->showInline()` — which keeps `showOnIndex = true` on the backend — was excluded from the dropdown, collapsing `showInline()` into `onlyInline()`. Per the backend model and the docs ("**Also** show as a per-row button"), a single `->showInline()` action must appear in **both** the index dropdown and as a per-row button; `onlyInline()` remains the per-row-only variant. The partitioning now lives in one tested `filterIndexActions()` / `filterInlineActions()` helper (`lib/actionVisibility.ts`) shared by `ResourceIndex` and `ResourceLens`, so the two surfaces can't drift and the additive contract is covered by a test that exercises the real function. Consumers no longer need to register an action twice to get it in both places. Docs clarified with a `—` legend and an explicit "additive" note.
+
 ## [1.28.2] — 2026-07-06
 
 ### Fixed

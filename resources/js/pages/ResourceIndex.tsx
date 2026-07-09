@@ -19,6 +19,7 @@ import { MartisLoader } from '@/components/Loader'
 import { FilterPanel } from '@/components/FilterPanel'
 import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
+import { filterIndexActions, filterInlineActions } from '@/lib/actionVisibility'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useResourceAccent } from '@/lib/useResourceAccent'
 import { useResourceLoaderConfig } from '@/contexts/LoaderConfigContext'
@@ -343,8 +344,8 @@ export function ResourceIndexPage() {
   // This eliminates the "inline actions flash" on refresh where buttons
   // briefly disappear while a secondary query loads.
   const allActions = (schemaQuery.data?.data?.actions ?? []) as ActionMeta[]
-  const indexActions = allActions.filter((a) => a.showOnIndex && !a.showInline)
-  const inlineActions = allActions.filter((a) => a.showInline)
+  const indexActions = filterIndexActions(allActions)
+  const inlineActions = filterInlineActions(allActions)
   const standaloneActions = allActions.filter((a) => a.standalone)
   const standaloneDisabledActions = new Set<string>(
     standaloneActions

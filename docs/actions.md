@@ -701,7 +701,11 @@ public function actions(Request $request): array
 | `exceptOnDetail()` | — | ❌ | — |
 | `exceptInline()` | — | — | ❌ |
 
+Legend: ✅ turns the surface **on**, ❌ turns it **off**, and `—` leaves it **unchanged** (keeps its current/default value).
+
 Defaults: `showOnIndex = true`, `showOnDetail = true`, `showInline = false`.
+
+> **`showInline()` is additive.** It only turns the per-row button on — it does **not** touch `showOnIndex`. Since `showOnIndex` defaults to `true`, a single action with `->showInline()` appears in **both** the index dropdown **and** as a per-row button. To render it **only** as a per-row button (hidden from the dropdown), use `onlyInline()`, which also sets `showOnIndex = false`. You never need to register the action twice.
 
 ---
 
