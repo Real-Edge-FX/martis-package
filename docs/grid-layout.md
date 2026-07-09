@@ -52,6 +52,8 @@ Section::make('Timeline', [
 
 Result: `Start Date` and `End Date` render in two equal columns on a 12-column grid.
 
+> **Fully typed.** Returning a layout wrapper (`Section`/`Panel`/`TabGroup`) from `fields()`, any `fieldsFor*()` context method, `detailSidebar()`, or a `Lens`'s `fields()` is first-class: those methods are typed `list<FieldContract|LayoutContract>`, so a consumer running PHPStan (Martis itself runs level 8) stays green — no `return.type` error, no need to loosen a `@return`. The engine flattens the wrappers to their nested fields for validation and model filling. (Top-level wrappers only — a bare `Tab` lives inside a `TabGroup`, not at the top of `fields()`.)
+
 ---
 
 ## Scope

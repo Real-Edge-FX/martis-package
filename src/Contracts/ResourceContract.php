@@ -29,7 +29,7 @@ interface ResourceContract
     /**
      * Return the fields that belong to this resource.
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fields(Request $request): array;
 
@@ -93,7 +93,7 @@ interface ResourceContract
      * Override to show different columns on the listing page.
      * Falls back to fields() when not overridden.
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fieldsForIndex(Request $request): array;
 
@@ -102,7 +102,7 @@ interface ResourceContract
      * Override to show different fields on the record detail page.
      * Falls back to fields() when not overridden.
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fieldsForDetail(Request $request): array;
 
@@ -111,7 +111,7 @@ interface ResourceContract
      * Override to show different fields when creating a record.
      * Falls back to fields() when not overridden.
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fieldsForCreate(Request $request): array;
 
@@ -120,7 +120,7 @@ interface ResourceContract
      * Override to show different fields when editing a record.
      * Falls back to fields() when not overridden.
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fieldsForUpdate(Request $request): array;
 
@@ -128,7 +128,7 @@ interface ResourceContract
      * Return fields for the inline-create context.
      * Falls back to fieldsForCreate(), which itself falls back to fields().
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fieldsForInlineCreate(Request $request): array;
 
@@ -137,7 +137,7 @@ interface ResourceContract
      * Override to show a lightweight field set in preview panels.
      * Falls back to fields() when not overridden.
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fieldsForPreview(Request $request): array;
 

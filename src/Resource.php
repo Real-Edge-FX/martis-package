@@ -13,6 +13,7 @@ use Martis\Concerns\HasBadge;
 use Martis\Concerns\HasGate;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
 use Martis\Contracts\ResourceContract;
 use Martis\Contracts\UnsavedChangesConfigContract;
@@ -377,7 +378,7 @@ abstract class Resource implements ResourceContract
      * and no sidebar is shown. Returning a non-empty array switches
      * the layout to the canonical 1fr 320px grid.
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function detailSidebar(Request $request): array
     {

@@ -7,6 +7,7 @@ namespace Martis\Http\Controllers;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\LayoutContract;
 use Martis\Contracts\ProvidesFields;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -47,8 +48,11 @@ class ToolFieldsController extends MartisController
 
         $fields = $tool instanceof ProvidesFields ? $tool->fields($request) : [];
 
+        // A Tool's fields() may return layout wrappers (Section/Panel/TabGroup)
+        // just like a Resource's; both FieldContract and LayoutContract expose
+        // toArray(), so serialize either kind (preserving layout structure).
         /** @var array<string, mixed> $data */
-        $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
+        $data = ['fields' => array_map(fn (FieldContract|LayoutContract $f) => $f->toArray(), $fields)];
 
         return JsonResponse::make($data)->toResponse();
     }

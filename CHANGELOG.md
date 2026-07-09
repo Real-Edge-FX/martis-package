@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.4] — 2026-07-07
+
+### Fixed
+
+- **Type gap: returning a layout wrapper (`Section`/`Panel`/`TabGroup`) from `fields()` failed PHPStan.** The field-returning methods were typed `@return list<FieldContract>`, but a layout wrapper is a `LayoutContract`, not a `FieldContract` — so the documented grid-layout feature (returning `Section::make(...)->columns(...)`) ran fine at runtime but tripped PHPStan level 8 with `return.type`, turning a consumer's CI red. Widened every consumer-implemented field method to `list<FieldContract|LayoutContract>`, matching what the engine already accepts and flattens (`Field::flattenLayoutFields()`): `fields()` + all `fieldsFor*()` + `detailSidebar()` (on `ResourceContract` + `Resource`), **`Lens::fields()`** (LensController flattens layouts identically), and the `ProvidesFields` interface + `ProvidesToolFields` trait (Tools). `ToolFieldsController` now serializes either kind (both expose `toArray()`). Post-flatten methods (`LayoutContract::flattenFields()`, controller `@param` blocks) and **`ActionContract::fields()`** (action fields are iterated raw, never flattened) deliberately keep `list<FieldContract>`. PHPStan-analysed fixtures (`tests/StaticAnalysis/`) guard `Resource`, `Lens`, and `Tool` against the type narrowing again. No runtime/behavior change — purely a typing correction.
+
 ## [1.28.3] — 2026-07-07
 
 ### Fixed
