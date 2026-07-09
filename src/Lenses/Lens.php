@@ -15,6 +15,7 @@ use Martis\Contracts\ActionContract;
 use Martis\Contracts\CardContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
+use Martis\Contracts\LayoutContract;
 use Martis\Contracts\LensContract;
 use Martis\Contracts\MetricContract;
 use Martis\Http\Requests\LensRequest;
@@ -108,8 +109,10 @@ abstract class Lens implements LensContract
 
     /**
      * Fields shown in the lens index. Defaults to no fields — override.
+     * May include layout wrappers (Section/Panel/TabGroup); LensController
+     * flattens them, exactly like a Resource's fields().
      *
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fields(Request $request): array
     {

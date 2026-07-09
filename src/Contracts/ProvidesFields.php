@@ -17,8 +17,10 @@ use Illuminate\Http\Request;
  * to opt in. Nothing on the base `Tool` class depends on this contract,
  * so existing Tools are completely unaffected.
  *
- * The returned Field builders are serialized via `Field::toArray()` at
- * the consuming endpoint, exactly like `ActionContract::fields()`.
+ * The returned builders are serialized via `toArray()` at the consuming
+ * endpoint (`ToolFieldsController`). Like a Resource's `fields()` — and
+ * unlike `ActionContract::fields()`, which is fields-only — the list may
+ * include layout wrappers (`Section`/`Panel`/`TabGroup`), serialized in place.
  */
 interface ProvidesFields
 {
@@ -26,7 +28,7 @@ interface ProvidesFields
      * Define the fields exposed by this entity.
      *
      * @param  Request  $request  The incoming HTTP request.
-     * @return list<FieldContract>
+     * @return list<FieldContract|LayoutContract>
      */
     public function fields(Request $request): array;
 }
