@@ -100,7 +100,6 @@ html[data-theme="dark"] {
   /* Text & borders */
   --martis-text:        #E6E8EC;
   --martis-text-muted:  #8A93A1;
-  --martis-text-faint:  #5C6370;  /* tertiary — footers, timestamps, helper text */
   --martis-border:      #232830;
 
   /* Accent — Martis brand default. Overridden by [data-accent="..."] below. */
@@ -214,6 +213,35 @@ html[data-theme="dark"] {
   --inline-spacing:        0.5rem;
   --border-radius:         var(--martis-radius-md);
   --maskbg:                var(--martis-overlay);
+
+  /* Avatar palette — deterministic per-user colour. Identical across
+     dark & light, so it lives once on the default (:root) surface. */
+  --martis-avatar-1:  #2563EB;
+  --martis-avatar-2:  #059669;
+  --martis-avatar-3:  #DB2777;
+  --martis-avatar-4:  #D97706;
+  --martis-avatar-5:  #7C3AED;
+  --martis-avatar-6:  #0891B2;
+  --martis-avatar-7:  #EA580C;
+  --martis-avatar-8:  #DC2626;
+  --martis-avatar-9:  #16A34A;
+  --martis-avatar-10: #9333EA;
+  --martis-avatar-11: #4F46E5;
+  --martis-avatar-12: #0D9488;
+  --martis-avatar-13: #C026D3;
+  --martis-avatar-14: #65A30D;
+  --martis-avatar-15: #BE185D;
+  --martis-avatar-16: #475569;
+
+  /* Brand surface — decorative login / marketing background tokens. */
+  --martis-brand-gradient:     linear-gradient(135deg, #1A1F4B 0%, #2A1F66 45%, #3B1F7A 100%);
+  --martis-brand-aurora-cyan:  rgba(56, 189, 248, 0.55);
+  --martis-brand-aurora-pink:  rgba(236, 72, 153, 0.45);
+  --martis-brand-grid-dot:     rgba(255, 255, 255, 0.09);
+  --martis-brand-pointer-glow: rgba(124, 140, 255, 0.35);
+  --martis-brand-shadow:       0 20px 50px -20px rgba(76, 56, 200, 0.55);
+  --martis-brand-text:         #FFFFFF;
+  --martis-trix-icon-filter:   invert(0.85);
 }
 
 /* ============================================================
@@ -237,7 +265,6 @@ html[data-theme="light"] {
   /* Text & borders */
   --martis-text:        #0F172A;
   --martis-text-muted:  #64748B;
-  --martis-text-faint:  #94A3B8;  /* tertiary on light surfaces */
   --martis-border:      #E4E8EE;
 
   /* Accent — Martis brand default (light variant). */
@@ -322,6 +349,16 @@ html[data-theme="light"] {
   --martis-badge-danger-bg:     #FDE5E5;
   --martis-badge-danger-text:   #B91C1C;
   --martis-badge-danger-border: #FECACA;
+
+  /* Brand surface (light variant). Avatar palette is shared from :root. */
+  --martis-brand-gradient:     linear-gradient(135deg, #1F2566 0%, #2E2173 45%, #4324A0 100%);
+  --martis-brand-aurora-cyan:  rgba(56, 189, 248, 0.45);
+  --martis-brand-aurora-pink:  rgba(236, 72, 153, 0.38);
+  --martis-brand-grid-dot:     rgba(255, 255, 255, 0.10);
+  --martis-brand-pointer-glow: rgba(124, 140, 255, 0.30);
+  --martis-brand-shadow:       0 20px 50px -20px rgba(76, 56, 200, 0.40);
+  --martis-brand-text:         #FFFFFF;
+  --martis-trix-icon-filter:   none;
 
   color-scheme: light;
 }

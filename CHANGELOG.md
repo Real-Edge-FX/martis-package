@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.5] — 2026-07-11
+
+### Fixed
+
+- **`martis:theme` scaffold drifted from the declared token set** — a freshly scaffolded theme failed `martis:theme:diff` on the *same* package version (exit 2). `stubs/theme.css.stub` had fallen out of sync with `resources/css/martis.css`: it omitted 24 declared tokens (16 `--martis-avatar-*`, 7 `--martis-brand-*` surface-decoration tokens, `--martis-trix-icon-filter`) and still emitted the deprecated `--martis-text-faint` (removed from the package in v1.28.1). Synced the stub — added the 24 tokens with their exact dark/light values from the package CSS (avatars are identical across modes, so they sit once on `:root`; brand + trix carry distinct dark/light values), and dropped `--martis-text-faint`. The 3 referenced-only tokens the stub also carries (`--martis-accent-contrast`, `--martis-brand-logo-height-{auth,menu}`) are intentionally kept — `theme:diff` recognises them (v1.28.1) and they give consumers an override point. A new regression test (`ThemeScaffoldDiffTest`) asserts **scaffold → `theme:diff` → exit 0**, so the stub and the declared token set cannot silently diverge again. Cosmetic (themes already rendered via package fallbacks); the fix restores the documented zero-drift invariant used for CI gating.
+
 ## [1.28.4] — 2026-07-07
 
 ### Fixed
