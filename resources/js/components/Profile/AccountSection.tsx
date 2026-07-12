@@ -11,9 +11,13 @@ interface AccountSectionProps {
   name: string
   email: string
   onUpdate: (name: string, email: string) => void
+  /** When true, the e-mail is rendered read-only (config
+   *  `profile.account.email_editable = false`). The e-mail is often the acting
+   *  identity, so a consumer may lock it while name/avatar/password stay editable. */
+  emailReadOnly?: boolean
 }
 
-export function AccountSection({ name, email, onUpdate }: AccountSectionProps) {
+export function AccountSection({ name, email, onUpdate, emailReadOnly = false }: AccountSectionProps) {
   const { t } = useTranslation('profile')
   const { addToast } = useToast()
   const [nameVal, setNameVal] = useState(name)
@@ -82,8 +86,14 @@ export function AccountSection({ name, email, onUpdate }: AccountSectionProps) {
               invalid={!!errors.email}
               className="w-full"
               required
+              readOnly={emailReadOnly}
+              disabled={emailReadOnly}
+              aria-readonly={emailReadOnly || undefined}
             />
           </IconField>
+          {emailReadOnly && (
+            <small className="martis-text-muted">{t('email_locked', { defaultValue: 'Your e-mail cannot be changed.' })}</small>
+          )}
           {errors.email && <small className="p-error">{errors.email}</small>}
         </div>
 

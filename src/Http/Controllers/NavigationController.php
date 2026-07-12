@@ -137,7 +137,30 @@ class NavigationController extends MartisController
                 continue;
             }
 
-            $counts[$resourceClass::uriKey()] = (int) $count;
+            // Keyed by "resource:{uriKey}" so a resource and a tool that happen
+            // to share a uriKey never conflate their count badges (v1.29.0).
+            $counts['resource:'.$resourceClass::uriKey()] = (int) $count;
+        }
+
+        // Tools publish counts the same way (v1.29.0). resolveTools() already
+        // applies the authorizedToSee gate, so tool counts stay scoped/
+        // authorised like resource counts and live-poll off this same endpoint.
+        foreach ($this->martis->resolveTools($request) as $tool) {
+            if (! $tool->showMenuCount()) {
+                continue;
+            }
+
+            try {
+                $count = $tool->menuCount($request);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($count === null) {
+                continue;
+            }
+
+            $counts['tool:'.$tool->uriKey()] = (int) $count;
         }
 
         return $counts;

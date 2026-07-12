@@ -500,6 +500,10 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
 | `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |
 | `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
+| `Tooltip` | The PrimeReact `Tooltip` component. Needed for rich/HTML tooltip content (`escape={false}`) since the extension build doesn't alias `primereact`. |
+| `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
+| `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays. The extension's React shim is React-core-only (no `react-dom`), so it is exposed here. |
+| `DropdownProps`, `MultiSelectProps` (types) | Re-exported so you can type the controls above without reaching into `primereact/*`. |
 
 ### Example — Select inside a custom Action component
 
@@ -568,6 +572,40 @@ export function ReviewTool() {
     )
 }
 ```
+
+### Example — a filter that matches the native look (v1.29.0)
+
+A Tool that renders its own filter bar can reach for the same `Dropdown` /
+`MultiSelect` Martis's built-in filters use, instead of hand-replicating
+PrimeReact's DOM. Add the `martis-filter-dropdown` class for the compact look:
+
+```tsx
+import { useState } from 'react'
+import { martisRuntime } from '@martis/runtime'
+
+const { Dropdown } = martisRuntime
+
+export function StatusFilter() {
+    const [status, setStatus] = useState<string | null>(null)
+    return (
+        <Dropdown
+            className="martis-filter-dropdown"
+            value={status}
+            options={[
+                { label: 'Active', value: 'active' },
+                { label: 'Archived', value: 'archived' },
+            ]}
+            onChange={(e) => setStatus(e.value)}
+            placeholder="Status"
+            showClear
+        />
+    )
+}
+```
+
+`createPortal` (also on `martisRuntime`) is available for overlays that must
+escape a clipped/overflow-hidden container — the extension's React shim is
+React-core-only, so `react-dom`'s portal is exposed through the runtime.
 
 ### Caveats
 

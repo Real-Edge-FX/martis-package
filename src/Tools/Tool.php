@@ -154,6 +154,28 @@ class Tool implements ToolContract
     }
 
     /**
+     * Whether the sidebar shows a numeric count badge next to this Tool,
+     * mirroring the Resource contract. Defaults to true; the badge only
+     * appears when menuCount() also returns a non-null value.
+     */
+    public function showMenuCount(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Compute the sidebar count badge for this Tool (null hides it). Defaults
+     * to null — a full-canvas Tool that owns list data overrides this to
+     * return its own count, scoped/authorised however it likes. The value is
+     * serialised on the nav item and refreshed by the /api/navigation/badges
+     * poll keyed by uriKey, exactly like a Resource count.
+     */
+    public function menuCount(Request $request): ?int
+    {
+        return null;
+    }
+
+    /**
      * Override-friendly accessor. Subclasses can return a per-request
      * value (e.g. `__('edgeflow.tools.charts.breadcrumb')`) the same way
      * they override `name()`. Return `null` to fall back to `name()`.

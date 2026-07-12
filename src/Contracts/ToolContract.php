@@ -61,6 +61,12 @@ interface ToolContract
      */
     public function menuSection(): ?string;
 
+    /** Whether the sidebar shows a numeric count badge next to this Tool. */
+    public function showMenuCount(): bool;
+
+    /** Compute the sidebar count badge for this Tool (null hides it). */
+    public function menuCount(Request $request): ?int;
+
     /**
      * Register an authorisation closure. Receives the Request,
      * returns a bool. The closure runs through `authorizedToSee()`.

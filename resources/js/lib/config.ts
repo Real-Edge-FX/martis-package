@@ -24,10 +24,16 @@ export interface MartisUserMenuConfig {
   showThemeToggle?: boolean
   showProfile?: boolean
   customItems?: Array<{
-    label: string
+    /** Label. Resolved through i18n when it matches a translation key
+     *  (config files can't call __(), so pass a key and it is translated).
+     *  Absent for separator entries. */
+    label?: string
     icon?: string
     url?: string
     separator?: boolean
+    /** Where to place the item relative to the built-in Profile entry.
+     *  Defaults to "before" (legacy placement). Use "after" to sit below Profile. */
+    position?: "before" | "after"
   }>
 }
 
@@ -181,6 +187,12 @@ export interface MartisProfileConfig {
   menu?: MartisProfileMenuConfig
   avatar?: MartisProfileAvatarConfig
   two_factor?: MartisProfileTwoFactorConfig
+  account?: MartisProfileAccountConfig
+}
+
+export interface MartisProfileAccountConfig {
+  /** When false, the built-in Account section renders the e-mail read-only. */
+  email_editable?: boolean
 }
 
 /**

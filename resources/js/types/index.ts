@@ -68,6 +68,10 @@ export interface NavigationResourceItem extends NavigationItemBase, ResourceMeta
 
 export interface NavigationLinkItem extends NavigationItemBase {
   type: "link" | "tool" | "dashboard" | "lens" | "filter"
+  /** uriKey for tool/dashboard/lens entries (used to key the badges poll). */
+  uriKey?: string
+  /** Optional count badge surfaced by the backend (tools, v1.29.0). null = hidden. */
+  count?: number | null
 }
 
 export type NavigationItem = NavigationResourceItem | NavigationLinkItem
@@ -323,6 +327,10 @@ export interface FieldDefinition {
     detail?: { component: string; params: Record<string, unknown> } | null
   } | null
   placeholder?: string
+  /** Opt a select into the compact `martis-filter-dropdown` look (filter variant). */
+  variant?: string
+  /** Extra className forwarded to the field's root control (e.g. a select's Dropdown). */
+  className?: string
   /** Content text for heading fields. */
   content?: string | null
   /**

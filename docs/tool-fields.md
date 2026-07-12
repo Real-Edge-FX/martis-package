@@ -211,6 +211,32 @@ export function CreateProjectTool() {
 
 Because both fields go through the same `useMartisForm`, typing the title still drives the slug even though they are not adjacent in a single container.
 
+## Filter controls (v1.29.0)
+
+A Tool that renders its own filter bar — separate from the field-form harness above — can reach for the same PrimeReact controls Martis's built-in filters use, now exposed on `@martis/runtime` alongside `FieldInput` / `DrawerShell` / `Tooltip`:
+
+| Export | Purpose |
+|---|---|
+| `Dropdown`, `MultiSelect` | Single / multi filter controls. Add the `martis-filter-dropdown` class for the compact look, and pass `field.className` when routing through `FieldInput` (see [fields.md](fields.md#select) — the `select` field honours `variant: 'filter'`). |
+| `createPortal` | `react-dom`'s portal for overlays that must escape a clipped container. The extension's React shim is React-core-only, so it is surfaced here. |
+| `DropdownProps`, `MultiSelectProps` (types) | Type the controls without importing from `primereact/*` (the extension build doesn't alias it). |
+
+```tsx
+import { martisRuntime } from '@martis/runtime'
+
+const { Dropdown } = martisRuntime
+
+<Dropdown
+  className="martis-filter-dropdown"
+  options={[{ label: 'Active', value: 'active' }, { label: 'Archived', value: 'archived' }]}
+  onChange={(e) => setStatus(e.value)}
+  placeholder="Status"
+  showClear
+/>
+```
+
+See [overrides.md §5.A](overrides.md#5a-composing-native-field-components-v1140) for the full runtime-exports table and a longer example.
+
 ## API contracts
 
 ### `useMartisForm(options): MartisForm`

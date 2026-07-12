@@ -2,6 +2,8 @@ import { useRef, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
+import { buildCustomMenuItems } from "@/lib/userMenu"
+import { ResourceIcon } from "@/components/ResourceIcon"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { isMacPlatform } from "@/lib/platform"
@@ -26,7 +28,7 @@ interface TopbarProps {
 
 export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = false }: TopbarProps = {}) {
   const { user, logout } = useAuth()
-  const { t } = useTranslation("navigation")
+  const { t, i18n } = useTranslation("navigation")
   const navigate = useNavigate()
   const menuRef = useRef<Menu>(null)
   const prefsRef = useRef<PreferencesMenuHandle>(null)
@@ -66,6 +68,59 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
     return () => { dispose.forEach((fn) => fn()) }
   }, [searchMode])
 
+  // Resolve a config label through i18n when it matches a translation key.
+  // Config can't call __() (it breaks config:cache), so a consumer passes a
+  // key and it follows the active locale — parity with the Profile entry.
+  const resolveMenuLabel = (label: string): string => (i18n.exists(label) ? t(label) : label)
+
+  // Build the user-menu entries for custom items at a given placement
+  // (before/after the built-in Profile entry). Defaults to "before".
+  //
+  // Each item is rendered through a template that draws its icon with
+  // <ResourceIcon> — the SAME inline-SVG Phosphor path the built-in Profile /
+  // Sign-out entries use — instead of handing the icon string to PrimeReact
+  // (which renders a PrimeIcons font glyph with different box metrics, leaving
+  // the custom label horizontally misaligned against the built-in items).
+  const renderCustomItems = (placement: "before" | "after"): MenuItem[] =>
+    buildCustomMenuItems(config.userMenu?.customItems, placement, resolveMenuLabel).map((item) => {
+      if ("separator" in item) return { separator: true } as MenuItem
+      const url = item.url
+      // Internal app paths ("/…") navigate via the SPA router; everything with
+      // a scheme (http(s):, mailto:, tel:) or protocol-relative ("//…") is a
+      // native link. Only http(s) targets open in a new tab — mailto:/tel:
+      // must hand off to the OS handler in place.
+      const internal = url ? url.startsWith("/") : false
+      const httpExternal = url ? /^https?:\/\//.test(url) : false
+      return {
+        template: (
+          _menuItem: MenuItem,
+          options: { className: string; onClick: (e: React.SyntheticEvent) => void },
+        ) => (
+          <a
+            className={options.className}
+            href={url}
+            role="menuitem"
+            target={httpExternal ? "_blank" : undefined}
+            rel={httpExternal ? "noopener noreferrer" : undefined}
+            onClick={(e) => {
+              if (url && internal) {
+                e.preventDefault()
+                navigate(url)
+              }
+              options.onClick(e)
+            }}
+          >
+            {/* Render the icon only when set — ResourceIcon(null) falls back to
+                a database glyph, which would surprise an icon-less item. */}
+            {item.icon && (
+              <ResourceIcon iconName={item.icon} size={16} className="p-menuitem-icon" />
+            )}
+            <span className="p-menuitem-text">{item.label}</span>
+          </a>
+        ),
+      } as MenuItem
+    })
+
   const userMenuItems: MenuItem[] = [
     {
       template: () => (
@@ -80,15 +135,11 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
       ),
     },
     { separator: true },
-    ...(config.userMenu?.customItems?.map((item) =>
-      item.separator
-        ? ({ separator: true } as MenuItem)
-        : ({
-            label: item.label,
-            icon: item.icon,
-            url: item.url,
-          } as MenuItem),
-    ) ?? []),
+    // Custom items placed BEFORE the built-in Profile entry (the default).
+    // Labels are resolved through i18n when they match a translation key —
+    // config files can't call __(), so a consumer passes a key and it follows
+    // the active locale, matching every other Martis surface.
+    ...renderCustomItems("before"),
     ...(showProfile
       ? [
           {
@@ -114,6 +165,8 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
           { separator: true } as MenuItem,
         ]
       : []),
+    // Custom items placed AFTER Profile (opt-in via `position: "after"`).
+    ...renderCustomItems("after"),
     {
       template: (
         _item: MenuItem,

@@ -126,10 +126,10 @@ export function getNavigationResourceItems(group: NavigationGroup): NavigationRe
  * or opt-outs).
  */
 export function getItemCount(item: NavigationItem): number | null {
-  if (item.type !== "resource") return null
-  return typeof (item as NavigationResourceItem).count === "number"
-    ? (item as NavigationResourceItem).count!
-    : null
+  // Resources and Tools (v1.29.0) both publish a numeric count badge.
+  if (item.type !== "resource" && item.type !== "tool") return null
+  const count = (item as { count?: number | null }).count
+  return typeof count === "number" ? count : null
 }
 
 /**
@@ -228,11 +228,15 @@ export function mergeBadgeCounts(
     if (isNestedGroup(item)) {
       return { ...item, items: item.items.map((leaf) => apply(leaf) as NavigationItem) }
     }
-    if (item.type !== "resource") return item
-    const resource = item as NavigationResourceItem
-    const uriKey = resource.uriKey
-    if (typeof uriKey !== "string" || !(uriKey in badges)) return resource
-    return { ...resource, count: badges[uriKey] }
+    // Resources and Tools (v1.29.0) both live-poll their count off the badges
+    // map. Keyed by "{type}:{uriKey}" so a resource and a tool that share a
+    // uriKey never conflate their badges.
+    if (item.type !== "resource" && item.type !== "tool") return item
+    const keyed = item as { uriKey?: string; count?: number | null }
+    if (typeof keyed.uriKey !== "string") return item
+    const key = `${item.type}:${keyed.uriKey}`
+    if (!(key in badges)) return item
+    return { ...item, count: badges[key] }
   }
 
   return groups.map((group) => ({

@@ -24,9 +24,26 @@ export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
 export function SelectFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const options = field.options?.map((o) => ({ label: o.label, value: String(o.value) })) ?? []
-  const currentValue = value === null || value === undefined ? '' : String(value)
+  // Pass `null` (not '') when empty so PrimeReact's own `value != null` guard
+  // hides the clear (X) icon on an empty select — an empty select has nothing
+  // to clear. Coercing to '' made `showClear` fire on the placeholder state.
+  // Guard the rare case of a real option whose value is literally '': only
+  // treat '' as "empty" when no such option exists, so a genuinely-selected
+  // empty-string option still highlights.
+  const hasEmptyOption = options.some((o) => o.value === '')
+  const isEmpty = value === null || value === undefined || (value === '' && !hasEmptyOption)
+  const currentValue = isEmpty ? null : String(value)
   const clearTip = t('clear', { defaultValue: 'Clear' })
   const selectPlaceholder = field.placeholder ?? t('select', { defaultValue: 'Select…' })
+  // Opt into the compact filter-dropdown look (used by native resource filters)
+  // via `field.variant === 'filter'`, and allow an extra passthrough className.
+  // Applied as a prop so PrimeReact re-applies it on every re-render (an
+  // imperative classList.add is dropped when PrimeReact rewrites the class).
+  const dropdownClass = [
+    'w-full',
+    field.variant === 'filter' ? 'martis-filter-dropdown' : '',
+    field.className ?? '',
+  ].filter(Boolean).join(' ')
 
   return (
     <div className="flex flex-col gap-1">
@@ -43,7 +60,7 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
         pt={{
           clearIcon: dropdownClearIconPt(clearTip),
         }}
-        className="w-full"
+        className={dropdownClass}
       />
       {error && <small className="text-red-500">{error}</small>}
     </div>
