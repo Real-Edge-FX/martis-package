@@ -686,15 +686,21 @@ return [
     | Set any option to false to hide it.
     | showProfile controls the Profile link in the dropdown.
     | 'customItems' allows you to add custom links/actions to the user menu.
-    | Each item can have: label, icon (PrimeIcons class), url (route/external).
+    | Each item can have:
+    |   - label: text OR a translation key (resolved via i18n when it matches
+    |            a key, so it follows the active locale, like the Profile item).
+    |   - icon:  a Phosphor icon NAME (e.g. 'key', 'gear'), rendered as an
+    |            inline SVG through the same icon path as the built-in items.
+    |            (Not a PrimeIcons `pi pi-*` class — changed in v1.29.0.)
+    |   - url:   route (internal '/…' → SPA nav) or external (http/mailto/tel).
+    |   - position: 'before' (default) or 'after' the built-in Profile entry.
     | Use ['separator' => true] to add a divider between groups.
     |
     | Example:
     |   'customItems' => [
-    |       ['label' => 'My Profile', 'icon' => 'pi pi-user', 'url' => '/profile'],
-    |       ['label' => 'Settings', 'icon' => 'pi pi-cog', 'url' => '/settings'],
+    |       ['label' => 'menu.api_keys', 'icon' => 'key', 'url' => '/api-keys', 'position' => 'after'],
     |       ['separator' => true],
-    |       ['label' => 'Documentation', 'icon' => 'pi pi-book', 'url' => 'https://docs.example.com'],
+    |       ['label' => 'Documentation', 'icon' => 'book', 'url' => 'https://docs.example.com'],
     |   ],
     */
     'user_menu' => [
@@ -1272,6 +1278,14 @@ return [
         'two_factor' => [
             'enabled' => env('MARTIS_2FA_ENABLED', true),
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
+        ],
+        'account' => [
+            // When false, the built-in Account section renders the e-mail field
+            // read-only in the UI. The e-mail is often the acting identity, so a
+            // consumer may want name/avatar/password editable but the e-mail
+            // locked. Pair with a ProfileResource that also rejects e-mail
+            // changes server-side (this flag is the UI half only).
+            'email_editable' => env('MARTIS_PROFILE_EMAIL_EDITABLE', true),
         ],
         'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],
     ],

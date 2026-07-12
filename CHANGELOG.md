@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.0] — 2026-07-12
+
+### Added
+
+- **`Tool::menuCount(Request): ?int` + `showMenuCount(): bool`.** Tools gain a first-class numeric sidebar count badge, mirroring the Resource contract. The count serializes on the tool nav item (`count`) and is included in `/api/navigation/badges`, so tool counts live-poll and stay scoped/authorised (via `authorizedToSee`) exactly like resource counts. Defaults: `menuCount` null (hidden), `showMenuCount` true. Replaces the decorative `withBadge()` workaround. **Note:** the two methods are added to `ToolContract`; a Tool that extends the base `Tool` class (the documented path) inherits the defaults, but a consumer implementing `ToolContract` directly must add them. **The `/api/navigation/badges` map is now keyed `"{type}:{uriKey}"`** (e.g. `resource:posts`, `tool:standards`) instead of bare `uriKey`, so a resource and a tool that share a uriKey never conflate their badges.
+- **Runtime: `Dropdown`, `MultiSelect`, `createPortal` exposed** on `@martis/runtime` / `window.Martis.runtime` (+ `DropdownProps`/`MultiSelectProps` types). A consumer Tool can now build filters identical to the resource index (apply the `martis-filter-dropdown` class for the compact look) and portal overlays, without hand-replicating PrimeReact's internal DOM or bundling a second PrimeReact/react-dom copy.
+- **Profile e-mail can be locked** via `profile.account.email_editable` (default true; env `MARTIS_PROFILE_EMAIL_EDITABLE`). When false, the built-in Account section renders the e-mail read-only. The e-mail is often the acting identity, so a consumer can keep name/avatar/password editable while locking the e-mail. Pair with a `ProfileResource` that rejects e-mail changes server-side (this flag is the UI half).
+- **Select field: `variant: 'filter'` + `className` passthrough.** A select rendered via `FieldInput` can opt into the compact `martis-filter-dropdown` look (`field.variant === 'filter'`) and forward an extra `className` to the Dropdown — through props, so PrimeReact re-applies them across re-renders (an imperative `classList.add` was dropped on every focus/blur).
+
+### Changed
+
+- **User-menu custom items (`user_menu.customItems`):** labels are now resolved through i18n (a `label` matching a translation key follows the active locale, like every other Martis surface; non-keys stay verbatim); a new per-item `position: 'before' | 'after'` places an item relative to the built-in Profile entry (default `'before'`, unchanged); and **`customItems[].icon` is now a Phosphor icon name** (e.g. `'key'`), rendered as an inline SVG through the shared icon path — not a PrimeIcons class (`pi pi-…`). This fixes the custom item's label sitting at a different horizontal offset than the built-in Profile/Sign-out entries and unifies the icon set across the sidebar and the user menu. Consumers passing a `pi` class must switch to the Phosphor name.
+
+### Fixed
+
+- **Select clear (X) icon on an empty nullable select.** An empty `nullable` select no longer shows the PrimeReact clear (X) icon — there is nothing to clear. It now passes `null` (not `''`) when empty, so PrimeReact's own `value != null` guard hides the icon; the X appears only when a value is selected.
+
 ## [1.28.5] — 2026-07-11
 
 ### Fixed

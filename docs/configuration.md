@@ -518,11 +518,13 @@ Both flags are read live, so mid-session toggles via `window.MartisConfig` take 
 
 ### Custom Menu Items
 
+Each item accepts `label` (i18n key or literal), `icon` (**Phosphor icon name** — as of v1.29.0, not a PrimeIcons class), `url` (internal path or external URL), and an optional `position` (`'before'` / `'after'` the built-in Profile entry). Full reference in [Authentication → User Menu](authentication.md#user-menu).
+
 ```php
 'customItems' => [
-    ['label' => 'Settings', 'icon' => 'pi pi-cog', 'url' => '/settings'],
+    ['label' => 'Settings', 'icon' => 'gear', 'url' => '/settings'],
     ['separator' => true],
-    ['label' => 'Documentation', 'icon' => 'pi pi-book', 'url' => 'https://docs.example.com'],
+    ['label' => 'Documentation', 'icon' => 'book-open', 'url' => 'https://docs.example.com'],
 ],
 ```
 
@@ -838,6 +840,12 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
     'two_factor' => [
         'enabled' => true,
         'recovery_codes' => 8,
+    ],
+    'account' => [
+        // When false, the Account section renders the e-mail field
+        // read-only (env MARTIS_PROFILE_EMAIL_EDITABLE). Pair with a
+        // ProfileResource that rejects e-mail changes server-side.
+        'email_editable' => true,
     ],
     'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],
 ],
@@ -1336,6 +1344,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_PAGE_TITLE` | `(no default)` |
 | `MARTIS_PATH` | `'martis'` |
 | `MARTIS_PREFERENCES_ENABLED` | `true` |
+| `MARTIS_PROFILE_EMAIL_EDITABLE` | `true` |
 | `MARTIS_PROFILE_ENABLED` | `true` |
 | `MARTIS_ROW_CLICK_OPENS_DETAIL` | `true` |
 | `MARTIS_RTL_LOCALES` | `'ar,fa,he,ur'` |

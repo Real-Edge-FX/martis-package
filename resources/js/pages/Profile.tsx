@@ -92,6 +92,7 @@ export function ProfilePage() {
                   key="account"
                   name={profile.name}
                   email={profile.email}
+                  emailReadOnly={config.profile?.account?.email_editable === false}
                   onUpdate={(name, email) =>
                     setProfile((p) => p ? { ...p, name, email } : p)
                   }

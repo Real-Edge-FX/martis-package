@@ -135,35 +135,35 @@ it('returns a flat uriKey => count map for resources with menu counts', function
     $response = $this->getJson('/martis/api/navigation/badges');
 
     $response->assertStatus(200);
-    expect($response->json())->toBe(['badges-accounts' => 3]);
+    expect($response->json())->toBe(['resource:badges-accounts' => 3]);
 });
 
 it('hides resources with displayInNavigation() === false', function () {
     $response = $this->getJson('/martis/api/navigation/badges');
 
-    expect($response->json())->not->toHaveKey('badges-hidden');
+    expect($response->json())->not->toHaveKey('resource:badges-hidden');
 });
 
 it('hides resources the user cannot viewAny', function () {
     $response = $this->getJson('/martis/api/navigation/badges');
 
-    expect($response->json())->not->toHaveKey('badges-denied');
+    expect($response->json())->not->toHaveKey('resource:badges-denied');
 });
 
 it('skips resources whose showMenuCount() returns false', function () {
     $response = $this->getJson('/martis/api/navigation/badges');
 
-    expect($response->json())->not->toHaveKey('badges-no-count');
+    expect($response->json())->not->toHaveKey('resource:badges-no-count');
 });
 
 it('swallows exceptions thrown by menuCount() and skips that resource', function () {
     $response = $this->getJson('/martis/api/navigation/badges');
 
     $response->assertStatus(200);
-    expect($response->json())->not->toHaveKey('badges-broken');
+    expect($response->json())->not->toHaveKey('resource:badges-broken');
     // Sanity: other resources are still present so one broken counter
     // doesn't take the whole endpoint down.
-    expect($response->json())->toHaveKey('badges-accounts');
+    expect($response->json())->toHaveKey('resource:badges-accounts');
 });
 
 it('returns an empty map when navigation counts are globally disabled', function () {

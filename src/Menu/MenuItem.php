@@ -315,7 +315,29 @@ class MenuItem
             'external' => $this->external,
             'uriKey' => $tool->uriKey(),
             'component' => $tool->component(),
+            'count' => $this->resolveToolMenuCount($tool, $request),
         ], $this->meta);
+    }
+
+    /**
+     * Resolve the sidebar count badge for a Tool, mirroring the Resource path
+     * (config gate + showMenuCount() + swallow per-tool failures).
+     */
+    protected function resolveToolMenuCount(ToolContract $tool, Request $request): ?int
+    {
+        if (! (bool) config('martis.navigation.counts.enabled', true)) {
+            return null;
+        }
+
+        if (! $tool->showMenuCount()) {
+            return null;
+        }
+
+        try {
+            return $tool->menuCount($request);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

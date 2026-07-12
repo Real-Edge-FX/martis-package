@@ -742,9 +742,25 @@ The profile page is accessible at `/{martis-path}/profile` and provides:
         'enabled' => true,
         'recovery_codes' => 8,           // Number of one-time codes
     ],
+    'account' => [
+        // MARTIS_PROFILE_EMAIL_EDITABLE — when false, the Account section
+        // renders the e-mail field read-only. Default true.
+        'email_editable' => true,
+    ],
     'sections' => ['account', 'password', 'avatar', 'security', 'sessions'],
 ],
 ```
+
+#### Locking the e-mail field
+
+The e-mail is often the acting identity, so a deployment may want name, avatar,
+and password editable while the e-mail stays fixed. Set
+`profile.account.email_editable` to `false` (env `MARTIS_PROFILE_EMAIL_EDITABLE`)
+and the built-in Account section renders the e-mail field read-only.
+
+This flag is the **UI half only**. Pair it with a custom `ProfileResource` that
+also rejects e-mail changes server-side, so a hand-crafted `PATCH /martis/api/profile`
+request cannot bypass the locked field.
 
 ### Profile API Endpoints
 
@@ -844,10 +860,41 @@ The user dropdown menu in the topbar is configurable:
     'showThemeToggle' => true,      // Dark/light mode toggle
     'showProfile' => true,          // Profile page link
     // 'customItems' => [
-    //     ['label' => 'Settings', 'icon' => 'pi pi-cog', 'url' => '/settings'],
+    //     ['label' => 'Settings', 'icon' => 'gear', 'url' => '/settings'],
     //     ['separator' => true],
-    //     ['label' => 'Docs', 'icon' => 'pi pi-book', 'url' => 'https://docs.example.com'],
+    //     ['label' => 'Docs', 'icon' => 'book-open', 'url' => 'https://docs.example.com'],
     // ],
+],
+```
+
+### Custom items
+
+Each entry in `customItems` accepts `label`, `icon`, `url`, and an optional
+`position`. Use `['separator' => true]` for a divider between groups.
+
+| Key | Description |
+|-----|-------------|
+| `label` | Menu text. Resolved through i18n: when the value matches a translation key it is translated (and follows the active locale); otherwise it renders verbatim. Config files can't call `__()`, so pass the key here and it behaves like every other Martis surface. |
+| `icon` | **Phosphor icon name** (the same names the sidebar uses, e.g. `key`, `gear`, `book-open`), rendered as an inline SVG through the shared icon path. |
+| `url` | Internal path (navigated via the SPA router, like Profile) or a full `https://…` URL (opens in a new tab). |
+| `position` | `'before'` (default) or `'after'`, relative to the built-in Profile entry. `'before'` keeps the item above Profile; `'after'` places it below. |
+
+> **Breaking change (v1.29.0):** `icon` is now a Phosphor icon name, not a
+> PrimeIcons class. Replace legacy values like `'pi pi-key'` with the bare
+> Phosphor name (`'key'`). This aligns the custom-item icons with the built-in
+> Profile / Sign-out entries and fixes the label misalignment caused by the
+> PrimeIcons font-glyph box metrics.
+
+```php
+'user_menu' => [
+    'customItems' => [
+        // Translation key → follows the active locale.
+        ['label' => 'menu.api_keys', 'icon' => 'key', 'url' => '/api-keys'],
+        // Literal label, placed below the Profile entry.
+        ['label' => 'Billing', 'icon' => 'credit-card', 'url' => '/billing', 'position' => 'after'],
+        ['separator' => true],
+        ['label' => 'Docs', 'icon' => 'book-open', 'url' => 'https://docs.example.com'],
+    ],
 ],
 ```
 

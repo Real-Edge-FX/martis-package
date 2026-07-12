@@ -107,6 +107,8 @@ Tool::make(__('Finance Imports'))
 | `icon()` | Currently-set Phosphor icon name, or `null`. Read by `MenuItem::tool()` and `toArray()`. |
 | `component()` | Registered React component key, or `null` (config-only tools). |
 | `menuSection()` | Active menu section label, or `null`. |
+| `menuCount(Request)` | Sidebar count badge for this tool. Returns `null` (no badge) by default. Override to return a count. v1.29.0+. |
+| `showMenuCount()` | Whether the count badge renders. Defaults to `true`; the badge only appears when `menuCount()` also returns non-null. v1.29.0+. |
 | `meta()` | The accumulated metadata array (mirrors what `withMeta()` set). |
 | `withIcon(string)` | Phosphor icon for the menu entry. Chainable. |
 | `withComponent(string)` | React component key. The frontend looks this up in `componentRegistry`. Chainable. |
@@ -159,6 +161,34 @@ $this->canSee(fn (Request $request) =>
 |---|---|
 | `canSee(Closure)` | Fluent setter. Closure receives a `Request` and returns `bool`. |
 | `authorizedToSee(Request)` | Resolved boolean used by the controller and the menu builder. Useful in tests / dynamic menus that need to pre-filter. Defaults to `true` when no `canSee()` callback is set. |
+
+### Menu count badge (v1.29.0+)
+
+A Tool can publish a numeric count badge on its sidebar entry — the same badge a Resource shows next to its label (`Users 1,284`). Override `menuCount()` to return the number; return `null` to hide it. This mirrors the Resource contract, so a full-canvas Tool that owns list data can surface a live "pending" / "unread" count without a Resource behind it.
+
+```php
+class FinanceImports extends Tool
+{
+    // Count of imports waiting for review — shown as the sidebar badge.
+    public function menuCount(Request $request): ?int
+    {
+        return Import::query()->where('status', 'pending')->count();
+    }
+
+    // Optional: hide the badge without dropping the count logic.
+    public function showMenuCount(): bool
+    {
+        return true; // default
+    }
+}
+```
+
+Behaviour:
+
+- The value serialises on the tool's nav item under the `count` key.
+- It is also included in the lightweight `GET /api/navigation/badges` payload, keyed by the tool's `uriKey`, so tool counts **live-poll** on the same interval as resource counts (`MARTIS_NAV_BADGES_POLL_MS`, default 5 min).
+- The badge respects `authorizedToSee()` — a user who can't see the Tool never receives its count, exactly like a resource count.
+- `menuCount()` runs per request; keep the query cheap (it also fires on every badge poll). Cache it if it's expensive.
 
 ### Lifecycle: `boot()`
 
@@ -272,6 +302,7 @@ Two endpoints the package mounts automatically:
 |---|---|---|
 | `GET` | `/martis/api/tools` | Array of every authorised tool — `[{ type, name, uriKey, icon, component, menuSection, meta }, ...]` |
 | `GET` | `/martis/api/tools/{uriKey}` | Single tool metadata, or 404 |
+| `GET` | `/api/navigation/badges` | Lightweight badge poll — includes each tool's `count` keyed by `uriKey`, alongside resource counts. |
 
 The frontend hits these to build navigation entries and validate deep links. The actual page render is the SPA's job — the catch-all route delegates to React.
 
@@ -318,6 +349,7 @@ interface ToolDescriptor {
   icon: string | null
   component: string | null
   menuSection: string | null
+  count?: number | null           // sidebar badge from menuCount(), live-polled
   meta: Record<string, unknown>   // values you set via withMeta(...)
 }
 

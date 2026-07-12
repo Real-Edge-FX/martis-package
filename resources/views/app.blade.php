@@ -192,6 +192,12 @@
                 'two_factor' => [
                     'enabled' => (bool) config('martis.profile.two_factor.enabled', true),
                 ],
+                'account' => [
+                    // When false, the built-in Account section renders the e-mail
+                    // field read-only. Pair with a ProfileResource that also
+                    // rejects e-mail changes server-side (defence in depth).
+                    'email_editable' => (bool) config('martis.profile.account.email_editable', true),
+                ],
             ]) !!},
             extensions: {!! json_encode((array) config('martis.extensions', [])) !!},
             impersonation: {!! json_encode([

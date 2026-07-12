@@ -943,6 +943,20 @@ Select::make('country_code')
     ->displayUsingValues();
 ```
 
+**Clear (X) icon.** On a `nullable()` select, the clear icon appears only once a value is selected — an empty select has nothing to clear, so no X shows on the placeholder state.
+
+**Filter variant + custom class (v1.29.0).** When rendering a select through the runtime `FieldInput` (e.g. a filter bar inside a [Tool](tool-fields.md)), the frontend honours two extra keys on the field definition:
+
+- `variant: 'filter'` — adds the compact `martis-filter-dropdown` class (the same look Martis's native resource filters use).
+- `className: '...'` — forwarded verbatim onto the Dropdown root, so you can layer your own utility classes.
+
+```tsx
+// FieldDefinition passed to runtime.FieldInput
+{ type: 'select', attribute: 'status', label: 'Status', variant: 'filter', className: 'w-48', options: [...] }
+```
+
+These are frontend-only rendering hints; they have no effect on a plain `Select` field inside a normal Resource form.
+
 ---
 
 ### GuardSelect

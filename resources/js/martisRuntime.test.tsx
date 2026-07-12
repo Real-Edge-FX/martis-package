@@ -47,6 +47,11 @@ describe('martisRuntime', () => {
         // PrimeReact Tooltip is a forwardRef object, not a plain function.
         expect(martisRuntime.Tooltip).toBeDefined()
 
+        // PrimeReact filter controls + portal primitive (v1.29.0)
+        expect(martisRuntime.Dropdown).toBeDefined()
+        expect(martisRuntime.MultiSelect).toBeDefined()
+        expect(martisRuntime.createPortal).toBeTypeOf('function')
+
         // Shared field-form harness (v1.20.0)
         expect(martisRuntime.useMartisForm).toBeTypeOf('function')
         expect(martisRuntime.FieldsForm).toBeTypeOf('function')

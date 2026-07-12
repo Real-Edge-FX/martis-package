@@ -49,6 +49,9 @@ import { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { DrawerShell } from '@/components/overrides/DrawerShell'
 import { Tooltip } from 'primereact/tooltip'
+import { Dropdown } from 'primereact/dropdown'
+import { MultiSelect } from 'primereact/multiselect'
+import { createPortal } from 'react-dom'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { useToolFields } from '@/hooks/useToolFields'
 import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
@@ -135,6 +138,18 @@ export const martisRuntime = {
   // doesn't alias `primereact`), so it is exposed here.
   Tooltip,
 
+  // PrimeReact filter controls + a portal primitive (since v1.29.0). A
+  // consumer Tool can't `import { Dropdown } from 'primereact/dropdown'`
+  // (the extension build doesn't alias `primereact`, and bundling a second
+  // copy risks version skew), and its React shim is React core only (no
+  // react-dom). Exposing the exact controls Martis's own filters use — with
+  // the `martis-filter-dropdown` styling available via CSS — lets Tools render
+  // pixel-identical single/multi filters and portal overlays without
+  // hand-replicating PrimeReact's internal DOM. See docs/runtime-api.md.
+  Dropdown,
+  MultiSelect,
+  createPortal,
+
   // 3rd-party re-exports — consumers don't need to npm install these.
   // Saves ~150 KB across the typical override stub graph and lets us
   // pin a single version of each in the host SPA bundle.
@@ -158,6 +173,8 @@ export type { FieldDefinition } from '@/types'
 export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
 export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
 export type { TooltipProps } from 'primereact/tooltip'
+export type { DropdownProps } from 'primereact/dropdown'
+export type { MultiSelectProps } from 'primereact/multiselect'
 
 /**
  * Shared field-form harness types re-exported so consumer Tools calling
