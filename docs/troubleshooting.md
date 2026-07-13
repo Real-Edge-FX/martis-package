@@ -54,13 +54,23 @@ The package ships precompiled assets under `public/vendor/martis`. Republish the
 php artisan martis:publish-assets
 ```
 
-This wipes `public/vendor/martis/` first so stale Vite-hashed chunks from previous package versions don't pile up across upgrades. Then clear caches:
+This wipes `public/vendor/martis/` first so stale Vite-hashed chunks from previous package versions don't pile up across upgrades, does a deterministic full-tree copy of the package's compiled assets, and then **verifies the result** — every file the published `manifest.json` references (the app entry bundle, its CSS, and every chunk) must exist in the destination. Then clear caches:
 
 ```bash
 php artisan optimize:clear
 ```
 
-> **Note:** the legacy `php artisan vendor:publish --tag=martis-assets --force` still works but is a merge-style copy — orphaned chunks accumulate at every `composer update`. The `martis:publish-assets` command (and `martis:vendor-publish --assets`) is the canonical entry point and avoids the disk bloat. Pass `--no-wipe` to opt back into the merge behaviour if you have a specific reason to.
+> **Note:** the legacy `php artisan vendor:publish --tag=martis-assets --force` still works but is a merge-style copy — orphaned chunks accumulate at every `composer update`, and it never checks that the full set landed. The `martis:publish-assets` command (and `martis:vendor-publish --assets`, and `martis:install`) is the canonical entry point: it avoids the disk bloat and guarantees a complete set. Pass `--no-wipe` to opt back into the merge behaviour if you have a specific reason to.
+
+### Black screen (admin loads but nothing renders)
+
+A blank/black admin with a `404` on `assets/app-<hash>.js` in the browser console means the app entry bundle is missing from `public/vendor/martis/` — the published asset set is incomplete. Re-run the canonical command:
+
+```bash
+php artisan martis:publish-assets
+```
+
+Since v1.29.1 this command fails **loudly** on an incomplete copy: instead of reporting success it prints the count of missing files and exits non-zero, so a partial publish (an interrupted run, a full disk, restrictive filesystem permissions) is caught at publish time rather than surfacing as a black screen. If it does report missing files, check disk space and the writability of `public/vendor/martis/`, then re-run.
 
 If you sit behind a reverse proxy (Nginx Proxy Manager, Cloudflare, custom Nginx), set `ASSET_URL` in `.env` to the public origin:
 

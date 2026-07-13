@@ -3,7 +3,6 @@
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
-use Illuminate\Filesystem\Filesystem;
 
 class VendorPublishCommand extends Command
 {
@@ -20,7 +19,7 @@ class VendorPublishCommand extends Command
     /**
      * Handle.
      */
-    public function handle(Filesystem $filesystem): int
+    public function handle(): int
     {
         $this->components->info('Publishing Martis files...');
 
@@ -33,26 +32,22 @@ class VendorPublishCommand extends Command
         }
 
         if ($this->option('assets') || $this->noneSelected()) {
-            if (! $this->compiledAssetsAreAvailable()) {
-                $this->components->error('Martis frontend assets are missing from this package release.');
-                $this->line('  Expected: <fg=cyan>public/manifest.json</>');
-                $this->line('  Fix the package release by running <fg=cyan>npm install && npm run build</> before publishing.');
+            // Delegate to `martis:publish-assets` — the canonical, hardened
+            // asset path: a deterministic full-tree copy plus a post-publish
+            // manifest check that fails loudly on an incomplete set (a partial
+            // copy would render the admin as a black screen). Keeping a single
+            // source of truth means both entry points share the guarantee.
+            // `--force` is irrelevant here because the copy always overwrites;
+            // `--no-wipe` is forwarded for the legacy merge-style behaviour.
+            $assetOptions = [];
+            if ($this->option('no-wipe')) {
+                $assetOptions['--no-wipe'] = true;
+            }
 
+            if ($this->call('martis:publish-assets', $assetOptions) !== self::SUCCESS) {
                 return self::FAILURE;
             }
 
-            // Wipe `public/vendor/martis` before publishing assets so
-            // stale Vite-hashed chunks from previous package versions
-            // don't accumulate (Laravel's `vendor:publish --force` only
-            // overwrites; it never deletes). On macOS Docker the
-            // accumulation has produced 70k+ files and 5–10s/request
-            // bind-mount stalls. Pass `--no-wipe` to opt out.
-            $assetsDestination = public_path('vendor/martis');
-            if (! $this->option('no-wipe') && $filesystem->exists($assetsDestination)) {
-                $filesystem->deleteDirectory($assetsDestination);
-            }
-
-            $this->publishTag('martis-assets', 'public/vendor/martis', $force);
             $published = true;
         }
 
@@ -102,10 +97,5 @@ class VendorPublishCommand extends Command
 
         $this->callSilent('vendor:publish', $options);
         $this->components->twoColumnDetail('<fg=green>Published</> '.$tag, $destination);
-    }
-
-    protected function compiledAssetsAreAvailable(): bool
-    {
-        return file_exists(__DIR__.'/../../public/manifest.json');
     }
 }

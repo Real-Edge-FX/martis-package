@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.1] — 2026-07-13
+
+### Fixed
+
+- **Asset publishing now guarantees a complete set, or fails loudly.** A community report described `martis:publish-assets` republishing an incomplete asset set (the app entry bundle `app-<hash>.js/.css` missing), leaving the admin as a black screen with no error. The command delegated the 1400+ file copy to Laravel's `vendor:publish` Flysystem mount and never checked the result, so a partial copy (interrupted run, constrained filesystem) surfaced only at runtime as a 404 on the app bundle. Two changes close the gap: (1) the copy is now a **deterministic full-tree copy** (`File::copyDirectory` of the package's `public/`), not a delegated tag publish; (2) after copying, the command **verifies every file the package's `manifest.json` references** (the app entry bundle, its CSS, and every chunk) — **plus the `manifest.json` itself** — landed and is readable in the destination. If anything is missing, or the destination manifest is absent or unparseable, it prints the count + first offenders and **exits non-zero** instead of reporting success. The expected set is derived from the package (source) manifest, so a missing or corrupt destination manifest **fails closed** rather than passing silently (the earlier design would have reported a manifest-less publish as complete — the most catastrophic incompleteness, since Vite then resolves nothing). The three asset-publish entry points now share this one hardened path: `martis:publish-assets`, `martis:vendor-publish --assets`, and `martis:install` (the latter previously force-published without wiping, so `--force` reinstalls could accumulate stale Vite chunks — it now wipes + verifies too). Behaviour on a healthy run is unchanged (full set published); the only visible change is that a broken publish now fails at publish time with actionable output rather than shipping a black screen.
+
 ## [1.29.0] — 2026-07-12
 
 ### Added
