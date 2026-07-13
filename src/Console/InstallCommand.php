@@ -285,25 +285,16 @@ class InstallCommand extends Command
 
     protected function publishAssets(): void
     {
-        if (! $this->compiledAssetsAreAvailable()) {
-            $this->components->error('Martis frontend assets are missing from this package release.');
-            $this->line('  Expected: <fg=cyan>public/manifest.json</>');
-            $this->line('  Fix the package release by running <fg=cyan>npm install && npm run build</> before publishing.');
-
-            throw new RuntimeException('Martis frontend assets are missing from this package release.');
+        // Delegate to the hardened `martis:publish-assets` path: a deterministic
+        // full-tree copy plus a post-publish manifest check that fails loudly on
+        // an incomplete set (a partial copy renders the admin as a black screen).
+        // The command guards the "assets missing from this release" case itself
+        // and wipes the destination first, so a fresh install and a --force
+        // reinstall both get the completeness guarantee without accumulating
+        // stale Vite chunks from prior versions.
+        if ($this->call('martis:publish-assets') !== self::SUCCESS) {
+            throw new RuntimeException('Martis frontend assets did not publish successfully. See the errors above.');
         }
-
-        $this->callSilent('vendor:publish', [
-            '--tag' => 'martis-assets',
-            '--force' => true,
-        ]);
-
-        $this->components->twoColumnDetail('<fg=green>Published</> assets', 'public/vendor/martis');
-    }
-
-    protected function compiledAssetsAreAvailable(): bool
-    {
-        return file_exists(__DIR__.'/../../public/manifest.json');
     }
 
     protected function publishCoreMigrations(): void
