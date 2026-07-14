@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.3] — 2026-07-14
+
+### Fixed
+
+- **Command palette (⌘K) ignored `belongsToSystemSection()` — System-section resources rendered with no group tag.** A resource whose `belongsToSystemSection()` returns `true` is deliberately `group() === null`: the sidebar pulls it out of the normal `group()` bucketing and docks it under a dedicated **"System"** header (`appendSystemSection`). The command palette's "Resources" section, however, read the group tag only from `$instance->group()` and never consulted `belongsToSystemSection()`, so those resources sent `group: null` and showed **no** tag — while the sidebar grouped them under "System". The two surfaces disagreed for the same resource, including the package's own `ActionEventResource`. `CommandPaletteController::resources()` now falls back to the sidebar's `__('martis::messages.system')` label when the resource opts into the System section, so the palette tag matches the sidebar. Backend-only — the frontend already renders whatever group string the API sends. `SearchController` (which groups by resource label, not by section) and the palette's Tools/Actions/Recent sections are unaffected.
+
 ## [1.29.2] — 2026-07-14
 
 ### Fixed

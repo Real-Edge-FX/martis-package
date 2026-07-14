@@ -185,6 +185,8 @@ Returns `true` to dock the resource under the sidebar's "System" group rather th
 public function belongsToSystemSection(): bool { return true; }
 ```
 
+A System-section resource keeps `group() === null` — the sidebar buckets it under the **System** header, not a `group()` bucket. The command palette (⌘K) mirrors this: since **v1.29.3** it tags such resources with the same "System" label the sidebar uses, so the two surfaces agree (previously the palette showed no group tag for them).
+
 ### Custom search ordering — `searchOrderBy()`
 
 The global search applies `LIKE %term%` (or Scout) and returns the first N matches. Override `searchOrderBy()` to apply a custom `ORDER BY` to the search hits — for example, surface recently-active records first.

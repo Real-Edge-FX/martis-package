@@ -72,6 +72,39 @@ class PaletteTestResource extends Resource
     }
 }
 
+// A System-section resource: belongsToSystemSection() === true, group() === null
+// (the exact shape of the bundled ActionEventResource). The sidebar renders it
+// under a dedicated "System" header; the palette must agree.
+class PaletteSystemResource extends Resource
+{
+    public static function model(): string
+    {
+        return PaletteTestModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'palette-system-items';
+    }
+
+    public static function label(): string
+    {
+        return 'Palette System Items';
+    }
+
+    public function belongsToSystemSection(): bool
+    {
+        return true;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title'),
+        ];
+    }
+}
+
 // A Tool the current user is NOT allowed to see — must never appear in ⌘K.
 class PaletteDeniedTool extends Tool
 {
@@ -100,6 +133,7 @@ beforeEach(function () {
     });
 
     app(ResourceRegistry::class)->register(PaletteTestResource::class);
+    app(ResourceRegistry::class)->register(PaletteSystemResource::class);
 
     Martis::tools([
         Tool::make('Standards', 'standards')->withIcon('book')->withMenuSection('Knowledge'),
@@ -157,4 +191,39 @@ it('excludes a Tool the user is not authorised to see (security)', function () {
     $tools = collect($response->json('tools'));
 
     expect($tools->firstWhere('uriKey', 'palette-secret-tool'))->toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// Bug: System-section resources rendered with no palette group tag, even
+// though the sidebar groups them under "System" (belongsToSystemSection was
+// consulted by the sidebar but not by the palette).
+// ---------------------------------------------------------------------------
+
+it('tags a System-section resource with the System group (matches the sidebar)', function () {
+    $response = $this->getJson('/martis/api/command-palette');
+
+    $response->assertOk();
+
+    $resources = collect($response->json('resources'));
+    $entry = $resources->firstWhere('uriKey', 'palette-system-items');
+
+    expect($entry)->not->toBeNull();
+    // The sidebar renders belongsToSystemSection() resources under the
+    // __('martis::messages.system') header; the palette tag must agree
+    // (before the fix this was null — no tag).
+    expect($entry['group'])->toBe(__('martis::messages.system'));
+});
+
+it('leaves a non-System resource group untouched (fix is scoped)', function () {
+    $response = $this->getJson('/martis/api/command-palette');
+
+    $response->assertOk();
+
+    $resources = collect($response->json('resources'));
+    $entry = $resources->firstWhere('uriKey', 'palette-test-items');
+
+    // PaletteTestResource is not a System-section resource and declares no
+    // group() — its palette tag stays null, unaffected by the fix.
+    expect($entry)->not->toBeNull();
+    expect($entry['group'])->toBeNull();
 });
