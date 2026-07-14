@@ -646,7 +646,18 @@ Profile page gets a "Browser sessions" surface (`<BrowserSessionsSection />`) th
 
 The section is mounted by default when `martis.profile.sections` includes `'sessions'`. Since v1.8.8 the bundled default is `['avatar', 'account', 'password', 'security', 'sessions']`. Older installs that pinned the list to four entries need to add `'sessions'` to the published `config/martis.php` to see the panel.
 
-The host app must use Laravel's `database` session driver for the panel to populate. When the driver is `file` / `cookie` / `array` / unknown, the API returns `supported: false` and the React UI renders a one-line hint explaining how to switch (`php artisan session:table` + `php artisan migrate`) instead of a confusing empty list.
+#### Requirements
+
+The Browser sessions section has an external host dependency (unlike the other profile sections):
+
+| Requirement | Detail |
+|---|---|
+| **Session driver** | `SESSION_DRIVER=database`. On `file` / `cookie` / `array` / unknown the API returns `supported: false` and the UI renders a one-line hint instead of an empty list. |
+| **`sessions` table** | The standard Laravel session table must exist. |
+
+**Provisioning (since v1.30.0):** run `php artisan martis:install --with-sessions` to publish a **key-type-aware** sessions migration (published under the `martis-sessions-migration` tag, folded into `--with-profile` when the section is active). Its `user_id` column matches your `users.id` shape — a UUID/ULID-keyed host gets a `uuid`/`ulid` column instead of a `bigint`, avoiding the Postgres `invalid input syntax for type bigint` failure that Laravel's stock `php artisan session:table` (`foreignId('user_id')`) causes on non-integer-keyed users tables. The migration is idempotent (skipped when the table already exists) and carries no FK constraint, matching Laravel's own session table. You may still use `php artisan session:table` + `php artisan migrate` if your `users.id` is a `bigint`.
+
+**Install-time preflight:** when `'sessions'` is in `profile.sections` but `SESSION_DRIVER` isn't `database`, `martis:install` prints an actionable warning (it never fails the install) so the dependency surfaces at setup time rather than only at runtime. To hide the section entirely, remove `'sessions'` from `profile.sections`.
 
 ### Endpoints
 

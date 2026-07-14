@@ -1258,7 +1258,9 @@ return [
     | two_factor.enabled  - Show/hide the 2FA section.
     | two_factor.recovery_codes - Number of one-time recovery codes generated.
     | sections       - Array of section keys to render (customize order/visibility).
-    |                  Supported: 'account', 'password', 'avatar', 'security'
+    |                  Supported: 'avatar', 'account', 'password', 'security' (2FA),
+    |                  'sessions' (browser sessions — requires SESSION_DRIVER=database
+    |                  and a sessions table; run `martis:install --with-sessions`).
     */
     'profile' => [
         'enabled' => env('MARTIS_PROFILE_ENABLED', true),

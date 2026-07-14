@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.29.3] — 2026-07-14
+## [1.30.0] — 2026-07-14
+
+### Added
+
+- **Filter-reactive custom dashboard cards.** A custom dashboard card had no supported way to react to the dashboard's active filters or to receive a filter-scoped metric result — a `componentKey()` card rendered the same output regardless of the filter pills. Two seams close the gap: (1) a **component-keyed metric** now feeds its computed, filter-scoped `calculate($request)` **result** into the registered React component (`{ metric, result }`) — since the metric's `calculate()` already receives `?filters=…`, a bespoke card (e.g. a text table) is filter-reactive with zero client-side filter code; it takes precedence over the native metric-type switch and mounts even on a null result so the component owns its empty state. (2) A plain `Card` custom component now receives the active `filters` as a prop so it can fetch its own filter-scoped data. Previously the custom component received only the static card descriptor. See [Dashboards → Custom cards](docs/dashboards.md). **Breaking (alpha):** a component-keyed metric's React component now receives `{ metric, result }` instead of `{ card }`.
+- **Optional, key-type-aware sessions provisioning for the Browser sessions profile section.** The `sessions` profile section depends on `SESSION_DRIVER=database` + a `sessions` table, but the package neither provisioned nor validated that dependency (unlike the sibling 2FA section). New: `php artisan martis:install --with-sessions` publishes an **idempotent, key-type-aware** sessions migration (tag `martis-sessions-migration`) whose `user_id` column matches the host `users.id` shape — a UUID/ULID-keyed host gets `uuid`/`ulid` instead of `bigint`, avoiding the Postgres `invalid input syntax for type bigint` failure that Laravel's stock `session:table` causes; it carries no FK and its `down()` is a deliberate no-op (the `sessions` table is framework-owned on Laravel 11+). `--with-sessions` is folded into `--with-profile` when the section is active, and forces provisioning regardless of section membership; `--no-sessions` opts out. An **install-time preflight** warns (never fails) when `'sessions'` is in `profile.sections` but `SESSION_DRIVER` isn't `database`. The `config/martis.php` sections doc-comment (which omitted `'sessions'`) is corrected. See [Authentication → Browser sessions → Requirements](docs/authentication.md).
+
+### Fixed
+
+- **Native date field in a drawer — two bugs.** (1) The PrimeReact datepicker rendered **behind** drawers/modals: the `martis.css` overlay z-index rule targeted the stale `.p-calendar-panel` class, not the current `.p-datepicker`, so the popup kept its base z-index and was occluded. Added `.p-datepicker` to the rule. (2) The field stored the **wrong day (off-by-one)** in timezones east of UTC — `DateFieldInput` serialised the picked local-midnight `Date` with `d.toISOString()`, shifting the day. Date-only handling now goes through a `formatLocalDate` / `parseLocalDate` pair (`resources/js/lib/localDate.ts`) used on write, read, and display, so the round-trip is timezone-stable everywhere; `parseLocalDate` also rejects out-of-range strings instead of silently rolling them over.
 
 ### Fixed
 

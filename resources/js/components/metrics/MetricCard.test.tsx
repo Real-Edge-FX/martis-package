@@ -16,6 +16,18 @@ vi.mock('@/components/ResourceIcon', () => ({
   ResourceIcon: () => null,
 }))
 
+// A component-keyed metric resolves 'card:custom' to a renderer fed { metric, result }.
+vi.mock('@/lib/componentRegistry', () => ({
+  componentRegistry: {
+    resolve: (key: string) =>
+      key === 'card:custom'
+        ? ({ metric, result }: { metric: { uriKey: string }; result: Record<string, unknown> }) => (
+            <div data-testid="custom-metric">{`custom:${metric.uriKey}:${String(result.value)}`}</div>
+          )
+        : null,
+  },
+}))
+
 import { MetricCard } from './MetricCard'
 import type { MetricDefinition } from '@/types'
 
@@ -52,5 +64,18 @@ describe('MetricCard help tooltip (v1.8.18+)', () => {
   it('omits the tooltip element when metric.help is null / absent', () => {
     renderCard({ help: null })
     expect(screen.queryByLabelText(/regime/i)).toBeNull()
+  })
+})
+
+describe('MetricCard component-keyed metric (custom result renderer)', () => {
+  it('feeds the computed, filter-scoped result into the registry component', async () => {
+    // A metric that declares component() renders its calculate() result through
+    // a custom React component ({ metric, result }) instead of a native card —
+    // the fix for "custom dashboard cards receive no computed result".
+    renderCard({ component: 'card:custom', metricType: undefined, uriKey: 'top-queries' })
+
+    const node = await screen.findByTestId('custom-metric')
+    // result.value (7.2 from the api mock) reached the custom component.
+    expect(node.textContent).toBe('custom:top-queries:7.2')
   })
 })

@@ -1,18 +1,15 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Calendar } from 'primereact/calendar'
 import { getCalendarLocale } from '@/lib/calendarLocale'
+import { formatLocalDate, parseLocalDate } from '@/lib/localDate'
 import { ClearButton } from '@/components/ClearButton'
 
 function formatDate(value: unknown): string {
-  if (!value || typeof value !== 'string') return ''
-  const d = new Date(value)
-  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString()
-}
-
-function toDate(value: unknown): Date | null {
-  if (!value || typeof value !== 'string') return null
-  const d = new Date(value)
-  return isNaN(d.getTime()) ? null : d
+  // Parse as a local calendar date so the displayed day matches the stored
+  // day in every timezone (a UTC parse shifts it west of UTC).
+  const d = parseLocalDate(value)
+  if (d === null) return typeof value === 'string' ? value : ''
+  return d.toLocaleDateString()
 }
 
 export function DateFieldDisplay({ value }: FieldDisplayProps) {
@@ -25,14 +22,16 @@ export function DateFieldDisplay({ value }: FieldDisplayProps) {
 }
 
 export function DateFieldInput({ field, value, onChange, error }: FieldInputProps) {
-  const dateValue = toDate(value)
+  const dateValue = parseLocalDate(value)
   const showClear = !!field.nullable && dateValue !== null && !field.readonly
 
   function handleChange(d: Date | null) {
     if (!d) {
       onChange(null)
     } else {
-      onChange(d.toISOString().split('T')[0])
+      // Format the LOCAL calendar date — d.toISOString() would shift the day
+      // back in timezones east of UTC (pick the 20th, store the 19th).
+      onChange(formatLocalDate(d))
     }
   }
 

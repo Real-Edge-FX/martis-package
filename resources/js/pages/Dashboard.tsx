@@ -262,10 +262,16 @@ function DashboardView({
               style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}
             >
               {cards.map((card) => {
-                if (card.component) {
+                // A plain Card (type 'card') renders its own component and has no
+                // compute endpoint — it receives the active filters so it can
+                // fetch its own filter-scoped data. A component-keyed *metric*
+                // (type 'metric') instead flows through MetricCard below, whose
+                // MetricContent feeds the computed, filter-scoped result into the
+                // custom component (see MetricCard.tsx).
+                if (card.component && card.type === 'card') {
                   const CustomCard = componentRegistry.resolve(card.component)
                   if (CustomCard) {
-                    const C = CustomCard as React.ComponentType<{ card: typeof card }>
+                    const C = CustomCard as React.ComponentType<{ card: typeof card; filters: ActiveFilters }>
                     const span = card.width ?? 4
                     if (card.framed) {
                       return (
@@ -274,13 +280,13 @@ function DashboardView({
                           metric={card}
                           endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
                           filters={activeFilters}
-                          customContent={<C card={card} />}
+                          customContent={<C card={card} filters={activeFilters} />}
                         />
                       )
                     }
                     return (
                       <div key={card.uriKey} style={{ gridColumn: `span ${span} / span ${span}` }}>
-                        <C card={card} />
+                        <C card={card} filters={activeFilters} />
                       </div>
                     )
                   }
