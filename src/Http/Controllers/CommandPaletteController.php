@@ -80,7 +80,14 @@ class CommandPaletteController extends MartisController
                 'uriKey' => $uriKey,
                 'label' => $class::label(),
                 'icon' => $instance->icon(),
-                'group' => $instance->group(),
+                // A System-section resource (belongsToSystemSection() === true)
+                // is deliberately group() === null — the sidebar buckets it
+                // under the "System" header via appendSystemSection(). Mirror
+                // that here so the palette tag agrees with the sidebar instead
+                // of rendering no tag.
+                'group' => $instance->belongsToSystemSection()
+                    ? __('martis::messages.system')
+                    : $instance->group(),
                 'url' => '/resources/'.$uriKey,
             ];
         }
