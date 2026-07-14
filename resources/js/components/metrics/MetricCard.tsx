@@ -5,6 +5,7 @@ import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
+import { componentRegistry } from '@/lib/componentRegistry'
 import type { MetricDefinition, ActiveFilters } from '@/types'
 import { ValueCard } from './ValueCard'
 import { TrendCard } from './TrendCard'
@@ -139,8 +140,11 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
           customContent
         ) : result === null && query.isLoading ? (
           <span className="martis-skeleton" style={{ display: 'block', height: '5rem', width: '100%' }} aria-hidden="true" />
-        ) : result ? (
-          <MetricContent metricType={metric.metricType ?? 'value'} result={result} color={metric.color ?? null} />
+        ) : result || metric.component ? (
+          // A component-keyed metric always mounts its custom component (even on
+          // a null result — the consumer owns its own empty state); native
+          // metrics fall back to the generic "no data" line below.
+          <MetricContent metric={metric} result={result ?? {}} color={metric.color ?? null} />
         ) : (
           <p
             className="text-sm text-center py-4"
@@ -155,14 +159,31 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
 }
 
 function MetricContent({
-  metricType,
+  metric,
   result,
   color,
 }: {
-  metricType: string
+  metric: MetricDefinition
   result: Record<string, unknown>
   color?: string | null
 }) {
+  // A component-keyed metric renders its computed, filter-scoped `result`
+  // through a custom React component resolved from the registry (the metric's
+  // `calculate(Request)` already receives `?filters=…`, so the consumer writes
+  // zero client-side filter code). This takes precedence over the native
+  // metricType switch — set a component to opt into a bespoke renderer.
+  if (metric.component) {
+    const Custom = componentRegistry.resolve(metric.component)
+    if (Custom) {
+      const C = Custom as React.ComponentType<{ metric: MetricDefinition; result: Record<string, unknown> }>
+      return <C metric={metric} result={result} />
+    }
+    return null
+  }
+
+  // `metricType` is widened to string: the runtime switch also handles
+  // `activity_feed` / `endpoint_table`, which the MetricType union omits.
+  const metricType: string = metric.metricType ?? 'value'
   switch (metricType) {
     case 'value':
       return <ValueCard data={result} />

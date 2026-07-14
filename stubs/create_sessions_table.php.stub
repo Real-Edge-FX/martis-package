@@ -1,0 +1,112 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Laravel `sessions` table (database session driver).
+ *
+ * Martis ships a "Browser sessions" profile section that lists and revokes
+ * the acting user's active sessions. That section requires
+ * `SESSION_DRIVER=database` and a `sessions` table; without them the section
+ * degrades to an informational empty state (`supported: false`).
+ *
+ * This is the standard Laravel session schema (`php artisan session:table`)
+ * with ONE difference: the `user_id` column matches whichever primary-key
+ * shape the host `users` table uses, so a UUID/ULID-keyed host does not write
+ * a UUID string into a `bigint` column (which Postgres rejects). Detection
+ * mirrors the other Martis stubs — it inspects the configured user model for
+ * `HasUuids` / `HasUlids` and reads `$keyType` / `$incrementing`, and honours
+ * a `MARTIS_USER_ID_COLUMN_TYPE` override.
+ *
+ * There is deliberately NO foreign-key constraint on `user_id` — Laravel's own
+ * session table omits it too, and a soft reference sidesteps the datatype /
+ * cross-schema failure class entirely. Idempotent: skipped when the table
+ * already exists (some hosts already ran `php artisan session:table`).
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $table = config('session.table', 'sessions');
+
+        if (Schema::hasTable($table)) {
+            return;
+        }
+
+        $userKey = $this->resolveUserKey();
+
+        Schema::create($table, function (Blueprint $blueprint) use ($userKey) {
+            $blueprint->string('id')->primary();
+
+            match ($userKey) {
+                'uuid' => $blueprint->uuid('user_id')->nullable()->index(),
+                'ulid' => $blueprint->ulid('user_id')->nullable()->index(),
+                'string' => $blueprint->string('user_id')->nullable()->index(),
+                default => $blueprint->foreignId('user_id')->nullable()->index(),
+            };
+
+            $blueprint->string('ip_address', 45)->nullable();
+            $blueprint->text('user_agent')->nullable();
+            $blueprint->longText('payload');
+            $blueprint->integer('last_activity')->index();
+        });
+    }
+
+    public function down(): void
+    {
+        // Intentionally a no-op. The `sessions` table is a shared, framework-
+        // owned table — on Laravel 11+ it is created by the default
+        // `create_users_table` migration, and `up()` above only fills the gap
+        // when it is absent. Dropping it on rollback would destroy the host's
+        // live session storage (and `migrate` would not recreate it, since the
+        // framework migration is already run). Remove the table by hand if you
+        // truly need to.
+    }
+
+    /**
+     * Resolve the user-id column shape the host expects.
+     *
+     * Returns one of `bigint`, `uuid`, `ulid`, `string`. Inlined in each
+     * Martis migration stub so the published file works even if the package
+     * itself is later removed from the host's composer.
+     */
+    private function resolveUserKey(): string
+    {
+        $override = config('martis.user_id_column_type');
+        if (is_string($override) && $override !== '') {
+            $normalised = mb_strtolower($override);
+            if (in_array($normalised, ['bigint', 'uuid', 'ulid', 'string'], true)) {
+                return $normalised;
+            }
+        }
+
+        $guard = config('martis.guard') ?: config('auth.defaults.guard');
+        $provider = config("auth.guards.{$guard}.provider", config('auth.defaults.provider'));
+        $userClass = config("auth.providers.{$provider}.model");
+        if (! is_string($userClass) || ! class_exists($userClass)) {
+            return 'bigint';
+        }
+
+        $model = new $userClass;
+        $traits = class_uses_recursive($model);
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
+            return 'uuid';
+        }
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUlids::class, $traits, true)) {
+            return 'ulid';
+        }
+
+        $keyType = method_exists($model, 'getKeyType') ? $model->getKeyType() : 'int';
+        $incrementing = method_exists($model, 'getIncrementing') ? $model->getIncrementing() : true;
+        if ($incrementing && $keyType === 'int') {
+            return 'bigint';
+        }
+        if ($keyType === 'string') {
+            return 'string';
+        }
+
+        return 'bigint';
+    }
+};

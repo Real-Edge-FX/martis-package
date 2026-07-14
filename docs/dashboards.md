@@ -169,6 +169,38 @@ SalesDashboard::make('Sales')->componentKey('custom-sales-dashboard');
 
 Use `component(): ?string` to read the configured key back.
 
+## Custom cards (filter-reactive)
+
+A single card can render a bespoke React component instead of a native metric shape. There are two patterns, depending on where the data comes from:
+
+**1. A component-keyed metric — server-computed, filter-scoped (recommended).** A `Metric` that declares a component (fluent `->componentKey('…')`, or by overriding `component()`) renders its `calculate($request)` **result** through your component. The metric's `calculate()` already receives the dashboard's active filters (`?filters=…`), so the card is filter-reactive with **zero** client-side filter code. Your component receives `{ metric, result }`:
+
+```php
+// PHP: a metric whose calculate() reads the active filters and returns rows.
+class TopMissedQueries extends Metric
+{
+    public function component(): ?string { return 'card:top-missed-queries'; }
+    public function calculate(Request $request) { /* filter-scoped rows */ }
+}
+```
+
+```tsx
+// resources/js/martis-extensions/cards/TopMissedQueries.tsx
+export default function TopMissedQueries({ metric, result }: { metric: MetricDefinition; result: Record<string, unknown> }) {
+  return <MyTable rows={result.rows as Row[]} />   // already filter-scoped
+}
+```
+
+**2. A plain `Card` — client-fetched.** A `Card` (which has no compute endpoint) receives the dashboard's active filters as a prop so it can fetch its own filter-scoped data:
+
+```tsx
+export default function MyCard({ card, filters }: { card: MetricDefinition; filters: ActiveFilters }) {
+  // re-fetch whenever `filters` changes
+}
+```
+
+> Since **v1.30.0**: a component-keyed metric's computed result is fed into the component (previously the custom component received only the static card descriptor and never the result), and plain custom cards receive `filters`.
+
 ## Metadata
 
 Pass arbitrary metadata to the frontend with `withMeta()`. The values surface verbatim in the dashboard payload's `meta` block, so custom layout types or dashboard components can read them via `meta.*`:

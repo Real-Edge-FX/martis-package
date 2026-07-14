@@ -18,6 +18,8 @@ class InstallCommand extends Command
                             {--no-profile : Disable profile support, even when running interactively. Wins over --with-profile.}
                             {--with-2fa : Enable two-factor authentication support (publishes the two-factor migration on the host users table)}
                             {--no-2fa : Disable 2FA support, even when running interactively. Wins over --with-2fa.}
+                            {--with-sessions : Publish the key-type-aware sessions table migration for the browser-sessions profile section (requires SESSION_DRIVER=database)}
+                            {--no-sessions : Skip the sessions table migration, even when the sessions section is active. Wins over --with-sessions.}
                             {--avatar-column= : Column on the users table that stores avatar paths}
                             {--existing-avatar-column : Use an existing avatar column instead of publishing a migration}';
 
@@ -40,6 +42,7 @@ class InstallCommand extends Command
         $this->writeEnvironmentConfiguration($options);
         $this->clearConfigCache();
         $this->runMigrations();
+        $this->preflightSessions();
 
         $this->newLine();
         $this->components->info('Martis installed successfully.');
@@ -61,7 +64,8 @@ class InstallCommand extends Command
      *     avatar_enabled: bool,
      *     avatar_column: string,
      *     publish_avatar_migration: bool,
-     *     two_factor_enabled: bool
+     *     two_factor_enabled: bool,
+     *     sessions_enabled: bool
      * }
      */
     protected function resolveInstallOptions(): array
@@ -150,12 +154,36 @@ class InstallCommand extends Command
             }
         }
 
+        // Browser-sessions provisioning. The 'sessions' section has no enable
+        // flag of its own — membership in `profile.sections` is the switch — so
+        // that membership is the config source of truth for the IMPLICIT case.
+        // Explicit flags are absolute and bypass the section gate: --no-sessions
+        // never provisions; --with-sessions always does (a host may want the
+        // table even without the section). Otherwise fold into --with-profile
+        // only when the section is active, so a host that removed 'sessions'
+        // (keeping SESSION_DRIVER=file) is never handed an unwanted migration.
+        $sessionsSectionActive = in_array('sessions', (array) config('martis.profile.sections', []), true);
+        if ($this->option('no-sessions')) {
+            $sessionsEnabled = false;
+        } elseif ($this->option('with-sessions')) {
+            $sessionsEnabled = true;
+        } else {
+            $sessionsEnabled = $this->resolveFeatureToggle(
+                optOut: false,
+                optIn: (bool) $profileFlag && $sessionsSectionActive,
+                interactive: $interactive,
+                configEnabled: $sessionsSectionActive,
+                prompt: 'The browser-sessions profile section needs a `sessions` table. Publish the migration?',
+            );
+        }
+
         return [
             'profile_enabled' => $profileEnabled,
             'avatar_enabled' => $avatarEnabled,
             'avatar_column' => $avatarColumn,
             'publish_avatar_migration' => $publishAvatarMigration,
             'two_factor_enabled' => $twoFactorEnabled,
+            'sessions_enabled' => $sessionsEnabled,
         ];
     }
 
@@ -380,7 +408,8 @@ class InstallCommand extends Command
      *     avatar_enabled: bool,
      *     avatar_column: string,
      *     publish_avatar_migration: bool,
-     *     two_factor_enabled: bool
+     *     two_factor_enabled: bool,
+     *     sessions_enabled: bool
      * } $options
      */
     protected function publishOptionalMigrations(array $options): void
@@ -403,6 +432,42 @@ class InstallCommand extends Command
 
             $this->components->twoColumnDetail('<fg=green>2FA</> support', 'two-factor migration published');
         }
+
+        if ($options['sessions_enabled']) {
+            $this->publishMigrationStub(
+                StubResolver::path('create_sessions_table.php.stub'),
+                'create_sessions_table'
+            );
+
+            $this->components->twoColumnDetail('<fg=green>Sessions</> support', 'sessions migration published (SESSION_DRIVER=database)');
+        }
+    }
+
+    /**
+     * Surface the browser-sessions DB dependency at setup time instead of only
+     * at runtime. When the 'sessions' profile section is active but the app is
+     * not on the `database` session driver, the section silently degrades to a
+     * `supported: false` empty state — warn (never fail) with the fix.
+     */
+    protected function preflightSessions(): void
+    {
+        $sessionsSectionActive = in_array('sessions', (array) config('martis.profile.sections', []), true);
+        if (! $sessionsSectionActive) {
+            return;
+        }
+
+        $driver = config('session.driver');
+        if ($driver === 'database') {
+            return;
+        }
+
+        $this->newLine();
+        $this->components->warn(
+            "The 'sessions' profile section requires SESSION_DRIVER=database and a sessions table. Current driver: "
+            .(is_string($driver) ? $driver : 'unset').'.'
+        );
+        $this->line('  Run <fg=cyan>php artisan martis:install --with-sessions</> (or <fg=cyan>php artisan session:table</>) and set <fg=cyan>SESSION_DRIVER=database</>,');
+        $this->line("  or remove 'sessions' from <fg=cyan>config/martis.php → profile.sections</> to hide the section.");
     }
 
     protected function publishTranslations(): void
@@ -606,7 +671,8 @@ class InstallCommand extends Command
      *     avatar_enabled: bool,
      *     avatar_column: string,
      *     publish_avatar_migration: bool,
-     *     two_factor_enabled: bool
+     *     two_factor_enabled: bool,
+     *     sessions_enabled: bool
      * } $options
      */
     protected function writeEnvironmentConfiguration(array $options): void

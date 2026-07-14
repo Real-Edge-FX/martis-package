@@ -4783,6 +4783,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .p-multiselect-panel,
 .p-autocomplete-panel,
 .p-calendar-panel,
+.p-datepicker,
 .p-overlaypanel {
   z-index: 10000 !important;
 }
