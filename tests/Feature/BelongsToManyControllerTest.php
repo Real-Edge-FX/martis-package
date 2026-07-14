@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -71,6 +72,40 @@ class BTMChildResource extends Resource
     }
 }
 
+/**
+ * Same model + relationship as BTMParentResource, but the BelongsToMany
+ * field is nested inside a layout Section — the exact shape that used to
+ * make resolveContext() (a raw instanceof scan over fieldsForDetail())
+ * fail to find the field and 404 the relation endpoints.
+ */
+class BTMSectionParentResource extends Resource
+{
+    public static function model(): string
+    {
+        return BTMParentModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'btm-section-parents';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name')->required(),
+            Section::make(null, [
+                BelongsToMany::make('Children', 'children')
+                    ->relatedResource('b-t-m-child-models')
+                    ->searchable()
+                    ->fields(fn () => [
+                        Text::make('notes', 'Notes')->nullable(),
+                    ]),
+            ]),
+        ];
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -107,6 +142,7 @@ beforeEach(function () {
     $registry = app(ResourceRegistry::class);
     $registry->register(BTMParentResource::class);
     $registry->register(BTMChildResource::class);
+    $registry->register(BTMSectionParentResource::class);
 
     // Bypass auth middleware
     app('router')->aliasMiddleware('martis.auth', MartisAuthenticate::class);
@@ -382,5 +418,35 @@ describe('BelongsToManyController', function () {
             []
         );
         $response->assertStatus(422);
+    });
+});
+
+describe('BelongsToMany nested in a layout container', function () {
+    // Regression: resolveContext() scanned fieldsForDetail() with a raw
+    // instanceof loop and never flattened layout containers, so wrapping the
+    // relation in a Section/Panel/TabGroup made every relation endpoint 404.
+    it('resolves the index endpoint when the field sits inside a Section', function () {
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $child1 = BTMChildModel::create(['title' => 'Child 1']);
+        $child2 = BTMChildModel::create(['title' => 'Child 2']);
+        $parent->children()->attach([$child1->id, $child2->id]);
+
+        $response = $this->getJson("/martis/api/resources/btm-section-parents/{$parent->id}/belongs-to-many/children");
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('meta.total', 2);
+    });
+
+    it('resolves attach when the field sits inside a Section', function () {
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $child = BTMChildModel::create(['title' => 'Child 1']);
+
+        $response = $this->postJson(
+            "/martis/api/resources/btm-section-parents/{$parent->id}/belongs-to-many/children/attach",
+            ['related_id' => $child->id]
+        );
+
+        $response->assertStatus(201);
+        expect($parent->fresh()->children()->count())->toBe(1);
     });
 });

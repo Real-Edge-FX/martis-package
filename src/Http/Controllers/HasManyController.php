@@ -381,8 +381,10 @@ class HasManyController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Find the HasMany field in the parent resource
-        $fields = $parentInstance->fieldsForDetail($request);
+        // Find the HasMany field in the parent resource. filterForContext
+        // flattens layout containers (Section/Panel/TabGroup) so a relation
+        // nested in one still resolves — a raw scan would 404 it.
+        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
         $hasManyField = null;
 
         foreach ($fields as $field) {

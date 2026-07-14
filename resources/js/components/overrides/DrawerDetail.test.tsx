@@ -45,9 +45,13 @@ vi.mock('@phosphor-icons/react', () => ({
   PencilSimpleIcon: () => <span>PencilSimpleIcon</span>,
 }))
 
-// Stub out field/panel/section renderers — not under test here.
+// Stub out field/panel/section renderers — not under test here. FieldDisplay
+// emits a marker so a test can assert WHERE a field rendered (scalar grid vs
+// standalone relationship panel), not merely that it left the scalar grid.
 vi.mock('@/components/fields/FieldRenderer', () => ({
-  FieldDisplay: () => null,
+  FieldDisplay: ({ field }: { field: { attribute?: string } }) => (
+    <div data-testid={`field-${field?.attribute ?? 'unknown'}`} />
+  ),
 }))
 vi.mock('@/components/fields/FieldLabelTooltip', () => ({
   FieldLabelTooltip: () => null,
@@ -152,5 +156,53 @@ describe('DrawerDetail footer authorization guards', () => {
     const footer = screen.getByTestId('drawer-footer')
     expect(footer.textContent).not.toContain('delete')
     expect(footer.textContent).not.toContain('edit')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DrawerDetail — relationship partitioning
+//
+// Regression: belongs_to_many / morph_to_many were missing from the drawer's
+// STANDALONE_RELATIONSHIP_TYPES set (a drift from ResourceDetail's copy), so
+// they fell into the scalar dl/dt/dd grid and rendered with a ~140px label
+// gutter that squeezed the panel — plus a duplicate heading.
+// ---------------------------------------------------------------------------
+
+function schemaWithFields(fields: Array<{ attribute: string; label: string; type: string }>): ResourceSchema {
+  return { ...baseSchema, fieldsForDetail: fields } as unknown as ResourceSchema
+}
+
+describe('DrawerDetail relationship partitioning', () => {
+  it('renders belongs_to_many as a standalone panel, not a squeezed scalar row', () => {
+    const schema = schemaWithFields([
+      { attribute: 'name', label: 'Name', type: 'text' },
+      { attribute: 'tags', label: 'Tags', type: 'belongs_to_many' },
+    ])
+    render(<DrawerDetail {...baseProps} schema={schema} record={makeRecord()} />)
+
+    const content = screen.getByTestId('drawer-content')
+    const labelTexts = Array.from(content.querySelectorAll('.martis-detail-label')).map((el) => el.textContent)
+
+    // The scalar detail grid carries 'Name' but NOT the belongs_to_many
+    // 'Tags' — a scalar row would give it a <dt class="martis-detail-label">.
+    expect(labelTexts).toContain('Name')
+    expect(labelTexts).not.toContain('Tags')
+    // Positive assertion: 'Tags' still rendered — as a standalone panel, not
+    // dropped. (A refactor that filtered it out of BOTH partitions would fail
+    // here even though the negative label assertion above would still pass.)
+    expect(screen.queryByTestId('field-tags')).not.toBeNull()
+  })
+
+  it('treats morph_to_many as a standalone panel too (no scalar label gutter)', () => {
+    const schema = schemaWithFields([
+      { attribute: 'roles', label: 'Roles', type: 'morph_to_many' },
+    ])
+    render(<DrawerDetail {...baseProps} schema={schema} record={makeRecord()} />)
+
+    const content = screen.getByTestId('drawer-content')
+    // Only relationship fields present → the scalar grid must not render at all…
+    expect(content.querySelectorAll('.martis-detail-label').length).toBe(0)
+    // …and the field still rendered as a standalone panel (not dropped).
+    expect(screen.queryByTestId('field-roles')).not.toBeNull()
   })
 })

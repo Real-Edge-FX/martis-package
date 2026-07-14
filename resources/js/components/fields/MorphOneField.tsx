@@ -8,6 +8,7 @@ import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { NestedParentProvider, useNestedParent } from './NestedParentContext'
 import { buildViaParams } from '@/lib/relationViaParams'
+import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 
@@ -192,14 +193,8 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
           </div>
         ) : (
           (() => {
-            const standaloneTypes = new Set([
-              'has_many', 'has_many_through',
-              'has_one', 'has_one_of_many', 'has_one_through',
-              'morph_one', 'morph_one_of_many', 'morph_many',
-              'belongs_to_many', 'morph_to_many',
-            ])
-            const scalar = detailFields.filter((f) => f.attribute !== 'id' && !standaloneTypes.has(f.type))
-            const relations = detailFields.filter((f) => standaloneTypes.has(f.type))
+            const scalar = detailFields.filter((f) => f.attribute !== 'id' && !STANDALONE_RELATIONSHIP_TYPES.has(f.type))
+            const relations = detailFields.filter((f) => STANDALONE_RELATIONSHIP_TYPES.has(f.type))
             return (
               <>
                 {scalar.length > 0 && (

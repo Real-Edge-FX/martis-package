@@ -11,18 +11,7 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
-
-
-const STANDALONE_RELATIONSHIP_TYPES = new Set([
-  'has_many',
-  'has_many_through',
-  'has_one',
-  'has_one_of_many',
-  'has_one_through',
-  'morph_one',
-  'morph_one_of_many',
-  'morph_many',
-])
+import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 
 /**
  * Built-in drawer override for the DETAIL context.

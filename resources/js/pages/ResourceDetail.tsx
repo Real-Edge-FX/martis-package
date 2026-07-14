@@ -24,6 +24,7 @@ import { usePageTitle } from "@/hooks/usePageTitle"
 import { useResourceAccent } from "@/lib/useResourceAccent"
 import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"
 import { recordHref } from "@/lib/recordHref"
+import { STANDALONE_RELATIONSHIP_TYPES } from "@/lib/relationshipFieldTypes"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -245,33 +246,16 @@ export function ResourceDetailPage() {
   const sidebarFields = schema.detailSidebar ?? []
   const sidebarAttrs = new Set(sidebarFields.map((f) => f.attribute))
   const hasSidebar = sidebarFields.length > 0
-  // Relationship fields render as full-width panels with their own heading
-  // and action buttons — they must NOT be wrapped in the scalar dl/dt/dd
-  // layout, otherwise the field label appears twice (once from <dt>, once
-  // from the panel's own <h3>). This covers the whole has/morph family
-  // including OfMany and Through variants.
-  const standaloneRelationshipTypes = new Set([
-    'has_many',
-    'has_many_through',
-    'has_one',
-    'has_one_of_many',
-    'has_one_through',
-    'morph_one',
-    'morph_one_of_many',
-    'morph_many',
-    'belongs_to_many',
-    'morph_to_many',
-  ])
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
   const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
   const sectionItems = detailFields.filter(f => f.type === 'section') as SectionDefinition[]
   const scalarFields = (detailFields.filter(f =>
-    !standaloneRelationshipTypes.has(f.type) &&
+    !STANDALONE_RELATIONSHIP_TYPES.has(f.type) &&
     f.type !== 'panel' &&
     f.type !== 'tab_group' &&
     f.type !== 'section'
   ) as FieldDefinition[]).filter((f) => !sidebarAttrs.has(f.attribute))
-  const relationshipFields = detailFields.filter(f => standaloneRelationshipTypes.has(f.type)) as FieldDefinition[]
+  const relationshipFields = detailFields.filter(f => STANDALONE_RELATIONSHIP_TYPES.has(f.type)) as FieldDefinition[]
   const isDeleted = "deleted_at" in record && record["deleted_at"] !== null
   const auth = record._authorization
   const canUpdate = auth?.authorizedToUpdate !== false

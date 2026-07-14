@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.29.1] — 2026-07-13
+## [1.29.2] — 2026-07-14
+
+### Fixed
+
+- **Relation endpoints 404'd when the relation field was wrapped in a layout container.** Every relation controller's `resolveContext()` located the relation field by scanning `fieldsForDetail()` with a raw `instanceof` loop. `fieldsForDetail()` returns the declared fields **including** layout containers (`Section`/`Panel`/`TabGroup`, which are `LayoutContract`, not `FieldContract`), and the scan never flattened them — so a relation nested in one was never found and **every** endpoint for it (list, attach, detach, pivot) returned `404`. Fixed by flattening first — `Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL)` — in all six relation controllers (`BelongsToMany`, `HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `MorphToMany`). The same unflattened scan in `ActionController::resolvePivotColumns()` (pivot actions) was hardened the same way for consistency. Nesting a relation panel in a `Section`/`Panel`/`TabGroup` on the detail view is now fully supported (documented in Panels & Tabs). A per-controller regression test (relation-in-`Section` resolves) guards each site.
+- **Detail drawer rendered `BelongsToMany` / `MorphToMany` as squeezed scalar rows.** The drawer's list of "standalone relationship" field types (rendered as full-width panels) had drifted from the standard detail page's copy and omitted the two many-to-many types, so a `BelongsToMany` in a drawer got a ~140px label gutter (squeezing the panel) plus a duplicate heading. The two lists are now a single shared constant (`lib/relationshipFieldTypes.ts`) imported by the detail page, the detail drawer, and the `HasOne`/`MorphOne` nested renderers, so they cannot drift again. This only affected the **drawer**; the standard detail page already rendered these correctly.
 
 ### Fixed
 

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Fields\MorphMany;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -139,6 +140,7 @@ beforeEach(function () {
     $registry->register(MMPostResource::class);
     $registry->register(MMVideoResource::class);
     $registry->register(MMCommentResource::class);
+    $registry->register(MMSectionPostResource::class);
 });
 
 afterEach(function () {
@@ -391,4 +393,41 @@ it('blocks store when the related resource forbids creation', function () {
     );
 
     expect($response->status())->toBeIn([201, 403]);
+});
+
+/**
+ * MorphMany field nested inside a layout Section — regression guard for the
+ * unflattened resolveContext() that used to 404 the relation endpoints.
+ */
+class MMSectionPostResource extends Resource
+{
+    public static function model(): string
+    {
+        return MMPostModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'mm-section-posts';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->required(),
+            Section::make(null, [
+                MorphMany::make('Comments', 'comments')->relatedResource('m-m-comment-models'),
+            ]),
+        ];
+    }
+}
+
+it('resolves the morph-many index endpoint when the field sits inside a Section', function () {
+    $post = MMPostModel::create(['title' => 'Post A']);
+    MMCommentModel::create(['body' => 'c1', 'commentable_type' => MMPostModel::class, 'commentable_id' => $post->id]);
+
+    $response = $this->getJson("/martis/api/resources/mm-section-posts/{$post->id}/morph-many/comments");
+
+    $response->assertStatus(200);
+    $response->assertJsonPath('meta.total', 1);
 });

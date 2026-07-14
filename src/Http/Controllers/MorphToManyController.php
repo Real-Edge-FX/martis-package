@@ -487,8 +487,10 @@ class MorphToManyController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Find the MorphToMany field in the parent resource
-        $fields = $parentInstance->fieldsForDetail($request);
+        // Find the MorphToMany field in the parent resource. filterForContext
+        // flattens layout containers (Section/Panel/TabGroup) so a relation
+        // nested in one still resolves — a raw scan would 404 it.
+        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
         $mtmField = null;
 
         foreach ($fields as $fieldItem) {
