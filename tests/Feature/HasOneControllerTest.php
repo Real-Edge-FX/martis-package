@@ -8,6 +8,7 @@ use Martis\Fields\HasOne;
 use Martis\Fields\Text;
 use Martis\Fields\Textarea;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -66,6 +67,34 @@ class HOChildResource extends Resource
     }
 }
 
+/**
+ * Same model + relationship as HOParentResource, but the HasOne field is
+ * nested inside a layout Section — the shape that used to 404 the relation
+ * endpoints because resolveContext() never flattened layout containers.
+ */
+class HOSectionParentResource extends Resource
+{
+    public static function model(): string
+    {
+        return HOParentModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'ho-section-parents';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name')->required(),
+            Section::make(null, [
+                HasOne::make('Profile', 'profile')->relatedResource('h-o-child-models'),
+            ]),
+        ];
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -91,6 +120,7 @@ beforeEach(function () {
     $registry = app(ResourceRegistry::class);
     $registry->register(HOParentResource::class);
     $registry->register(HOChildResource::class);
+    $registry->register(HOSectionParentResource::class);
 
     $this->withoutMiddleware(MartisAuthenticate::class);
 });
@@ -231,4 +261,15 @@ it('has-one returns 404 for unknown parent', function () {
     $response = $this->getJson("/martis/api/resources/{$uri}/99999/has-one/profile");
 
     $response->assertStatus(404);
+});
+
+it('resolves the has-one endpoint when the field sits inside a Section', function () {
+    // Regression: resolveContext() never flattened layout containers, so a
+    // HasOne wrapped in a Section 404'd its show/store endpoints.
+    $parent = HOParentModel::create(['name' => 'Parent A']);
+    HOChildModel::create(['bio' => 'Designer', 'parent_id' => $parent->id]);
+
+    $response = $this->getJson("/martis/api/resources/ho-section-parents/{$parent->id}/has-one/profile");
+
+    $response->assertStatus(200)->assertJsonPath('data.bio', 'Designer');
 });

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Fields\MorphOne;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -127,6 +128,7 @@ beforeEach(function () {
     $registry->register(MOUserResource::class);
     $registry->register(MOTeamResource::class);
     $registry->register(MOAvatarResource::class);
+    $registry->register(MOSectionUserResource::class);
 });
 
 afterEach(function () {
@@ -303,4 +305,45 @@ it('returns 404 for unknown morph-one relationship name', function () {
     $user = MOUserModel::create(['name' => 'Alice']);
     $response = $this->getJson("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/nonexistent");
     $response->assertStatus(404);
+});
+
+/**
+ * MorphOne field nested inside a layout Section — regression guard for the
+ * unflattened resolveContext() that used to 404 the relation endpoints.
+ */
+class MOSectionUserResource extends Resource
+{
+    public static function model(): string
+    {
+        return MOUserModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'mo-section-users';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name')->required(),
+            Section::make(null, [
+                MorphOne::make('Avatar', 'avatar')->relatedResource('m-o-avatar-models'),
+            ]),
+        ];
+    }
+}
+
+it('resolves the morph-one endpoint when the field sits inside a Section', function () {
+    $user = MOUserModel::create(['name' => 'Alice']);
+    MOAvatarModel::create([
+        'url' => 'https://cdn.example/alice.png',
+        'imageable_type' => MOUserModel::class,
+        'imageable_id' => $user->id,
+    ]);
+
+    $response = $this->getJson("/martis/api/resources/mo-section-users/{$user->id}/morph-one/avatar");
+
+    $response->assertStatus(200);
+    expect($response->json('data.url'))->toBe('https://cdn.example/alice.png');
 });

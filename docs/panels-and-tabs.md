@@ -266,6 +266,24 @@ It does not appear in `fields()` (index) — fields are always flattened for the
 
 Section cannot be nested inside a Tab (Tab accepts `FieldContract|Panel` only). See [Grid Layout](/docs/core/grid-layout) for the Section API.
 
+### Relationship panels inside layout containers
+
+Standalone relationship fields — `HasMany`, `HasOne`, `BelongsToMany`, `MorphMany`, `MorphOne`, `MorphToMany` (and the OfMany / Through variants) — can be nested inside a `Section`, `Panel`, or `TabGroup` on the detail view. Their own relation endpoints (list, attach, detach, pivot) resolve correctly regardless of nesting depth.
+
+```php
+public function fieldsForDetail(Request $request): array
+{
+    return [
+        Section::make('Team', [
+            BelongsToMany::make('Members', 'members')->relatedResource('users'),
+            HasMany::make('Invitations', 'invitations')->relatedResource('invitations'),
+        ]),
+    ];
+}
+```
+
+> Before **v1.29.2** the relation controllers resolved the field from `fieldsForDetail()` without flattening layout containers, so a relation wrapped in a `Section`/`Panel`/`TabGroup` returned `404` on every relation endpoint. It now flattens first, so nesting is fully supported.
+
 ---
 
 ## Playground Showcase

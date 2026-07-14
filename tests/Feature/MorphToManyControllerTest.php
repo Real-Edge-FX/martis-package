@@ -10,6 +10,7 @@ use Martis\Fields\MorphToMany;
 use Martis\Fields\Number;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -144,6 +145,7 @@ beforeEach(function () {
     $registry->register(MTMPostResource::class);
     $registry->register(MTMVideoResource::class);
     $registry->register(MTMTagResource::class);
+    $registry->register(MTMSectionPostResource::class);
 });
 
 afterEach(function () {
@@ -368,4 +370,45 @@ it('returns 404 for unknown morph-to-many relationship name', function () {
     $post = MTMPostModel::create(['title' => 'Post']);
     $response = $this->getJson("/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/nonexistent");
     $response->assertStatus(404);
+});
+
+/**
+ * MorphToMany field nested inside a layout Section — regression guard for the
+ * unflattened resolveContext() that used to 404 the relation endpoints.
+ */
+class MTMSectionPostResource extends Resource
+{
+    public static function model(): string
+    {
+        return MTMPostModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'mtm-section-posts';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->required(),
+            Section::make(null, [
+                MorphToMany::make('Tags', 'tags')
+                    ->relatedResource('m-t-m-tag-models')
+                    ->fields(fn () => [Number::make('weight')->nullable()]),
+            ]),
+        ];
+    }
+}
+
+it('resolves the morph-to-many index endpoint when the field sits inside a Section', function () {
+    $post = MTMPostModel::create(['title' => 'Post']);
+    $tag1 = MTMTagModel::create(['name' => 'php']);
+    $tag2 = MTMTagModel::create(['name' => 'laravel']);
+    $post->tags()->attach([$tag1->id, $tag2->id]);
+
+    $response = $this->getJson("/martis/api/resources/mtm-section-posts/{$post->id}/morph-to-many/tags");
+
+    $response->assertStatus(200);
+    expect($response->json('meta.total'))->toBe(2);
 });

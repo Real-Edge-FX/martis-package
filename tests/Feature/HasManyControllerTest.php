@@ -10,6 +10,7 @@ use Martis\Fields\File;
 use Martis\Fields\HasMany;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -68,6 +69,33 @@ class HMChildResource extends Resource
     }
 }
 
+/**
+ * HasMany field nested inside a layout Section — the shape that used to 404
+ * the relation endpoints because resolveContext() never flattened layouts.
+ */
+class HMSectionParentResource extends Resource
+{
+    public static function model(): string
+    {
+        return HMParentModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'hm-section-parents';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name')->required(),
+            Section::make(null, [
+                HasMany::make('Children', 'children')->relatedResource('h-m-child-models'),
+            ]),
+        ];
+    }
+}
+
 // No-create resource for authorization tests
 class HMNoCreateChildResource extends Resource
 {
@@ -122,6 +150,7 @@ beforeEach(function () {
     $registry->flush();
     $registry->register(HMParentResource::class);
     $registry->register(HMChildResource::class);
+    $registry->register(HMSectionParentResource::class);
 });
 
 afterEach(function () {
@@ -532,3 +561,16 @@ it('accepts allowed MIME type for multi-file field in HasMany relationship', fun
 
     $response->assertStatus(201);
 })->group('hm-file-validation');
+
+it('resolves the has-many index endpoint when the field sits inside a Section', function () {
+    // Regression: resolveContext() never flattened layout containers, so a
+    // HasMany wrapped in a Section 404'd its relation endpoints.
+    $parent = HMParentModel::create(['name' => 'Parent A']);
+    HMChildModel::create(['title' => 'Child 1', 'parent_id' => $parent->id]);
+    HMChildModel::create(['title' => 'Child 2', 'parent_id' => $parent->id]);
+
+    $response = $this->getJson("/martis/api/resources/hm-section-parents/{$parent->id}/has-many/children");
+
+    $response->assertStatus(200);
+    $response->assertJsonPath('meta.total', 2);
+});

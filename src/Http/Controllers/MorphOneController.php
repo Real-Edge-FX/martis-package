@@ -349,7 +349,9 @@ class MorphOneController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = $parentInstance->fieldsForDetail($request);
+        // filterForContext flattens layout containers (Section/Panel/TabGroup)
+        // so a relation nested in one still resolves — a raw scan would 404 it.
+        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
         $morphOneField = null;
 
         foreach ($fields as $field) {

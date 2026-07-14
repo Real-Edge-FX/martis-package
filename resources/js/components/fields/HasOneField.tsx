@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { NestedParentProvider, useNestedParent } from './NestedParentContext'
 import { buildViaParams } from '@/lib/relationViaParams'
+import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { ResourceRecord, FieldDefinition } from '@/types'
@@ -286,15 +287,10 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
             // fields (HasMany, HasOne, etc) — the latter render their own
             // heading/chrome and need to span the full width. Without this
             // split they would appear with a dt label on the left and the
-            // panel on the right, wasting space.
-            const standaloneTypes = new Set([
-              'has_many', 'has_many_through',
-              'has_one', 'has_one_of_many', 'has_one_through',
-              'morph_one', 'morph_one_of_many', 'morph_many',
-              'belongs_to_many', 'morph_to_many',
-            ])
-            const scalar = detailFields.filter((f) => f.attribute !== 'id' && !standaloneTypes.has(f.type))
-            const relations = detailFields.filter((f) => standaloneTypes.has(f.type))
+            // panel on the right, wasting space. Shared set (see
+            // lib/relationshipFieldTypes) so it can't drift from the detail pages.
+            const scalar = detailFields.filter((f) => f.attribute !== 'id' && !STANDALONE_RELATIONSHIP_TYPES.has(f.type))
+            const relations = detailFields.filter((f) => STANDALONE_RELATIONSHIP_TYPES.has(f.type))
             return (
               <>
                 {scalar.length > 0 && (

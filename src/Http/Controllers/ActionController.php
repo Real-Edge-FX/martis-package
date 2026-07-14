@@ -17,6 +17,7 @@ use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\ActionVisibility;
 use Martis\Exceptions\MartisException;
+use Martis\FieldContext;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field as MartisField;
 use Martis\Http\Resources\JsonErrorResponse;
@@ -689,7 +690,10 @@ class ActionController extends MartisController
      */
     private function resolvePivotColumns(Resource $parentInstance, Request $request, string $relationship): array
     {
-        $fields = $parentInstance->fieldsForDetail($request);
+        // filterForContext flattens layout containers (Section/Panel/TabGroup)
+        // so a BelongsToMany nested in one is still found — a raw scan would
+        // silently return [] and drop the pivot data.
+        $fields = MartisField::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
         foreach ($fields as $field) {
             if ($field instanceof BelongsToManyField && $field->getRelationship() === $relationship) {
                 return array_values(array_map(
