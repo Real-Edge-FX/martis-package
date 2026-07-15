@@ -1647,7 +1647,13 @@ class ResourceController extends MartisController
 
             $value = $decoded[$key];
 
-            if ($value === null || $value === '') {
+            // An empty selection carries no constraint: null / '' for scalar
+            // filters, or [] for multi-select. Skipping the empty array here
+            // means a MultiSelectFilter never has to guard against
+            // whereIn('col', []) compiling to `WHERE 0 = 1` (zero rows). The
+            // safe "empty selection shows all" behaviour is the default, not
+            // something each consumer must remember to reimplement.
+            if ($value === null || $value === '' || $value === []) {
                 continue;
             }
 

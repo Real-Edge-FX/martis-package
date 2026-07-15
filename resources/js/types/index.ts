@@ -116,7 +116,7 @@ export interface Toast {
 // Filter types
 // -------------------------------------------------------------------------
 
-export type FilterType = 'select' | 'boolean' | 'date' | 'date-range'
+export type FilterType = 'select' | 'multi-select' | 'boolean' | 'date' | 'date-range'
 
 export interface FilterOption {
   label: string

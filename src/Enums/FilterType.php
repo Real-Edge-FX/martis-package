@@ -10,6 +10,7 @@ enum FilterType: string
 {
     case Boolean = 'boolean';
     case Select = 'select';
+    case MultiSelect = 'multi-select';
     case Date = 'date';
     case DateRange = 'date-range';
 }

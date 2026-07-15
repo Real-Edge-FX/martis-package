@@ -8,6 +8,7 @@ use Martis\Fields\Text;
 use Martis\Filters\BooleanFilter;
 use Martis\Filters\DateFilter;
 use Martis\Filters\DateRangeFilter;
+use Martis\Filters\MultiSelectFilter;
 use Martis\Filters\SelectFilter;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
@@ -63,6 +64,39 @@ class FilterTestActiveFilter extends BooleanFilter
     }
 }
 
+class FilterTestStatusInFilter extends MultiSelectFilter
+{
+    public function options(Request $request): array
+    {
+        return ['Active' => 'active', 'Inactive' => 'inactive', 'Pending' => 'pending'];
+    }
+
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return empty($value) ? $query : $query->whereIn('status', (array) $value);
+    }
+}
+
+// A MultiSelectFilter whose apply() calls whereIn() UNCONDITIONALLY — no
+// empty($value) guard. This is the pattern the docs endorse (the request
+// pipeline skips empty arrays centrally, so consumers need no guard). It
+// exists here to *pin* that central skip: revert the `$value === []` clause in
+// ResourceController::applyFilters and an empty selection reaches apply() as
+// whereIn('status', []) => `WHERE 0 = 1` => zero rows, failing the empty-array
+// test below. The self-guarded fixture above cannot detect that regression.
+class FilterTestStatusInUnguardedFilter extends MultiSelectFilter
+{
+    public function options(Request $request): array
+    {
+        return ['Active' => 'active', 'Inactive' => 'inactive'];
+    }
+
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return $query->whereIn('status', (array) $value);
+    }
+}
+
 class FilterTestResource extends Resource
 {
     public static function model(): string
@@ -85,6 +119,8 @@ class FilterTestResource extends Resource
             FilterTestActiveFilter::make('Active Users'),
             DateFilter::make('Created At')->column('created_at'),
             DateRangeFilter::make('Date Range')->column('created_at'),
+            FilterTestStatusInFilter::make('Status in', 'status-in')->searchable(),
+            FilterTestStatusInUnguardedFilter::make('Status in (unguarded)', 'status-in-unguarded'),
         ];
     }
 }
@@ -156,13 +192,15 @@ it('schema endpoint returns filter definitions', function () {
     $response = $this->getJson('/martis/api/resources/filter-test-models/schema');
 
     $response->assertStatus(200);
-    $response->assertJsonCount(4, 'data.filters');
+    $response->assertJsonCount(6, 'data.filters');
     $response->assertJsonPath('data.filters.0.filterType', 'select');
     $response->assertJsonPath('data.filters.0.name', 'Status');
     $response->assertJsonPath('data.filters.0.uriKey', 'status');
     $response->assertJsonPath('data.filters.1.filterType', 'boolean');
     $response->assertJsonPath('data.filters.2.filterType', 'date');
     $response->assertJsonPath('data.filters.3.filterType', 'date-range');
+    $response->assertJsonPath('data.filters.4.filterType', 'multi-select');
+    $response->assertJsonPath('data.filters.5.filterType', 'multi-select');
 });
 
 it('schema includes filter options for select filters', function () {
@@ -316,4 +354,80 @@ it('hidden filter cannot be applied even if sent in query params', function () {
     $response->assertStatus(200);
     // All 3 records should still be returned — the hidden filter was not applied
     $response->assertJsonPath('meta.total', 3);
+});
+
+// ---------------------------------------------------------------------------
+// MultiSelectFilter (v1.31.0)
+// ---------------------------------------------------------------------------
+
+it('multi-select filter ANY-matches an array of values', function () {
+    // Seed: 2 rows status=active, 1 row status=inactive.
+    $filters = urlencode(json_encode(['status-in' => ['inactive']]));
+    $response = $this->getJson("/martis/api/resources/filter-test-models?filters={$filters}");
+
+    $response->assertStatus(200);
+    $response->assertJsonPath('meta.total', 1);
+});
+
+it('multi-select filter unions the selected values (each element contributes)', function () {
+    // Seed statuses: active(2), inactive(1). Two assertions together prove a
+    // genuine OR-union rather than first-element-only truncation or a silent
+    // pass-through: active alone → 2 (≠ seed total 3, so it constrains), and
+    // adding inactive → 3. The 3-vs-2 delta shows the SECOND value genuinely
+    // contributes its own row (true union across two matching statuses).
+    $one = urlencode(json_encode(['status-in' => ['active']]));
+    $this->getJson("/martis/api/resources/filter-test-models?filters={$one}")
+        ->assertStatus(200)
+        ->assertJsonPath('meta.total', 2);
+
+    $two = urlencode(json_encode(['status-in' => ['active', 'inactive']]));
+    $this->getJson("/martis/api/resources/filter-test-models?filters={$two}")
+        ->assertStatus(200)
+        ->assertJsonPath('meta.total', 3);
+});
+
+it('multi-select filter with an empty array returns all records (guarded fixture)', function () {
+    // The `status-in` fixture self-guards with empty($value); this documents
+    // the guarded-consumer path. The central-skip guarantee is pinned
+    // separately by the unguarded fixture below.
+    $filters = urlencode(json_encode(['status-in' => []]));
+    $response = $this->getJson("/martis/api/resources/filter-test-models?filters={$filters}");
+
+    $response->assertStatus(200);
+    $response->assertJsonPath('meta.total', 3);
+});
+
+it('an UNGUARDED multi-select whereIn still constrains on a non-empty selection', function () {
+    // Sanity check that the unguarded fixture actually filters, so the
+    // empty-array assertion below is meaningful (not always-3).
+    $filters = urlencode(json_encode(['status-in-unguarded' => ['inactive']]));
+    $response = $this->getJson("/martis/api/resources/filter-test-models?filters={$filters}");
+
+    $response->assertStatus(200);
+    $response->assertJsonPath('meta.total', 1);
+});
+
+it('the request pipeline skips an empty multi-select array before apply() runs', function () {
+    // `status-in-unguarded`'s apply() is whereIn('status', (array) $value) with
+    // NO empty($value) guard. If ResourceController::applyFilters did not skip
+    // the empty array, apply() would compile whereIn('status', []) => WHERE 0=1
+    // => zero rows. Getting all 3 rows back proves the central skip ran; revert
+    // the `$value === []` clause and this assertion drops to 0 and fails.
+    $filters = urlencode(json_encode(['status-in-unguarded' => []]));
+    $response = $this->getJson("/martis/api/resources/filter-test-models?filters={$filters}");
+
+    $response->assertStatus(200);
+    $response->assertJsonPath('meta.total', 3);
+});
+
+it('schema serialises the multi-select filter type and searchable flag', function () {
+    $response = $this->getJson('/martis/api/resources/filter-test-models/schema');
+
+    $response->assertStatus(200);
+    $filters = collect($response->json('data.filters'));
+    $ms = $filters->firstWhere('uriKey', 'status-in');
+
+    expect($ms)->not->toBeNull();
+    expect($ms['filterType'])->toBe('multi-select');
+    expect($ms['meta']['searchable'])->toBeTrue();
 });
