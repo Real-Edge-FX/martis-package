@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.30.0] — 2026-07-14
+## [1.30.1] — 2026-07-15
+
+### Fixed
+
+- **Command palette "Recent" deep-linked shared-model records to the wrong resource.** When two resources share one Eloquent model (e.g. an Approval-Queue resource scoped to `pending` and a Processed resource scoped to `approved`/`indexed`, both on `Candidate`), `CommandPaletteController::recent()` reverse-mapped the event's `model_type` to a uriKey with a bare first-match over the registry — so it always picked the first-registered resource regardless of the record's status, and a processed record's Recent entry opened the Approval-Queue surface (wrong breadcrumb/header/filters; not a 404). The palette now loads the record (only when a model has 2+ registered resources; soft-deleted rows included via `withTrashed()` so a trashed record still resolves) and picks the first whose new **`Resource::matchesRecord(Model): bool`** hook returns `true`, falling back to the first-registered resource when the record is gone or none claims it. Override `matchesRecord()` on each competing resource to claim its records by status (see [Resources → `matchesRecord()`](docs/resources.md)); resources with a unique model are unaffected and pay no lookup cost. **`matchesRecord()` is added to `ResourceContract`** with a `true` default on the base `Resource` — a resource extending `Resource` inherits it; a consumer implementing `ResourceContract` directly must add it.
 
 ### Added
 

@@ -187,6 +187,32 @@ public function belongsToSystemSection(): bool { return true; }
 
 A System-section resource keeps `group() === null` — the sidebar buckets it under the **System** header, not a `group()` bucket. The command palette (⌘K) mirrors this: since **v1.29.3** it tags such resources with the same "System" label the sidebar uses, so the two surfaces agree (previously the palette showed no group tag for them).
 
+### Claim a record for reverse-mapping — `matchesRecord()`
+
+When **several resources share one Eloquent model** — e.g. an Approval-Queue resource scoped to `pending` records and a Processed resource scoped to `approved`/`indexed`, both on `App\Models\Candidate` — Martis sometimes needs to turn a model instance back into the resource surface it belongs to. The clearest case is the command palette's **Recent activity** deep-links: an event only carries `model_type` + `model_id`, so the palette must decide *which* of the sharing resources a record opens.
+
+By default a resource claims every record of its model (`matchesRecord()` returns `true`), and the **first-registered** resource wins — which is wrong when a second resource scopes the same model by status. Override `matchesRecord()` on each competing resource to claim its records:
+
+```php
+class CandidateResource extends Resource // uriKey: candidates (pending/failed)
+{
+    public function matchesRecord(Model $model): bool
+    {
+        return in_array($model->status, ['pending', 'failed'], true);
+    }
+}
+
+class ProcessedCandidatesResource extends CandidateResource // uriKey: processed-candidates
+{
+    public function matchesRecord(Model $model): bool
+    {
+        return in_array($model->status, ['approved', 'indexed', 'rejected', 'deleted'], true);
+    }
+}
+```
+
+Since **v1.30.1** the palette loads the record (only when a model has 2+ registered resources; soft-deleted rows are loaded with `withTrashed()`, so a trashed record still resolves) and picks the first whose `matchesRecord()` returns `true`, so a processed candidate deep-links to `/resources/processed-candidates/{id}` and a pending one to `/resources/candidates/{id}`. It falls back to the first-registered resource when the record is gone or none claims it. Resources with a unique model never pay the lookup cost.
+
 ### Custom search ordering — `searchOrderBy()`
 
 The global search applies `LIKE %term%` (or Scout) and returns the first N matches. Override `searchOrderBy()` to apply a custom `ORDER BY` to the search hits — for example, surface recently-active records first.
