@@ -7,11 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.0] — 2026-07-15
+
+### Added
+
+- **`MultiSelectFilter` — a searchable multi-value resource filter.** Resource filters could only offer a single-select (`SelectFilter`) or a list of toggles (`BooleanFilter`), so an "any of these N tags" facet was impossible natively. The new `Martis\Filters\MultiSelectFilter` (type `multi-select`) is a searchable dropdown whose selected value is an **array**; it mirrors `SelectFilter` (override `options()`, enable search with `->searchable()`) and typically applies via a `whereIn()` ANY-match. An empty selection carries no constraint and shows all records: the request pipeline skips empty-array filter values centrally (in `ResourceController::applyFilters`), so a `MultiSelectFilter` never has to guard against `whereIn('col', [])` compiling to `WHERE 0 = 1`. The React panel renders a PrimeReact MultiSelect (chips + search); a fully-deselected value (PrimeReact emits `[]`) clears the filter cleanly (no stale pill, no inflated active-count badge, no wasted request), and the active-filter pill maps selected values through the filter's options to their **labels** rather than showing raw slugs. See [Filters → MultiSelectFilter](docs/filters.md).
+
+### Fixed
+
+- **`Filter::componentKey()` was documented but ignored by the SPA.** The filter panel rendered every filter through the built-in controls and never resolved `filter.component`, so a filter's custom-component key was a no-op (unlike cards, metrics, and fields, which all resolve one). `FilterPanel` now resolves the key from the component registry and renders the custom component with a `{ filter, value, onChange }` contract, falling through to the native control when unset or unresolved. A consumer can now ship a bespoke filter control (a searchable multi-select, a range slider, etc.) from their extension bundle.
+- **Release process: the published SPA baked a stale version string.** `public/` was being rebuilt *before* the `package.json` version bump, so `window.Martis.version` (from `__MARTIS_VERSION__`, read from `package.json` at build time) lagged a release behind (v1.30.x shipped a bundle stamped `1.29.3`). The build now runs after the bump, so the shipped artifact's version matches the tag. Functional frontend code was always current; only the reported version label was stale.
+
 ## [1.30.1] — 2026-07-15
 
 ### Fixed
 
 - **Command palette "Recent" deep-linked shared-model records to the wrong resource.** When two resources share one Eloquent model (e.g. an Approval-Queue resource scoped to `pending` and a Processed resource scoped to `approved`/`indexed`, both on `Candidate`), `CommandPaletteController::recent()` reverse-mapped the event's `model_type` to a uriKey with a bare first-match over the registry — so it always picked the first-registered resource regardless of the record's status, and a processed record's Recent entry opened the Approval-Queue surface (wrong breadcrumb/header/filters; not a 404). The palette now loads the record (only when a model has 2+ registered resources; soft-deleted rows included via `withTrashed()` so a trashed record still resolves) and picks the first whose new **`Resource::matchesRecord(Model): bool`** hook returns `true`, falling back to the first-registered resource when the record is gone or none claims it. Override `matchesRecord()` on each competing resource to claim its records by status (see [Resources → `matchesRecord()`](docs/resources.md)); resources with a unique model are unaffected and pay no lookup cost. **`matchesRecord()` is added to `ResourceContract`** with a `true` default on the base `Resource` — a resource extending `Resource` inherits it; a consumer implementing `ResourceContract` directly must add it.
+
+## [1.30.0] — 2026-07-14
 
 ### Added
 
@@ -21,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Native date field in a drawer — two bugs.** (1) The PrimeReact datepicker rendered **behind** drawers/modals: the `martis.css` overlay z-index rule targeted the stale `.p-calendar-panel` class, not the current `.p-datepicker`, so the popup kept its base z-index and was occluded. Added `.p-datepicker` to the rule. (2) The field stored the **wrong day (off-by-one)** in timezones east of UTC — `DateFieldInput` serialised the picked local-midnight `Date` with `d.toISOString()`, shifting the day. Date-only handling now goes through a `formatLocalDate` / `parseLocalDate` pair (`resources/js/lib/localDate.ts`) used on write, read, and display, so the round-trip is timezone-stable everywhere; `parseLocalDate` also rejects out-of-range strings instead of silently rolling them over.
+
+## [1.29.3] — 2026-07-14
 
 ### Fixed
 

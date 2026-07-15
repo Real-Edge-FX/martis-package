@@ -7,6 +7,7 @@ use Martis\Enums\FilterType;
 use Martis\Filters\BooleanFilter;
 use Martis\Filters\DateFilter;
 use Martis\Filters\DateRangeFilter;
+use Martis\Filters\MultiSelectFilter;
 use Martis\Filters\SelectFilter;
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,19 @@ class TestRolesFilter extends BooleanFilter
         }
 
         return $query;
+    }
+}
+
+class TestTagsFilter extends MultiSelectFilter
+{
+    public function options(Request $request): array
+    {
+        return ['PHP' => 'php', 'Laravel' => 'laravel', 'Vue' => 'vue'];
+    }
+
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return empty($value) ? $query : $query->whereIn('tag', (array) $value);
     }
 }
 
@@ -104,6 +118,25 @@ it('SelectFilter toArray includes all required keys', function () {
         ->and($arr['type'])->toBe('filter')
         ->and($arr['filterType'])->toBe('select')
         ->and($arr['default'])->toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// MultiSelectFilter
+// ---------------------------------------------------------------------------
+
+it('MultiSelectFilter reports the multi-select type and serialises it', function () {
+    $filter = TestTagsFilter::make('Tags');
+
+    expect($filter->filterType())->toBe(FilterType::MultiSelect)
+        ->and($filter->toArray()['filterType'])->toBe('multi-select');
+});
+
+it('MultiSelectFilter inherits searchable + options from SelectFilter', function () {
+    $filter = TestTagsFilter::make('Tags')->searchable();
+    $filter->resolveForSchema(Request::create('/'));
+
+    expect($filter->meta()['searchable'])->toBeTrue()
+        ->and($filter->toArray()['options'])->toHaveCount(3);
 });
 
 // ---------------------------------------------------------------------------

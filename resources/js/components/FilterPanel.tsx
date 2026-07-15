@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Dropdown } from 'primereact/dropdown'
+import { MultiSelect } from 'primereact/multiselect'
 import { Calendar } from 'primereact/calendar'
 import { getCalendarLocale } from '@/lib/calendarLocale'
 import { InputSwitch } from 'primereact/inputswitch'
 import { FunnelIcon, XIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
+import { componentRegistry } from '@/lib/componentRegistry'
 import type { FilterDefinition, ActiveFilters } from '@/types'
 
 interface FilterPanelProps {
@@ -27,13 +29,25 @@ interface FilterPanelProps {
 }
 
 /**
+ * A filter value counts as "cleared" (no active filter) when it is null,
+ * undefined, an empty string, or an empty array. PrimeReact's MultiSelect
+ * emits `[]` on clear / deselect-all, so multi-select filters must treat the
+ * empty array as cleared. Otherwise a stale chip, an inflated badge, and a
+ * wasted round-trip survive a full deselect. Single-select Dropdown emits
+ * null, so it was already covered by the scalar checks.
+ */
+function isBlankFilterValue(v: unknown): boolean {
+  return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+}
+
+/**
  * Compute default filter values from schema definitions.
  * Called once on initial load to pre-populate filters that have defaults.
  */
 function computeDefaults(filters: FilterDefinition[]): ActiveFilters {
   const defaults: ActiveFilters = {}
   for (const filter of filters) {
-    if (filter.default !== null && filter.default !== undefined && filter.default !== '') {
+    if (!isBlankFilterValue(filter.default)) {
       defaults[filter.uriKey] = filter.default
     }
   }
@@ -72,14 +86,12 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
     defaultsApplied.current = false
   }, [filters])
 
-  const activeCount = Object.values(value).filter(
-    (v) => v !== null && v !== undefined && v !== '',
-  ).length
+  const activeCount = Object.values(value).filter((v) => !isBlankFilterValue(v)).length
 
   const handleChange = (uriKey: string, filterValue: unknown) => {
     const next = { ...value, [uriKey]: filterValue }
 
-    if (filterValue === null || filterValue === undefined || filterValue === '') {
+    if (isBlankFilterValue(filterValue)) {
       delete next[uriKey]
     }
 
@@ -96,10 +108,7 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
 
   // Build the active filter entries for pills
   const activeEntries = filters
-    .filter((f) => {
-      const v = value[f.uriKey]
-      return v !== null && v !== undefined && v !== ''
-    })
+    .filter((f) => !isBlankFilterValue(value[f.uriKey]))
     .map((f) => ({
       filter: f,
       displayValue: formatFilterValue(f, value[f.uriKey]),
@@ -210,6 +219,15 @@ function formatFilterValue(filter: FilterDefinition, rawValue: unknown): string 
       const opt = filter.options.find((o) => String(o.value) === String(rawValue))
       return opt ? opt.label : String(rawValue)
     }
+    case 'multi-select': {
+      const values = Array.isArray(rawValue) ? rawValue : [rawValue]
+      return values
+        .map((val) => {
+          const opt = filter.options.find((o) => String(o.value) === String(val))
+          return opt ? opt.label : String(val)
+        })
+        .join(', ')
+    }
     case 'boolean': {
       if (typeof rawValue !== 'object' || rawValue === null) return ''
       const entries = Object.entries(rawValue as Record<string, boolean>).filter(([, v]) => v)
@@ -276,6 +294,22 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
     }
   })
 
+  // A filter can opt into a custom React control via `componentKey()` on the
+  // PHP side (mirrors cards / metrics / fields). Resolve it from the registry
+  // and render it with the same { filter, value, onChange } contract as the
+  // native controls. Falls through to the native switch when unset/unresolved.
+  if (filter.component) {
+    const Custom = componentRegistry.resolve(filter.component)
+    if (Custom) {
+      const C = Custom as React.ComponentType<{ filter: FilterDefinition; value: unknown; onChange: (value: unknown) => void }>
+      return (
+        <div ref={wrapperRef}>
+          <C filter={filter} value={value} onChange={onChange} />
+        </div>
+      )
+    }
+  }
+
   switch (filter.filterType) {
     case 'select': {
       const hasGroups = filter.options.some((o) => o.group)
@@ -301,6 +335,37 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
             showClear
             placeholder={filter.placeholder ?? filter.name}
             filter={!!filter.meta?.searchable}
+            className="w-full martis-filter-dropdown"
+          />
+        </div>
+      )
+    }
+
+    case 'multi-select': {
+      const hasGroups = filter.options.some((o) => o.group)
+
+      const multiselectProps = hasGroups
+        ? {
+            options: groupOptions(filter.options),
+            optionLabel: 'label' as const,
+            optionValue: 'value' as const,
+            optionGroupLabel: 'label',
+            optionGroupChildren: 'items',
+          }
+        : {
+            options: filter.options.map((o) => ({ label: o.label, value: o.value })),
+          }
+
+      return (
+        <div ref={wrapperRef}>
+          <MultiSelect
+            value={Array.isArray(value) ? value : []}
+            {...multiselectProps}
+            onChange={(e) => onChange(e.value)}
+            filter={!!filter.meta?.searchable}
+            display="chip"
+            showClear
+            placeholder={filter.placeholder ?? filter.name}
             className="w-full martis-filter-dropdown"
           />
         </div>

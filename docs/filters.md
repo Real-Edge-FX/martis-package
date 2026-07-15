@@ -81,6 +81,41 @@ public function options(Request $request): array
 SelectFilter::make('Country')->searchable()
 ```
 
+### MultiSelectFilter
+
+> Since **v1.31.0**.
+
+A searchable dropdown that lets users pick **multiple** values — an "any of these" facet (e.g. a growing set of tags). The selected value is an **array** of the chosen `value`s, so `apply()` is typically a `whereIn()` (ANY-match). Mirrors `SelectFilter` (override `options()`, enable search with `->searchable()`); the React side renders a PrimeReact MultiSelect.
+
+Martis skips empty selections before `apply()` runs — an empty array carries no constraint, so it shows all records — which means you never have to guard against `whereIn('col', [])` compiling to `WHERE 0 = 1`. Add your own `empty($value)` guard only if you call `apply()` directly outside the request pipeline.
+
+```php
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Martis\Filters\MultiSelectFilter;
+
+class TagsFilter extends MultiSelectFilter
+{
+    public function options(Request $request): array
+    {
+        return ['PHP' => 'php', 'Laravel' => 'laravel', 'Vue' => 'vue'];
+    }
+
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return $query->whereHas('tags', fn ($q) => $q->whereIn('slug', (array) $value));
+    }
+}
+```
+
+```php
+// in the resource
+public function filters(Request $request): array
+{
+    return [TagsFilter::make('Tags')->searchable()];
+}
+```
+
 ### BooleanFilter
 
 A multi-toggle filter that lets users enable or disable multiple conditions.
@@ -285,10 +320,19 @@ SelectFilter::make('Status')->withMeta(['placeholder' => 'Choose a status...'])
 
 ## Custom Component
 
-Override the default frontend component with `componentKey()`:
+Override the default frontend control with `componentKey()`. Since **v1.31.0** the filter panel resolves the key from the component registry (mirroring cards, metrics, and fields) and renders your component with a `{ filter, value, onChange }` contract; register it from your consumer-extension bundle (`resources/js/martis-extensions/`). Before v1.31.0 the key was serialized but the SPA ignored it.
 
 ```php
 SelectFilter::make('Status')->componentKey('my-custom-filter')
+```
+
+```tsx
+// resources/js/martis-extensions/filters/MyCustomFilter.tsx
+export default function MyCustomFilter({ filter, value, onChange }: {
+  filter: FilterDefinition; value: unknown; onChange: (value: unknown) => void
+}) {
+  // render any control; call onChange(newValue) to update the active filter
+}
 ```
 
 ## Filter Grid Layout (span)
