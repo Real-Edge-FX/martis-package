@@ -2,6 +2,8 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -201,7 +203,7 @@ class CommandPaletteController extends MartisController
         }
 
         return $rows->map(function (ActionEvent $e) {
-            $uriKey = $this->uriKeyForModelType((string) $e->model_type);
+            $uriKey = $this->resolveUriKeyForRecord((string) $e->model_type, $e->model_id);
 
             return [
                 'key' => (int) $e->id,
@@ -217,21 +219,66 @@ class CommandPaletteController extends MartisController
         })->values()->all();
     }
 
-    /** Resolve the resource uriKey for an Eloquent class name, or null if
-     *  the model isn't registered with Martis (resource deleted, polymorphic
-     *  target, etc.). */
-    private function uriKeyForModelType(string $modelType): ?string
+    /**
+     * Resolve the resource uriKey for an event's subject, or null when the
+     * model isn't registered with Martis (resource deleted, polymorphic
+     * target, etc.).
+     *
+     * When SEVERAL registered resources share the same Eloquent model (e.g. an
+     * Approval-Queue resource scoped to `pending` and a Processed resource
+     * scoped to `approved`/`indexed`, both on `Candidate`), a bare first-match
+     * would always pick the first-registered resource — so a processed record's
+     * Recent deep-link would open the wrong surface. Disambiguate by loading
+     * the record and asking each candidate resource whether it owns it
+     * (`matchesRecord()`), in registration order. Falls back to the
+     * first-registered resource when the record is gone or none claims it.
+     *
+     * @param  mixed  $modelId
+     */
+    private function resolveUriKeyForRecord(string $modelType, $modelId): ?string
     {
         if ($modelType === '') {
             return null;
         }
 
+        /** @var list<class-string<resource>> $matches */
+        $matches = [];
         foreach ($this->registry->list() as $class) {
             if ($class::model() === $modelType) {
-                return $class::uriKey();
+                $matches[] = $class;
             }
         }
 
-        return null;
+        if ($matches === []) {
+            return null;
+        }
+
+        // Fast path: exactly one resource owns this model — no record load.
+        if (count($matches) === 1) {
+            return $matches[0]::uriKey();
+        }
+
+        if ($modelId !== null && is_a($modelType, Model::class, true)) {
+            $query = $modelType::query();
+            // Include soft-deleted rows: a `candidate.deleted`-style record whose
+            // resource shows trashed items must still resolve to the right
+            // surface (the default scope would hide it and force a first-match).
+            if (in_array(SoftDeletes::class, class_uses_recursive($modelType), true)) {
+                /** @phpstan-ignore method.notFound */
+                $query = $query->withTrashed();
+            }
+
+            /** @var Model|null $model */
+            $model = $query->whereKey($modelId)->first();
+            if ($model !== null) {
+                foreach ($matches as $class) {
+                    if ((new $class)->matchesRecord($model)) {
+                        return $class::uriKey();
+                    }
+                }
+            }
+        }
+
+        return $matches[0]::uriKey();
     }
 }

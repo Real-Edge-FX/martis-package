@@ -74,6 +74,20 @@ interface ResourceContract
      */
     public function belongsToSystemSection(): bool;
 
+    /**
+     * Whether this resource "owns" the given record for reverse-mapping — i.e.
+     * turning a model instance back into the resource surface it belongs to
+     * (used by the command palette's Recent deep-links).
+     *
+     * Only consulted when SEVERAL registered resources share one Eloquent
+     * model (e.g. an Approval-Queue resource scoped to `pending` records and a
+     * Processed resource scoped to `approved`/`indexed`, both on `Candidate`).
+     * Override on each competing resource to claim its records by status, so a
+     * record deep-links to the right surface instead of the first-registered
+     * one. Default: true (the resource claims every record of its model).
+     */
+    public function matchesRecord(Model $model): bool;
+
     /** Build the default menu item for this resource. */
     public function menuItem(Request $request): MenuItem;
 

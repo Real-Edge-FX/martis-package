@@ -1077,6 +1077,12 @@ abstract class Resource implements ResourceContract
     }
 
     /** {@inheritdoc} */
+    public function matchesRecord(Model $model): bool
+    {
+        return true;
+    }
+
+    /** {@inheritdoc} */
     public function menuItem(Request $request): MenuItem
     {
         return MenuItem::resource(static::class);
