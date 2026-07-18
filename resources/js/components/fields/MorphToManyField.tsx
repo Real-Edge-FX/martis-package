@@ -14,6 +14,7 @@ import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGl
 import { EditPivotModal } from './BelongsToManyField'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { recordHref } from '@/lib/recordHref'
+import { pivotRowActions } from '@/lib/relationRowActions'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -156,8 +157,13 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
   }, {})
 
   const showAttachButton = !readOnly && !!meta?.canAttach && !meta?.hideCreateButton
-  const showEditPivot = !readOnly && pivotFields.length > 0 && !meta?.hideEditAction
-  const showDetach = !readOnly && !!meta?.canDetach && !meta?.hideDeleteAction
+  const { showEditPivot, showDetach, hasAny: showRowActionsExtras } = pivotRowActions({
+    readOnly,
+    pivotFieldsCount: pivotFields.length,
+    canDetach: !!meta?.canDetach,
+    hideEditAction: !!meta?.hideEditAction,
+    hideDeleteAction: !!meta?.hideDeleteAction,
+  })
 
   return (
     <>
@@ -265,7 +271,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
             )}
           </>
         )}
-        rowActionsExtras={(row) => (
+        rowActionsExtras={showRowActionsExtras ? (row) => (
           <>
             {showEditPivot && (
               <button
@@ -307,7 +313,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
               </button>
             )}
           </>
-        )}
+        ) : undefined}
       />
 
       {/* Detach confirmation */}
