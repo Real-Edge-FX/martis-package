@@ -100,6 +100,10 @@ narrow tab wraps even when the window is wide.
    column reads its value from `row._pivot.{attribute}`.
 5. **Actions column** — View / Edit / Delete, plus Restore and Force-delete
    on trashed rows, plus any `rowActionsExtras(row)` the consumer returns.
+   The column **auto-collapses** when a row would render **zero** actions: a
+   fully read-only panel (all row actions hidden/unauthorized, and for pivot
+   relations `canAttach(false)` + `canDetach(false)` with no pivot editing)
+   renders no trailing "Actions" header or empty cells. Since **v1.31.1**.
 
 Trashed rows are rendered with `opacity-60` and swap Edit/Delete for
 Restore + Force-delete (icons only; confirmation modals are handled by the

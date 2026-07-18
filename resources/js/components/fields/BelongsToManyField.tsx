@@ -10,6 +10,7 @@ import { Pagination } from '@/components/Pagination'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { pivotRowActions } from '@/lib/relationRowActions'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/contexts/ToastContext'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
@@ -157,8 +158,13 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   }, {})
 
   const showAttachButton = !readOnly && !!meta?.canAttach && !meta?.hideCreateButton
-  const showEditPivot = !readOnly && pivotFields.length > 0 && !meta?.hideEditAction
-  const showDetach = !readOnly && !!meta?.canDetach && !meta?.hideDeleteAction
+  const { showEditPivot, showDetach, hasAny: showRowActionsExtras } = pivotRowActions({
+    readOnly,
+    pivotFieldsCount: pivotFields.length,
+    canDetach: !!meta?.canDetach,
+    hideEditAction: !!meta?.hideEditAction,
+    hideDeleteAction: !!meta?.hideDeleteAction,
+  })
 
   return (
     <>
@@ -267,7 +273,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
             )}
           </>
         )}
-        rowActionsExtras={(row) => (
+        rowActionsExtras={showRowActionsExtras ? (row) => (
           <>
             {showEditPivot && (
               <button
@@ -309,7 +315,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
               </button>
             )}
           </>
-        )}
+        ) : undefined}
       />
 
       {/* Detach confirmation */}
