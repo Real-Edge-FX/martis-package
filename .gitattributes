@@ -27,6 +27,8 @@
 /phpstan.neon          export-ignore
 /phpstan.neon.dist     export-ignore
 /pint.json             export-ignore
+/.docker               export-ignore
+/scripts               export-ignore
 /.codex                export-ignore
 /.claude               export-ignore
 /.idea                 export-ignore
