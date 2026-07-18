@@ -109,6 +109,63 @@ it('POST /martis/login without keep_signed_in does not issue a remember-me token
     expect($user->fresh()->remember_token)->toBeNull();
 });
 
+// The SPA only ever posts to /api/auth/login (AuthController::login). It must
+// honour "Keep me signed in" exactly like the non-SPA /login path above, or the
+// default-checked toggle is a silent no-op and users are logged out after
+// SESSION_LIFETIME despite asking to stay signed in.
+it('POST /martis/api/auth/login with keep_signed_in issues the remember-me token AND cookie', function () {
+    $user = makeAuthUser('api-remember@example.com', 'mypassword');
+    expect($user->remember_token)->toBeNull();
+
+    $response = $this->postJson('/martis/api/auth/login', [
+        'email' => 'api-remember@example.com',
+        'password' => 'mypassword',
+        'keep_signed_in' => true,
+    ]);
+
+    $response->assertStatus(200);
+    $this->assertAuthenticatedAs($user);
+    // attempt($creds, true) persists a remember_token AND queues the
+    // long-lived remember cookie (remember_web_<hash>). Assert BOTH: the
+    // persisted token is the DB side, the cookie is what actually keeps the
+    // browser signed in past config('session.lifetime') — the real symptom.
+    expect($user->fresh()->remember_token)->not->toBeNull();
+    $recaller = auth()->guard(config('martis.guard'))->getRecallerName();
+    $response->assertCookie($recaller);
+});
+
+it('POST /martis/api/auth/login without keep_signed_in issues no remember-me token or cookie', function () {
+    $user = makeAuthUser('api-noremember@example.com', 'mypassword');
+
+    $response = $this->postJson('/martis/api/auth/login', [
+        'email' => 'api-noremember@example.com',
+        'password' => 'mypassword',
+    ]);
+    $response->assertStatus(200);
+
+    $this->assertAuthenticatedAs($user);
+    expect($user->fresh()->remember_token)->toBeNull();
+    $response->assertCookieMissing(auth()->guard(config('martis.guard'))->getRecallerName());
+});
+
+it('POST /martis/api/auth/login with keep_signed_in=false issues no remember-me token or cookie', function () {
+    // The SPA sends the toggle state explicitly (AuthContext posts
+    // keep_signed_in: <state>), so an unchecked toggle arrives as `false`,
+    // not an omitted field — assert that realistic path leaves no remember.
+    $user = makeAuthUser('api-falseremember@example.com', 'mypassword');
+
+    $response = $this->postJson('/martis/api/auth/login', [
+        'email' => 'api-falseremember@example.com',
+        'password' => 'mypassword',
+        'keep_signed_in' => false,
+    ]);
+    $response->assertStatus(200);
+
+    $this->assertAuthenticatedAs($user);
+    expect($user->fresh()->remember_token)->toBeNull();
+    $response->assertCookieMissing(auth()->guard(config('martis.guard'))->getRecallerName());
+});
+
 it('POST /martis/login with invalid credentials returns error', function () {
     makeAuthUser('wrong@example.com', 'correctpassword');
 

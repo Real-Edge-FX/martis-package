@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.1] — 2026-07-18
+
+### Fixed
+
+- **SPA login ignored "Keep me signed in", so it never persisted.** The React app's only login call targets `POST /api/auth/login` (`AuthController::login`), which validated **only** email + password and called `attempt()` without the `$remember` argument — so Laravel issued no `remember_web_*` cookie and the session died after `config('session.lifetime')`, logging the user out despite the toggle (which the login page renders **checked by default**). The sibling non-SPA `LoginController::login` already did it right, so the package was internally inconsistent. Both controllers now route credential validation and the authentication attempt through a shared `AuthenticatesWithRememberMe` trait (`loginRules()` + `attemptLogin()`), so `keep_signed_in` is honoured on every login path and the two cannot diverge again. No frontend change (the SPA already sent the flag); 2FA and email-verification gating are unchanged. Backend-only, no asset rebuild.
+
 ## [1.31.0] — 2026-07-15
 
 ### Added

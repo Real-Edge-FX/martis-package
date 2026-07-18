@@ -15,11 +15,14 @@ use Illuminate\Validation\ValidationException;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsPasswordResetLinks;
+use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 
 class AuthController extends MartisController
 {
+    use AuthenticatesWithRememberMe;
+
     /**
      * Return the currently authenticated user.
      *
@@ -104,10 +107,7 @@ class AuthController extends MartisController
      */
     public function login(Request $request): JsonResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $request->validate($this->loginRules());
 
         /** @var string|null $guardName */
         $guardName = config('martis.guard');
@@ -115,7 +115,7 @@ class AuthController extends MartisController
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
 
-        if (! $auth->attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
+        if (! $this->attemptLogin($auth, $request)) {
             return response()->json([
                 'message' => __('auth.failed'),
                 'errors' => ['email' => [__('auth.failed')]],
