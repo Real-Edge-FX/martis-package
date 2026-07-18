@@ -9,9 +9,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 
 class LoginController extends MartisController
 {
+    use AuthenticatesWithRememberMe;
+
     /** Render the login page, or redirect to dashboard if already authenticated. */
     public function showLoginForm(): Response|RedirectResponse
     {
@@ -31,16 +34,7 @@ class LoginController extends MartisController
     /** Validate credentials, authenticate the user, and regenerate the session. */
     public function login(Request $request): JsonResponse|RedirectResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-            'keep_signed_in' => ['sometimes', 'boolean'],
-        ]);
-
-        // "Keep me signed in" — when set, forward it to attempt() so Laravel
-        // issues the long-lived remember-me cookie. Without this the session
-        // only lives for config('session.lifetime') and the toggle is a no-op.
-        $remember = $request->boolean('keep_signed_in');
+        $request->validate($this->loginRules());
 
         /** @var string|null $guardName */
         $guardName = config('martis.guard');
@@ -48,7 +42,11 @@ class LoginController extends MartisController
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
 
-        if (! $auth->attempt(['email' => $credentials['email'], 'password' => $credentials['password']], $remember)) {
+        // "Keep me signed in" — attemptLogin() forwards the toggle to attempt()
+        // so Laravel issues the long-lived remember-me cookie. Without it the
+        // session only lives for config('session.lifetime') and the toggle is
+        // a no-op. Shared with AuthController so the two cannot diverge again.
+        if (! $this->attemptLogin($auth, $request)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => __('auth.failed'),

@@ -109,6 +109,55 @@ it('POST /martis/login without keep_signed_in does not issue a remember-me token
     expect($user->fresh()->remember_token)->toBeNull();
 });
 
+// The SPA only ever posts to /api/auth/login (AuthController::login). It must
+// honour "Keep me signed in" exactly like the non-SPA /login path above, or the
+// default-checked toggle is a silent no-op and users are logged out after
+// SESSION_LIFETIME despite asking to stay signed in.
+it('POST /martis/api/auth/login with keep_signed_in issues the remember-me token', function () {
+    $user = makeAuthUser('api-remember@example.com', 'mypassword');
+    expect($user->remember_token)->toBeNull();
+
+    $response = $this->postJson('/martis/api/auth/login', [
+        'email' => 'api-remember@example.com',
+        'password' => 'mypassword',
+        'keep_signed_in' => true,
+    ]);
+
+    $response->assertStatus(200);
+    $this->assertAuthenticatedAs($user);
+    // attempt($creds, true) persists a remember_token and queues the
+    // long-lived remember cookie — the signal that the toggle was honoured.
+    expect($user->fresh()->remember_token)->not->toBeNull();
+});
+
+it('POST /martis/api/auth/login without keep_signed_in does not issue a remember-me token', function () {
+    $user = makeAuthUser('api-noremember@example.com', 'mypassword');
+
+    $this->postJson('/martis/api/auth/login', [
+        'email' => 'api-noremember@example.com',
+        'password' => 'mypassword',
+    ])->assertStatus(200);
+
+    $this->assertAuthenticatedAs($user);
+    expect($user->fresh()->remember_token)->toBeNull();
+});
+
+it('POST /martis/api/auth/login with keep_signed_in=false does not issue a remember-me token', function () {
+    // The SPA sends the toggle state explicitly (AuthContext posts
+    // keep_signed_in: <state>), so an unchecked toggle arrives as `false`,
+    // not an omitted field — assert that realistic path leaves no remember.
+    $user = makeAuthUser('api-falseremember@example.com', 'mypassword');
+
+    $this->postJson('/martis/api/auth/login', [
+        'email' => 'api-falseremember@example.com',
+        'password' => 'mypassword',
+        'keep_signed_in' => false,
+    ])->assertStatus(200);
+
+    $this->assertAuthenticatedAs($user);
+    expect($user->fresh()->remember_token)->toBeNull();
+});
+
 it('POST /martis/login with invalid credentials returns error', function () {
     makeAuthUser('wrong@example.com', 'correctpassword');
 

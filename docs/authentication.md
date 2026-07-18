@@ -20,9 +20,12 @@ Content-Type: application/json
 
 {
     "email": "admin@example.com",
-    "password": "secret"
+    "password": "secret",
+    "keep_signed_in": true
 }
 ```
+
+`keep_signed_in` is optional (defaults to `false` when omitted). When `true`, the login issues Laravel's long-lived remember-me cookie (`remember_web_*`) so the session survives past `config('session.lifetime')`; the login page renders the "Keep me signed in on this device" toggle checked by default. Both the SPA endpoint above and the non-SPA `POST /{martis-path}/login` share the same handling (v1.31.1+).
 
 **Responses:**
 
