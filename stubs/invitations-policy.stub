@@ -40,9 +40,15 @@ class {{ class }}
         return $this->isAdmin($user);
     }
 
+    /**
+     * Always false: invitations are ISSUED through the `InviteUser`
+     * standalone action (which runs the InvitationManager to mint a
+     * token), never the generic resource create form — that form has no
+     * token field and would violate the NOT-NULL unique `token` column.
+     */
     public function create({{ userModelClass }} $user): bool
     {
-        return $this->isAdmin($user);
+        return false;
     }
 
     public function update({{ userModelClass }} $user, Invitation $invitation): bool

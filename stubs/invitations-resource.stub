@@ -65,8 +65,20 @@ class {{ class }} extends Resource
     }
 
     /**
-     * Hide the whole resource (sidebar + routes) when invitations are
-     * disabled. Flip `MARTIS_INVITATIONS_ENABLED=true` to surface it.
+     * Kill the routable surface (index/detail/create endpoints, global
+     * search, command palette) when invitations are disabled — this is
+     * the real gate, mirroring the 503 the accept side returns. Flip
+     * `MARTIS_INVITATIONS_ENABLED=true` to surface it.
+     */
+    public static function routable(): bool
+    {
+        return (bool) config('martis.invitations.enabled', false);
+    }
+
+    /**
+     * Belt-and-suspenders for the sidebar: `routable()` already excludes
+     * this resource from navigation, but keep the explicit override so a
+     * consumer who re-enables routing still controls sidebar visibility.
      */
     public static function displayInNavigation(): bool
     {

@@ -121,22 +121,30 @@ it('scaffolds the six consumer-owned files and publishes the migration', functio
     // The migration is published exactly once.
     expect(invitationsMigrationFiles())->toHaveCount(1);
 
-    // Resource shape: System section, config-gated visibility, wires the actions.
+    // Resource shape: System section, config-gated routing + visibility, wires the actions.
     $resource = (string) file_get_contents(app_path('Martis/Resources/InvitationResource.php'));
     expect($resource)->toContain('belongsToSystemSection')
         ->toContain('return true')
+        ->toContain('public static function routable()')
         ->toContain("config('martis.invitations.enabled')")
         ->toContain('Martis\\Invitations\\Invitation')
         ->toContain('InviteUser')
         ->toContain('ResendInvitation')
         ->toContain('RevokeInvitation');
 
-    // Invite action: manager call + notification + gate.
+    // Invite action: manager call + notification + gate, and the action is
+    // itself gated on the enabled flag (default-off issuing side).
     $invite = (string) file_get_contents(app_path('Martis/Resources/Actions/InviteUser.php'));
     expect($invite)->toContain('InvitationManager')
         ->toContain('->invite(')
         ->toContain('UserInvitation')
-        ->toContain('martis-invite');
+        ->toContain('martis-invite')
+        ->toContain("config('martis.invitations.enabled', false)");
+
+    // Policy: the generic create form is closed — invitations are issued
+    // via the InviteUser action, never a form that lacks the token field.
+    $policyCreate = (string) file_get_contents(app_path('Policies/InvitationPolicy.php'));
+    expect($policyCreate)->toMatch('/function create\([^)]*\)\s*:\s*bool\s*\{\s*return false;/');
 
     $resend = (string) file_get_contents(app_path('Martis/Resources/Actions/ResendInvitation.php'));
     expect($resend)->toContain('->resend(')
@@ -158,6 +166,39 @@ it('scaffolds the six consumer-owned files and publishes the migration', functio
     $authProvider = (string) file_get_contents(app_path('Providers/AuthServiceProvider.php'));
     expect($authProvider)->toContain('InvitationPolicy::class')
         ->toContain('martis:invitations policy');
+});
+
+it('scaffolds a default-off resource whose routable() follows config(martis.invitations.enabled)', function () {
+    $this->artisan('martis:invitations', [
+        '--namespace' => 'App\\Martis\\Resources',
+        '--no-install' => true,
+        '--no-migrate' => true,
+    ])->run();
+
+    $resourcePath = app_path('Martis/Resources/InvitationResource.php');
+    expect(file_exists($resourcePath))->toBeTrue("missing {$resourcePath}");
+
+    // Load the generated class and exercise the *real* static method,
+    // rather than string-matching the file. `routable()` reads config at
+    // call time, so toggling the flag must flip the return value.
+    $fqcn = 'App\\Martis\\Resources\\InvitationResource';
+
+    if (! class_exists($fqcn, false)) {
+        require $resourcePath;
+    }
+
+    // Default (feature off): the resource is NOT routable — its
+    // index/detail/create endpoints 404 and it never reaches the command
+    // palette or global search. This is the issuing-side mirror of the
+    // 503 the accept side returns.
+    config(['martis.invitations.enabled' => false]);
+    expect($fqcn::routable())->toBeFalse('routable() must be false when invitations are disabled');
+    expect($fqcn::displayInNavigation())->toBeFalse('sidebar must stay hidden when invitations are disabled');
+
+    // Flip the flag: the whole surface comes alive.
+    config(['martis.invitations.enabled' => true]);
+    expect($fqcn::routable())->toBeTrue('routable() must be true when invitations are enabled');
+    expect($fqcn::displayInNavigation())->toBeTrue('sidebar must appear when invitations are enabled');
 });
 
 it('emits zero "tenant" language across the generated files', function () {

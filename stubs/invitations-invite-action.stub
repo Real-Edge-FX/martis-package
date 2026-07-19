@@ -46,12 +46,22 @@ class InviteUser extends Action
 
     public function authorizedToSee(Request $request): bool
     {
-        return Gate::allows('martis-invite');
+        return $this->invitationsEnabled() && Gate::allows('martis-invite');
     }
 
     public function authorizedToRun(Request $request, Model $model): bool
     {
-        return Gate::allows('martis-invite');
+        return $this->invitationsEnabled() && Gate::allows('martis-invite');
+    }
+
+    /**
+     * The action never shows or runs while invitations are disabled,
+     * mirroring the 503 the accept side returns — the `martis-invite`
+     * Gate governs *who* may invite once the feature is on.
+     */
+    private function invitationsEnabled(): bool
+    {
+        return (bool) config('martis.invitations.enabled', false);
     }
 
     /**
