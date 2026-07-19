@@ -119,6 +119,52 @@ class InvitationManager
     }
 
     /**
+     * Re-issue a fresh raw token for a still-pending invitation, throttled
+     * to prevent notification spam. Repeated calls inside
+     * `resend_throttle_seconds` of the invitation's last `updated_at`
+     * throw {@see InvalidInvitationException} instead of silently no-oping,
+     * so a caller (e.g. a controller) can surface the throttle as an error.
+     * On success only the hash is persisted; the new raw token is set as a
+     * transient in-memory property for the caller to re-send.
+     *
+     * @throws InvalidInvitationException
+     */
+    public function resend(Invitation $invitation): void
+    {
+        if ($invitation->status !== Invitation::STATUS_PENDING) {
+            throw new InvalidInvitationException;
+        }
+
+        $throttleSeconds = (int) config('martis.invitations.resend_throttle_seconds', 60);
+
+        if ($invitation->updated_at !== null && $invitation->updated_at->diffInSeconds(now()) < $throttleSeconds) {
+            throw new InvalidInvitationException;
+        }
+
+        $raw = $this->generateRawToken();
+
+        $invitation->forceFill(['token' => $this->hashToken($raw)])->save();
+
+        $invitation->rawToken = $raw; // transient, in-memory only, for the notification URL
+    }
+
+    /**
+     * Revoke a still-pending invitation, permanently blocking accept().
+     *
+     * @throws InvalidInvitationException
+     */
+    public function revoke(Invitation $invitation): void
+    {
+        if ($invitation->status !== Invitation::STATUS_PENDING) {
+            throw new InvalidInvitationException;
+        }
+
+        $invitation->forceFill(['status' => Invitation::STATUS_REVOKED])->save();
+
+        // TODO(Task 7): event(new \Martis\Invitations\Events\InvitationRevoked($invitation));
+    }
+
+    /**
      * Create the user for an accepted invitation. The ONLY override seam.
      *
      * The default delegates to the shared {@see RegistersUsers} pipeline so

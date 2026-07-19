@@ -183,3 +183,27 @@ it('accept() assigns the invitation role through the user model assignRole()', f
     expect($user)->toBeInstanceOf(RecordingRoleUser::class);
     expect($user->assignedRoles)->toBe(['editor']);
 });
+
+// -----------------------------------------------------------------------------
+// resend() (throttled) + revoke() (Task 6). resend() re-issues a fresh raw
+// token/hash on a pending invitation and throttles repeat calls via
+// updated_at; revoke() flips a pending invitation to revoked. The
+// InvitationRevoked event dispatch is commented out pending Task 7.
+// -----------------------------------------------------------------------------
+
+it('resend() re-issues a fresh token and throttles', function () {
+    $mgr = app(InvitationManager::class);
+    $inv = $mgr->invite('re@ex.com');
+    $old = $inv->token;
+    $inv->forceFill(['updated_at' => now()->subMinutes(5)])->save();
+    $mgr->resend($inv->refresh());
+    expect($inv->refresh()->token)->not->toBe($old);
+    $mgr->resend($inv->refresh()); // immediately again -> throttled
+})->throws(InvalidInvitationException::class);
+
+it('revoke() marks the invitation revoked', function () {
+    $mgr = app(InvitationManager::class);
+    $inv = $mgr->invite('rev@ex.com');
+    $mgr->revoke($inv);
+    expect($inv->refresh()->status)->toBe(Invitation::STATUS_REVOKED);
+});
