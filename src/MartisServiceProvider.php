@@ -80,7 +80,9 @@ use Martis\Impersonation\ImpersonationManager;
 use Martis\Invitations\Events\InvitationAccepted;
 use Martis\Invitations\Events\InvitationCreated;
 use Martis\Invitations\Events\InvitationRevoked;
+use Martis\Invitations\Invitation;
 use Martis\Invitations\InvitationManager;
+use Martis\Invitations\InvitationUrl;
 use Martis\Invitations\Listeners\RecordInvitation;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
@@ -185,6 +187,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
         $this->registerEmailVerificationUrl();
+        $this->registerInvitationAcceptUrl();
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
         $this->registerOctanePolicyCacheFlush();
@@ -612,6 +615,33 @@ class MartisServiceProvider extends ServiceProvider
                     'hash' => sha1($emailForVerification),
                 ]
             );
+        });
+    }
+
+    /**
+     * Seed the default accept-URL builder for invitation notifications
+     * (Task 10 ships the notification itself; this task only prepares
+     * the seam it will call). Mirrors `registerPasswordResetUrl()`'s
+     * idiom: a static, overridable callback so a host app can point
+     * invite links at a different domain without touching
+     * `InvitationManager`. Skipped when invitations are disabled, and
+     * never overwrites a consumer's own registration — unlike
+     * `ResetPassword`/`VerifyEmail` (framework classes probed via
+     * reflection), `InvitationUrl` is package-owned and exposes a
+     * direct `hasCustomCallback()` check.
+     */
+    protected function registerInvitationAcceptUrl(): void
+    {
+        if (! (bool) config('martis.invitations.enabled', false)) {
+            return;
+        }
+
+        if (InvitationUrl::hasCustomCallback()) {
+            return; // Already customised — respect it.
+        }
+
+        InvitationUrl::createUrlUsing(static function (Invitation $invitation, string $rawToken): string {
+            return route('martis.invitations.accept', $rawToken);
         });
     }
 
