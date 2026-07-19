@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.32.0] — 2026-07-19
+
+### Added
+
+- **`martis:invitations` — a first-class, opt-in, overridable user-invitation system.** An operator invites a not-yet-registered email (optionally pre-assigning a role), the invitee accepts via a tokenised link and sets their password, and lands in the app with the role assigned. Delivered like `martis:roles`: a generator scaffolds consumer-owned files, backed by a small security-critical package core.
+  - **Security core (`Martis\Invitations\InvitationManager`, non-overridable):** a CSPRNG ≥256-bit token stored only as a `sha256` hash (the raw token lives only in the emailed link); an **atomic single-use** claim wrapped in a transaction (a bad-password retry rolls the claim back so the invitation stays valid); TTL-at-read expiry; throttled resend; enumeration-neutral responses (unknown / expired / used / already-registered all look identical); an existing-email anti-takeover guard; and a signup-field whitelist (email, role, and `metadata` are server-fixed from the invitation, never taken from the client). The **only** override seam is `protected createUser(Invitation, array)`, which by default delegates to the existing `RegistersUsers` contract, so a consumer sets extra attributes (from the opaque `metadata` bag) without a divergent user-creation path.
+  - **Opt-in, default-off:** `MARTIS_INVITATIONS_ENABLED=false` by default — the public accept endpoints return `503`, and the scaffolded resource/action are non-routable and hidden (both the accept side and the issuing side respect the flag). Authorisation is a `martis-invite` gate that ships with **no default** (denies until the consumer defines it).
+  - **Package-owned accept flow:** public `GET {path}/invitations/accept/{token}` + `POST {path}/api/invitations/accept` routes and a React accept screen (translated en / pt_PT / pt_BR), overridable via the `auth:invitation-accept` component key and per-string via `config.auth.copy.invitation_accept.*`. The accept URL is built through an overridable `InvitationUrl::createUrlUsing()` seam.
+  - **Events + audit:** `Martis\Invitations\Events\{InvitationCreated,InvitationAccepted,InvitationRevoked}` with a `RecordInvitation` listener writing `invitation.created|accepted|revoked` to `martis_action_events` (gated by `config('martis.audit.invitations')`).
+  - **Generator (`php artisan martis:invitations`):** scaffolds a consumer-owned `InvitationResource` (System sidebar section), `InviteUser` / `ResendInvitation` / `RevokeInvitation` actions, an admin-only `InvitationPolicy`, and a `UserInvitation` notification; publishes a portable, key-type-aware `invitations` migration. Nothing tenant- or consumer-specific ships in the package — the multi-tenant scenario is a documented recipe only. See [Invitations](docs/invitations.md).
+
 ## [1.31.1] — 2026-07-18
 
 ### Fixed
