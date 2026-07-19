@@ -187,3 +187,75 @@ PHP;
     // The pre-existing import must not be duplicated.
     expect(substr_count($result, 'use Spatie\\Permission\\Traits\\HasRoles;'))->toBe(1);
 });
+
+it('does not treat a docblock @use HasRoles<Foo> decoy as the trait being applied', function () {
+    // A `/** @use HasRoles<Foo> */` docblock line (e.g. left over from a
+    // generic-trait annotation on some OTHER trait) is not a real
+    // trait-use statement. The line-start anchor in
+    // classBodyUsesHasRolesTrait() must not match it — only a genuine
+    // `use …HasRoles…;` beginning a line (after optional horizontal
+    // whitespace) counts.
+    $contents = <<<'PHP'
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    /** @use HasRoles<Foo> */
+    use Notifiable;
+}
+PHP;
+
+    // The decoy docblock must NOT count as the trait being applied.
+    expect(RolesScaffoldCommand::classBodyUsesHasRolesTrait($contents))->toBeFalse();
+
+    $result = RolesScaffoldCommand::applyHasRolesTrait($contents);
+    expect($result)->not->toBeNull();
+    /** @var string $result */
+
+    // The real trait-use was genuinely injected into the class body.
+    assertBodyAppliesHasRoles($result);
+
+    // And the top-of-file import was added.
+    expect($result)->toContain('use Spatie\\Permission\\Traits\\HasRoles;');
+});
+
+it('adds the real import even when the FQCN is only mentioned in a comment, not imported', function () {
+    // The class body mentions the Spatie FQCN in a plain comment — not a
+    // `use Spatie\Permission\Traits\HasRoles;` import statement. The old
+    // whole-file str_contains() guard would wrongly treat this as "already
+    // imported" and skip adding the real import, leaving the freshly
+    // injected unqualified `use HasRoles;` to resolve to the wrong class
+    // (App\Models\HasRoles) — a fatal "Trait not found".
+    $contents = <<<'PHP'
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    // see Spatie\Permission\Traits\HasRoles
+    use Notifiable;
+}
+PHP;
+
+    expect(RolesScaffoldCommand::classBodyUsesHasRolesTrait($contents))->toBeFalse();
+
+    $result = RolesScaffoldCommand::applyHasRolesTrait($contents);
+    expect($result)->not->toBeNull();
+    /** @var string $result */
+
+    // The real import statement must be present (not just the comment
+    // mention) so the unqualified `use HasRoles;` in the body resolves.
+    expect(preg_match('/^\s*use\s+Spatie\\\\Permission\\\\Traits\\\\HasRoles\s*;/m', $result))->toBe(1);
+
+    // And the class body genuinely applies the trait.
+    assertBodyAppliesHasRoles($result);
+});

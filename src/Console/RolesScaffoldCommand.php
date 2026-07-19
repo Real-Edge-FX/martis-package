@@ -367,8 +367,13 @@ class RolesScaffoldCommand extends Command
 
         // A trait-use statement: `use` then identifiers (no `(`/`{` —
         // excludes closure `use (...)` and the docblock's
-        // `@use Foo<Bar>`), containing HasRoles, ending in `;`.
-        return (bool) preg_match('/\buse\s+[^;(){}]*\bHasRoles\b[^;(){}]*;/', $m[1]);
+        // `@use Foo<Bar>`), containing HasRoles, ending in `;`. Anchored
+        // to the START of a line (only horizontal whitespace before
+        // `use`) so a docblock `* @use HasRoles<Foo>` / `/** @use … */`
+        // line — which is preceded by `*` or `/**`, not line-start — can
+        // never match. Without the anchor, a docblock-only mention wrongly
+        // reports the trait as applied and patchUserModel() skips patching.
+        return (bool) preg_match('/^[ \t]*use\s+[^;(){}]*\bHasRoles\b[^;(){}]*;/m', $m[1]);
     }
 
     /**
@@ -383,8 +388,13 @@ class RolesScaffoldCommand extends Command
     {
         $patched = $contents;
 
-        // 1. Import (only if not already imported).
-        if (! str_contains($patched, 'Spatie\\Permission\\Traits\\HasRoles')) {
+        // 1. Import (only if not already imported by a REAL `use …;`
+        //    statement — a bare mention of the FQCN in a comment or
+        //    method body must not suppress the import, or the class-body
+        //    `use HasRoles;` we add below resolves to the wrong,
+        //    unqualified `HasRoles` (App\Models\HasRoles) and fatals with
+        //    "Trait not found".
+        if (! preg_match('/^\s*use\s+Spatie\\\\Permission\\\\Traits\\\\HasRoles\s*;/m', $patched)) {
             $patched = (string) preg_replace(
                 '/(namespace [^;]+;\s*\n(?:use [^;]+;\s*\n)*)/',
                 "$1use Spatie\\Permission\\Traits\\HasRoles;\n",
