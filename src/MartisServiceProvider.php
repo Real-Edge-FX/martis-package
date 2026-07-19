@@ -42,6 +42,7 @@ use Martis\Console\EndpointTableMakeCommand;
 use Martis\Console\FieldMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\InstallCommand;
+use Martis\Console\InvitationsScaffoldCommand;
 use Martis\Console\LensMakeCommand;
 use Martis\Console\ListEnvVarsCommand;
 use Martis\Console\ListOverridesCommand;
@@ -77,6 +78,13 @@ use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\ImpersonationManager;
+use Martis\Invitations\Events\InvitationAccepted;
+use Martis\Invitations\Events\InvitationCreated;
+use Martis\Invitations\Events\InvitationRevoked;
+use Martis\Invitations\Invitation;
+use Martis\Invitations\InvitationManager;
+use Martis\Invitations\InvitationUrl;
+use Martis\Invitations\Listeners\RecordInvitation;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
@@ -133,6 +141,13 @@ class MartisServiceProvider extends ServiceProvider
             );
         });
 
+        // Bound as a plain singleton (not a factory closure) so consumers
+        // can rebind a subclass in their own service provider — same
+        // swappable-manager pattern as ImpersonationManager above. Only
+        // the token core (invite/findByRawToken) ships in this task;
+        // accept()/resend()/revoke() land in later tasks.
+        $this->app->singleton(InvitationManager::class);
+
         // Auth-flow defaults. Each contract resolves to a Martis-shipped
         // implementation; consumer apps override by re-binding in their
         // own service provider. See docs/authentication.md →
@@ -161,6 +176,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerMiddlewareAlias();
         $this->registerExceptionHandling();
         $this->registerCacheGate();
+        $this->registerInvitationGate();
         $this->discoverResources();
         $this->discoverTools();
         $this->registerApiDocs();
@@ -172,6 +188,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
         $this->registerEmailVerificationUrl();
+        $this->registerInvitationAcceptUrl();
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
         $this->registerOctanePolicyCacheFlush();
@@ -219,6 +236,7 @@ class MartisServiceProvider extends ServiceProvider
                 ListEnvVarsCommand::class,
                 SsoMakeCommand::class,
                 RolesScaffoldCommand::class,
+                InvitationsScaffoldCommand::class,
                 StubsCommand::class,
                 AgentsCommand::class,
                 McpServeCommand::class,
@@ -263,6 +281,14 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../stubs/create_sessions_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000005_create_sessions_table.php'),
             ], 'martis-sessions-migration');
+
+            // Optional `invitations` table (key-type-aware) for the
+            // invite-a-user flow. Portable schema stub only — no model
+            // or behaviour ships yet; gated behind config('martis.invitations.enabled')
+            // and the `martis-invite` Gate before it is reachable.
+            $this->publishes([
+                __DIR__.'/../stubs/create_invitations_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000008_create_invitations_table.php'),
+            ], 'martis-invitations-migration');
 
             // v1.10.5 drop migration for `dashboards_layout`. v1.10.4
             // briefly shipped that column under the retracted per-user
@@ -336,6 +362,25 @@ class MartisServiceProvider extends ServiceProvider
         // (header / query param) are ignored for every user.
         if (! Gate::has('bypass-martis-cache')) {
             Gate::define('bypass-martis-cache', fn () => false);
+        }
+    }
+
+    /**
+     * Register the default `martis-invite` gate. Denies by default.
+     *
+     * Invitations: no default — the consumer decides who may invite
+     * (403 until defined):
+     *
+     *     Gate::define('martis-invite', fn ($user) => $user->is_admin);
+     *
+     * Calling `Gate::define()` from the host app replaces the closure
+     * registered here, so order doesn't matter.
+     */
+    protected function registerInvitationGate(): void
+    {
+        // Secure default: deny. The host must explicitly grant this ability.
+        if (! Gate::has('martis-invite')) {
+            Gate::define('martis-invite', static fn ($user = null): bool => false);
         }
     }
 
@@ -576,6 +621,33 @@ class MartisServiceProvider extends ServiceProvider
     }
 
     /**
+     * Seed the default accept-URL builder for invitation notifications
+     * (Task 10 ships the notification itself; this task only prepares
+     * the seam it will call). Mirrors `registerPasswordResetUrl()`'s
+     * idiom: a static, overridable callback so a host app can point
+     * invite links at a different domain without touching
+     * `InvitationManager`. Skipped when invitations are disabled, and
+     * never overwrites a consumer's own registration — unlike
+     * `ResetPassword`/`VerifyEmail` (framework classes probed via
+     * reflection), `InvitationUrl` is package-owned and exposes a
+     * direct `hasCustomCallback()` check.
+     */
+    protected function registerInvitationAcceptUrl(): void
+    {
+        if (! (bool) config('martis.invitations.enabled', false)) {
+            return;
+        }
+
+        if (InvitationUrl::hasCustomCallback()) {
+            return; // Already customised — respect it.
+        }
+
+        InvitationUrl::createUrlUsing(static function (Invitation $invitation, string $rawToken): string {
+            return route('martis.invitations.accept', $rawToken);
+        });
+    }
+
+    /**
      * Register the named rate limiters Martis applies on top of the
      * generic per-IP `throttle:N,1` middleware.
      *
@@ -631,6 +703,22 @@ class MartisServiceProvider extends ServiceProvider
         Event::listen(
             ImpersonationStopped::class,
             [RecordImpersonation::class, 'handleStopped'],
+        );
+
+        // Invitation lifecycle audit is package-internal too (no third-party
+        // dependency), register unconditionally. RecordInvitation itself
+        // gates on `martis.audit.invitations` + the audit table's presence.
+        Event::listen(
+            InvitationCreated::class,
+            [RecordInvitation::class, 'handleCreated'],
+        );
+        Event::listen(
+            InvitationAccepted::class,
+            [RecordInvitation::class, 'handleAccepted'],
+        );
+        Event::listen(
+            InvitationRevoked::class,
+            [RecordInvitation::class, 'handleRevoked'],
         );
 
         // v1.8.8 — Gate denial audit. The listener carries per-request

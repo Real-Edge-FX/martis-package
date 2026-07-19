@@ -1,0 +1,146 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Martis\Fields\Badge;
+use Martis\Fields\DateTime;
+use Martis\Fields\Email;
+use Martis\Fields\Id;
+use Martis\Fields\Text;
+use Martis\Invitations\Invitation;
+use Martis\Resource;
+use {{ namespace }}\Actions\InviteUser;
+use {{ namespace }}\Actions\ResendInvitation;
+use {{ namespace }}\Actions\RevokeInvitation;
+
+/**
+ * Invitation administration surface, scaffolded by
+ * `php artisan martis:invitations`.
+ *
+ * Lists the invitations issued from your admin panel and exposes the
+ * "Invite user" standalone action plus per-row Resend / Revoke actions.
+ * New invitations are always created through the InviteUser action so
+ * they run through the InvitationManager (token hashing, expiry, audit,
+ * notification) — not through the resource create form.
+ *
+ * Lives in the System sidebar group alongside Users / Roles. The whole
+ * surface disappears from navigation and routing when invitations are
+ * turned off (`config('martis.invitations.enabled')`).
+ *
+ * Customise freely — this file is yours, not the package's.
+ */
+class {{ class }} extends Resource
+{
+    public static function model(): string
+    {
+        return Invitation::class;
+    }
+
+    public static function label(): string
+    {
+        return 'Invitations';
+    }
+
+    public static function singularLabel(): string
+    {
+        return 'Invitation';
+    }
+
+    public static function titleAttribute(): string
+    {
+        return 'email';
+    }
+
+    public function icon(): string
+    {
+        return 'envelope';
+    }
+
+    public function belongsToSystemSection(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Kill the routable surface (index/detail/create endpoints, global
+     * search, command palette) when invitations are disabled — this is
+     * the real gate, mirroring the 503 the accept side returns. Flip
+     * `MARTIS_INVITATIONS_ENABLED=true` to surface it.
+     */
+    public static function routable(): bool
+    {
+        return (bool) config('martis.invitations.enabled', false);
+    }
+
+    /**
+     * Belt-and-suspenders for the sidebar: `routable()` already excludes
+     * this resource from navigation, but keep the explicit override so a
+     * consumer who re-enables routing still controls sidebar visibility.
+     */
+    public static function displayInNavigation(): bool
+    {
+        return (bool) config('martis.invitations.enabled', false);
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Id::make()->sortable(),
+
+            Email::make('email', 'Email')
+                ->sortable()
+                ->rules(['required', 'email', 'max:255']),
+
+            Text::make('role', 'Role')
+                ->onlyOnIndex()
+                ->onlyOnDetail(),
+
+            Badge::make('status', 'Status')
+                ->map([
+                    'pending' => 'warning',
+                    'accepted' => 'success',
+                    'revoked' => 'danger',
+                    'expired' => 'info',
+                ])
+                ->labels([
+                    'pending' => __('Pending'),
+                    'accepted' => __('Accepted'),
+                    'revoked' => __('Revoked'),
+                    'expired' => __('Expired'),
+                ]),
+
+            Text::make('invited_by', 'Invited by')
+                ->onlyOnIndex()
+                ->onlyOnDetail()
+                ->help('Primary key of the operator who issued the invitation.'),
+
+            DateTime::make('expires_at', 'Expires at')
+                ->onlyOnIndex()
+                ->onlyOnDetail()
+                ->sortable(),
+
+            DateTime::make('accepted_at', 'Accepted at')
+                ->onlyOnIndex()
+                ->onlyOnDetail()
+                ->sortable(),
+        ];
+    }
+
+    /**
+     * `InviteUser` is a standalone action (no row selection needed);
+     * `ResendInvitation` and `RevokeInvitation` operate on the selected
+     * rows. All three run through the `InvitationManager` and stay
+     * admin-only via the matching policy.
+     */
+    public function actions(Request $request): array
+    {
+        return [
+            (new InviteUser)->standalone(),
+            new ResendInvitation,
+            new RevokeInvitation,
+        ];
+    }
+}

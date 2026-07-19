@@ -13,6 +13,7 @@ use Martis\Http\Controllers\GuestPagesController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
 use Martis\Http\Controllers\ImpersonationController;
+use Martis\Http\Controllers\InvitationController;
 use Martis\Http\Controllers\LensController;
 use Martis\Http\Controllers\LoginController;
 use Martis\Http\Controllers\MagicLinkController;
@@ -56,6 +57,16 @@ Route::middleware(config('martis.middleware', ['web']))
             ->name('password.request');
         Route::get('/reset-password/{token}', [GuestPagesController::class, 'showResetPassword'])
             ->name('password.reset');
+
+        // Invitation accept screen — public (token-authorized, not
+        // session/gate-authorized: the invitee has no account yet).
+        // Always registered; `InvitationController` 503s when
+        // `martis.invitations.enabled` is false and renders the SAME
+        // SPA shell for a valid, unknown, expired, revoked, or
+        // already-used token (no enumeration via this GET).
+        Route::get('/invitations/accept/{token}', [InvitationController::class, 'show'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('invitations.accept');
 
         // SSO entry points — public (no auth middleware). The provider
         // sub-segment is whatever the user registered (azure, google,
@@ -122,6 +133,15 @@ Route::middleware(config('martis.middleware', ['web']))
         Route::post('/api/auth/password/reset', [AuthController::class, 'resetPassword'])
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('api.auth.password.reset');
+
+        // Invitation accept POST — public (token-authorized). Always
+        // registered; `InvitationController` 503s when
+        // `martis.invitations.enabled` is false. Never requires the
+        // `martis-invite` Gate — that Gate only guards the privileged
+        // "issue an invitation" action, not accepting one.
+        Route::post('/api/invitations/accept', [InvitationController::class, 'accept'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('api.invitations.accept');
 
         // Magic-link (passwordless) sign-in. Routes are always
         // registered; the controller checks `auth.magic_link.enabled`

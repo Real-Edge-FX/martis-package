@@ -94,6 +94,19 @@ return [
     'reset_password_invalid_token' => 'Este link de recuperação é inválido ou expirou. Solicite um novo.',
     'reset_password_disabled' => 'A recuperação de senha não está habilitada neste workspace.',
 
+    // Aceitar convite (Task 9)
+    'invitation_accept_title' => 'Aceite seu convite',
+    'invitation_accept_sub' => 'Defina uma senha para ativar sua conta.',
+    'invitation_accept_name' => 'Nome completo',
+    'invitation_accept_confirm' => 'Confirmar senha',
+    'invitation_accept_submit' => 'Aceitar convite',
+    'invitation_accept_submitting' => 'Ativando…',
+    'invitation_accept_show' => 'Mostrar senha',
+    'invitation_accept_hide' => 'Ocultar senha',
+    'invitation_accept_mismatch' => 'As senhas não conferem.',
+    'invitation_accept_invalid_title' => 'Convite inválido',
+    'invitation_accept_invalid_message' => 'Este link de convite é inválido ou expirou.',
+
     // Rótulos de tema (usados pelo tooltip do AuthControls)
     'theme_dark' => 'Escuro',
     'theme_light' => 'Claro',

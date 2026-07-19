@@ -1,0 +1,66 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Contracts\FieldContract;
+use Martis\Invitations\InvalidInvitationException;
+use Martis\Invitations\Invitation;
+use Martis\Invitations\InvitationManager;
+
+/**
+ * Revoke the selected pending invitations, permanently blocking their
+ * accept links, scaffolded by `php artisan martis:invitations`.
+ *
+ * `InvitationManager::revoke()` only touches pending invitations; rows
+ * that were already accepted or revoked are skipped and reported.
+ * Admin-only via the resource policy.
+ *
+ * Customise freely. This file is yours.
+ */
+class RevokeInvitation extends Action
+{
+    public function name(): string
+    {
+        return __('Revoke invitation');
+    }
+
+    /**
+     * @param  Collection<int, Invitation>  $models
+     */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        $manager = app(InvitationManager::class);
+        $revoked = 0;
+        $skipped = 0;
+
+        foreach ($models as $invitation) {
+            try {
+                $manager->revoke($invitation);
+                $revoked++;
+            } catch (InvalidInvitationException) {
+                $skipped++;
+            }
+        }
+
+        if ($revoked === 0) {
+            return ActionResponse::danger(__('Nothing revoked — only pending invitations can be revoked.'));
+        }
+
+        return ActionResponse::message(__(':count invitation(s) revoked', ['count' => $revoked]));
+    }
+
+    /**
+     * @return list<FieldContract>
+     */
+    public function fields(Request $request): array
+    {
+        return [];
+    }
+}

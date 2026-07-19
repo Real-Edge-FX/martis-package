@@ -94,6 +94,19 @@ return [
     'reset_password_invalid_token' => 'Esta ligação de reposição é inválida ou expirou. Peça uma nova.',
     'reset_password_disabled' => 'A recuperação de palavra-passe não está activada neste espaço de trabalho.',
 
+    // Aceitar convite (Task 9)
+    'invitation_accept_title' => 'Aceite o seu convite',
+    'invitation_accept_sub' => 'Defina uma palavra-passe para activar a sua conta.',
+    'invitation_accept_name' => 'Nome completo',
+    'invitation_accept_confirm' => 'Confirmar palavra-passe',
+    'invitation_accept_submit' => 'Aceitar convite',
+    'invitation_accept_submitting' => 'A activar…',
+    'invitation_accept_show' => 'Mostrar palavra-passe',
+    'invitation_accept_hide' => 'Ocultar palavra-passe',
+    'invitation_accept_mismatch' => 'As palavras-passe não coincidem.',
+    'invitation_accept_invalid_title' => 'Convite inválido',
+    'invitation_accept_invalid_message' => 'Este link de convite é inválido ou expirou.',
+
     // Etiquetas de tema (usadas pelo tooltip do AuthControls)
     'theme_dark' => 'Escuro',
     'theme_light' => 'Claro',

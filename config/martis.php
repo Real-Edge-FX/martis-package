@@ -338,6 +338,10 @@ return [
         // false — the parent `view` denial is the actionable signal.
         // v1.8.8.
         'authz_denials_include_viewany' => env('MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY', false),
+
+        // Invitation lifecycle events (created / accepted / revoked /
+        // expired). Default on.
+        'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),
     ],
 
     /*
@@ -980,6 +984,10 @@ return [
                 'title' => env('MARTIS_AUTH_RESET_TITLE'),
                 'subtitle' => env('MARTIS_AUTH_RESET_SUBTITLE'),
             ],
+            'invitation_accept' => [
+                'title' => env('MARTIS_AUTH_INVITATION_ACCEPT_TITLE'),
+                'subtitle' => env('MARTIS_AUTH_INVITATION_ACCEPT_SUBTITLE'),
+            ],
         ],
     ],
 
@@ -1386,6 +1394,29 @@ return [
         // 120_000 (2 minutes). Set to 0 to disable polling — the
         // banner still mounts and reads state once per page load.
         'poll_interval' => (int) env('MARTIS_IMPERSONATION_POLL_MS', 120000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invitations
+    |--------------------------------------------------------------------------
+    |
+    | Lets a privileged operator invite a new user by email instead of
+    | leaving self-service registration open. Disabled by default — flip
+    | the master switch *and* define the `martis-invite` Gate to make it
+    | reachable.
+    |
+    */
+
+    'invitations' => [
+        'enabled' => env('MARTIS_INVITATIONS_ENABLED', false),
+        'expires_after_hours' => (int) env('MARTIS_INVITATIONS_TTL_HOURS', 72),
+        'single_use' => true,
+        'resend_throttle_seconds' => (int) env('MARTIS_INVITATIONS_RESEND_THROTTLE', 60),
+        'login_after_accept' => env('MARTIS_INVITATIONS_LOGIN_AFTER_ACCEPT', true),
+        'redirect_after_accept' => env('MARTIS_INVITATIONS_REDIRECT', null),
+        'signup_fields' => ['name', 'password'],
+        'mark_email_verified_on_accept' => true,
     ],
 
     /*

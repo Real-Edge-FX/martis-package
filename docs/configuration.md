@@ -1008,7 +1008,7 @@ When enabled, the package wires Laravel's `verified` middleware into the panel g
 
 ## Auth screen copy (v1.8.5)
 
-Every auth surface (login, register, password forgot, password reset) lets you override the title and subtitle without touching translations.
+Every auth surface (login, register, password forgot, password reset, invitation accept) lets you override the title and subtitle without touching translations.
 
 | Variable | Default | Surface |
 |---|---|---|
@@ -1021,6 +1021,8 @@ Every auth surface (login, register, password forgot, password reset) lets you o
 | `MARTIS_AUTH_FORGOT_SUBTITLE` | translation | Forgot password subtitle |
 | `MARTIS_AUTH_RESET_TITLE` | translation | Reset password title |
 | `MARTIS_AUTH_RESET_SUBTITLE` | translation | Reset password subtitle |
+| `MARTIS_AUTH_INVITATION_ACCEPT_TITLE` | translation | Invitation accept title |
+| `MARTIS_AUTH_INVITATION_ACCEPT_SUBTITLE` | translation | Invitation accept subtitle |
 
 Translations remain the recommended path for multi-locale apps. Use these env vars only when you want a single hard-coded string for every locale (e.g. an internal tool).
 

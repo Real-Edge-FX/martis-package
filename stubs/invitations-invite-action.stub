@@ -1,0 +1,129 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use App\Notifications\UserInvitation;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Contracts\FieldContract;
+use Martis\Fields\Email;
+use Martis\Fields\Select;
+use Martis\Invitations\InvitationManager;
+use Martis\Invitations\InvitationUrl;
+
+/**
+ * Issue a new invitation by email, scaffolded by
+ * `php artisan martis:invitations`.
+ *
+ * Registered as a standalone action on the generated
+ * `InvitationResource`: the operator types an email (and optionally
+ * picks a role) in the confirmation modal, the `InvitationManager`
+ * mints a single-use token + audit record, and the `UserInvitation`
+ * notification carries the accept URL to the invitee.
+ *
+ * Authorization is delegated to the `martis-invite` Gate — define who
+ * may invite in your `AuthServiceProvider`:
+ *
+ *     Gate::define('martis-invite', fn ($user) => $user->hasRole('admin'));
+ *
+ * Customise freely. This file is yours.
+ */
+class InviteUser extends Action
+{
+    public function name(): string
+    {
+        return __('Invite user');
+    }
+
+    public function authorizedToSee(Request $request): bool
+    {
+        return $this->invitationsEnabled() && Gate::allows('martis-invite');
+    }
+
+    public function authorizedToRun(Request $request, Model $model): bool
+    {
+        return $this->invitationsEnabled() && Gate::allows('martis-invite');
+    }
+
+    /**
+     * The action never shows or runs while invitations are disabled,
+     * mirroring the 503 the accept side returns — the `martis-invite`
+     * Gate governs *who* may invite once the feature is on.
+     */
+    private function invitationsEnabled(): bool
+    {
+        return (bool) config('martis.invitations.enabled', false);
+    }
+
+    /**
+     * @param  Collection<int, Model>  $models
+     */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        $email = mb_strtolower(trim((string) $fields->get('email')));
+
+        if ($email === '') {
+            return ActionResponse::danger(__('An email address is required.'));
+        }
+
+        $role = $fields->get('role');
+        $role = is_string($role) && $role !== '' ? $role : null;
+
+        // The manager hashes the token, sets expiry, records the audit
+        // event, and returns the invitation carrying a transient
+        // `$invitation->rawToken` for the notification URL.
+        $invitation = app(InvitationManager::class)->invite($email, $role, []);
+
+        $url = InvitationUrl::url($invitation, (string) $invitation->rawToken);
+
+        // On-demand notification: the invitee has no account yet, so the
+        // mail is routed straight to the address, not to a User model.
+        Notification::route('mail', $email)->notify(new UserInvitation($url, $email));
+
+        return ActionResponse::message(__('Invitation sent to :email', ['email' => $email]));
+    }
+
+    /**
+     * @return list<FieldContract>
+     */
+    public function fields(Request $request): array
+    {
+        return [
+            Email::make('email', __('Email'))
+                ->rules(['required', 'email', 'max:255'])
+                ->help(__('The invitation is sent here. It becomes the email for the new account and cannot be changed at signup.')),
+
+            Select::make('role', __('Role'))
+                ->rules(['nullable', 'string', 'max:125'])
+                ->options(function () {
+                    // spatie/laravel-permission is optional. With no roles
+                    // package installed the picker is simply empty and the
+                    // invitation carries no role.
+                    if (! class_exists(\Spatie\Permission\Models\Role::class)) {
+                        return [];
+                    }
+
+                    $query = \Spatie\Permission\Models\Role::query();
+
+                    // SSO-managed roles (non-null `provider_group_name`) are
+                    // excluded — they are owned by group sync and would be
+                    // overwritten on the next sign-in.
+                    if (Schema::hasColumn('roles', 'provider_group_name')) {
+                        $query->whereNull('provider_group_name');
+                    }
+
+                    return $query->orderBy('name')->pluck('name', 'name')->all();
+                })
+                ->help(__('Optional. Assigned to the account when the invitation is accepted.')),
+        ];
+    }
+}

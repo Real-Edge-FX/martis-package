@@ -335,6 +335,10 @@ export interface MartisAuthCopyConfig {
     title?: MartisAuthCopyEntry
     subtitle?: MartisAuthCopyEntry
   }
+  invitation_accept?: {
+    title?: MartisAuthCopyEntry
+    subtitle?: MartisAuthCopyEntry
+  }
 }
 
 export interface MartisAuthConfig {

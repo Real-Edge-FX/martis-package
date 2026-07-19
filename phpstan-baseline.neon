@@ -73,12 +73,6 @@ parameters:
 			path: src/Console/ListEnvVarsCommand.php
 
 		-
-			message: '#^Offset 1 on array\{0\: list\<string\>, 1\: list\<non\-empty\-string\>, 2\?\: list\<non\-empty\-string\>\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 2
-			path: src/Console/ListOverridesCommand.php
-
-		-
 			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
 			identifier: cast.string
 			count: 1
@@ -101,7 +95,6 @@ parameters:
 			identifier: cast.string
 			count: 1
 			path: src/Console/ThemeDiffCommand.php
-
 
 		-
 			message: '#^Cannot cast array\|bool\|float\|int\|string\|null to string\.$#'
@@ -368,12 +361,6 @@ parameters:
 			path: src/Http/Controllers/CacheController.php
 
 		-
-			message: '#^Access to an undefined property Martis\\Contracts\\ActionContract\:\:\$icon\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Http/Controllers/CommandPaletteController.php
-
-		-
 			message: '#^Instanceof between Martis\\Contracts\\ActionContract and Martis\\Contracts\\ActionContract will always evaluate to true\.$#'
 			identifier: instanceof.alwaysTrue
 			count: 1
@@ -382,18 +369,6 @@ parameters:
 		-
 			message: '#^Method Martis\\Http\\Controllers\\CommandPaletteController\:\:recent\(\) should return list\<array\<string, mixed\>\> but returns array\<int, array\{key\: int, label\: string, subtitle\: string, url\: string\|null, created_at\: string\}\>\.$#'
 			identifier: return.type
-			count: 1
-			path: src/Http/Controllers/CommandPaletteController.php
-
-		-
-			message: '#^Parameter \#1 \$array of function usort contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: src/Http/Controllers/CommandPaletteController.php
-
-		-
-			message: '#^Parameter \#2 \$callback of function usort contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
 			count: 1
 			path: src/Http/Controllers/CommandPaletteController.php
 
@@ -542,18 +517,6 @@ parameters:
 			path: src/Http/Controllers/MetricController.php
 
 		-
-			message: '#^Call to an undefined method Martis\\ResourceRegistry\:\:resolve\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Http/Controllers/MetricController.php
-
-		-
-			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 1
-			path: src/Http/Controllers/MetricController.php
-
-		-
 			message: '#^Cannot cast array\|string\|null to string\.$#'
 			identifier: cast.string
 			count: 1
@@ -611,12 +574,6 @@ parameters:
 			message: '#^Parameter \#1 \$message of static method Martis\\Http\\Resources\\JsonErrorResponse\:\:forbidden\(\) expects string, array\|string\|null given\.$#'
 			identifier: argument.type
 			count: 4
-			path: src/Http/Controllers/NotificationController.php
-
-		-
-			message: '#^Parameter \#1 \$notification of method Martis\\Http\\Controllers\\NotificationController\:\:serialize\(\) expects Illuminate\\Notifications\\DatabaseNotification, Illuminate\\Notifications\\DatabaseNotification\|null given\.$#'
-			identifier: argument.type
-			count: 1
 			path: src/Http/Controllers/NotificationController.php
 
 		-
@@ -762,6 +719,24 @@ parameters:
 			identifier: method.notFound
 			count: 2
 			path: src/Impersonation/ImpersonationManager.php
+
+		-
+			message: '#^Call to an undefined static method Martis\\Invitations\\Invitation\:\:create\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Invitations/InvitationManager.php
+
+		-
+			message: '#^Call to an undefined static method Martis\\Invitations\\Invitation\:\:where\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Invitations/InvitationManager.php
+
+		-
+			message: '#^Method Martis\\Invitations\\InvitationManager\:\:invite\(\) has parameter \$metadata with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Invitations/InvitationManager.php
 
 		-
 			message: '#^Method Martis\\Lenses\\Lens\:\:query\(\) has parameter \$request with generic class Martis\\Http\\Requests\\LensRequest but does not specify its types\: TModel$#'

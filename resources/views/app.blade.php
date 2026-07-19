@@ -172,6 +172,7 @@
                         'register' => ['title' => null, 'subtitle' => null],
                         'forgot_password' => ['title' => null, 'subtitle' => null],
                         'reset_password' => ['title' => null, 'subtitle' => null],
+                        'invitation_accept' => ['title' => null, 'subtitle' => null],
                     ]),
                 ]
             )) !!},
