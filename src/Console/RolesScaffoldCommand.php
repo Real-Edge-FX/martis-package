@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martis\Console;
 
+use Composer\Autoload\ClassLoader;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
@@ -58,7 +59,9 @@ class RolesScaffoldCommand extends Command
         }
 
         if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
-            $this->components->error('spatie/laravel-permission is not installed. Re-run without --no-install or install it manually.');
+            $this->components->error(
+                'spatie/laravel-permission could not be loaded. If Composer just installed it above, this process\'s autoloader is stale — re-run the same command and it will be picked up. Otherwise install it manually and re-run with --no-install.'
+            );
 
             return self::FAILURE;
         }
@@ -232,6 +235,38 @@ class RolesScaffoldCommand extends Command
 
         if (! $process->isSuccessful()) {
             $this->components->error('composer require spatie/laravel-permission failed. Install manually and re-run with --no-install.');
+
+            return;
+        }
+
+        $this->refreshAutoloader();
+    }
+
+    /**
+     * Re-apply Composer's freshly-written PSR-4 map to this process's
+     * already booted ClassLoader. `composer require` (a subprocess)
+     * rewrites the autoload files on disk, but this parent process cached
+     * its loader at boot; without this, class_exists() for the
+     * just-installed package evaluates the stale pre-install map and
+     * wrongly reports it missing.
+     */
+    protected function refreshAutoloader(): void
+    {
+        $autoloadPath = base_path('vendor/autoload.php');
+        $psr4Path = base_path('vendor/composer/autoload_psr4.php');
+        if (! is_file($autoloadPath) || ! is_file($psr4Path)) {
+            return;
+        }
+
+        $loader = require $autoloadPath; // returns the cached ClassLoader instance
+        if (! $loader instanceof ClassLoader) {
+            return;
+        }
+
+        /** @var array<string, list<string>> $psr4 */
+        $psr4 = require $psr4Path; // freshly written by the composer subprocess
+        foreach ($psr4 as $prefix => $paths) {
+            $loader->setPsr4($prefix, $paths);
         }
     }
 
@@ -294,45 +329,22 @@ class RolesScaffoldCommand extends Command
 
         $contents = (string) file_get_contents($userPath);
 
-        if (str_contains($contents, 'Spatie\\Permission\\Traits\\HasRoles')) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> User model', 'HasRoles trait already imported');
+        // Skip only when the trait is genuinely applied in the class
+        // body. A bare top-of-file `use …HasRoles…;` import does NOT
+        // count — that was the silent partial-failure this method used
+        // to print "Patched" for while `$user->hasRole()` still threw.
+        if (self::classBodyUsesHasRolesTrait($contents)) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> User model', 'HasRoles trait already applied');
 
             return;
         }
 
-        $useImport = "use Spatie\\Permission\\Traits\\HasRoles;\n";
+        $patched = self::applyHasRolesTrait($contents);
 
-        // Inject the `use` statement after the namespace declaration's
-        // last `use` line. Falls back to a manual notice if the file
-        // doesn't match the standard Laravel User shape.
-        $patched = (string) preg_replace(
-            '/(namespace [^;]+;\s*\n(?:use [^;]+;\s*\n)*)/',
-            "$1{$useImport}",
-            $contents,
-            1,
-        );
-
-        // Inject `HasRoles` into the trait list. Matches `use Notifiable;`
-        // or any single trait import line right after the class brace.
-        $patched = (string) preg_replace(
-            '/(class \w+ extends [^\{]+\{\s*\n(?:\s*use\s+)([\w\\\\]+))/',
-            '$1, HasRoles',
-            $patched,
-            1,
-        );
-
-        // If the regex above did not find a `use Trait;` line inside the class,
-        // inject a fresh one right after the opening brace.
-        if (! str_contains($patched, 'HasRoles')) {
-            $patched = (string) preg_replace(
-                '/(class \w+ extends [^\{]+\{)/',
-                "$1\n    use HasRoles;\n",
-                $patched,
-                1,
-            );
-        }
-
-        if ($patched === $contents) {
+        // Null means the file shape could not be patched (the trait was
+        // not actually injected into the class body). Do NOT write and
+        // do NOT print "Patched" — the success message must stay honest.
+        if ($patched === null) {
             $this->components->warn(sprintf('Could not auto-add `use HasRoles;` to %s — add it manually.', $userPath));
 
             return;
@@ -340,6 +352,81 @@ class RolesScaffoldCommand extends Command
 
         file_put_contents($userPath, $patched);
         $this->components->twoColumnDetail('<fg=green>Patched</> User model', $userPath);
+    }
+
+    /**
+     * Whether the class BODY (after the class opening brace) applies a
+     * `use …HasRoles…;` trait statement — as opposed to merely importing
+     * the `HasRoles` symbol at the top of the file (which must NOT count).
+     */
+    public static function classBodyUsesHasRolesTrait(string $contents): bool
+    {
+        if (! preg_match('/class\s+\w+[^{]*\{(.*)$/s', $contents, $m)) {
+            return false;
+        }
+
+        // A trait-use statement: `use` then identifiers (no `(`/`{` —
+        // excludes closure `use (...)` and the docblock's
+        // `@use Foo<Bar>`), containing HasRoles, ending in `;`.
+        return (bool) preg_match('/\buse\s+[^;(){}]*\bHasRoles\b[^;(){}]*;/', $m[1]);
+    }
+
+    /**
+     * Return $contents with the Spatie HasRoles trait applied (import +
+     * a class-body `use …HasRoles…;`), or null if the file shape could
+     * not be patched. Pure (no IO) so it is directly unit-testable.
+     * Tolerates a leading docblock / attribute / comment between the
+     * class brace and the first trait-use line (Laravel 12's default
+     * shape).
+     */
+    public static function applyHasRolesTrait(string $contents): ?string
+    {
+        $patched = $contents;
+
+        // 1. Import (only if not already imported).
+        if (! str_contains($patched, 'Spatie\\Permission\\Traits\\HasRoles')) {
+            $patched = (string) preg_replace(
+                '/(namespace [^;]+;\s*\n(?:use [^;]+;\s*\n)*)/',
+                "$1use Spatie\\Permission\\Traits\\HasRoles;\n",
+                $patched,
+                1,
+            );
+        }
+
+        // Idempotent guard: if the class body already applies the trait,
+        // stop here. Injecting again would emit `use HasRoles, …,
+        // HasRoles;` — a fatal duplicate-trait use. (patchUserModel also
+        // skips in this case; this keeps the pure function safe under
+        // direct / repeated invocation.)
+        if (self::classBodyUsesHasRolesTrait($patched)) {
+            return $patched;
+        }
+
+        // 2. Inject HasRoles into the FIRST class-body trait-use, skipping
+        //    a leading docblock / line-comment / attribute after the brace.
+        $injected = (string) preg_replace(
+            '/(class\s+\w+[^{]*\{\s*(?:\/\*\*.*?\*\/\s*|\/\/[^\n]*\n\s*|#\[[^\]]*\]\s*)*use\s+)([A-Za-z_][\w\\\\]*(?:\s*,\s*[A-Za-z_][\w\\\\]*)*\s*;)/s',
+            '$1HasRoles, $2',
+            $patched,
+            1,
+            $count,
+        );
+
+        if ($count > 0) {
+            $patched = $injected;
+        } else {
+            // 3. No class-body trait-use to extend — add a fresh one
+            //    after the brace.
+            $patched = (string) preg_replace(
+                '/(class\s+\w+[^{]*\{)/',
+                "$1\n    use HasRoles;\n",
+                $patched,
+                1,
+            );
+        }
+
+        // Assert the postcondition the caller's success message claims.
+        return self::classBodyUsesHasRolesTrait($patched) ? $patched : null;
     }
 
     /**
