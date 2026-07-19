@@ -42,6 +42,7 @@ use Martis\Console\EndpointTableMakeCommand;
 use Martis\Console\FieldMakeCommand;
 use Martis\Console\FilterMakeCommand;
 use Martis\Console\InstallCommand;
+use Martis\Console\InvitationsScaffoldCommand;
 use Martis\Console\LensMakeCommand;
 use Martis\Console\ListEnvVarsCommand;
 use Martis\Console\ListOverridesCommand;
@@ -235,6 +236,7 @@ class MartisServiceProvider extends ServiceProvider
                 ListEnvVarsCommand::class,
                 SsoMakeCommand::class,
                 RolesScaffoldCommand::class,
+                InvitationsScaffoldCommand::class,
                 StubsCommand::class,
                 AgentsCommand::class,
                 McpServeCommand::class,

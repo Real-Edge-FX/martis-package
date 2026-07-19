@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ userModelImport }};
+use Martis\Invitations\Invitation;
+
+/**
+ * Admin-only policy for the Invitations surface, scaffolded by
+ * `php artisan martis:invitations`.
+ *
+ * Hardens the System sidebar group against non-admin access. Edit
+ * freely — the package never reads these methods directly. The Martis
+ * resource layer calls into Laravel's Gate, which reads the policy
+ * registered via `App\Providers\AuthServiceProvider`.
+ *
+ * Default rule: only users with the `admin` role pass any check. The
+ * `hasRole` call is guarded because spatie/laravel-permission is an
+ * optional dependency — swap the check for your own authorization
+ * model (a boolean column, an IdP claim, a super-admin override) as
+ * needed.
+ */
+class {{ class }}
+{
+    /**
+     * Index page + sidebar visibility for the Invitations resource.
+     */
+    public function viewAny({{ userModelClass }} $user): bool
+    {
+        return $this->isAdmin($user);
+    }
+
+    /**
+     * Detail page for a single Invitation.
+     */
+    public function view({{ userModelClass }} $user, Invitation $invitation): bool
+    {
+        return $this->isAdmin($user);
+    }
+
+    public function create({{ userModelClass }} $user): bool
+    {
+        return $this->isAdmin($user);
+    }
+
+    public function update({{ userModelClass }} $user, Invitation $invitation): bool
+    {
+        return $this->isAdmin($user);
+    }
+
+    public function delete({{ userModelClass }} $user, Invitation $invitation): bool
+    {
+        return $this->isAdmin($user);
+    }
+
+    private function isAdmin({{ userModelClass }} $user): bool
+    {
+        return method_exists($user, 'hasRole') && $user->hasRole('admin');
+    }
+}

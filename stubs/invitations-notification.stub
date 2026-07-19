@@ -1,0 +1,51 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Notifications;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+/**
+ * The invitation email, scaffolded by `php artisan martis:invitations`.
+ *
+ * Delivered by the InviteUser / ResendInvitation actions via an
+ * on-demand mail route (`Notification::route('mail', $email)`), because
+ * the invitee has no account yet. The accept URL is built by the
+ * package's `InvitationUrl` seam, so you can repoint invite links from
+ * your service provider without touching this class.
+ *
+ * Customise the subject, body, and channels freely — this file is
+ * yours, not the package's.
+ */
+class UserInvitation extends Notification
+{
+    use Queueable;
+
+    public function __construct(
+        public string $acceptUrl,
+        public ?string $email = null,
+    ) {}
+
+    /**
+     * @return array<int, string>
+     */
+    public function via(mixed $notifiable): array
+    {
+        return ['mail'];
+    }
+
+    public function toMail(mixed $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject(__('You have been invited to :app', [
+                'app' => (string) config('app.name', 'the app'),
+            ]))
+            ->greeting(__('Hello!'))
+            ->line(__('You have been invited to create an account.'))
+            ->action(__('Accept invitation'), $this->acceptUrl)
+            ->line(__('This invitation link is single-use and will expire. If you did not expect it, you can ignore this email.'));
+    }
+}

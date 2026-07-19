@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use App\Notifications\UserInvitation;
+use Illuminate\Support\Collection;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Contracts\FieldContract;
+use Martis\Invitations\InvalidInvitationException;
+use Martis\Invitations\Invitation;
+use Martis\Invitations\InvitationManager;
+use Martis\Invitations\InvitationUrl;
+
+/**
+ * Re-issue a fresh token for the selected pending invitations and mail
+ * the accept link again, scaffolded by `php artisan martis:invitations`.
+ *
+ * The `InvitationManager::resend()` call is throttled
+ * (`config('martis.invitations.resend_throttle_seconds')`) and refuses
+ * anything that is no longer pending; those rows are skipped and
+ * reported. Admin-only via the resource policy.
+ *
+ * Customise freely. This file is yours.
+ */
+class ResendInvitation extends Action
+{
+    public function name(): string
+    {
+        return __('Resend invitation');
+    }
+
+    /**
+     * @param  Collection<int, Invitation>  $models
+     */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        $manager = app(InvitationManager::class);
+        $resent = 0;
+        $skipped = 0;
+
+        foreach ($models as $invitation) {
+            try {
+                // Mints a new raw token (throttled + pending-only); the
+                // fresh token lands on the transient `$invitation->rawToken`.
+                $manager->resend($invitation);
+            } catch (InvalidInvitationException) {
+                $skipped++;
+
+                continue;
+            }
+
+            $url = InvitationUrl::url($invitation, (string) $invitation->rawToken);
+            Notification::route('mail', $invitation->email)->notify(new UserInvitation($url, $invitation->email));
+            $resent++;
+        }
+
+        if ($resent === 0) {
+            return ActionResponse::danger(__('Nothing resent — invitations must be pending and not throttled.'));
+        }
+
+        return ActionResponse::message(__(':count invitation(s) resent', ['count' => $resent]));
+    }
+
+    /**
+     * @return list<FieldContract>
+     */
+    public function fields(Request $request): array
+    {
+        return [];
+    }
+}
