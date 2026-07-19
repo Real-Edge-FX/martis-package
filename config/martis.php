@@ -338,6 +338,10 @@ return [
         // false — the parent `view` denial is the actionable signal.
         // v1.8.8.
         'authz_denials_include_viewany' => env('MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY', false),
+
+        // Invitation lifecycle events (created / accepted / revoked /
+        // expired). Default on.
+        'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),
     ],
 
     /*
@@ -1409,7 +1413,6 @@ return [
         'redirect_after_accept' => env('MARTIS_INVITATIONS_REDIRECT', null),
         'signup_fields' => ['name', 'password'],
         'mark_email_verified_on_accept' => true,
-        'audit' => env('MARTIS_AUDIT_INVITATIONS', true),
     ],
 
     /*
