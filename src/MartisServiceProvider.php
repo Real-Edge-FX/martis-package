@@ -265,6 +265,14 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../stubs/create_sessions_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000005_create_sessions_table.php'),
             ], 'martis-sessions-migration');
 
+            // Optional `invitations` table (key-type-aware) for the
+            // invite-a-user flow. Portable schema stub only — no model
+            // or behaviour ships yet; gated behind config('martis.invitations.enabled')
+            // and the `martis-invite` Gate before it is reachable.
+            $this->publishes([
+                __DIR__.'/../stubs/create_invitations_table.php.stub' => database_path('migrations/'.date('Y_m_d').'_000008_create_invitations_table.php'),
+            ], 'martis-invitations-migration');
+
             // v1.10.5 drop migration for `dashboards_layout`. v1.10.4
             // briefly shipped that column under the retracted per-user
             // toggle; v1.10.5 nests dashboards declaratively via

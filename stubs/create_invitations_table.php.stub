@@ -1,0 +1,130 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Martis invitations table.
+ *
+ * Lets a privileged operator invite a new user by email instead of
+ * leaving self-service registration open (`config('martis.invitations')`,
+ * gated behind the `martis-invite` Gate). This migration is a portable,
+ * DB-agnostic schema stub only — no model or behaviour ships yet.
+ *
+ * The `invited_by` / `accepted_user_id` columns match whichever
+ * primary-key shape the host `users` table uses, so a UUID/ULID-keyed
+ * host does not write a UUID string into a `bigint` column (which
+ * Postgres rejects). Detection mirrors the other Martis stubs — it
+ * inspects the configured user model for `HasUuids` / `HasUlids` and
+ * reads `$keyType` / `$incrementing`, and honours a
+ * `MARTIS_USER_ID_COLUMN_TYPE` override. Both columns are nullable
+ * foreign keys that null out on delete: losing the inviter or the
+ * accepting user must not cascade-delete the invitation record.
+ *
+ * Idempotent — skipped when the table already exists.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::hasTable('invitations')) {
+            return;
+        }
+
+        $userKey = $this->resolveUserKey();
+
+        Schema::create('invitations', function (Blueprint $table) use ($userKey) {
+            $table->id();
+            $table->string('email')->index();
+            $table->string('token', 64)->unique();
+            $table->string('status')->default('pending')->index();
+            $table->string('role')->nullable();
+
+            $this->addUserForeignKey($table, 'invited_by', $userKey);
+            $this->addUserForeignKey($table, 'accepted_user_id', $userKey);
+
+            $table->timestamp('expires_at')->nullable();
+            $table->timestamp('accepted_at')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('invitations');
+    }
+
+    /**
+     * Resolve the user-id column shape the host expects.
+     *
+     * Returns one of `bigint`, `uuid`, `ulid`, `string`. Inlined in
+     * each Martis migration stub so the published file works even if
+     * the package itself is later removed from the host's composer.
+     */
+    private function resolveUserKey(): string
+    {
+        $override = config('martis.user_id_column_type');
+        if (is_string($override) && $override !== '') {
+            $normalised = mb_strtolower($override);
+            if (in_array($normalised, ['bigint', 'uuid', 'ulid', 'string'], true)) {
+                return $normalised;
+            }
+        }
+
+        $guard = config('martis.guard') ?: config('auth.defaults.guard');
+        $provider = config("auth.guards.{$guard}.provider", config('auth.defaults.provider'));
+        $userClass = config("auth.providers.{$provider}.model");
+        if (! is_string($userClass) || ! class_exists($userClass)) {
+            return 'bigint';
+        }
+
+        $model = new $userClass;
+        $traits = class_uses_recursive($model);
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
+            return 'uuid';
+        }
+        if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUlids::class, $traits, true)) {
+            return 'ulid';
+        }
+
+        $keyType = method_exists($model, 'getKeyType') ? $model->getKeyType() : 'int';
+        $incrementing = method_exists($model, 'getIncrementing') ? $model->getIncrementing() : true;
+        if ($incrementing && $keyType === 'int') {
+            return 'bigint';
+        }
+        if ($keyType === 'string') {
+            return 'string';
+        }
+
+        return 'bigint';
+    }
+
+    /**
+     * Emit a nullable `users`-referencing foreign key column shaped to
+     * match the host's user PK, set to null the invitation FK when the
+     * referenced user is deleted (an invitation must survive its
+     * inviter or accepter being removed).
+     */
+    private function addUserForeignKey(Blueprint $table, string $column, string $userKey): void
+    {
+        match ($userKey) {
+            'uuid' => $table->foreignUuid($column)->nullable()->constrained('users')->nullOnDelete(),
+            'ulid' => $table->foreignUlid($column)->nullable()->constrained('users')->nullOnDelete(),
+            'string' => $this->addStringUserForeignKey($table, $column),
+            default => $table->foreignId($column)->nullable()->constrained('users')->nullOnDelete(),
+        };
+    }
+
+    /**
+     * Emit a string-typed FK column plus an explicit constraint.
+     * Used when the host's user PK is a generic string (not UUID, not
+     * ULID, not an auto-incrementing integer).
+     */
+    private function addStringUserForeignKey(Blueprint $table, string $column): void
+    {
+        $table->string($column)->nullable();
+        $table->foreign($column)->references('id')->on('users')->nullOnDelete();
+    }
+};
