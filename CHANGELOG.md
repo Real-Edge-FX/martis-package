@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.32.1] — 2026-07-19
+
+### Fixed
+
+- **`martis:roles` reported the User model "Patched" but silently failed to add the `HasRoles` trait on a Laravel 12 default model.** `patchUserModel()` added the `use Spatie\Permission\Traits\HasRoles;` *import* but never the class-body `use HasRoles;` *trait* when a docblock sat between the class brace and the trait-use line (Laravel 12's `/** @use HasFactory<UserFactory> */` above `use HasFactory, Notifiable;`): the primary regex required the trait-use to immediately follow `{`, and the fallback guard (`str_contains($file, 'HasRoles')`) was already satisfied by the import — so the command wrote an import-only change and printed a green "Patched" success, leaving every downstream `hasRole()` / `assignRole()` call throwing "Call to undefined method". The patcher is now extracted into pure, tested helpers (`applyHasRolesTrait()` / `classBodyUsesHasRolesTrait()`): the injection tolerates a leading docblock / attribute / comment, the "already applied" check inspects the class body (an import alone no longer counts), the import is gated on an actual import statement (never a bare mention), and "Patched" is printed only after the trait genuinely lands in the class body.
+- **`martis:roles` false-negatived "spatie/laravel-permission is not installed" on the first run, immediately after installing it.** `ensureSpatieInstalled()` runs `composer require` in a subprocess that rewrites the autoload maps on disk, but the parent PHP process had cached its Composer `ClassLoader` at boot, so the following `class_exists('Spatie\Permission\PermissionServiceProvider')` evaluated the stale pre-install map and reported the just-installed package as missing (a bare re-run worked). The command now refreshes the in-process autoloader (re-applies the freshly-written PSR-4 map to the booted `ClassLoader`) after a successful `composer require`, so the documented one-shot `php artisan martis:roles` completes in a single invocation; the residual "could not be loaded" message is now actionable about the stale-autoloader re-run. Both are backend-only, no asset rebuild.
+
 ## [1.32.0] — 2026-07-19
 
 ### Added
