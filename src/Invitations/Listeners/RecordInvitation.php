@@ -35,20 +35,30 @@ class RecordInvitation
 {
     public function handleCreated(InvitationCreated $event): void
     {
-        $this->record('invitation.created', $event->invitation);
+        // The inviting operator is the actor of record; fall back to
+        // whoever is currently authenticated (e.g. a console-issued
+        // invitation with no `invited_by`).
+        $this->record('invitation.created', $event->invitation, $event->invitation->invited_by ?? Auth::id());
     }
 
     public function handleAccepted(InvitationAccepted $event): void
     {
-        $this->record('invitation.accepted', $event->invitation);
+        // Same actor rule as `created`: the invitation describes what
+        // happened to the inviter's invite, not the invitee's own action.
+        $this->record('invitation.accepted', $event->invitation, $event->invitation->invited_by ?? Auth::id());
     }
 
     public function handleRevoked(InvitationRevoked $event): void
     {
-        $this->record('invitation.revoked', $event->invitation);
+        // Revoked is different: the actor is whoever CLICKED revoke (the
+        // current operator), not the original inviter — an operator can
+        // revoke someone else's outstanding invite. Fall back to the
+        // inviter only when revoked from an unauthenticated context (e.g.
+        // console/queue).
+        $this->record('invitation.revoked', $event->invitation, Auth::id() ?? $event->invitation->invited_by);
     }
 
-    protected function record(string $name, Invitation $invitation): void
+    protected function record(string $name, Invitation $invitation, int|string|null $userId): void
     {
         if (! (bool) config('martis.audit.invitations', true)) {
             return;
@@ -57,13 +67,6 @@ class RecordInvitation
         if (! Schema::hasTable('martis_action_events')) {
             return;
         }
-
-        // The inviting operator is the actor of record for the whole
-        // lifecycle (created/accepted/revoked all describe what happened
-        // to THEIR invitation); fall back to whoever is currently
-        // authenticated (e.g. a console-issued invitation with no
-        // `invited_by`, or an operator revoking someone else's invite).
-        $userId = $invitation->invited_by ?? Auth::id();
 
         ActionEvent::create([
             'batch_id' => (string) Str::uuid(),

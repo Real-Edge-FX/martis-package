@@ -36,6 +36,16 @@ class RecordingRoleUser extends User
     }
 }
 
+/**
+ * Test-only User model bound to a non-default `admin_users` table, used to
+ * prove the anti-takeover guard resolves the SAME model that createUser()
+ * writes to under a custom `martis.guard` -> provider -> model chain.
+ */
+class CustomGuardUser extends User
+{
+    protected $table = 'admin_users';
+}
+
 beforeEach(function () {
     config(['auth.providers.users.model' => User::class]);
 
@@ -116,6 +126,54 @@ it('accept() refuses to take over an already-registered email', function () {
     User::forceCreate(['name' => 'X', 'email' => 'dupe@ex.com', 'password' => bcrypt('x')]);
     $mgr->accept($inv->rawToken, ['name' => 'A', 'password' => 'password123', 'password_confirmation' => 'password123']);
 })->throws(InvalidInvitationException::class);
+
+it('accept() anti-takeover guard resolves the model via the martis.guard -> provider -> model chain, not a hardcoded auth.providers.users.model', function () {
+    // Regression for the guard-model mismatch: emailExists() used to always
+    // query `auth.providers.users.model`, regardless of which guard/provider
+    // createUser() (via DefaultRegistersUsers::userModel()) actually resolves
+    // and writes to. Under a non-default guard whose provider isn't `users`,
+    // the guard silently missed an already-registered email and the request
+    // fell through to createUser(), which inserted into the DIFFERENT
+    // (correctly-resolved) table and hit its DB unique index instead of the
+    // neutral InvalidInvitationException -- a raw 500 instead of a 422.
+    Schema::create('admin_users', function ($table) {
+        $table->id();
+        $table->string('name');
+        $table->string('email')->unique();
+        $table->timestamp('email_verified_at')->nullable();
+        $table->string('password');
+        $table->rememberToken();
+        $table->timestamps();
+    });
+
+    config(['martis.guard' => 'admins']);
+    config(['auth.guards.admins' => ['driver' => 'session', 'provider' => 'admin_users']]);
+    config(['auth.providers.admin_users' => ['driver' => 'eloquent', 'model' => CustomGuardUser::class]]);
+
+    // Seed the target email ONLY in admin_users (the guard-resolved table),
+    // never in the default `users` table.
+    CustomGuardUser::forceCreate(['name' => 'X', 'email' => 'guard-dupe@ex.com', 'password' => bcrypt('x')]);
+
+    $mgr = app(InvitationManager::class);
+    $inv = $mgr->invite('guard-dupe@ex.com');
+
+    $thrown = null;
+
+    try {
+        $mgr->accept($inv->rawToken, ['name' => 'A', 'password' => 'password123', 'password_confirmation' => 'password123']);
+    } catch (Throwable $e) {
+        $thrown = $e;
+    }
+
+    // Must be the neutral guard exception, not a DB-level unique constraint
+    // violation (\Illuminate\Database\QueryException) leaking out of
+    // createUser() because the guard checked the wrong table.
+    expect($thrown)->toBeInstanceOf(InvalidInvitationException::class);
+    expect($inv->refresh()->status)->toBe(Invitation::STATUS_PENDING); // rolled back, never accepted
+    expect(CustomGuardUser::query()->where('email', 'guard-dupe@ex.com')->count())->toBe(1); // only the seeded row; createUser() never ran
+
+    Schema::dropIfExists('admin_users');
+});
 
 it('accept() rejects an unknown token', function () {
     $mgr = app(InvitationManager::class);

@@ -141,6 +141,29 @@ it('revoke() writes one invitation.revoked ActionEvent row', function () {
         ->and($row->fields)->toBe(['role' => null, 'invitation_id' => $inv->id]);
 });
 
+it('revoke() attributes the invitation.revoked audit row to the revoking operator, not the original inviter', function () {
+    // The actor of a revoke is whoever CLICKED revoke (the current operator),
+    // not whoever originally sent the invite -- an admin routinely revokes
+    // invitations they did not personally issue. Regression for the bug
+    // where the actor was always `invited_by ?? Auth::id()`, so a different
+    // operator revoking someone else's invite was mis-attributed to the
+    // original inviter.
+    $inviter = User::forceCreate(['name' => 'Inviter', 'email' => 'inviter@ex.com', 'password' => bcrypt('x')]);
+    $revoker = User::forceCreate(['name' => 'Revoker', 'email' => 'revoker@ex.com', 'password' => bcrypt('x')]);
+
+    $this->actingAs($inviter);
+    $mgr = app(InvitationManager::class);
+    $inv = $mgr->invite('revoke-actor@ex.com');
+    expect($inv->invited_by)->toBe($inviter->id);
+
+    $this->actingAs($revoker);
+    $mgr->revoke($inv);
+
+    $row = ActionEvent::query()->where('name', 'invitation.revoked')->first();
+    expect($row->user_id)->toBe($revoker->id)
+        ->and($row->user_id)->not->toBe($inviter->id);
+});
+
 // -----------------------------------------------------------------------------
 // Audit OFF — config('martis.audit.invitations', false)
 // -----------------------------------------------------------------------------

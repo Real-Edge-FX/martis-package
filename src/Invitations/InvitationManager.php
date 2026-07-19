@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Martis\Auth\DefaultRegistersUsers;
 use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\Events\InvitationAccepted;
 use Martis\Invitations\Events\InvitationCreated;
@@ -200,14 +201,40 @@ class InvitationManager
 
     protected function emailExists(string $email): bool
     {
-        /** @var class-string<Model>|null $model */
-        $model = config('auth.providers.users.model');
+        $model = $this->userModel();
 
         if ($model === null) {
             return false;
         }
 
         return $model::query()->where('email', mb_strtolower($email))->exists();
+    }
+
+    /**
+     * Resolve the Eloquent user model via the same GUARD -> PROVIDER -> model
+     * chain as {@see DefaultRegistersUsers::userModel()}, so the
+     * anti-takeover guard in {@see emailExists()} always checks the same
+     * table that {@see createUser()} (via `RegistersUsers`) writes to. Under
+     * the default setup (no `martis.guard` configured, `web` guard's
+     * provider is `users`) this resolves to `auth.providers.users.model`,
+     * matching the previous hardcoded lookup exactly.
+     *
+     * Unlike `DefaultRegistersUsers::userModel()`, this returns null instead
+     * of throwing when no model is configured for the resolved provider —
+     * `emailExists()` is a defensive guard, not a hard requirement, and a
+     * misconfiguration here should not mask the real error `createUser()`
+     * will throw moments later.
+     *
+     * @return class-string<Model>|null
+     */
+    private function userModel(): ?string
+    {
+        $provider = config('auth.guards.'.config('martis.guard', 'web').'.provider', 'users');
+
+        /** @var class-string<Model>|null $modelClass */
+        $modelClass = config("auth.providers.{$provider}.model");
+
+        return $modelClass;
     }
 
     protected function generateRawToken(): string
