@@ -642,8 +642,11 @@ Use the `martis:component` artisan command to scaffold an override TSX (alias: `
 > | `ForgotPasswordPage.tsx` | `auth:forgot-password` |
 > | `ResetPasswordPage.tsx` | `auth:reset-password` |
 > | `EmailVerifyNoticePage.tsx` | `auth:email-verify-notice` |
+> | *(no fixed-filename scaffold yet)* | `auth:invitation-accept` |
 >
-> The SPA router resolves these hard-coded strings, so the map cannot be filename-derived.
+> The SPA router resolves these hard-coded strings, so the map cannot be filename-derived. `auth:invitation-accept` has no `martis:component --type=` scaffold yet — register a replacement under this key directly from your extension bundle (`componentRegistry.register('auth:invitation-accept', MyScreen)`); the resolution mechanism is identical to the scaffolded slots above, it just skips the auto-discovery step. See [invitations.md § Overriding the screen](invitations.md#overriding-the-screen).
+>
+> If you only need to change copy, not markup, every page above (including the invitation-accept screen) also supports the lighter-weight `config('martis.auth.copy.*')` override — for invitation-accept, `config.auth.copy.invitation_accept.title` / `.subtitle` — before reaching for a full component override. See [authentication.md § Customising the auth copy](authentication.md#customising-the-auth-copy).
 >
 > **(b) Generic / field-shape overrides** — filename derives the key:
 >

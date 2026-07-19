@@ -102,6 +102,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 10.5 | **[SSO Subsystem](sso.md)** | Pluggable provider contract, identity-to-user resolver, role mapping, permission adapters, `martis:sso` generator (v0.9) |
 | 10.55 | **[Roles & Permissions Admin](roles.md)** | `martis:roles` generator — Spatie-backed admin UI for users, roles, permissions in the System sidebar group (v1.6) |
 | 10.6 | **[Impersonation](impersonation.md)** | Login as another user — opt-in master switch + `martis-impersonate` gate + REST + banner contract (v0.10) |
+| 10.7 | **[Invitations](invitations.md)** | Invite-only onboarding — opt-in master switch + `martis-invite` gate, `InvitationManager` (hashed single-use tokens, TTL, enumeration-neutral accept), `createUser()` override seam, events + audit, React accept screen, `martis:invitations` generator |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
 | 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |
 | 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
@@ -152,6 +153,7 @@ docs/
 ├── authentication.md ............... Login, 2FA, profile
 ├── sso.md .......................... SSO subsystem (v0.9)
 ├── impersonation.md ................ Impersonation subsystem (v0.10)
+├── invitations.md .................. Invite-only onboarding subsystem
 ├── configuration.md ................ Config reference
 ├── theming.md ...................... 94-token design system
 ├── preferences.md .................. User preferences (⭐ D1/D2/D3)

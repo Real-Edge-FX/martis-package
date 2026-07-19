@@ -303,6 +303,8 @@ class MyRegistrar implements RegistersUsers
 
 The Martis-shipped React form already understands the response shape (`201` on success, `422` with `errors.field` on validation failure), so the React side keeps working as long as the override returns an `Authenticatable` and throws `ValidationException` on invalid input.
 
+> **Building an invite-token check like the `invite` field above?** Consider `martis:invitations` instead of hand-rolling it against self-service registration. It ships a dedicated `InvitationManager` (hashed single-use tokens, TTL, enumeration-neutral accept flow), a public accept screen, and a generator that scaffolds the admin-side resource + actions — a closed, invite-only onboarding flow that composes with (rather than bolts onto) the registration pipeline above. See [invitations.md](invitations.md).
+
 ### Layer-by-layer compatibility
 
 The three layers compose. Override the React page AND the backend AND keep the Martis-themed link visibility (Layer 1 staying empty). Or override only the React page and let the default backend keep working. Or do nothing and ship with the defaults.
