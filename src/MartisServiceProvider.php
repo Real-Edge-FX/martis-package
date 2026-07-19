@@ -77,7 +77,11 @@ use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\ImpersonationManager;
+use Martis\Invitations\Events\InvitationAccepted;
+use Martis\Invitations\Events\InvitationCreated;
+use Martis\Invitations\Events\InvitationRevoked;
 use Martis\Invitations\InvitationManager;
+use Martis\Invitations\Listeners\RecordInvitation;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
@@ -667,6 +671,22 @@ class MartisServiceProvider extends ServiceProvider
         Event::listen(
             ImpersonationStopped::class,
             [RecordImpersonation::class, 'handleStopped'],
+        );
+
+        // Invitation lifecycle audit is package-internal too (no third-party
+        // dependency), register unconditionally. RecordInvitation itself
+        // gates on `martis.audit.invitations` + the audit table's presence.
+        Event::listen(
+            InvitationCreated::class,
+            [RecordInvitation::class, 'handleCreated'],
+        );
+        Event::listen(
+            InvitationAccepted::class,
+            [RecordInvitation::class, 'handleAccepted'],
+        );
+        Event::listen(
+            InvitationRevoked::class,
+            [RecordInvitation::class, 'handleRevoked'],
         );
 
         // v1.8.8 — Gate denial audit. The listener carries per-request

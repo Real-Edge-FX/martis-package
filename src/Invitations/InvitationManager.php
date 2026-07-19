@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Martis\Contracts\RegistersUsers;
+use Martis\Invitations\Events\InvitationAccepted;
+use Martis\Invitations\Events\InvitationCreated;
+use Martis\Invitations\Events\InvitationRevoked;
 
 class InvitationManager
 {
@@ -27,6 +30,9 @@ class InvitationManager
         ]);
 
         $invitation->rawToken = $raw; // transient, in-memory only, for the notification URL
+
+        // Not inside a transaction, so a plain dispatch is fine (nothing to roll back).
+        event(new InvitationCreated($invitation));
 
         return $invitation;
     }
@@ -112,7 +118,9 @@ class InvitationManager
             $userId = $user instanceof Model ? $user->getKey() : $user->getAuthIdentifier();
             $invitation->forceFill(['accepted_user_id' => $userId])->save();
 
-            // TODO(Task 7): event(new \Martis\Invitations\Events\InvitationAccepted($invitation, $user));
+            // Runs inside this DB::transaction(); fire only after it actually
+            // commits so a claim that rolls back never emits the event.
+            DB::afterCommit(fn () => event(new InvitationAccepted($invitation, $user)));
 
             return $user;
         });
@@ -161,7 +169,8 @@ class InvitationManager
 
         $invitation->forceFill(['status' => Invitation::STATUS_REVOKED])->save();
 
-        // TODO(Task 7): event(new \Martis\Invitations\Events\InvitationRevoked($invitation));
+        // Not inside a transaction, so a plain dispatch is fine (nothing to roll back).
+        event(new InvitationRevoked($invitation));
     }
 
     /**
