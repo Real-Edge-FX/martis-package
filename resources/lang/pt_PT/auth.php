@@ -96,11 +96,11 @@ return [
 
     // Aceitar convite (Task 9)
     'invitation_accept_title' => 'Aceite o seu convite',
-    'invitation_accept_sub' => 'Defina uma palavra-passe para ativar a sua conta.',
+    'invitation_accept_sub' => 'Defina uma palavra-passe para activar a sua conta.',
     'invitation_accept_name' => 'Nome completo',
     'invitation_accept_confirm' => 'Confirmar palavra-passe',
     'invitation_accept_submit' => 'Aceitar convite',
-    'invitation_accept_submitting' => 'A ativar…',
+    'invitation_accept_submitting' => 'A activar…',
     'invitation_accept_show' => 'Mostrar palavra-passe',
     'invitation_accept_hide' => 'Ocultar palavra-passe',
     'invitation_accept_mismatch' => 'As palavras-passe não coincidem.',

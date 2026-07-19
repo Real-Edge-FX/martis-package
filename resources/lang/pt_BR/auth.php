@@ -103,7 +103,7 @@ return [
     'invitation_accept_submitting' => 'Ativando…',
     'invitation_accept_show' => 'Mostrar senha',
     'invitation_accept_hide' => 'Ocultar senha',
-    'invitation_accept_mismatch' => 'As senhas não coincidem.',
+    'invitation_accept_mismatch' => 'As senhas não conferem.',
     'invitation_accept_invalid_title' => 'Convite inválido',
     'invitation_accept_invalid_message' => 'Este link de convite é inválido ou expirou.',
 
