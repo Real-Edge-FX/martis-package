@@ -6,6 +6,7 @@ import { RegisterPage } from '@/pages/Register'
 import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { EmailVerifyNoticePage } from '@/pages/EmailVerifyNotice'
+import { InvitationAcceptPage } from '@/pages/InvitationAccept'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
 import { ForbiddenPage } from '@/pages/Forbidden'
@@ -21,7 +22,10 @@ import { componentRegistry } from '@/lib/componentRegistry'
  * Mirrors `Layout.tsx:resolveShellComponent`. Registered overrides come
  * from `php artisan martis:component MyLogin --type=login-page` (and
  * the matching --type values for register, forgot-password,
- * reset-password, and email-verify-notice).
+ * reset-password, and email-verify-notice). `auth:invitation-accept`
+ * has no dedicated `--type` scaffold yet — a consumer overrides it the
+ * same way, by calling `componentRegistry.register('auth:invitation-accept', MyScreen)`
+ * directly; the registry key works for any string, scaffold or not.
  */
 function resolveAuthPage<P>(key: string, fallback: ComponentType<P>): ComponentType<P> {
   if (componentRegistry.has(key)) {
@@ -37,6 +41,7 @@ const Register = resolveAuthPage('auth:register', RegisterPage)
 const ForgotPassword = resolveAuthPage('auth:forgot-password', ForgotPasswordPage)
 const ResetPassword = resolveAuthPage('auth:reset-password', ResetPasswordPage)
 const EmailVerifyNotice = resolveAuthPage('auth:email-verify-notice', EmailVerifyNoticePage)
+const InvitationAccept = resolveAuthPage('auth:invitation-accept', InvitationAcceptPage)
 
 export const router = createBrowserRouter([
   {
@@ -58,6 +63,10 @@ export const router = createBrowserRouter([
   {
     path: '/email/verify',
     element: createElement(EmailVerifyNotice),
+  },
+  {
+    path: '/invitations/accept/:token',
+    element: createElement(InvitationAccept),
   },
   {
     path: '/2fa/challenge',
