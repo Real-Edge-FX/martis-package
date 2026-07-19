@@ -77,6 +77,7 @@ use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\ImpersonationManager;
+use Martis\Invitations\InvitationManager;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
@@ -132,6 +133,13 @@ class MartisServiceProvider extends ServiceProvider
                 $app->make(AuthManager::class),
             );
         });
+
+        // Bound as a plain singleton (not a factory closure) so consumers
+        // can rebind a subclass in their own service provider — same
+        // swappable-manager pattern as ImpersonationManager above. Only
+        // the token core (invite/findByRawToken) ships in this task;
+        // accept()/resend()/revoke() land in later tasks.
+        $this->app->singleton(InvitationManager::class);
 
         // Auth-flow defaults. Each contract resolves to a Martis-shipped
         // implementation; consumer apps override by re-binding in their
