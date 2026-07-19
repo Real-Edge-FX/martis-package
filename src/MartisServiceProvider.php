@@ -161,6 +161,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerMiddlewareAlias();
         $this->registerExceptionHandling();
         $this->registerCacheGate();
+        $this->registerInvitationGate();
         $this->discoverResources();
         $this->discoverTools();
         $this->registerApiDocs();
@@ -336,6 +337,25 @@ class MartisServiceProvider extends ServiceProvider
         // (header / query param) are ignored for every user.
         if (! Gate::has('bypass-martis-cache')) {
             Gate::define('bypass-martis-cache', fn () => false);
+        }
+    }
+
+    /**
+     * Register the default `martis-invite` gate. Denies by default.
+     *
+     * Invitations: no default — the consumer decides who may invite
+     * (403 until defined):
+     *
+     *     Gate::define('martis-invite', fn ($user) => $user->is_admin);
+     *
+     * Calling `Gate::define()` from the host app replaces the closure
+     * registered here, so order doesn't matter.
+     */
+    protected function registerInvitationGate(): void
+    {
+        // Secure default: deny. The host must explicitly grant this ability.
+        if (! Gate::has('martis-invite')) {
+            Gate::define('martis-invite', static fn ($user = null): bool => false);
         }
     }
 

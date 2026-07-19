@@ -1390,6 +1390,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Invitations
+    |--------------------------------------------------------------------------
+    |
+    | Lets a privileged operator invite a new user by email instead of
+    | leaving self-service registration open. Disabled by default — flip
+    | the master switch *and* define the `martis-invite` Gate to make it
+    | reachable.
+    |
+    */
+
+    'invitations' => [
+        'enabled' => env('MARTIS_INVITATIONS_ENABLED', false),
+        'expires_after_hours' => (int) env('MARTIS_INVITATIONS_TTL_HOURS', 72),
+        'single_use' => true,
+        'resend_throttle_seconds' => (int) env('MARTIS_INVITATIONS_RESEND_THROTTLE', 60),
+        'login_after_accept' => env('MARTIS_INVITATIONS_LOGIN_AFTER_ACCEPT', true),
+        'redirect_after_accept' => env('MARTIS_INVITATIONS_REDIRECT', null),
+        'signup_fields' => ['name', 'password'],
+        'mark_email_verified_on_accept' => true,
+        'audit' => env('MARTIS_AUDIT_INVITATIONS', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Soft-gates (v1.11.0+)
     |--------------------------------------------------------------------------
     |
