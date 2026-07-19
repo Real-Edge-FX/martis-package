@@ -5,7 +5,9 @@ namespace Martis\Invitations;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Martis\Contracts\RegistersUsers;
 
 class InvitationManager
@@ -39,66 +41,81 @@ class InvitationManager
      * through the shared registration pipeline, assign the invitation role,
      * mark the invitation accepted, and return the new user.
      *
-     * The pending -> accepted flip is a single compare-and-set UPDATE that
-     * only one caller can win (`$claimed === 1`). Every unacceptable state
-     * — unknown, expired, revoked, already-used token, or an email that
+     * The whole flow runs inside a single DB transaction. The pending ->
+     * accepted flip is a compare-and-set UPDATE that only one caller can win
+     * (`$claimed === 1`); the row lock it takes serializes concurrent
+     * claimers, so single-use survives even under a race. Every unacceptable
+     * state — unknown, expired, revoked, already-used token, or an email that
      * already belongs to a user — throws the neutral
-     * {@see InvalidInvitationException} so the accept endpoint cannot be
-     * used to enumerate valid invitations.
+     * {@see InvalidInvitationException}, and the transaction rollback returns
+     * the invitation to `pending` so the accept endpoint cannot be used to
+     * enumerate valid invitations.
+     *
+     * Because {@see createUser()} runs inside the transaction too, a
+     * validation failure there (short/mismatched password, etc.) rolls the
+     * claim back and the {@see ValidationException}
+     * propagates OUT of accept() unchanged — the invitation stays `pending`
+     * and remains retryable (the controller turns it into a 422).
      *
      * @param  array<string, mixed>  $signup
      *
      * @throws InvalidInvitationException
+     * @throws ValidationException
      */
     public function accept(string $rawToken, array $signup): Authenticatable
     {
         $hash = $this->hashToken($rawToken);
 
-        // Atomic single-use claim: only one caller can flip pending -> accepted.
-        $claimed = Invitation::query()
-            ->where('token', $hash)
-            ->where('status', Invitation::STATUS_PENDING)
-            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->update(['status' => Invitation::STATUS_ACCEPTED, 'accepted_at' => now()]);
+        return DB::transaction(function () use ($hash, $signup): Authenticatable {
+            // Atomic single-use claim: only one caller can flip pending -> accepted.
+            // The row lock this UPDATE takes serializes concurrent claimers.
+            $claimed = Invitation::query()
+                ->where('token', $hash)
+                ->where('status', Invitation::STATUS_PENDING)
+                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                ->update(['status' => Invitation::STATUS_ACCEPTED, 'accepted_at' => now()]);
 
-        if ($claimed !== 1) {
-            throw new InvalidInvitationException;
-        }
+            if ($claimed !== 1) {
+                throw new InvalidInvitationException; // nothing was ours; the transaction rolls back
+            }
 
-        $invitation = Invitation::query()->where('token', $hash)->firstOrFail();
+            $invitation = Invitation::query()->where('token', $hash)->firstOrFail();
 
-        // Anti-takeover: never create/overwrite an already-registered email.
-        if ($this->emailExists($invitation->email)) {
-            // roll the claim back so the row does not read as accepted-without-user
-            $invitation->forceFill(['status' => Invitation::STATUS_PENDING, 'accepted_at' => null])->save();
-            throw new InvalidInvitationException;
-        }
+            // Anti-takeover: never create/overwrite an already-registered email.
+            // No manual rollback needed — throwing rolls the transaction back,
+            // which undoes the claim and returns the row to pending.
+            if ($this->emailExists($invitation->email)) {
+                throw new InvalidInvitationException;
+            }
 
-        // Signup whitelist: only configured fields are read from the client; email is authoritative.
-        /** @var list<string> $allowed */
-        $allowed = (array) config('martis.invitations.signup_fields', ['name', 'password']);
-        $safe = array_intersect_key($signup, array_flip([...$allowed, 'password_confirmation']));
+            // Signup whitelist: only configured fields are read from the client; email is authoritative.
+            /** @var list<string> $allowed */
+            $allowed = (array) config('martis.invitations.signup_fields', ['name', 'password']);
+            $safe = array_intersect_key($signup, array_flip([...$allowed, 'password_confirmation']));
 
-        $user = $this->createUser($invitation, $safe);
+            // createUser() runs the shared registration pipeline; a ValidationException
+            // here propagates out unchanged and the rollback keeps the invitation pending.
+            $user = $this->createUser($invitation, $safe);
 
-        if ($invitation->role !== null && method_exists($user, 'assignRole')) {
-            $user->assignRole($invitation->role); // Spatie soft-dep
-        }
+            if ($invitation->role !== null && method_exists($user, 'assignRole')) {
+                $user->assignRole($invitation->role); // Spatie soft-dep
+            }
 
-        if (
-            config('martis.invitations.mark_email_verified_on_accept', true)
-            && $user instanceof Model
-            && Schema::hasColumn($user->getTable(), 'email_verified_at')
-        ) {
-            $user->forceFill(['email_verified_at' => now()])->save();
-        }
+            if (
+                config('martis.invitations.mark_email_verified_on_accept', true)
+                && $user instanceof Model
+                && Schema::hasColumn($user->getTable(), 'email_verified_at')
+            ) {
+                $user->forceFill(['email_verified_at' => now()])->save();
+            }
 
-        $userId = $user instanceof Model ? $user->getKey() : $user->getAuthIdentifier();
-        $invitation->forceFill(['accepted_user_id' => $userId])->save();
+            $userId = $user instanceof Model ? $user->getKey() : $user->getAuthIdentifier();
+            $invitation->forceFill(['accepted_user_id' => $userId])->save();
 
-        // TODO(Task 7): event(new \Martis\Invitations\Events\InvitationAccepted($invitation, $user));
+            // TODO(Task 7): event(new \Martis\Invitations\Events\InvitationAccepted($invitation, $user));
 
-        return $user;
+            return $user;
+        });
     }
 
     /**

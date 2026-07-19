@@ -17,6 +17,25 @@ use Martis\Stubs\StubResolver;
 // to persist through the shared RegistersUsers pipeline.
 // -----------------------------------------------------------------------------
 
+/**
+ * Test-only User model that records role assignments. The default test User
+ * has no assignRole(), so the role branch of accept() is skipped there; this
+ * stand-in lets that branch actually run and be asserted. NOT a Spatie
+ * dependency — just a minimal recorder.
+ */
+class RecordingRoleUser extends User
+{
+    protected $table = 'users';
+
+    /** @var list<string> */
+    public array $assignedRoles = [];
+
+    public function assignRole(string $role): void
+    {
+        $this->assignedRoles[] = $role;
+    }
+}
+
 beforeEach(function () {
     config(['auth.providers.users.model' => User::class]);
 
@@ -124,4 +143,43 @@ it('accept() leaves the invitation claimable after an anti-takeover rejection', 
     $blocker->delete();
     $user = $mgr->accept($inv->rawToken, ['name' => 'A', 'password' => 'password123', 'password_confirmation' => 'password123']);
     expect($user->email)->toBe('rollback@ex.com');
+});
+
+it('accept() cannot be tricked into injecting email, role, or metadata via $signup', function () {
+    // The invitation dictates email + role; $signup is whitelisted to name/password.
+    // Attacker-supplied email/role/is_admin must be ignored entirely.
+    config(['martis.auth.registration' => ['default_role' => null]]);
+    $mgr = app(InvitationManager::class);
+    $inv = $mgr->invite('legit@ex.com', 'editor');
+
+    $user = $mgr->accept($inv->rawToken, [
+        'name' => 'Ann',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'email' => 'attacker@evil.com',   // injection attempt — must be ignored
+        'role' => 'admin',                // injection attempt — must be ignored
+        'is_admin' => true,               // injection attempt — must be ignored
+    ]);
+
+    expect($user->email)->toBe('legit@ex.com');                             // invitation email is authoritative
+    expect($user->is_admin)->toBeNull();                                    // injected attribute never reached the model
+    expect(User::where('email', 'attacker@evil.com')->exists())->toBeFalse(); // no user for the injected email
+
+    $inv->refresh();
+    expect($inv->role)->toBe('editor');                                     // role stays what the invitation dictated
+});
+
+it('accept() assigns the invitation role through the user model assignRole()', function () {
+    // Bind a User subclass that actually defines assignRole() so the role
+    // branch runs and is genuinely asserted (the base test User skips it).
+    config(['auth.providers.users.model' => RecordingRoleUser::class]);
+    config(['martis.auth.registration' => ['default_role' => null]]); // isolate: only the invitation role
+
+    $mgr = app(InvitationManager::class);
+    $inv = $mgr->invite('role@ex.com', 'editor');
+
+    $user = $mgr->accept($inv->rawToken, ['name' => 'Ann', 'password' => 'password123', 'password_confirmation' => 'password123']);
+
+    expect($user)->toBeInstanceOf(RecordingRoleUser::class);
+    expect($user->assignedRoles)->toBe(['editor']);
 });
