@@ -94,6 +94,19 @@ return [
     'reset_password_invalid_token' => 'This reset link is invalid or has expired. Request a new one.',
     'reset_password_disabled' => 'Password reset is not enabled on this workspace.',
 
+    // Invitation accept (Task 9)
+    'invitation_accept_title' => 'Accept your invitation',
+    'invitation_accept_sub' => 'Set a password to activate your account.',
+    'invitation_accept_name' => 'Full name',
+    'invitation_accept_confirm' => 'Confirm password',
+    'invitation_accept_submit' => 'Accept invitation',
+    'invitation_accept_submitting' => 'Activating…',
+    'invitation_accept_show' => 'Show password',
+    'invitation_accept_hide' => 'Hide password',
+    'invitation_accept_mismatch' => 'Passwords do not match.',
+    'invitation_accept_invalid_title' => 'Invitation link invalid',
+    'invitation_accept_invalid_message' => 'This invitation link is invalid or has expired.',
+
     // Theme labels (used by AuthControls tooltip)
     'theme_dark' => 'Dark',
     'theme_light' => 'Light',

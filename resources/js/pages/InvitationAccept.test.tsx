@@ -52,8 +52,12 @@ vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ addToast: vi.fn() }),
 }))
 
+const { configMock } = vi.hoisted(() => ({
+  configMock: { auth: {} } as { auth?: { copy?: Record<string, Record<string, string>> } },
+}))
+
 vi.mock('@/lib/config', () => ({
-  config: {},
+  config: configMock,
   BASE_PATH: '/martis',
   API_BASE_URL: 'http://localhost/martis',
 }))
@@ -74,6 +78,7 @@ function renderAt(token: string) {
 
 beforeEach(() => {
   postMock.mockReset()
+  configMock.auth = {}
 })
 
 describe('InvitationAcceptPage', () => {
@@ -147,5 +152,14 @@ describe('InvitationAcceptPage', () => {
     // Still the form, not the neutral invalid-link screen.
     expect(document.getElementById('password')).not.toBeNull()
     expect(screen.queryByText(/invalid or has expired/i)).toBeNull()
+  })
+
+  it('lets config.auth.copy.invitation_accept.title override the default title', () => {
+    configMock.auth = { copy: { invitation_accept: { title: 'Join the workspace' } } }
+
+    renderAt('valid-token-123')
+
+    expect(screen.getByText('Join the workspace')).toBeDefined()
+    expect(screen.queryByText('Accept your invitation')).toBeNull()
   })
 })

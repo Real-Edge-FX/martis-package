@@ -362,6 +362,7 @@ The auth keys live in `auth.php`:
 | `register_title` / `register_sub` | Register page |
 | `forgot_password_title` / `forgot_password_sub` | Forgot-password page |
 | `reset_password_title` / `reset_password_sub` | Reset-password page |
+| `invitation_accept_title` / `invitation_accept_sub` | Invitation-accept page |
 
 Example — `resources/lang/vendor/martis/pt_BR/auth.php`:
 
@@ -400,6 +401,10 @@ When the consumer runs a single language and wants a quick brand override withou
         'reset_password' => [
             'title' => env('MARTIS_AUTH_RESET_TITLE'),
             'subtitle' => env('MARTIS_AUTH_RESET_SUBTITLE'),
+        ],
+        'invitation_accept' => [
+            'title' => env('MARTIS_AUTH_INVITATION_ACCEPT_TITLE'),
+            'subtitle' => env('MARTIS_AUTH_INVITATION_ACCEPT_SUBTITLE'),
         ],
     ],
 ],

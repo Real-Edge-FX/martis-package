@@ -19,10 +19,10 @@ import { config } from '@/lib/config'
  * `login_sub_v2`) so existing translations published by consumers
  * continue to work. Adding a config override is purely additive.
  *
- * Used by Login / Register / ForgotPassword / ResetPassword.
+ * Used by Login / Register / ForgotPassword / ResetPassword / InvitationAccept.
  */
 
-export type AuthPage = 'login' | 'register' | 'forgot_password' | 'reset_password'
+export type AuthPage = 'login' | 'register' | 'forgot_password' | 'reset_password' | 'invitation_accept'
 
 export type AuthCopyKey =
   | 'title'

@@ -984,6 +984,10 @@ return [
                 'title' => env('MARTIS_AUTH_RESET_TITLE'),
                 'subtitle' => env('MARTIS_AUTH_RESET_SUBTITLE'),
             ],
+            'invitation_accept' => [
+                'title' => env('MARTIS_AUTH_INVITATION_ACCEPT_TITLE'),
+                'subtitle' => env('MARTIS_AUTH_INVITATION_ACCEPT_SUBTITLE'),
+            ],
         ],
     ],
 

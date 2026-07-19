@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
+import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
 
@@ -41,6 +42,7 @@ export function InvitationAcceptPage() {
   const { token } = useParams<{ token: string }>()
   const { addToast } = useToast()
   const { t } = useTranslation('auth')
+  const tCopy = useAuthCopy()
 
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
@@ -113,12 +115,15 @@ export function InvitationAcceptPage() {
   return (
     <AuthFrame>
       <h2 className="martis-auth-title">
-        {t('invitation_accept_title', { defaultValue: 'Accept your invitation' })}
+        {tCopy('invitation_accept', 'title', 'invitation_accept_title', 'Accept your invitation')}
       </h2>
       <p className="martis-auth-sub">
-        {t('invitation_accept_sub', {
-          defaultValue: 'Set a password to activate your account.',
-        })}
+        {tCopy(
+          'invitation_accept',
+          'subtitle',
+          'invitation_accept_sub',
+          'Set a password to activate your account.',
+        )}
       </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 24 }}>
