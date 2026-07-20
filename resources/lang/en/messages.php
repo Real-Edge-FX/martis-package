@@ -7,6 +7,7 @@ return [
     'record_restored' => 'Record restored successfully.',
     'record_not_found' => 'Record not found.',
     'loading' => 'Loading…',
+    'switching_language' => 'Switching language…',
     'error_schema' => 'Error loading resource schema.',
     'error_update' => 'Error updating record.',
     'error_create' => 'Error creating record.',
