@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.32.2] — 2026-07-20
+
+### Fixed
+
+- **`martis:invitations` never wired the `audit.invitations` toggle into a pre-existing `audit` array, so `MARTIS_AUDIT_INVITATIONS` was a silent no-op on the upgrade path.** The generator emitted only the `invitations` *feature* block; it never touched the `audit` array. The base config stub ships `audit.invitations` (since v1.32.1), so a fresh `vendor:publish` is fine — but an app that published `config/martis.php` before the key existed, then ran the generator, was left without it. Under `config:cache` (the common production / Docker path) Laravel's package-config merge is skipped and the cached snapshot is built from the published file, so the missing key made the documented `MARTIS_AUDIT_INVITATIONS=false` off-switch inert (without config caching, the recursive merge supplied the default and the toggle worked — hence the intermittency). A new idempotent `emitAuditInvitationsKey()` step now backfills the toggle into the existing `audit` array when absent. It is surgical and non-destructive: it targets the audit array's own closing bracket, guards on the key already being present *inside* that array (not merely anywhere in the file — the feature block also carries the `invitations` token), appends a separating comma when the array's final entry omits the optional trailing one (so it never fuses into a parse error), bails to a manual instruction when the audit array nests a sub-array it cannot safely place into, and never fabricates a missing audit array. Adversarial review (3 opus lenses + parallel verification) confirmed and hardened the comma-less and nested-array edge cases. +5 Pest. Backend-only, no asset rebuild. See [Invitations → Configuration](docs/invitations.md).
+
 ## [1.32.1] — 2026-07-19
 
 ### Fixed
