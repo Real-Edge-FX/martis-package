@@ -3,6 +3,7 @@ import {
   beginLocaleSwitch,
   endLocaleSwitch,
   getSnapshot,
+  getGeneration,
   subscribe,
 } from "@/lib/localeSwitching"
 
@@ -46,21 +47,35 @@ describe("localeSwitching store", () => {
     expect(getSnapshot()).toBe(false)
   })
 
-  it("notifies subscribers on the false→true and true→false transitions only", () => {
+  it("notifies subscribers on every begin and on the final end", () => {
     let hits = 0
     const unsub = subscribe(() => {
       hits += 1
     })
 
-    beginLocaleSwitch() // 0 -> 1 : emit
-    beginLocaleSwitch() // 1 -> 2 : no emit (already true)
-    endLocaleSwitch() //   2 -> 1 : no emit (still true)
-    endLocaleSwitch() //   1 -> 0 : emit
-    expect(hits).toBe(2)
+    beginLocaleSwitch() // 0 -> 1 : emit (begin always notifies — generation moved)
+    beginLocaleSwitch() // 1 -> 2 : emit (overlapping begin still moves generation)
+    endLocaleSwitch() //   2 -> 1 : no emit (still active, generation unchanged)
+    endLocaleSwitch() //   1 -> 0 : emit (became idle)
+    expect(hits).toBe(3)
 
     unsub()
     beginLocaleSwitch()
     endLocaleSwitch()
-    expect(hits).toBe(2) // no notifications after unsubscribe
+    expect(hits).toBe(3) // no notifications after unsubscribe
+  })
+
+  it("advances the generation on every begin, never on end", () => {
+    const base = getGeneration()
+
+    beginLocaleSwitch()
+    expect(getGeneration()).toBe(base + 1)
+
+    beginLocaleSwitch() // overlapping begin still advances
+    expect(getGeneration()).toBe(base + 2)
+
+    endLocaleSwitch()
+    endLocaleSwitch()
+    expect(getGeneration()).toBe(base + 2) // end never advances
   })
 })

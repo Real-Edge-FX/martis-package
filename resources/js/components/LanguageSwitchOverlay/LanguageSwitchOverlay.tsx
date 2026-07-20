@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { MartisLoader } from "@/components/Loader"
-import { useLocaleSwitching } from "@/lib/localeSwitching"
+import { useLocaleSwitching, useLocaleSwitchGeneration } from "@/lib/localeSwitching"
 import { useDelayedFlag } from "@/hooks/useDelayedFlag"
 
 /** Keep visible at least this long so a fast switch never flickers illegibly. */
@@ -8,11 +8,14 @@ const MIN_VISIBLE_MS = 400
 /** Never leave the overlay up longer than this, even if a query hangs. */
 const MAX_VISIBLE_MS = 10000
 /**
- * Above every other fixed layer: PrimeReact/custom modals + drawers use
- * `fixed inset-0`, and NavigationProgress uses `zIndex: 9999`. The switch is a
- * blocking, app-wide transition, so it sits on top of all of them.
+ * Sits above the picker that triggers the switch. The Preferences
+ * `.p-overlaypanel` is pinned to `z-index: 10000 !important` (martis.css) and
+ * is portaled to `document.body` (painted after `#martis-root`), so an equal
+ * z-index would let it float on top; NavigationProgress is at 9999. 10050
+ * clears both. Toasts / tooltips (99999) stay above on purpose — a toast
+ * during the switch should remain visible.
  */
-const OVERLAY_Z_INDEX = 10000
+const OVERLAY_Z_INDEX = 10050
 
 /**
  * Full-screen loading overlay shown while the UI language is switching.
@@ -30,9 +33,13 @@ const OVERLAY_Z_INDEX = 10000
  */
 export function LanguageSwitchOverlay() {
   const switching = useLocaleSwitching()
+  const generation = useLocaleSwitchGeneration()
   const visible = useDelayedFlag(switching, {
     minVisibleMs: MIN_VISIBLE_MS,
     maxVisibleMs: MAX_VISIBLE_MS,
+    // Each new switch bumps the generation, releasing the safety-cap latch so a
+    // switch that follows a hung one still shows feedback.
+    resetKey: generation,
   })
   const { t } = useTranslation("messages")
 

@@ -123,4 +123,28 @@ describe("useDelayedFlag", () => {
     })
     expect(result.current).toBe(true)
   })
+
+  it("re-shows when resetKey changes after the cap, even if active never went false", () => {
+    const { result, rerender } = renderHook(
+      ({ a, k }) => useDelayedFlag(a, { ...OPTS, resetKey: k }),
+      { initialProps: { a: false, k: 0 } },
+    )
+
+    act(() => {
+      rerender({ a: true, k: 0 })
+    })
+    expect(result.current).toBe(true)
+
+    act(() => {
+      vi.advanceTimersByTime(10000) // cap fires, latch set
+    })
+    expect(result.current).toBe(false)
+
+    // A fresh switch bumps the generation (resetKey) while the previous one is
+    // still active — the latch releases and the overlay shows again.
+    act(() => {
+      rerender({ a: true, k: 1 })
+    })
+    expect(result.current).toBe(true)
+  })
 })

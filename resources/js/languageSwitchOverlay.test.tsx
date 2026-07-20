@@ -66,4 +66,35 @@ describe("LanguageSwitchOverlay", () => {
     })
     expect(screen.queryByRole("status")).toBeNull()
   })
+
+  it("sits above the preferences picker (z-index over .p-overlaypanel's 10000)", () => {
+    render(<LanguageSwitchOverlay />)
+    act(() => {
+      beginLocaleSwitch()
+    })
+    const status = screen.getByRole("status")
+    expect(Number(status.style.zIndex)).toBeGreaterThan(10000)
+  })
+
+  it("re-shows for a fresh switch even after a previous hung switch tripped the safety cap", () => {
+    render(<LanguageSwitchOverlay />)
+
+    act(() => {
+      beginLocaleSwitch()
+    })
+    expect(screen.queryByRole("status")).not.toBeNull()
+
+    // The first switch hangs and hits the 10s cap → overlay hides.
+    act(() => {
+      vi.advanceTimersByTime(10000)
+    })
+    expect(screen.queryByRole("status")).toBeNull()
+
+    // A new switch begins while the first is still active (never ended). The
+    // generation bump releases the cap latch and feedback returns.
+    act(() => {
+      beginLocaleSwitch()
+    })
+    expect(screen.queryByRole("status")).not.toBeNull()
+  })
 })

@@ -5,6 +5,12 @@ export interface DelayedFlagOptions {
   minVisibleMs: number
   /** Force the flag false this long after it turned true (safety cap). */
   maxVisibleMs: number
+  /**
+   * When this value changes, release the safety-cap latch so a fresh
+   * activation can show again even if `active` never dipped to false in
+   * between (e.g. an overlapping event after a previous one hit the cap).
+   */
+  resetKey?: unknown
 }
 
 /**
@@ -22,11 +28,12 @@ export interface DelayedFlagOptions {
  */
 export function useDelayedFlag(
   active: boolean,
-  { minVisibleMs, maxVisibleMs }: DelayedFlagOptions,
+  { minVisibleMs, maxVisibleMs, resetKey }: DelayedFlagOptions,
 ): boolean {
   const [visible, setVisible] = useState(false)
   const shownAtRef = useRef<number | null>(null)
   const cappedRef = useRef(false)
+  const resetKeyRef = useRef(resetKey)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -35,6 +42,13 @@ export function useDelayedFlag(
         clearTimeout(timerRef.current)
         timerRef.current = null
       }
+    }
+
+    // A new resetKey means a fresh activation began — release the cap latch so
+    // it can show again even though `active` never returned to false.
+    if (resetKeyRef.current !== resetKey) {
+      resetKeyRef.current = resetKey
+      cappedRef.current = false
     }
 
     // A finished switch releases the cap latch so the next one can show.
@@ -74,7 +88,7 @@ export function useDelayedFlag(
       if (delay === 0) hide()
       else timerRef.current = setTimeout(hide, delay)
     }
-  }, [active, visible, minVisibleMs, maxVisibleMs])
+  }, [active, visible, minVisibleMs, maxVisibleMs, resetKey])
 
   useEffect(
     () => () => {
