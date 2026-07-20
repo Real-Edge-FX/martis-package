@@ -433,13 +433,33 @@ PHP;
             return;
         }
 
+        // The non-greedy body stops at the first line-leading `]`, which is
+        // only guaranteed to be the audit closer when audit holds scalar
+        // toggles (its shipped shape). If a hand-customised audit array
+        // nests a sub-array, that `]` is the sub-array's closer and we would
+        // insert at the wrong nesting level — bail to a manual instruction
+        // rather than corrupt the placement.
+        if (str_contains($body, '[')) {
+            $this->components->warn('The audit array in config/martis.php has a nested structure — add the invitations toggle manually:');
+            $this->line("    'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),");
+
+            return;
+        }
+
         $entryIndent = $closerIndent.'    ';
         $entry = "\n{$entryIndent}// Invitation lifecycle events (created / accepted / revoked)."
             ."\n{$entryIndent}// Default on. Flip to false to silence the Martis-side audit"
             ."\n{$entryIndent}// row; the events still fire so your own listeners keep working."
             ."\n{$entryIndent}'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),";
 
-        $patched = str_replace($whole, $open.$body.$entry.$closer, $contents);
+        // PHP array elements need separating commas. A hand-edited config
+        // may drop the (optional) trailing comma after the final audit
+        // entry; append one so the new key does not fuse with it into a
+        // parse error.
+        $trimmedBody = rtrim($body);
+        $bodyOut = ($trimmedBody !== '' && ! str_ends_with($trimmedBody, ',')) ? $trimmedBody.',' : $body;
+
+        $patched = str_replace($whole, $open.$bodyOut.$entry.$closer, $contents);
 
         if ($patched === $contents) {
             $this->components->warn('Could not auto-insert the audit.invitations toggle — add it to the audit array in config/martis.php manually:');

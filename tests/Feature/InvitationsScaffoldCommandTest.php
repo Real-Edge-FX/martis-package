@@ -406,3 +406,69 @@ PHP;
     }
     expect($syntaxOk)->toBeTrue('config without an audit array must survive the generator intact');
 });
+
+it('backfills correctly when the last audit entry omits the optional trailing comma', function () {
+    // Trailing commas are optional in PHP; a hand-edited published config
+    // may drop the one after the final audit entry. The insert must add the
+    // separating comma, not fuse two array elements into a parse error.
+    $noTrailingComma = <<<'PHP'
+<?php
+
+return [
+    'path' => 'martis',
+
+    'audit' => [
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true)
+    ],
+];
+PHP;
+
+    $patched = runInvitationsAgainstConfig($noTrailingComma);
+
+    $parsed = null;
+    $syntaxOk = true;
+    try {
+        $parsed = eval('?>'.$patched);
+    } catch (Throwable) {
+        $syntaxOk = false;
+    }
+    expect($syntaxOk)->toBeTrue('a comma-less final audit entry must not corrupt the file');
+    expect($parsed['audit'] ?? [])->toHaveKey('invitations');
+    expect(substr_count($patched, "'invitations' => env('MARTIS_AUDIT_INVITATIONS'"))->toBe(1);
+});
+
+it('does not mis-insert into a nested array inside audit — warns and leaves the file valid', function () {
+    // A hand-customised audit array with a nested structure. The simple
+    // matcher cannot safely place the key here, so it must bail to a manual
+    // warning rather than insert at the wrong nesting level (which would
+    // silently re-introduce the very no-op this fix exists to close).
+    $nested = <<<'PHP'
+<?php
+
+return [
+    'path' => 'martis',
+
+    'audit' => [
+        'channels' => [
+            'database',
+        ],
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+    ],
+];
+PHP;
+
+    $patched = runInvitationsAgainstConfig($nested);
+
+    // Still valid PHP...
+    $syntaxOk = true;
+    try {
+        eval('?>'.$patched);
+    } catch (Throwable) {
+        $syntaxOk = false;
+    }
+    expect($syntaxOk)->toBeTrue('a nested audit array must survive the generator intact');
+
+    // ...and the toggle was NOT inserted at the wrong level. Absence of the
+    // env token proves the method bailed to the manual path.
+    expect($patched)->not->toContain('MARTIS_AUDIT_INVITATIONS');
+});
