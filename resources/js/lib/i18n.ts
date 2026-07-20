@@ -2,6 +2,7 @@ import i18n, { type Resource, type ResourceLanguage } from "i18next"
 import { initReactI18next } from "react-i18next"
 import { API_BASE_URL, config } from "./config"
 import { queryClient } from "./query"
+import { beginLocaleSwitch, endLocaleSwitch } from "./localeSwitching"
 
 export function getLocale(): string {
   // Resolution order (v1.7.4):
@@ -95,18 +96,27 @@ export function applyDocumentDirection(locale: string): void {
  * the Preferences language picker honest so labels actually update.
  */
 export async function loadLocale(locale: string): Promise<void> {
-  const translations = await fetchTranslations(locale)
-  for (const ns of Object.keys(translations)) {
-    i18n.addResourceBundle(locale, ns, (translations as Record<string, object>)[ns], true, true)
+  // Raise the switching signal synchronously (before the first await) so the
+  // full-screen LanguageSwitchOverlay appears with no delay. Cleared in the
+  // `finally` so the overlay is dismissed on success AND on any failure —
+  // the user is never left stuck behind it.
+  beginLocaleSwitch()
+  try {
+    const translations = await fetchTranslations(locale)
+    for (const ns of Object.keys(translations)) {
+      i18n.addResourceBundle(locale, ns, (translations as Record<string, object>)[ns], true, true)
+    }
+    await i18n.changeLanguage(locale)
+    applyDocumentDirection(locale)
+    // Many UI strings (navigation labels, resource schemas, dashboards, lenses,
+    // metric names) are translated server-side via `__()`. Invalidating the
+    // react-query cache forces every protected endpoint to refetch under the
+    // new locale instead of showing the previous language until staleTime
+    // expires.
+    await queryClient.invalidateQueries()
+  } finally {
+    endLocaleSwitch()
   }
-  await i18n.changeLanguage(locale)
-  applyDocumentDirection(locale)
-  // Many UI strings (navigation labels, resource schemas, dashboards, lenses,
-  // metric names) are translated server-side via `__()`. Invalidating the
-  // react-query cache forces every protected endpoint to refetch under the
-  // new locale instead of showing the previous language until staleTime
-  // expires.
-  await queryClient.invalidateQueries()
 }
 
 let initPromise: Promise<void> | null = null

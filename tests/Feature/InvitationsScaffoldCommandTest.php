@@ -274,3 +274,201 @@ it('--force overwrites existing scaffold files', function () {
 
     expect($afterHash)->toBe($pristineHash);
 });
+
+/*
+ * Audit-toggle backfill (config/martis.php that predates the feature).
+ *
+ * The base config stub ships `audit.invitations` as of v1.32.1, so a fresh
+ * `vendor:publish` carries it. The gap is the UPGRADE path: an app that
+ * published its config before the key existed, then runs the generator,
+ * ends up with a dead `MARTIS_AUDIT_INVITATIONS` toggle under `config:cache`
+ * (the cached snapshot is built from the published file, which lacks the
+ * key). These cases pin the generator's idempotent backfill into the
+ * existing `audit` array.
+ */
+
+/**
+ * Write a controlled config/martis.php, run the generator, capture the
+ * patched file, then restore the original so the test never leaks. Returns
+ * the patched contents for assertion.
+ */
+function runInvitationsAgainstConfig(string $fixture): string
+{
+    /** @var Filesystem $files */
+    $files = app(Filesystem::class);
+    $configPath = config_path('martis.php');
+    $original = $files->exists($configPath) ? $files->get($configPath) : null;
+
+    try {
+        $files->put($configPath, $fixture);
+
+        test()->artisan('martis:invitations', [
+            '--namespace' => 'App\\Martis\\Resources',
+            '--no-install' => true,
+            '--no-migrate' => true,
+        ])->run();
+
+        return $files->get($configPath);
+    } finally {
+        if ($original === null) {
+            @unlink($configPath);
+        } else {
+            $files->put($configPath, $original);
+        }
+    }
+}
+
+/** A config published BEFORE the invitations feature: audit array present, no `invitations` key, no feature block. */
+const CONFIG_PREDATING_INVITATIONS = <<<'PHP'
+<?php
+
+return [
+    'path' => 'martis',
+
+    'audit' => [
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+        'impersonation' => env('MARTIS_AUDIT_IMPERSONATION', true),
+        'authz_denials' => env('MARTIS_AUDIT_AUTHZ_DENIALS', false),
+        'authz_denials_include_viewany' => env('MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY', false),
+    ],
+];
+PHP;
+
+it('backfills audit.invitations into a config whose audit array predates the feature', function () {
+    $patched = runInvitationsAgainstConfig(CONFIG_PREDATING_INVITATIONS);
+
+    // 1. The toggle line landed.
+    expect($patched)->toContain("'invitations' => env('MARTIS_AUDIT_INVITATIONS', true)");
+
+    // 2. It landed INSIDE the audit array (before its closing `]`), not in
+    //    the appended feature block — the audit block now spans the key.
+    expect($patched)->toMatch('/[\'"]audit[\'"]\s*=>\s*\[.*?MARTIS_AUDIT_INVITATIONS.*?\n\s*\],/s');
+
+    // 3. The patched file is still valid PHP and resolves the nested key —
+    //    the strongest guard against a corrupt insert. `env()` is available
+    //    as a Laravel helper during the test, so the config evaluates.
+    $parsed = null;
+    $syntaxOk = true;
+    try {
+        $parsed = eval('?>'.$patched);
+    } catch (Throwable) {
+        $syntaxOk = false;
+    }
+    expect($syntaxOk)->toBeTrue('patched config/martis.php must remain valid PHP');
+    expect($parsed)->toBeArray()
+        ->and($parsed['audit'] ?? null)->toBeArray()
+        ->and($parsed['audit'])->toHaveKey('invitations');
+});
+
+it('is idempotent — a config already carrying audit.invitations is not double-inserted', function () {
+    // A fresh publish already has the key; a `--force` re-run must not add a
+    // second one.
+    $withKey = <<<'PHP'
+<?php
+
+return [
+    'path' => 'martis',
+
+    'audit' => [
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+        'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),
+    ],
+];
+PHP;
+
+    $patched = runInvitationsAgainstConfig($withKey);
+
+    expect(substr_count($patched, "'invitations' => env('MARTIS_AUDIT_INVITATIONS'"))->toBe(1);
+});
+
+it('never fabricates an audit array — a config without one is left un-corrupted', function () {
+    // A published config with no `audit` array at all (heavily customised /
+    // very old). The backfill must NOT invent one; it warns and moves on.
+    $noAudit = <<<'PHP'
+<?php
+
+return [
+    'path' => 'martis',
+];
+PHP;
+
+    $patched = runInvitationsAgainstConfig($noAudit);
+
+    // The audit toggle was NOT fabricated anywhere...
+    expect($patched)->not->toContain('MARTIS_AUDIT_INVITATIONS');
+
+    // ...and the file is still valid PHP (only the feature block was appended).
+    $syntaxOk = true;
+    try {
+        eval('?>'.$patched);
+    } catch (Throwable) {
+        $syntaxOk = false;
+    }
+    expect($syntaxOk)->toBeTrue('config without an audit array must survive the generator intact');
+});
+
+it('backfills correctly when the last audit entry omits the optional trailing comma', function () {
+    // Trailing commas are optional in PHP; a hand-edited published config
+    // may drop the one after the final audit entry. The insert must add the
+    // separating comma, not fuse two array elements into a parse error.
+    $noTrailingComma = <<<'PHP'
+<?php
+
+return [
+    'path' => 'martis',
+
+    'audit' => [
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true)
+    ],
+];
+PHP;
+
+    $patched = runInvitationsAgainstConfig($noTrailingComma);
+
+    $parsed = null;
+    $syntaxOk = true;
+    try {
+        $parsed = eval('?>'.$patched);
+    } catch (Throwable) {
+        $syntaxOk = false;
+    }
+    expect($syntaxOk)->toBeTrue('a comma-less final audit entry must not corrupt the file');
+    expect($parsed['audit'] ?? [])->toHaveKey('invitations');
+    expect(substr_count($patched, "'invitations' => env('MARTIS_AUDIT_INVITATIONS'"))->toBe(1);
+});
+
+it('does not mis-insert into a nested array inside audit — warns and leaves the file valid', function () {
+    // A hand-customised audit array with a nested structure. The simple
+    // matcher cannot safely place the key here, so it must bail to a manual
+    // warning rather than insert at the wrong nesting level (which would
+    // silently re-introduce the very no-op this fix exists to close).
+    $nested = <<<'PHP'
+<?php
+
+return [
+    'path' => 'martis',
+
+    'audit' => [
+        'channels' => [
+            'database',
+        ],
+        'role_changes' => env('MARTIS_AUDIT_ROLE_CHANGES', true),
+    ],
+];
+PHP;
+
+    $patched = runInvitationsAgainstConfig($nested);
+
+    // Still valid PHP...
+    $syntaxOk = true;
+    try {
+        eval('?>'.$patched);
+    } catch (Throwable) {
+        $syntaxOk = false;
+    }
+    expect($syntaxOk)->toBeTrue('a nested audit array must survive the generator intact');
+
+    // ...and the toggle was NOT inserted at the wrong level. Absence of the
+    // env token proves the method bailed to the manual path.
+    expect($patched)->not->toContain('MARTIS_AUDIT_INVITATIONS');
+});

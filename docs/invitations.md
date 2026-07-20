@@ -60,6 +60,8 @@ The gate only guards the privileged **issue** action (wherever you call `Invitat
 | `mark_email_verified_on_accept` | `true` | When `true` and the user model's table has an `email_verified_at` column, it is stamped at accept time (an emailed, single-use link is itself a verification step). |
 | `audit.invitations` | `true` | Toggles whether the lifecycle events also write a `martis_action_events` row (see [Events + audit](#events--audit)). The events themselves keep firing either way. |
 
+> **Upgrading from before this key shipped?** The base config stub carries `audit.invitations`, so a fresh `vendor:publish --tag=martis-config` is covered. If your `config/martis.php` was published earlier and you run `config:cache` (the common production and Docker path), the cached snapshot is built from your published file and Laravel's package-config merge is skipped, so a missing `audit.invitations` leaves `MARTIS_AUDIT_INVITATIONS` inert. Running `php artisan martis:invitations` backfills the key into your existing `audit` array (idempotent — a second run is a no-op); or add `'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),` to the array by hand.
+
 ## Lifecycle
 
 An invitation moves through a small state machine: `pending` → `accepted` **or** `revoked`. There is no manual `expired` transition — expiry is evaluated at read time (`isExpired()`) and enforced at claim time in `accept()`.

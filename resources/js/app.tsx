@@ -18,6 +18,7 @@ import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { router } from '@/router'
 import { ToastContainer } from '@/components/Toast'
+import { LanguageSwitchOverlay } from '@/components/LanguageSwitchOverlay/LanguageSwitchOverlay'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 import { initI18n } from '@/lib/i18n'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -140,6 +141,7 @@ function App() {
                         <RouterProvider router={router} />
                         <GateModal />
                         <ToastContainer />
+                        <LanguageSwitchOverlay />
                       </GateProvider>
                     </DynamicCrumbProvider>
                   </ToastProvider>

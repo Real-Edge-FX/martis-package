@@ -89,6 +89,13 @@ class InvitationsScaffoldCommand extends Command
         // config/martis.php without it (idempotent).
         $this->emitInvitationsConfig($files);
 
+        // 6b. Backfill the `audit.invitations` toggle into a pre-existing
+        // `audit` array (config published before the key shipped). Without
+        // it, `MARTIS_AUDIT_INVITATIONS` is a no-op under `config:cache`
+        // (the cached snapshot is built from the published file, which
+        // lacks the key). Idempotent — no-op once the key is present.
+        $this->emitAuditInvitationsKey($files);
+
         // 7. Run pending migrations.
         if (! $this->option('no-migrate')) {
             $this->runMigrations();
@@ -373,6 +380,96 @@ PHP;
 
         $files->put($configPath, $patched);
         $this->components->twoColumnDetail('<fg=green>Added</> config', "'invitations' block → config/martis.php");
+    }
+
+    /**
+     * Backfill `'invitations' => env('MARTIS_AUDIT_INVITATIONS', true)` into
+     * a pre-existing `audit` array that predates the feature.
+     *
+     * The base config stub ships this key, so a fresh publish is covered.
+     * The gap is the upgrade path: an app that published config/martis.php
+     * before the key existed keeps a dead `MARTIS_AUDIT_INVITATIONS` toggle
+     * under `config:cache` (the cached snapshot is built from the published
+     * file, and Laravel's package-config merge is skipped when cached).
+     *
+     * Idempotent and surgical: it inserts only into the existing `audit`
+     * array (never fabricates one), guards on the key already being present
+     * INSIDE that array (not merely anywhere in the file — the `invitations`
+     * feature block also carries the token), and warns with a manual snippet
+     * when it cannot locate the array's closing bracket.
+     */
+    protected function emitAuditInvitationsKey(Filesystem $files): void
+    {
+        $configPath = config_path('martis.php');
+
+        // Unpublished config: emitInvitationsConfig() already printed the
+        // publish hint. Nothing to patch.
+        if (! $files->exists($configPath)) {
+            return;
+        }
+
+        $contents = (string) $files->get($configPath);
+
+        // Capture the `audit` array: opener, inner body (non-greedy so it
+        // stops at the array's OWN closer), and the closing bracket with its
+        // indentation. Audit holds only scalar toggles, so the first
+        // line-leading `]` after the opener is its closer.
+        if (! preg_match('/([\'"]audit[\'"]\s*=>\s*\[)(.*?)(\n([ \t]*)\])/s', $contents, $m)) {
+            $this->components->warn("Could not locate the 'audit' array in config/martis.php — add the invitations toggle manually:");
+            $this->line("    'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),");
+
+            return;
+        }
+
+        [$whole, $open, $body, $closer, $closerIndent] = $m;
+
+        // Idempotent: skip when the key already lives inside the audit body.
+        // Guard on the body, not the whole file — the `invitations` FEATURE
+        // block emitted by emitInvitationsConfig() also contains the token
+        // `'invitations'` and would otherwise false-positive.
+        if (preg_match('/[\'"]invitations[\'"]\s*=>/', $body)) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> audit toggle', "'audit.invitations' already present in config/martis.php");
+
+            return;
+        }
+
+        // The non-greedy body stops at the first line-leading `]`, which is
+        // only guaranteed to be the audit closer when audit holds scalar
+        // toggles (its shipped shape). If a hand-customised audit array
+        // nests a sub-array, that `]` is the sub-array's closer and we would
+        // insert at the wrong nesting level — bail to a manual instruction
+        // rather than corrupt the placement.
+        if (str_contains($body, '[')) {
+            $this->components->warn('The audit array in config/martis.php has a nested structure — add the invitations toggle manually:');
+            $this->line("    'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),");
+
+            return;
+        }
+
+        $entryIndent = $closerIndent.'    ';
+        $entry = "\n{$entryIndent}// Invitation lifecycle events (created / accepted / revoked)."
+            ."\n{$entryIndent}// Default on. Flip to false to silence the Martis-side audit"
+            ."\n{$entryIndent}// row; the events still fire so your own listeners keep working."
+            ."\n{$entryIndent}'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),";
+
+        // PHP array elements need separating commas. A hand-edited config
+        // may drop the (optional) trailing comma after the final audit
+        // entry; append one so the new key does not fuse with it into a
+        // parse error.
+        $trimmedBody = rtrim($body);
+        $bodyOut = ($trimmedBody !== '' && ! str_ends_with($trimmedBody, ',')) ? $trimmedBody.',' : $body;
+
+        $patched = str_replace($whole, $open.$bodyOut.$entry.$closer, $contents);
+
+        if ($patched === $contents) {
+            $this->components->warn('Could not auto-insert the audit.invitations toggle — add it to the audit array in config/martis.php manually:');
+            $this->line("    'invitations' => env('MARTIS_AUDIT_INVITATIONS', true),");
+
+            return;
+        }
+
+        $files->put($configPath, $patched);
+        $this->components->twoColumnDetail('<fg=green>Added</> audit toggle', "'audit.invitations' → config/martis.php");
     }
 
     protected function runMigrations(): void

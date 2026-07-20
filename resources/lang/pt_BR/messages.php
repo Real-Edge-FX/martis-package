@@ -7,6 +7,7 @@ return [
     'record_restored' => 'Registro restaurado com sucesso.',
     'record_not_found' => 'Registro não encontrado.',
     'loading' => 'Carregando…',
+    'switching_language' => 'Mudando o idioma…',
     'error_schema' => 'Erro ao carregar esquema do recurso.',
     'error_update' => 'Erro ao atualizar registro.',
     'error_create' => 'Erro ao criar registro.',
