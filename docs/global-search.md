@@ -105,7 +105,7 @@ public function searchQuery(Builder $query, string $term): ?Builder
 }
 ```
 
-Because `searchQuery()` funnels through the same `SearchResolver::apply()` choke point, it covers the resource index, global Cmd+K, and every relation picker uniformly. **You own the `WHERE`:** a non-null return that adds no predicate bypasses the empty-set guard and dumps every row — the same trust `indexQuery()` already assumes. Filters, the user's sort, and pagination are untouched.
+Because `searchQuery()` funnels through the same `SearchResolver::apply()` choke point, it covers the resource index, global Cmd+K, and every relation picker uniformly. **You own the `WHERE` — in place:** constrain and return the *given* builder (`return $query->search($term)`); returning a *different* Builder instance throws `LogicException` (it would drop already-applied index/filter scoping). A non-null return that adds no predicate bypasses the empty-set guard and dumps every row — the same trust `indexQuery()` already assumes. Filters, the user's sort, and pagination are untouched.
 
 ---
 

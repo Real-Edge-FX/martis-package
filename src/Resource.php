@@ -1856,8 +1856,12 @@ abstract class Resource implements ResourceContract
      * for driver-native search — PostgreSQL FTS / `pg_trgm`, MySQL `FULLTEXT`,
      * SQLite FTS5, etc. — kept in the consumer as an Eloquent scope.
      *
-     * INVARIANT: a non-null return must constrain the query. Returning the
-     * builder unconstrained bypasses the empty-set guard and dumps every row.
+     * INVARIANT: constrain and return the SAME `$query` in place (Eloquent
+     * `where`/scope calls return `$this`, so this is the natural shape).
+     * Returning a DIFFERENT Builder instance throws `\LogicException` — it would
+     * drop already-applied index/filter scoping and be ignored by relation
+     * pagination. A non-null return that adds no predicate bypasses the
+     * empty-set guard and dumps every row.
      *
      * Example (consumer resource, PostgreSQL FTS + trigram fuzzy):
      *

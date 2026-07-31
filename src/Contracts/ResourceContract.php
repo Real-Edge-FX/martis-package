@@ -544,8 +544,13 @@ interface ResourceContract
      * PostgreSQL FTS (`@@`), `pg_trgm` fuzzy, MySQL `FULLTEXT`, SQLite FTS5, or
      * any driver-specific matching expressed as an Eloquent scope.
      *
-     * INVARIANT: a non-null return means "I have constrained the query." A
-     * resource that returns the builder without adding a predicate bypasses the
+     * INVARIANT: constrain and return the SAME `$query` builder in place.
+     * Eloquent `where`/`whereRaw`/scope calls already do this (they return
+     * `$this`), so `return $query->whereRaw(...)` / `return $query->search($term)`
+     * is correct. Returning a DIFFERENT Builder instance is unsupported and
+     * throws `\LogicException` — it would drop the index/filter/scope
+     * constraints already applied to `$query` and be ignored by relation-picker
+     * pagination. And a non-null return that adds no predicate bypasses the
      * empty-set guard and dumps unfiltered rows — the same trust the package
      * places in `indexQuery()`.
      *

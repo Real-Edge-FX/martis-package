@@ -239,7 +239,7 @@ public function searchQuery(Builder $query, string $term): ?Builder
 }
 ```
 
-> **You own the WHERE.** A non-null return means "I have constrained the query." If you return the builder without adding a predicate you bypass the empty-set guard and dump every row — the same trust the package places in `indexQuery()`. Keep the driver-specific SQL in your own model scope; the package ships only the seam. A resource that opts into `usesScout()` uses Scout instead — `searchQuery()` is the non-Scout path.
+> **You own the WHERE — in place.** Constrain and return the **given** `$query` (Eloquent `where`/scope calls return `$this`, so `return $query->search($term)` is correct). Returning a **different** Builder instance throws `LogicException` — it would drop the index/filter scoping already applied and be ignored by relation-picker pagination. A non-null return that adds no predicate bypasses the empty-set guard and dumps every row — the same trust the package places in `indexQuery()`. Keep the driver-specific SQL in your own model scope; the package ships only the seam. A resource that opts into `usesScout()` uses Scout instead — `searchQuery()` is the non-Scout path.
 
 ### `$stickyView` (⭐ Martis differential)
 
