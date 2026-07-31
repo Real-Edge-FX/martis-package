@@ -57,6 +57,17 @@ class SearchResolver
             return static::applyScoutSearch($request, $query, $resourceClass, $search);
         }
 
+        // Resource-owned matching seam: when searchQuery() returns a Builder,
+        // the resource owns the entire WHERE for the term (driver-native FTS /
+        // trigram / FULLTEXT). Skip applyDatabaseSearch entirely — its ILIKE
+        // stages, `field:value` parsing, priority ranking, AND its empty-set
+        // `1 = 0` guards — since matching is explicitly handled upstream.
+        // Filters/sorting/pagination downstream are untouched.
+        $owned = (new $resourceClass)->searchQuery($query, $search);
+        if ($owned !== null) {
+            return $owned;
+        }
+
         return static::applyDatabaseSearch($request, $query, $resourceClass, $search);
     }
 

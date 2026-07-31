@@ -1844,4 +1844,35 @@ abstract class Resource implements ResourceContract
     {
         return $query;
     }
+
+    /**
+     * Replace the default `ILIKE` match predicate for this resource's search.
+     *
+     * Return a Builder to own the entire WHERE for the term (SearchResolver then
+     * applies no `ILIKE`/relation matching, no `field:value` parsing, no
+     * priority ranking, and skips the empty-set `1 = 0` guards); filters, the
+     * user's sort, and pagination downstream are untouched. Return `null` (the
+     * default) to keep the built-in `ILIKE` pipeline. This is the non-Scout seam
+     * for driver-native search — PostgreSQL FTS / `pg_trgm`, MySQL `FULLTEXT`,
+     * SQLite FTS5, etc. — kept in the consumer as an Eloquent scope.
+     *
+     * INVARIANT: a non-null return must constrain the query. Returning the
+     * builder unconstrained bypasses the empty-set guard and dumps every row.
+     *
+     * Example (consumer resource, PostgreSQL FTS + trigram fuzzy):
+     *
+     *     public function searchQuery(Builder $query, string $term): ?Builder
+     *     {
+     *         return $query->search($term); // Property::scopeSearch: @@ + similarity, ranked
+     *     }
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>|null
+     */
+    public function searchQuery(Builder $query, string $term): ?Builder
+    {
+        return null;
+    }
 }

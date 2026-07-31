@@ -10,6 +10,7 @@ use Martis\Enums\SortDirection;
 use Martis\Enums\TableLayout;
 use Martis\Enums\TableSize;
 use Martis\Menu\MenuItem;
+use Martis\SearchResolver;
 
 /**
  * Contract for all Martis Resource classes.
@@ -530,6 +531,32 @@ interface ResourceContract
      * @return Builder<TModel>
      */
     public function searchOrderBy(Builder $query, string $term): Builder;
+
+    /**
+     * Replace the default `ILIKE` match predicate for this resource's search.
+     *
+     * When it returns a Builder, {@see SearchResolver} applies NONE of
+     * its own matching — the resource owns the entire WHERE (and any relevance
+     * ordering it wants) for the term, including the `field:value` token parsing
+     * and priority ranking the default pipeline would do, and the empty-set
+     * `1 = 0` guards are skipped. Filters, the user's sort, and pagination
+     * applied downstream are untouched. This is the non-Scout seam for
+     * PostgreSQL FTS (`@@`), `pg_trgm` fuzzy, MySQL `FULLTEXT`, SQLite FTS5, or
+     * any driver-specific matching expressed as an Eloquent scope.
+     *
+     * INVARIANT: a non-null return means "I have constrained the query." A
+     * resource that returns the builder without adding a predicate bypasses the
+     * empty-set guard and dumps unfiltered rows — the same trust the package
+     * places in `indexQuery()`.
+     *
+     * Return `null` (the default) to keep the built-in `ILIKE` pipeline.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>|null
+     */
+    public function searchQuery(Builder $query, string $term): ?Builder;
 
     /**
      * Image / avatar URL rendered next to a Global Search hit. Default

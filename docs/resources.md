@@ -224,6 +224,23 @@ public function searchOrderBy(Builder $query, string $term): Builder
 }
 ```
 
+### Custom search matching — `searchQuery()`
+
+By default the resolver matches with `ILIKE '%term%'` over `searchable()` fields (plus `searchableRelations()`). Override `searchQuery()` to **replace the match predicate entirely** — for driver-native search (PostgreSQL full-text `@@`, `pg_trgm` fuzzy, MySQL `FULLTEXT`, SQLite FTS5) — without standing up Scout and without leaving the resource pipeline. Return a `Builder` and the resolver applies **none** of its own matching (no `ILIKE`, no `field:value` parsing, no priority ranking, and it skips the empty-set `1 = 0` guard); return `null` (the default) to keep the built-in `ILIKE`. Filters, the user's sort, and pagination are untouched, and it applies to the resource index, global Cmd+K, and relation pickers alike.
+
+```php
+use Illuminate\Database\Eloquent\Builder;
+
+public function searchQuery(Builder $query, string $term): ?Builder
+{
+    // Delegates to a model scope that owns the SQL (@@ + similarity, ranked by
+    // ts_rank), tenant-scoped through the model. The scope lives in YOUR app.
+    return $query->search($term);
+}
+```
+
+> **You own the WHERE.** A non-null return means "I have constrained the query." If you return the builder without adding a predicate you bypass the empty-set guard and dump every row — the same trust the package places in `indexQuery()`. Keep the driver-specific SQL in your own model scope; the package ships only the seam. A resource that opts into `usesScout()` uses Scout instead — `searchQuery()` is the non-Scout path.
+
 ### `$stickyView` (⭐ Martis differential)
 
 Controls whether this resource participates in the [Sticky Views](sticky_views.md) feature — per-user view state persistence on the index page (filters, sort, pagination, per-page, search). Default: `true`.
