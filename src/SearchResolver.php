@@ -57,6 +57,32 @@ class SearchResolver
             return static::applyScoutSearch($request, $query, $resourceClass, $search);
         }
 
+        // Resource-owned matching seam: when searchQuery() returns a Builder,
+        // the resource owns the entire WHERE for the term (driver-native FTS /
+        // trigram / FULLTEXT). Skip applyDatabaseSearch entirely — its ILIKE
+        // stages, `field:value` parsing, priority ranking, AND its empty-set
+        // `1 = 0` guards — since matching is explicitly handled upstream.
+        // Filters/sorting/pagination downstream are untouched.
+        $owned = (new $resourceClass)->searchQuery($query, $search);
+        if ($owned !== null) {
+            // The seam MUST constrain the SAME builder in place (Eloquent
+            // `where`/scope calls do — they return `$this`). Returning a
+            // DIFFERENT instance is unsupported: it would (a) drop the
+            // indexQuery / filter / scope constraints already applied to
+            // `$query`, and (b) be silently ignored by the call sites that
+            // paginate via the relation (BelongsToMany / MorphToMany) or that
+            // discard apply()'s return. Fail fast on that contract violation
+            // rather than return the wrong rows.
+            if ($owned !== $query) {
+                throw new \LogicException(sprintf(
+                    '%s::searchQuery() must constrain and return the given $query builder in place; returning a different Builder instance is not supported (it would drop already-applied index/filter scoping).',
+                    $resourceClass,
+                ));
+            }
+
+            return $query;
+        }
+
         return static::applyDatabaseSearch($request, $query, $resourceClass, $search);
     }
 

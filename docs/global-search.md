@@ -90,6 +90,25 @@ The hook runs **after** `SearchResolver::apply()` so any `orderBy()` you add ope
 
 ---
 
+## ⭐ Custom match predicate — `searchQuery()`
+
+By default matching is `ILIKE '%term%'` over `searchable()` fields (plus `searchableRelations()`). To match with driver-native search — PostgreSQL full-text `@@`, `pg_trgm` fuzzy, MySQL `FULLTEXT`, SQLite FTS5 — override `searchQuery()`. When it returns a `Builder`, `SearchResolver` applies **no** matching of its own (no `ILIKE`, no `field:value` parsing, no priority ranking, and it skips the empty-set `1 = 0` guard); the resource owns the entire `WHERE`. Return `null` (default) to keep the built-in `ILIKE`. This is the non-Scout seam — a resource that opts into `usesScout()` uses Scout instead.
+
+```php
+use Illuminate\Database\Eloquent\Builder;
+
+public function searchQuery(Builder $query, string $term): ?Builder
+{
+    // A model scope in YOUR app owns the SQL (e.g. tsvector @@ + pg_trgm
+    // similarity, ranked by ts_rank), tenant-scoped through the model.
+    return $query->search($term);
+}
+```
+
+Because `searchQuery()` funnels through the same `SearchResolver::apply()` choke point, it covers the resource index, global Cmd+K, and every relation picker uniformly. **You own the `WHERE` — in place:** constrain and return the *given* builder (`return $query->search($term)`); returning a *different* Builder instance throws `LogicException` (it would drop already-applied index/filter scoping). A non-null return that adds no predicate bypasses the empty-set guard and dumps every row — the same trust `indexQuery()` already assumes. Filters, the user's sort, and pagination are untouched.
+
+---
+
 ## ⭐ "View all" footer per group
 
 When a resource has more matches than its `limit` allows, the API returns:
