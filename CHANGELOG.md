@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.32.3] — 2026-07-31
+
+### Added
+
+- **`Resource::searchQuery()` — a seam to replace the default search match predicate (PostgreSQL FTS, `pg_trgm`, MySQL `FULLTEXT`, SQLite FTS5) without Scout.** Resource search matched only via `ILIKE '%term%'`, and the only override was a Scout engine — so a consumer needing driver-native search had to stand up a bespoke Scout engine purely to re-enter the same database (`indexQuery` ANDs with the `ILIKE` group, and dropping `searchable()` fields trips the empty-set `1 = 0` guard). The new `searchQuery(Builder $query, string $term): ?Builder` hook — the missing sibling of `searchOrderBy()` / `scoutQuery()` / `indexQuery()` — lets a resource own the entire match predicate: when it returns a Builder, `SearchResolver` applies none of its own matching (`ILIKE`, `field:value` parsing, priority ranking) and skips the empty-set guards; the resource's own scope owns the `WHERE` and any relevance ordering. Return `null` (the default) to keep the built-in `ILIKE` pipeline, so every existing resource is byte-for-byte unchanged. Because it dispatches from the single `SearchResolver::apply()` choke point (after Scout, before the default), it covers the resource index, global Cmd+K, and every relation picker uniformly. The package ships only the seam — no driver-specific SQL; the consumer's FTS/trigram lives in a model scope. The hook must constrain and return the **given** builder in place (Eloquent `where`/scope calls already do); returning a different Builder instance throws (it would drop already-applied index/filter scoping and be dropped by relation-picker pagination). Adversarial review (3 opus lenses, 8 findings) drove the in-place invariant + fail-fast guard. +7 Pest. Backend-only, no asset rebuild. See [Global search → Custom match predicate](docs/global-search.md) and [Resources](docs/resources.md).
+
 ## [1.32.2] — 2026-07-20
 
 ### Added
