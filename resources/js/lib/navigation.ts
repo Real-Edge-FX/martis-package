@@ -210,6 +210,18 @@ export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
 }
 
 /**
+ * Payload of `/api/navigation/badges`: a flat `{ "resource:users": 12,
+ * "tool:standards": 7 }` map keyed by `"{type}:{uriKey}"`.
+ *
+ * With the panel's dev tools on, the server may add a reserved `_failed`
+ * key mapping each counter whose `menuCount()` threw to a one-line
+ * description of the exception (`"resource:tickets": "App\\...: msg"`).
+ * It is diagnostics only — never a count — and `mergeBadgeCounts`
+ * ignores it along with any other non-numeric value.
+ */
+export type BadgesPayload = Record<string, number | Record<string, string> | undefined>
+
+/**
  * Merge a flat `{ uriKey: count }` map (from `/api/navigation/badges`)
  * into the cached navigation tree, returning a new array with updated
  * `count` values on every resource leaf. Items not present in the map
@@ -222,7 +234,7 @@ export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
  */
 export function mergeBadgeCounts(
   groups: NavigationGroup[],
-  badges: Record<string, number>,
+  badges: BadgesPayload,
 ): NavigationGroup[] {
   const apply = (item: NavigationGroupChild): NavigationGroupChild => {
     if (isNestedGroup(item)) {
@@ -235,8 +247,11 @@ export function mergeBadgeCounts(
     const keyed = item as { uriKey?: string; count?: number | null }
     if (typeof keyed.uriKey !== "string") return item
     const key = `${item.type}:${keyed.uriKey}`
-    if (!(key in badges)) return item
-    return { ...item, count: badges[key] }
+    const count = badges[key]
+    // Only numbers are counts; the dev-only `_failed` map (or any other
+    // stray value) must never land on an item.
+    if (typeof count !== "number") return item
+    return { ...item, count }
   }
 
   return groups.map((group) => ({

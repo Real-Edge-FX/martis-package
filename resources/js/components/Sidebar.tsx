@@ -20,6 +20,7 @@ import {
   isGroupActive,
   mergeBadgeCounts,
   useNavigationRefreshOnNavigate,
+  type BadgesPayload,
 } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
 import { useGateOptional } from "@/contexts/GateContext"
@@ -347,7 +348,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
   )
   // Lightweight badges payload: polled on a separate, longer interval.
   const badgesPollInterval = config.navigation?.badgesPollInterval ?? 300_000
-  const { data: badges } = useQuery<Record<string, number>>({
+  const { data: badges } = useQuery<BadgesPayload>({
     queryKey: ["navigation", "badges"],
     queryFn: () => api.get("/api/navigation/badges"),
     staleTime: 1000 * 30,

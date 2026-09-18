@@ -39,3 +39,29 @@ describe('mergeBadgeCounts — tools', () => {
     expect(getItemCount(merged[0].items[0] as NavigationItem)).toBe(5)
   })
 })
+
+describe('mergeBadgeCounts — dev-only `_failed` diagnostics', () => {
+  // With dev tools on, the server appends `_failed` (a map of broken
+  // counters → exception description) to the otherwise flat payload. It
+  // must never be mistaken for a count, and a missing count for the
+  // failing item leaves whatever the navigation tree already had.
+  it('ignores the reserved `_failed` key and keeps the item count untouched', () => {
+    const groups: NavigationGroup[] = [
+      { label: 'Ops', items: [toolItem({ uriKey: 'tickets', count: null } as Partial<NavigationItem>)] },
+    ]
+    const merged = mergeBadgeCounts(groups, {
+      _failed: { 'tool:tickets': 'RuntimeException: boom' },
+    })
+    expect(getItemCount(merged[0].items[0] as NavigationItem)).toBeNull()
+  })
+
+  it('never applies a non-numeric value keyed like a badge', () => {
+    const groups: NavigationGroup[] = [
+      { label: 'Ops', items: [toolItem({ uriKey: 'tickets', count: 3 } as Partial<NavigationItem>)] },
+    ]
+    const merged = mergeBadgeCounts(groups, {
+      'tool:tickets': { oops: 'not a count' },
+    })
+    expect(getItemCount(merged[0].items[0] as NavigationItem)).toBe(3)
+  })
+})

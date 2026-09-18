@@ -124,6 +124,10 @@ beforeEach(function () {
     $registry->register(BadgesBrokenCountResource::class);
 
     config()->set('martis.navigation.counts.enabled', true);
+    // Production-like: the broken counter registered above would otherwise
+    // add the dev-only `_failed` diagnostics key (APP_ENV=testing turns dev
+    // tools on). That key is covered by MenuCountFailureReportingTest.
+    config()->set('martis.dev.tools_enabled', false);
 });
 
 afterEach(function () {

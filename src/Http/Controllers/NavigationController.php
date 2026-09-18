@@ -6,7 +6,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Martis\Cache\MartisCache;
+use Martis\Exceptions\MenuCountFailedException;
 use Martis\MartisManager;
+use Martis\Menu\MenuCountResolver;
 use Martis\Menu\MenuItem;
 use Martis\Menu\MenuSection;
 use Martis\ResourceRegistry;
@@ -99,11 +101,14 @@ class NavigationController extends MartisController
      * for each one that opts in. Per-resource auth is enforced first,
      * matching the visibility rules of the full navigation payload.
      *
-     * Failures inside a single resource's `menuCount()` are swallowed
-     * (mirroring the behaviour in `MenuItem::resolveMenuCount`) so a
-     * broken counter never poisons the response.
+     * Failures inside a single resource's `menuCount()` never poison the
+     * response: the counter is skipped (mirroring `MenuItem`), the
+     * failure is reported through `MenuCountResolver`, and, when dev
+     * tools are on, the payload carries a reserved `_failed` key mapping
+     * each broken badge key to a one-line description of its exception
+     * so the developer can see at a glance which counters blew up.
      *
-     * @return array<string, int>
+     * @return array<string, int|array<string, string>>
      */
     protected function buildBadges(Request $request): array
     {
@@ -112,6 +117,11 @@ class NavigationController extends MartisController
         }
 
         $counts = [];
+        /** @var array<string, string> $failed */
+        $failed = [];
+        $collectFailure = function (MenuCountFailedException $failure) use (&$failed): void {
+            $failed[$failure->badgeKey()] = $failure->describeCause();
+        };
 
         foreach ($this->registry->list() as $resourceClass) {
             if (! $resourceClass::displayInNavigation() || ! $resourceClass::routable()) {
@@ -127,19 +137,22 @@ class NavigationController extends MartisController
                 continue;
             }
 
-            try {
-                $count = $resourceClass::menuCount($request);
-            } catch (\Throwable) {
-                continue;
-            }
+            // Keyed by "resource:{uriKey}" so a resource and a tool that happen
+            // to share a uriKey never conflate their count badges (v1.29.0).
+            $key = 'resource:'.$resourceClass::uriKey();
+
+            $count = MenuCountResolver::resolve(
+                $resourceClass,
+                $key,
+                fn (): ?int => $resourceClass::menuCount($request),
+                $collectFailure,
+            );
 
             if ($count === null) {
                 continue;
             }
 
-            // Keyed by "resource:{uriKey}" so a resource and a tool that happen
-            // to share a uriKey never conflate their count badges (v1.29.0).
-            $counts['resource:'.$resourceClass::uriKey()] = (int) $count;
+            $counts[$key] = (int) $count;
         }
 
         // Tools publish counts the same way (v1.29.0). resolveTools() already
@@ -150,17 +163,27 @@ class NavigationController extends MartisController
                 continue;
             }
 
-            try {
-                $count = $tool->menuCount($request);
-            } catch (\Throwable) {
-                continue;
-            }
+            $key = 'tool:'.$tool->uriKey();
+
+            $count = MenuCountResolver::resolve(
+                $tool::class,
+                $key,
+                fn (): ?int => $tool->menuCount($request),
+                $collectFailure,
+            );
 
             if ($count === null) {
                 continue;
             }
 
-            $counts['tool:'.$tool->uriKey()] = (int) $count;
+            $counts[$key] = (int) $count;
+        }
+
+        // Dev-only diagnostics. Exception messages can leak internals, so
+        // the map is only attached when the panel's dev tools are on; in
+        // production the payload stays a flat `{ key: count }` map.
+        if ($failed !== [] && (bool) config('martis.dev.tools_enabled', false)) {
+            $counts['_failed'] = $failed;
         }
 
         return $counts;
