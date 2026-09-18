@@ -116,6 +116,9 @@ describe('RelationshipTableShell — records fetch failure', () => {
     expect(state?.textContent).toContain('HTTP 500')
     expect(screen.queryByTestId('datatable')).toBeNull()
     expect(screen.queryByText('No records available.')).toBeNull()
+    // The header count badge would read "0" (records.length) and claim an
+    // empty relation; it is hidden while the fetch has failed.
+    expect(document.querySelector('h3 .martis-badge')).toBeNull()
   })
 
   it('wires the Retry button to the records query refetch', () => {
@@ -145,5 +148,7 @@ describe('RelationshipTableShell — records fetch failure', () => {
 
     expect(screen.getByText('No records available.')).not.toBeNull()
     expect(errorState()).toBeNull()
+    // Header count is back once the result is authoritative.
+    expect(document.querySelector('h3 .martis-badge')?.textContent).toBe('0')
   })
 })

@@ -176,6 +176,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   // state (with Retry) instead of an empty table: "No records available."
   // must only ever describe an authoritative result, so the empty copy is
   // also withheld while the first fetch is still pending.
+  // (Also hides the header count badge: a "0" next to the title would
+  // claim the relation is empty when the fetch actually failed.)
   const recordsFailed = recordsQuery.isError && recordsQuery.data === undefined
   const emptyMessage = recordsQuery.isSuccess ? (
     <div className="py-8 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
@@ -255,7 +257,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
             />
           )}
           <span>{title}</span>
-          {showRelationCount && (
+          {showRelationCount && !recordsFailed && (
             <span
               className="martis-badge"
               style={{
