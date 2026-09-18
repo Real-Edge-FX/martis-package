@@ -50,6 +50,16 @@ export interface TableProps {
    *   - undef  → fallback to the localised default ("Actions" / "Ações")
    */
   actionsColumnLabel?: string | null
+  /**
+   * Copy rendered when `rows` is empty.
+   *   - undef → the localised default ("No records found.")
+   *   - null  → nothing: the rows are not authoritative yet (first fetch
+   *             still pending, or failed), so "no records" would be a lie.
+   *             A blank spacer keeps the table height so an overlay loader
+   *             still has an area to cover.
+   *   - node  → custom copy
+   */
+  emptyMessage?: React.ReactNode | null
   tableConfig?: {
     striped?: boolean
     showGridlines?: boolean
@@ -401,6 +411,7 @@ function DefaultTable({
   onDefaultForceDelete,
   tableConfig,
   actionsColumnLabel,
+  emptyMessage,
 }: TableProps) {
   const { t } = useTranslation("resources")
   const { t: tMsg } = useTranslation("messages")
@@ -507,9 +518,15 @@ function DefaultTable({
           return classes.join(" ")
         }}
         emptyMessage={
-          <div className="py-8 text-center text-sm text-gray-400">
-            {t("no_records")}
-          </div>
+          emptyMessage === undefined ? (
+            <div className="py-8 text-center text-sm text-gray-400">
+              {t("no_records")}
+            </div>
+          ) : emptyMessage === null ? (
+            <div className="py-8" aria-hidden="true" />
+          ) : (
+            emptyMessage
+          )
         }
         className={classNames}
         tableClassName="min-w-full"

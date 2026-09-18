@@ -133,6 +133,13 @@ return [
     'error_incident_id' => 'ID do incidente',
     'error_network_title' => 'Não foi possível contactar o servidor',
     'error_network_desc' => 'A página não conseguiu terminar de carregar porque o pedido não chegou ao servidor. Verifique a ligação e tente novamente.',
+    // Estado de erro inline para uma listagem que falhou a carregar.
+    'query_error_title' => 'Não foi possível carregar os registos',
+    'query_error_server' => 'O servidor devolveu um erro ao carregar estes registos. Consulte os logs da aplicação para ver o stack trace completo e tente novamente.',
+    'query_error_network' => 'O pedido não chegou ao servidor. Verifique a ligação e tente novamente.',
+    'query_error_forbidden' => 'Não tem permissão para listar estes registos.',
+    'query_error_not_found' => 'Esta listagem não está disponível.',
+    'query_error_generic' => 'O pedido falhou. Tente novamente ou ajuste os filtros e a pesquisa.',
     'boolean_group_min_checked' => ':attribute requer pelo menos :min opção(ões) selecionada(s); apenas :count selecionada(s).',
     'boolean_group_max_checked' => ':attribute permite no máximo :max opção(ões) selecionada(s); :count selecionada(s).',
     'copy' => 'Copiar',

@@ -16,6 +16,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { ResourceErrorPage } from '@/pages/ResourceError'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
+import { QueryErrorState, queryErrorTitle } from '@/components/QueryErrorState'
 import { FilterPanel } from '@/components/FilterPanel'
 import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { resolveRedirect } from '@/lib/resolveRedirect'
@@ -324,6 +325,18 @@ export function ResourceIndexPage() {
     },
   })
 
+  // A failed index fetch used to be silent: the table was fed `[]` and the
+  // empty state rendered as if the resource had no records. Toast on the
+  // transition to the error state so the failure is visible even when the
+  // user is scrolled away from the table (the inline error state below
+  // carries the details + Retry). Keyed on `errorUpdatedAt` so a Retry that
+  // fails again toasts again, while re-renders of a stable error do not.
+  const indexErrorAt = indexQuery.isError ? indexQuery.errorUpdatedAt : null
+  useEffect(() => {
+    if (indexErrorAt !== null) addToast('error', queryErrorTitle(tMsg))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indexErrorAt])
+
   // Cross-session revalidation seam: any transport (consumer ws-gateway,
   // SSE, Echo listener) can emit `martis:refresh-index` to tell this index
   // "another session mutated this resource — revalidate." Mirrors the same
@@ -526,6 +539,16 @@ export function ResourceIndexPage() {
 
   const rows = indexQuery.data?.data ?? []
   const meta = indexQuery.data?.meta
+  // No data at all and the fetch failed: the table body gives way to the
+  // inline error state. When a *refetch* fails on top of data we already
+  // hold (polling, focus revalidation), the last good rows stay on screen
+  // and the toast above is the signal.
+  const indexFailed = indexQuery.isError && indexQuery.data === undefined
+  // The empty state must only ever describe an authoritative result:
+  // while the first fetch is pending or failing, "No records found."
+  // would be a lie (the reporter's support team could not tell a 500
+  // from an empty resource on a screenshot).
+  const indexEmptyMessage = indexQuery.isSuccess ? undefined : null
   const isSoftDelete = schema.softDeletes
   const perPageOptions = schema.perPageOptions ?? [10, 25, 50, 100]
   const showSearch = schema.indexSearchable !== false
@@ -768,9 +791,17 @@ export function ResourceIndexPage() {
         })()}
 
       <MartisLoader loading={indexQuery.isFetching} overlay>
+      {indexFailed ? (
+        <QueryErrorState
+          error={indexQuery.error}
+          onRetry={() => { void indexQuery.refetch() }}
+          retrying={indexQuery.isFetching}
+        />
+      ) : (
       <Table
         columns={indexColumns}
         rows={rows}
+        emptyMessage={indexEmptyMessage}
         sortBy={sortBy}
         sortDir={sortDir}
         onSort={handleSort}
@@ -817,6 +848,7 @@ export function ResourceIndexPage() {
           layout: schema.tableLayout,
         }}
       />
+      )}
       </MartisLoader>
 
       {/* Pagination */}

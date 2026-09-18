@@ -133,6 +133,13 @@ return [
     'error_incident_id' => 'ID do incidente',
     'error_network_title' => 'Não foi possível contatar o servidor',
     'error_network_desc' => 'A página não terminou de carregar porque a requisição não chegou ao servidor. Verifique sua conexão e tente novamente.',
+    // Estado de erro inline para uma listagem que falhou ao carregar.
+    'query_error_title' => 'Não foi possível carregar os registros',
+    'query_error_server' => 'O servidor retornou um erro ao carregar estes registros. Consulte os logs da aplicação para ver o stack trace completo e tente novamente.',
+    'query_error_network' => 'A requisição não chegou ao servidor. Verifique sua conexão e tente novamente.',
+    'query_error_forbidden' => 'Você não tem permissão para listar estes registros.',
+    'query_error_not_found' => 'Esta listagem não está disponível.',
+    'query_error_generic' => 'A requisição falhou. Tente novamente ou ajuste os filtros e a busca.',
     'boolean_group_min_checked' => ':attribute requer pelo menos :min opção(ões) marcada(s); apenas :count marcada(s).',
     'boolean_group_max_checked' => ':attribute permite no máximo :max opção(ões) marcada(s); :count marcada(s).',
     'copy' => 'Copiar',
