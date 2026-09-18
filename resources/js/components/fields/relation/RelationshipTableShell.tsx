@@ -16,6 +16,7 @@ import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { Pagination } from '@/components/Pagination'
+import { QueryErrorState } from '@/components/QueryErrorState'
 import { recordHref } from '@/lib/recordHref'
 
 /**
@@ -171,6 +172,20 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const schema = schemaQuery.data?.data
   const records = recordsQuery.data?.data ?? []
   const pagination = recordsQuery.data?.meta
+  // A failed records fetch with nothing to show renders an inline error
+  // state (with Retry) instead of an empty table: "No records available."
+  // must only ever describe an authoritative result, so the empty copy is
+  // also withheld while the first fetch is still pending.
+  // (Also hides the header count badge: a "0" next to the title would
+  // claim the relation is empty when the fetch actually failed.)
+  const recordsFailed = recordsQuery.isError && recordsQuery.data === undefined
+  const emptyMessage = recordsQuery.isSuccess ? (
+    <div className="py-8 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
+      {tMsg('no_records_available', 'No records available.')}
+    </div>
+  ) : (
+    <div className="py-8" aria-hidden="true" />
+  )
   const totalCount = pagination?.total ?? records.length
 
   const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
@@ -242,7 +257,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
             />
           )}
           <span>{title}</span>
-          {showRelationCount && (
+          {showRelationCount && !recordsFailed && (
             <span
               className="martis-badge"
               style={{
@@ -342,7 +357,16 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
         )}
       </div>
 
-      {!isCollapsed && (
+      {!isCollapsed && recordsFailed && (
+        <QueryErrorState
+          compact
+          error={recordsQuery.error}
+          onRetry={() => { void recordsQuery.refetch() }}
+          retrying={recordsQuery.isFetching}
+        />
+      )}
+
+      {!isCollapsed && !recordsFailed && (
         <>
           <div className="overflow-x-auto">
             <DataTable
@@ -364,11 +388,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
               rowClassName={(row: ResourceRecord) =>
                 row.deleted_at != null ? 'opacity-60' : ''
               }
-              emptyMessage={
-                <div className="py-8 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
-                  {tMsg('no_records_available', 'No records available.')}
-                </div>
-              }
+              emptyMessage={emptyMessage}
               className="w-full martis-datatable martis-datatable-striped"
               tableClassName="min-w-full"
             >

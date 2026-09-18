@@ -286,6 +286,16 @@ return [
     |     true (default), every resource that doesn't opt out publishes a
     |     count. Set to false to silence all badges globally without
     |     touching individual resources.
+    |
+    | counts.report_failures
+    |     A resource's or tool's menuCount() that throws never breaks the
+    |     sidebar or the badges endpoint: that badge is simply skipped.
+    |     When true (default) the failure is also sent through report()
+    |     as a Martis\Exceptions\MenuCountFailedException (original
+    |     exception attached as previous), so it reaches the app's
+    |     exception handler instead of vanishing. Set to false to go back
+    |     to silent skipping. With dev.tools_enabled on, the badges
+    |     payload additionally lists failed counters under `_failed`.
     */
     /*
     |--------------------------------------------------------------------------
@@ -375,6 +385,12 @@ return [
     'navigation' => [
         'counts' => [
             'enabled' => env('MARTIS_NAV_COUNTS', true),
+
+            /*
+             | Report menuCount() failures through the app's exception
+             | handler (see the block comment above). Default true.
+             */
+            'report_failures' => env('MARTIS_NAV_COUNTS_REPORT_FAILURES', true),
 
             /*
              | Threshold above which count badges switch from full digits

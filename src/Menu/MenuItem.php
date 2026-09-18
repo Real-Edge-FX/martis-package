@@ -321,7 +321,7 @@ class MenuItem
 
     /**
      * Resolve the sidebar count badge for a Tool, mirroring the Resource path
-     * (config gate + showMenuCount() + swallow per-tool failures).
+     * (config gate + showMenuCount() + reported, non-fatal per-tool failures).
      */
     protected function resolveToolMenuCount(ToolContract $tool, Request $request): ?int
     {
@@ -333,11 +333,11 @@ class MenuItem
             return null;
         }
 
-        try {
-            return $tool->menuCount($request);
-        } catch (\Throwable) {
-            return null;
-        }
+        return MenuCountResolver::resolve(
+            $tool::class,
+            'tool:'.$tool->uriKey(),
+            fn (): ?int => $tool->menuCount($request),
+        );
     }
 
     /**
@@ -511,10 +511,12 @@ class MenuItem
             return null;
         }
 
-        try {
-            return $resourceClass::menuCount($request);
-        } catch (\Throwable) {
-            return null;
-        }
+        // A throwing counter hides this badge only; the failure itself is
+        // reported (see MenuCountResolver) instead of vanishing.
+        return MenuCountResolver::resolve(
+            $resourceClass,
+            'resource:'.$resourceClass::uriKey(),
+            fn (): ?int => $resourceClass::menuCount($request),
+        );
     }
 }

@@ -133,6 +133,15 @@ return [
     'error_incident_id' => 'Incident id',
     'error_network_title' => 'Cannot reach the server',
     'error_network_desc' => 'The page could not finish loading because the request never reached the server. Check your connection and try again.',
+    // Inline error state for a failed listing fetch (resource index, lens,
+    // relationship panels). Rendered in place of the table body, next to a
+    // Retry button, so a server failure never reads as "no records".
+    'query_error_title' => 'Records could not be loaded',
+    'query_error_server' => 'The server returned an error while loading these records. Check the application logs for the full stack trace, then try again.',
+    'query_error_network' => 'The request never reached the server. Check your connection and try again.',
+    'query_error_forbidden' => 'You do not have permission to list these records.',
+    'query_error_not_found' => 'This listing is not available.',
+    'query_error_generic' => 'The request failed. Try again, or adjust the filters and search.',
     'boolean_group_min_checked' => ':attribute requires at least :min checked option(s); only :count are checked.',
     'boolean_group_max_checked' => ':attribute allows at most :max checked option(s); :count are checked.',
     'copy' => 'Copy',

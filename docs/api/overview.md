@@ -247,7 +247,7 @@ GET /martis/api/navigation/badges    # v1.8.8
 
 `/navigation` returns the canonical sidebar tree the React shell renders — sections with label, icon, and items (resources, links, dashboards, tools). It is fetched once per session + on route mutations and is **not auto-polled**.
 
-`/navigation/badges` returns a flat `{ uriKey: count }` map keyed by resource `uriKey`. The SPA polls this endpoint at the cadence configured in `martis.navigation.badges_poll_interval` (default 300 000 ms = 5 min) and merges the values into the cached tree. 5–10× cheaper server-side than the full tree; resources that opt out of `showMenuCount()` are excluded.
+`/navigation/badges` returns a flat `{ "resource:users": 1284, "tool:standards": 7 }` map keyed by `"{type}:{uriKey}"`. The SPA polls this endpoint at the cadence configured in `martis.navigation.badges_poll_interval` (default 300 000 ms = 5 min) and merges the values into the cached tree. 5–10× cheaper server-side than the full tree; resources that opt out of `showMenuCount()` are excluded, and counters whose `menuCount()` throws are skipped and reported (v1.32.4). With dev tools on, the failed counters are listed under a reserved `_failed` key. See [Menus → Badges-Only API](../menus.md#badges-only-api-v188).
 
 ## Global Search
 

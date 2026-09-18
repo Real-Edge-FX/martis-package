@@ -17,6 +17,7 @@ The main listing page for a resource. Displays records in a paginated, sortable,
 - Soft delete support (archive/restore)
 - Custom create override detection (drawer or page)
 - Row click navigation to detail page
+- Three explicit states for the records query (v1.32.4): while the first fetch is pending only the loader shows; a failed fetch renders the inline [`QueryErrorState`](#queryerrorstate) (status, server message, Retry) in place of the table body and fires an error toast; "No records found." renders only for an authoritative empty result. Before v1.32.4 a failed fetch (any 5xx) was rendered as the empty state.
 
 **Configurable via Resource PHP:**
 - `perPageOptions()` — Available page sizes
@@ -185,6 +186,7 @@ The data table used on index pages and HasMany relationship views.
 - Row selection with checkboxes (prepared for bulk actions)
 - Configurable striping, gridlines, size, and hover effects
 - Overridable via registry
+- `emptyMessage` prop (v1.32.4): `undefined` renders the localised "No records found."; `null` renders a blank spacer (the rows are not authoritative yet: first fetch pending or failed); any node renders as custom copy. The index and lens pages pass `null` until the records query succeeds so the empty state can never describe a failed request.
 
 **Configuration (from Resource):**
 
@@ -335,6 +337,25 @@ import { Sparkline } from '@/components/metrics'
 ### ErrorBoundary
 
 Catches and displays React rendering errors gracefully instead of crashing the entire application.
+
+### QueryErrorState
+
+Inline error state for a failed **listing** fetch, rendered in place of the table body on the resource index, lens pages and relationship panels (v1.32.4). Sibling of the full-page `ResourceErrorPage`, but scoped to the table so the toolbar (search, filters, per-page, trashed) stays usable: the schema loaded fine and the user may just need to fix a filter or retry.
+
+- Triage mirrors the error page: network / transport failure, 403, 404, 5xx, other 4xx, each with its own copy (`messages.query_error_*` keys, translated in `en` / `pt_PT` / `pt_BR`).
+- A detail line shows `HTTP {status} · {server message}` (production Laravel returns the generic "Server Error"; the stack trace belongs in the logs). The status is what lets support tell a failure from an empty list on a screenshot.
+- **Retry** calls the query's `refetch()`; the button is disabled while the retry is in flight and the page loader overlay covers the state.
+- The index and lens pages also fire an error toast on the transition to the error state (again on each failed retry), so the failure is visible when the user is scrolled away from the table. Relationship panels render the `compact` variant without a toast.
+- A failed *refetch* on top of data already held (polling, focus revalidation) keeps the last good rows on screen; the toast is the signal.
+
+```tsx
+import { QueryErrorState } from '@/components/QueryErrorState'
+
+<QueryErrorState error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
+<QueryErrorState compact error={query.error} onRetry={() => void query.refetch()} />
+```
+
+CSS hooks: `.martis-query-error` (+ `-compact`), `.martis-query-error-icon`, `-body`, `-title`, `-desc`, `-detail`, `-retry`. The root carries `role="alert"` and `data-status` (`500`, `403`, `network`, ...).
 
 ### GlobalSearch
 

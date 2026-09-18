@@ -417,6 +417,7 @@ Full wiring examples, prop contracts, and the rationale for piece-by-piece vs fu
 'navigation' => [
     'counts' => [
         'enabled' => env('MARTIS_NAV_COUNTS', true),
+        'report_failures' => env('MARTIS_NAV_COUNTS_REPORT_FAILURES', true),  // v1.32.4
         'compact_threshold' => env('MARTIS_NAV_COUNT_COMPACT_THRESHOLD', 10000),  // v1.8.0
     ],
     'badges_poll_interval' => (int) env('MARTIS_NAV_BADGES_POLL_MS', 300000),  // v1.8.8
@@ -424,6 +425,7 @@ Full wiring examples, prop contracts, and the rationale for piece-by-piece vs fu
 ```
 
 - `counts.enabled` — master switch for the resource count badge (`Users 1,284`) rendered in the sidebar and top-nav dropdowns. When true, every resource publishes a count by default; per-resource opt-out via `showMenuCount(): bool` on the `Resource` class.
+- `counts.report_failures` (v1.32.4) — a `menuCount()` that throws never breaks the sidebar or the badges endpoint (that badge is skipped). When true, the failure is also sent through `report()` as a `Martis\Exceptions\MenuCountFailedException` (naming the Resource / Tool class, original exception as `previous`) so it reaches your exception handler instead of vanishing. Set to false to go back to silent skipping. With `dev.tools_enabled` on, the badges payload additionally lists failed counters under a reserved `_failed` key. See [Menus → When a badge is missing](menus.md#when-a-badge-is-missing).
 - `counts.compact_threshold` (v1.8.0) — value at or above which the badge switches from full digits to compact notation:
   - Below threshold: `1,284` (locale-aware separators).
   - At or above: `Intl.NumberFormat` compact notation — `10K`, `123.5K`, `1.2M`, `25M`.
@@ -1339,6 +1341,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_LOGIN_THROTTLE_MINUTES` | `1` |
 | `MARTIS_NAV_BADGES_POLL_MS` | `300000` |
 | `MARTIS_NAV_COUNTS` | `true` |
+| `MARTIS_NAV_COUNTS_REPORT_FAILURES` | `true` |
 | `MARTIS_NAV_COUNT_COMPACT_THRESHOLD` | `10000` |
 | `MARTIS_NOTIFICATIONS_ENABLED` | `true` |
 | `MARTIS_NOTIFICATIONS_MAX_DROPDOWN` | `10` |

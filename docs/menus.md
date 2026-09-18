@@ -343,6 +343,48 @@ Disable badges globally with:
 or the `MARTIS_NAV_COUNTS=false` env var. The global switch wins over
 per-resource opt-ins.
 
+### When a badge is missing
+
+A badge can be absent for four reasons: the resource opted out via
+`showMenuCount()`, `menuCount()` returned `null`, the user fails
+`authorizedToViewAny()`, or **`menuCount()` threw**. The last one is the
+easy one to misread: a throwing counter (a tenant scope with no tenant
+resolved, a missing table, a timeout) hides only its own badge, and the
+rest of the sidebar renders normally, so it looks like a styling glitch
+when it is really a server-side exception on the same query that powers
+the index page.
+
+Since v1.32.4 that failure is no longer silent:
+
+- It is sent through `report()` as a
+  `Martis\Exceptions\MenuCountFailedException` whose message names the
+  Resource / Tool class and the badge key (`resource:tickets`,
+  `tool:standards`), with the original exception attached as
+  `getPrevious()`. It lands wherever your exception handler reports to
+  (log channel, Sentry, Flare, ...), and you can target that single class
+  in `withExceptions()` (`dontReport`, `level`, `reportable`) without
+  touching the underlying exception types.
+- With dev tools on (`martis.dev.tools_enabled`, the default in `local` /
+  `testing`), `GET /martis/api/navigation/badges` adds a reserved
+  `_failed` key listing each broken counter with a one-line description
+  of its exception, so you can see at a glance which counters blew up
+  (see [Badges-Only API](#badges-only-api-v188)). The key is never
+  emitted in production and is never a count; the SPA ignores it.
+
+Turn the reporting off (back to silently skipping the badge) with:
+
+```php
+// config/martis.php
+'navigation' => [
+    'counts' => ['report_failures' => false],   // MARTIS_NAV_COUNTS_REPORT_FAILURES=false
+],
+```
+
+Both `/api/navigation` and `/api/navigation/badges` are cached under
+the `navigation` cache layer (default TTL 1 minute), so a badge keeps
+missing for the rest of that TTL after the underlying cause is fixed.
+Run `php artisan martis:cache:clear navigation` to refresh immediately.
+
 ### Compact notation
 
 Counts above the configured threshold render in compact notation (`10K`,
@@ -486,17 +528,32 @@ emitted item:
 
 ## Badges-Only API (v1.8.8)
 
-`GET /martis/api/navigation/badges` returns a flat `{ uriKey: count }`
-map keyed by the resource `uriKey`. Resources that opt out of
-`showMenuCount()` or fail per-user authorization are excluded; broken
-`menuCount()` calls are silently skipped so a single counter cannot
-take the whole endpoint down.
+`GET /martis/api/navigation/badges` returns a flat `{ key: count }` map
+keyed by `"{type}:{uriKey}"` (`resource:` or `tool:`, so a resource and
+a tool sharing a `uriKey` never conflate, v1.29.0). Resources that opt
+out of `showMenuCount()` or fail per-user authorization are excluded;
+broken `menuCount()` calls are skipped so a single counter cannot take
+the whole endpoint down, and reported through the app's exception
+handler (see [When a badge is missing](#when-a-badge-is-missing)).
 
 ```json
 {
-  "users": 1284,
-  "invoices": 7,
-  "tickets": 42
+  "resource:users": 1284,
+  "resource:invoices": 7,
+  "tool:standards": 42
+}
+```
+
+With dev tools on (`martis.dev.tools_enabled`), counters whose
+`menuCount()` threw are listed under the reserved `_failed` key. It is
+diagnostics only, never emitted in production, and ignored by the SPA:
+
+```json
+{
+  "resource:users": 1284,
+  "_failed": {
+    "resource:tickets": "App\\Tenancy\\TenantNotResolvedException: No tenant is resolved in the current context"
+  }
 }
 ```
 

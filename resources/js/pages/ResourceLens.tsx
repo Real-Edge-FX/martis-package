@@ -24,6 +24,7 @@ import { LensDropdown } from '@/components/Lens/LensDropdown'
 import { NotFoundPage } from '@/pages/NotFound'
 import { ResourceErrorPage } from '@/pages/ResourceError'
 import { MartisLoader } from '@/components/Loader'
+import { QueryErrorState, queryErrorTitle } from '@/components/QueryErrorState'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { recordHref } from '@/lib/recordHref'
@@ -167,6 +168,16 @@ export function ResourceLensPage() {
     placeholderData: (prev) => prev,
   })
 
+  // Same contract as the resource index: a failed lens fetch toasts on the
+  // transition to the error state (keyed on `errorUpdatedAt` so a Retry
+  // that fails again toasts again) and renders an inline error state
+  // instead of sitting on "Loading…" forever.
+  const dataErrorAt = dataQuery.isError ? dataQuery.errorUpdatedAt : null
+  useEffect(() => {
+    if (dataErrorAt !== null) addToast('error', queryErrorTitle(tMsg))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataErrorAt])
+
   // ── Actions (lens inherits resource actions; handled identically) ─
   const allActions = (dataQuery.data?.meta.actions ?? []) as ActionMeta[]
   const indexActions = filterIndexActions(allActions)
@@ -234,6 +245,10 @@ export function ResourceLensPage() {
 
   const rows = dataQuery.data?.data ?? []
   const meta = dataQuery.data?.meta
+  // No data at all and the fetch failed → inline error state in place of
+  // the table. A failed *refetch* on top of held data keeps the rows and
+  // relies on the toast above.
+  const dataFailed = dataQuery.isError && dataQuery.data === undefined
   // IMPORTANT: only use `meta.fields` — falling back to the resource fields
   // causes a pre-data flash with the wrong columns that PrimeReact's
   // DataTable memoises aggressively.
@@ -422,7 +437,13 @@ export function ResourceLensPage() {
         })()}
 
       <MartisLoader loading={dataQuery.isFetching} overlay>
-        {fields === null ? (
+        {dataFailed ? (
+          <QueryErrorState
+            error={dataQuery.error}
+            onRetry={() => { void dataQuery.refetch() }}
+            retrying={dataQuery.isFetching}
+          />
+        ) : fields === null ? (
           <div className="py-12 text-center text-sm" style={{ color: 'var(--martis-text-muted)' }}>
             {tMsg('loading', 'Loading…')}
           </div>
@@ -431,6 +452,7 @@ export function ResourceLensPage() {
           key={fields.map((f) => f.attribute).join('|')}
           columns={columns}
           rows={rows}
+          emptyMessage={dataQuery.isSuccess ? undefined : null}
           sortBy={sortBy}
           sortDir={sortDir}
           onSort={(attr) => {

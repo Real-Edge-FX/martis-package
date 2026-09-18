@@ -178,6 +178,17 @@ Resources are auto-discovered from the directory configured in `config/martis.ph
    php artisan optimize:clear
    ```
 
+### Index shows "No records found." (or a badge is missing) while `laravel.log` shows an exception
+
+Before v1.32.4 two failures were silent in the UI: a failed index fetch (`GET /api/resources/{resource}` returning 5xx) was rendered as the empty state after the retries, and a `menuCount()` that threw simply dropped its sidebar badge. Both typically share one root cause: a query that throws for some users (a tenant scope with no tenant resolved, a missing table, a permission gate inside a global scope).
+
+Since v1.32.4:
+
+1. The index, lens pages and relationship panels render an inline error state with the HTTP status, the server message and a **Retry** button instead of "No records found.", and fire an error toast. "No records found." only ever describes a successful empty result.
+2. The badge failure is reported through `report()` as `Martis\Exceptions\MenuCountFailedException` (naming the resource / tool class), and with dev tools on the badges payload lists the broken counters under `_failed`. See [Menus → When a badge is missing](menus.md#when-a-badge-is-missing).
+
+If you still see the empty state on an older version, check `storage/logs/laravel.log` for the exception thrown by the resource's `indexQuery()` / global scopes, and fix the query at its source (or stop offering the resource to that user via `authorizedToViewAny()`).
+
 ### Sortable column has no effect
 
 `->sortable()` only emits a flag. The query layer reads it from the resource's `fields()` and applies `orderBy()`. If you have a custom `indexQuery()` that re-sorts, your sort wins and the toggle silently no-ops. Remove the `orderBy` from `indexQuery()`, or apply it conditionally only when the request did not request a column sort.

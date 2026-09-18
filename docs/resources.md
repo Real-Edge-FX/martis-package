@@ -177,6 +177,8 @@ public static function menuCount(Request $request): ?int
 
 Returning `null` from `menuCount()` hides the badge for that user. Counts are formatted by the frontend with the `formatItemCount()` helper (compact `K` / `M` notation above the configured threshold).
 
+If `menuCount()` throws, the badge is hidden for that user (the rest of the sidebar renders) and the failure is reported through `report()` as a `Martis\Exceptions\MenuCountFailedException` naming the resource class (v1.32.4). See [Menus → When a badge is missing](menus.md#when-a-badge-is-missing) for the dev-mode `_failed` diagnostics and the `counts.report_failures` switch.
+
 ### Place a resource under "System" — `belongsToSystemSection()`
 
 Returns `true` to dock the resource under the sidebar's "System" group rather than the user-defined sections. Used internally by `ActionEventResource`. Override on consumer-side resources that should sit alongside the package's system tools.

@@ -8,6 +8,7 @@ The Martis Loader is a built-in loading indicator that appears automatically dur
 |---------|---------|--------------|
 | Resource Index (initial load) | Schema + records fetch | `lg` |
 | Resource Index (refetch overlay) | Search, sort, pagination | `sm` (overlay) |
+| Resource Index / Lens (failed fetch) | Records request failed (5xx, network) | Inline `QueryErrorState` + Retry replaces the table body; overlay covers it during the retry (v1.32.4) |
 | Resource Detail | Schema + record fetch | `lg` |
 | Resource Lens | Schema + lens query | `md` |
 | Profile | Session check | `md` |
