@@ -174,6 +174,10 @@ class Gravatar extends Field
         if ($this->sourceType === GravatarSourceType::Email) {
             return;
         }
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
         if ($value !== null) {
             $model->setAttribute($this->attribute, $value);
         }

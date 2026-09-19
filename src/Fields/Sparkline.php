@@ -180,6 +180,11 @@ class Sparkline extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
         if (is_string($value)) {
             $decoded = json_decode($value, true);
             if (is_array($decoded)) {

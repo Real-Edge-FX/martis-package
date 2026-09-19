@@ -157,6 +157,11 @@ class KeyValue extends Field
             return;
         }
 
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
         $encoded = $this->encodeToJson($value);
         $model->setAttribute($this->attribute, $encoded);
     }

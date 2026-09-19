@@ -1511,8 +1511,8 @@ abstract class Field implements FieldContract
      * `showOnCreating()` or `showOnUpdating()` called afterwards re-enable
      * it) and `fill()` is a no-op unless a `fillUsing()` callback is set.
      *
-     * A computed field has no column: do not mark it `sortable()`,
-     * `searchable()` or `filterable()`.
+     * A computed field has no column: do not mark it `sortable()` or
+     * `searchable()`, and do not point a filter at its attribute.
      *
      *     Badge::make('mode', 'Mode')
      *         ->computed(fn (Channel $model): string => $model->mode()->value)

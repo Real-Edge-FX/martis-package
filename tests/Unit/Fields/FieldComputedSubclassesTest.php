@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Martis\Fields\Code;
 use Martis\Fields\File;
 use Martis\Fields\Gravatar;
 use Martis\Fields\Image;
@@ -139,4 +140,23 @@ it('resolves a computed field to an empty payload when the callback returns null
     expect(File::make('mode')->multiple()->computed()->resolve($model))->toBe([]);
     expect(Image::make('mode')->computed()->resolve($model))->toBeNull();
     expect(Image::make('mode')->multiple()->computed()->resolve($model))->toBe([]);
+});
+
+it('keeps fill() a no-op on every subclass that re-implements it, even when shown on forms', function () {
+    $model = new ComputedSubclassTestModel;
+    $fields = [
+        KeyValue::make('mode')->computed()->showOnForms(),
+        MultiSelect::make('mode')->computed()->showOnForms(),
+        Sparkline::make('mode')->computed()->showOnForms(),
+        Gravatar::make('mode')->fromUrl()->computed()->showOnForms(),
+        File::make('mode')->computed()->showOnForms(),
+        Image::make('mode')->computed()->showOnForms(),
+        Code::make('mode')->computed()->showOnForms(),
+    ];
+
+    foreach ($fields as $field) {
+        $field->fill($model, 'docs/report.pdf');
+
+        expect($model->getAttributes())->toBe([], $field::class);
+    }
 });

@@ -198,6 +198,11 @@ class MultiSelect extends Field
             return;
         }
 
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
         $values = $this->decodeToArray($value);
         $model->setAttribute($this->attribute, empty($values) ? null : json_encode($values, JSON_THROW_ON_ERROR));
     }

@@ -274,6 +274,11 @@ class File extends Field
             return;
         }
 
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
         if ($this->multiple) {
             $this->fillMultiple($model, $value);
 

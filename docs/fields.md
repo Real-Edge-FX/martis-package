@@ -526,10 +526,10 @@ What `computed()` changes besides the read:
 |---|---|
 | Forms | Hidden from create and update (`hideFromForms()`), like Nova's computed fields. Call `showOnForms()`, `showOnCreating()` or `showOnUpdating()` **after** `computed()` to show it again. |
 | `fill()` | No-op: there is nothing to write. A `fillUsing()` callback still runs, so a computed `full_name` can write `first_name` / `last_name` on save. `readonly()` keeps precedence. |
-| `sortable()` / `searchable()` / `filterable()` | Not overridden, and not supported: there is no column to sort, search or filter by. Leave them off. |
+| `sortable()` / `searchable()` / filters | Not overridden, and not supported: there is no column to sort or search by, and a `Filter` whose column is the computed attribute would query a column that does not exist. Leave them off. |
 | Introspection | `isComputed(): bool`. Not part of `toArray()`; the SPA does not need it. |
 
-Which fields honour `computed()`: every field whose value resolution goes through `Field::resolve()` (`Text`, `Badge`, `Status`, `Number`, `Boolean`, `Date`, `Select`, …) plus the ones with their own `resolve()` that read through the shared seam: `KeyValue`, `MultiSelect`, `Sparkline`, `File`, `Image`, `Gravatar`. Relationship fields read a foreign key or relation rather than the attribute, `Icon` has its own display/stored/computed modes, and `Repeater` has its own storage modes; `computed()` does not apply to them.
+Which fields honour `computed()`: every field whose value resolution goes through `Field::resolve()` (`Text`, `Badge`, `Status`, `Number`, `Boolean`, `Date`, `Select`, …) plus the ones with their own `resolve()` that read through the shared seam: `KeyValue`, `MultiSelect`, `Sparkline`, `File`, `Image`, `Gravatar`. Relationship fields read a foreign key or relation rather than the attribute, `Icon` has its own display/stored/computed modes, `UiAvatar` derives its initials from `from()` / the attribute directly, and `Repeater` has its own storage modes; `computed()` does not apply to them.
 
 Custom field types that override `resolve()` must read the model through `$this->resolveAttribute($model, $attribute)` instead of `$model->getAttribute()`, otherwise `computed()` is silently ineffective for that type.
 
