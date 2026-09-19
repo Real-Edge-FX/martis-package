@@ -129,11 +129,13 @@ class Gravatar extends Field
     /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
+        $attr = $attribute ?? $this->attribute;
+
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attribute ?? $this->attribute), $model, $attribute ?? $this->attribute, $this->safeRequest());
+            return ($this->resolveCallback)($this->resolveAttribute($model, $attr), $model, $attr, $this->safeRequest());
         }
 
-        $value = $model->getAttribute($attribute ?? $this->attribute);
+        $value = $this->resolveAttribute($model, $attr);
 
         if ($value === null || $value === '') {
             return null;

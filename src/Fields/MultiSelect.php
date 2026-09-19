@@ -175,16 +175,12 @@ class MultiSelect extends Field
     /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
-        if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)(
-                $model->getAttribute($attribute ?? $this->attribute),
-                $model,
-                $attribute ?? $this->attribute,
-                $this->safeRequest(),
-            );
-        }
+        $attr = $attribute ?? $this->attribute;
+        $raw = $this->resolveAttribute($model, $attr);
 
-        $raw = $model->getAttribute($attribute ?? $this->attribute);
+        if ($this->resolveCallback !== null) {
+            return ($this->resolveCallback)($raw, $model, $attr, $this->safeRequest());
+        }
 
         return $this->decodeToArray($raw);
     }
