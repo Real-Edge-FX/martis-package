@@ -134,16 +134,12 @@ class KeyValue extends Field
     /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
-        if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)(
-                $model->getAttribute($attribute ?? $this->attribute),
-                $model,
-                $attribute ?? $this->attribute,
-                $this->safeRequest(),
-            );
-        }
+        $attr = $attribute ?? $this->attribute;
+        $raw = $this->resolveAttribute($model, $attr);
 
-        $raw = $model->getAttribute($attribute ?? $this->attribute);
+        if ($this->resolveCallback !== null) {
+            return ($this->resolveCallback)($raw, $model, $attr, $this->safeRequest());
+        }
 
         return $this->decodeToRows($raw);
     }
@@ -158,6 +154,11 @@ class KeyValue extends Field
         if ($this->fillCallback !== null) {
             ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
+            return;
+        }
+
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
             return;
         }
 

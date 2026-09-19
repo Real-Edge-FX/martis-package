@@ -115,6 +115,20 @@ abstract class Field implements FieldContract
     /** @var callable|null */
     protected mixed $displayCallback = null;
 
+    /**
+     * Whether the field is computed: its value never comes from
+     * `$model->getAttribute()`. See `computed()`.
+     */
+    protected bool $computed = false;
+
+    /**
+     * Value source of a computed field. Receives `(Model, string $attribute,
+     * ?Request)`. Null when `computed()` was called without a callback.
+     *
+     * @var callable|null
+     */
+    protected mixed $computedCallback = null;
+
     /** @var list<string|Rule> */
     protected array $extraRules = [];
 
@@ -298,14 +312,36 @@ abstract class Field implements FieldContract
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute;
+        $value = $this->resolveAttribute($model, $attr);
 
         if ($this->resolveCallback !== null) {
             // 4th argument (Request|null) is optional — closures with 3
             // params still work because PHP accepts more args than declared.
-            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr, $this->safeRequest());
+            return ($this->resolveCallback)($value, $model, $attr, $this->safeRequest());
         }
 
-        return $model->getAttribute($attr);
+        return $value;
+    }
+
+    /**
+     * Read the raw value that feeds `resolve()`: the computed callback (or
+     * null) when the field is computed, `$model->getAttribute()` otherwise.
+     *
+     * Subclasses that re-implement `resolve()` must read the model through
+     * this seam. A direct `getAttribute()` call would make `computed()`
+     * silently ineffective for that field type: Eloquent treats an attribute
+     * name that matches a model method as a relationship lookup and throws
+     * when the method returns anything else.
+     */
+    protected function resolveAttribute(Model $model, string $attribute): mixed
+    {
+        if ($this->computed) {
+            return $this->computedCallback !== null
+                ? ($this->computedCallback)($model, $attribute, $this->safeRequest())
+                : null;
+        }
+
+        return $model->getAttribute($attribute);
     }
 
     /** {@inheritdoc} */
@@ -320,6 +356,12 @@ abstract class Field implements FieldContract
             // params still work because PHP accepts more args than declared.
             ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
 
+            return;
+        }
+
+        // A computed field has no backing attribute to write. Only an
+        // explicit fillUsing() (handled above) may translate it into writes.
+        if ($this->computed) {
             return;
         }
 
@@ -1449,6 +1491,49 @@ abstract class Field implements FieldContract
     // -------------------------------------------------------------------------
     // Customization hooks (override in subclasses or at runtime)
     // -------------------------------------------------------------------------
+
+    /**
+     * Mark the field as computed: its value never comes from
+     * `$model->getAttribute()`, so the attribute name may have no backing
+     * column, or shadow a model method (Eloquent would otherwise treat
+     * `getAttribute('mode')` as a relationship lookup and throw when
+     * `mode()` returns a non-relation).
+     *
+     * With a callback, the callback is the value source and receives
+     * `(Model $model, string $attribute, ?Request $request)`; trailing
+     * arguments are optional, as with every other hook. Without one, the
+     * raw value is `null`: pair it with `resolveUsing()`, which then
+     * receives `null` as its `$value`. Either way the computed value flows
+     * through the usual `resolveUsing()` → `displayUsing()` pipeline.
+     *
+     * A computed field has nothing to write back, so it is hidden from the
+     * create and update forms (only the general flag: `showOnForms()`,
+     * `showOnCreating()` or `showOnUpdating()` called afterwards re-enable
+     * it) and `fill()` is a no-op unless a `fillUsing()` callback is set.
+     *
+     * A computed field has no column: do not mark it `sortable()` or
+     * `searchable()`, and do not point a filter at its attribute.
+     *
+     *     Badge::make('mode', 'Mode')
+     *         ->computed(fn (Channel $model): string => $model->mode()->value)
+     *         ->map(['push' => 'info', 'feed' => 'success']);
+     *
+     * @param  (callable(Model, string, ?Request): mixed)|null  $callback
+     */
+    public function computed(?callable $callback = null): static
+    {
+        $this->computed = true;
+        $this->computedCallback = $callback;
+        $this->hideFromForms();
+
+        return $this;
+    }
+
+    /** Whether the field is computed (see `computed()`). */
+    public function isComputed(): bool
+    {
+        return $this->computed;
+    }
 
     /** {@inheritdoc} */
     public function resolveUsing(callable $callback): static

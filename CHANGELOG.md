@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.33.0] — 2026-09-19
+
+### Added
+
+- **`Field::computed()` — computed fields that never read `$model->getAttribute()`.** `Field::resolve()` always evaluated `$model->getAttribute($attr)` before handing the value to `resolveUsing()`, so a field named after a model *method* (`mode`, `status`, `type`, …) blew up with Eloquent's `LogicException: …::mode must return a relationship instance` on the index and detail endpoints even when the callback never needed the raw value, and a name with no backing column raised `MissingAttributeException` under `Model::shouldBeStrict()`; consumers had to rename the attribute to something that shadows nothing. New `computed(?callable $callback = null)` marks the field as computed: with a callback, `fn (Model $model, string $attribute, ?Request $request)` is the value source; without one, the raw value is `null` and the existing `resolveUsing()` receives it. The computed value flows through the usual `resolveUsing()` → `displayUsing()` pipeline. Computed fields are hidden from the create/update forms (`showOnForms()` re-enables them) and `fill()` is a no-op unless a `fillUsing()` callback owns the write; `isComputed()` exposes the flag. The raw read now goes through one protected seam, `Field::resolveAttribute()`, and the six field types that re-implemented `resolve()` inline (`KeyValue`, `MultiSelect`, `Sparkline`, `File`, `Image`, `Gravatar`) read through it (their inline `fill()` overrides, plus `Code`'s, honour the no-op too), so `computed()` holds for every scalar and structured field; non-computed fields are byte-for-byte unchanged. Closes the Nova computed-field parity gap (`Text::make('Name', fn ($model) => …)`) with an additive API instead of widening `FieldContract::make()`. +32 Pest. Backend-only, no asset rebuild. See [Fields → Computed fields](docs/fields.md#computed-fields).
+
 ## [1.32.4] — 2026-09-18
 
 ### Fixed

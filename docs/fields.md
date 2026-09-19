@@ -22,6 +22,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Validation](#validation)
   - [Unique Validation](#unique-validation)
   - [Customization Hooks](#customization-hooks)
+    - [Computed fields](#computed-fields)
   - [Component Override](#component-override)
   - [Metadata](#metadata)
   - [Serialization](#serialization)
@@ -156,7 +157,7 @@ Text::make('first_name', 'First Name') // explicit label
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `resolve` | `resolve(Model $model, ?string $attribute = null): mixed` | Read the field value from a model. Respects `resolveUsing()` callback if set. |
+| `resolve` | `resolve(Model $model, ?string $attribute = null): mixed` | Read the field value from a model: the raw value comes from the `computed()` callback when set, from `$model->getAttribute()` otherwise, then the `resolveUsing()` callback runs if set. |
 | `resolveForDisplay` | `resolveForDisplay(Model $model, ?string $attribute = null): mixed` | Resolve then apply `displayUsing()` callback. Use for index/detail serialization. |
 | `fill` | `fill(Model $model, mixed $value): void` | Write a value to the model. Respects `fillUsing()` callback and `readonly` flag. |
 
@@ -420,13 +421,14 @@ Email::make('email')
 
 ### Customization Hooks
 
-The three core hooks let you replace the default read / write / format behaviour of a field with arbitrary logic. Unlike the lazy setters in [Closure-aware setters](#closure-aware-setters), these hooks do not have a static counterpart — they ARE the customization.
+The core hooks let you replace the default read / write / format behaviour of a field with arbitrary logic. Unlike the lazy setters in [Closure-aware setters](#closure-aware-setters), these hooks do not have a static counterpart — they ARE the customization.
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `resolveUsing` | `resolveUsing(callable $callback): static` | `$this` | Override value resolution. Callback: `fn(mixed $value, Model $model, string $attribute, ?Request $request): mixed` |
 | `fillUsing` | `fillUsing(callable $callback): static` | `$this` | Override model filling. Callback: `fn(Model $model, mixed $value, string $attribute, ?Request $request): void` |
 | `displayUsing` | `displayUsing(callable\|list<callable> $callback): static` | `$this` | Override display formatting (applied after resolveUsing, does NOT affect form values). Single callable: `fn(mixed $value, Model $model, string $attribute, ?Request $request): mixed`. Pass an array of callables to compose a pipeline. |
+| `computed` | `computed(?callable $callback = null): static` | `$this` | Mark the field as computed: the raw value never comes from `$model->getAttribute()`. Callback: `fn(Model $model, string $attribute, ?Request $request): mixed`. Without a callback the raw value is `null` (pair with `resolveUsing()`). Hidden from forms; `fill()` is a no-op unless `fillUsing()` is set. See [Computed fields](#computed-fields). |
 
 #### ⭐ Martis differential 1 — `?Request` is forwarded to every hook
 
@@ -492,6 +494,46 @@ A subsequent single-callable call replaces the entire pipeline. A subsequent arr
 | `fillUsing(fn ($m, $v, $attr) => ...)` | ✅ |
 
 The 4th `?Request $request` argument is purely additive. Existing 3-arg callbacks keep their semantics unchanged.
+
+#### Computed fields
+
+Every field has an attribute name, and by default `resolve()` reads that name from the model before anything else runs. That read is Eloquent's `getAttribute()`, which has two traps a `resolveUsing()` callback cannot avoid, because the read happens first:
+
+- A name that matches a **model method** (`mode`, `status`, `type`, …) is treated as a relationship: `getAttribute('mode')` calls `mode()` and throws `LogicException: …::mode must return a relationship instance` when the method returns anything else (an enum, a string, a DTO). On the resource index that surfaces as an HTTP 500.
+- A name with **no backing column** raises `MissingAttributeException` on persisted models once the host enables `Model::shouldBeStrict()`.
+
+`computed()` opts the field out of that read. The attribute name becomes a pure payload key (it still has to be unique within the resource) and the value comes from a callback:
+
+```php
+// Value source: model-first callback (recommended)
+Badge::make('mode', 'Mode')
+    ->computed(fn (Channel $channel): string => $channel->mode()->value)
+    ->map(['push' => 'info', 'feed' => 'success']);
+
+// Flag only: the existing resolveUsing() receives null as $value
+Badge::make('mode', 'Mode')
+    ->computed()
+    ->resolveUsing(fn ($value, Channel $channel) => $channel->mode()->value);
+```
+
+Callback signature: `fn (Model $model, string $attribute, ?Request $request): mixed`. As with the other hooks, trailing arguments are optional: `fn (Channel $channel) => …` works.
+
+The computed value enters the normal pipeline, `computed → resolveUsing → displayUsing`, so formatting and per-request logic work exactly as for stored fields. Without a callback the raw value is `null`: `resolveUsing()` receives `null`, and with no `resolveUsing()` either the field resolves to `null`. A later `computed()` call replaces the callback.
+
+What `computed()` changes besides the read:
+
+| Concern | Behaviour |
+|---|---|
+| Forms | Hidden from create and update (`hideFromForms()`), like Nova's computed fields. Call `showOnForms()`, `showOnCreating()` or `showOnUpdating()` **after** `computed()` to show it again. |
+| `fill()` | No-op: there is nothing to write. A `fillUsing()` callback still runs, so a computed `full_name` can write `first_name` / `last_name` on save. `readonly()` keeps precedence. |
+| `sortable()` / `searchable()` / filters | Not overridden, and not supported: there is no column to sort or search by, and a `Filter` whose column is the computed attribute would query a column that does not exist. Leave them off. |
+| Introspection | `isComputed(): bool`. Not part of `toArray()`; the SPA does not need it. |
+
+Which fields honour `computed()`: every field whose value resolution goes through `Field::resolve()` (`Text`, `Badge`, `Status`, `Number`, `Boolean`, `Date`, `Select`, …) plus the ones with their own `resolve()` that read through the shared seam: `KeyValue`, `MultiSelect`, `Sparkline`, `File`, `Image`, `Gravatar`. Relationship fields read a foreign key or relation rather than the attribute, `Icon` has its own display/stored/computed modes, `UiAvatar` derives its initials from `from()` / the attribute directly, and `Repeater` has its own storage modes; `computed()` does not apply to them.
+
+Custom field types that override `resolve()` must read the model through `$this->resolveAttribute($model, $attribute)` instead of `$model->getAttribute()`, otherwise `computed()` is silently ineffective for that type.
+
+Without `computed()`, the rule stands: a field's attribute must be a real attribute (column, cast, accessor or loaded relation) and must not share its name with a model method.
 
 ### Component Override
 

@@ -274,6 +274,11 @@ class File extends Field
             return;
         }
 
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
         if ($this->multiple) {
             $this->fillMultiple($model, $value);
 
@@ -362,14 +367,14 @@ class File extends Field
         $attr = $attribute ?? $this->attribute;
 
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attr), $model, $attr, $this->safeRequest());
+            return ($this->resolveCallback)($this->resolveAttribute($model, $attr), $model, $attr, $this->safeRequest());
         }
 
         if ($this->multiple) {
             return $this->resolveMultiple($model, $attr);
         }
 
-        $path = $model->getAttribute($attr);
+        $path = $this->resolveAttribute($model, $attr);
 
         if ($path === null || $path === '') {
             return null;
@@ -392,7 +397,7 @@ class File extends Field
      */
     protected function resolveMultiple(Model $model, string $attr): array
     {
-        $paths = $this->getExistingPathsFromRaw($model->getAttribute($attr));
+        $paths = $this->getExistingPathsFromRaw($this->resolveAttribute($model, $attr));
 
         if (empty($paths)) {
             return [];

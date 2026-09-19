@@ -144,8 +144,10 @@ class Sparkline extends Field
     /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
+        $attr = $attribute ?? $this->attribute;
+
         if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($model->getAttribute($attribute ?? $this->attribute), $model, $attribute ?? $this->attribute, $this->safeRequest());
+            return ($this->resolveCallback)($this->resolveAttribute($model, $attr), $model, $attr, $this->safeRequest());
         }
 
         if ($this->chartData !== null) {
@@ -158,8 +160,8 @@ class Sparkline extends Field
             return $this->chartData;
         }
 
-        // Fall back to model attribute
-        $raw = $model->getAttribute($attribute ?? $this->attribute);
+        // Fall back to the model attribute (or the computed value)
+        $raw = $this->resolveAttribute($model, $attr);
 
         if (is_array($raw)) {
             return $raw;
@@ -178,6 +180,11 @@ class Sparkline extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
         if (is_string($value)) {
             $decoded = json_decode($value, true);
             if (is_array($decoded)) {
