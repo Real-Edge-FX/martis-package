@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\MissingAttributeException;
 use Illuminate\Database\Eloquent\Model;
+use Martis\FieldContext;
 use Martis\Fields\Text;
 
 enum ComputedFieldTestMode: string
@@ -169,4 +170,60 @@ it('reports isComputed()', function () {
     expect(Text::make('mode')->isComputed())->toBeFalse();
     expect(Text::make('mode')->computed()->isComputed())->toBeTrue();
     expect(Text::make('mode')->computed(fn () => 'x')->isComputed())->toBeTrue();
+});
+
+// ---------------------------------------------------------------------------
+// Forms: hidden by default, never written
+// ---------------------------------------------------------------------------
+
+it('hides a computed field from create and update contexts but keeps index and detail', function () {
+    $field = Text::make('mode')->computed(fn () => 'x');
+
+    expect($field->isVisibleForContext(FieldContext::INDEX))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::DETAIL))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::CREATE))->toBeFalse();
+    expect($field->isVisibleForContext(FieldContext::INLINE_CREATE))->toBeFalse();
+    expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
+});
+
+it('lets showOnForms() after computed() re-enable the forms', function () {
+    $field = Text::make('mode')->computed(fn () => 'x')->showOnForms();
+
+    expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeTrue();
+});
+
+it('lets showOnCreating() after computed() re-enable only the create form', function () {
+    $field = Text::make('mode')->computed(fn () => 'x')->showOnCreating();
+
+    expect($field->isVisibleForContext(FieldContext::CREATE))->toBeTrue();
+    expect($field->isVisibleForContext(FieldContext::UPDATE))->toBeFalse();
+});
+
+it('fill() is a no-op on a computed field', function () {
+    $model = new ComputedFieldTestModel;
+    Text::make('mode')->computed(fn () => 'x')->fill($model, 'feed');
+
+    expect($model->getAttributes())->toBe([]);
+});
+
+it('fill() still runs fillUsing() on a computed field', function () {
+    $model = new ComputedFieldTestModel;
+    Text::make('mode')
+        ->computed(fn () => 'x')
+        ->fillUsing(fn (Model $m, $value) => $m->setAttribute('kind', $value === 'feed' ? 'rss' : 'http'))
+        ->fill($model, 'feed');
+
+    expect($model->getAttributes())->toBe(['kind' => 'rss']);
+});
+
+it('readonly() still wins over fillUsing() on a computed field', function () {
+    $model = new ComputedFieldTestModel;
+    Text::make('mode')
+        ->computed(fn () => 'x')
+        ->fillUsing(fn (Model $m, $value) => $m->setAttribute('kind', 'rss'))
+        ->readonly()
+        ->fill($model, 'feed');
+
+    expect($model->getAttributes())->toBe([]);
 });

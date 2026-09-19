@@ -359,6 +359,12 @@ abstract class Field implements FieldContract
             return;
         }
 
+        // A computed field has no backing attribute to write. Only an
+        // explicit fillUsing() (handled above) may translate it into writes.
+        if ($this->computed) {
+            return;
+        }
+
         $model->setAttribute($this->attribute, $value);
     }
 
@@ -1500,6 +1506,11 @@ abstract class Field implements FieldContract
      * receives `null` as its `$value`. Either way the computed value flows
      * through the usual `resolveUsing()` → `displayUsing()` pipeline.
      *
+     * A computed field has nothing to write back, so it is hidden from the
+     * create and update forms (only the general flag: `showOnForms()`,
+     * `showOnCreating()` or `showOnUpdating()` called afterwards re-enable
+     * it) and `fill()` is a no-op unless a `fillUsing()` callback is set.
+     *
      * A computed field has no column: do not mark it `sortable()`,
      * `searchable()` or `filterable()`.
      *
@@ -1513,6 +1524,7 @@ abstract class Field implements FieldContract
     {
         $this->computed = true;
         $this->computedCallback = $callback;
+        $this->hideFromForms();
 
         return $this;
     }
