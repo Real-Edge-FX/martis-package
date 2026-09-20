@@ -9,6 +9,7 @@ use Martis\Http\Controllers\CacheController;
 use Martis\Http\Controllers\CommandPaletteController;
 use Martis\Http\Controllers\DashboardController;
 use Martis\Http\Controllers\EmailVerificationController;
+use Martis\Http\Controllers\FieldOptionsController;
 use Martis\Http\Controllers\GuestPagesController;
 use Martis\Http\Controllers\HasManyController;
 use Martis\Http\Controllers\HasOneController;
@@ -246,6 +247,9 @@ Route::middleware(config('martis.middleware', ['web']))
                                 Route::get('/tools', [ToolsController::class, 'index'])->name('tools.index');
                                 Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])->name('tools.show');
                                 Route::get('/tools/{uriKey}/fields', [ToolFieldsController::class, 'fields'])->name('tools.fields');
+                                // Server-side option search for a Tool select (v1.37.0)
+                                Route::get('/tools/{uriKey}/fields/{field}/options', [FieldOptionsController::class, 'tool'])
+                                    ->name('tools.field-options');
 
                                 // Impersonation — v0.10 opt-in subsystem.
                                 // Master switch is off by default; gate
@@ -358,6 +362,12 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Slug live collision check — Martis differential (D2)
                                 Route::get('/resources/{resource}/slug-check/{field}', [SlugController::class, 'check'])
                                     ->name('resources.slug.check');
+
+                                // Server-side option search for a Resource select (v1.37.0).
+                                // Five literal-anchored segments: never collides with
+                                // /resources/{resource}/{id}/relatable/{field} & co.
+                                Route::get('/resources/{resource}/fields/{field}/options', [FieldOptionsController::class, 'resource'])
+                                    ->name('resources.field-options');
 
                                 // Lenses
                                 Route::get('/resources/{resource}/lenses/{lens}', [LensController::class, 'index'])
