@@ -332,7 +332,7 @@ Each `assignRole()` call inside the action fires Spatie's `RoleAttachedEvent`, w
 
 ## Where the System section comes from
 
-`Martis\Http\Controllers\NavigationController` builds the sidebar by iterating the `ResourceRegistry`. Resources whose `belongsToSystemSection()` returns `true` are pulled out of the regular grouping loop and merged with the Cache admin link into a single **System** menu section. The section appears whenever there is at least one item visible to the current user — no items, no section.
+`Martis\Http\Controllers\NavigationController` builds the sidebar by iterating the `ResourceRegistry`. Resources whose `belongsToSystemSection()` returns `true`, and Tools that call `withSystemSection()` (v1.35.0+), are pulled out of the regular grouping loop and merged with the Cache admin link into a single **System** menu section (resources first, then tools, then the Cache admin link). The section appears whenever there is at least one item visible to the current user — no items, no section.
 
 Add your own resources to this section by overriding the method:
 
