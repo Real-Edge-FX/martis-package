@@ -275,13 +275,13 @@ Cache defaults live under the `cache` block of `config/martis.php`. Each subsyst
     ],
     'dashboards' => [
         'enabled' => env('MARTIS_CACHE_DASHBOARDS_ENABLED', true),
-        'ttl'     => env('MARTIS_CACHE_DASHBOARDS_TTL', env('MARTIS_CACHE_DASHBOARDS', null)),
+        'ttl'     => env('MARTIS_CACHE_DASHBOARDS_TTL', env('MARTIS_CACHE_DASHBOARDS', 5)),
     ],
     // navigation / schema follow the same shape
 ],
 ```
 
-`ttl` is in minutes; `null` disables caching for that subsystem. Individual metrics override the global value via `cacheFor()`. Runtime overrides set with `php artisan martis:cache:disable {type}` survive restarts and take precedence over both layers. See [metrics.md — Cache Configuration](metrics.md#cache-configuration-martis-extension) for the full block.
+`ttl` is in minutes; `null` means "until cleared" (the dashboards layer defaults to 5 minutes, and the list entry is additionally keyed by a fingerprint of the dashboards the user is authorized to see, so registering, removing or re-gating a dashboard is visible on the next request; see [cache.md](cache.md#the-four-built-in-layers)). Individual metrics override the global value via `cacheFor()`. Runtime overrides set with `php artisan martis:cache:disable {type}` survive restarts and take precedence over both layers. See [metrics.md — Cache Configuration](metrics.md#cache-configuration-martis-extension) for the full block.
 
 ## Default Dashboard
 

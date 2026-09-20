@@ -1051,7 +1051,7 @@ return [
         ],
         'dashboards' => [
             'enabled' => env('MARTIS_CACHE_DASHBOARDS_ENABLED', true),
-            'ttl' => env('MARTIS_CACHE_DASHBOARDS_TTL', env('MARTIS_CACHE_DASHBOARDS', null)),
+            'ttl' => env('MARTIS_CACHE_DASHBOARDS_TTL', env('MARTIS_CACHE_DASHBOARDS', 5)),
         ],
         'schema' => [
             'enabled' => env('MARTIS_CACHE_SCHEMA_ENABLED', true),

@@ -816,7 +816,7 @@ Drop the entry from `MARTIS_CUSTOM_ACCENTS` and `php artisan config:cache`. User
     'enabled'    => true,
     'metrics'    => ['enabled' => true, 'ttl' => 5],
     'navigation' => ['enabled' => true, 'ttl' => 1],
-    'dashboards' => ['enabled' => true, 'ttl' => null],
+    'dashboards' => ['enabled' => true, 'ttl' => 5],
     'schema'     => ['enabled' => true, 'ttl' => null],
     'admin_ui'   => true,
 ],
@@ -1123,7 +1123,7 @@ Beyond the global `MARTIS_CACHE_ENABLED` master switch, every surface that cache
 | Variable | Default | Surface |
 |---|---|---|
 | `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` | Dashboard renders |
-| `MARTIS_CACHE_DASHBOARDS` / `MARTIS_CACHE_DASHBOARDS_TTL` | `null` | Dashboard TTL |
+| `MARTIS_CACHE_DASHBOARDS` / `MARTIS_CACHE_DASHBOARDS_TTL` | `5` | Dashboard TTL (the list key is also fingerprinted by the user's authorized set, so membership changes never wait for the TTL) |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` | Metric cards |
 | `MARTIS_CACHE_METRICS` / `MARTIS_CACHE_METRICS_TTL` | `5` | Metrics TTL |
 | `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` | Sidebar navigation tree |
@@ -1294,9 +1294,9 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_BRAND_NAME` | `'Martis'` |
 | `MARTIS_BRAND_VERSION` | `(no default)` |
 | `MARTIS_CACHE_ADMIN_UI` | `true` |
-| `MARTIS_CACHE_DASHBOARDS` | `null` |
+| `MARTIS_CACHE_DASHBOARDS` | `5` |
 | `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` |
-| `MARTIS_CACHE_DASHBOARDS_TTL` | `env('MARTIS_CACHE_DASHBOARDS', null)` |
+| `MARTIS_CACHE_DASHBOARDS_TTL` | `env('MARTIS_CACHE_DASHBOARDS', 5)` |
 | `MARTIS_CACHE_ENABLED` | `true` |
 | `MARTIS_CACHE_METRICS` | `5` |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` |
