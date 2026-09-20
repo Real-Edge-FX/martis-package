@@ -79,6 +79,26 @@ class DependsOnPolicyResource extends DependsOnTestResource
     public static ?string $policy = DependsOnStandardPolicy::class;
 }
 
+class DependsOnNestedResource extends Resource
+{
+    public static function model(): string
+    {
+        return DependsOnTestModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('plan'),
+            \Martis\Layout\Section::make('Pricing', [
+                Number::make('price')->dependsOn(['plan'], function (array $form, Request $r, Number $field) {
+                    $field->required(($form['plan'] ?? null) === 'paid');
+                }),
+            ]),
+        ];
+    }
+}
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
@@ -223,4 +243,19 @@ it('sync-field in the update context binds the record so a standard policy recei
         ->assertStatus(404);
 
     \Martis\Resource::flushPolicyCache();
+});
+
+it('sync-field finds a reactive field nested inside a layout container', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(DependsOnNestedResource::class);
+
+    $response = $this->postJson('/martis/api/resources/'.DependsOnNestedResource::uriKey().'/sync-field', [
+        'field' => 'price',
+        'context' => 'create',
+        'formData' => ['plan' => 'paid'],
+    ]);
+
+    $response->assertOk();
+    expect($response->json('data.required'))->toBeTrue();
 });

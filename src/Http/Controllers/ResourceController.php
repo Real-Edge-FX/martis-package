@@ -15,6 +15,7 @@ use Martis\Cache\MartisCache;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
+use Martis\Contracts\LayoutContract;
 use Martis\Contracts\UnsavedChangesConfigContract;
 use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
@@ -790,11 +791,15 @@ class ResourceController extends MartisController
             ? $instance->fieldsForUpdate($request)
             : $instance->fieldsForCreate($request);
 
+        // Layout containers (Section/Panel/TabGroup) expose flattenFields();
+        // the getFields()/fields() probes below are kept for custom layouts.
         $flatten = function (array $items) use (&$flatten): array {
             $out = [];
             foreach ($items as $item) {
                 if ($item instanceof FieldContract) {
                     $out[] = $item;
+                } elseif ($item instanceof LayoutContract) {
+                    $out = array_merge($out, $item->flattenFields());
                 } elseif (method_exists($item, 'getFields')) {
                     $out = array_merge($out, $flatten($item->getFields()));
                 } elseif (method_exists($item, 'fields')) {
@@ -978,6 +983,8 @@ class ResourceController extends MartisController
             foreach ($items as $item) {
                 if ($item instanceof FieldContract) {
                     $out[] = $item;
+                } elseif ($item instanceof LayoutContract) {
+                    $out = array_merge($out, $item->flattenFields());
                 } elseif (method_exists($item, 'getFields')) {
                     $out = array_merge($out, $flattenFields($item->getFields()));
                 } elseif (method_exists($item, 'fields')) {
