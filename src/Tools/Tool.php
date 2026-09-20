@@ -71,6 +71,9 @@ class Tool implements ToolContract
 
     protected ?string $menuSection = null;
 
+    /** Opt-in for the bundled "System" sidebar section (v1.35.0+). */
+    protected bool $systemSection = false;
+
     /**
      * Optional breadcrumb label override. When set, the React shell shows
      * this label as the deepest crumb instead of `name()`. Defaults to
@@ -146,9 +149,32 @@ class Tool implements ToolContract
         return $this->menuSection;
     }
 
+    /**
+     * Optional sidebar section label. Ignored once the tool opts into the
+     * bundled "System" section via `withSystemSection()`.
+     */
     public function withMenuSection(?string $section): static
     {
         $this->menuSection = $section;
+
+        return $this;
+    }
+
+    public function belongsToSystemSection(): bool
+    {
+        return $this->systemSection;
+    }
+
+    /**
+     * Place this tool inside the bundled "System" sidebar section, next to
+     * the audit log, the System-section resources and the Cache admin
+     * link, instead of a section of its own. Takes precedence over
+     * `withMenuSection()`. Mirrors `Resource::belongsToSystemSection()`;
+     * subclasses may override the getter instead of calling the setter.
+     */
+    public function withSystemSection(bool $value = true): static
+    {
+        $this->systemSection = $value;
 
         return $this;
     }
@@ -380,6 +406,7 @@ class Tool implements ToolContract
             'icon' => $this->icon(),
             'component' => $this->component(),
             'menuSection' => $this->menuSection(),
+            'belongsToSystemSection' => $this->belongsToSystemSection(),
             'badge' => $this->badge(),
             'lock' => $this->lockPayloadNow(),
             'meta' => $this->meta(),

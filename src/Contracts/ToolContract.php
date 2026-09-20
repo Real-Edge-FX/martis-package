@@ -57,9 +57,19 @@ interface ToolContract
     /**
      * Optional menu section label. When non-null the Tool surfaces
      * under that section in the auto-merged menu; when null it
-     * lives in a default "Tools" section.
+     * lives in a default "Tools" section. Ignored when
+     * `belongsToSystemSection()` is true.
      */
     public function menuSection(): ?string;
+
+    /**
+     * Whether this tool renders inside the bundled "System" sidebar
+     * section (alongside the audit log, the System-section resources and
+     * the Cache admin link) instead of its own `menuSection()` bucket.
+     * When true, the navigation builder ignores `menuSection()`.
+     * Mirrors `ResourceContract::belongsToSystemSection()`. Default: false.
+     */
+    public function belongsToSystemSection(): bool;
 
     /** Whether the sidebar shows a numeric count badge next to this Tool. */
     public function showMenuCount(): bool;
