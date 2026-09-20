@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, fireEvent, screen, waitFor } from '@testing-library/react'
 import { SelectFieldInput } from './SelectField'
 import type { FieldDefinition } from '@/types'
 
@@ -56,5 +56,84 @@ describe('SelectFieldInput — clear icon + filter variant', () => {
       <SelectFieldInput field={makeField({ className: 'my-custom' })} value="" onChange={vi.fn()} error={undefined} />,
     )
     expect(container.querySelector('.p-dropdown.my-custom')).not.toBeNull()
+  })
+})
+
+describe('SelectFieldInput — searchable options (local)', () => {
+  it('renders no filter box by default', () => {
+    const { container } = render(
+      <SelectFieldInput field={makeField()} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    expect(document.querySelector('.p-dropdown-filter')).toBeNull()
+  })
+
+  it('renders the filter box and narrows the list when searchableOptions is set', async () => {
+    const field = makeField({
+      searchableOptions: true,
+      options: [{ label: 'Claude Opus 5', value: 'claude-opus-5' }, { label: 'GPT-4o', value: 'gpt-4o' }],
+    })
+    const { container } = render(
+      <SelectFieldInput field={field} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    const filter = document.querySelector('.p-dropdown-filter') as HTMLInputElement
+    expect(filter).not.toBeNull()
+    fireEvent.change(filter, { target: { value: 'gpt' } })
+
+    // PrimeReact debounces its filter input (filterDelay, 300 ms).
+    await waitFor(() => expect(screen.queryByText('Claude Opus 5')).toBeNull())
+    expect(screen.getByText('GPT-4o')).toBeTruthy()
+  })
+
+  it('matches on the value too, not only the label', async () => {
+    const field = makeField({
+      searchableOptions: true,
+      options: [{ label: 'Anthropic flagship', value: 'claude-opus-5' }, { label: 'OpenAI flagship', value: 'gpt-4o' }],
+    })
+    const { container } = render(
+      <SelectFieldInput field={field} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    fireEvent.change(document.querySelector('.p-dropdown-filter')!, { target: { value: 'claude' } })
+
+    await waitFor(() => expect(screen.queryByText('OpenAI flagship')).toBeNull())
+    expect(screen.getByText('Anthropic flagship')).toBeTruthy()
+  })
+
+  it('does not enable the search box when only the column-search flag is set', () => {
+    const { container } = render(
+      <SelectFieldInput field={makeField({ searchable: true })} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    expect(document.querySelector('.p-dropdown-filter')).toBeNull()
+  })
+})
+
+describe('SelectFieldInput — custom values', () => {
+  it('renders a read-only label by default', () => {
+    const { container } = render(
+      <SelectFieldInput field={makeField()} value="active" onChange={vi.fn()} error={undefined} />,
+    )
+    expect(container.querySelector('input.p-dropdown-label')).toBeNull()
+  })
+
+  it('renders an editable input and hands a typed value outside the options to onChange', () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <SelectFieldInput field={makeField({ allowCustomValues: true })} value="" onChange={onChange} error={undefined} />,
+    )
+    const input = container.querySelector('input.p-dropdown-label') as HTMLInputElement
+    expect(input).not.toBeNull()
+    fireEvent.input(input, { target: { value: 'my-custom-model' } })
+    expect(onChange).toHaveBeenCalledWith('my-custom-model')
+  })
+
+  it('shows a stored value that is not one of the options', () => {
+    const { container } = render(
+      <SelectFieldInput field={makeField({ allowCustomValues: true })} value="not-an-option" onChange={vi.fn()} error={undefined} />,
+    )
+    expect((container.querySelector('input.p-dropdown-label') as HTMLInputElement).value).toBe('not-an-option')
   })
 })

@@ -35,6 +35,10 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
   const currentValue = isEmpty ? null : String(value)
   const clearTip = t('clear', { defaultValue: 'Clear' })
   const selectPlaceholder = field.placeholder ?? t('select', { defaultValue: 'Select…' })
+  // PHP `Select::searchableOptions()` / `allowCustomValues()` (v1.37.0).
+  // `field.searchable` is the column-search flag and must NOT drive the box.
+  const searchable = field.searchableOptions === true
+  const customValues = field.allowCustomValues === true
   // Opt into the compact filter-dropdown look (used by native resource filters)
   // via `field.variant === 'filter'`, and allow an extra passthrough className.
   // Applied as a prop so PrimeReact re-applies it on every re-render (an
@@ -57,6 +61,16 @@ export function SelectFieldInput({ field, value, onChange, error }: FieldInputPr
         invalid={!!error}
         placeholder={selectPlaceholder}
         showClear={field.nullable}
+        editable={customValues}
+        filter={searchable}
+        filterBy="label,value"
+        filterPlaceholder={t('search')}
+        // With custom values on, the user types in the control itself, so
+        // the panel must not steal the focus when it opens.
+        filterInputAutoFocus={searchable && !customValues}
+        resetFilterOnHide
+        emptyFilterMessage={t('no_results_found')}
+        emptyMessage={t('no_options')}
         pt={{
           clearIcon: dropdownClearIconPt(clearTip),
         }}
