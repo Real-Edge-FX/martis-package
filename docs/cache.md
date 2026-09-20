@@ -293,7 +293,7 @@ php artisan migrate
 
 `MartisCache` is bound as `app->scoped()` (per-request singleton). On the first call to `remember()` / `clear()` / `enabled()` / `status()` in a given request, the service issues a single `SELECT type, version, cleared_at, override FROM martis_cache_state` and indexes the result in memory. Subsequent calls in the same request are zero-DB. Mutations (`clear()`, `disable()`, `enable()`, `clearOverride()`) issue one `UPDATE OR INSERT` and update the in-memory map directly.
 
-For long-running processes (Octane, queue workers) the per-instance cache is reset between requests / jobs through Laravel's request lifecycle. Use `MartisCache::refreshState()` if a worker holds the instance across multiple jobs and wants to pick up changes made by other workers.
+For long-running processes (Octane, queue workers) the per-instance cache is reset between requests / jobs through Laravel's request lifecycle (`forgetScopedInstances()`), the same mechanism that resets the policy-resolution memo described in [Authorization → How policy instances are resolved](authorization.md#how-policy-instances-are-resolved). Use `MartisCache::refreshState()` if a worker holds the instance across multiple jobs and wants to pick up changes made by other workers.
 
 ## REST API
 

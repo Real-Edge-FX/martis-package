@@ -25,9 +25,9 @@ use Martis\Auth\DefaultSendsPasswordResetLinks;
 use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
+use Martis\Authorization\PolicyResolver;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
-use Martis\Concerns\HasPolicy;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
 use Martis\Console\AgentsCommand;
@@ -66,6 +66,7 @@ use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsEmailVerification;
 use Martis\Contracts\SendsPasswordResetLinks;
+use Martis\Discovery\Psr4NamespaceResolver;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Discovery\ToolDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
@@ -132,6 +133,16 @@ class MartisServiceProvider extends ServiceProvider
             return new MartisCache(Cache::store());
         });
 
+        // The PSR-4 map does not change during a process; read it once
+        // and share it between resource and tool discovery.
+        $this->app->singleton(Psr4NamespaceResolver::class);
+
+        // v1.36.0: policy resolution memo. Scoped, not singleton, so the
+        // memo dies with the request (Octane), the job (queue worker) or
+        // the application instance (one per test); policy instances are
+        // never cached, they come from the container on every check.
+        $this->app->scoped(PolicyResolver::class);
+
         $this->app->singleton(SsoManager::class);
 
         $this->app->singleton(ImpersonationManager::class, function ($app) {
@@ -191,7 +202,6 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerInvitationAcceptUrl();
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
-        $this->registerOctanePolicyCacheFlush();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -463,13 +473,20 @@ class MartisServiceProvider extends ServiceProvider
 
     /**
      * Auto-discover and register Resource classes from the configured path.
+     *
+     * The namespace comes from `martis.resources_namespace`, derived from
+     * Composer's PSR-4 map when the key is null (see
+     * {@see discoveryNamespace()}), so a resources directory outside the
+     * conventional `app/Martis` still maps to the classes it contains.
      */
     protected function discoverResources(): void
     {
         /** @var string $resourcesPath */
         $resourcesPath = config('martis.resources_path', app_path('Martis'));
 
-        $discovery = new ResourceDiscovery($resourcesPath);
+        $namespace = $this->discoveryNamespace('martis.resources_namespace', $resourcesPath, 'App\\Martis');
+
+        $discovery = new ResourceDiscovery($resourcesPath, $namespace);
         $classes = $discovery->discover();
 
         if ($classes !== []) {
@@ -484,6 +501,10 @@ class MartisServiceProvider extends ServiceProvider
      * `Martis::tools([...])` manually have already executed — the
      * discovery's `mergeTools()` then appends with dedup, never
      * stomping the host's explicit registration.
+     *
+     * The namespace follows the same precedence as resources: explicit
+     * `martis.tools_namespace`, then Composer's PSR-4 map, then
+     * `App\Martis\Tools`.
      *
      * Disable per-app via `martis.discovery.tools = false` (defaults to
      * true) when full manual control is desired.
@@ -500,7 +521,7 @@ class MartisServiceProvider extends ServiceProvider
             rtrim((string) config('martis.resources_path', app_path('Martis')), '/').'/Tools'
         );
 
-        $namespace = (string) config('martis.tools_namespace', 'App\\Martis\\Tools');
+        $namespace = $this->discoveryNamespace('martis.tools_namespace', $toolsPath, 'App\\Martis\\Tools');
 
         $this->app->booted(function () use ($toolsPath, $namespace): void {
             $classes = (new ToolDiscovery($toolsPath, $namespace))->discover();
@@ -509,6 +530,26 @@ class MartisServiceProvider extends ServiceProvider
                 Martis::mergeTools($classes);
             }
         });
+    }
+
+    /**
+     * Namespace used by auto-discovery for `$path`.
+     *
+     * Precedence: a non-empty string under `$configKey` is used verbatim
+     * (the explicit setting is the source of truth, even when wrong);
+     * otherwise the namespace is derived from Composer's PSR-4 map; when
+     * no PSR-4 root contains the directory, `$fallback` (the historical
+     * convention) keeps the behaviour of earlier versions.
+     */
+    protected function discoveryNamespace(string $configKey, string $path, string $fallback): string
+    {
+        $configured = config($configKey);
+
+        if (is_string($configured) && trim($configured, ' \\') !== '') {
+            return $configured;
+        }
+
+        return $this->app->make(Psr4NamespaceResolver::class)->resolve($path) ?? $fallback;
     }
 
     /**
@@ -774,45 +815,6 @@ class MartisServiceProvider extends ServiceProvider
                     $method,
                 ]);
             }
-        }
-    }
-
-    /**
-     * Register listeners that flush the static policy-resolution caches
-     * held by {@see \Martis\Resource} and {@see HasPolicy}
-     * between requests in persistent-process environments (Laravel Octane,
-     * queue workers).
-     *
-     * Under PHP-FPM the process dies after each request so the caches are
-     * naturally empty on the next request. Under Octane or long-running
-     * queue workers the same process handles many requests; without this
-     * flush a policy class rebound in the container (e.g. via
-     * `$this->app->bind(MyPolicy::class, …)` in a request-scoped provider)
-     * would not be visible to subsequent requests because the old instance
-     * is already cached in the static array.
-     *
-     * The listener is registered only when the Octane event classes exist
-     * in the project, so there is no hard dependency on laravel/octane.
-     */
-    protected function registerOctanePolicyCacheFlush(): void
-    {
-        // Referenced as strings, not ::class, so there is no compile-time
-        // dependency on laravel/octane (an optional peer). The class_exists()
-        // guard below registers the listener only when Octane is installed.
-        $octaneEvents = [
-            'Laravel\\Octane\\Events\\RequestTerminated',
-            'Laravel\\Octane\\Events\\TaskTerminated',
-        ];
-
-        foreach ($octaneEvents as $eventClass) {
-            if (! class_exists($eventClass)) {
-                continue;
-            }
-
-            Event::listen($eventClass, static function () {
-                \Martis\Resource::flushPolicyCache();
-                HasPolicy::flushPolicyCache();
-            });
         }
     }
 }

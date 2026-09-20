@@ -1178,11 +1178,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Resources Path
+    | Resources Path & Namespace
     |--------------------------------------------------------------------------
-    | Where auto-discovery looks for Martis resource classes in the app.
+    | Where auto-discovery looks for Martis resource classes in the app, and
+    | the PHP namespace that directory maps to. Leave the namespace null to
+    | derive it from Composer's PSR-4 autoload map, so any autoloadable
+    | directory (a module, a per-panel sub-folder, a custom root namespace)
+    | works with no further configuration. Set it explicitly to pin it or
+    | when the directory is not autoloaded. Falls back to `App\Martis` when
+    | nothing can be derived.
     */
     'resources_path' => app_path('Martis'),
+    'resources_namespace' => null,
 
     /*
     |--------------------------------------------------------------------------
@@ -1191,12 +1198,14 @@ return [
     | Where auto-discovery looks for Martis Tool classes (sidebar pages),
     | the matching namespace, and a switch to disable discovery entirely.
     |
-    | Defaults assume the convention `app/Martis/Tools/` under the
-    | `App\Martis\Tools` namespace. When disabled, register Tools
-    | manually via `Martis::tools([...])` in your `MartisServiceProvider`.
+    | Defaults assume the convention `app/Martis/Tools/`. The namespace is
+    | derived from Composer's PSR-4 map when null (falling back to
+    | `App\Martis\Tools`), exactly like `resources_namespace`. When
+    | disabled, register Tools manually via `Martis::tools([...])` in your
+    | `MartisServiceProvider`.
     */
     'tools_path' => app_path('Martis/Tools'),
-    'tools_namespace' => 'App\\Martis\\Tools',
+    'tools_namespace' => null,
     'discovery' => [
         'tools' => env('MARTIS_DISCOVERY_TOOLS', true),
     ],

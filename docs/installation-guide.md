@@ -144,7 +144,7 @@ This creates `config/martis.php`. The most commonly customized keys:
 
 - `path` — Admin panel URL prefix (default: `martis`)
 - `guard` — Authentication guard (default: `null`, falls back to `config('auth.defaults.guard')`)
-- `resources_path` — Directory scanned for resource classes (default: `app_path('Martis')`)
+- `resources_path` — Directory scanned for resource classes (default: `app_path('Martis')`); `resources_namespace` pins its namespace when it cannot be derived from Composer's PSR-4 map (default: `null`, derived)
 - `theme.default` — Default theme: `dark`, `light`, or `system`
 - `theme.allowToggle` — Allow users to switch themes from the preferences panel
 - `locale` — Default locale (defaults to `config('app.locale')`)
@@ -301,7 +301,7 @@ class UserResource extends Resource
 }
 ```
 
-Resources are **auto-discovered** — no manual registration needed. Martis scans `config('martis.resources_path')` (default `app/Martis/`) recursively. Subdirectories (`Resources/`, `Lenses/`, `Filters/`, …) are a convention for large projects — they are NOT created or required by the install. Place each class wherever its namespace puts it.
+Resources are **auto-discovered** — no manual registration needed. Martis scans `config('martis.resources_path')` (default `app/Martis/`) recursively, mapping files to classes under the namespace Composer's PSR-4 map gives that directory (or `config('martis.resources_namespace')` when set). Subdirectories (`Resources/`, `Lenses/`, `Filters/`, …) are a convention for large projects — they are NOT created or required by the install. Place each class wherever its namespace puts it.
 
 ### Step 9: Access the Admin Panel
 

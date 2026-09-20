@@ -36,6 +36,21 @@ class PostResource extends Resource
 
 Resources are **auto-discovered** by the `ResourceDiscovery` class. No manual registration is needed.
 
+Discovery scans `config('martis.resources_path')` (default `app_path('Martis')`) recursively and maps each file to a class under `config('martis.resources_namespace')`. Since v1.36.0 the namespace is derived from Composer's PSR-4 map when the key is `null` (the default), so any autoloadable directory works. This also covers one directory per panel, tenant surface or module, each served by its own process or config:
+
+```php
+// config/martis.php
+'resources_path' => app_path('Martis/Customer'),   // App\Martis\Customer\Resources\OrganizationResource, ...
+'resources_namespace' => null,                      // derived: App\Martis\Customer
+```
+
+```php
+// A module package under "Modules\\": "modules/"
+'resources_path' => base_path('modules/Billing/Martis'),   // derived: Modules\Billing\Martis
+```
+
+Pin the namespace explicitly (`'resources_namespace' => 'App\\Martis\\Customer'`) when the directory is not autoloaded. See [Configuration → Resources path and namespace](configuration.md#resources-path-and-namespace).
+
 ## Required Methods
 
 ### model()

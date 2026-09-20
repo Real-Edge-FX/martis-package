@@ -637,13 +637,22 @@ Override per-resource via `perPage()` and `perPageOptions()` on the resource cla
 
 Default filesystem disk for file uploads. Individual `File` and `Image` fields can override this via `->disk('s3')`.
 
-## Resources Path
+## Resources path and namespace
 
 ```php
 'resources_path' => app_path('Martis'),
+'resources_namespace' => null,
 ```
 
-Directory where auto-discovery looks for resource classes. Martis scans this path recursively for classes that extend `Martis\Resource`.
+Directory where auto-discovery looks for resource classes (scanned recursively for classes that extend `Martis\Resource`) and the PHP namespace that directory maps to.
+
+`resources_namespace` (since v1.36.0) resolves in this order:
+
+1. A non-empty string is used verbatim.
+2. `null`: the namespace is derived from Composer's PSR-4 autoload map (every registered class loader, so root `composer.json` entries, merge plugins and runtime `addPsr4()` registrations all count). `app/Martis` under `"App\\": "app/"` gives `App\Martis`; `app/Martis/Customer` gives `App\Martis\Customer`; `modules/Billing/Martis` under `"Modules\\": "modules/"` gives `Modules\Billing\Martis`. The longest matching root wins.
+3. No PSR-4 root contains the directory: `App\Martis`, the historical convention, so a non-autoloaded folder keeps working through the discovery's own `require_once` fallback.
+
+Set the key explicitly when the directory is not autoloaded or when you want to pin the value regardless of the autoload map. A config published before v1.36.0 has no `resources_namespace` key, which behaves like `null`.
 
 ## Policy Namespace
 
@@ -657,13 +666,13 @@ Namespace for auto-discovery of resource policies. When a resource does not defi
 
 ```php
 'tools_path' => app_path('Martis/Tools'),
-'tools_namespace' => 'App\\Martis\\Tools',
+'tools_namespace' => null,
 'discovery' => [
     'tools' => env('MARTIS_DISCOVERY_TOOLS', true),
 ],
 ```
 
-Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). Discovery merges with any `Martis::tools([...])` registration via dedup by class-string, so adopting it does not break apps that already registered Tools manually. Set `discovery.tools` to `false` (or `MARTIS_DISCOVERY_TOOLS=false`) to opt out and keep manual registration.
+Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). `tools_namespace` follows the same precedence as `resources_namespace` (explicit string, then Composer's PSR-4 map, then `App\Martis\Tools`); a config published before v1.36.0 still carries the literal `'App\\Martis\\Tools'`, which keeps working. Discovery merges with any `Martis::tools([...])` registration via dedup by class-string, so adopting it does not break apps that already registered Tools manually. Set `discovery.tools` to `false` (or `MARTIS_DISCOVERY_TOOLS=false`) to opt out and keep manual registration.
 
 ## Attachments
 

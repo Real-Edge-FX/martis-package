@@ -166,14 +166,15 @@ The next login will treat 2FA as un-enrolled. Re-enable it from the user's profi
 
 ### "Resource not found" on a slug that exists
 
-Resources are auto-discovered from the directory configured in `config/martis.php` (`resources_path`, default `app_path('Martis')`). There is no `resources` array to maintain. If a resource exists on disk but Martis cannot find it:
+Resources are auto-discovered from the directory configured in `config/martis.php` (`resources_path`, default `app_path('Martis')`) and mapped to classes under `resources_namespace` (default `null`: derived from Composer's PSR-4 map, falling back to `App\Martis`). There is no `resources` array to maintain. If a resource exists on disk but Martis cannot find it:
 
 1. Check it lives under the configured path. Move it back into `app/Martis/`, or change `resources_path` in the config.
-2. Check the class autoloads:
+2. Check the namespace matches the path. With `resources_namespace` left `null`, the file at `app/Martis/Customer/Resources/OrganizationResource.php` must declare `App\Martis\Customer\Resources` (whatever Composer's PSR-4 map says for that directory). If the directory is not autoloaded, set `resources_namespace` explicitly to the namespace the files declare. Before v1.36.0 the namespace was always `App\Martis`, so a `resources_path` outside `app/Martis` found nothing.
+3. Check the class autoloads:
    ```bash
    composer dump-autoload
    ```
-3. Clear caches (the resource registry is rebuilt on every boot, but a stale opcache/config cache can mask it):
+4. Clear caches (the resource registry is rebuilt on every boot, but a stale opcache/config cache can mask it):
    ```bash
    php artisan optimize:clear
    ```
