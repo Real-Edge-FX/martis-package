@@ -149,6 +149,10 @@ return [
 PHP;
 
     $configPath = config_path('martis.php');
+    // Restore whatever was published before (or nothing): leaving this
+    // minimal fixture behind poisons every later test that reads
+    // config('martis.brand') in the same environment.
+    $previous = file_exists($configPath) ? (string) file_get_contents($configPath) : null;
     file_put_contents($configPath, $original);
 
     try {
@@ -162,7 +166,11 @@ PHP;
         // brand.name must be untouched.
         expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
     } finally {
-        file_put_contents($configPath, $original);
+        if ($previous === null) {
+            @unlink($configPath);
+        } else {
+            file_put_contents($configPath, $previous);
+        }
     }
 });
 
@@ -182,6 +190,10 @@ return [
 PHP;
 
     $configPath = config_path('martis.php');
+    // Restore whatever was published before (or nothing): leaving this
+    // minimal fixture behind poisons every later test that reads
+    // config('martis.brand') in the same environment.
+    $previous = file_exists($configPath) ? (string) file_get_contents($configPath) : null;
     file_put_contents($configPath, $original);
 
     try {
@@ -195,6 +207,10 @@ PHP;
         // … and brand.name must be left intact.
         expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
     } finally {
-        file_put_contents($configPath, $original);
+        if ($previous === null) {
+            @unlink($configPath);
+        } else {
+            file_put_contents($configPath, $previous);
+        }
     }
 });
