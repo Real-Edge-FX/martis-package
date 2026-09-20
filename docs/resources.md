@@ -590,7 +590,7 @@ Source: `src/Resource.php::indexQuery()`.
 
 ### relatableQuery()
 
-Constrains the query used to list candidate records in relationship autocompletes (BelongsTo dropdowns, Tag pickers, MorphTo search). Generic fallback — for per-relationship customisation, define `relatable{PluralModelName}()` instead.
+Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too.
 
 ```php
 public static function relatableQuery(Request $request, Builder $query): Builder

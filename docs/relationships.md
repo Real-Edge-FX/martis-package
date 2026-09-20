@@ -638,14 +638,16 @@ public static function relatableUsers(Request $request, Builder $query, ?FieldCo
 
 ### Relatable scoping precedence
 
-When the relatable list is computed, scopes apply in this order:
+When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource — the BelongsTo dropdown (`/relatable/{field}`), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`):
 
-1. **`relatable{PluralModelName}` on the source resource** (specific override, gets passed the field).
-2. **`relatableQuery` on the target resource** (generic fallback, applies whenever the source did not override).
-3. **Field-level `relatableQueryUsing(fn ($request, $query) => ...)`** (BelongsTo / BelongsToMany).
+1. **`relatableQuery` on the target resource** — the generic fence the target declares for itself. It always runs.
+2. **`relatable{PluralModelName}` on the source resource** (specific override, gets passed the field) — narrows the already-fenced query for that source's relationships.
+3. **Field-level `relatableQueryUsing(fn ($request, $query) => ...)`** (BelongsTo / BelongsToMany / MorphToMany).
 4. **Field-level `withoutTrashed()`** (BelongsTo / BelongsToMany when the model uses `SoftDeletes`).
 
-Each layer is composable — declaring a scope at one layer does not disable the others.
+Each layer is composable — declaring a scope at one layer does not disable the others, and a lower layer can only ever narrow the result of the layers above it. In particular a source-side `relatable{PluralModelName}()` never replaces the target's `relatableQuery()`: a resource that fences itself (a tenant or ownership predicate on a model that cannot carry a global scope, such as the `User` model tenancy is resolved *from*) stays fenced no matter which resource offers the picker or which override that resource declares. This is a deliberate divergence from Nova, where the source override is an either/or replacement.
+
+> Before v1.34.0 the attach picker never called `relatableQuery()` (only the field closure) and `relatable{PluralModelName}()` replaced `relatableQuery()`. A consumer that only needs the index fence on its pickers declares it once in `relatableQuery()`; it no longer has to repeat it on every `BelongsToMany` / `MorphToMany` field targeting the resource.
 
 ### Polymorphic cross-type isolation
 
@@ -691,10 +693,10 @@ Internal resolver that powers the per-relationship `relatable*` overrides. Most 
 
 ### Resolution chain
 
-When a `BelongsTo` (or any relation field) needs to populate its dropdown, the resolver looks for a query hook in this order:
+When a `BelongsTo` dropdown, a context-free relatable form or a `BelongsToMany` / `MorphToMany` attach picker needs its candidates, the resolver applies the resource-level query hooks, composed in this order:
 
-1. `relatable{PluralModelName}(Request $request, Builder $query [, FieldContract $field]): Builder` — pluralized model basename of the **related** resource. Example: a `BelongsTo::make('Author', 'author', UserResource::class)` looks for `relatableUsers()` on the **source** resource (the one calling `BelongsTo::make`).
-2. `relatableQuery(Request $request, Builder $query): Builder` — generic fallback on the **target** resource (the related resource itself).
+1. `relatableQuery(Request $request, Builder $query): Builder` — the generic fence on the **target** resource (the related resource itself). Always applied.
+2. `relatable{PluralModelName}(Request $request, Builder $query [, FieldContract $field]): Builder` — pluralized model basename of the **related** resource, looked up on the **source** resource. Example: a `BelongsTo::make('Author', 'author', UserResource::class)` looks for `relatableUsers()` on the resource calling `BelongsTo::make`. It narrows the result of (1); it does not replace it.
 
 The dynamic method name uses `Str::plural(class_basename($model))`. The third parameter is optional — declare it if you need to know which field is asking (useful when one resource exposes multiple `BelongsTo` to the same target).
 
@@ -709,4 +711,4 @@ BelongsTo::make('Author', 'author', UserResource::class)
     );
 ```
 
-`relatableQueryUsing()` runs alongside the resolver and stacks on top of any resource-level method. See `tests/Feature/RelationshipsHardeningTest.php` for the full priority matrix.
+`relatableQueryUsing()` runs alongside the resolver and stacks on top of both resource-level methods. See `tests/Feature/RelationshipsHardeningTest.php` and `tests/Feature/PickersHonourTargetRelatableQueryTest.php` for the full priority matrix.

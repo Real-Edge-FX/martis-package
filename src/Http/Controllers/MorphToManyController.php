@@ -18,6 +18,7 @@ use Martis\Fields\MorphToMany;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
@@ -147,6 +148,7 @@ class MorphToManyController extends MartisController
         }
 
         [
+            'parentResourceClass' => $parentResourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
             'field' => $field,
@@ -157,6 +159,13 @@ class MorphToManyController extends MartisController
 
         /** @var Builder<Model> $query */
         $query = $relatedModelClass::query();
+
+        // Resource-level fences first, through the same resolver the
+        // BelongsTo picker uses: the target's relatableQuery() always
+        // applies, the source's relatable{PluralModelName}() narrows on top.
+        // The field closure below then narrows an already-fenced query
+        // instead of being the only fence on this picker.
+        $query = RelationshipQueryResolver::resolve($parentResourceClass, $relatedResourceClass, $request, $query, $field);
 
         // Apply relatableQueryUsing closure.
         //
