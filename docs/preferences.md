@@ -169,11 +169,15 @@ The migration can safely remain applied — the resolver silently ignores the ta
 
 ## Highlights
 
+### Accent swatches follow the stylesheets
+
+Each swatch in the accent picker is painted with the colour the cascade resolves for `html[data-accent="<key>"]` in the current mode (`lib/accentSwatches.ts` walks the same-origin stylesheets: the package CSS, then the consumer theme, then the inline `MARTIS_CUSTOM_ACCENTS` block), so a branded theme that redefines `--martis-accent` on its root blocks re-tints the "Martis" swatch, a theme that overrides a bundled or custom accent per mode (`html[data-theme="light"][data-accent="teal"] { … }`) shows that override, and a theme switch re-tints the swatches in the same render. The bundled hex table and the env hex of a custom accent are only fallbacks for a key no stylesheet declares. (v1.34.0)
+
 ### Arbitrary brand colour
 
 When `allowBrandColor` is `true`, the preferences panel exposes a hex input. Any valid `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA` value overrides the accent (`data-accent="custom"` on `<html>`, `--martis-accent` inline style). Ideal for multi-tenant branding.
 
-A `brandColor` selection drives the full six-token accent palette (`--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring`). The remaining five tokens are derived from the base hex via `color-mix(in srgb, ...)` — the same chain used by `MARTIS_CUSTOM_ACCENTS`. Applied in two places so the FOUC stays clean: the pre-paint blade bootstrap and the React `PreferencesContext::applyToDom()`. Clearing `brandColor` removes all six overrides and falls back to the active `data-accent` palette. (v1.8.12+)
+A `brandColor` selection drives the full seven-token accent palette (`--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring`, `--martis-accent-contrast`). Five of the derived tokens come from the base hex via `color-mix(in srgb, ...)` and the contrast colour from its luminance (white while it holds the WCAG 3:1 floor, else a near-black navy; `lib/accentContrast.ts`) — the same chain used by `MARTIS_CUSTOM_ACCENTS`. Applied in two places so the FOUC stays clean: the pre-paint blade bootstrap and the React `PreferencesContext::applyToDom()`. Clearing `brandColor` removes all seven overrides and falls back to the active `data-accent` palette. (v1.8.12+)
 
 ### Persisted preferences + shareable presets
 

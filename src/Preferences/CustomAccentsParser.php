@@ -11,10 +11,12 @@ use Martis\Enums\AccentColor;
  * Parses the `MARTIS_CUSTOM_ACCENTS` env value into a normalised
  * `[name => hex]` map.
  *
- * Format: comma-separated `name:hex` pairs. Whitespace around the
- * separators is tolerated.
+ * Format: comma-separated `name:hex` pairs, each with an optional third
+ * `contrastHex` segment (the text / icon colour painted on top of the
+ * accent fill; derived from the accent's luminance when absent, see
+ * `AccentContrast`). Whitespace around the separators is tolerated.
  *
- *     MARTIS_CUSTOM_ACCENTS="edgeflow:#1a73e8, sunset:#ff6b35"
+ *     MARTIS_CUSTOM_ACCENTS="edgeflow:#1a73e8, sunset:#ff6b35, lime:#c6f135:#071726"
  *
  * Validation rules:
  *   - Name: `[a-z][a-z0-9_-]{1,32}`. Lowercase, alphanumeric + dash /
@@ -47,6 +49,21 @@ final class CustomAccentsParser
      */
     public static function parse(?string $raw): array
     {
+        return array_map(
+            static fn (array $accent): string => $accent['color'],
+            self::parseDetailed($raw),
+        );
+    }
+
+    /**
+     * Parse the raw env / config value into a `[name => [color, contrast]]`
+     * map: `color` is the accent hex, `contrast` the explicit third segment
+     * or the luminance-derived `AccentContrast::for()` value.
+     *
+     * @return array<string, array{color: string, contrast: string}>
+     */
+    public static function parseDetailed(?string $raw): array
+    {
         if ($raw === null || trim($raw) === '') {
             return [];
         }
@@ -60,14 +77,15 @@ final class CustomAccentsParser
         $entries = array_filter(array_map('trim', explode(',', $raw)), static fn (string $s): bool => $s !== '');
 
         foreach ($entries as $entry) {
-            $parts = array_map('trim', explode(':', $entry, 2));
-            if (count($parts) !== 2) {
-                Log::warning('Martis custom accent: malformed entry (expected `name:hex`)', ['entry' => $entry]);
+            $parts = array_map('trim', explode(':', $entry, 3));
+            if (count($parts) < 2) {
+                Log::warning('Martis custom accent: malformed entry (expected `name:hex` or `name:hex:contrastHex`)', ['entry' => $entry]);
 
                 continue;
             }
 
             [$name, $hex] = $parts;
+            $contrast = $parts[2] ?? null;
 
             // Names must already be lowercase. We do NOT strtolower
             // before validation so a consumer who wrote `EdgeFlow`
@@ -99,9 +117,21 @@ final class CustomAccentsParser
                 continue;
             }
 
+            if ($contrast !== null && ! preg_match('/^#[0-9a-fA-F]{6}$/', $contrast)) {
+                Log::warning('Martis custom accent: invalid contrast hex (must match #RRGGBB)', [
+                    'name' => $name,
+                    'contrast' => $contrast,
+                ]);
+
+                continue;
+            }
+
             // Last-wins. Re-assigning preserves env-override semantics
             // when the consumer pastes overlapping entries.
-            $accents[$name] = strtolower($hex);
+            $accents[$name] = [
+                'color' => strtolower($hex),
+                'contrast' => $contrast !== null ? strtolower($contrast) : AccentContrast::for($hex),
+            ];
 
             if (count($accents) >= self::MAX_ACCENTS) {
                 Log::warning('Martis custom accent: too many entries; truncating', [

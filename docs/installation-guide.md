@@ -45,6 +45,31 @@ php artisan martis:user
 # Visit http://your-app.test/martis
 ```
 
+The command prompts for the email, name and password it does not receive as
+options (`--email`, `--name`, `--password`). By default it is **create-only**:
+when a user with that email already exists it prints an error and exits with a
+non-zero status, so a script cannot accidentally overwrite an account.
+
+Two flags change what happens when the email already exists, which is what a
+container entrypoint or a provisioning script needs to bootstrap the first
+administrator on every boot:
+
+| Flag | When the email already exists |
+|------|-------------------------------|
+| `--if-missing` | Exit `0` with an info line and change nothing. Safe to call unconditionally at boot. |
+| `--update` | Re-hash the password from `--password` (or the prompt) and, only when `--name` is given, replace the name. `email_verified_at` is left untouched. When the email does not exist yet the user is created, so the flag behaves like an upsert. |
+
+```bash
+# Guarantee an administrator exists, never touch it afterwards
+php artisan martis:user --email="$MARTIS_ADMIN_EMAIL" --name="Admin" --password="$MARTIS_ADMIN_PASSWORD" --if-missing
+
+# Converge the administrator to the current environment (rotated password)
+php artisan martis:user --email="$MARTIS_ADMIN_EMAIL" --password="$MARTIS_ADMIN_PASSWORD" --update
+```
+
+Without either flag the behaviour is unchanged: the second run of the same
+command fails with `A user with email [...] already exists.`
+
 ### Install Options
 
 | Flag | Effect |
@@ -524,7 +549,7 @@ The package ships 28 commands. The full list:
 | Command | Description |
 |---|---|
 | `martis:install` | Full installation (directories, config, provider, assets, core migrations, translations, auto-migrate) |
-| `martis:user` | Create an admin user |
+| `martis:user` | Create an admin user (`--if-missing` / `--update` for idempotent bootstrap scripts) |
 | `martis:vendor-publish` | Wrapper around `vendor:publish` with Martis-aware defaults and prompts |
 | `martis:stubs` | List or scaffold the customizable stubs used by the make commands |
 | `martis:list-overrides` | Print every component / layout / field override active in the current install |

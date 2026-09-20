@@ -114,7 +114,7 @@ class DynamicRelatableResource extends Resource
     }
 
     /**
-     * Dynamic relatable method — takes precedence over relatableQuery on target.
+     * Dynamic relatable method — narrows on top of relatableQuery on target.
      */
     public static function relatableRelatedTestModels(Request $request, Builder $query): Builder
     {
@@ -210,7 +210,7 @@ test('relatableQuery custom filters the query', function () {
 // Unit tests — RelationshipQueryResolver
 // ---------------------------------------------------------------------------
 
-test('resolver uses dynamic method when available', function () {
+test('resolver composes the dynamic method on top of the target relatableQuery', function () {
     $query = RelatedTestModel::query();
     $request = Request::create('/');
 
@@ -221,11 +221,13 @@ test('resolver uses dynamic method when available', function () {
         $query,
     );
 
-    // Should use relatableRelatedTestModels (dynamic) not relatableQuery (target)
+    // The target's relatableQuery (email_verified_at) is the fence and always
+    // applies; the source's relatableRelatedTestModels (name != 'hidden')
+    // narrows on top of it. Neither replaces the other.
     $sql = $result->toSql();
+    expect($sql)->toContain('email_verified_at');
     expect($sql)->toContain('name');
-    // Dynamic method filters name != 'hidden', not email_verified_at
-    expect($sql)->not->toContain('email_verified_at');
+    expect(strpos($sql, 'email_verified_at'))->toBeLessThan(strpos($sql, '"name"'));
 });
 
 test('resolver falls back to target relatableQuery when no dynamic method', function () {

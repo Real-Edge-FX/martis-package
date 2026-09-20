@@ -29,6 +29,30 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * Consult the collection-level gate before any record query on a per-id
+     * endpoint.
+     *
+     * `viewAny` is the entry gate to a resource (it already protects index,
+     * schema, search, lenses and metrics). Checking it before `find()` means
+     * a resource the user cannot list answers 403 before any query runs, so
+     * a model scope that fails closed never turns a deep-link into a 500, and
+     * record ids cannot be probed (404 vs 403) through a resource the user is
+     * not allowed to see. The record-level checks stay after the query.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     */
+    protected function forbiddenUnlessAuthorizedToViewAny(Request $request, string $resourceClass): ?IlluminateJsonResponse
+    {
+        $instance = new $resourceClass;
+
+        if (! $instance->authorizedToViewAny($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        return null;
+    }
+
+    /**
      * Find a model by primary key, respecting soft-delete inclusion.
      */
     protected function findModelByKey(string $resourceClass, int|string $id): ?Model

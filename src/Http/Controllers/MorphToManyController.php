@@ -18,6 +18,7 @@ use Martis\Fields\MorphToMany;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
@@ -147,6 +148,7 @@ class MorphToManyController extends MartisController
         }
 
         [
+            'parentResourceClass' => $parentResourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
             'field' => $field,
@@ -157,6 +159,13 @@ class MorphToManyController extends MartisController
 
         /** @var Builder<Model> $query */
         $query = $relatedModelClass::query();
+
+        // Resource-level fences first, through the same resolver the
+        // BelongsTo picker uses: the target's relatableQuery() always
+        // applies, the source's relatable{PluralModelName}() narrows on top.
+        // The field closure below then narrows an already-fenced query
+        // instead of being the only fence on this picker.
+        $query = RelationshipQueryResolver::resolve($parentResourceClass, $relatedResourceClass, $request, $query, $field);
 
         // Apply relatableQueryUsing closure.
         //
@@ -470,6 +479,13 @@ class MorphToManyController extends MartisController
 
         /** @var class-string<resource> $resourceClass */
         $resourceClass = $this->registry->get($resource);
+
+        // Collection gate first: a resource the caller cannot list answers 403
+        // before the parent query runs (no id probing, no 500 from a
+        // fail-closed scope). The record-level view check follows the query.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
 
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();

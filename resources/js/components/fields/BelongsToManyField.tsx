@@ -264,7 +264,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
               <button
                 type="button"
                 onClick={() => setShowAttachModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white flex-shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-martis-accent-contrast flex-shrink-0"
                 style={{ backgroundColor: 'var(--martis-accent)' }}
               >
                 <PlusIcon size={14} weight="bold" />
@@ -861,7 +861,7 @@ function AttachModal({
             {selected.length > 0 && (
               <span
                 className="martis-badge"
-                style={{ backgroundColor: 'var(--martis-accent)', color: '#fff', borderColor: 'transparent' }}
+                style={{ backgroundColor: 'var(--martis-accent)', color: 'var(--martis-accent-contrast, #ffffff)', borderColor: 'transparent' }}
               >
                 {selected.length}
               </span>

@@ -3,6 +3,7 @@ import { api } from '@/lib/api'
 import { config } from '@/lib/config'
 import { useAuth } from '@/contexts/AuthContext'
 import i18n, { loadLocale } from '@/lib/i18n'
+import { accentContrastFor } from '@/lib/accentContrast'
 
 export type ThemeMode = 'dark' | 'light' | 'system'
 /** Bundled accent values shipped by Martis. Custom accents declared via
@@ -77,7 +78,7 @@ const STORAGE_KEY = 'martis-preferences'
 const GUEST_MODIFIED_KEY = 'martis-preferences-guest-modified'
 
 /** Map the `theme=system` preference into a concrete dark/light at runtime. */
-function resolveTheme(theme: ThemeMode): 'dark' | 'light' {
+export function resolveTheme(theme: ThemeMode): 'dark' | 'light' {
   if (theme === 'system') {
     return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   }
@@ -116,6 +117,7 @@ function applyToDom(prefs: Preferences): void {
     root.style.setProperty('--martis-accent-bg-light', `color-mix(in srgb, ${c} 14%, transparent)`)
     root.style.setProperty('--martis-accent-bg', `color-mix(in srgb, ${c} 24%, transparent)`)
     root.style.setProperty('--martis-focus-ring', `color-mix(in srgb, ${c} 45%, transparent)`)
+    root.style.setProperty('--martis-accent-contrast', accentContrastFor(c))
   } else {
     root.style.removeProperty('--martis-accent')
     root.style.removeProperty('--martis-accent-hover')
@@ -123,6 +125,7 @@ function applyToDom(prefs: Preferences): void {
     root.style.removeProperty('--martis-accent-bg-light')
     root.style.removeProperty('--martis-accent-bg')
     root.style.removeProperty('--martis-focus-ring')
+    root.style.removeProperty('--martis-accent-contrast')
   }
 }
 

@@ -99,11 +99,12 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
         }
         /* Reduce-motion handling lives in martis.css alongside the
            other indicator-style exceptions (see the "Indeterminate
-           progress indicators" block). The aurora blobs and the
-           badge shimmer keep their slow cycle (14 s / 18 s / 3.5 s)
-           because they sit below the vestibular threshold; the
-           pointer-driven parallax tilt is still suppressed at the
-           React layer via the usePrefersReducedMotion hook below. */
+           progress indicators" block). The aurora blobs keep their
+           slow cycle (14 s / 18 s) because they sit below the
+           vestibular threshold; the badge shimmer is a bright band
+           moving over text, so the global clamp stops it; the
+           pointer-driven parallax tilt is suppressed at the React
+           layer via the usePrefersReducedMotion hook below. */
       `}</style>
 
       <div
@@ -218,8 +219,8 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
               padding: '0.45rem 0.85rem',
               borderRadius: 999,
               background:
-                'linear-gradient(110deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.22)',
+                'var(--martis-brand-badge-bg, linear-gradient(110deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%))',
+              border: '1px solid var(--martis-brand-badge-border, rgba(255, 255, 255, 0.22))',
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
               fontSize: '0.75rem',
@@ -236,8 +237,11 @@ export function WelcomeCard({ heading, description, version }: WelcomeCardProps 
               style={{
                 position: 'absolute',
                 inset: 0,
+                // The band colour is a theme token (`transparent` removes
+                // the sweep on a bright gradient); the default keeps the
+                // v1.32 look byte for byte.
                 background:
-                  'linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.28) 50%, transparent 80%)',
+                  'linear-gradient(110deg, transparent 20%, var(--martis-brand-shimmer, rgba(255,255,255,0.28)) 50%, transparent 80%)',
                 backgroundSize: '200% 100%',
                 animation: 'mwc-shimmer 3.5s linear infinite',
                 mixBlendMode: 'overlay',

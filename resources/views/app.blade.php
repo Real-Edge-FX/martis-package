@@ -31,7 +31,7 @@
         }
         // v1.7.0 — custom accent colours. The parser validates each
         // entry; invalid ones fall through silently with a Log::warning.
-        $customAccents = \Martis\Preferences\CustomAccentsParser::parse(
+        $customAccents = \Martis\Preferences\CustomAccentsParser::parseDetailed(
             (string) (config('martis.preferences.custom_accents') ?? ''),
         );
         $prefsConfig = [
@@ -44,7 +44,7 @@
             'localeLabels' => (array) config('martis.preferences.locale_labels', []),
             'initial' => $prefsPayload,
             'customAccents' => array_map(
-                static fn (string $name, string $color): array => ['name' => $name, 'color' => $color],
+                static fn (string $name, array $accent): array => ['name' => $name, 'color' => $accent['color'], 'contrast' => $accent['contrast']],
                 array_keys($customAccents),
                 array_values($customAccents),
             ),
@@ -280,6 +280,22 @@
                 root.style.setProperty('--martis-accent-bg-light', 'color-mix(in srgb, ' + brandColor + ' 14%, transparent)');
                 root.style.setProperty('--martis-accent-bg',       'color-mix(in srgb, ' + brandColor + ' 24%, transparent)');
                 root.style.setProperty('--martis-focus-ring',      'color-mix(in srgb, ' + brandColor + ' 45%, transparent)');
+                root.style.setProperty('--martis-accent-contrast', contrastFor(brandColor));
+            }
+
+            // Mirror of Martis\Preferences\AccentContrast / lib/accentContrast.ts:
+            // white while it holds the WCAG 3:1 floor against the accent,
+            // else a near-black navy. Inline so the first paint agrees with
+            // what PreferencesContext re-applies after mount.
+            function contrastFor(hex) {
+                var v = hex.replace(/^#/, '');
+                if (v.length <= 4) v = v[0] + v[0] + v[1] + v[1] + v[2] + v[2];
+                var lin = function (i) {
+                    var c = parseInt(v.slice(i, i + 2), 16) / 255;
+                    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+                };
+                var l = 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
+                return (1.05 / (l + 0.05)) >= 3 ? '#ffffff' : '#0b1220';
             }
         })();
     </script>
@@ -329,11 +345,15 @@
          silently overridden by the bundle defaults. --}}
     @if(!empty($customAccents))
         <style>
-            @foreach($customAccents as $accentName => $accentHex)
+            @foreach($customAccents as $accentName => $accent)
+            @php($accentHex = $accent['color'])
             /* v1.7.0 — custom accent ‘{{ $accentName }}’ ({{ $accentHex }}).
                Mirrors the variable set defined for bundled accents
                (--martis-accent / -hover / -active / -bg-light / -bg /
-               --martis-focus-ring). One rule applies to both themes. */
+               --martis-focus-ring / --martis-accent-contrast). One rule
+               applies to both themes. The contrast colour is the optional
+               third `name:hex:contrastHex` segment, else derived from the
+               accent's luminance (v1.34.0). */
             html[data-accent="{{ $accentName }}"] {
                 --martis-accent:          {{ $accentHex }};
                 --martis-accent-hover:    color-mix(in srgb, {{ $accentHex }} 88%, black);
@@ -341,6 +361,7 @@
                 --martis-accent-bg-light: color-mix(in srgb, {{ $accentHex }} 14%, transparent);
                 --martis-accent-bg:       color-mix(in srgb, {{ $accentHex }} 24%, transparent);
                 --martis-focus-ring:      color-mix(in srgb, {{ $accentHex }} 45%, transparent);
+                --martis-accent-contrast: {{ $accent['contrast'] }};
             }
             @endforeach
         </style>

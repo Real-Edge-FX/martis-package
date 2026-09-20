@@ -45,9 +45,21 @@ class MetricController
         // Cache the structural shape (name, uriKey, layout, badge, icon, …)
         // with the lock field stripped. Lock is re-injected below from the
         // live predicate evaluation.
+        //
+        // The key carries a fingerprint of the set resolved for this user
+        // (class + uriKey of every dashboard authorizedToSee let through),
+        // so the entry can never outlive its own authorization snapshot: a
+        // dashboard registered after the list was cached, one removed, or a
+        // user whose state changes what authorizedToSee() answers all land
+        // on a fresh key immediately. The finite layer TTL bounds the
+        // orphaned entries and lets the cached shape itself converge.
         $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
-        $cached = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale(), function () use ($instances): array {
+        $fingerprint = substr(sha1(implode('|', array_map(
+            fn (DashboardContract $d): string => $d::class.'@'.$d->uriKey(),
+            $instances,
+        ))), 0, 16);
+        $cached = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale().':'.$fingerprint, function () use ($instances): array {
             return array_map(function (DashboardContract $d): array {
                 $arr = $d->toArray();
                 // Strip the lock key so stale lock state is never persisted.

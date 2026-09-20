@@ -883,7 +883,7 @@ Distinct from the BelongsTo / MorphTo **peek** popover. Peek shows real records 
 
 The page reads the same `componentRegistry.keys()` you'd inspect via the browser devtools console, so it surfaces every registered key — bundled drawers (`martis:drawer-*`), built-in field renderers (`field:display:text`, `field:input:select`, …), and your own overrides.
 
-A misshapen JSON payload renders a red error box instead of crashing the inspector. The page sits inside the same authenticated shell as every other Martis admin page; restrict it via your existing middleware if you don't want non-developers landing on it.
+Keys the Inspector does not recognise by prefix (custom action components such as the bundled `demo-custom-action`, tools, ad-hoc overrides) are seeded with an empty `{}` payload, so a component you intend to preview there should render sensible fallbacks from missing props (the bundled demo action defaults `componentProps`, `selectedIds` and its handlers for exactly this reason). A misshapen JSON payload renders a red error box instead of crashing the inspector. The page sits inside the same authenticated shell as every other Martis admin page; restrict it via your existing middleware if you don't want non-developers landing on it.
 
 ### Environment gate
 

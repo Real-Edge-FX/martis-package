@@ -1,9 +1,10 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { OverlayPanel } from 'primereact/overlaypanel'
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontalIcon, SunIcon, MoonIcon, MonitorIcon, CheckIcon, ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
-import { usePreferences, type AccentColor, type ThemeMode, type UiDensity } from '@/contexts/PreferencesContext'
+import { usePreferences, resolveTheme, type AccentColor, type ThemeMode, type UiDensity } from '@/contexts/PreferencesContext'
 import { config, resolvePickerLocales } from '@/lib/config'
+import { resolveAccentSwatchColor } from '@/lib/accentSwatches'
 import { loadLocale } from '@/lib/i18n'
 import { Segmented } from '@/components/ui/Segmented'
 
@@ -17,6 +18,10 @@ import { Segmented } from '@/components/ui/Segmented'
  * `usePreferences().update()` which is optimistic and server-synced.
  */
 
+/** Bundled accents. `color` is only the fallback: at render time each swatch
+ *  reads the value the stylesheets (package CSS, then the consumer theme)
+ *  declare for `html[data-accent="<key>"]` in the current mode, so a branded
+ *  theme that redefines an accent shows it in the picker too. */
 const ACCENT_SWATCHES: Array<{ key: AccentColor; label: string; color: string }> = [
   { key: 'martis', label: 'Martis', color: '#4F7BF9' },
   { key: 'blue', label: 'Blue', color: '#3B82F6' },
@@ -82,6 +87,19 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [])
   const { prefs, meta, update, reset, enabled } = usePreferences()
+
+  // Swatch colours as the cascade resolves them for the current mode. Derived
+  // from `prefs.theme` (not the `<html>` class, which applyToDom() only sets
+  // in an effect after this render) so a theme switch re-tints the swatches
+  // in the same render that switches the mode.
+  const swatchMode = resolveTheme(prefs.theme)
+  const customAccents = config.preferences?.customAccents ?? []
+  const swatchColors = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const { key, color } of ACCENT_SWATCHES) out[key] = resolveAccentSwatchColor(key, swatchMode, color)
+    for (const { name, color } of customAccents) out[name] = resolveAccentSwatchColor(name, swatchMode, color)
+    return out
+  }, [swatchMode, customAccents])
   const { t } = useTranslation('messages')
   const [brandColorInput, setBrandColorInput] = useState(prefs.brandColor ?? '')
 
@@ -197,7 +215,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                   data-pr-position="bottom"
                   className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
                   style={{
-                    backgroundColor: color,
+                    backgroundColor: swatchColors[key] ?? color,
                     boxShadow: prefs.accent === key ? '0 0 0 2px var(--martis-surface), 0 0 0 4px var(--martis-accent)' : 'none',
                   }}
                 >
@@ -211,7 +229,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                   app.blade.php; clicking a swatch persists the name as
                   the accent (server-side resolver accepts both bundled
                   enum values and custom names). */}
-              {(config.preferences?.customAccents ?? []).map(({ name, color }) => {
+              {customAccents.map(({ name, color }) => {
                 const titleLabel = name.charAt(0).toUpperCase() + name.slice(1).replace(/[-_]/g, ' ')
                 return (
                   <button
@@ -223,7 +241,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                     data-pr-position="bottom"
                     className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
                     style={{
-                      backgroundColor: color,
+                      backgroundColor: swatchColors[name] ?? color,
                       boxShadow: prefs.accent === name ? '0 0 0 2px var(--martis-surface), 0 0 0 4px var(--martis-accent)' : 'none',
                     }}
                   >

@@ -125,7 +125,7 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
                   type="button"
                   disabled={uploading}
                   onClick={() => void handleUpload()}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-martis-accent-contrast transition-colors hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: 'var(--martis-accent)' }}
                 >
                   <CameraIcon size={14} />
@@ -153,7 +153,7 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-martis-accent-contrast transition-colors hover:opacity-90"
                   style={{ backgroundColor: 'var(--martis-accent)' }}
                 >
                   <CameraIcon size={14} />

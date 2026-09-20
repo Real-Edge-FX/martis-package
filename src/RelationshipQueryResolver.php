@@ -14,10 +14,12 @@ use Martis\Fields\BelongsTo;
  * Central resolver for relatable query hooks.
  *
  * Given a source resource, a target (related) resource, and optionally a Field,
- * this resolver determines which query hook to call:
+ * this resolver applies the resource-level query hooks, composed in order:
  *
- *   1. relatable{PluralModelName}(Request, Builder [, Field]) — specific override
- *   2. relatableQuery(Request, Builder) — generic fallback on the target resource
+ *   1. relatableQuery(Request, Builder) — the target resource's generic fence,
+ *      always applied
+ *   2. relatable{PluralModelName}(Request, Builder [, Field]) — the source
+ *      resource's specific override, narrowing on top of (1)
  *
  * The dynamic method name uses the pluralized model class basename of the
  * RELATED resource (e.g., relatableTags for Tag model).
@@ -47,7 +49,17 @@ class RelationshipQueryResolver
         Builder $query,
         ?FieldContract $field = null,
     ): Builder {
-        // Step 1: Try dynamic method relatable{PluralModelName} on SOURCE resource
+        // Step 1: the TARGET resource's generic relatableQuery() always runs.
+        // It is the fence the target declares for every picker that reaches
+        // it (typically a tenant / ownership scope on a model that cannot
+        // carry a global scope), so no source resource can drop it.
+        $query = $targetResourceClass::relatableQuery($request, $query);
+
+        // Step 2: the SOURCE resource's relatable{PluralModelName}() composes
+        // on top and narrows the already-fenced query for its own
+        // relationships. It never replaces step 1 (it used to: an if/else
+        // that let any source-side override silently reopen the target's
+        // fence).
         $dynamicMethod = static::buildDynamicMethodName($targetResourceClass);
 
         if ($dynamicMethod !== null && method_exists($sourceResourceClass, $dynamicMethod)) {
@@ -58,9 +70,6 @@ class RelationshipQueryResolver
                 $query,
                 $field,
             );
-        } else {
-            // Step 2: Fall back to generic relatableQuery on TARGET resource
-            $query = $targetResourceClass::relatableQuery($request, $query);
         }
 
         // Step 2b: Apply the target Resource's declarative static $with list

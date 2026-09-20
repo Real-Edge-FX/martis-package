@@ -632,7 +632,7 @@ export function ResourceIndexPage() {
                 navigate(`/resources/${resource}/create`)
               }
             }}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-martis-accent-contrast hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--martis-focus-ring)]"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
             + {tAct('create')} {schema.singularLabel}

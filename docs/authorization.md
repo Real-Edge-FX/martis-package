@@ -35,6 +35,30 @@ Default behaviour:
   by design because attaching a model the user can already update is
   usually the right default).
 
+### `viewAny` is the entry gate
+
+`viewAny` is consulted **before the record query on every per-record
+endpoint** as well as on the collection ones: detail / show (including the
+`?context=update` form payload), update, destroy, restore, force-delete,
+replicate, peek, single and bulk actions, pivot actions, and every
+relationship endpoint that resolves a parent record (`has-many`, `has-one`,
+`belongs-to-many` and its attachable picker, `morph-*`). A user the policy
+does not allow to list a resource gets `403` from
+`GET /api/resources/{resource}/{id}` before `find()` runs, for an existing
+id and a missing one alike. Two consequences:
+
+- Record ids cannot be probed (`404` vs `403`) through a resource the user
+  is not allowed to see.
+- A model scope that fails closed (throws when no tenant / owner is
+  resolved) never turns a deep-link into a `500`: the request is refused at
+  the collection gate, before the scope is evaluated.
+
+The record-level abilities (`view`, `update`, `delete`, …) are still
+checked after the query, exactly as before. A policy with `viewAny` denied
+and `view` granted therefore never reaches a record any more; if you relied
+on that combination for deep-links, grant `viewAny` and confine the
+listing with `indexQuery()` instead.
+
 ## Writing a policy
 
 Martis looks for policies in two places, in order:

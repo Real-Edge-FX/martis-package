@@ -50,10 +50,12 @@ Calling `Gate::define()` from the host app replaces Martis's default closure, so
 |------|----------------|-------------|-----------|
 | `metrics` | Computed metric results (Value, Trend, Partition, Progress, Activity feed, Endpoint table). | 5 minutes | No (cached per locale + filters) |
 | `navigation` | Sidebar / top-nav structure. | 1 minute | **Yes** — different policies, different menus |
-| `dashboards` | Dashboard list + per-dashboard definition (cards/filters metadata). Metric values are NOT cached here — that's `metrics`. | No expiration | **Yes** |
+| `dashboards` | Dashboard list + per-dashboard definition (cards/filters metadata). Metric values are NOT cached here — that's `metrics`. | 5 minutes | **Yes** — and the list key carries a fingerprint of the set the user is authorized to see (see below) |
 | `schema` | Resource schema payload (fields, filters, lenses, cards, actions). Heavy to compute, stable across requests. | No expiration | **Yes** |
 
 TTL `null` means "no expiration" — the entry stays cached until explicitly cleared (the version key trick: see [Invalidation](#invalidation) below).
+
+**The dashboards list is an authorization snapshot that keeps itself fresh.** `MetricController::dashboards()` resolves the user's dashboards through `authorizedToSee()` on every request and caches only their serialized shape under `list:{user}:{locale}:{fingerprint}`, where the fingerprint hashes the class and `uriKey` of every dashboard that passed the gate. A dashboard registered after a user's list was cached, one removed at deploy, or a user whose state changes what `authorizedToSee()` answers therefore land on a fresh key immediately, with no `martis:cache:clear dashboards` and no TTL to wait out. The finite default TTL (5 minutes, `MARTIS_CACHE_DASHBOARDS_TTL`) bounds the orphaned entries and lets the cached shape itself (name, icon, badge, per-dashboard cards/filters metadata) converge after a release; set it to `null` to go back to "until cleared".
 
 **Per-user scoping** is the convention used by Martis's own cached endpoints (`navigation`, `dashboards`, `schema`). Each controller derives the auth identifier and prepends it to the cache key — see `NavigationController`, `MetricController`, `ResourceController`. `MartisCache::remember()` itself takes the key verbatim, so **custom layers must include the user identifier in their own keys** if they want the same isolation. The `OrdersController` example below shows the standard shape: `"show:{$id}:{$userKey}"`.
 
@@ -81,7 +83,7 @@ Hover any column header in the admin UI for the same explanation as a tooltip.
 
     'metrics'    => ['enabled' => true, 'ttl' => 5],     // 5 minutes
     'navigation' => ['enabled' => true, 'ttl' => 1],
-    'dashboards' => ['enabled' => true, 'ttl' => null],  // no expiration
+    'dashboards' => ['enabled' => true, 'ttl' => 5],     // 5 minutes
     'schema'     => ['enabled' => true, 'ttl' => null],
 
     'admin_ui'   => true,
@@ -104,7 +106,7 @@ MARTIS_CACHE_NAVIGATION_ENABLED=true
 MARTIS_CACHE_NAVIGATION_TTL=1
 
 MARTIS_CACHE_DASHBOARDS_ENABLED=true
-MARTIS_CACHE_DASHBOARDS_TTL=
+MARTIS_CACHE_DASHBOARDS_TTL=5
 
 MARTIS_CACHE_SCHEMA_ENABLED=true
 MARTIS_CACHE_SCHEMA_TTL=

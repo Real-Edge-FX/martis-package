@@ -772,7 +772,12 @@ The accent swatches in the PreferencesMenu can be extended with arbitrary brand 
 MARTIS_CUSTOM_ACCENTS="edgeflow:#1a73e8,sunset:#ff6b35,emerald:#10b981"
 ```
 
-Format: comma-separated `name:hex` pairs. Whitespace around the separators is tolerated.
+Format: comma-separated `name:hex` pairs, each with an optional third segment `name:hex:contrastHex` naming the text / icon colour painted on top of that accent (`--martis-accent-contrast`). Whitespace around the separators is tolerated.
+
+```env
+# Bright lime with an explicit navy text colour; the others derive theirs.
+MARTIS_CUSTOM_ACCENTS="edgeflow:#1a73e8,lime:#c6f135:#071726"
+```
 
 **Validation rules** (invalid entries are dropped silently with a `Log::warning`):
 
@@ -780,6 +785,7 @@ Format: comma-separated `name:hex` pairs. Whitespace around the separators is to
 |---|---|
 | `name` | `[a-z][a-z0-9_-]{0,31}` — lowercase, alphanumeric + dash / underscore. Must NOT collide with a bundled enum value (`martis`, `blue`, `teal`, `violet`, `amber`, `custom`). |
 | `hex` | `#RRGGBB` (6-digit hex with leading `#`). |
+| `contrastHex` | Optional. `#RRGGBB`. When absent Martis derives it from the accent's luminance: white while white reaches the WCAG 3:1 floor against the accent, a near-black navy (`#0b1220`) below it. An invalid value drops the whole entry. |
 | Duplicates | Last-wins (env-override semantics). |
 | Limit | Up to 24 custom accents. Beyond that the parser truncates. |
 
@@ -795,15 +801,17 @@ Martis injects an inline `<style>` block at boot for every custom accent:
 
 ```css
 html[data-accent="edgeflow"] {
-  --martis-accent: #1a73e8;
-  --martis-accent-hover:  color-mix(in srgb, #1a73e8 88%, black);
-  --martis-accent-soft:   color-mix(in srgb, #1a73e8 18%, transparent);
-  --martis-accent-strong: color-mix(in srgb, #1a73e8 92%, black);
-  --martis-accent-text:   #ffffff;
+  --martis-accent:          #1a73e8;
+  --martis-accent-hover:    color-mix(in srgb, #1a73e8 88%, black);
+  --martis-accent-active:   color-mix(in srgb, #1a73e8 78%, black);
+  --martis-accent-bg-light: color-mix(in srgb, #1a73e8 14%, transparent);
+  --martis-accent-bg:       color-mix(in srgb, #1a73e8 24%, transparent);
+  --martis-focus-ring:      color-mix(in srgb, #1a73e8 45%, transparent);
+  --martis-accent-contrast: #ffffff;   /* third segment, or derived */
 }
 ```
 
-Hover / soft / strong variants are derived from the base hex via `color-mix(in srgb, …)`, so the consumer only ships one colour per accent. Browser support: Chrome 111+, Safari 16.2+, Firefox 113+.
+Hover / active / bg / focus-ring variants are derived from the base hex via `color-mix(in srgb, …)`, and the contrast colour from its luminance (`Martis\Preferences\AccentContrast`), so the consumer only ships one colour per accent. Browser support: Chrome 111+, Safari 16.2+, Firefox 113+. The same derivation runs client-side for a per-user `brandColor` (see [Preferences](preferences.md)).
 
 ### Removing a custom accent
 
@@ -816,7 +824,7 @@ Drop the entry from `MARTIS_CUSTOM_ACCENTS` and `php artisan config:cache`. User
     'enabled'    => true,
     'metrics'    => ['enabled' => true, 'ttl' => 5],
     'navigation' => ['enabled' => true, 'ttl' => 1],
-    'dashboards' => ['enabled' => true, 'ttl' => null],
+    'dashboards' => ['enabled' => true, 'ttl' => 5],
     'schema'     => ['enabled' => true, 'ttl' => null],
     'admin_ui'   => true,
 ],
@@ -1123,7 +1131,7 @@ Beyond the global `MARTIS_CACHE_ENABLED` master switch, every surface that cache
 | Variable | Default | Surface |
 |---|---|---|
 | `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` | Dashboard renders |
-| `MARTIS_CACHE_DASHBOARDS` / `MARTIS_CACHE_DASHBOARDS_TTL` | `null` | Dashboard TTL |
+| `MARTIS_CACHE_DASHBOARDS` / `MARTIS_CACHE_DASHBOARDS_TTL` | `5` | Dashboard TTL (the list key is also fingerprinted by the user's authorized set, so membership changes never wait for the TTL) |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` | Metric cards |
 | `MARTIS_CACHE_METRICS` / `MARTIS_CACHE_METRICS_TTL` | `5` | Metrics TTL |
 | `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` | Sidebar navigation tree |
@@ -1294,9 +1302,9 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_BRAND_NAME` | `'Martis'` |
 | `MARTIS_BRAND_VERSION` | `(no default)` |
 | `MARTIS_CACHE_ADMIN_UI` | `true` |
-| `MARTIS_CACHE_DASHBOARDS` | `null` |
+| `MARTIS_CACHE_DASHBOARDS` | `5` |
 | `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` |
-| `MARTIS_CACHE_DASHBOARDS_TTL` | `env('MARTIS_CACHE_DASHBOARDS', null)` |
+| `MARTIS_CACHE_DASHBOARDS_TTL` | `env('MARTIS_CACHE_DASHBOARDS', 5)` |
 | `MARTIS_CACHE_ENABLED` | `true` |
 | `MARTIS_CACHE_METRICS` | `5` |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` |

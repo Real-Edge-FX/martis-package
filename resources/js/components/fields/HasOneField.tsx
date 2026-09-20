@@ -272,7 +272,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
                   onClick={() =>
                     navigate(`/resources/${relatedResource}/create${viaParams}`)
                   }
-                  className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white"
+                  className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-martis-accent-contrast"
                   style={{ backgroundColor: 'var(--martis-accent)' }}
                 >
                   <PlusIcon size={14} weight="bold" />

@@ -117,6 +117,11 @@
   --martis-accent-bg-light: rgba(79, 123, 249, 0.14);
   --martis-accent-bg:       rgba(79, 123, 249, 0.24);
   --martis-focus-ring:      rgba(79, 123, 249, 0.45);
+  /* Text/icon colour painted ON TOP of an accent fill (buttons, paginator
+     highlight, datepicker highlight, checkbox ticks…). White suits the
+     bundled accents; a theme with a bright accent sets a dark value here
+     instead of darkening the accent itself. */
+  --martis-accent-contrast: #FFFFFF;
 
   /* 3.4 Semantic solid */
   --martis-success:       #22C55E;
@@ -203,6 +208,13 @@
   --martis-brand-grid-dot:        rgba(255, 255, 255, 0.09);
   --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.55);
   --martis-brand-text:             #FFFFFF;
+  /* Version badge on the hero: its glass fill / border and the bright
+     band that sweeps across it every 3.5 s. A theme with a bright
+     gradient lowers the band (or sets it to `transparent`) so the white
+     text on the badge keeps its contrast through the whole cycle. */
+  --martis-brand-badge-bg:        linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --martis-brand-badge-border:    rgba(255, 255, 255, 0.22);
+  --martis-brand-shimmer:         rgba(255, 255, 255, 0.28);
 
   /* 3.12 File icon colors (dark-tuned) */
   --martis-file-icon-pdf:     #EF4444;
@@ -230,7 +242,7 @@
 
   /* ▸ PrimeReact bridge — todas as PrimeReact vars apontam para os tokens Martis */
   --primary-color: var(--martis-accent);
-  --primary-color-text: #ffffff;
+  --primary-color-text: var(--martis-accent-contrast, #ffffff);
   --primary-50: var(--martis-accent-bg-light);
   --primary-100: var(--martis-accent-bg);
   --surface-a: var(--martis-surface);
@@ -281,6 +293,7 @@ html:not(.dark) {
   --martis-accent-bg-light: #ECF1FE;
   --martis-accent-bg:       #D7E1FD;
   --martis-focus-ring:      rgba(59, 106, 240, 0.35);
+  --martis-accent-contrast: #FFFFFF;
 
   /* 3.4 Semantic solid */
   --martis-success:       #16A34A;
@@ -369,6 +382,9 @@ html:not(.dark) {
   --martis-brand-grid-dot:        rgba(255, 255, 255, 0.10);
   --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.40);
   --martis-brand-text:             #FFFFFF;
+  --martis-brand-badge-bg:        linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --martis-brand-badge-border:    rgba(255, 255, 255, 0.22);
+  --martis-brand-shimmer:         rgba(255, 255, 255, 0.28);
 
   /* 3.12 File icon colors */
   --martis-file-icon-pdf:     #DC2626;
@@ -1353,38 +1369,33 @@ html[data-reduced-motion="true"] *::after {
    The `.mwc-blob` aurora drift on the WelcomeCard hero is also
    exempted — the two blobs cycle every 14 / 18 s with sub-3% screen
    coverage at any moment, so they sit well below the vestibular
-   threshold reduce-motion is meant to clamp. The card's inline
-   parallax tilt (mouse-driven transform) IS still suppressed at the
-   React layer via `usePrefersReducedMotion`. */
+   threshold reduce-motion is meant to clamp. The badge shimmer
+   (`.mwc-shimmer`) is NOT exempted: it is a bright highlight moving
+   over text, so the global clamp above stops it (one 1 ms cycle ends
+   with the band parked off-canvas). The card's inline parallax tilt
+   (mouse-driven transform) is suppressed at the React layer via
+   `usePrefersReducedMotion`. */
 @media (prefers-reduced-motion: reduce) {
   .animate-spin,
   .animate-pulse,
   .animate-spin::before,
   .animate-pulse::before,
-  .mwc-blob,
-  .mwc-shimmer {
+  .mwc-blob {
     animation-duration: var(--mwc-keep-duration, 1s) !important;
     animation-iteration-count: infinite !important;
   }
   .mwc-blob {
     --mwc-keep-duration: 14s;
   }
-  .mwc-shimmer {
-    --mwc-keep-duration: 3.5s;
-  }
 }
 html[data-reduced-motion="true"] .animate-spin,
 html[data-reduced-motion="true"] .animate-pulse,
-html[data-reduced-motion="true"] .mwc-blob,
-html[data-reduced-motion="true"] .mwc-shimmer {
+html[data-reduced-motion="true"] .mwc-blob {
   animation-duration: var(--mwc-keep-duration, 1s) !important;
   animation-iteration-count: infinite !important;
 }
 html[data-reduced-motion="true"] .mwc-blob {
   --mwc-keep-duration: 14s;
-}
-html[data-reduced-motion="true"] .mwc-shimmer {
-  --mwc-keep-duration: 3.5s;
 }
 
 /* ============================================================
@@ -2450,7 +2461,7 @@ html.dark body {
 .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger):hover {
   background-color: var(--martis-accent-hover);
@@ -2554,7 +2565,7 @@ html.dark body {
 }
 .p-paginator .p-paginator-page.p-highlight {
   background-color: var(--martis-accent);
-  color: white;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 
 /* ── Dropdown ──────────────────────────────────────────────────── */
@@ -2956,7 +2967,7 @@ html:not(.dark) .p-inputtext {
 html:not(.dark) .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 html:not(.dark) .p-button.p-button-outlined:not(.p-button-danger) {
   background: transparent;
@@ -3061,7 +3072,7 @@ html:not(.dark) .p-inputswitch .p-inputswitch-slider:before {
   background: #ffffff;
 }
 html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider {
-  background: #6366f1;
+  background: var(--martis-accent);
 }
 html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider:before {
   background: #ffffff;
@@ -3070,7 +3081,7 @@ html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover) 
   background: #b7bcc5;
 }
 html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover).p-highlight .p-inputswitch-slider {
-  background: #4f46e5;
+  background: var(--martis-accent-hover);
 }
 
 /* Light theme — Dialog/Modal */
@@ -3210,7 +3221,7 @@ html:not(.dark) .p-datepicker table td.p-datepicker-today > span {
 }
 html:not(.dark) .p-datepicker table td > span.p-highlight {
   background-color: var(--martis-accent) !important;
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 html:not(.dark) .p-datepicker table td.p-datepicker-other-month > span {
   color: var(--martis-text-muted);
@@ -3234,7 +3245,7 @@ html:not(.dark) .p-datepicker .p-timepicker button:hover {
 html:not(.dark) .p-calendar .p-datepicker-trigger {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 html:not(.dark) .p-calendar .p-datepicker-trigger:hover {
   background-color: var(--martis-accent-hover);
@@ -3502,8 +3513,8 @@ html:not(.dark) .martis-dropzone {
 .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 .p-checkbox .p-checkbox-box.p-highlight svg,
 .p-checkbox .p-checkbox-box.p-highlight .p-icon {
-  color: #ffffff !important;
-  fill: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* Native `<input type="checkbox">` styled to match the PrimeReact
    checkbox so preferences menu, form fields and toolbar selections
@@ -3737,8 +3748,8 @@ html:not(.dark) .p-checkbox .p-checkbox-box {
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
-  color: #ffffff !important;
-  fill: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 
 /* Header colours live in `.martis-datatable .p-datatable-thead > tr > th`
@@ -4186,7 +4197,7 @@ html[data-density="dense"] .martis-index-toolbar {
 
 .martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button {
   background-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
   border-radius: 0.25rem;
   padding: 0.375rem 0.75rem;
   width: auto !important;
@@ -4840,13 +4851,13 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 .dark .p-checkbox .p-checkbox-box.p-highlight svg,
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-icon {
-  color: #ffffff !important;
-  fill: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* Correct: p-highlight is on root .p-checkbox, not .p-checkbox-box (REA-1182) */
 .dark .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
 }
 
 /* ── Fix: PrimeReact overlay panels z-index above action modals (REA-1102) ── */
@@ -4946,17 +4957,17 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 
 /* ── PrimeReact native checkbox dark theme fix (Problem 7) ──────── */
 .p-checkbox .p-checkbox-box .p-checkbox-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 .p-datatable .p-checkbox .p-checkbox-box.p-highlight {
   background-color: var(--martis-accent) !important;
   border-color: var(--martis-accent) !important;
 }
 .p-datatable .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* Ensure header checkbox in DataTable is visible */
 .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
@@ -5082,8 +5093,8 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-checked .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-checked svg,
 html:not(.dark) .p-checkbox-checked .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-checkbox-checked .p-checkbox-box svg {
-  color: #ffffff !important;
-  fill: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* DataTable row/header checkboxes — light theme. Size, border width
    and resting colour flow from the base spec rule above. We only
@@ -5094,8 +5105,8 @@ html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-chec
 html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box svg,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box svg {
-  color: #ffffff !important;
-  fill: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 
 
@@ -5546,7 +5557,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-primary {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #fff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 .martis-btn-primary:hover:not(:disabled) {
   background-color: var(--martis-accent-hover);
@@ -5955,7 +5966,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border-color: var(--martis-accent-hover);
 }
 .martis-boolgroup-option .p-checkbox-box .p-checkbox-icon {
-  color: #fff;
+  color: var(--martis-accent-contrast, #ffffff);
   font-size: 0.75rem;
 }
 .martis-boolgroup-display {

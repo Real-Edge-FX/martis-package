@@ -31,6 +31,9 @@ use Throwable;
  *    render "Run <action> on <resource>".
  *  - **Recent** — the authenticated user's latest 5 `martis_action_events`
  *    rows, linking back to the affected record when `model_id` is set.
+ *    Gated by the registered ActionEvent resource's `authorizedToViewAny`
+ *    (same policy as the audit-log index); absent when no resource
+ *    exposes the model.
  *
  * All arrays come out ordered for deterministic rendering — any
  * fuzzy match / scoring happens client-side.
@@ -190,6 +193,17 @@ class CommandPaletteController extends MartisController
             return [];
         }
 
+        // The Recent block is a read surface of the audit-log resource, so it
+        // is gated exactly like the index (static::$policy, auto-discovery,
+        // Gate::getPolicyFor()) and disappears with the resource itself: a
+        // host that sets `martis.action_events.resource` to false, or never
+        // registers a resource for the ActionEvent model, does not expose the
+        // rows through ⌘K either.
+        $audit = $this->actionEventResource();
+        if ($audit === null || ! $audit->authorizedToViewAny($request)) {
+            return [];
+        }
+
         try {
             /** @var Collection<int, ActionEvent> $rows */
             $rows = ActionEvent::query()
@@ -217,6 +231,22 @@ class CommandPaletteController extends MartisController
                 'created_at' => $e->created_at?->toIso8601String() ?? '',
             ];
         })->values()->all();
+    }
+
+    /**
+     * The registered resource that exposes the ActionEvent model (the
+     * built-in ActionEventResource or a consumer's own), or null when the
+     * host does not expose the audit log at all.
+     */
+    private function actionEventResource(): ?Resource
+    {
+        foreach ($this->registry->list() as $class) {
+            if (is_a($class::model(), ActionEvent::class, true)) {
+                return new $class;
+            }
+        }
+
+        return null;
     }
 
     /**
