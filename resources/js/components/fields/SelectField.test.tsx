@@ -1,11 +1,25 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent, screen, waitFor } from '@testing-library/react'
-import { SelectFieldInput } from './SelectField'
 import type { FieldDefinition } from '@/types'
+
+const apiGetMock = vi.fn()
+
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>()
+  return { ...actual, api: { ...actual.api, get: (...args: unknown[]) => apiGetMock(...args) } }
+})
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_k: string, o?: { defaultValue?: string }) => o?.defaultValue ?? _k }),
 }))
+
+// Imported AFTER the mocks are registered.
+const { SelectFieldInput } = await import('./SelectField')
+
+beforeEach(() => {
+  apiGetMock.mockReset()
+  apiGetMock.mockResolvedValue({ data: { options: [] } })
+})
 
 function makeField(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
   return {
@@ -135,5 +149,89 @@ describe('SelectFieldInput — custom values', () => {
       <SelectFieldInput field={makeField({ allowCustomValues: true })} value="not-an-option" onChange={vi.fn()} error={undefined} />,
     )
     expect((container.querySelector('input.p-dropdown-label') as HTMLInputElement).value).toBe('not-an-option')
+  })
+})
+
+describe('SelectFieldInput — remote option search', () => {
+  const remoteField = () => makeField({
+    attribute: 'model', searchableOptions: true, remoteOptionsSearch: true,
+    options: [{ label: 'gpt-4o', value: 'gpt-4o' }],
+  })
+
+  it('falls back to local filtering when the form has no scope (no request is made)', () => {
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    expect(apiGetMock).not.toHaveBeenCalled()
+    expect(document.querySelector('.p-dropdown-filter')).not.toBeNull()
+    expect(screen.queryByTestId('select-remote-search-model')).toBeNull()
+  })
+
+  it('asks the Resource endpoint on open and renders the returned options', async () => {
+    apiGetMock.mockResolvedValue({ data: { options: [{ label: 'Claude Opus 5', value: 'claude-opus-5' }] } })
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} resourceKey="clients" context="update" />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(1))
+    expect(apiGetMock.mock.calls[0][0]).toBe('/api/resources/clients/fields/model/options?context=update&search=')
+    expect(await screen.findByText('Claude Opus 5')).toBeTruthy()
+  })
+
+  it('asks the Tool endpoint when the form is scoped to a Tool', async () => {
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} toolKey="settings" />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(1))
+    expect(apiGetMock.mock.calls[0][0]).toBe('/api/tools/settings/fields/model/options?search=')
+  })
+
+  it('sends the typed term through its own search box', async () => {
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} toolKey="settings" />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(1))
+
+    fireEvent.change(screen.getByTestId('select-remote-search-model'), { target: { value: 'claude' } })
+
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(2))
+    expect(apiGetMock.mock.calls[1][0]).toBe('/api/tools/settings/fields/model/options?search=claude')
+  })
+
+  it('does not hide a server match whose label and value do not contain the term', async () => {
+    // The server decides what matches (accent-insensitive, fuzzy, by a
+    // hidden column). PrimeReact's local filter must stay out of the way.
+    apiGetMock.mockResolvedValue({ data: { options: [{ label: 'João', value: 'joao-id' }] } })
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} toolKey="settings" />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(1))
+    fireEvent.change(screen.getByTestId('select-remote-search-model'), { target: { value: 'zzz' } })
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(2))
+
+    expect(await screen.findByText('João')).toBeTruthy()
+  })
+
+  it('shows a stored value that is not in the initial list instead of the placeholder', () => {
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="claude-opus-5" onChange={vi.fn()} error={undefined} toolKey="settings" />,
+    )
+    expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('claude-opus-5')
+  })
+
+  it('shows the load-error message in the panel when the request fails', async () => {
+    apiGetMock.mockRejectedValue(new Error('boom'))
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} toolKey="settings" />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    expect(await screen.findByText('options_load_error')).toBeTruthy()
   })
 })
