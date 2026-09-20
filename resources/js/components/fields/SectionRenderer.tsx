@@ -114,6 +114,7 @@ export function SectionInput({
   errors,
   resourceKey,
   recordId,
+  toolKey,
   context,
 }: {
   section: SectionDefinition
@@ -122,6 +123,7 @@ export function SectionInput({
   errors: Record<string, string>
   resourceKey?: string
   recordId?: string | number
+  toolKey?: string
   context?: 'create' | 'update'
 }) {
   return (
@@ -150,6 +152,7 @@ export function SectionInput({
                   error={errors[field.attribute]}
                   resourceKey={resourceKey}
                   recordId={recordId}
+                  toolKey={toolKey}
                   context={context}
                   formValues={values}
                 />

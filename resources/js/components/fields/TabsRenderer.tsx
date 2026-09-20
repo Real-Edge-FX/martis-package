@@ -141,6 +141,7 @@ export function TabsInput({
   errors,
   resourceKey,
   recordId,
+  toolKey,
   context,
 }: {
   tabGroup: TabGroupDefinition
@@ -149,6 +150,7 @@ export function TabsInput({
   errors: Record<string, string>
   resourceKey?: string
   recordId?: string | number
+  toolKey?: string
   context?: 'create' | 'update'
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
@@ -179,6 +181,7 @@ export function TabsInput({
                     errors={errors}
                     resourceKey={resourceKey}
                     recordId={recordId}
+                    toolKey={toolKey}
                     context={context}
                   />
                 </div>
@@ -205,6 +208,7 @@ export function TabsInput({
                     error={errors[field.attribute]}
                     resourceKey={resourceKey}
                     recordId={recordId}
+                    toolKey={toolKey}
                     context={context}
                     formValues={values}
                   />

@@ -331,6 +331,20 @@ export interface FieldDefinition {
   variant?: string
   /** Extra className forwarded to the field's root control (e.g. a select's Dropdown). */
   className?: string
+  /**
+   * Select: render a search box above the option list (PHP
+   * `Select::searchableOptions()`). Distinct from `searchable`, the
+   * column-search flag every field carries. v1.37.0.
+   */
+  searchableOptions?: boolean
+  /** Select: accept a typed value that is not one of the options (PHP `Select::allowCustomValues()`). v1.37.0. */
+  allowCustomValues?: boolean
+  /**
+   * Select: the option list is searched on the server through the form's
+   * scope (PHP `Select::searchOptionsUsing()`). Needs a `resourceKey` or a
+   * `toolKey` on the form; without one the select filters locally. v1.37.0.
+   */
+  remoteOptionsSearch?: boolean
   /** Content text for heading fields. */
   content?: string | null
   /**

@@ -21,7 +21,7 @@ export interface FieldsFormProps {
  * `resolvedFields` + `fieldProps`.
  */
 export function FieldsForm({ form, context = 'create' }: FieldsFormProps): JSX.Element {
-  const { resolvedFields, values, errors, setValue, recordId, resourceKey } = form
+  const { resolvedFields, values, errors, setValue, recordId, resourceKey, toolKey } = form
   const handleChange = (attribute: string, value: unknown) => setValue(attribute, value)
 
   return (
@@ -38,6 +38,7 @@ export function FieldsForm({ form, context = 'create' }: FieldsFormProps): JSX.E
               errors={errors}
               resourceKey={resourceKey}
               recordId={recordId}
+              toolKey={toolKey}
               context={context}
             />
           )
@@ -52,6 +53,7 @@ export function FieldsForm({ form, context = 'create' }: FieldsFormProps): JSX.E
               errors={errors}
               resourceKey={resourceKey}
               recordId={recordId}
+              toolKey={toolKey}
               context={context}
             />
           )
@@ -66,6 +68,7 @@ export function FieldsForm({ form, context = 'create' }: FieldsFormProps): JSX.E
               errors={errors}
               resourceKey={resourceKey}
               recordId={recordId}
+              toolKey={toolKey}
               context={context}
             />
           )
