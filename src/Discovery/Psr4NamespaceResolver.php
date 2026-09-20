@@ -101,14 +101,14 @@ class Psr4NamespaceResolver
         $prefixes = [];
 
         foreach (spl_autoload_functions() as $autoloader) {
-            $loader = is_array($autoloader) ? ($autoloader[0] ?? null) : null;
+            $loader = is_array($autoloader) ? $autoloader[0] : null;
 
             if (! $loader instanceof ClassLoader) {
                 continue;
             }
 
             foreach ($loader->getPrefixesPsr4() as $prefix => $directories) {
-                $prefixes[$prefix] = array_values(array_merge($prefixes[$prefix] ?? [], $directories));
+                $prefixes[$prefix] = array_merge($prefixes[$prefix] ?? [], $directories);
             }
         }
 
