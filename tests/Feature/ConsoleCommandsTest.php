@@ -478,6 +478,120 @@ it('martis:user fails when password is empty', function () {
     ])->assertFailed();
 });
 
+it('martis:user fails by default when the email already exists', function () {
+    User::forceCreate(['name' => 'Existing', 'email' => 'dup@martis.test', 'password' => Hash::make('original')]);
+
+    $this->artisan('martis:user', [
+        '--name' => 'Someone Else',
+        '--email' => 'dup@martis.test',
+        '--password' => 'newpass123',
+    ])
+        ->expectsOutputToContain('already exists')
+        ->assertFailed();
+
+    $user = User::where('email', 'dup@martis.test')->first();
+
+    expect(User::where('email', 'dup@martis.test')->count())->toBe(1);
+    expect($user->name)->toBe('Existing');
+    expect(Hash::check('original', $user->password))->toBeTrue();
+});
+
+it('martis:user --if-missing creates the user on the first run and is a successful no-op afterwards', function () {
+    $args = [
+        '--name' => 'Boot Admin',
+        '--email' => 'boot@martis.test',
+        '--password' => 'first-secret',
+        '--if-missing' => true,
+    ];
+
+    $this->artisan('martis:user', $args)->assertSuccessful();
+
+    // Second boot: same email, a rotated password that must NOT be applied.
+    $this->artisan('martis:user', array_merge($args, ['--name' => 'Renamed', '--password' => 'rotated']))
+        ->doesntExpectOutputToContain('error')
+        ->expectsOutputToContain('already exists')
+        ->assertSuccessful();
+
+    $user = User::where('email', 'boot@martis.test')->first();
+
+    expect(User::where('email', 'boot@martis.test')->count())->toBe(1);
+    expect($user->name)->toBe('Boot Admin');
+    expect(Hash::check('first-secret', $user->password))->toBeTrue();
+    expect(Hash::check('rotated', $user->password))->toBeFalse();
+});
+
+it('martis:user --update rewrites the name and password of an existing user', function () {
+    $verifiedAt = now()->subDays(3)->startOfSecond();
+    User::forceCreate([
+        'name' => 'Old Name',
+        'email' => 'rotate@martis.test',
+        'password' => Hash::make('old-secret'),
+        'email_verified_at' => $verifiedAt,
+    ]);
+
+    $this->artisan('martis:user', [
+        '--name' => 'New Name',
+        '--email' => 'rotate@martis.test',
+        '--password' => 'new-secret',
+        '--update' => true,
+    ])
+        ->expectsOutputToContain('updated')
+        ->assertSuccessful();
+
+    $user = User::where('email', 'rotate@martis.test')->first();
+
+    expect(User::where('email', 'rotate@martis.test')->count())->toBe(1);
+    expect($user->name)->toBe('New Name');
+    expect(Hash::check('new-secret', $user->password))->toBeTrue();
+    expect(Hash::check('old-secret', $user->password))->toBeFalse();
+    // A rotated password never touches the verification timestamp.
+    expect(\Illuminate\Support\Carbon::parse($user->email_verified_at)->timestamp)->toBe($verifiedAt->timestamp);
+});
+
+it('martis:user --update keeps the existing name when --name is not given', function () {
+    User::forceCreate(['name' => 'Keep Me', 'email' => 'keep@martis.test', 'password' => Hash::make('old-secret')]);
+
+    $this->artisan('martis:user', [
+        '--email' => 'keep@martis.test',
+        '--password' => 'new-secret',
+        '--update' => true,
+    ])->assertSuccessful();
+
+    $user = User::where('email', 'keep@martis.test')->first();
+
+    expect($user->name)->toBe('Keep Me');
+    expect(Hash::check('new-secret', $user->password))->toBeTrue();
+});
+
+it('martis:user --update creates the user when the email does not exist yet', function () {
+    $this->artisan('martis:user', [
+        '--name' => 'Fresh',
+        '--email' => 'fresh@martis.test',
+        '--password' => 'fresh-secret',
+        '--update' => true,
+    ])
+        ->expectsOutputToContain('created')
+        ->assertSuccessful();
+
+    $user = User::where('email', 'fresh@martis.test')->first();
+
+    expect($user)->not->toBeNull();
+    expect($user->name)->toBe('Fresh');
+    expect(Hash::check('fresh-secret', $user->password))->toBeTrue();
+});
+
+it('martis:user --update fails when the password is empty', function () {
+    User::forceCreate(['name' => 'Keep Me', 'email' => 'nopass@martis.test', 'password' => Hash::make('old-secret')]);
+
+    $this->artisan('martis:user', [
+        '--email' => 'nopass@martis.test',
+        '--password' => '',
+        '--update' => true,
+    ])->assertFailed();
+
+    expect(Hash::check('old-secret', User::where('email', 'nopass@martis.test')->first()->password))->toBeTrue();
+});
+
 it('UserCommand is registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();
     expect($commands)->toHaveKey('martis:user');

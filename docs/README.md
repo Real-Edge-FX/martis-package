@@ -176,7 +176,7 @@ Operational docs (release process, dev environment quickstart, architecture ADRs
 | `martis:field` | Create a custom field (PHP + React TSX) |
 | `martis:component` | Generate a React component with auto-registration |
 | `martis:theme` | Scaffold a custom theme (dark + light mode) |
-| `martis:user` | Create a new admin user |
+| `martis:user` | Create a new admin user (`--if-missing` / `--update` for boot scripts) |
 | `martis:policy` | Create a resource policy class |
 | `martis:vendor-publish` | Publish package files (config, assets, views, lang) |
 | `martis:stubs` | Publish generator stubs into `stubs/martis/` for customisation |
