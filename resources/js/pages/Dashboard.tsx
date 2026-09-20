@@ -338,7 +338,7 @@ function DefaultDashboardView({ groups }: { groups: NavigationGroup[] }) {
 
       {showMetrics && (
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
-          <StatCard label={t('registered')} value={totalResources} icon={<DatabaseIcon size={20} className="text-indigo-400" />} bgClass="bg-indigo-500/20" />
+          <StatCard label={t('registered')} value={totalResources} icon={<DatabaseIcon size={20} className="text-martis-accent" />} bgClass="bg-martis-accent-bg-light" />
           <StatCard label={t('groups')} value={groups.length} icon={<FolderIcon size={20} className="text-emerald-400" />} bgClass="bg-emerald-500/20" />
           <StatCard label={t('active')} value={totalResources} icon={<CheckCircleIcon size={20} className="text-amber-400" />} bgClass="bg-amber-500/20" />
         </div>
@@ -352,8 +352,8 @@ function DefaultDashboardView({ groups }: { groups: NavigationGroup[] }) {
               <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block h-full">
                 <Card className="martis-resource-card transition-all hover:shadow-md cursor-pointer h-full">
                   <div className="flex items-center gap-4 min-h-[2.5rem]">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
-                      <ResourceIcon iconName={r.icon ?? null} size={20} className="text-indigo-400" />
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-martis-accent-bg-light">
+                      <ResourceIcon iconName={r.icon ?? null} size={20} className="text-martis-accent" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold" style={{ color: 'var(--martis-text)' }}>{r.label}</p>
