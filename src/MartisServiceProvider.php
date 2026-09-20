@@ -25,6 +25,7 @@ use Martis\Auth\DefaultSendsPasswordResetLinks;
 use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
+use Martis\Authorization\PolicyResolver;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
 use Martis\Concerns\HasPolicy;
@@ -136,6 +137,12 @@ class MartisServiceProvider extends ServiceProvider
         // The PSR-4 map does not change during a process; read it once
         // and share it between resource and tool discovery.
         $this->app->singleton(Psr4NamespaceResolver::class);
+
+        // v1.36.0: policy resolution memo. Scoped, not singleton, so the
+        // memo dies with the request (Octane), the job (queue worker) or
+        // the application instance (one per test); policy instances are
+        // never cached, they come from the container on every check.
+        $this->app->scoped(PolicyResolver::class);
 
         $this->app->singleton(SsoManager::class);
 
