@@ -208,6 +208,13 @@
   --martis-brand-grid-dot:        rgba(255, 255, 255, 0.09);
   --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.55);
   --martis-brand-text:             #FFFFFF;
+  /* Version badge on the hero: its glass fill / border and the bright
+     band that sweeps across it every 3.5 s. A theme with a bright
+     gradient lowers the band (or sets it to `transparent`) so the white
+     text on the badge keeps its contrast through the whole cycle. */
+  --martis-brand-badge-bg:        linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --martis-brand-badge-border:    rgba(255, 255, 255, 0.22);
+  --martis-brand-shimmer:         rgba(255, 255, 255, 0.28);
 
   /* 3.12 File icon colors (dark-tuned) */
   --martis-file-icon-pdf:     #EF4444;
@@ -375,6 +382,9 @@ html:not(.dark) {
   --martis-brand-grid-dot:        rgba(255, 255, 255, 0.10);
   --martis-brand-shadow:          0 20px 50px -20px rgba(76, 56, 200, 0.40);
   --martis-brand-text:             #FFFFFF;
+  --martis-brand-badge-bg:        linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --martis-brand-badge-border:    rgba(255, 255, 255, 0.22);
+  --martis-brand-shimmer:         rgba(255, 255, 255, 0.28);
 
   /* 3.12 File icon colors */
   --martis-file-icon-pdf:     #DC2626;
@@ -1359,38 +1369,33 @@ html[data-reduced-motion="true"] *::after {
    The `.mwc-blob` aurora drift on the WelcomeCard hero is also
    exempted — the two blobs cycle every 14 / 18 s with sub-3% screen
    coverage at any moment, so they sit well below the vestibular
-   threshold reduce-motion is meant to clamp. The card's inline
-   parallax tilt (mouse-driven transform) IS still suppressed at the
-   React layer via `usePrefersReducedMotion`. */
+   threshold reduce-motion is meant to clamp. The badge shimmer
+   (`.mwc-shimmer`) is NOT exempted: it is a bright highlight moving
+   over text, so the global clamp above stops it (one 1 ms cycle ends
+   with the band parked off-canvas). The card's inline parallax tilt
+   (mouse-driven transform) is suppressed at the React layer via
+   `usePrefersReducedMotion`. */
 @media (prefers-reduced-motion: reduce) {
   .animate-spin,
   .animate-pulse,
   .animate-spin::before,
   .animate-pulse::before,
-  .mwc-blob,
-  .mwc-shimmer {
+  .mwc-blob {
     animation-duration: var(--mwc-keep-duration, 1s) !important;
     animation-iteration-count: infinite !important;
   }
   .mwc-blob {
     --mwc-keep-duration: 14s;
   }
-  .mwc-shimmer {
-    --mwc-keep-duration: 3.5s;
-  }
 }
 html[data-reduced-motion="true"] .animate-spin,
 html[data-reduced-motion="true"] .animate-pulse,
-html[data-reduced-motion="true"] .mwc-blob,
-html[data-reduced-motion="true"] .mwc-shimmer {
+html[data-reduced-motion="true"] .mwc-blob {
   animation-duration: var(--mwc-keep-duration, 1s) !important;
   animation-iteration-count: infinite !important;
 }
 html[data-reduced-motion="true"] .mwc-blob {
   --mwc-keep-duration: 14s;
-}
-html[data-reduced-motion="true"] .mwc-shimmer {
-  --mwc-keep-duration: 3.5s;
 }
 
 /* ============================================================

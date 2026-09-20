@@ -241,6 +241,9 @@ html[data-theme="dark"] {
   --martis-brand-pointer-glow: rgba(124, 140, 255, 0.35);
   --martis-brand-shadow:       0 20px 50px -20px rgba(76, 56, 200, 0.55);
   --martis-brand-text:         #FFFFFF;
+  --martis-brand-badge-bg:     linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --martis-brand-badge-border: rgba(255, 255, 255, 0.22);
+  --martis-brand-shimmer:      rgba(255, 255, 255, 0.28);  /* band sweeping the version badge; `transparent` disables it */
   --martis-trix-icon-filter:   invert(0.85);
 }
 
@@ -358,6 +361,9 @@ html[data-theme="light"] {
   --martis-brand-pointer-glow: rgba(124, 140, 255, 0.30);
   --martis-brand-shadow:       0 20px 50px -20px rgba(76, 56, 200, 0.40);
   --martis-brand-text:         #FFFFFF;
+  --martis-brand-badge-bg:     linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --martis-brand-badge-border: rgba(255, 255, 255, 0.22);
+  --martis-brand-shimmer:      rgba(255, 255, 255, 0.28);
   --martis-trix-icon-filter:   none;
 
   color-scheme: light;

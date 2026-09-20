@@ -232,6 +232,9 @@ Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCa
 | `--martis-brand-grid-dot` | Dot-grid overlay opacity. |
 | `--martis-brand-shadow` | Shadow pushed under the brand surface. |
 | `--martis-brand-text` | Default text colour on top of the brand surface. |
+| `--martis-brand-badge-bg` | Glass fill of the version badge on the hero (default: a 12 % → 6 % white gradient). |
+| `--martis-brand-badge-border` | Border of the version badge (default `rgba(255, 255, 255, 0.22)`). |
+| `--martis-brand-shimmer` | Colour of the bright band that sweeps across the version badge every 3.5 s (default `rgba(255, 255, 255, 0.28)`). On a bright gradient the band can push the badge text below WCAG AA for a slice of every cycle: lower the alpha, or set `transparent` to remove the sweep. The band also stops under `prefers-reduced-motion` and `html[data-reduced-motion="true"]` (the aurora blobs keep drifting; they sit below the vestibular threshold, a bright highlight moving over text does not). |
 | `--martis-brand-logo-height-auth` | Logo height (px) on the auth screen lockup. |
 | `--martis-brand-logo-height-menu` | Logo height (px) in the user dropdown menu. |
 
