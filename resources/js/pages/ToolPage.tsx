@@ -24,6 +24,12 @@ interface ToolDescriptor {
   icon: string | null
   component: string | null
   menuSection: string | null
+  /**
+   * True when the tool is docked in the bundled "System" sidebar section
+   * (`Tool::withSystemSection()`, v1.35.0+); `menuSection` is ignored then.
+   * Optional so descriptors built by hand in consumer tests keep compiling.
+   */
+  belongsToSystemSection?: boolean
   /** Decorative pill (v1.11+). Set via `Tool::withBadge(...)`. */
   badge?: { text: string; tone: string } | null
   /** Soft-gate state (v1.11+). Non-null = the user is locked out. */

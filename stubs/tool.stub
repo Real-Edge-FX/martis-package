@@ -14,9 +14,11 @@ use Martis\Tools\Tool;
  *
  * Auto-discovered (v1.8.20+): no manual `Martis::tools([X::class])`
  * call needed. The Tool also auto-surfaces in the sidebar under the
- * default "Tools" header — pass `withMenuSection('Operations')` in
- * the constructor to place it elsewhere, or define a custom
- * `Martis::mainMenu(...)` resolver for full control.
+ * default "Tools" header. Pass `withMenuSection('Operations')` in the
+ * constructor to place it elsewhere, `withSystemSection()` to dock it in
+ * the bundled "System" section (next to the audit log and the cache
+ * admin), or define a custom `Martis::mainMenu(...)` resolver for full
+ * control.
  *
  * Authorisation: by default visible to every authenticated user.
  * Restrict via `canSee()` in the constructor:

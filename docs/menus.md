@@ -114,6 +114,8 @@ Mid-level cluster nested **inside** a `MenuSection`. See [Nested MenuGroup](#nes
 
 Since v1.8.20, every registered Tool is auto-grouped into the sidebar by default. A Tool that declares `withMenuSection('Operations')` lands in the "Operations" section; everything else goes under the localised "Tools" header (translation key `martis::messages.tools_section`, default English label `Tools`). You only need to call `MenuItem::tool(...)` when you build a fully custom main menu via `Martis::mainMenu(...)` and want a Tool placed alongside hand-rolled links.
 
+A Tool that calls `withSystemSection()` (v1.35.0+) skips the auto-grouping entirely and renders inside the bundled **System** section (the one holding the audit log and the "System cache" link), after the System-section resources and before the cache link; its `menuSection()` is ignored. The `Martis::mainMenu(...)` dedup applies to it too: place it manually with `MenuItem::tool(...)` and the System section will not repeat it. A Tool that merely returns the label "System" from `menuSection()` is not merged (no label matching). See [Tools → Place a Tool under "System"](tools.md#place-a-tool-under-system--withsystemsection-v1350).
+
 ```php
 use App\Martis\Tools\HealthCheck;
 use Martis\Menu\MenuItem;

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.35.0] — 2026-09-20
+
+### Added
+
+- **`Tool::withSystemSection()`: dock a Tool in the bundled "System" sidebar section.** Resources could opt into the package's System section (`belongsToSystemSection()`, used by the audit log and by the `martis:roles` / `martis:invitations` scaffolds) but Tools had no equivalent: their only lever was `menuSection()`, and a Tool returning the translated "System" label produced a *second* section with the same header, because the navigation builder groups Tools by label and builds the bundled section from Resources only. An operations page shipped as a Tool (settings console, health dashboard, provider re-arm) therefore could not sit next to Audit Log, Action Events and System cache. `ToolContract` gains `belongsToSystemSection(): bool` (default `false` on `Tool`; fluent `withSystemSection(bool $value = true)`, or override the getter), `Tool::toArray()` exposes the flag, and `NavigationController` merges opted-in Tools into the single bundled section, after the System-section resources and before the Cache admin link. The opt-in wins over `menuSection()`; a Tool that merely returns "System" from `menuSection()` is unchanged (no label matching). The `Martis::mainMenu(...)` dedup now covers `MenuItem::tool(...)` leaves too, so a host that places the Tool by hand sees it once, and the ⌘K palette tags such Tools "System" the way it already did for resources (v1.29.3). `martis:tool --system-section` scaffolds the call (wins over `--menu-section`, with a warning), and the "internal status page" recipe uses it instead of the old `--menu-section="System"` + `MenuSection::make('System', …)` pair. Custom `ToolContract` implementations that do not extend `Tool` must add the method. Backend-only, no asset rebuild. +11 Pest. See [Tools → Place a Tool under "System"](docs/tools.md#place-a-tool-under-system--withsystemsection-v1350) and [Menus → Tool menu items](docs/menus.md#tool-menu-items).
+
 ## [1.34.0] — 2026-09-20
 
 Batch release for ten `marti-forge` reports: three theme-token gaps, four authorization / scoping gaps, one cache-freshness gap, one CLI enhancement and one dev-tools bug. Frontend + backend; assets rebuilt.

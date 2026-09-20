@@ -59,7 +59,7 @@ php artisan martis:tool SystemStatus --use-bundled --menu-section="Operations" -
 
 This produces `app/Martis/Tools/SystemStatus.php`. **No registration step required**: any concrete `Martis\Tools\Tool` subclass under `app/Martis/Tools/` is auto-discovered at boot (v1.8.20+) and added to `Martis::tools(...)` with dedup by class-string.
 
-The Tool also surfaces in the sidebar by default — auto-grouped under the localised "Tools" header, or under whatever you pass to `withMenuSection('Operations')` inside the constructor. Manual placement via `MenuItem::tool(SystemStatus::class)` is still available when you build a fully custom main menu via `Martis::mainMenu(...)`.
+The Tool also surfaces in the sidebar by default — auto-grouped under the localised "Tools" header, or under whatever you pass to `withMenuSection('Operations')` inside the constructor. Call `withSystemSection()` instead to dock it in the bundled **System** section, next to the audit log and the Cache admin link (v1.35.0+, see [Place a Tool under "System"](#place-a-tool-under-system--withsystemsection-v1350)). Manual placement via `MenuItem::tool(SystemStatus::class)` is still available when you build a fully custom main menu via `Martis::mainMenu(...)`.
 
 Done. Navigate to `/martis/tools/system-status`. The bundled `martis:tool:system-status-demo` React component renders the page inside the standard layout.
 
@@ -107,15 +107,50 @@ Tool::make(__('Finance Imports'))
 | `icon()` | Currently-set Phosphor icon name, or `null`. Read by `MenuItem::tool()` and `toArray()`. |
 | `component()` | Registered React component key, or `null` (config-only tools). |
 | `menuSection()` | Active menu section label, or `null`. |
+| `belongsToSystemSection()` | `true` when the Tool is docked in the bundled "System" sidebar section. Defaults to `false`. v1.35.0+. |
 | `menuCount(Request)` | Sidebar count badge for this tool. Returns `null` (no badge) by default. Override to return a count. v1.29.0+. |
 | `showMenuCount()` | Whether the count badge renders. Defaults to `true`; the badge only appears when `menuCount()` also returns non-null. v1.29.0+. |
 | `meta()` | The accumulated metadata array (mirrors what `withMeta()` set). |
 | `withIcon(string)` | Phosphor icon for the menu entry. Chainable. |
 | `withComponent(string)` | React component key. The frontend looks this up in `componentRegistry`. Chainable. |
 | `withMenuSection(?string)` | Optional menu section label. Chainable. |
+| `withSystemSection(bool $value = true)` | Dock the Tool in the bundled "System" section (with the audit log, the System-section resources and the Cache admin link). Wins over `withMenuSection()`. Chainable. v1.35.0+. |
 | `withMeta(array)` | Merge arbitrary descriptor data; surfaced verbatim to the React component. Chainable. |
 | `breadcrumb()` | Breadcrumb override getter. Returns `null` when the breadcrumb tracks `name()` (default). v1.10.3+. |
 | `withBreadcrumb(?string)` | Override the breadcrumb label without touching `name()`. Pass `null` to clear. Chainable. v1.10.3+. |
+
+### Place a Tool under "System" — `withSystemSection()` (v1.35.0+)
+
+Resources can opt into the package's own **System** sidebar section (the one that holds the audit log, `martis:roles` / `martis:invitations` resources and the "System cache" link) via `belongsToSystemSection()`. Tools have the same opt-in:
+
+```php
+class Settings extends Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: __('Settings'), uriKey: 'settings');
+
+        $this->withIcon('sliders')
+            ->withComponent('tool:settings')
+            ->withSystemSection();
+    }
+}
+```
+
+Subclasses may override the getter instead (`public function belongsToSystemSection(): bool { return true; }`), exactly like a Resource.
+
+What changes for an opted-in Tool:
+
+- It renders inside the **single** bundled System section, after the System-section resources and before the "System cache" link. No section of its own is created, and `/api/navigation` carries one section labelled "System".
+- `menuSection()` / `withMenuSection()` are ignored for it (the opt-in wins).
+- The command palette (⌘K) tags it "System", the same label the sidebar uses.
+- Its `menuCount()` badge keeps working, including the `/api/navigation/badges` poll (`tool:{uriKey}` key).
+- Per-tool authorisation is unchanged: a user who fails `authorizedToSee()` does not get the entry; the section still renders for the other items that user can see.
+- If you also build a custom `Martis::mainMenu(...)` and place the same Tool by hand with `MenuItem::tool(...)`, the System section does not repeat it (dedup by tool `uriKey`, mirroring the rule for System-section resources).
+
+The opt-in is explicit on purpose. A Tool that merely returns the translated "System" label from `menuSection()` is **not** merged: it still produces its own section with that label, next to the bundled one. Switch it to `withSystemSection()`.
+
+The generator scaffolds the call: `php artisan martis:tool Settings --system-section`.
 
 ### Customising the breadcrumb (v1.10.3+)
 
@@ -300,7 +335,7 @@ Two endpoints the package mounts automatically:
 
 | Method | Path | Returns |
 |---|---|---|
-| `GET` | `/martis/api/tools` | Array of every authorised tool — `[{ type, name, uriKey, icon, component, menuSection, meta }, ...]` |
+| `GET` | `/martis/api/tools` | Array of every authorised tool — `[{ type, name, uriKey, icon, component, menuSection, belongsToSystemSection, meta }, ...]` |
 | `GET` | `/martis/api/tools/{uriKey}` | Single tool metadata, or 404 |
 | `GET` | `/api/navigation/badges` | Lightweight badge poll — includes each tool's `count` keyed by `uriKey`, alongside resource counts. |
 
@@ -349,6 +384,7 @@ interface ToolDescriptor {
   icon: string | null
   component: string | null
   menuSection: string | null
+  belongsToSystemSection?: boolean // docked in the bundled "System" section (v1.35.0+)
   count?: number | null           // sidebar badge from menuCount(), live-polled
   meta: Record<string, unknown>   // values you set via withMeta(...)
 }
@@ -381,6 +417,7 @@ php artisan martis:tool SystemStatus [flags]
 | `--component-key=foo` | Use `foo` as the React component key instead of the auto-generated `tool:{kebab-name}`. |
 | `--use-bundled` | Bind to the package-bundled `martis:tool:system-status-demo` component so the Tool renders out of the box without writing TSX. |
 | `--menu-section="Operations"` | Embed `withMenuSection('Operations')` in the generated stub. |
+| `--system-section` | Embed `withSystemSection()` in the generated stub so the Tool docks in the bundled "System" section. Wins over `--menu-section` (a warning is printed when both are given). v1.35.0+. |
 | `--icon=wrench` | Phosphor icon for the menu entry (default `wrench`). |
 | `--force` | Overwrite the file if it already exists. |
 
@@ -463,7 +500,7 @@ Laravel auto-discovers the provider on `composer require`. The per-tool `boot()`
 Goal: render a page with the master cache health, queue depth, and Telescope link.
 
 ```bash
-php artisan martis:tool SystemStatus --with-component --menu-section="System" --icon=pulse
+php artisan martis:tool SystemStatus --with-component --system-section --icon=pulse
 ```
 
 The generator drops:
@@ -478,16 +515,13 @@ $this->canSee(fn ($request) => $request->user()?->is_admin);
 
 In the React component, fetch `/martis/api/cache/status` and `/horizon/api/stats` and render them.
 
-Register and add to the menu:
+Register (or rely on auto-discovery under `app/Martis/Tools/`):
 
 ```php
 Martis::tools([SystemStatus::class]);
-
-// in mainMenu(...):
-MenuSection::make('System', [
-    MenuItem::tool(SystemStatus::class),
-])->icon('gear');
 ```
+
+That is all: `--system-section` scaffolds `withSystemSection()`, so the Tool renders inside the bundled **System** section between the System-section resources and the "System cache" link, with no `Martis::mainMenu(...)` needed. (Before v1.35.0 this recipe used `--menu-section="System"` plus a hand-built `MenuSection::make('System', [...])`, which produced a second section with the same header.)
 
 ### Recipe 2 — Import wizard with custom routes
 

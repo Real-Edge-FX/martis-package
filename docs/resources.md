@@ -189,6 +189,8 @@ public function belongsToSystemSection(): bool { return true; }
 
 A System-section resource keeps `group() === null` — the sidebar buckets it under the **System** header, not a `group()` bucket. The command palette (⌘K) mirrors this: since **v1.29.3** it tags such resources with the same "System" label the sidebar uses, so the two surfaces agree (previously the palette showed no group tag for them).
 
+Tools have the same opt-in since **v1.35.0**: `Tool::withSystemSection()` docks a Tool in the same section, after the resources and before the Cache admin link. See [Tools → Place a Tool under "System"](tools.md#place-a-tool-under-system--withsystemsection-v1350).
+
 ### Claim a record for reverse-mapping — `matchesRecord()`
 
 When **several resources share one Eloquent model** — e.g. an Approval-Queue resource scoped to `pending` records and a Processed resource scoped to `approved`/`indexed`, both on `App\Models\Candidate` — Martis sometimes needs to turn a model instance back into the resource surface it belongs to. The clearest case is the command palette's **Recent activity** deep-links: an event only carries `model_type` + `model_id`, so the palette must decide *which* of the sharing resources a record opens.

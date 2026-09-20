@@ -404,7 +404,7 @@ php artisan martis:tool Charts --with-component
 npm run build:extensions
 ```
 
-That's it. The Tool is auto-registered (since v1.8.20), the React component is auto-registered, and the sidebar surfaces it under the default "Tools" header (or whatever you pass to `withMenuSection('Operations')` in the constructor).
+That's it. The Tool is auto-registered (since v1.8.20), the React component is auto-registered, and the sidebar surfaces it under the default "Tools" header (or whatever you pass to `withMenuSection('Operations')` in the constructor; `withSystemSection()` docks it in the bundled "System" section instead, v1.35.0+, see [Tools](tools.md#place-a-tool-under-system--withsystemsection-v1350)).
 
 ### Collision detection
 

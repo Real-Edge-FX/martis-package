@@ -41,6 +41,7 @@ class ToolMakeCommand extends GeneratorCommand
         {--component-key= : Explicit component key for the React renderer (defaults to tool:<kebab-name>)}
         {--use-bundled : Bind to the package-bundled SystemStatusDemo component instead of generating one}
         {--menu-section= : Optional menu section label (e.g. "Operations")}
+        {--system-section : Place the tool inside the bundled "System" sidebar section (wins over --menu-section)}
         {--icon=wrench : Phosphor icon name for the menu entry}
         {--force : Overwrite the file if it already exists}';
 
@@ -87,6 +88,18 @@ class ToolMakeCommand extends GeneratorCommand
         $menuSectionLine = is_string($menuSection) && $menuSection !== ''
             ? "->withMenuSection('".addslashes($menuSection)."')"
             : '';
+
+        // `--system-section` docks the tool in the bundled "System" section
+        // and wins over a menu section label: the navigation builder ignores
+        // menuSection() for System-section tools anyway, so emitting both
+        // would only mislead whoever reads the generated class.
+        if ((bool) $this->option('system-section')) {
+            if ($menuSectionLine !== '') {
+                $this->warn('--menu-section is ignored: the tool belongs to the bundled "System" section (--system-section).');
+            }
+
+            $menuSectionLine = '->withSystemSection()';
+        }
 
         $replacements = [
             '{{ uri_key }}' => $uriKey,
