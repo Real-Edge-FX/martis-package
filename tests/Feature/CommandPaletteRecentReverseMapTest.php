@@ -12,6 +12,7 @@ use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Resources\ActionEventResource;
 
 // ---------------------------------------------------------------------------
 // Fixtures — two resources share ONE model (CPRItem), scoped by status. This is
@@ -180,6 +181,9 @@ beforeEach(function () {
     $registry->register(CPRProcessedResource::class);
     $registry->register(CPRSoftActiveResource::class);
     $registry->register(CPRSoftArchivedResource::class);
+    // The flush above also dropped the built-in audit-log resource the
+    // service provider registers at boot; the Recent block is gated on it.
+    $registry->register(ActionEventResource::class);
 
     $this->actingAs($this->user, 'web');
 });
