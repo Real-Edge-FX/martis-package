@@ -6,6 +6,7 @@ namespace Martis\Concerns;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Martis\Authorization\PolicyResolver;
 
 /**
  * Declarative Laravel Policy binding for non-Resource menu entities
@@ -24,18 +25,15 @@ use Illuminate\Support\Facades\Gate;
  * — that pipeline does not generalise to entities without a Model.
  * The trait below covers the simple case: declarative `$policy` plus
  * convention auto-discovery, both routed through Laravel's Gate.
+ *
+ * Resolution is memoised per concrete class for the current request /
+ * job / application lifecycle by the container-scoped
+ * {@see PolicyResolver}; the policy instance is resolved from the
+ * container on every call (v1.36.0, previously a static instance cache
+ * that outlived the application which filled it).
  */
 trait HasPolicy
 {
-    /**
-     * Cache of resolved policy instances per concrete class. Populated
-     * lazily on the first `resolvePolicy()` call; survives the request
-     * lifecycle (the container scope is request-scoped already).
-     *
-     * @var array<class-string, object|false>
-     */
-    protected static array $resolvedHasPolicyPolicies = [];
-
     /**
      * Override on a subclass with `public static ?string $policy = MyPolicy::class;`
      * to bind a Laravel Policy explicitly. Leaving it `null` falls back
@@ -56,19 +54,21 @@ trait HasPolicy
      */
     public static function resolvePolicy(): ?object
     {
-        $key = static::class;
+        return app(PolicyResolver::class)->resolve(
+            static::class,
+            static fn (): ?string => static::discoverHasPolicyClass(),
+        );
+    }
 
-        if (array_key_exists($key, self::$resolvedHasPolicyPolicies)) {
-            $cached = self::$resolvedHasPolicyPolicies[$key];
-
-            return $cached === false ? null : $cached;
-        }
-
+    /**
+     * Walk the resolution order and return the policy class, or null.
+     *
+     * @return class-string|null
+     */
+    protected static function discoverHasPolicyClass(): ?string
+    {
         if (static::$policy !== null && class_exists(static::$policy)) {
-            $instance = app(static::$policy);
-            self::$resolvedHasPolicyPolicies[$key] = $instance;
-
-            return $instance;
+            return static::$policy;
         }
 
         $namespace = (string) config('martis.policy_namespace', 'App\\Martis\\Policies');
@@ -78,25 +78,17 @@ trait HasPolicy
         $baseName = (string) preg_replace('/(Resource|Dashboard|Tool|Card|Lens|Filter)$/', '', $baseName);
         $policyClass = $namespace.'\\'.$baseName.'Policy';
 
-        if (class_exists($policyClass)) {
-            $instance = app($policyClass);
-            self::$resolvedHasPolicyPolicies[$key] = $instance;
-
-            return $instance;
-        }
-
-        self::$resolvedHasPolicyPolicies[$key] = false;
-
-        return null;
+        return class_exists($policyClass) ? $policyClass : null;
     }
 
     /**
-     * Forget the per-class policy resolution cache. Useful in tests
-     * that rebind the container between expectations.
+     * Forget the memoised policy resolution of every entity (Resources
+     * included, the memo is shared). Useful in tests that rebind the
+     * container or swap `$policy` between expectations.
      */
     public static function flushPolicyCache(): void
     {
-        self::$resolvedHasPolicyPolicies = [];
+        app(PolicyResolver::class)->flush();
     }
 
     /**

@@ -28,7 +28,6 @@ use Martis\Auth\Listeners\RecordRoleChange;
 use Martis\Authorization\PolicyResolver;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
-use Martis\Concerns\HasPolicy;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
 use Martis\Console\AgentsCommand;
@@ -203,7 +202,6 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerInvitationAcceptUrl();
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
-        $this->registerOctanePolicyCacheFlush();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -817,45 +815,6 @@ class MartisServiceProvider extends ServiceProvider
                     $method,
                 ]);
             }
-        }
-    }
-
-    /**
-     * Register listeners that flush the static policy-resolution caches
-     * held by {@see \Martis\Resource} and {@see HasPolicy}
-     * between requests in persistent-process environments (Laravel Octane,
-     * queue workers).
-     *
-     * Under PHP-FPM the process dies after each request so the caches are
-     * naturally empty on the next request. Under Octane or long-running
-     * queue workers the same process handles many requests; without this
-     * flush a policy class rebound in the container (e.g. via
-     * `$this->app->bind(MyPolicy::class, …)` in a request-scoped provider)
-     * would not be visible to subsequent requests because the old instance
-     * is already cached in the static array.
-     *
-     * The listener is registered only when the Octane event classes exist
-     * in the project, so there is no hard dependency on laravel/octane.
-     */
-    protected function registerOctanePolicyCacheFlush(): void
-    {
-        // Referenced as strings, not ::class, so there is no compile-time
-        // dependency on laravel/octane (an optional peer). The class_exists()
-        // guard below registers the listener only when Octane is installed.
-        $octaneEvents = [
-            'Laravel\\Octane\\Events\\RequestTerminated',
-            'Laravel\\Octane\\Events\\TaskTerminated',
-        ];
-
-        foreach ($octaneEvents as $eventClass) {
-            if (! class_exists($eventClass)) {
-                continue;
-            }
-
-            Event::listen($eventClass, static function () {
-                \Martis\Resource::flushPolicyCache();
-                HasPolicy::flushPolicyCache();
-            });
         }
     }
 }
