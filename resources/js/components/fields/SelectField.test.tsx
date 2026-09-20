@@ -225,6 +225,16 @@ describe('SelectFieldInput — remote option search', () => {
     expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('claude-opus-5')
   })
 
+  it('keeps the clear icon for a stored value even when the initial list is empty', () => {
+    // PrimeReact drops the clear icon when `options` is empty; the closed
+    // control must still let the user clear a value the list does not carry.
+    const field = makeField({ attribute: 'model', remoteOptionsSearch: true, options: [] })
+    const { container } = render(
+      <SelectFieldInput field={field} value="claude-opus-5" onChange={vi.fn()} error={undefined} toolKey="settings" />,
+    )
+    expect(container.querySelector('.p-dropdown-clear-icon')).not.toBeNull()
+  })
+
   it('shows the load-error message in the panel when the request fails', async () => {
     apiGetMock.mockRejectedValue(new Error('boom'))
     const { container } = render(

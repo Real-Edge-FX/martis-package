@@ -66,7 +66,13 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, t
   const [open, setOpen] = useState(false)
   const [term, setTerm] = useState('')
   const remoteState = useRemoteSelectOptions({ endpoint, open, term })
-  const options = remote && remoteState.options !== null ? remoteState.options : staticOptions
+  // Closed: the initial list plus the stored value, because PrimeReact hides
+  // the clear icon (and resolves no label) when `options` lacks the value or
+  // is empty. Open: exactly what the server returned.
+  const remoteClosedOptions = remote && currentValue !== null && !staticOptions.some((o) => o.value === currentValue)
+    ? [{ label: currentValue, value: currentValue }, ...staticOptions]
+    : staticOptions
+  const options = remote && open && remoteState.options !== null ? remoteState.options : remoteClosedOptions
 
   // Opt into the compact filter-dropdown look (used by native resource filters)
   // via `field.variant === 'filter'`, and allow an extra passthrough className.
