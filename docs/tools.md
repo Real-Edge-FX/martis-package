@@ -74,7 +74,7 @@ Martis::tools([
 ]);
 ```
 
-Override the discovery path or namespace via `martis.tools_path` and `martis.tools_namespace` if your app keeps Tools outside the conventional location.
+Override the discovery path via `martis.tools_path` if your app keeps Tools outside the conventional location. The namespace is derived from Composer's PSR-4 map for that directory (since v1.36.0; `App\Martis\Tools` for the default layout); set `martis.tools_namespace` only to pin it or when the directory is not autoloaded.
 
 ## Anatomy of a Tool class
 

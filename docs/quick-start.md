@@ -98,9 +98,9 @@ class ClientResource extends Resource
 
 ## 3. That's it. Resources are auto-discovered.
 
-Martis scans the directory configured in `config/martis.php` (`resources_path`, default `app_path('Martis')`) recursively on every boot and registers every class that extends `Martis\Resource`. There is no `'resources' => [...]` array to maintain. As soon as the file above is saved on disk, the resource is live.
+Martis scans the directory configured in `config/martis.php` (`resources_path`, default `app_path('Martis')`) recursively on every boot and registers every class that extends `Martis\Resource`. The namespace of that directory comes from Composer's PSR-4 map (`App\Martis` for the default layout; override with `resources_namespace`). There is no `'resources' => [...]` array to maintain. As soon as the file above is saved on disk, the resource is live.
 
-If your editor created the file outside `app/Martis/` you have two options: move it back into the configured path, or change `resources_path` in the config to point wherever you keep your resource classes.
+If your editor created the file outside `app/Martis/` you have two options: move it back into the configured path, or change `resources_path` in the config to point wherever you keep your resource classes (any autoloaded directory works; set `resources_namespace` only when it is not autoloaded).
 
 ## 4. Visit the panel
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.36.0] — 2026-09-20
+
+### Added
+
+- **`resources_namespace`, and namespaces derived from Composer's PSR-4 map for resources and tools.** `resources_path` was documented as a free choice but discovery mapped every file to a class under a hard-coded `App\Martis`, so pointing it at a sub-folder (one directory per panel or tenant surface), a module directory or an application whose root namespace is not `App` registered nothing, silently. Tools already had `tools_namespace`; resources did not. `config/martis.php` gains `'resources_namespace' => null` next to `resources_path`, and both it and `tools_namespace` (now `null` by default too) resolve as: explicit string, otherwise the namespace Composer's PSR-4 map gives the directory (`Martis\Discovery\Psr4NamespaceResolver`, reading every registered class loader), otherwise the historical `App\Martis` / `App\Martis\Tools`. Factory defaults resolve to exactly the previous namespaces; a config published before this version keeps working without republishing. +17 Pest. See [Configuration → Resources path and namespace](docs/configuration.md#resources-path-and-namespace) and [Resources → auto-discovery](docs/resources.md).
+
 ## [1.35.0] — 2026-09-20
 
 ### Added
