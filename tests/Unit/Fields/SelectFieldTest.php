@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Martis\Fields\Select;
 
 it('normalises associative options as [label => value]', function () {
@@ -126,4 +127,60 @@ it('displayUsingValues() flips the flag so the index/detail cell renders raw val
     })->call($field);
 
     expect($extra['displayLabels'])->toBeFalse();
+});
+
+// ---------------------------------------------------------------------------
+// Option search box + custom values (v1.37.0)
+// ---------------------------------------------------------------------------
+
+it('searchableOptions and allowCustomValues default to false and are exposed in the schema payload', function () {
+    $field = Select::make('model');
+
+    expect($field->hasSearchableOptions())->toBeFalse()
+        ->and($field->allowsCustomValues())->toBeFalse();
+
+    $payload = $field->toArray();
+
+    expect($payload['searchableOptions'])->toBeFalse()
+        ->and($payload['allowCustomValues'])->toBeFalse()
+        ->and($payload['remoteOptionsSearch'])->toBeFalse();
+});
+
+it('searchableOptions() turns the option search box on without touching the column-search flag', function () {
+    $field = Select::make('model')->searchableOptions();
+
+    expect($field->hasSearchableOptions())->toBeTrue()
+        ->and($field->isSearchable())->toBeFalse();
+
+    $payload = $field->toArray();
+
+    expect($payload['searchableOptions'])->toBeTrue()
+        ->and($payload['searchable'])->toBeFalse();
+});
+
+it('searchable() keeps its column-search meaning on a Select and never enables the option search box', function () {
+    $field = Select::make('status')->searchable();
+
+    expect($field->isSearchable())->toBeTrue()
+        ->and($field->hasSearchableOptions())->toBeFalse();
+});
+
+it('allowCustomValues() flips the flag and chains with searchableOptions()', function () {
+    $field = Select::make('model')->searchableOptions()->allowCustomValues();
+
+    expect($field->allowsCustomValues())->toBeTrue();
+
+    $payload = $field->toArray();
+
+    expect($payload['allowCustomValues'])->toBeTrue()
+        ->and($payload['searchableOptions'])->toBeTrue();
+});
+
+it('both setters accept an explicit false to switch the behaviour back off', function () {
+    $field = Select::make('model')->searchableOptions()->allowCustomValues();
+
+    $field->searchableOptions(false)->allowCustomValues(false);
+
+    expect($field->hasSearchableOptions())->toBeFalse()
+        ->and($field->allowsCustomValues())->toBeFalse();
 });

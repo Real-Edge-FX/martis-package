@@ -8,8 +8,11 @@ use Illuminate\Support\Str;
 /**
  * Dropdown select field.
  *
- * Renders as a `<select>` in the React frontend.
+ * Renders as a PrimeReact Dropdown in the React frontend.
  * Options may be a flat list of values or an associative label => value map.
+ * The control can also search its options (`searchableOptions()`), accept
+ * values outside the list (`allowCustomValues()`) and ask the server for
+ * matches as the user types (`searchOptionsUsing()`).
  */
 class Select extends Field
 {
@@ -31,6 +34,23 @@ class Select extends Field
      * consumer can opt out via {@see self::displayUsingValues()}.
      */
     protected bool $displayLabels = true;
+
+    /**
+     * Whether the form control renders a search box above the option list
+     * (PrimeReact `filter`). Distinct from {@see Field::searchable()}, which
+     * makes the COLUMN part of the resource search: this flag only changes
+     * how the dropdown narrows its own options. v1.37.0.
+     */
+    protected bool $searchableOptions = false;
+
+    /**
+     * Whether the form control accepts a typed value that is not one of the
+     * options (PrimeReact `editable`). The stored value may then fall
+     * outside `getOptions()`; index and detail render the raw value when no
+     * option matches. Validating against the option list stays the
+     * consumer's call (`Rule::in`), the field never adds it. v1.37.0.
+     */
+    protected bool $allowCustomValues = false;
 
     /** {@inheritdoc} */
     public function type(): string
@@ -194,6 +214,46 @@ class Select extends Field
     }
 
     /**
+     * Render a search box above the options so the user can narrow a long
+     * list by label or value. Nova's `Select::searchable()` maps to this
+     * method; in Martis `searchable()` is the column-search flag.
+     */
+    public function searchableOptions(bool $value = true): static
+    {
+        $this->searchableOptions = $value;
+
+        return $this;
+    }
+
+    /**
+     * Whether the option list renders with a search box.
+     */
+    public function hasSearchableOptions(): bool
+    {
+        return $this->searchableOptions;
+    }
+
+    /**
+     * Accept a typed value that is not one of the options. Pairs well with
+     * {@see self::searchableOptions()} for "pick from the list or type a
+     * new one" controls (an LLM model id, a tag, an SKU).
+     */
+    public function allowCustomValues(bool $value = true): static
+    {
+        $this->allowCustomValues = $value;
+
+        return $this;
+    }
+
+    /**
+     * Whether the form control accepts values outside the option list.
+     */
+    public function allowsCustomValues(): bool
+    {
+        return $this->allowCustomValues;
+    }
+
+    /**
      * Return the normalized options array.
      *
      * @return list<array{label: string, value: scalar}>
@@ -218,6 +278,10 @@ class Select extends Field
         return [
             'options' => $this->getOptions(),
             'displayLabels' => $this->displayLabels,
+            'searchableOptions' => $this->searchableOptions,
+            'allowCustomValues' => $this->allowCustomValues,
+            // Wired by searchOptionsUsing(); false until then.
+            'remoteOptionsSearch' => false,
         ];
     }
 }
