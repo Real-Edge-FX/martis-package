@@ -134,6 +134,17 @@ const form = useMartisForm({
 })
 ```
 
+### Server-side option search
+
+A `Select` declared in `Tool::fields()` with `searchOptionsUsing(...)` searches its options on the server through `GET /api/tools/{uriKey}/fields/{attribute}/options?search=...` (same `canSee()` gate as `/fields`: 404 when denied). The form only needs to know which Tool owns the fields:
+
+```tsx
+const { fields } = useToolFields('settings')
+const form = useMartisForm({ fields, toolKey: 'settings' })
+```
+
+Without `toolKey` (or a `resourceKey` for Mode C) the select keeps working with the initial `options()` list and filters it locally. See [Fields → Select](fields.md#select).
+
 ## The anchor example — a custom "create project" drawer
 
 The end-to-end target: your own drawer (composed from `runtime.DrawerShell`, the bare slide-over) hosting a Martis Slug field with `Slug::make('slug')->from('title')` that behaves identically to the same field in a Resource form. Typing the title generates the slug; binding a `resourceKey` makes the uniqueness check live.
@@ -217,7 +228,7 @@ A Tool that renders its own filter bar — separate from the field-form harness 
 
 | Export | Purpose |
 |---|---|
-| `Dropdown`, `MultiSelect` | Single / multi filter controls. Add the `martis-filter-dropdown` class for the compact look, and pass `field.className` when routing through `FieldInput` (see [fields.md](fields.md#select) — the `select` field honours `variant: 'filter'`). |
+| `Dropdown`, `MultiSelect` | Single / multi filter controls. Add the `martis-filter-dropdown` class for the compact look, and pass `field.className` when routing through `FieldInput` (see [fields.md](fields.md#select) — the `select` field honours `variant: 'filter'`). Prefer the native `select` field with `searchableOptions` / `allowCustomValues` (v1.37.0) over a raw `Dropdown` when the control lives in a form. |
 | `createPortal` | `react-dom`'s portal for overlays that must escape a clipped container. The extension's React shim is React-core-only, so it is surfaced here. |
 | `DropdownProps`, `MultiSelectProps` (types) | Type the controls without importing from `primereact/*` (the extension build doesn't alias it). |
 
@@ -250,6 +261,7 @@ See [overrides.md §5.A](overrides.md#5a-composing-native-field-components-v1140
 | `fields` | `FieldDefinition[]` | The field set. May contain `tab_group` / `section` / `panel` containers. |
 | `initialValues?` | `Record<string, unknown>` | Seed values (e.g. an existing record's attributes for an edit form). |
 | `resourceKey?` | `string` | Scope for server-backed behaviours (Mode C). Omit for a pure-frontend form. |
+| `toolKey?` | `string` | URI key of the Tool that declared the fields (Mode B). Scopes server-backed behaviours a Tool can own, today the remote Select search (v1.37.0), at `/api/tools/{toolKey}/...`. `dependsOn` sync still needs a `resourceKey`. |
 | `context?` | `'create' \| 'update'` | Render/behaviour context. Defaults to `'create'`. |
 | `recordId?` | `string \| number` | Id of the record being edited — threaded to relatable (`BelongsTo` / `MorphTo`) and `dependsOn` queries. Omit for create forms. |
 
@@ -264,9 +276,10 @@ See [overrides.md §5.A](overrides.md#5a-composing-native-field-components-v1140
 | `setErrors(e)` | `(Record<string, string>) => void` | Set errors — feed a server 422 body straight in. |
 | `resolvedFields` | `FieldDefinition[]` | Fields with `dependsOn` overrides applied through the whole container tree. |
 | `recordId?` | `string \| number` | Echo of the bound record id. |
+| `toolKey?` | `string` | Echo of the bound Tool key. |
 | `fieldProps(field)` | see below | The exact prop bundle for a `FieldInput`. |
 
-`fieldProps(field)` returns `{ field, value, onChange, error, resourceKey, recordId, formValues }` — spread it straight onto `<FieldInput {...form.fieldProps(field)} />`.
+`fieldProps(field)` returns `{ field, value, onChange, error, resourceKey, recordId, toolKey, formValues }` — spread it straight onto `<FieldInput {...form.fieldProps(field)} />`.
 
 Internally `useMartisForm` runs the **same** `useDependsOnSync` the Resource pages run, and applies the resulting `dependsOn` overrides through the entire container tree (top-level and nested inside `section` / `panel` / `tab_group`). When there is no `resourceKey` the server `dependsOn` round-trip is disabled and overrides simply stay empty — offline degradation, not an error.
 

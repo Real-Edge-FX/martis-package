@@ -167,6 +167,14 @@ GET /martis/api/resources/{resource}/slug-check/{field}?value=...&exclude_id=...
 
 Used by `Slug::make()` for live "this slug is taken" hints in the create / update form.
 
+### Select option search
+
+```http
+GET /martis/api/resources/{resource}/fields/{field}/options?search=term&context=create|update
+```
+
+Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`), gated on the matching ability like `sync-field`, and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver.
+
 ### Lenses
 
 ```http
@@ -282,6 +290,9 @@ Surface for the [Custom Tools](../tools.md) primitive.
 ```
 GET  /martis/api/tools                  List every authorised tool.
 GET  /martis/api/tools/{uriKey}         Single tool metadata, or 404 (also when canSee denies).
+GET  /martis/api/tools/{uriKey}/fields  Serialized field definitions of a Tool implementing ProvidesFields.
+GET  /martis/api/tools/{uriKey}/fields/{field}/options?search=
+                                        Server-side option search for a Tool select (v1.37.0); 422 when the field has no resolver.
 ```
 
 The 404-when-denied behaviour is intentional — an unauthorised user cannot probe which tools the app ships.

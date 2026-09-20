@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.0] — 2026-09-20
+
+### Added
+
+- **`Select::searchableOptions()`, `allowCustomValues()` and `searchOptionsUsing()`: searchable, editable and server-searched selects.** The native `select` mounted the PrimeReact Dropdown without `filter` or `editable`, so an administrator picking one of hundreds of server-provided options (an LLM provider's model list) either scrolled the whole list or the consumer left the field system for a raw `Dropdown`. Three opt-in flags close the gap: `searchableOptions()` renders a search box over the options (label or value; this is what Nova's `Select::searchable()` does, kept apart from Martis's `searchable()`, the column-search flag), `allowCustomValues()` accepts a typed value outside the list (stored as-is, rendered raw on index and detail, no validation added), and `searchOptionsUsing(fn (string $term, ?Request $request) => [...])` searches the options on the server as the user types through two new endpoints, `GET /api/resources/{resource}/fields/{field}/options` (gated on the create or update ability of the context, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{field}/options` (404 when `canSee()` denies). Remote results are shown as the server returns them, never re-filtered in the browser; typing is debounced at 300 ms with stale requests aborted; a stored value outside the current page is still shown in the control and can be cleared. `useMartisForm` gains a `toolKey` scope next to `resourceKey`, forwarded with `context` to every field input, so a Tool implementing `ProvidesFields` gets remote search with one option. Frontend-only Tool definitions may set the three keys directly; `remoteOptionsSearch` needs a scope, otherwise the select filters locally. Assets rebuilt. +11 Pest unit, +14 Pest feature, +29 Vitest. See [Fields → Select](docs/fields.md#select) and [Tool fields → Server-side option search](docs/tool-fields.md#server-side-option-search).
+
 ## [1.36.0] — 2026-09-20
 
 ### Added
