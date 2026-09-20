@@ -234,6 +234,9 @@ export interface MartisPreferencesInitialPayload {
 export interface MartisCustomAccent {
   name: string
   color: string
+  /** Text / icon colour painted on top of the accent fill: the optional
+   *  `name:hex:contrastHex` segment, else derived from luminance (v1.34.0). */
+  contrast?: string
 }
 
 export interface MartisPreferencesConfig {

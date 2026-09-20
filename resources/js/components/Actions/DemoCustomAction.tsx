@@ -98,7 +98,7 @@ export function DemoCustomAction({
                 style={{
                   backgroundColor: selected === opt ? 'var(--martis-accent)' : 'var(--martis-surface)',
                   borderColor: selected === opt ? 'var(--martis-accent)' : 'var(--martis-border)',
-                  color: selected === opt ? '#ffffff' : 'var(--martis-text)',
+                  color: selected === opt ? 'var(--martis-accent-contrast, #ffffff)' : 'var(--martis-text)',
                 }}
               >
                 {opt}
@@ -158,7 +158,7 @@ export function DemoCustomAction({
             type="button"
             onClick={handleSubmit}
             disabled={isExecuting || !selected}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-martis-accent-contrast transition-colors hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: 'var(--martis-accent)' }}
           >
             <LightningIcon size={14} />

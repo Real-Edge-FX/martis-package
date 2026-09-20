@@ -142,7 +142,7 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
                 width: 18,
                 height: 18,
                 backgroundColor: 'var(--martis-accent)',
-                color: '#fff',
+                color: 'var(--martis-accent-contrast, #ffffff)',
               }}
             >
               {activeCount}

@@ -173,7 +173,7 @@ The migration can safely remain applied — the resolver silently ignores the ta
 
 When `allowBrandColor` is `true`, the preferences panel exposes a hex input. Any valid `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA` value overrides the accent (`data-accent="custom"` on `<html>`, `--martis-accent` inline style). Ideal for multi-tenant branding.
 
-A `brandColor` selection drives the full six-token accent palette (`--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring`). The remaining five tokens are derived from the base hex via `color-mix(in srgb, ...)` — the same chain used by `MARTIS_CUSTOM_ACCENTS`. Applied in two places so the FOUC stays clean: the pre-paint blade bootstrap and the React `PreferencesContext::applyToDom()`. Clearing `brandColor` removes all six overrides and falls back to the active `data-accent` palette. (v1.8.12+)
+A `brandColor` selection drives the full seven-token accent palette (`--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring`, `--martis-accent-contrast`). Five of the derived tokens come from the base hex via `color-mix(in srgb, ...)` and the contrast colour from its luminance (white while it holds the WCAG 3:1 floor, else a near-black navy; `lib/accentContrast.ts`) — the same chain used by `MARTIS_CUSTOM_ACCENTS`. Applied in two places so the FOUC stays clean: the pre-paint blade bootstrap and the React `PreferencesContext::applyToDom()`. Clearing `brandColor` removes all seven overrides and falls back to the active `data-accent` palette. (v1.8.12+)
 
 ### Persisted preferences + shareable presets
 

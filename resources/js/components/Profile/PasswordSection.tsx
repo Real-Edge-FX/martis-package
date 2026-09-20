@@ -201,7 +201,7 @@ export function PasswordSection() {
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-martis-accent-contrast transition-colors hover:opacity-90 disabled:opacity-50"
           style={{ backgroundColor: 'var(--martis-accent)' }}
         >
           {saving ? t('updating_password') : t('update_password')}

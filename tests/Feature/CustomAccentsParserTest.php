@@ -82,3 +82,35 @@ it('truncates beyond the MAX_ACCENTS limit', function () {
 
     expect(count($result))->toBe(CustomAccentsParser::MAX_ACCENTS);
 });
+
+// ---------------------------------------------------------------------------
+// v1.34.0 — optional third segment `name:hex:contrastHex` and the derived
+// `--martis-accent-contrast` (white on dark accents, navy on bright ones).
+// ---------------------------------------------------------------------------
+
+it('keeps the name => hex map shape when a contrast segment is present', function () {
+    $result = CustomAccentsParser::parse('lime:#C6F135:#071726,edgeflow:#1a73e8');
+
+    expect($result)->toBe([
+        'lime' => '#c6f135',
+        'edgeflow' => '#1a73e8',
+    ]);
+});
+
+it('exposes an explicit contrast colour and derives one from luminance when absent', function () {
+    $result = CustomAccentsParser::parseDetailed('lime:#C6F135:#071726,edgeflow:#1a73e8,sun:#FDE047');
+
+    expect($result)->toBe([
+        'lime' => ['color' => '#c6f135', 'contrast' => '#071726'],
+        'edgeflow' => ['color' => '#1a73e8', 'contrast' => '#ffffff'],
+        'sun' => ['color' => '#fde047', 'contrast' => '#0b1220'],
+    ]);
+});
+
+it('drops an entry whose contrast segment is not a valid hex', function () {
+    $result = CustomAccentsParser::parseDetailed('lime:#C6F135:navy,edgeflow:#1a73e8');
+
+    expect($result)->toBe([
+        'edgeflow' => ['color' => '#1a73e8', 'contrast' => '#ffffff'],
+    ]);
+});

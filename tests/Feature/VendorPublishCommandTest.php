@@ -1,9 +1,18 @@
 <?php
 
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\File;
 use Martis\Console\VendorPublishCommand;
 
 // martis:vendor-publish
+
+// `--views` publishes app.blade.php into the test app's resources/views/
+// vendor/martis/, and a published view overrides the package one for every
+// later test in the same environment (the blade-output passthrough tests
+// would then assert against a stale copy). Remove it after each spec.
+afterEach(function () {
+    File::deleteDirectory(resource_path('views/vendor/martis'));
+});
 
 it('martis:vendor-publish is registered in the service provider', function () {
     $commands = $this->app->make(Kernel::class)->all();

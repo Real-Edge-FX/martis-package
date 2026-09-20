@@ -446,7 +446,7 @@ function DashboardLockedView({ lock, dashboard }: { lock: GateLock; dashboard: D
             target={modal.cta.target ?? '_self'}
             rel={modal.cta.target === '_blank' ? 'noopener noreferrer' : undefined}
             className="mt-4 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
-            style={{ backgroundColor: 'var(--martis-accent)', color: '#fff' }}
+            style={{ backgroundColor: 'var(--martis-accent)', color: 'var(--martis-accent-contrast, #ffffff)' }}
           >
             {modal.cta.label}
           </a>

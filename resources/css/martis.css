@@ -117,6 +117,11 @@
   --martis-accent-bg-light: rgba(79, 123, 249, 0.14);
   --martis-accent-bg:       rgba(79, 123, 249, 0.24);
   --martis-focus-ring:      rgba(79, 123, 249, 0.45);
+  /* Text/icon colour painted ON TOP of an accent fill (buttons, paginator
+     highlight, datepicker highlight, checkbox ticks…). White suits the
+     bundled accents; a theme with a bright accent sets a dark value here
+     instead of darkening the accent itself. */
+  --martis-accent-contrast: #FFFFFF;
 
   /* 3.4 Semantic solid */
   --martis-success:       #22C55E;
@@ -230,7 +235,7 @@
 
   /* ▸ PrimeReact bridge — todas as PrimeReact vars apontam para os tokens Martis */
   --primary-color: var(--martis-accent);
-  --primary-color-text: #ffffff;
+  --primary-color-text: var(--martis-accent-contrast, #ffffff);
   --primary-50: var(--martis-accent-bg-light);
   --primary-100: var(--martis-accent-bg);
   --surface-a: var(--martis-surface);
@@ -281,6 +286,7 @@ html:not(.dark) {
   --martis-accent-bg-light: #ECF1FE;
   --martis-accent-bg:       #D7E1FD;
   --martis-focus-ring:      rgba(59, 106, 240, 0.35);
+  --martis-accent-contrast: #FFFFFF;
 
   /* 3.4 Semantic solid */
   --martis-success:       #16A34A;
@@ -2450,7 +2456,7 @@ html.dark body {
 .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger):hover {
   background-color: var(--martis-accent-hover);
@@ -2554,7 +2560,7 @@ html.dark body {
 }
 .p-paginator .p-paginator-page.p-highlight {
   background-color: var(--martis-accent);
-  color: white;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 
 /* ── Dropdown ──────────────────────────────────────────────────── */
@@ -2956,7 +2962,7 @@ html:not(.dark) .p-inputtext {
 html:not(.dark) .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 html:not(.dark) .p-button.p-button-outlined:not(.p-button-danger) {
   background: transparent;
@@ -3210,7 +3216,7 @@ html:not(.dark) .p-datepicker table td.p-datepicker-today > span {
 }
 html:not(.dark) .p-datepicker table td > span.p-highlight {
   background-color: var(--martis-accent) !important;
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 html:not(.dark) .p-datepicker table td.p-datepicker-other-month > span {
   color: var(--martis-text-muted);
@@ -3234,7 +3240,7 @@ html:not(.dark) .p-datepicker .p-timepicker button:hover {
 html:not(.dark) .p-calendar .p-datepicker-trigger {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 html:not(.dark) .p-calendar .p-datepicker-trigger:hover {
   background-color: var(--martis-accent-hover);
@@ -3502,7 +3508,7 @@ html:not(.dark) .martis-dropzone {
 .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 .p-checkbox .p-checkbox-box.p-highlight svg,
 .p-checkbox .p-checkbox-box.p-highlight .p-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
   fill: #ffffff !important;
 }
 /* Native `<input type="checkbox">` styled to match the PrimeReact
@@ -3737,7 +3743,7 @@ html:not(.dark) .p-checkbox .p-checkbox-box {
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
   fill: #ffffff !important;
 }
 
@@ -4186,7 +4192,7 @@ html[data-density="dense"] .martis-index-toolbar {
 
 .martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button {
   background-color: var(--martis-accent);
-  color: #ffffff;
+  color: var(--martis-accent-contrast, #ffffff);
   border-radius: 0.25rem;
   padding: 0.375rem 0.75rem;
   width: auto !important;
@@ -4840,7 +4846,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 .dark .p-checkbox .p-checkbox-box.p-highlight svg,
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
   fill: #ffffff !important;
 }
 /* Correct: p-highlight is on root .p-checkbox, not .p-checkbox-box (REA-1182) */
@@ -4946,17 +4952,17 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 
 /* ── PrimeReact native checkbox dark theme fix (Problem 7) ──────── */
 .p-checkbox .p-checkbox-box .p-checkbox-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 .p-datatable .p-checkbox .p-checkbox-box.p-highlight {
   background-color: var(--martis-accent) !important;
   border-color: var(--martis-accent) !important;
 }
 .p-datatable .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* Ensure header checkbox in DataTable is visible */
 .p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
@@ -5082,7 +5088,7 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-checked .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-checked svg,
 html:not(.dark) .p-checkbox-checked .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-checkbox-checked .p-checkbox-box svg {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
   fill: #ffffff !important;
 }
 /* DataTable row/header checkboxes — light theme. Size, border width
@@ -5094,7 +5100,7 @@ html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-chec
 html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box svg,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box svg {
-  color: #ffffff !important;
+  color: var(--martis-accent-contrast, #ffffff) !important;
   fill: #ffffff !important;
 }
 
@@ -5546,7 +5552,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-primary {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
-  color: #fff;
+  color: var(--martis-accent-contrast, #ffffff);
 }
 .martis-btn-primary:hover:not(:disabled) {
   background-color: var(--martis-accent-hover);
@@ -5955,7 +5961,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border-color: var(--martis-accent-hover);
 }
 .martis-boolgroup-option .p-checkbox-box .p-checkbox-icon {
-  color: #fff;
+  color: var(--martis-accent-contrast, #ffffff);
   font-size: 0.75rem;
 }
 .martis-boolgroup-display {

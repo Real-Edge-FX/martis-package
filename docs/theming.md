@@ -82,7 +82,7 @@ The brand identity colors — buttons, links, focus states, selected items.
 | `--martis-accent` | Primary brand color |
 | `--martis-accent-hover` | Hover state |
 | `--martis-accent-active` | Active/pressed state |
-| `--martis-accent-contrast` | Text/icon colour rendered **on top of** an accent fill (buttons, badges) |
+| `--martis-accent-contrast` | Text/icon colour rendered **on top of** an accent fill. Every accent fill reads it (primary buttons, paginator and datepicker highlights, calendar trigger, checkbox ticks, Trix dialog buttons, the SPA's accent-filled buttons and the PrimeReact `--primary-color-text` bridge), with `#ffffff` as the fallback. A theme with a bright accent sets a dark value here (`#071726`) instead of darkening the accent; for `MARTIS_CUSTOM_ACCENTS` and a per-user `brandColor` Martis derives it from the accent's luminance |
 | `--martis-accent-bg-light` | Subtle background tint (e.g. selected row) |
 | `--martis-accent-bg` | Stronger background tint |
 | `--martis-focus-ring` | Focus ring color (with alpha for box-shadow) |
