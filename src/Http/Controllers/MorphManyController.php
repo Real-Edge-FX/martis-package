@@ -350,6 +350,13 @@ class MorphManyController extends MartisController
         /** @var class-string<resource> $resourceClass */
         $resourceClass = $this->registry->get($resource);
 
+        // Collection gate first: a resource the caller cannot list answers 403
+        // before the parent query runs (no id probing, no 500 from a
+        // fail-closed scope). The record-level view check follows the query.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 

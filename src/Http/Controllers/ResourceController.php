@@ -205,6 +205,10 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $model = $this->findModel($resourceClass, $id);
 
         if ($model === null) {
@@ -345,6 +349,10 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $model = $this->findModel($resourceClass, $id);
 
         if ($model === null) {
@@ -429,6 +437,10 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $model = $this->findModel($resourceClass, $id);
 
         if ($model === null) {
@@ -506,6 +518,10 @@ class ResourceController extends MartisController
             return JsonErrorResponse::notFound('This resource does not support soft deletes.')->toResponse();
         }
 
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
@@ -556,6 +572,10 @@ class ResourceController extends MartisController
         /** @var class-string<resource> $resourceClass */
         if (! $resourceClass::softDeletes()) {
             return JsonErrorResponse::notFound('This resource does not support soft deletes.')->toResponse();
+        }
+
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
         }
 
         /** @var class-string<Model> $modelClass */
@@ -614,6 +634,10 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $model = $this->findModel($resourceClass, $id);
 
         if ($model === null) {
@@ -1802,6 +1826,10 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $model = $this->findModel($resourceClass, $id);
 
         if ($model === null) {

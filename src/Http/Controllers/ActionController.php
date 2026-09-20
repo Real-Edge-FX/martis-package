@@ -140,6 +140,10 @@ class ActionController extends MartisController
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
         }
 
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
         $actionInstance = $this->findAction($instance, $action, $request);
 
@@ -514,6 +518,10 @@ class ActionController extends MartisController
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
         }
 
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
         $allActions = $this->resolveActions($instance, $request);
 
@@ -557,6 +565,10 @@ class ActionController extends MartisController
         $resourceClass = $this->resolveResource($resource);
         if ($resourceClass === null) {
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
+        }
+
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
         }
 
         $modelClass = $resourceClass::model();
