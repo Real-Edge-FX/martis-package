@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Martis\Cache\MartisCache;
+use Martis\Contracts\ToolContract;
 use Martis\Exceptions\MenuCountFailedException;
 use Martis\MartisManager;
 use Martis\Menu\MenuCountResolver;
@@ -236,64 +237,100 @@ class NavigationController extends MartisController
             $sections[] = MenuSection::make($key === '' ? null : $key, $resources);
         }
 
-        // Tools auto-grouped into sidebar sections — same ergonomics
-        // as Resources. A Tool's `menuSection()` (string|null) decides
-        // its bucket; tools without one fall under the localised
-        // "Tools" header. Hosts that build a fully custom main menu
-        // via `Martis::mainMenu(...)` and place tools manually with
+        // Tools auto-grouped into sidebar sections, same ergonomics as
+        // Resources. A Tool's `menuSection()` (string|null) decides its
+        // bucket; tools without one fall under the localised "Tools"
+        // header. Tools that opt into `belongsToSystemSection()` never get
+        // a bucket of their own: they are held back here and rendered
+        // inside the bundled "System" section below, exactly like
+        // System-section resources. Hosts that build a fully custom main
+        // menu via `Martis::mainMenu(...)` and place tools manually with
         // `MenuItem::tool(...)` are honoured: the dedup pass below
         // suppresses duplicates by uriKey.
-        $sections = array_merge($sections, $this->buildToolSections($request));
+        $tools = $this->martis->resolveTools($request);
+
+        /** @var list<ToolContract> $systemTools */
+        $systemTools = array_values(array_filter(
+            $tools,
+            fn (ToolContract $tool): bool => $tool->belongsToSystemSection(),
+        ));
+
+        /** @var list<ToolContract> $sectionTools */
+        $sectionTools = array_values(array_filter(
+            $tools,
+            fn (ToolContract $tool): bool => ! $tool->belongsToSystemSection(),
+        ));
+
+        $sections = array_merge($sections, $this->buildToolSections($sectionTools));
 
         $resolved = $this->martis->resolveMainMenu($request, $sections);
 
-        // Suppress auto-injection for system-section resources the host-app
-        // already pulled into a custom `Martis::mainMenu(...)` payload. A
-        // resource that opts into `belongsToSystemSection()` would otherwise
-        // appear twice — once where the host placed it, and once in the
-        // bundled "System" section — which surprised people building dense
-        // sidebars (Real-Edge-FX/martis-package#NN).
-        $referencedUriKeys = $this->collectResourceUriKeys($resolved);
-        if ($referencedUriKeys !== []) {
+        // Suppress auto-injection for system-section resources and tools
+        // the host-app already pulled into a custom `Martis::mainMenu(...)`
+        // payload. An entity that opts into `belongsToSystemSection()`
+        // would otherwise appear twice, once where the host placed it and
+        // once in the bundled "System" section, which surprised people
+        // building dense sidebars (Real-Edge-FX/martis-package#NN).
+        // Resources and tools are matched by leaf type because the two
+        // may legitimately share a uriKey.
+        $referencedResourceUriKeys = $this->collectUriKeys($resolved, 'resource');
+        if ($referencedResourceUriKeys !== []) {
             $systemResources = array_values(array_filter(
                 $systemResources,
-                function (MenuItem $item) use ($referencedUriKeys) {
+                function (MenuItem $item) use ($referencedResourceUriKeys) {
                     $resourceClass = $item->resourceClass();
                     if ($resourceClass === null) {
                         return true;
                     }
 
-                    return ! in_array($resourceClass::uriKey(), $referencedUriKeys, true);
+                    return ! in_array($resourceClass::uriKey(), $referencedResourceUriKeys, true);
                 },
             ));
         }
+
+        $referencedToolUriKeys = $this->collectUriKeys($resolved, 'tool');
+        if ($referencedToolUriKeys !== []) {
+            $systemTools = array_values(array_filter(
+                $systemTools,
+                fn (ToolContract $tool): bool => ! in_array($tool->uriKey(), $referencedToolUriKeys, true),
+            ));
+        }
+
+        // Resources first, then tools; `appendSystemSection` adds the Cache
+        // admin link last. Host-app concerns (users, roles) typically
+        // outweigh operational tools, and both outweigh the Cache admin in
+        // the admin's mental model.
+        $systemItems = [
+            ...$systemResources,
+            ...array_map(fn (ToolContract $tool): MenuItem => MenuItem::tool($tool), $systemTools),
+        ];
 
         // Append the System section AFTER the host-app resolver runs so
         // a custom `Martis::mainMenu(...)` callback that replaces the
         // entire section list still sees the Cache admin entry. The
         // section appears whenever there is at least one item visible
-        // to this user (cache admin link + any system-grouped resources).
-        return $this->appendSystemSection($resolved, $request, $systemResources);
+        // to this user (cache admin link + any system-grouped resources
+        // and tools).
+        return $this->appendSystemSection($resolved, $request, $systemItems);
     }
 
     /**
-     * Build sidebar sections for every registered Tool the current
-     * user is authorised to see, grouped by the Tool's
-     * `menuSection()`. Tools without a section land under the
-     * localised "Tools" header (translation key
-     * `martis::messages.menu.tools_section`, with the literal
-     * fallback "Tools").
+     * Build sidebar sections for the given Tools, grouped by the Tool's
+     * `menuSection()`. The list arrives from `buildNavigation()` already
+     * authorised (`MartisManager::resolveTools()`) and stripped of the
+     * System-section tools, which render inside the bundled "System"
+     * section instead. Tools without a section land under the localised
+     * "Tools" header (translation key `martis::messages.tools_section`,
+     * with the literal fallback "Tools").
      *
-     * Returns an empty list when no Tool is registered or when every
-     * registered Tool fails the auth gate. Hosts that prefer fully
-     * custom placement override via `Martis::mainMenu(...)`.
+     * Returns an empty list when no Tool is left to place. Hosts that
+     * prefer fully custom placement override via `Martis::mainMenu(...)`.
      *
+     * @param  list<ToolContract>  $tools
      * @return list<MenuSection>
      */
-    protected function buildToolSections(Request $request): array
+    protected function buildToolSections(array $tools): array
     {
-        $tools = $this->martis->resolveTools($request);
-
         if ($tools === []) {
             return [];
         }
@@ -322,38 +359,39 @@ class NavigationController extends MartisController
     }
 
     /**
-     * Walk a resolved navigation payload and collect every resource
-     * `uriKey` referenced inside it. Used to suppress double-rendering
-     * of `belongsToSystemSection()` resources that a host already placed
-     * via `Martis::mainMenu(...)`.
+     * Walk a resolved navigation payload and collect every `uriKey`
+     * referenced by leaves of the given type (`'resource'` or `'tool'`).
+     * Used to suppress double-rendering of `belongsToSystemSection()`
+     * resources and tools that a host already placed via
+     * `Martis::mainMenu(...)`.
      *
      * Handles the heterogeneous shape emitted by `MenuSection::resolve()`:
      * top-level sections, nested `MenuGroup` containers (`type === 'group'`),
-     * and leaf items of any factory type. Only `type === 'resource'`
-     * leaves contribute a uriKey.
+     * and leaf items of any factory type. Only leaves of the requested
+     * type contribute a uriKey.
      *
      * @param  list<array<string, mixed>>  $sections
      * @return list<string>
      */
-    protected function collectResourceUriKeys(array $sections): array
+    protected function collectUriKeys(array $sections, string $type): array
     {
         $found = [];
 
-        $walk = function (array $items) use (&$walk, &$found): void {
+        $walk = function (array $items) use (&$walk, &$found, $type): void {
             foreach ($items as $item) {
                 if (! is_array($item)) {
                     continue;
                 }
 
-                $type = $item['type'] ?? null;
+                $itemType = $item['type'] ?? null;
 
-                if ($type === 'group' && isset($item['items']) && is_array($item['items'])) {
+                if ($itemType === 'group' && isset($item['items']) && is_array($item['items'])) {
                     $walk($item['items']);
 
                     continue;
                 }
 
-                if ($type === 'resource' && isset($item['uriKey']) && is_string($item['uriKey'])) {
+                if ($itemType === $type && isset($item['uriKey']) && is_string($item['uriKey'])) {
                     $found[] = $item['uriKey'];
                 }
             }
@@ -371,31 +409,32 @@ class NavigationController extends MartisController
     /**
      * Render the "System" sidebar section.
      *
-     * Two distinct sources of items live here:
-     *   1. The bundled Cache admin link (gated by
-     *      `martis.cache.admin_ui` + the `manage-martis-cache` Gate).
-     *   2. Resources marked with `belongsToSystemSection() === true`
+     * Three distinct sources of items live here:
+     *   1. Resources marked with `belongsToSystemSection() === true`
      *      (e.g. ActionEventResource, plus host-app User/Role/Permission
-     *      resources scaffolded by `martis:roles`). Per-resource auth
-     *      is already enforced upstream in `buildNavigation`.
+     *      resources scaffolded by `martis:roles`).
+     *   2. Tools marked with `belongsToSystemSection() === true`
+     *      (`Tool::withSystemSection()`), e.g. a settings console or a
+     *      health dashboard the host ships as a Tool.
+     *   3. The bundled Cache admin link (gated by
+     *      `martis.cache.admin_ui` + the `manage-martis-cache` Gate).
+     *
+     * `$systemItems` arrives from `buildNavigation()` already ordered
+     * (resources first, then tools), with per-entity auth and the
+     * `Martis::mainMenu(...)` dedup applied upstream. The Cache admin link
+     * is appended last here.
      *
      * The section appears whenever at least one of those sources
      * produces a visible item for the current user. It collapses
      * cleanly when the user is unauthorized for everything.
      *
      * @param  list<array<string, mixed>>  $sections
-     * @param  list<MenuItem>  $systemResources
+     * @param  list<MenuItem>  $systemItems
      * @return list<array<string, mixed>>
      */
-    protected function appendSystemSection(array $sections, Request $request, array $systemResources = []): array
+    protected function appendSystemSection(array $sections, Request $request, array $systemItems = []): array
     {
-        $items = [];
-
-        // Resources first — host-app concerns (users, roles) typically
-        // outweigh the Cache admin in the admin's mental model.
-        foreach ($systemResources as $resourceItem) {
-            $items[] = $resourceItem;
-        }
+        $items = $systemItems;
 
         $cacheUiEnabled = (bool) config('martis.cache.admin_ui', true);
         $user = $request->user();
