@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martis\Concerns;
 
+use Illuminate\Auth\Access\Gate as GateInstance;
+use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Martis\Authorization\PolicyResolver;
@@ -23,8 +25,14 @@ use Martis\Authorization\PolicyResolver;
  * `Resource` keeps its richer resolver (which also checks
  * `Gate::getPolicyFor(static::model())` for an Eloquent-bound policy)
  * — that pipeline does not generalise to entities without a Model.
- * The trait below covers the simple case: declarative `$policy` plus
- * convention auto-discovery, both routed through Laravel's Gate.
+ * The trait below covers the simple case: declarative `$policy`,
+ * convention auto-discovery, or a policy the host registered for the
+ * entity class itself, all routed through Laravel's Gate. The Gate is
+ * told about the resolved policy on the first check
+ * ({@see registerPolicyWithGate()}), so declaring `$policy` is enough:
+ * before v1.36.0 the ability was asked of a Gate that had never heard
+ * of the policy, and the entity was silently hidden unless the host
+ * also called `Gate::policy(Entity::class, Policy::class)`.
  *
  * Resolution is memoised per concrete class for the current request /
  * job / application lifecycle by the container-scoped
@@ -46,7 +54,9 @@ trait HasPolicy
      *
      *   1. Explicit `static::$policy` set + class exists → use it.
      *   2. Auto-discovery: `config('martis.policy_namespace') \ {baseName}Policy`.
-     *   3. Otherwise `null`.
+     *   3. A policy registered with the Gate for the entity class itself
+     *      (`Gate::policy(static::class, …)`), or guessed by Laravel.
+     *   4. Otherwise `null`.
      *
      * `{baseName}` strips a trailing `Resource`, `Dashboard`, `Tool`,
      * `Card`, `Lens`, or `Filter` suffix so `ProLabDashboard` maps to
@@ -78,7 +88,36 @@ trait HasPolicy
         $baseName = (string) preg_replace('/(Resource|Dashboard|Tool|Card|Lens|Filter)$/', '', $baseName);
         $policyClass = $namespace.'\\'.$baseName.'Policy';
 
-        return class_exists($policyClass) ? $policyClass : null;
+        if (class_exists($policyClass)) {
+            return $policyClass;
+        }
+
+        // Same last resort as Resource: whatever the Gate already maps
+        // the entity class to (explicit registration or Laravel's guess).
+        $gatePolicy = Gate::getPolicyFor(static::class);
+
+        return is_object($gatePolicy) ? $gatePolicy::class : null;
+    }
+
+    /**
+     * Make sure the Gate maps this entity class to the resolved policy,
+     * so `Gate::allows($ability, [static::class])` reaches it.
+     *
+     * The resolved policy is authoritative (the same precedence
+     * Resources apply: explicit `$policy`, then convention, then the
+     * Gate), so a host registration for the entity class that names a
+     * different policy is replaced by it; the registration is
+     * idempotent and cheap (one array lookup per check).
+     */
+    protected static function registerPolicyWithGate(object $policy): void
+    {
+        $gate = app(GateContract::class);
+
+        if ($gate instanceof GateInstance && ($gate->policies()[static::class] ?? null) === $policy::class) {
+            return;
+        }
+
+        $gate->policy(static::class, $policy::class);
     }
 
     /**
@@ -108,11 +147,13 @@ trait HasPolicy
             return null;
         }
 
+        static::registerPolicyWithGate($policy);
+
         $user = $request->user();
 
         // Use the active Gate so the policy resolves through the same
         // pipeline custom registrations rely on (before/after hooks,
-        // facade override, etc.).
+        // GateEvaluated listeners, facade override, etc.).
         return Gate::forUser($user)->allows($ability, [static::class]);
     }
 }
