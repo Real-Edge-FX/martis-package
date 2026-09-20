@@ -16,6 +16,7 @@ vi.mock('react-i18next', () => ({
 
 const updatePref = vi.fn()
 vi.mock('@/contexts/PreferencesContext', () => ({
+  resolveTheme: (theme: string) => (theme === 'light' ? 'light' : 'dark'),
   usePreferences: () => ({
     enabled: true,
     prefs: {
@@ -79,5 +80,32 @@ describe('PreferencesMenu — theme.allowToggle', () => {
     // Sibling sections still render — only the theme picker is gone.
     expect(screen.queryByText('Accent')).toBeTruthy()
     expect(screen.queryByText('Density')).toBeTruthy()
+  })
+})
+
+describe('PreferencesMenu — accent swatches follow the stylesheets', () => {
+  beforeEach(() => {
+    document.querySelectorAll('style').forEach((s) => s.remove())
+  })
+
+  it('paints each swatch with the accent the cascade resolves for its key (theme-aware), not the literal', () => {
+    const style = document.createElement('style')
+    style.textContent = `
+      :root { --martis-accent: #0070f0; }                       /* branded theme redefines the default accent */
+      html.dark[data-accent="blue"] { --martis-accent: #123456; } /* package rule for a bundled accent */
+      html[data-accent="imoray-teal"] { --martis-accent: #00837a; } /* inline custom-accent block */
+    `
+    document.head.appendChild(style)
+    configMock.value = { preferences: { customAccents: [{ name: 'imoray-teal', color: '#14b8a6' }] } }
+
+    render(<PreferencesMenu />)
+
+    const bg = (label: string) => (screen.getByLabelText(label) as HTMLElement).style.backgroundColor
+    // jsdom normalises hex to rgb().
+    expect(bg('Martis')).toBe('rgb(0, 112, 240)')
+    expect(bg('Blue')).toBe('rgb(18, 52, 86)')
+    expect(bg('Imoray teal')).toBe('rgb(0, 131, 122)')
+    // No rule for teal → the literal fallback stays.
+    expect(bg('Teal')).toBe('rgb(20, 184, 166)')
   })
 })

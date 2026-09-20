@@ -78,7 +78,7 @@ const STORAGE_KEY = 'martis-preferences'
 const GUEST_MODIFIED_KEY = 'martis-preferences-guest-modified'
 
 /** Map the `theme=system` preference into a concrete dark/light at runtime. */
-function resolveTheme(theme: ThemeMode): 'dark' | 'light' {
+export function resolveTheme(theme: ThemeMode): 'dark' | 'light' {
   if (theme === 'system') {
     return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   }
