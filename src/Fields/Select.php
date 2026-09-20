@@ -52,6 +52,16 @@ class Select extends Field
      */
     protected bool $allowCustomValues = false;
 
+    /**
+     * Server-side option search. When set, the frontend stops filtering the
+     * option list locally and asks the owning Resource / Tool endpoint for
+     * `searchOptions($term)` as the user types (see FieldOptionsController).
+     * The initial list still comes from `getOptions()`. v1.37.0.
+     *
+     * @var (\Closure(string, Request|null): mixed)|null
+     */
+    protected ?\Closure $searchOptionsResolver = null;
+
     /** {@inheritdoc} */
     public function type(): string
     {
@@ -254,6 +264,58 @@ class Select extends Field
     }
 
     /**
+     * Resolve options on the server from the user's search term instead of
+     * shipping the whole list to the browser. The closure receives the raw
+     * term (may be empty: the panel just opened) and the current request,
+     * and returns the same shapes `options()` accepts. Implies
+     * {@see self::searchableOptions()}. Only Resource forms and Tools that
+     * implement ProvidesFields expose the endpoint; anywhere else the field
+     * falls back to local filtering over `getOptions()`.
+     *
+     *   Select::make('model')
+     *       ->options(fn () => ModelCatalog::top(50))
+     *       ->searchOptionsUsing(fn (string $term) => ModelCatalog::search($term, limit: 50));
+     *
+     * @param  \Closure(string, Request|null): mixed  $resolver
+     */
+    public function searchOptionsUsing(\Closure $resolver): static
+    {
+        $this->searchOptionsResolver = $resolver;
+        $this->searchableOptions = true;
+
+        return $this;
+    }
+
+    /**
+     * Whether a server-side option resolver is registered.
+     */
+    public function hasRemoteOptionsSearch(): bool
+    {
+        return $this->searchOptionsResolver !== null;
+    }
+
+    /**
+     * Run the server-side resolver for a search term.
+     *
+     * @return list<array{label: string, value: scalar}>
+     */
+    public function searchOptions(string $term, ?Request $request = null): array
+    {
+        if ($this->searchOptionsResolver === null) {
+            return [];
+        }
+
+        $resolved = ($this->searchOptionsResolver)($term, $request ?? $this->safeRequest());
+
+        if (! is_array($resolved)) {
+            return [];
+        }
+
+        /** @var array<int|string, scalar> $resolved */
+        return $this->normalizeOptions($resolved);
+    }
+
+    /**
      * Return the normalized options array.
      *
      * @return list<array{label: string, value: scalar}>
@@ -280,8 +342,7 @@ class Select extends Field
             'displayLabels' => $this->displayLabels,
             'searchableOptions' => $this->searchableOptions,
             'allowCustomValues' => $this->allowCustomValues,
-            // Wired by searchOptionsUsing(); false until then.
-            'remoteOptionsSearch' => false,
+            'remoteOptionsSearch' => $this->searchOptionsResolver !== null,
         ];
     }
 }

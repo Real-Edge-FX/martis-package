@@ -184,3 +184,61 @@ it('both setters accept an explicit false to switch the behaviour back off', fun
     expect($field->hasSearchableOptions())->toBeFalse()
         ->and($field->allowsCustomValues())->toBeFalse();
 });
+
+// ---------------------------------------------------------------------------
+// Server-side option search (v1.37.0)
+// ---------------------------------------------------------------------------
+
+it('searchOptionsUsing() registers a resolver, flags the field as remote and turns the search box on', function () {
+    $field = Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o' => 'gpt-4o']);
+
+    expect($field->hasRemoteOptionsSearch())->toBeTrue()
+        ->and($field->hasSearchableOptions())->toBeTrue();
+
+    $payload = $field->toArray();
+
+    expect($payload['remoteOptionsSearch'])->toBeTrue()
+        ->and($payload['searchableOptions'])->toBeTrue();
+});
+
+it('searchOptions() runs the resolver with the term and the request and normalises like options()', function () {
+    $seen = [];
+    $field = Select::make('model')->searchOptionsUsing(function (string $term, ?Request $request) use (&$seen): array {
+        $seen = [$term, $request];
+
+        return ['GPT-4o' => 'gpt-4o', 'Claude Opus 5' => 'claude-opus-5'];
+    });
+    $request = Request::create('/martis/api/resources/x/fields/model/options', 'GET');
+
+    expect($field->searchOptions('gpt', $request))->toEqual([
+        ['label' => 'GPT-4o', 'value' => 'gpt-4o'],
+        ['label' => 'Claude Opus 5', 'value' => 'claude-opus-5'],
+    ]);
+    expect($seen[0])->toBe('gpt')
+        ->and($seen[1])->toBe($request);
+});
+
+it('searchOptions() accepts a sequential list and uses each value as its label', function () {
+    $field = Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o', 'gpt-4o-mini']);
+
+    expect($field->searchOptions('gpt'))->toEqual([
+        ['label' => 'gpt-4o', 'value' => 'gpt-4o'],
+        ['label' => 'gpt-4o-mini', 'value' => 'gpt-4o-mini'],
+    ]);
+});
+
+it('searchOptions() returns an empty list when the resolver does not return an array', function () {
+    $field = Select::make('model')->searchOptionsUsing(fn (string $term) => null);
+
+    expect($field->searchOptions('x'))->toBe([]);
+});
+
+it('searchOptions() returns an empty list when no resolver is registered', function () {
+    expect(Select::make('model')->searchOptions('x'))->toBe([]);
+});
+
+it('searchOptionsUsing() leaves getOptions() (the initial list) untouched', function () {
+    $field = Select::make('model')->options(['a' => 'a'])->searchOptionsUsing(fn () => ['b' => 'b']);
+
+    expect($field->getOptions())->toEqual([['label' => 'a', 'value' => 'a']]);
+});
