@@ -193,6 +193,28 @@ it('excludes a Tool the user is not authorised to see (security)', function () {
     expect($tools->firstWhere('uriKey', 'palette-secret-tool'))->toBeNull();
 });
 
+it('tags an opted-in System-section Tool with the "System" group label, mirroring the sidebar', function () {
+    Martis::tools([
+        Tool::make('Standards', 'standards')->withIcon('book')->withMenuSection('Knowledge'),
+        Tool::make('Health', 'palette-system-health')->withMenuSection('Operations')->withSystemSection(),
+    ]);
+
+    $response = $this->getJson('/martis/api/command-palette');
+
+    $response->assertOk();
+
+    $tools = collect($response->json('tools'));
+
+    // The sidebar renders the opted-in tool under "System" regardless of
+    // its menuSection(); the palette tag must agree (same rule as the
+    // v1.29.3 fix for belongsToSystemSection() resources).
+    expect($tools->firstWhere('uriKey', 'palette-system-health')['group'])
+        ->toBe(__('martis::messages.system'));
+
+    // A plain menuSection() tool keeps its own label.
+    expect($tools->firstWhere('uriKey', 'standards')['group'])->toBe('Knowledge');
+});
+
 // ---------------------------------------------------------------------------
 // Bug: System-section resources rendered with no palette group tag, even
 // though the sidebar groups them under "System" (belongsToSystemSection was

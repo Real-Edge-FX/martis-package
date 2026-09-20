@@ -121,7 +121,13 @@ class CommandPaletteController extends MartisController
                 'uriKey' => $uriKey,
                 'label' => $tool->name(),
                 'icon' => $tool->icon(),
-                'group' => $tool->menuSection(),
+                // Mirror resources(): a System-section tool
+                // (belongsToSystemSection() === true) is rendered by the
+                // sidebar under the "System" header regardless of its
+                // menuSection(), so tag it the same way here.
+                'group' => $tool->belongsToSystemSection()
+                    ? __('martis::messages.system')
+                    : $tool->menuSection(),
                 'url' => '/tools/'.$uriKey,
             ];
         }
