@@ -1,6 +1,12 @@
 import type { Config } from 'tailwindcss'
+import preset from './tailwind.preset.js'
 
 export default {
+  // The package dogfoods the preset it ships to consumers, so `martis-*`
+  // utilities (`text-martis-accent`, `bg-martis-accent-bg-light`,
+  // `text-martis-accent-contrast`, …) resolve inside the bundle as well.
+  // The preset only *extends* the theme, so the stock palette stays intact.
+  presets: [preset as Config],
   content: [
     './resources/js/**/*.{ts,tsx}',
     './resources/views/**/*.blade.php',

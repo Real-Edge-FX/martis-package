@@ -3072,7 +3072,7 @@ html:not(.dark) .p-inputswitch .p-inputswitch-slider:before {
   background: #ffffff;
 }
 html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider {
-  background: #6366f1;
+  background: var(--martis-accent);
 }
 html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider:before {
   background: #ffffff;
@@ -3081,7 +3081,7 @@ html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover) 
   background: #b7bcc5;
 }
 html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover).p-highlight .p-inputswitch-slider {
-  background: #4f46e5;
+  background: var(--martis-accent-hover);
 }
 
 /* Light theme — Dialog/Modal */
@@ -3514,7 +3514,7 @@ html:not(.dark) .martis-dropzone {
 .p-checkbox .p-checkbox-box.p-highlight svg,
 .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   color: var(--martis-accent-contrast, #ffffff) !important;
-  fill: #ffffff !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* Native `<input type="checkbox">` styled to match the PrimeReact
    checkbox so preferences menu, form fields and toolbar selections
@@ -3749,7 +3749,7 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   color: var(--martis-accent-contrast, #ffffff) !important;
-  fill: #ffffff !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 
 /* Header colours live in `.martis-datatable .p-datatable-thead > tr > th`
@@ -4852,12 +4852,12 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .dark .p-checkbox .p-checkbox-box.p-highlight svg,
 .dark .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   color: var(--martis-accent-contrast, #ffffff) !important;
-  fill: #ffffff !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* Correct: p-highlight is on root .p-checkbox, not .p-checkbox-box (REA-1182) */
 .dark .p-datatable .p-selection-column .p-checkbox.p-highlight .p-checkbox-box {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
+  background-color: var(--martis-accent) !important;
+  border-color: var(--martis-accent) !important;
 }
 
 /* ── Fix: PrimeReact overlay panels z-index above action modals (REA-1102) ── */
@@ -5094,7 +5094,7 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-checked svg,
 html:not(.dark) .p-checkbox-checked .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-checkbox-checked .p-checkbox-box svg {
   color: var(--martis-accent-contrast, #ffffff) !important;
-  fill: #ffffff !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 /* DataTable row/header checkboxes — light theme. Size, border width
    and resting colour flow from the base spec rule above. We only
@@ -5106,7 +5106,7 @@ html:not(.dark) .p-datatable .p-selection-column .p-checkbox.p-highlight .p-chec
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box .p-checkbox-icon,
 html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-checkbox-box svg {
   color: var(--martis-accent-contrast, #ffffff) !important;
-  fill: #ffffff !important;
+  fill: var(--martis-accent-contrast, #ffffff) !important;
 }
 
 
