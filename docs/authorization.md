@@ -273,6 +273,23 @@ Repeat denials of the same `(user, ability, model)` within one request are de-du
 
 The noisy `viewAny` cascade (sidebar / navigation) is dropped by default. Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep it.
 
+## How policy instances are resolved
+
+Every check on a resource (`authorizedToView()`, the `_authorization` block, action visibility, relationship abilities) and on a Tool or Dashboard (`authorizedToSee()`) goes through `resolvePolicy()`:
+
+1. `public static ?string $policy` on the class.
+2. Convention: `{martis.policy_namespace}\{BaseName}Policy` (`UserResource` → `UserPolicy`, `ProLabDashboard` → `ProLabPolicy`).
+3. Resources only: the policy registered for the model in Laravel's Gate (`Gate::policy(...)`, or the one Laravel guesses from the model's namespace).
+4. Nothing: no policy, the [defaults](#at-a-glance) apply.
+
+Since v1.36.0 the **outcome of that walk** (the policy class) is memoised per entity class in `Martis\Authorization\PolicyResolver`, a container-scoped service: the memo lives for one request under Octane, one job under `queue:work` and one application instance in a test suite, and dies with it. The **policy instance** is never memoised: each check asks the container for one, exactly as Laravel's Gate does on every `$user->can()`. Consequences:
+
+- A policy may receive request-scoped dependencies through its constructor (a tenant context, the current principal, a per-request cache) and always sees the current values.
+- Container bindings are honoured on the next check: `bind`, `instance()`, `singleton`, `scoped`. Want one instance per request for an expensive policy? Bind it `scoped` in your provider; Martis does not decide that for you.
+- Nothing survives the application that created it, so a test suite that boots an application per test never sees a policy from an earlier test, and no `tearDown()` hook is needed.
+
+`Resource::flushPolicyCache()` and `HasPolicy::flushPolicyCache()` still exist (they share the memo, either call clears everything). Reach for them only in a test that registers a Gate policy or swaps `$policy` *after* the class has already been resolved in that same application. Before v1.36.0 the instances themselves were cached in static arrays that outlived the application, and only Laravel Octane events flushed them; policies therefore had to be stateless to behave under PHPUnit or a queue worker.
+
 ## Per-request Gate cache
 
 Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and the package memoises every Gate result keyed on `(user, ability, model_class, model_id)` for the duration of the request. Subsequent checks read from a `Map<string, bool>` instead of re-running the policy method. Useful for non-Spatie apps where the sidebar, schema authorization block, per-record `_authorization` block, and action visibility all evaluate the same gate.
