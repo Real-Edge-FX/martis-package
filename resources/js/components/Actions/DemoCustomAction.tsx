@@ -11,15 +11,19 @@ import type { CustomActionComponentProps } from "./ActionModal"
  */
 export function DemoCustomAction({
   action,
-  selectedIds,
-  componentProps,
-  onFieldsChange,
-  onExecute,
-  onClose,
-  isExecuting,
+  selectedIds = [],
+  // Every prop below is guaranteed by ActionModal, but the dev-tools
+  // Component Inspector seeds unrecognised keys with `{}`: default them so
+  // the demo renders its fallbacks from any payload instead of throwing.
+  componentProps = {},
+  onFieldsChange = () => undefined,
+  onExecute = () => undefined,
+  onClose = () => undefined,
+  isExecuting = false,
 }: CustomActionComponentProps) {
   const greeting = (componentProps.greeting as string) ?? "Select an option:"
   const options = (componentProps.options as string[]) ?? []
+  const title = action?.name ?? 'Custom action'
   const [selected, setSelected] = useState<string | null>(null)
   const [note, setNote] = useState("")
 
@@ -60,7 +64,7 @@ export function DemoCustomAction({
           style={{ borderColor: 'var(--martis-border)' }}
         >
           <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-            {action.name}
+            {title}
           </span>
           <button
             type="button"
