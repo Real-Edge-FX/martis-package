@@ -2,6 +2,8 @@
 
 namespace Martis;
 
+use Illuminate\Auth\Access\Gate as GateInstance;
+use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
+use Martis\Authorization\PolicyResolver;
 use Martis\Concerns\HasBadge;
 use Martis\Concerns\HasGate;
 use Martis\Contracts\ActionContract;
@@ -58,16 +61,6 @@ abstract class Resource implements ResourceContract
      * @var class-string|null
      */
     public static ?string $policy = null;
-
-    /**
-     * Cached resolved policies by resource class.
-     *
-     * false = resolution ran but no policy found.
-     * object = resolved policy instance.
-     *
-     * @var array<class-string, object|false>
-     */
-    private static array $resolvedPolicies = [];
 
     /** Create a new resource instance, optionally binding an existing model. */
     public function __construct(?Model $model = null)
@@ -532,26 +525,33 @@ abstract class Resource implements ResourceContract
      *   3. Laravel Gate policy registered for the model class
      *   4. null → no policy, permissive defaults apply
      *
-     * Results are cached per resource class for the duration of the request.
+     * The outcome of that walk is memoised per resource class for the
+     * current request / job / application lifecycle ({@see PolicyResolver},
+     * container-scoped). The instance itself is resolved from the
+     * container on every call, as Laravel's own Gate does, so bindings
+     * and request-scoped constructor dependencies are always current.
      *
      * @return object|null The policy instance, or null if none found
      */
     public static function resolvePolicy(): ?object
     {
-        $key = static::class;
+        return app(PolicyResolver::class)->resolve(
+            static::class,
+            static fn (): ?string => static::discoverPolicyClass(),
+        );
+    }
 
-        if (array_key_exists($key, self::$resolvedPolicies)) {
-            $cached = self::$resolvedPolicies[$key];
-
-            return $cached === false ? null : $cached;
-        }
-
+    /**
+     * Walk the resolution order and return the policy class, or null
+     * when the resource has no policy.
+     *
+     * @return class-string|null
+     */
+    protected static function discoverPolicyClass(): ?string
+    {
         // 1. Explicit $policy on the resource
         if (static::$policy !== null && class_exists(static::$policy)) {
-            $policy = app(static::$policy);
-            self::$resolvedPolicies[$key] = $policy;
-
-            return $policy;
+            return static::$policy;
         }
 
         // 2. Auto-discovery by convention
@@ -562,30 +562,31 @@ abstract class Resource implements ResourceContract
         $policyClass = $namespace.'\\'.$baseName.'Policy';
 
         if (class_exists($policyClass)) {
-            $policy = app($policyClass);
-            self::$resolvedPolicies[$key] = $policy;
-
-            return $policy;
+            return $policyClass;
         }
 
-        // 3. Laravel Gate policy for the model
-        $modelPolicy = Gate::getPolicyFor(static::model());
-        if ($modelPolicy !== null) {
-            self::$resolvedPolicies[$key] = $modelPolicy;
+        // 3. Laravel Gate policy for the model. Prefer the registered
+        //    class (the one the Gate itself would build, so a container
+        //    binding on it is honoured); otherwise take the class of the
+        //    instance the Gate guesses by convention or model parents.
+        $modelClass = static::model();
+        $gate = app(GateContract::class);
+        $registered = $gate instanceof GateInstance ? ($gate->policies()[$modelClass] ?? null) : null;
 
-            return $modelPolicy;
+        if (is_string($registered) && class_exists($registered)) {
+            return $registered;
         }
+
+        $modelPolicy = Gate::getPolicyFor($modelClass);
 
         // 4. No policy found
-        self::$resolvedPolicies[$key] = false;
-
-        return null;
+        return is_object($modelPolicy) ? $modelPolicy::class : null;
     }
 
     /** {@inheritdoc} */
     public static function flushPolicyCache(): void
     {
-        self::$resolvedPolicies = [];
+        app(PolicyResolver::class)->flush();
     }
 
     // -------------------------------------------------------------------------

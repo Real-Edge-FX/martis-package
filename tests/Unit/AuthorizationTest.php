@@ -243,6 +243,22 @@ class AuthzRelationshipPolicy
     }
 }
 
+class AuthzTenantContext
+{
+    public function __construct(public string $level = 'none') {}
+}
+
+/** A policy that captures request-scoped state through its constructor. */
+class AuthzTenantPolicy
+{
+    public function __construct(private AuthzTenantContext $tenant) {}
+
+    public function viewAny($user): bool
+    {
+        return $this->tenant->level === 'verified';
+    }
+}
+
 // --- Resources ---
 
 class AuthzNoPolicyResource extends Resource
@@ -261,6 +277,21 @@ class AuthzNoPolicyResource extends Resource
 class AuthzPermissivePolicyResource extends Resource
 {
     public static ?string $policy = AuthzPermissivePolicy::class;
+
+    public static function model(): string
+    {
+        return AuthzModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('name')];
+    }
+}
+
+class AuthzTenantPolicyResource extends Resource
+{
+    public static ?string $policy = AuthzTenantPolicy::class;
 
     public static function model(): string
     {
@@ -371,18 +402,81 @@ it('explicit policy takes precedence over Gate policy', function () {
     expect($policy)->toBeInstanceOf(AuthzPermissivePolicy::class);
 });
 
-it('caches resolved policies', function () {
+it('memoises the resolution but resolves the instance from the container on every call', function () {
     $p1 = AuthzPermissivePolicyResource::resolvePolicy();
     $p2 = AuthzPermissivePolicyResource::resolvePolicy();
-    expect($p1)->toBe($p2);
+
+    expect($p1)->toBeInstanceOf(AuthzPermissivePolicy::class)
+        ->and($p2)->toBeInstanceOf(AuthzPermissivePolicy::class)
+        ->and($p2)->not->toBe($p1);
 });
 
-it('flushPolicyCache resets the cache', function () {
-    $p1 = AuthzPermissivePolicyResource::resolvePolicy();
-    Resource::flushPolicyCache();
-    $p2 = AuthzPermissivePolicyResource::resolvePolicy();
-    expect($p1)->not->toBe($p2);
-    expect($p2)->toBeInstanceOf(AuthzPermissivePolicy::class);
+it('keeps the memoised resolution until flushPolicyCache()', function () {
+    expect(AuthzPermissivePolicyResource::resolvePolicy())->toBeInstanceOf(AuthzPermissivePolicy::class);
+
+    AuthzPermissivePolicyResource::$policy = AuthzRestrictivePolicy::class;
+
+    try {
+        // Memoised for this lifecycle: the swap is invisible until a flush.
+        expect(AuthzPermissivePolicyResource::resolvePolicy())->toBeInstanceOf(AuthzPermissivePolicy::class);
+
+        Resource::flushPolicyCache();
+
+        expect(AuthzPermissivePolicyResource::resolvePolicy())->toBeInstanceOf(AuthzRestrictivePolicy::class);
+    } finally {
+        AuthzPermissivePolicyResource::$policy = AuthzPermissivePolicy::class;
+    }
+});
+
+it('honours a singleton binding for the policy class', function () {
+    app()->singleton(AuthzPermissivePolicy::class);
+
+    expect(AuthzPermissivePolicyResource::resolvePolicy())->toBe(AuthzPermissivePolicyResource::resolvePolicy());
+});
+
+it('builds a Gate-registered policy through its container binding on every call', function () {
+    Gate::policy(AuthzModel::class, AuthzRestrictivePolicy::class);
+
+    $built = 0;
+    app()->bind(AuthzRestrictivePolicy::class, function () use (&$built): AuthzRestrictivePolicy {
+        $built++;
+
+        return new AuthzRestrictivePolicy;
+    });
+
+    AuthzNoPolicyResource::resolvePolicy();
+    $afterFirst = $built;
+    AuthzNoPolicyResource::resolvePolicy();
+
+    expect($afterFirst)->toBeGreaterThanOrEqual(1)
+        ->and($built)->toBe($afterFirst + 1);
+});
+
+it('sees request-scoped constructor state rebound between two checks', function () {
+    app()->instance(AuthzTenantContext::class, new AuthzTenantContext('none'));
+    $request = Request::create('/');
+    $request->setUserResolver(fn () => testUser());
+    $resource = new AuthzTenantPolicyResource;
+
+    expect($resource->authorizedToViewAny($request))->toBeFalse();
+
+    app()->instance(AuthzTenantContext::class, new AuthzTenantContext('verified'));
+
+    expect($resource->authorizedToViewAny($request))->toBeTrue();
+});
+
+it('forgetScopedInstances() starts a fresh resolution, as Octane and queue workers do', function () {
+    expect(AuthzPermissivePolicyResource::resolvePolicy())->toBeInstanceOf(AuthzPermissivePolicy::class);
+
+    AuthzPermissivePolicyResource::$policy = AuthzRestrictivePolicy::class;
+
+    try {
+        app()->forgetScopedInstances();
+
+        expect(AuthzPermissivePolicyResource::resolvePolicy())->toBeInstanceOf(AuthzRestrictivePolicy::class);
+    } finally {
+        AuthzPermissivePolicyResource::$policy = AuthzPermissivePolicy::class;
+    }
 });
 
 it('authorizable returns true by default', function () {
