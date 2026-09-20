@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Testing\TestResponse;
 use Martis\Cache\MartisCache;
 use Martis\Dashboards\Dashboard;
 use Martis\Facades\Martis;
@@ -97,7 +98,7 @@ afterEach(function () {
     DLCGatedDashboard::$visible = true;
 });
 
-function dlcUriKeys(\Illuminate\Testing\TestResponse $response): array
+function dlcUriKeys(TestResponse $response): array
 {
     return collect($response->json('data.dashboards'))->pluck('uriKey')->all();
 }

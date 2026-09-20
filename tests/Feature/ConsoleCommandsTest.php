@@ -3,6 +3,7 @@
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
@@ -545,7 +546,7 @@ it('martis:user --update rewrites the name and password of an existing user', fu
     expect(Hash::check('new-secret', $user->password))->toBeTrue();
     expect(Hash::check('old-secret', $user->password))->toBeFalse();
     // A rotated password never touches the verification timestamp.
-    expect(\Illuminate\Support\Carbon::parse($user->email_verified_at)->timestamp)->toBe($verifiedAt->timestamp);
+    expect(Carbon::parse($user->email_verified_at)->timestamp)->toBe($verifiedAt->timestamp);
 });
 
 it('martis:user --update keeps the existing name when --name is not given', function () {

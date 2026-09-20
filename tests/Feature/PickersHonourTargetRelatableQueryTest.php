@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMan
 use Illuminate\Database\Eloquent\Relations\MorphToMany as EloquentMorphToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Testing\TestResponse;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany;
@@ -328,7 +329,7 @@ afterEach(function () {
     app(ResourceRegistry::class)->flush();
 });
 
-function ptqNames(\Illuminate\Testing\TestResponse $response): array
+function ptqNames(TestResponse $response): array
 {
     $names = collect($response->assertOk()->json('data'))->pluck('name')->sort()->values()->all();
 
