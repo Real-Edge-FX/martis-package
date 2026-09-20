@@ -66,6 +66,7 @@ use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsEmailVerification;
 use Martis\Contracts\SendsPasswordResetLinks;
+use Martis\Discovery\Psr4NamespaceResolver;
 use Martis\Discovery\ResourceDiscovery;
 use Martis\Discovery\ToolDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
@@ -131,6 +132,10 @@ class MartisServiceProvider extends ServiceProvider
         $this->app->scoped(MartisCache::class, function (): MartisCache {
             return new MartisCache(Cache::store());
         });
+
+        // The PSR-4 map does not change during a process; read it once
+        // and share it between resource and tool discovery.
+        $this->app->singleton(Psr4NamespaceResolver::class);
 
         $this->app->singleton(SsoManager::class);
 
@@ -463,13 +468,20 @@ class MartisServiceProvider extends ServiceProvider
 
     /**
      * Auto-discover and register Resource classes from the configured path.
+     *
+     * The namespace comes from `martis.resources_namespace`, derived from
+     * Composer's PSR-4 map when the key is null (see
+     * {@see discoveryNamespace()}), so a resources directory outside the
+     * conventional `app/Martis` still maps to the classes it contains.
      */
     protected function discoverResources(): void
     {
         /** @var string $resourcesPath */
         $resourcesPath = config('martis.resources_path', app_path('Martis'));
 
-        $discovery = new ResourceDiscovery($resourcesPath);
+        $namespace = $this->discoveryNamespace('martis.resources_namespace', $resourcesPath, 'App\\Martis');
+
+        $discovery = new ResourceDiscovery($resourcesPath, $namespace);
         $classes = $discovery->discover();
 
         if ($classes !== []) {
@@ -484,6 +496,10 @@ class MartisServiceProvider extends ServiceProvider
      * `Martis::tools([...])` manually have already executed — the
      * discovery's `mergeTools()` then appends with dedup, never
      * stomping the host's explicit registration.
+     *
+     * The namespace follows the same precedence as resources: explicit
+     * `martis.tools_namespace`, then Composer's PSR-4 map, then
+     * `App\Martis\Tools`.
      *
      * Disable per-app via `martis.discovery.tools = false` (defaults to
      * true) when full manual control is desired.
@@ -500,7 +516,7 @@ class MartisServiceProvider extends ServiceProvider
             rtrim((string) config('martis.resources_path', app_path('Martis')), '/').'/Tools'
         );
 
-        $namespace = (string) config('martis.tools_namespace', 'App\\Martis\\Tools');
+        $namespace = $this->discoveryNamespace('martis.tools_namespace', $toolsPath, 'App\\Martis\\Tools');
 
         $this->app->booted(function () use ($toolsPath, $namespace): void {
             $classes = (new ToolDiscovery($toolsPath, $namespace))->discover();
@@ -509,6 +525,26 @@ class MartisServiceProvider extends ServiceProvider
                 Martis::mergeTools($classes);
             }
         });
+    }
+
+    /**
+     * Namespace used by auto-discovery for `$path`.
+     *
+     * Precedence: a non-empty string under `$configKey` is used verbatim
+     * (the explicit setting is the source of truth, even when wrong);
+     * otherwise the namespace is derived from Composer's PSR-4 map; when
+     * no PSR-4 root contains the directory, `$fallback` (the historical
+     * convention) keeps the behaviour of earlier versions.
+     */
+    protected function discoveryNamespace(string $configKey, string $path, string $fallback): string
+    {
+        $configured = config($configKey);
+
+        if (is_string($configured) && trim($configured, ' \\') !== '') {
+            return $configured;
+        }
+
+        return $this->app->make(Psr4NamespaceResolver::class)->resolve($path) ?? $fallback;
     }
 
     /**
