@@ -759,6 +759,47 @@ it('martis:tool --menu-section embeds the section call in the Tool stub', functi
     }
 });
 
+it('martis:tool --system-section embeds withSystemSection() in the Tool stub', function () {
+    try {
+        $path = app_path('Martis/Tools/OpsProviders.php');
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+
+        $this->artisan('martis:tool', [
+            'name' => 'OpsProviders',
+            '--system-section' => true,
+        ])->assertSuccessful();
+
+        $contents = (string) file_get_contents($path);
+        expect($contents)->toContain('->withSystemSection()');
+        // The class docblock still mentions withMenuSection() as guidance;
+        // the constructor chain must not call it.
+        expect($contents)->not->toContain('->withMenuSection(');
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Tools/OpsProviders.php'));
+    }
+});
+
+it('martis:tool --system-section wins over --menu-section and warns', function () {
+    try {
+        $path = app_path('Martis/Tools/OpsProviders.php');
+        (new Filesystem)->ensureDirectoryExists(app_path('Martis/Tools'));
+
+        $this->artisan('martis:tool', [
+            'name' => 'OpsProviders',
+            '--system-section' => true,
+            '--menu-section' => 'Operations',
+        ])
+            ->expectsOutputToContain('--menu-section is ignored')
+            ->assertSuccessful();
+
+        $contents = (string) file_get_contents($path);
+        expect($contents)->toContain('->withSystemSection()');
+        expect($contents)->not->toContain("->withMenuSection('Operations')");
+    } finally {
+        (new Filesystem)->delete(app_path('Martis/Tools/OpsProviders.php'));
+    }
+});
+
 it('martis:tool --with-component drops the TSX stub in the auto-discovery bucket', function () {
     // Use a unique class name not present in the testbench fixtures
     // (Imports/Backups/Reports/Quick/SystemHealth all ship pre-baked).
