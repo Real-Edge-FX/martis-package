@@ -196,6 +196,7 @@ $this->canSee(fn (Request $request) =>
 |---|---|
 | `canSee(Closure)` | Fluent setter. Closure receives a `Request` and returns `bool`. |
 | `authorizedToSee(Request)` | Resolved boolean used by the controller and the menu builder. Useful in tests / dynamic menus that need to pre-filter. Defaults to `true` when no `canSee()` callback is set. |
+| `public static ?string $policy` | Declarative Laravel Policy (v1.11.0+): its `view($user)` decides before `canSee()` is consulted. Resolved like a Resource's policy (explicit `$policy`, then `{policy_namespace}\{BaseName}Policy` with the `Tool` suffix stripped, then a policy registered with the Gate for the Tool class) and registered with the Gate on the first check, so no `Gate::policy()` call is needed (v1.36.0). See [Soft-gates → Policy binding](gates.md#policy-binding-dashboard-tool). |
 
 ### Menu count badge (v1.29.0+)
 

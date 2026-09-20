@@ -232,4 +232,6 @@ class ProLabPolicy
 
 Auto-discovery follows the same `martis.policy_namespace` config the Resource resolver uses, with the entity suffix stripped (`ProLabDashboard` → `ProLabPolicy`). When a policy is configured, `authorizedToSee()` consults `Policy::view` first; the `canSee(Closure)` closure remains available as a fallback for hosts that do not use Laravel Policies.
 
+Resolution order (v1.36.0): explicit `$policy`, then the convention, then a policy the host registered for the entity class itself with `Gate::policy(ProLabDashboard::class, ...)` or that Laravel guesses. The check runs through Laravel's Gate (`Gate::before()` / `after()` hooks and `GateEvaluated` listeners apply), and Martis registers the resolved policy for the entity class with the Gate on the first check, so declaring `$policy` is enough. Before v1.36.0 the entity was silently hidden unless the host also called `Gate::policy()` by hand.
+
 > v1.11.0 wires the policy check into `Dashboard` and `Tool`. Cards, Lenses, and Filters get the trait imported but unwired — they continue to use `canSee` only until v1.11.1 ships the auth-pipeline migration.

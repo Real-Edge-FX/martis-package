@@ -279,8 +279,10 @@ Every check on a resource (`authorizedToView()`, the `_authorization` block, act
 
 1. `public static ?string $policy` on the class.
 2. Convention: `{martis.policy_namespace}\{BaseName}Policy` (`UserResource` → `UserPolicy`, `ProLabDashboard` → `ProLabPolicy`).
-3. Resources only: the policy registered for the model in Laravel's Gate (`Gate::policy(...)`, or the one Laravel guesses from the model's namespace).
+3. The policy registered in Laravel's Gate (`Gate::policy(...)`, or the one Laravel guesses): for the model class on Resources, for the entity class itself on Tools and Dashboards.
 4. Nothing: no policy, the [defaults](#at-a-glance) apply.
+
+Resources call the policy methods directly (honouring the policy's own `before()`); Tools and Dashboards ask Laravel's Gate (`Gate::allows('view', [Entity::class])`), so `Gate::before()` / `after()` and `GateEvaluated` listeners (the denial audit, the per-request cache) apply to them. Since v1.36.0 Martis registers the resolved policy for the entity class with the Gate on the first check, so declaring `$policy` is enough; earlier versions hid the entity unless the host also called `Gate::policy(Entity::class, Policy::class)` by hand.
 
 Since v1.36.0 the **outcome of that walk** (the policy class) is memoised per entity class in `Martis\Authorization\PolicyResolver`, a container-scoped service: the memo lives for one request under Octane, one job under `queue:work` and one application instance in a test suite, and dies with it. The **policy instance** is never memoised: each check asks the container for one, exactly as Laravel's Gate does on every `$user->can()`. Consequences:
 

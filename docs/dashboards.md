@@ -114,7 +114,7 @@ class ProLabDashboard extends Dashboard
 }
 ```
 
-Auto-discovery follows `martis.policy_namespace` — `ProLabDashboard` resolves to `App\Martis\Policies\ProLabPolicy`.
+Auto-discovery follows `martis.policy_namespace` — `ProLabDashboard` resolves to `App\Martis\Policies\ProLabPolicy`. No `Gate::policy()` call is needed: the check runs through Laravel's Gate and Martis registers the resolved policy for the dashboard class on the first check (v1.36.0; earlier versions hid the dashboard unless the host registered the policy by hand). A policy the host registered for the dashboard class is used when neither `$policy` nor the convention apply. See [Authorization → How policy instances are resolved](authorization.md#how-policy-instances-are-resolved).
 
 **Soft-gate** with upsell modal (v1.11.0+) — keep the dashboard visible (with a badge), intercept the click, show a customisable modal. Useful for plan-gated features where hiding the entry kills the upsell. See [Soft-gates and badges](./gates.md) for the full API.
 
