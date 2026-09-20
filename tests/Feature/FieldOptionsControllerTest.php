@@ -86,6 +86,11 @@ class FieldOptionsClampResource extends Resource
     }
 }
 
+/**
+ * Standard Laravel policy shape: `update()` REQUIRES the model. A gate that
+ * calls it without one raises ArgumentCountError (a 500), which is exactly
+ * what the update-context endpoints must never do.
+ */
 class FieldOptionsCreateDeniedPolicy
 {
     public function viewAny($user): bool
@@ -98,9 +103,10 @@ class FieldOptionsCreateDeniedPolicy
         return false;
     }
 
-    public function update($user, $model = null): bool
+    public function update($user, Model $model): bool
     {
-        return true;
+        // Ownership-style rule so the endpoint must bind the REAL record.
+        return $model->name === 'editable';
     }
 }
 
@@ -250,19 +256,29 @@ it('rejects a Select without a server-side resolver with 422', function () {
 });
 
 it('looks the field up in the field set of the requested context', function () {
+    $record = FieldOptionsTestModel::create(['name' => 'x']);
     $this->getJson(fieldOptionsUrl('upgrade_model', 'context=create'))->assertStatus(422);
 
-    $update = $this->getJson(fieldOptionsUrl('upgrade_model', 'context=update'));
+    $update = $this->getJson(fieldOptionsUrl('upgrade_model', 'context=update&id='.$record->id));
     $update->assertOk();
     expect($update->json('data.options'))->toEqual([['label' => 'upgrade', 'value' => 'upgrade']]);
 });
 
-it('gates on the ability that matches the context', function () {
+it('gates on the ability that matches the context, binding the record for update', function () {
     $this->actingAs((new Authenticatable)->forceFill(['id' => 1, 'name' => 'Test User']));
+    $editable = FieldOptionsLockedModel::create(['name' => 'editable']);
+    $locked = FieldOptionsLockedModel::create(['name' => 'locked']);
     $base = '/martis/api/resources/'.FieldOptionsLockedResource::uriKey().'/fields/model/options';
 
     $this->getJson($base.'?context=create')->assertStatus(403);
-    $this->getJson($base.'?context=update')->assertOk();
+    // The policy receives the bound record, as any Laravel policy expects.
+    $this->getJson($base.'?context=update&id='.$editable->id)->assertOk();
+    $this->getJson($base.'?context=update&id='.$locked->id)->assertStatus(403);
+});
+
+it('update context needs a record id and 404s an unknown one', function () {
+    $this->getJson(fieldOptionsUrl('model', 'context=update'))->assertStatus(422);
+    $this->getJson(fieldOptionsUrl('model', 'context=update&id=999999'))->assertStatus(404);
 });
 
 it('returns 404 for an unknown resource', function () {

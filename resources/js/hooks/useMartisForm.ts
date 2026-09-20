@@ -127,6 +127,7 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
   const overrides = useDependsOnSync({
     resource: resourceKey ?? '_',
     context,
+    recordId,
     fields: flatFields,
     formValues: values,
     // No server round-trip when there is no scope, or while the caller marks

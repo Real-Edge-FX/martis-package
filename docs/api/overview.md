@@ -170,10 +170,10 @@ Used by `Slug::make()` for live "this slug is taken" hints in the create / updat
 ### Select option search
 
 ```http
-GET /martis/api/resources/{resource}/fields/{field}/options?search=term&context=create|update
+GET /martis/api/resources/{resource}/fields/{field}/options?search=term&context=create|update&id=<record>
 ```
 
-Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`), gated on the matching ability like `sync-field`, and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver.
+Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver.
 
 ### Lenses
 
@@ -187,10 +187,10 @@ Index endpoint for the named lens. Same query params as the resource index. See 
 
 ```http
 POST /martis/api/resources/{resource}/sync-field
-Body: { field: "<attribute>", payload: { ...current form values... } }
+Body: { field: "<attribute>", formData: { ...current form values... }, context: "create" | "update", id?: <record> }
 ```
 
-Server-side resolution of reactive `dependsOn()` fields. Frontend debounces (200 ms) + uses `AbortController` so the latest value always wins. Rejects unknown attributes (404), non-reactive attributes (422), empty attribute names (422). See [Fields § Reactive fields](../fields.md#reactive-fields--dependsonfield-closure).
+Server-side resolution of reactive `dependsOn()` fields. Frontend debounces (200 ms) + uses `AbortController` so the latest value always wins. Gated on the create ability, or on the update ability with the record named by `id` bound first (required in the update context since v1.37.0, so a policy typed `update(User, Model)` receives the model; 404 when the record does not exist). Rejects unknown attributes (422), non-reactive attributes (422), empty attribute names (422). See [Fields § Reactive fields](../fields.md#reactive-fields--dependsonfield-closure).
 
 ## Relationship Endpoints
 

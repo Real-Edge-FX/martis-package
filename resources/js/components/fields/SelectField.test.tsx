@@ -180,6 +180,16 @@ describe('SelectFieldInput — remote option search', () => {
     expect(await screen.findByText('Claude Opus 5')).toBeTruthy()
   })
 
+  it('sends the record id along in an update form', async () => {
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} resourceKey="clients" context="update" recordId={7} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(1))
+    expect(apiGetMock.mock.calls[0][0]).toBe('/api/resources/clients/fields/model/options?context=update&id=7&search=')
+  })
+
   it('asks the Tool endpoint when the form is scoped to a Tool', async () => {
     const { container } = render(
       <SelectFieldInput field={remoteField()} value="" onChange={vi.fn()} error={undefined} toolKey="settings" />,

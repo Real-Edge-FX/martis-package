@@ -756,9 +756,6 @@ class ResourceController extends MartisController
             return $error;
         }
 
-        /** @var class-string<\Martis\Resource> $resourceClass */
-        $instance = new $resourceClass;
-
         $attribute = (string) $request->input('field', '');
         if ($attribute === '') {
             return JsonErrorResponse::validation(['field' => ['Field attribute is required.']])->toResponse();
@@ -768,18 +765,25 @@ class ResourceController extends MartisController
         $formData = (array) $request->input('formData', []);
         $context = $request->input('context');
         $context = in_array($context, ['create', 'update'], true) ? $context : 'create';
+        $id = $request->input('id');
 
         // Resolve the field set for the current context, flatten layout
         // containers (Panel/Section/TabGroup), and locate the requested
         // attribute. Gate on the ability that matches the context so a user
         // who cannot create/update the resource cannot probe its sync data —
         // the previous update check (create OR viewAny) let a view-only user
-        // reach update-field metadata.
-        if ($context === 'update' && ! $instance->authorizedToUpdate($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
-        }
-        if ($context === 'create' && ! $instance->authorizedToCreate($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        // reach update-field metadata. The update gate binds the record named
+        // by `id` (v1.37.0): a bare instance called the policy's update()
+        // without a model, a 500 on any policy typed update(User, Model).
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        [$instance, $forbidden] = $this->resolveFormScopedResource(
+            $request,
+            $resourceClass,
+            $context,
+            is_string($id) || is_int($id) ? $id : null,
+        );
+        if ($instance === null) {
+            return $forbidden ?? JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $rawFields = $context === 'update'

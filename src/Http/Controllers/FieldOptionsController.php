@@ -18,7 +18,7 @@ use Martis\ResourceRegistry;
  * Backs the server-side option search of `Select::searchOptionsUsing()`.
  *
  * Routes:
- *   GET /martis/api/resources/{resource}/fields/{field}/options?search=&context=create|update
+ *   GET /martis/api/resources/{resource}/fields/{field}/options?search=&context=create|update&id=
  *   GET /martis/api/tools/{uriKey}/fields/{field}/options?search=
  *
  * Response envelope: JsonResponse
@@ -51,20 +51,23 @@ class FieldOptionsController extends MartisController
             return $error;
         }
 
-        /** @var class-string<\Martis\Resource> $resourceClass */
-        $instance = new $resourceClass;
-
         $context = $request->query('context');
         $context = in_array($context, ['create', 'update'], true) ? $context : 'create';
+        $id = $request->query('id');
 
         // Same gate as sync-field: the ability that matches the form the
-        // select was rendered on, so a view-only user cannot pull option
-        // lists meant for editors.
-        $authorized = $context === 'update'
-            ? $instance->authorizedToUpdate($request)
-            : $instance->authorizedToCreate($request);
-        if (! $authorized) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        // select was rendered on (with the record bound in the update
+        // context), so a view-only user cannot pull option lists meant for
+        // editors.
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        [$instance, $forbidden] = $this->resolveFormScopedResource(
+            $request,
+            $resourceClass,
+            $context,
+            is_string($id) ? $id : null,
+        );
+        if ($instance === null) {
+            return $forbidden ?? JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $fields = $context === 'update'

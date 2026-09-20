@@ -32,6 +32,13 @@ it('tracks values, threads fieldProps, and surfaces errors', () => {
   expect(result.current.fieldProps(fields[1]).error).toBe('taken')
 })
 
+it('threads recordId to the dependsOn sync so update-context requests carry the record id', () => {
+  depsSpy.mockClear()
+  renderHook(() =>
+    useMartisForm({ fields, resourceKey: 'projects', context: 'update', recordId: 42 }))
+  expect((depsSpy.mock.calls[0][0] as { recordId?: unknown }).recordId).toBe(42)
+})
+
 it('gates the dependsOn sync: disabled when syncDisabled or no resourceKey, enabled otherwise', () => {
   // syncDisabled true (e.g. update form before the record hydrates) → no sync.
   depsSpy.mockClear()

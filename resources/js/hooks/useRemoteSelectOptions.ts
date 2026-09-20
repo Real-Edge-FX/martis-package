@@ -35,17 +35,21 @@ interface FieldOptionsEnvelope {
  * or `null` when the form is bound to neither a Resource nor a Tool (the
  * select then filters locally, the way `dependsOn` degrades offline).
  * `toolKey` wins over `resourceKey`: the Tool is who declared the field.
+ * In the update context the record id travels along so the server can
+ * bind the record before running the update policy.
  */
 export function remoteOptionsEndpoint(
   attribute: string,
-  scope: { resourceKey?: string; toolKey?: string; context?: 'create' | 'update' },
+  scope: { resourceKey?: string; toolKey?: string; context?: 'create' | 'update'; recordId?: string | number },
 ): string | null {
   const attr = encodeURIComponent(attribute)
   if (scope.toolKey) {
     return `/api/tools/${encodeURIComponent(scope.toolKey)}/fields/${attr}/options`
   }
   if (scope.resourceKey) {
-    return `/api/resources/${encodeURIComponent(scope.resourceKey)}/fields/${attr}/options?context=${scope.context ?? 'create'}`
+    const context = scope.context ?? 'create'
+    const id = context === 'update' && scope.recordId != null ? `&id=${encodeURIComponent(String(scope.recordId))}` : ''
+    return `/api/resources/${encodeURIComponent(scope.resourceKey)}/fields/${attr}/options?context=${context}${id}`
   }
   return null
 }

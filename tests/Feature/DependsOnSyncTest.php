@@ -54,6 +54,31 @@ class DependsOnTestResource extends Resource
     }
 }
 
+class DependsOnStandardPolicy
+{
+    public function viewAny($user): bool
+    {
+        return true;
+    }
+
+    public function create($user): bool
+    {
+        return true;
+    }
+
+    // Standard Laravel shape: the model is REQUIRED. A gate calling
+    // update($user) alone raises ArgumentCountError.
+    public function update($user, Model $model): bool
+    {
+        return $model->plan === 'editable';
+    }
+}
+
+class DependsOnPolicyResource extends DependsOnTestResource
+{
+    public static ?string $policy = DependsOnStandardPolicy::class;
+}
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
@@ -173,4 +198,29 @@ it('sync-field rejects an empty field attribute', function () {
     ]);
 
     $response->assertStatus(422);
+});
+
+// -----------------------------------------------------------------------------
+// update context binds the record before gating (v1.37.0)
+// -----------------------------------------------------------------------------
+
+it('sync-field in the update context binds the record so a standard policy receives the model', function () {
+    $this->actingAs((new \Illuminate\Foundation\Auth\User)->forceFill(['id' => 1, 'name' => 'Test User']));
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(DependsOnPolicyResource::class);
+    $editable = DependsOnTestModel::create(['plan' => 'editable']);
+    $locked = DependsOnTestModel::create(['plan' => 'locked']);
+    $url = '/martis/api/resources/'.DependsOnPolicyResource::uriKey().'/sync-field';
+
+    $this->postJson($url, ['field' => 'price', 'context' => 'update', 'id' => $editable->id, 'formData' => ['plan' => 'paid']])
+        ->assertOk();
+    $this->postJson($url, ['field' => 'price', 'context' => 'update', 'id' => $locked->id, 'formData' => []])
+        ->assertStatus(403);
+    $this->postJson($url, ['field' => 'price', 'context' => 'update', 'formData' => []])
+        ->assertStatus(422);
+    $this->postJson($url, ['field' => 'price', 'context' => 'update', 'id' => 999999, 'formData' => []])
+        ->assertStatus(404);
+
+    \Martis\Resource::flushPolicyCache();
 });

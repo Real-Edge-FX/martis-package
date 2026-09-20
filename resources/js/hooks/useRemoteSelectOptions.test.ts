@@ -40,6 +40,16 @@ describe('remoteOptionsEndpoint', () => {
       .toBe('/api/resources/clients/fields/model/options?context=create')
   })
 
+  it('adds the record id in the update context so the server can bind the record before gating', () => {
+    expect(remoteOptionsEndpoint('model', { resourceKey: 'clients', context: 'update', recordId: 42 }))
+      .toBe('/api/resources/clients/fields/model/options?context=update&id=42')
+    // Not needed for create, and never for a Tool.
+    expect(remoteOptionsEndpoint('model', { resourceKey: 'clients', context: 'create', recordId: 42 }))
+      .toBe('/api/resources/clients/fields/model/options?context=create')
+    expect(remoteOptionsEndpoint('model', { toolKey: 't', context: 'update', recordId: 42 }))
+      .toBe('/api/tools/t/fields/model/options')
+  })
+
   it('returns null without a scope', () => {
     expect(remoteOptionsEndpoint('model', {})).toBeNull()
   })
