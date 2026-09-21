@@ -2369,7 +2369,7 @@ File::make('attachment', 'Attachment')
 
 **Overrides:**
 - `resolve()` returns `{path, url, name}` (single) or `[{path, url, name}]` (multiple).
-- `fill()` stores uploaded file, deletes old, supports multiple mode. In multiple mode the path list is JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
+- `fill()` stores uploaded file, deletes old, supports multiple mode. In multiple mode the path list is JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)), and only `existing` paths the record already owns are kept: the list is client-supplied, so an injected path (another record's upload, a traversal) is dropped and an owned path the client omits is deleted from disk.
 - `buildRules()` adds `file`, `mimes:...`, `max:...` rules.
 
 **Extra attributes:** `disk`, `storagePath`, `maxSize`, `acceptedTypes`, `multiple`, `showFileInfo`
@@ -2404,7 +2404,7 @@ Image::make('featured_image', 'Featured Image')
 **Default accepted types:** jpg, jpeg, png, gif, webp, bmp (SVG excluded: XSS risk).
 **Overrides:**
 - `resolve()` returns `{path, url, name, thumbnailUrl}`.
-- `fill()` generates thumbnail after storing image. In multiple mode the path list follows the same cast-aware storage as `File` (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
+- `fill()` generates thumbnail after storing image. In multiple mode the path list follows the same cast-aware storage and the same owned-paths guard as `File` (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)): only `existing` paths the record already owns are kept, and an owned path the client omits is deleted together with its thumbnail. Before v1.37.3 `Image` kept any client-supplied path.
 - `buildRules()` uses `image` instead of `file`.
 - `deleteStoredFile()` also deletes thumbnail.
 

@@ -211,10 +211,16 @@ class Image extends File
         /** @var array<mixed> $rawExisting */
         $rawExisting = $value['existing'] ?? [];
 
+        // Only honour "existing" paths the model actually owns, the same
+        // guard File::fillMultiple() applies. The list is client-supplied,
+        // so without it a caller could inject arbitrary disk paths (another
+        // record's uploads, a traversal) into the stored set. Any owned path
+        // omitted here is treated as a deletion below (image and thumbnail),
+        // so an injected value can never widen the set.
         /** @var list<string> $keepPaths */
         $keepPaths = [];
         foreach ($rawExisting as $p) {
-            if (is_string($p) && $p !== '') {
+            if (is_string($p) && $p !== '' && in_array($p, $existingPaths, true)) {
                 $keepPaths[] = $p;
             }
         }

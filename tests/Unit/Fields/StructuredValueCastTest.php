@@ -217,6 +217,7 @@ it('File multiple fill() still writes a JSON string to an uncast column', functi
 
 it('Image multiple fill() hands an array cast the path list so it is encoded once', function () {
     $model = new StructuredCastArrayModel;
+    $model->setRawAttributes(['photos' => '["img\/a.jpg"]']);
 
     Image::make('photos')->multiple()->fill($model, [
         'files' => [],
