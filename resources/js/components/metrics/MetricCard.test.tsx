@@ -79,3 +79,27 @@ describe('MetricCard component-keyed metric (custom result renderer)', () => {
     expect(node.textContent).toBe('custom:top-queries:7.2')
   })
 })
+
+describe('MetricCard responsive grid span (v1.37.2+)', () => {
+  // The card never sets `grid-column` inline any more; it carries the
+  // resolved `width` / `widthMd` / `widthLg` tiers as custom properties and
+  // `.martis-dashboard-grid` (martis.css) places it per breakpoint, full row
+  // below md. Before, `widthMd` / `widthLg` were serialised but never read.
+  it('carries the width cascade as custom properties on the grid item', () => {
+    const { container } = renderCard({ width: 12, widthMd: 12, widthLg: 8 })
+    const card = container.querySelector('.martis-metric-card') as HTMLElement
+
+    expect(card.style.getPropertyValue('--martis-card-span')).toBe('12')
+    expect(card.style.getPropertyValue('--martis-card-span-md')).toBe('12')
+    expect(card.style.getPropertyValue('--martis-card-span-lg')).toBe('8')
+    expect(card.style.gridColumn).toBe('')
+  })
+
+  it('falls back to width for the md and lg tiers of a single-width card', () => {
+    const { container } = renderCard({ width: 6 })
+    const card = container.querySelector('.martis-metric-card') as HTMLElement
+
+    expect(card.style.getPropertyValue('--martis-card-span-md')).toBe('6')
+    expect(card.style.getPropertyValue('--martis-card-span-lg')).toBe('6')
+  })
+})

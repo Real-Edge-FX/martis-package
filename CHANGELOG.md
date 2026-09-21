@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.2] — 2026-09-21
+
+### Fixed
+
+- **The dashboard grid ignored `widthMd()` / `widthLg()` and never collapsed on narrow viewports.** `Metric::toArray()` serialised the two responsive widths (documented since the grid was introduced) but the SPA wrote `grid-column: span {width}` inline on every card and fixed the container at `repeat(12, …)` at every viewport, so a mobile-first declaration (`width(12)->widthMd(12)->widthLg(8)`) rendered the base width everywhere and a plain `width(4)` card was a third of a 390px screen. Placement now belongs to `.martis-dashboard-grid` in `martis.css`: each card carries its resolved tiers as custom properties (`--martis-card-span`, `-md`, `-lg`, from `lib/cardGridSpan.ts`, cascade `width()` → `widthMd()` → `widthLg()` with each tier inheriting the previous one) and the stylesheet applies them per media query, `md` = 768px and `lg` = 1024px, the same breakpoints as the form grid. Below `md` every card spans the full row whatever its declared widths, the rule `.martis-section-grid` already applies to field spans and what Nova's `md:grid-cols-12` does; a card declaring only `width(6)` is therefore unchanged above `md` and full-width on phones. A theme that wants `width()` honoured on phones can override the mobile rule with `grid-column: span var(--martis-card-span)`. A plain custom `Card` gains the same `widthMd()` / `widthLg()` methods (serialised next to `width`, `null` until declared) so both card kinds share one grid contract, and the `martis:card` TSX stub no longer writes a no-op inline `grid-column`. Assets rebuilt. +6 Pest, +10 Vitest. See [Metrics → Responsive widths](docs/metrics.md#responsive-widths-widthmd--widthlg).
+
 ## [1.37.1] — 2026-09-21
 
 ### Fixed

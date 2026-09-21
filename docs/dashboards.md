@@ -29,6 +29,8 @@ class SalesDashboard extends Dashboard
 }
 ```
 
+Cards sit on a 12-column grid that collapses to a single column below 768px; `width()` applies from there, with `widthMd()` / `widthLg()` for per-breakpoint spans. See [Metrics → Card Width](metrics.md#card-width).
+
 ## Registering Dashboards
 
 Register dashboards in `app/Providers/MartisServiceProvider.php` (published by `martis:install`):

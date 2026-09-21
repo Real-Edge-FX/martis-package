@@ -268,13 +268,41 @@ Overview::make('Overview')->width(MetricWidthPreset::Full);           // = 12
 
 Cases: `OneThird`, `Half`, `TwoThirds`, `Full`. The integer / fraction / enum forms are interchangeable.
 
-> **Martis extension:** Responsive breakpoints with `widthMd()` and `widthLg()`:
+### Responsive widths (`widthMd()` / `widthLg()`)
+
+> **Martis extension.** The dashboard grid is responsive at the same breakpoints as the form grid (`md` = 768px, `lg` = 1024px), and the three width methods form a mobile-first cascade, like Tailwind's `col-span-* md:col-span-* lg:col-span-*`:
+
+| Method       | Applies from  | Fallback                    |
+|--------------|---------------|-----------------------------|
+| `width()`    | `md` (768px)  | 4                           |
+| `widthMd()`  | `md` (768px)  | inherits `width()`          |
+| `widthLg()`  | `lg` (1024px) | inherits `widthMd()`, then `width()` |
+
+Below `md` **every card spans the full row, whatever the declared widths**, the same rule the form grid applies to field spans: a single column is always better than a third-width KPI on a 390px screen. So a card that declares only `width(6)` is half-width on tablets and desktops and full-width on phones, with no change to existing dashboards above `md`.
+
 ```php
-TotalUsers::make('Total Users')
-    ->width(12)       // mobile: full width
-    ->widthMd(6)      // tablet: half
-    ->widthLg(4)      // desktop: one-third
+UsersPerDay::make('Trend')
+    ->width(12)       // tablet (>= 768px): full row
+    ->widthLg(8);     // desktop (>= 1024px): two-thirds
+
+UsersByRole::make('Roles')
+    ->width(12)
+    ->widthLg(4);     // shares the desktop row with the trend above
 ```
+
+`widthMd()` is the explicit form of the `md` tier; use it when the card should change again at `lg` (`width(6)->widthMd(12)->widthLg(4)` reads as tablet 12, desktop 4). A plain custom `Card` (see [Dashboards → Custom cards](dashboards.md#custom-cards-filter-reactive)) accepts the same three methods.
+
+**How it is applied (v1.37.2+).** The SPA never writes `grid-column` inline. Each card carries its resolved tiers as custom properties on the grid item (`--martis-card-span`, `--martis-card-span-md`, `--martis-card-span-lg`) and `.martis-dashboard-grid` in `martis.css` owns the placement per media query. A theme that wants `width()` honoured on phones too can override the mobile rule:
+
+```css
+@media (max-width: 767px) {
+  .martis-dashboard-grid > * {
+    grid-column: span var(--martis-card-span);
+  }
+}
+```
+
+Before v1.37.2 the two responsive values were serialised but never read, and the grid stayed 12 columns at every viewport.
 
 ## Caching
 

@@ -5163,6 +5163,38 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   }
 }
 
+/* ── Dashboard cards grid — responsive spans (v1.37.2) ────── */
+/* The SPA writes each card's resolved spans as custom properties on the
+   grid item (`--martis-card-span` = `width()`, `--martis-card-span-md` =
+   `widthMd()` falling back to `width()`, `--martis-card-span-lg` =
+   `widthLg()` falling back to the md value; see lib/cardGridSpan.ts) and
+   never sets `grid-column` inline, so the breakpoints live here only.
+   Same tiers as Tailwind / the field grid: md = 768px, lg = 1024px. */
+.martis-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+/* Prevents grid blowout on narrow content (tables, long labels) */
+.martis-dashboard-grid > * {
+  min-width: 0;
+  /* Mobile: every card takes the full row, whatever the declared widths
+     (same rule as .martis-section-grid). A theme that wants `width()`
+     honoured on phones can override this with
+     `grid-column: span var(--martis-card-span)`. */
+  grid-column: 1 / -1;
+}
+@media (min-width: 768px) {
+  .martis-dashboard-grid > * {
+    grid-column: span var(--martis-card-span-md, 12);
+  }
+}
+@media (min-width: 1024px) {
+  .martis-dashboard-grid > * {
+    grid-column: span var(--martis-card-span-lg, var(--martis-card-span-md, 12));
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    Standardized focus state — applies to ALL input-like elements
    Must come last to override any other focus rules

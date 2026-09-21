@@ -13,12 +13,15 @@ interface {{ class }}Props {
     name: string
     component: string
     /**
-     * 12-column grid span set on the PHP descriptor via `width(int)`.
-     * Default 4. The wrapper maps this to a `gridColumn: span N` so
-     * the card respects the dashboard layout without needing inline
-     * tweaks.
+     * 12-column grid span set on the PHP descriptor via `width(int)`,
+     * with `widthMd(int)` / `widthLg(int)` for the md (>= 768px) and lg
+     * (>= 1024px) breakpoints. Default 4. The dashboard grid places the
+     * card from these values (full row below md), so the component
+     * never touches `grid-column` itself.
      */
     width?: number
+    widthMd?: number | null
+    widthLg?: number | null
     /**
      * `true` when the parent renders the card inside the `MetricCard`
      * chrome (border + header + padded body) via `framed(true)`. In
@@ -45,13 +48,13 @@ interface {{ class }}Props {
  * Picks classes that follow the design system tokens, so the card
  * adapts to the active theme (dark / light), density preset and
  * accent without inline styles. The grid span and frame mode track
- * the PHP descriptor — `width()` and `framed()` calls flow through
- * to the wrapper here automatically.
+ * the PHP descriptor — `width()` / `widthMd()` / `widthLg()` and
+ * `framed()` calls are applied by the dashboard grid wrapper
+ * automatically.
  */
 export default function {{ class }}({card}: {{ class }}Props) {
   const subtitle =
     typeof card.meta.subtitle === 'string' ? card.meta.subtitle : 'Details'
-  const span = Math.max(1, Math.min(12, card.width ?? 4))
 
   // Body content — this is what you replace with your custom UI.
   const body = (
@@ -63,16 +66,16 @@ export default function {{ class }}({card}: {{ class }}Props) {
   // When `framed(true)` is set on the PHP side the parent already
   // wraps this component in the `MetricCard` chrome (border + header
   // + padded body), so we render only the body to avoid a double
-  // border. The PHP descriptor's `width()` still drives the outer
-  // grid column via the parent.
+  // border. The PHP descriptor's widths still drive the outer grid
+  // column via the parent.
   if (card.framed) {
     return body
   }
 
-  // Unframed cards own the surface themselves and respect their own
-  // grid span via `gridColumn: span N`.
+  // Unframed cards own the surface themselves; the grid column is
+  // still the parent wrapper's job.
   return (
-    <div className="martis-card" style={{ gridColumn: `span ${span} / span ${span}` }}>
+    <div className="martis-card">
       <header className="martis-card-head">
         <h3 className="martis-kpi-label">
           <span className="martis-kpi-label-text">{card.name}</span>
