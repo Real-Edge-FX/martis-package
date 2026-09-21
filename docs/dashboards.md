@@ -49,7 +49,7 @@ protected function registerDashboards(): void
 When multiple dashboards are registered, the host decides per dashboard whether it sits in the sidebar or nests inside another dashboard (v1.10.5+).
 
 - **Root dashboards** (default; `parent()` returns `null`) appear in the sidebar's `DASHBOARDS` group, one entry each. The first registered root doubles as the panel root link (`/`) so deep-link bookmarks and the sidebar stay in sync.
-- **Nested dashboards** (declared via `Dashboard::under('parent-uri-key')`) are hidden from the sidebar and surface as a tab strip inside their parent's view. Switching tabs flips the URL between `/dashboards/parent-uri-key` and `/dashboards/child-uri-key` so each tab is bookmarkable individually.
+- **Nested dashboards** (declared via `Dashboard::under('parent-uri-key')`) are hidden from the sidebar and surface as a tab strip inside their parent's view. Each tab is a link to that dashboard's own address (`/dashboards/child-uri-key`, or `/` for the first registered dashboard), so switching tabs flips the URL, every tab is bookmarkable individually, Back returns to the previous tab, and middle-click / open-in-new-tab work. The dashboard's filters start empty after a switch.
 
 ```php
 class HomeDashboard extends Dashboard
@@ -79,7 +79,9 @@ class ProLabDashboard extends Dashboard
 }
 ```
 
-Result: sidebar lists `Home` and `Pro Lab` only. The Home page renders a tab strip with `Home` and `Regime history`; flipping to Regime history changes the URL to `/dashboards/regime-history` while the user stays on the Home group's tab strip.
+Result: sidebar lists `Home` and `Pro Lab` only. The Home page renders a tab strip with `Home` and `Regime history`; flipping to Regime history changes the URL to `/dashboards/regime-history` while the user stays on the Home group's tab strip, and the `Home` tab leads back to `/` (Home is the first registered dashboard, so `/` is its address).
+
+Before v1.37.3 the tabs wrote a local selection that the route parameter shadowed, so on a `/dashboards/{uriKey}` page a click changed nothing and children were reachable only by URL.
 
 Both surfaces share the same `/api/dashboards` payload and respect `canSee()` per dashboard. Children inherit nothing from their parent — they declare their own `cards()`, `filters()`, `name()`, etc. The relationship is purely a navigation shortcut.
 
