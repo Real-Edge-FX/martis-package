@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\Number;
 use Martis\Fields\Select;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -90,7 +92,7 @@ class DependsOnNestedResource extends Resource
     {
         return [
             Text::make('plan'),
-            \Martis\Layout\Section::make('Pricing', [
+            Section::make('Pricing', [
                 Number::make('price')->dependsOn(['plan'], function (array $form, Request $r, Number $field) {
                     $field->required(($form['plan'] ?? null) === 'paid');
                 }),
@@ -225,7 +227,7 @@ it('sync-field rejects an empty field attribute', function () {
 // -----------------------------------------------------------------------------
 
 it('sync-field in the update context binds the record so a standard policy receives the model', function () {
-    $this->actingAs((new \Illuminate\Foundation\Auth\User)->forceFill(['id' => 1, 'name' => 'Test User']));
+    $this->actingAs((new User)->forceFill(['id' => 1, 'name' => 'Test User']));
     $registry = app(ResourceRegistry::class);
     $registry->flush();
     $registry->register(DependsOnPolicyResource::class);
@@ -242,7 +244,7 @@ it('sync-field in the update context binds the record so a standard policy recei
     $this->postJson($url, ['field' => 'price', 'context' => 'update', 'id' => 999999, 'formData' => []])
         ->assertStatus(404);
 
-    \Martis\Resource::flushPolicyCache();
+    Martis\Resource::flushPolicyCache();
 });
 
 it('sync-field finds a reactive field nested inside a layout container', function () {
