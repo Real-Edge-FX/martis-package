@@ -6,6 +6,13 @@ export interface MartisFormOptions {
   fields: FieldDefinition[]
   initialValues?: Record<string, unknown>
   resourceKey?: string
+  /**
+   * URI key of the Tool that declared these fields (Mode B, `useToolFields`).
+   * Scopes server-backed field behaviours that a Tool can own, today the
+   * remote Select search, at `/api/tools/{toolKey}/...`. `dependsOn` sync
+   * still needs a `resourceKey`.
+   */
+  toolKey?: string
   context?: 'create' | 'update'
   /**
    * Id of the record this form edits, when bound to one. Threaded to fields so
@@ -33,6 +40,7 @@ export interface MartisForm {
   setErrors: (e: Record<string, string>) => void
   resolvedFields: FieldDefinition[]
   resourceKey?: string
+  toolKey?: string
   recordId?: string | number
   fieldProps: (field: FieldDefinition) => {
     field: FieldDefinition
@@ -41,6 +49,7 @@ export interface MartisForm {
     error?: string
     resourceKey?: string
     recordId?: string | number
+    toolKey?: string
     formValues: Record<string, unknown>
   }
 }
@@ -103,7 +112,7 @@ function applyOverrides(
 }
 
 export function useMartisForm(options: MartisFormOptions): MartisForm {
-  const { fields, initialValues, resourceKey, context = 'create', recordId, syncDisabled } = options
+  const { fields, initialValues, resourceKey, toolKey, context = 'create', recordId, syncDisabled } = options
   const [values, setValues] = useState<Record<string, unknown>>(initialValues ?? {})
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -118,6 +127,7 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
   const overrides = useDependsOnSync({
     resource: resourceKey ?? '_',
     context,
+    recordId,
     fields: flatFields,
     formValues: values,
     // No server round-trip when there is no scope, or while the caller marks
@@ -144,8 +154,9 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     error: errors[field.attribute],
     resourceKey,
     recordId,
+    toolKey,
     formValues: values,
   })
 
-  return { values, setValue, setValues, errors, setErrors, resolvedFields, resourceKey, recordId, fieldProps }
+  return { values, setValue, setValues, errors, setErrors, resolvedFields, resourceKey, toolKey, recordId, fieldProps }
 }

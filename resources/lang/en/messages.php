@@ -88,6 +88,7 @@ return [
     'validation_failed' => 'The given data was invalid.',
     'no_results_found' => 'No results found.',
     'no_options' => 'No options available.',
+    'options_load_error' => 'Could not load the options.',
     'no_tags_available' => 'No tags available.',
     'tag_add' => 'Add :label',
     'tag_remove' => 'Remove :title',

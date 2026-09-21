@@ -27,6 +27,12 @@ export interface UseDependsOnSyncArgs {
   resource: string
   /** Either `'create'` or `'update'`. Sets the server-side context. */
   context: 'create' | 'update'
+  /**
+   * Id of the record an update form edits. Sent as `id` so the server binds
+   * the record before running the update policy (v1.37.0); without it an
+   * update-context sync is refused (422).
+   */
+  recordId?: string | number
   /** Static field set (already flattened from layout containers). */
   fields: FieldDefinition[]
   /** Live form payload, keyed by field attribute. */
@@ -38,6 +44,7 @@ export interface UseDependsOnSyncArgs {
 export function useDependsOnSync({
   resource,
   context,
+  recordId,
   fields,
   formValues,
   disabled,
@@ -96,7 +103,7 @@ export function useDependsOnSync({
         void api
           .post<FieldDefinition>(
             `/api/resources/${resource}/sync-field`,
-            { field: attribute, formData: formValues, context },
+            { field: attribute, formData: formValues, context, ...(recordId != null ? { id: recordId } : {}) },
             ac.signal,
           )
           .then((res) => {
@@ -118,7 +125,7 @@ export function useDependsOnSync({
       window.clearTimeout(handle)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedSnapshot, disabled, resource, context])
+  }, [watchedSnapshot, disabled, resource, context, recordId])
 
   // Cancel everything on unmount so requests do not leak past the page.
   useEffect(() => {

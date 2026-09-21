@@ -963,8 +963,15 @@ Select::make('status')
 | `displayUsingValues` | `displayUsingValues(): static` | `$this` | Render the raw stored value on index and detail. Useful when the value is itself meaningful (ISO codes, slugs) and the label is just a humanised alias. |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Whether the field currently renders labels (true) or raw values (false). |
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value}]` (resolves the closure if one was set). |
+| `searchableOptions` | `searchableOptions(bool $value = true): static` | `$this` | Render a search box above the option list so the user can narrow it by label or value (v1.37.0). Not the same as `searchable()`, which makes the column part of the resource search. |
+| `hasSearchableOptions` | `hasSearchableOptions(): bool` | `bool` | Whether the option list renders with a search box. |
+| `allowCustomValues` | `allowCustomValues(bool $value = true): static` | `$this` | Accept a typed value that is not one of the options (v1.37.0). The stored value may then fall outside `getOptions()`; index and detail render it raw. Validation against the list stays yours (`Rule::in`). |
+| `allowsCustomValues` | `allowsCustomValues(): bool` | `bool` | Whether the control accepts values outside the option list. |
+| `searchOptionsUsing` | `searchOptionsUsing(Closure $resolver): static` | `$this` | Search the options on the server as the user types (v1.37.0). The closure receives `(string $term, ?Request $request)` and returns the same shapes `options()` accepts. Implies `searchableOptions()`. Resource forms and Tools implementing `ProvidesFields` only; see below. |
+| `hasRemoteOptionsSearch` | `hasRemoteOptionsSearch(): bool` | `bool` | Whether a server-side resolver is registered. |
+| `searchOptions` | `searchOptions(string $term, ?Request $request = null): array` | `array` | Run the server-side resolver and normalise the result to `[{label, value}]`. Empty list without a resolver. |
 
-**Extra attributes:** `options`, `displayLabels`
+**Extra attributes:** `options`, `displayLabels`, `searchableOptions`, `allowCustomValues`, `remoteOptionsSearch`
 
 ```php
 // Static options
@@ -987,10 +994,30 @@ Select::make('country_code')
 
 **Clear (X) icon.** On a `nullable()` select, the clear icon appears only once a value is selected — an empty select has nothing to clear, so no X shows on the placeholder state.
 
+**Searchable options, custom values and server-side search (v1.37.0).**
+
+```php
+// Long list: search box over the options (matches label or value)
+Select::make('currency')->options(Currency::all())->searchableOptions();
+
+// Pick from the list or type a value the list does not carry
+Select::make('model')->options(['gpt-4o' => 'gpt-4o'])->searchableOptions()->allowCustomValues();
+
+// Very long list: keep the first page in options(), search the rest on the server
+Select::make('model')
+    ->options(fn () => ModelCatalog::top(50))
+    ->searchOptionsUsing(fn (string $term, ?Request $request) => ModelCatalog::search($term, limit: 50));
+```
+
+- **`searchableOptions()`** renders PrimeReact's filter box inside the panel; filtering happens in the browser over the serialised `options`. Coming from Nova: Nova's `Select::searchable()` is this method. In Martis, `searchable()` on any field (including `Select`) means "the column takes part in the resource search", and it is serialised as `searchable`; the option search box is a separate flag, `searchableOptions`.
+- **`allowCustomValues()`** makes the control editable. A typed value reaches the form state on every keystroke, exactly like a `Text` field, and is stored as-is; `SelectFieldDisplay` renders a value with no matching option as the raw string. The field adds no `Rule::in` validation, so add one yourself when the list must be closed after all.
+- **`searchOptionsUsing()`** moves the search to the server. When the panel opens the frontend calls the field-options endpoint with an empty term (return your "first page" there), then again after each typing pause (300 ms), aborting the previous request; the initial `options()` list is shown until the first response lands. The endpoint is derived from the form's scope: `GET /api/resources/{resource}/fields/{attribute}/options?context=create|update&id=<record>` for a Resource form (gated on the create ability, or on the update ability with the edited record bound, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{attribute}/options` for a Tool implementing `ProvidesFields` whose form passes `toolKey` (see [Tool fields](tool-fields.md#server-side-option-search)). Outside those two scopes (Action modals, Repeaters, a frontend-only Tool form) the select falls back to local filtering over `options()`. The server decides what matches: results are shown as returned, never re-filtered in the browser. A stored value that is not in the current list is still shown in the control and can be cleared. The term is trimmed and clamped to 255 characters before it reaches your closure.
+
 **Filter variant + custom class (v1.29.0).** When rendering a select through the runtime `FieldInput` (e.g. a filter bar inside a [Tool](tool-fields.md)), the frontend honours two extra keys on the field definition:
 
 - `variant: 'filter'` — adds the compact `martis-filter-dropdown` class (the same look Martis's native resource filters use).
 - `className: '...'` — forwarded verbatim onto the Dropdown root, so you can layer your own utility classes.
+- `searchableOptions: true` / `allowCustomValues: true` / `remoteOptionsSearch: true` (v1.37.0) — the three Select flags above, usable from a frontend-only definition too. `remoteOptionsSearch` only does something when the form has a `resourceKey` or a `toolKey`.
 
 ```tsx
 // FieldDefinition passed to runtime.FieldInput

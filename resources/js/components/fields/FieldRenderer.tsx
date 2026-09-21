@@ -382,6 +382,7 @@ export function FieldInput({
   error,
   resourceKey,
   recordId,
+  toolKey,
   context,
   formValues,
 }: {
@@ -391,6 +392,7 @@ export function FieldInput({
   error?: string
   resourceKey?: string
   recordId?: string | number
+  toolKey?: string
   context?: 'create' | 'update'
   formValues?: Record<string, unknown>
 }) {
@@ -405,5 +407,17 @@ export function FieldInput({
     explicitKey,
     getFallbackInput(field.type),
   )
-  return <Component field={field} value={value} onChange={onChange} error={error} resourceKey={resourceKey} recordId={recordId} formValues={formValues} />
+  return (
+    <Component
+      field={field}
+      value={value}
+      onChange={onChange}
+      error={error}
+      resourceKey={resourceKey}
+      recordId={recordId}
+      toolKey={toolKey}
+      context={context}
+      formValues={formValues}
+    />
+  )
 }

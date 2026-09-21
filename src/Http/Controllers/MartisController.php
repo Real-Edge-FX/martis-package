@@ -53,6 +53,56 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * Resolve the resource instance a form-scoped endpoint (sync-field,
+     * field-options) gates on, and run that gate.
+     *
+     * Create context: a bare instance, gated on the create ability. Update
+     * context: the record named by `$id`, bound to the instance so the update
+     * ability receives the model the way every Laravel policy expects. A bare
+     * instance would call `update($user)` with no model and raise
+     * ArgumentCountError on any policy typed `update(User, Model)`, a 500
+     * where a 403 was meant. `viewAny` runs before the record query and a
+     * missing id or record is reported as such, mirroring the per-id
+     * endpoints. v1.37.0.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array{0: \Martis\Resource|null, 1: IlluminateJsonResponse|null}
+     */
+    protected function resolveFormScopedResource(Request $request, string $resourceClass, string $context, int|string|null $id): array
+    {
+        if ($context !== 'update') {
+            $instance = new $resourceClass;
+
+            if (! $instance->authorizedToCreate($request)) {
+                return [null, JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse()];
+            }
+
+            return [$instance, null];
+        }
+
+        if ($id === null || $id === '') {
+            return [null, JsonErrorResponse::validation(['id' => ['A record id is required in the update context.']])->toResponse()];
+        }
+
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return [null, $forbidden];
+        }
+
+        $model = $this->findModelByKey($resourceClass, $id);
+        if ($model === null) {
+            return [null, JsonErrorResponse::notFound()->toResponse()];
+        }
+
+        $instance = new $resourceClass($model);
+
+        if (! $instance->authorizedToUpdate($request)) {
+            return [null, JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse()];
+        }
+
+        return [$instance, null];
+    }
+
+    /**
      * Find a model by primary key, respecting soft-delete inclusion.
      */
     protected function findModelByKey(string $resourceClass, int|string $id): ?Model

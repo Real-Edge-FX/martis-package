@@ -88,6 +88,7 @@ return [
     'validation_failed' => 'Os dados fornecidos são inválidos.',
     'no_results_found' => 'Nenhum resultado encontrado.',
     'no_options' => 'Nenhuma opção disponível.',
+    'options_load_error' => 'Não foi possível carregar as opções.',
     'no_tags_available' => 'Nenhuma tag disponível.',
     'tag_add' => 'Adicionar :label',
     'tag_remove' => 'Remover :title',

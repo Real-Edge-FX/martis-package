@@ -136,6 +136,7 @@ export function PanelInput({
   errors,
   resourceKey,
   recordId,
+  toolKey,
   context,
 }: {
   panel: PanelDefinition
@@ -144,6 +145,7 @@ export function PanelInput({
   errors: Record<string, string>
   resourceKey?: string
   recordId?: string | number
+  toolKey?: string
   context?: 'create' | 'update'
 }) {
   return (
@@ -172,6 +174,7 @@ export function PanelInput({
                   error={errors[field.attribute]}
                   resourceKey={resourceKey}
                   recordId={recordId}
+                  toolKey={toolKey}
                   context={context}
                   formValues={values}
                 />
