@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.1] — 2026-09-21
+
+### Fixed
+
+- **Placeholders of unclassed inputs were white on the light theme.** The bundled PrimeReact theme (`lara-dark-indigo`) ships unscoped placeholder rules (`::-webkit-input-placeholder { color: rgba(255,255,255,.6) }`, and the `-moz` / `-ms` variants), right for its dark palette and invisible on a light surface, and `martis.css` re-coloured only the placeholders of its own controls, each by class (`.p-inputtext`, `.martis-input`, `.martis-search-input`, the ⌘K search, the resource search). A plain `<input placeholder="…">` or `<textarea>` in a Tool page or an extension bundle therefore rendered with no visible placeholder on the light theme, looked like an empty control, and could not be fixed from the consumer side (pseudo-elements are not addressable inline). The package CSS now restores a theme-aware default for every placeholder, `::placeholder { color: var(--martis-text-muted); opacity: 1 }`, unlayered so it beats the theme's `@layer primereact` rule regardless of specificity; the per-class rules keep winning over it, so Martis controls are unchanged in both modes, and a consumer theme that redefines `--martis-text-muted` re-colours bare placeholders too. Assets rebuilt. +3 Pest. See [Theming → Placeholder text in custom controls](docs/theming.md#placeholder-text-in-custom-controls-v1371).
+
 ## [1.37.0] — 2026-09-20
 
 ### Added

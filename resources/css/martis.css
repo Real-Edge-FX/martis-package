@@ -13,6 +13,19 @@
   box-sizing: border-box;
 }
 
+/* The bundled PrimeReact theme (lara-dark-indigo, `@layer primereact`)
+   ships unscoped placeholder rules (`::-webkit-input-placeholder { color:
+   rgba(255,255,255,.6) }`): right for its dark palette, invisible on the
+   light one. Restore a theme-aware default for every placeholder so a bare
+   `<input placeholder>` / `<textarea>` in a Tool page or an extension bundle
+   inherits the active palette. Unlayered, so it beats the theme regardless
+   of specificity; the per-class rules below still win over it. `opacity: 1`
+   keeps the token exact where the UA sheet fades placeholders (Firefox). */
+::placeholder {
+  color: var(--martis-text-muted);
+  opacity: 1;
+}
+
 /* ============================================================
    MARTIS DESIGN TOKENS — v0.7 (Task 07.1 Fase 1)
    94 variáveis em 13 categorias alinhadas ao /design-system/.
