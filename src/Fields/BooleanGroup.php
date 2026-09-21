@@ -159,6 +159,30 @@ class BooleanGroup extends Field
         return $this->minChecked(1);
     }
 
+    /** {@inheritdoc} */
+    public function hasStructuredValue(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Write the flag map. A JSON string (the shape the multipart request
+     * path carries, and what `resolve()` already reads) is decoded to the
+     * map first so the attribute, or its `array` cast, stores a map rather
+     * than the encoded text; any other value is written as received.
+     */
+    public function fill(Model $model, mixed $value): void
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $value = $decoded;
+            }
+        }
+
+        parent::fill($model, $value);
+    }
+
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $raw = parent::resolve($model, $attribute);

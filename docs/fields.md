@@ -160,6 +160,25 @@ Text::make('first_name', 'First Name') // explicit label
 | `resolve` | `resolve(Model $model, ?string $attribute = null): mixed` | Read the field value from a model: the raw value comes from the `computed()` callback when set, from `$model->getAttribute()` otherwise, then the `resolveUsing()` callback runs if set. |
 | `resolveForDisplay` | `resolveForDisplay(Model $model, ?string $attribute = null): mixed` | Resolve then apply `displayUsing()` callback. Use for index/detail serialization. |
 | `fill` | `fill(Model $model, mixed $value): void` | Write a value to the model. Respects `fillUsing()` callback and `readonly` flag. |
+| `hasStructuredValue` | `hasStructuredValue(): bool` | Whether the form submits this field's value as a list or a map rather than a scalar. `true` on `Repeater`, `MultiSelect`, `BooleanGroup`, `KeyValue`, `Tag`, `MorphTo` and `Sparkline`; override it on a custom field whose form value is structured. See [Structured values and file uploads](#structured-values-and-file-uploads). |
+
+#### Structured values and file uploads
+
+A form that uploads a file (a new `File` / `Image` was picked) is sent as `multipart/form-data`, and `FormData` carries strings and files only. The SPA therefore encodes every non-file value on that path in a shape the server reads back exactly as the JSON request path would send it:
+
+| Form value | Multipart body | Server side |
+|---|---|---|
+| `File` | the file | `$request->file()` |
+| `null` / `undefined` | `''` | `null` (Laravel's `ConvertEmptyStringsToNull`), so a field can be cleared |
+| `true` / `false` | `'1'` / `'0'` | what `Boolean::fill()` and the `boolean` rule expect |
+| array or plain object | `JSON.stringify(value)` | decoded back to the array before validation and fill for every field whose `hasStructuredValue()` is `true` |
+| other scalar | `String(value)` | as is |
+
+The decoding runs in every resource controller (`ResourceController`, `HasMany` / `HasOne` / `MorphMany` / `MorphOne` inline forms) through `DecodesStructuredValues`, so a `Repeater`'s rows, a `MultiSelect`'s selection, a `BooleanGroup`'s flag map, a `KeyValue`'s pairs, a `Tag`'s ids, a `MorphTo`'s target or a `Sparkline`'s points survive a save that also uploads a file, validation rules such as `array` / `max:N` see the real list, and `fill()` receives the same value it gets on a JSON save. A string that does not decode to an array is left untouched and fails validation instead of being stored.
+
+Custom fields whose form value is a list or a map should return `true` from `hasStructuredValue()` to join that path; a field whose value is a *string that happens to look like JSON* (a `Code` editor holding JSON, a `Textarea`) must leave it `false` so its text is never decoded.
+
+Before v1.37.3 the multipart body carried `String(value)` for everything: structured values arrived as `"[object Object]"` / `"12,15"` (rows silently emptied, selections cleared or rejected with 422, maps stored as text) and an unchecked `Boolean` arrived as `"false"`, which PHP casts to `true`.
 
 #### Structured values and Eloquent casts
 
@@ -843,6 +862,9 @@ BooleanGroup::make('permissions')
 | `requireAll()` ⭐ | Sugar for `minChecked(count(options))` |
 
 > ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
+
+**Storage format:** `{"flag":true,"other":false}` on a plain column, or the map itself through an `array` / `json` cast.
+**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map before writing (the multipart path, or a direct call) and writes an array as received.
 
 **⭐ Martis differentials:** grouped sections, min/max live counter, `requireAny/All` presets.
 

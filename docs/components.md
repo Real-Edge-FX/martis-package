@@ -502,7 +502,7 @@ await api.upload('POST', '/api/posts', formValues) // handles file uploads
 **Features:**
 - Automatic CSRF token injection (cookie or meta tag)
 - Same-origin credentials
-- File detection and FormData conversion
+- File detection and FormData conversion (`hasFileValues()` / `buildFormData()`): on the multipart path booleans travel as `1` / `0` and arrays or plain objects as JSON strings, which the resource controllers decode back for structured fields, so a Repeater, MultiSelect, BooleanGroup, KeyValue, Tag, MorphTo or Sparkline value saved alongside a file keeps its shape (see [Fields → Structured values and file uploads](fields.md#structured-values-and-file-uploads))
 - Laravel validation error normalization
 - `ApiError` class with `errorsByField()` for inline display
 

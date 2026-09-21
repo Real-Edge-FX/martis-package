@@ -178,6 +178,12 @@ class Sparkline extends Field
     }
 
     /** {@inheritdoc} */
+    public function hasStructuredValue(): bool
+    {
+        return true;
+    }
+
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         // A computed field has no backing attribute to write (see Field::fill()).

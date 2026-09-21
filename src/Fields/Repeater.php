@@ -310,6 +310,12 @@ class Repeater extends Field
     // Resolution
     // -------------------------------------------------------------------------
 
+    /** {@inheritdoc} */
+    public function hasStructuredValue(): bool
+    {
+        return true;
+    }
+
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute();

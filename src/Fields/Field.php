@@ -369,6 +369,23 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * Whether the form submits this field's value as a structure (a list or
+     * a map) rather than a scalar.
+     *
+     * A form that uploads a file is sent as `multipart/form-data`, and
+     * FormData carries strings only, so the SPA JSON-encodes every list or
+     * map value on that path (`buildFormData()` in `lib/api.ts`). Fields
+     * that return `true` here get that string decoded back by the resource
+     * controllers before validation and fill (see
+     * `DecodesStructuredValues`), so rules such as `array` and the field's
+     * `fill()` see the same shape the JSON request path sends.
+     */
+    public function hasStructuredValue(): bool
+    {
+        return false;
+    }
+
+    /**
      * Encode a structured value for storage unless the model's cast will.
      *
      * Fields that persist a list or a map (`MultiSelect`, `KeyValue`, the

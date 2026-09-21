@@ -173,6 +173,12 @@ class MultiSelect extends Field
     }
 
     /** {@inheritdoc} */
+    public function hasStructuredValue(): bool
+    {
+        return true;
+    }
+
+    /** {@inheritdoc} */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute;

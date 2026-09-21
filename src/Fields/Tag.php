@@ -245,6 +245,12 @@ class Tag extends Field
     }
 
     /** {@inheritdoc} */
+    public function hasStructuredValue(): bool
+    {
+        return true;
+    }
+
+    /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
         if ($this->isReadonly()) {

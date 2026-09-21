@@ -19,6 +19,7 @@ use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\MorphMany;
+use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -37,6 +38,8 @@ use Martis\SearchResolver;
  */
 class MorphManyController extends MartisController
 {
+    use DecodesStructuredValues;
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -461,6 +464,10 @@ class MorphManyController extends MartisController
      */
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
     {
+        // Multipart requests carry list / map values as JSON strings; give
+        // the rules below and the fill that follows the decoded structure.
+        $this->decodeStructuredValues($request, $fields);
+
         $rules = [];
         $attributes = [];
 
