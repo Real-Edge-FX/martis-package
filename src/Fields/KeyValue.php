@@ -162,8 +162,10 @@ class KeyValue extends Field
             return;
         }
 
-        $encoded = $this->encodeToJson($value);
-        $model->setAttribute($this->attribute, $encoded);
+        $model->setAttribute(
+            $this->attribute,
+            $this->storableStructuredValue($model, $this->attribute, $this->normalizeForStorage($value)),
+        );
     }
 
     /**
@@ -214,24 +216,30 @@ class KeyValue extends Field
      */
     public function encodeToJson(mixed $value): ?string
     {
+        $normalized = $this->normalizeForStorage($value);
+
+        return $normalized === null ? null : json_encode($normalized, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Reduce rows, an associative array or a JSON string to the associative
+     * map that gets stored, or `null` when there is nothing to store.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function normalizeForStorage(mixed $value): ?array
+    {
         if ($value === null || $value === '' || $value === []) {
             return null;
         }
 
         if (is_string($value)) {
             $decoded = json_decode($value, true);
-            if (is_array($decoded)) {
-                return json_encode($this->normalizeToAssociative($decoded), JSON_THROW_ON_ERROR);
-            }
 
-            return null;
+            return is_array($decoded) ? $this->normalizeToAssociative($decoded) : null;
         }
 
-        if (is_array($value)) {
-            return json_encode($this->normalizeToAssociative($value), JSON_THROW_ON_ERROR);
-        }
-
-        return null;
+        return is_array($value) ? $this->normalizeToAssociative($value) : null;
     }
 
     /**

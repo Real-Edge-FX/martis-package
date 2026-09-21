@@ -161,6 +161,32 @@ Text::make('first_name', 'First Name') // explicit label
 | `resolveForDisplay` | `resolveForDisplay(Model $model, ?string $attribute = null): mixed` | Resolve then apply `displayUsing()` callback. Use for index/detail serialization. |
 | `fill` | `fill(Model $model, mixed $value): void` | Write a value to the model. Respects `fillUsing()` callback and `readonly` flag. |
 
+#### Structured values and Eloquent casts
+
+`MultiSelect`, `KeyValue` and the multiple-file modes of `File` / `Image` persist a list or a map. Their `fill()` looks at the model before deciding who serialises it:
+
+- **Uncast column** (a plain `string` / `text` / `json` column with no entry in `$casts`): the field writes a single JSON-encoded string, exactly as before.
+- **JSON-family cast** (`'array'`, `'json'`, `'object'`, `'collection'` and their `'encrypted:…'` variants) or **class cast** (`AsArrayObject::class`, `AsCollection::class`, `AsEnumCollection::of(...)`, any `Castable`): the field hands the cast the PHP array and the cast serialises it once. Reading the attribute back through the cast yields an array (or the cast's object), never a JSON string.
+- **Scalar cast** (`'string'`, `'integer'`, …): treated like an uncast column; the field encodes.
+
+So both of these store `["available","reserved"]` once and read back as an array:
+
+```php
+// Model
+protected $casts = ['publish_states' => 'array'];
+
+// Resource
+MultiSelect::make('publish_states')->options([...]);
+```
+
+```php
+// Model: no cast on `publish_states`
+// Resource
+MultiSelect::make('publish_states')->options([...]);  // $model->publish_states is the JSON string; resolve() decodes it for the form
+```
+
+Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON string) on the first save through the admin form, and every later read through the cast returned a string.
+
 ### Fluent Configuration
 
 | Method | Signature | Returns | Description |
@@ -1093,7 +1119,7 @@ MultiSelect::make('technologies')
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Check if displaying labels. |
 
 **Storage format:** JSON array, e.g. `["php","react"]`
-**Overrides:** `resolve()` decodes JSON/array to list; `fill()` encodes back to JSON.
+**Overrides:** `resolve()` decodes JSON/array to list; `fill()` writes the list, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 **Extra attributes:** `options`, `displayLabels`
 
 ---
@@ -2321,7 +2347,7 @@ File::make('attachment', 'Attachment')
 
 **Overrides:**
 - `resolve()` returns `{path, url, name}` (single) or `[{path, url, name}]` (multiple).
-- `fill()` stores uploaded file, deletes old, supports multiple mode.
+- `fill()` stores uploaded file, deletes old, supports multiple mode. In multiple mode the path list is JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 - `buildRules()` adds `file`, `mimes:...`, `max:...` rules.
 
 **Extra attributes:** `disk`, `storagePath`, `maxSize`, `acceptedTypes`, `multiple`, `showFileInfo`
@@ -2356,7 +2382,7 @@ Image::make('featured_image', 'Featured Image')
 **Default accepted types:** jpg, jpeg, png, gif, webp, bmp (SVG excluded: XSS risk).
 **Overrides:**
 - `resolve()` returns `{path, url, name, thumbnailUrl}`.
-- `fill()` generates thumbnail after storing image.
+- `fill()` generates thumbnail after storing image. In multiple mode the path list follows the same cast-aware storage as `File` (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 - `buildRules()` uses `image` instead of `file`.
 - `deleteStoredFile()` also deletes thumbnail.
 
@@ -2480,7 +2506,7 @@ KeyValue::make('metadata', 'Metadata')
 | `isAddingRowsDisabled` | `isAddingRowsDisabled(): bool` | `bool` | Check if adding disabled. | — |
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
-**Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes and stores as JSON.
+**Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 **Extra attributes:** `keyLabel`, `valueLabel`, `actionText`, `editingKeysDisabled`, `addingRowsDisabled`
 
 ---

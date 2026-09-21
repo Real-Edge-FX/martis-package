@@ -204,7 +204,10 @@ class MultiSelect extends Field
         }
 
         $values = $this->decodeToArray($value);
-        $model->setAttribute($this->attribute, empty($values) ? null : json_encode($values, JSON_THROW_ON_ERROR));
+        $model->setAttribute(
+            $this->attribute,
+            $this->storableStructuredValue($model, $this->attribute, $values === [] ? null : $values),
+        );
     }
 
     /**

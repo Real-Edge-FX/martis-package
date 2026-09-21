@@ -201,7 +201,7 @@ class Image extends File
             foreach ($existingPaths as $path) {
                 $this->deleteImageAndThumb($path);
             }
-            $model->setAttribute($this->attribute, json_encode([]));
+            $model->setAttribute($this->attribute, $this->storableStructuredValue($model, $this->attribute, []));
 
             return;
         }
@@ -241,7 +241,7 @@ class Image extends File
         }
 
         $allPaths = array_merge($keepPaths, $newPaths);
-        $model->setAttribute($this->attribute, json_encode($allPaths));
+        $model->setAttribute($this->attribute, $this->storableStructuredValue($model, $this->attribute, $allPaths));
     }
 
     /**

@@ -368,6 +368,61 @@ abstract class Field implements FieldContract
         $model->setAttribute($this->attribute, $value);
     }
 
+    /**
+     * Encode a structured value for storage unless the model's cast will.
+     *
+     * Fields that persist a list or a map (`MultiSelect`, `KeyValue`, the
+     * multiple-file modes of `File` / `Image`) used to `json_encode()` the
+     * value themselves before `setAttribute()`. When the attribute carries a
+     * JSON-family cast (`array`, `json`, `object`, `collection`, their
+     * `encrypted:` variants) or a class cast (`AsArrayObject`, `AsCollection`,
+     * `AsEnumCollection`, any `Castable`), Eloquent's `set()` step encodes the
+     * value again and the column ends up holding a JSON string *of* a JSON
+     * string, unreadable through the cast from the next read on. Such a cast
+     * receives the PHP array here and serialises it once; an uncast column
+     * still gets the single-encoded JSON string it always did.
+     *
+     * `null` is passed through untouched on both paths.
+     *
+     * @param  array<mixed>|null  $value
+     * @return string|array<mixed>|null
+     */
+    protected function storableStructuredValue(Model $model, string $attribute, ?array $value): string|array|null
+    {
+        if ($value === null || $this->modelSerialisesStructuredValue($model, $attribute)) {
+            return $value;
+        }
+
+        return json_encode($value, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Whether Eloquent serialises a structured value for this attribute on
+     * write. Mirrors the model's own `isJsonCastable()` / `isClassCastable()`
+     * checks, which are protected: the native JSON-family cast list is the
+     * one Eloquent keeps, and a class cast is any cast whose caster segment
+     * (the part before an optional `:arguments` suffix, e.g.
+     * `AsCollection::using(...)`) names a class.
+     */
+    protected function modelSerialisesStructuredValue(Model $model, string $attribute): bool
+    {
+        if (! $model->hasCast($attribute)) {
+            return false;
+        }
+
+        if ($model->hasCast($attribute, [
+            'array', 'json', 'object', 'collection',
+            'encrypted:array', 'encrypted:collection', 'encrypted:json', 'encrypted:object',
+        ])) {
+            return true;
+        }
+
+        $cast = (string) ($model->getCasts()[$attribute] ?? '');
+        $caster = str_contains($cast, ':') ? explode(':', $cast, 2)[0] : $cast;
+
+        return $caster !== '' && class_exists($caster);
+    }
+
     // -------------------------------------------------------------------------
     // FieldContract — serialization
     // -------------------------------------------------------------------------
