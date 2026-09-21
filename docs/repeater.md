@@ -192,7 +192,9 @@ at runtime. The defaults are usually sufficient.
 | `make` | `make()` | No arguments — Repeatables have no attribute of their own |
 | `icon` | `->icon(string $icon)` | Phosphor icon name |
 | `color` | `->color(string $color)` | Semantic color token |
-| `title` | `->title(Closure\|string $title)` | Dynamic row header; `{attribute}` placeholders or closure |
+| `title` | `->title(Closure\|string $title)` | Dynamic row header; `{attribute}` placeholders or closure. See [Row header affordances](#row-header-affordances) |
+| `hasTitleCallback` | `->hasTitleCallback(): bool` | Whether the title is the Closure form (resolved per row on the server) |
+| `resolveTitle` | `->resolveTitle(array $rowValues, int $index): ?string` | Run the Closure title for one row (`$index` is 1-based); `null` for a template or no title |
 | `badgeCount` | `->badgeCount(bool $enabled = true)` | "#N" auto-numbered badge on the header |
 
 ## ⭐ Martis differentials
@@ -239,9 +241,33 @@ Declared on the `Repeatable` itself; surfaces real row context beyond the class 
 |---|---|
 | `->icon('flag-banner')` | Phosphor icon rendered next to the title |
 | `->color('success')` | Semantic color token painted as a 3-px left accent and icon tint |
-| `->title('{name} — {due_date}')` | Template resolved per-row from the field values |
-| `->title(fn($row, $i) => "…")` | Closure variant resolved on the server |
-| `->badgeCount()` | Show "#N" on the header (auto-numbered) |
+| `->title('{name} — {due_date}')` | Template evaluated live on the client from the row's current field values |
+| `->title(fn (array $row, int $i): ?string => "…")` | Closure resolved per row on the server: `$row` is the row's field map, `$i` its 1-based position |
+| `->badgeCount()` | Show "#N" on the header (auto-numbered); only next to a static label, since both dynamic forms fall back to "Label #N" themselves |
+
+The two `title()` forms differ in *when* they run:
+
+- A **template** is re-evaluated on every keystroke in the form, so the header follows the row as the admin types.
+- A **Closure** runs in PHP while the record is read (`Repeater::resolve()`, every storage mode) and its result travels with the row as `title` (see [Payload format](#payload-format)). The header shows the value of the *saved* row: a row added or edited in the form reads "Label #N" (or keeps its last resolved title) until the next save refreshes it. Use the Closure when the header needs data the row does not carry (a label map, a related model, a translation); use a template when the header is a plain projection of the row's own fields.
+
+```php
+class HomeSection extends Repeatable
+{
+    public function fields(Request $request): array
+    {
+        return [
+            Select::make('key', 'Section')->options(HomeSections::labels()),
+            Boolean::make('enabled', 'Enabled'),
+        ];
+    }
+}
+
+HomeSection::make()->title(
+    fn (array $row, int $index): string => HomeSections::labels()[$row['key'] ?? ''] ?? "Section #{$index}"
+);
+```
+
+Before v1.37.3 the Closure form was serialised as `hasTitleCallback: true` but never invoked, so every row fell back to the repeatable's label.
 
 ### Templates, duplicate, bulk paste
 
@@ -316,3 +342,16 @@ All storage modes ship rows to the frontend in the same shape:
 In polymorphic mode the `id` comes from `uniqueField` (typically a UUID
 column), `type` matches `Repeatable::shortName()`, and `fields` is the
 deserialised `payload` column.
+
+Rows of a Repeatable whose `title()` is a **Closure** carry one more key,
+`title`, holding the string the Closure resolved for that row (or `null`
+when it returned `null`):
+
+```json
+{ "id": "01HXYZ…", "type": "home-section", "fields": { "key": "hero", "enabled": true }, "title": "Hero" }
+```
+
+`title` is derived on every read and never stored: the form sends it back
+as received and `Repeater::fill()` drops it before writing JSON rows (the
+HasMany and polymorphic writers only read `id`, `type` and `fields`). Rows
+of a template-titled or untitled Repeatable keep the three-key shape.

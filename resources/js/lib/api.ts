@@ -222,11 +222,33 @@ export function hasFileValues(values: Record<string, unknown>): boolean {
   })
 }
 
+/** A `{}`-literal (or `Object.create(null)`) value: a field's list or map, never a File/Blob/Date. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  if (v === null || typeof v !== 'object') return false
+  const proto = Object.getPrototypeOf(v)
+  return proto === Object.prototype || proto === null
+}
+
 /**
  * Build a FormData from key-value pairs for multipart upload.
- * Handles File objects, null (skip), scalar values, and multiple-file fields.
+ *
+ * FormData carries strings and files only, so every other value has to be
+ * encoded in a way the server can read back exactly as the JSON request
+ * path would send it:
+ * - a File is appended as is; a multiple-file value splits into new
+ *   uploads and `{key}_keep[]` paths;
+ * - null / undefined become '' so Laravel still sees the field (clearing);
+ * - a boolean becomes '1' / '0' (`String(false)` is "false", which PHP's
+ *   `(bool)` reads as true and Laravel's `boolean` rule rejects);
+ * - an array or plain object is JSON-encoded; the resource controllers
+ *   decode it before validation and fill for structured fields
+ *   (`Field::hasStructuredValue()`), so a Repeater's rows, a MultiSelect's
+ *   selection, a BooleanGroup's map, a Tag's ids or a MorphTo's target
+ *   survive a save that also uploads a file instead of arriving as
+ *   "[object Object]" / "12,15";
+ * - anything else is stringified.
  */
-function buildFormData(values: Record<string, unknown>, methodOverride?: string): FormData {
+export function buildFormData(values: Record<string, unknown>, methodOverride?: string): FormData {
   const fd = new FormData()
   if (methodOverride) {
     fd.append('_method', methodOverride)
@@ -252,6 +274,10 @@ function buildFormData(values: Record<string, unknown>, methodOverride?: string)
     } else if (val === null || val === undefined) {
       // Send empty string so Laravel sees the field (allows clearing)
       fd.append(key, '')
+    } else if (typeof val === 'boolean') {
+      fd.append(key, val ? '1' : '0')
+    } else if (Array.isArray(val) || isPlainObject(val)) {
+      fd.append(key, JSON.stringify(val))
     } else {
       fd.append(key, String(val))
     }

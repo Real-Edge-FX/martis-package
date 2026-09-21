@@ -118,10 +118,14 @@ abstract class Repeatable
      * ⭐ Martis differential — dynamic title per row.
      *
      * Accepts either a template string with `{attribute}` placeholders
-     * (e.g. `'{quantity}× {description}'`) resolved on the frontend, or a
-     * Closure that receives the current row values and its 1-based index.
+     * (e.g. `'{quantity}× {description}'`) resolved live on the frontend, or a
+     * Closure that receives the row's field values and its 1-based index.
+     * The Closure runs on the server each time the record is read, so its
+     * result reflects the saved row: a row added or edited in the form shows
+     * the resolved title after the next save (the label plus the row number
+     * until then).
      *
-     * @param  Closure|string  $title  `fn (array $rowValues, int $index): string` or template
+     * @param  Closure|string  $title  `fn (array $rowValues, int $index): ?string` or template
      */
     public function title(Closure|string $title): static
     {
@@ -138,11 +142,19 @@ abstract class Repeatable
         return $this;
     }
 
+    /** Whether the row title is the Closure form, resolved per row on the server. */
+    public function hasTitleCallback(): bool
+    {
+        return $this->title instanceof Closure;
+    }
+
     /**
-     * Resolve the title for a specific row (called when the title is a
-     * Closure; the frontend handles template strings on its own).
+     * Resolve the title for a specific row. The Repeater calls this while
+     * serialising each row when the title is a Closure and ships the result
+     * as the row's `title`; the frontend handles template strings on its own.
      *
      * @param  array<string, mixed>  $rowValues
+     * @param  int  $index  1-based position of the row
      */
     public function resolveTitle(array $rowValues, int $index): ?string
     {
@@ -171,7 +183,7 @@ abstract class Repeatable
             'icon' => $this->icon,
             'color' => $this->color,
             'titleTemplate' => is_string($this->title) ? $this->title : null,
-            'hasTitleCallback' => $this->title instanceof Closure,
+            'hasTitleCallback' => $this->hasTitleCallback(),
             'badgeCount' => $this->badgeCount,
             'fields' => $fields,
         ];

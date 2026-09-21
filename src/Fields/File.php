@@ -316,7 +316,7 @@ class File extends Field
             foreach ($existingPaths as $path) {
                 $this->deletePathFromDisk($path);
             }
-            $model->setAttribute($this->attribute, json_encode([]));
+            $model->setAttribute($this->attribute, $this->storableStructuredValue($model, $this->attribute, []));
 
             return;
         }
@@ -358,7 +358,7 @@ class File extends Field
         }
 
         $allPaths = array_merge($keepPaths, $newPaths);
-        $model->setAttribute($this->attribute, json_encode($allPaths));
+        $model->setAttribute($this->attribute, $this->storableStructuredValue($model, $this->attribute, $allPaths));
     }
 
     /** {@inheritdoc} */

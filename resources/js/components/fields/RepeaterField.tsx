@@ -9,12 +9,17 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 
 /**
  * Row payload shape used in the React layer — mirrors the PHP payload:
- *   { id, type, fields: { attr -> value } }
+ *   { id, type, fields: { attr -> value }, title? }
+ * `title` is only present on rows of a repeatable whose `title()` is a
+ * Closure: the server resolves it per row on every read (see
+ * `Repeater::withResolvedTitle()`), the form sends it back untouched and
+ * `Repeater::fill()` drops it, so it is never stored.
  */
 interface RepeaterRow {
   id: string | number | null
   type: string
   fields: Record<string, unknown>
+  title?: string | null
 }
 
 interface RepeatableDef {
@@ -79,6 +84,7 @@ function normalizeRows(value: unknown): RepeaterRow[] {
         id: (row.id as string | number | null) ?? null,
         type: String(row.type ?? ''),
         fields,
+        ...('title' in row ? { title: typeof row.title === 'string' ? row.title : null } : {}),
       }
     })
     .filter((r): r is RepeaterRow => r !== null)
@@ -91,6 +97,27 @@ function applyTitleTemplate(template: string, rowFields: Record<string, unknown>
     if (val === null || val === undefined) return ''
     return String(val)
   }).trim()
+}
+
+/** Whether the repeatable computes its row header from the row (template or Closure). */
+function hasDynamicTitle(rep: RepeatableDef | undefined): boolean {
+  return !!rep && (!!rep.titleTemplate || rep.hasTitleCallback === true)
+}
+
+/**
+ * Dynamic header text for a row, or `null` when the repeatable declares
+ * none (the caller then shows the static label). The server-resolved
+ * `title` of a Closure-titled row wins; a `{attr}` template is evaluated
+ * live against the row's current fields. Both fall back to "Label #N" when
+ * they yield nothing, so a row added or edited in the form (no resolved
+ * title until the next save) stays distinguishable from its siblings.
+ */
+export function resolveRowTitle(rep: RepeatableDef | undefined, row: RepeaterRow, index: number): string | null {
+  if (!rep) return null
+  if (rep.hasTitleCallback && row.title) return row.title
+  if (rep.titleTemplate) return applyTitleTemplate(rep.titleTemplate, row.fields) || `${rep.label} #${index + 1}`
+  if (rep.hasTitleCallback) return `${rep.label} #${index + 1}`
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +139,7 @@ export function RepeaterFieldDisplay({ field, value }: FieldDisplayProps) {
     <div className="flex flex-col gap-2">
       {rows.map((row, index) => {
         const rep = repeatablesByName.get(row.type) ?? meta.repeatables?.[0]
-        const title = rep?.titleTemplate ? applyTitleTemplate(rep.titleTemplate, row.fields) : null
+        const title = resolveRowTitle(rep, row, index)
         return (
           <div
             key={String(row.id ?? index)}
@@ -128,7 +155,7 @@ export function RepeaterFieldDisplay({ field, value }: FieldDisplayProps) {
               <span className="font-medium" style={{ color: 'var(--martis-text)' }}>
                 {title || rep?.label || row.type}
               </span>
-              {rep?.badgeCount && (
+              {rep?.badgeCount && !hasDynamicTitle(rep) && (
                 <span className="ml-auto text-xs" style={{ color: 'var(--martis-text-muted)' }}>
                   #{index + 1}
                 </span>
@@ -237,9 +264,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
     const confirmIt = meta.confirmRemoval === true
     if (confirmIt) {
       const rep = repeatableFor(rows[index]?.type ?? '')
-      const title = rep?.titleTemplate
-        ? applyTitleTemplate(rep.titleTemplate, rows[index]?.fields ?? {}) || rep.label
-        : rep?.label ?? `#${index + 1}`
+      const row = rows[index]
+      const title = (row ? resolveRowTitle(rep, row, index) : null) ?? rep?.label ?? `#${index + 1}`
       setPendingRemoval({ index, label: title })
       return
     }
@@ -300,9 +326,9 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
         const rowKey = String(row.id ?? index)
         const isCollapsed = meta.collapsible === true && !!collapsed[rowKey]
 
-        const titleText = rep.titleTemplate
-          ? applyTitleTemplate(rep.titleTemplate, row.fields) || `${rep.label} #${index + 1}`
-          : `${rep.label}${rep.badgeCount ? ` #${index + 1}` : ''}`
+        // The "#N" badge below already renders the row number for a static
+        // label, so the text carries it only inside a dynamic title's fallback.
+        const titleText = resolveRowTitle(rep, row, index) ?? rep.label
 
         const accent = tokenColor(rep.color) ?? 'var(--martis-border)'
 
@@ -345,7 +371,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
               <span className="flex-1 text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
                 {titleText}
               </span>
-              {rep.badgeCount && !rep.titleTemplate && (
+              {rep.badgeCount && !hasDynamicTitle(rep) && (
                 <span
                   className="rounded-full px-2 py-0.5 text-xs font-semibold"
                   style={{

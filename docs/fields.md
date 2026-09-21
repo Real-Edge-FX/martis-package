@@ -160,6 +160,51 @@ Text::make('first_name', 'First Name') // explicit label
 | `resolve` | `resolve(Model $model, ?string $attribute = null): mixed` | Read the field value from a model: the raw value comes from the `computed()` callback when set, from `$model->getAttribute()` otherwise, then the `resolveUsing()` callback runs if set. |
 | `resolveForDisplay` | `resolveForDisplay(Model $model, ?string $attribute = null): mixed` | Resolve then apply `displayUsing()` callback. Use for index/detail serialization. |
 | `fill` | `fill(Model $model, mixed $value): void` | Write a value to the model. Respects `fillUsing()` callback and `readonly` flag. |
+| `hasStructuredValue` | `hasStructuredValue(): bool` | Whether the form submits this field's value as a list or a map rather than a scalar. `true` on `Repeater`, `MultiSelect`, `BooleanGroup`, `KeyValue`, `Tag`, `MorphTo` and `Sparkline`; override it on a custom field whose form value is structured. See [Structured values and file uploads](#structured-values-and-file-uploads). |
+
+#### Structured values and file uploads
+
+A form that uploads a file (a new `File` / `Image` was picked) is sent as `multipart/form-data`, and `FormData` carries strings and files only. The SPA therefore encodes every non-file value on that path in a shape the server reads back exactly as the JSON request path would send it:
+
+| Form value | Multipart body | Server side |
+|---|---|---|
+| `File` | the file | `$request->file()` |
+| `null` / `undefined` | `''` | `null` (Laravel's `ConvertEmptyStringsToNull`), so a field can be cleared |
+| `true` / `false` | `'1'` / `'0'` | what `Boolean::fill()` and the `boolean` rule expect |
+| array or plain object | `JSON.stringify(value)` | decoded back to the array before validation and fill for every field whose `hasStructuredValue()` is `true` |
+| other scalar | `String(value)` | as is |
+
+The decoding runs in every resource controller (`ResourceController`, `HasMany` / `HasOne` / `MorphMany` / `MorphOne` inline forms) through `DecodesStructuredValues`, so a `Repeater`'s rows, a `MultiSelect`'s selection, a `BooleanGroup`'s flag map, a `KeyValue`'s pairs, a `Tag`'s ids, a `MorphTo`'s target or a `Sparkline`'s points survive a save that also uploads a file, validation rules such as `array` / `max:N` see the real list, and `fill()` receives the same value it gets on a JSON save. A string that does not decode to an array is left untouched and fails validation instead of being stored.
+
+Custom fields whose form value is a list or a map should return `true` from `hasStructuredValue()` to join that path; a field whose value is a *string that happens to look like JSON* (a `Code` editor holding JSON, a `Textarea`) must leave it `false` so its text is never decoded.
+
+Before v1.37.3 the multipart body carried `String(value)` for everything: structured values arrived as `"[object Object]"` / `"12,15"` (rows silently emptied, selections cleared or rejected with 422, maps stored as text) and an unchecked `Boolean` arrived as `"false"`, which PHP casts to `true`.
+
+#### Structured values and Eloquent casts
+
+`MultiSelect`, `KeyValue` and the multiple-file modes of `File` / `Image` persist a list or a map. Their `fill()` looks at the model before deciding who serialises it:
+
+- **Uncast column** (a plain `string` / `text` / `json` column with no entry in `$casts`): the field writes a single JSON-encoded string, exactly as before.
+- **JSON-family cast** (`'array'`, `'json'`, `'object'`, `'collection'` and their `'encrypted:…'` variants) or **class cast** (`AsArrayObject::class`, `AsCollection::class`, `AsEnumCollection::of(...)`, any `Castable`): the field hands the cast the PHP array and the cast serialises it once. Reading the attribute back through the cast yields an array (or the cast's object), never a JSON string.
+- **Scalar cast** (`'string'`, `'integer'`, …): treated like an uncast column; the field encodes.
+
+So both of these store `["available","reserved"]` once and read back as an array:
+
+```php
+// Model
+protected $casts = ['publish_states' => 'array'];
+
+// Resource
+MultiSelect::make('publish_states')->options([...]);
+```
+
+```php
+// Model: no cast on `publish_states`
+// Resource
+MultiSelect::make('publish_states')->options([...]);  // $model->publish_states is the JSON string; resolve() decodes it for the form
+```
+
+Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON string) on the first save through the admin form, and every later read through the cast returned a string.
 
 ### Fluent Configuration
 
@@ -818,6 +863,9 @@ BooleanGroup::make('permissions')
 
 > ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
 
+**Storage format:** `{"flag":true,"other":false}` on a plain column, or the map itself through an `array` / `json` cast.
+**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map before writing (the multipart path, or a direct call) and writes an array as received.
+
 **⭐ Martis differentials:** grouped sections, min/max live counter, `requireAny/All` presets.
 
 ---
@@ -1093,7 +1141,7 @@ MultiSelect::make('technologies')
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Check if displaying labels. |
 
 **Storage format:** JSON array, e.g. `["php","react"]`
-**Overrides:** `resolve()` decodes JSON/array to list; `fill()` encodes back to JSON.
+**Overrides:** `resolve()` decodes JSON/array to list; `fill()` writes the list, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 **Extra attributes:** `options`, `displayLabels`
 
 ---
@@ -2321,7 +2369,7 @@ File::make('attachment', 'Attachment')
 
 **Overrides:**
 - `resolve()` returns `{path, url, name}` (single) or `[{path, url, name}]` (multiple).
-- `fill()` stores uploaded file, deletes old, supports multiple mode.
+- `fill()` stores uploaded file, deletes old, supports multiple mode. In multiple mode the path list is JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)), and only `existing` paths the record already owns are kept: the list is client-supplied, so an injected path (another record's upload, a traversal) is dropped and an owned path the client omits is deleted from disk.
 - `buildRules()` adds `file`, `mimes:...`, `max:...` rules.
 
 **Extra attributes:** `disk`, `storagePath`, `maxSize`, `acceptedTypes`, `multiple`, `showFileInfo`
@@ -2356,7 +2404,7 @@ Image::make('featured_image', 'Featured Image')
 **Default accepted types:** jpg, jpeg, png, gif, webp, bmp (SVG excluded: XSS risk).
 **Overrides:**
 - `resolve()` returns `{path, url, name, thumbnailUrl}`.
-- `fill()` generates thumbnail after storing image.
+- `fill()` generates thumbnail after storing image. In multiple mode the path list follows the same cast-aware storage and the same owned-paths guard as `File` (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)): only `existing` paths the record already owns are kept, and an owned path the client omits is deleted together with its thumbnail. Before v1.37.3 `Image` kept any client-supplied path.
 - `buildRules()` uses `image` instead of `file`.
 - `deleteStoredFile()` also deletes thumbnail.
 
@@ -2480,7 +2528,7 @@ KeyValue::make('metadata', 'Metadata')
 | `isAddingRowsDisabled` | `isAddingRowsDisabled(): bool` | `bool` | Check if adding disabled. | — |
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
-**Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes and stores as JSON.
+**Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 **Extra attributes:** `keyLabel`, `valueLabel`, `actionText`, `editingKeysDisabled`, `addingRowsDisabled`
 
 ---

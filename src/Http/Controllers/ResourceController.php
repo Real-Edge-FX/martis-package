@@ -28,6 +28,7 @@ use Martis\Fields\File;
 use Martis\Fields\MorphTo;
 use Martis\Fields\Tag as TagField;
 use Martis\Filters\Filter;
+use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -52,6 +53,8 @@ use Martis\SearchResolver;
  */
 class ResourceController extends MartisController
 {
+    use DecodesStructuredValues;
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -1746,6 +1749,10 @@ class ResourceController extends MartisController
      */
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?string $validationMessage = null): ?IlluminateJsonResponse
     {
+        // Multipart requests carry list / map values as JSON strings; give
+        // the rules below and the fill that follows the decoded structure.
+        $this->decodeStructuredValues($request, $fields);
+
         $rules = [];
         $attributes = [];
 

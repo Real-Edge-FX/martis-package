@@ -46,8 +46,6 @@ export function DashboardPage() {
   const dashboards = dashboardsQuery.data?.data?.dashboards ?? []
   const hasDashboards = dashboards.length > 0
 
-  const [activeDashboard, setActiveDashboard] = useState<string | null>(null)
-
   // v1.11.7+: validate `routeUriKey` against the registered dashboards
   // before using it. Previously an unknown slug (e.g. `/dashboards/home`
   // when the registered uriKey is `default`) silently fell through to
@@ -58,10 +56,13 @@ export function DashboardPage() {
     routeUriKey === undefined ||
     dashboards.some((d) => d.uriKey === routeUriKey)
 
-  // Resolution priority: route param (deep-link / sidebar shortcut)
-  //   > user's last in-page selection > first registered dashboard.
-  const currentDashboardKey =
-    routeUriKey ?? activeDashboard ?? dashboards[0]?.uriKey ?? null
+  // The URL is the only source of the current dashboard: the route param
+  // (deep link, sidebar shortcut, tab strip) or, at `/`, the first
+  // registered dashboard. v1.37.3: the tab strip used to write a local
+  // selection that this derivation shadowed whenever the page was opened
+  // at `/dashboards/{uriKey}`, so nested dashboards could not be reached
+  // by click; the tabs are now links (see DashboardView).
+  const currentDashboardKey = routeUriKey ?? dashboards[0]?.uriKey ?? null
 
   const name = user?.name ?? user?.email ?? ''
   const showGreeting = config.dashboard?.showGreeting !== false
@@ -94,10 +95,14 @@ export function DashboardPage() {
         // dashboard. v1.11.7+.
         <NotFoundPage />
       ) : hasDashboards ? (
+        // Keyed on the dashboard so switching tabs remounts the view: the
+        // active filters start empty for the new dashboard instead of
+        // leaking the previous one's, and the first cards request already
+        // carries the right (empty) filter set.
         <DashboardView
+          key={currentDashboardKey ?? ''}
           dashboards={dashboards}
           currentKey={currentDashboardKey}
-          onSelect={setActiveDashboard}
           groups={groups}
         />
       ) : (
@@ -107,6 +112,15 @@ export function DashboardPage() {
   )
 }
 
+/**
+ * Address of a dashboard inside the SPA. The first registered dashboard is
+ * what `/` renders, so it links there (the sidebar does the same); every
+ * other dashboard has its own `/dashboards/{uriKey}` deep link.
+ */
+export function dashboardPath(dashboard: DashboardDefinition, dashboards: DashboardDefinition[]): string {
+  return dashboard.uriKey === dashboards[0]?.uriKey ? '/' : `/dashboards/${dashboard.uriKey}`
+}
+
 // ---------------------------------------------------------------------------
 // Dynamic Dashboard View — renders metrics from registered dashboards
 // ---------------------------------------------------------------------------
@@ -114,15 +128,14 @@ export function DashboardPage() {
 function DashboardView({
   dashboards,
   currentKey,
-  onSelect,
   groups,
 }: {
   dashboards: DashboardDefinition[]
   currentKey: string | null
-  onSelect: (key: string) => void
   groups: NavigationGroup[]
 }) {
   const { t } = useTranslation('resources')
+  const { t: tNav } = useTranslation('navigation')
   const qc = useQueryClient()
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
 
@@ -195,26 +208,36 @@ function DashboardView({
           its children. Skipped entirely when the current dashboard
           stands alone (root with no children, or empty install). */}
       {groupedDashboards.length > 1 && (
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          {groupedDashboards.map((d) => (
-            <button
-              key={d.uriKey}
-              type="button"
-              onClick={() => { onSelect(d.uriKey); setActiveFilters({}) }}
-              // `martis-dashboard-tab` lives in martis.css and adds the
-              // shared focus-visible ring + hover affordance so these
-              // tabs match the rest of the interactive shell.
-              className="martis-dashboard-tab px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors"
-              data-active={d.uriKey === currentKey ? 'true' : 'false'}
-              style={{
-                backgroundColor: d.uriKey === currentKey ? 'var(--martis-accent)' : 'transparent',
-                color: d.uriKey === currentKey ? '#fff' : 'var(--martis-text-muted)',
-                border: d.uriKey === currentKey ? '1px solid var(--martis-accent)' : '1px solid var(--martis-border)',
-              }}
-            >
-              {d.name}
-            </button>
-          ))}
+        <div className="flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label={tNav('dashboards', 'Dashboards')}>
+          {groupedDashboards.map((d) => {
+            const isActive = d.uriKey === currentKey
+            return (
+              // Each tab is a real link to the dashboard's own URL, so a
+              // click (or Enter / Space, middle-click, open in new tab)
+              // navigates and the page re-derives the dashboard from the
+              // route. The first registered dashboard keeps `/` as its
+              // address, matching the sidebar's root link.
+              <Link
+                key={d.uriKey}
+                to={dashboardPath(d, dashboards)}
+                role="tab"
+                aria-selected={isActive}
+                aria-current={isActive ? 'page' : undefined}
+                // `martis-dashboard-tab` lives in martis.css and adds the
+                // shared focus-visible ring + hover affordance so these
+                // tabs match the rest of the interactive shell.
+                className="martis-dashboard-tab px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors no-underline"
+                data-active={isActive ? 'true' : 'false'}
+                style={{
+                  backgroundColor: isActive ? 'var(--martis-accent)' : 'transparent',
+                  color: isActive ? '#fff' : 'var(--martis-text-muted)',
+                  border: isActive ? '1px solid var(--martis-accent)' : '1px solid var(--martis-border)',
+                }}
+              >
+                {d.name}
+              </Link>
+            )
+          })}
         </div>
       )}
 

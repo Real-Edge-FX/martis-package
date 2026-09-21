@@ -18,6 +18,7 @@ use Martis\Fields\Field;
 use Martis\Fields\HasOne;
 use Martis\Fields\HasOneOfMany;
 use Martis\Fields\HasOneThrough as HasOneThroughField;
+use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
@@ -34,6 +35,8 @@ use Martis\ResourceRegistry;
  */
 class HasOneController extends MartisController
 {
+    use DecodesStructuredValues;
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -501,6 +504,10 @@ class HasOneController extends MartisController
      */
     private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
     {
+        // Multipart requests carry list / map values as JSON strings; give
+        // the rules below and the fill that follows the decoded structure.
+        $this->decodeStructuredValues($request, $fields);
+
         $rules = [];
         $attributes = [];
 
