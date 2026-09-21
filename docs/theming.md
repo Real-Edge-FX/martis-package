@@ -472,6 +472,18 @@ ProjectsByStatusMetric::make()->colors([
 RevenueMetric::make()->color('var(--martis-success)');
 ```
 
+### Placeholder text in custom controls (v1.37.1)
+
+A bare `<input placeholder="…">`, `<textarea>` or `<select>` rendered by a Tool page or an extension bundle gets a theme-aware placeholder without any Martis class: the package CSS declares a global `::placeholder { color: var(--martis-text-muted); opacity: 1 }` right after the PrimeReact theme import, so the theme's own placeholder colour (white at 60 %, which is invisible on the light theme) never reaches consumer markup. The rule follows the active mode through `--martis-text-muted`, and a theme that redefines that token re-colours bare placeholders too.
+
+Martis controls (`.p-inputtext`, `.martis-input`, `.martis-search-input`, the ⌘K search, the resource search) keep their own `::placeholder` rules, which win by specificity, so their placeholders are unchanged. A custom control that wants a different placeholder colour declares its own class-scoped rule the same way:
+
+```css
+.my-tool-search::placeholder { color: var(--martis-text); opacity: .5; }
+```
+
+Before v1.37.1 the workaround was to add `className="martis-input"` (or `p-inputtext`) to the control just to reach a class-scoped placeholder rule; that is no longer needed.
+
 ---
 
 ## Complete Variable Count
@@ -590,3 +602,6 @@ Chart.js receives resolved color strings, not CSS variables. The theme system al
 
 ### Typography variables not applied
 Ensure variables are declared in **both** `:root` (dark) and `html:not(.dark)` (light) blocks. Typography variables are inherited from `body` — applied automatically to all elements unless overridden.
+
+### Placeholder text invisible on the light theme
+On martis/martis < 1.37.1 an input without a Martis class inherited the bundled dark theme's white placeholder (`rgba(255,255,255,.6)`), invisible on a light surface. Upgrade, or on an older version give the control `className="martis-input"` (or `p-inputtext`) to reach a class-scoped placeholder rule. From 1.37.1 the global `::placeholder` default covers every control; see [Placeholder text in custom controls](#placeholder-text-in-custom-controls-v1371).
