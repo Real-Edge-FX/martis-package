@@ -388,6 +388,13 @@ class Repeater extends Field
             if (empty($row[$uniqueKey])) {
                 $row[$uniqueKey] = (string) Str::uuid();
             }
+            // `title` on a wrapped row is the header resolve() derived from
+            // the row's Closure title; it is computed on every read, never
+            // stored. (A legacy flat row has no `fields` wrapper, so a real
+            // `title` attribute there is left alone.)
+            if (isset($row['fields']) && is_array($row['fields'])) {
+                unset($row['title']);
+            }
             $normalized[] = $row;
         }
 
@@ -508,19 +515,48 @@ class Repeater extends Field
         $type = $row['type'] ?? ($this->repeatables[0]?->shortName());
         $fields = isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : [];
 
-        if ($fields === [] && $type === null) {
-            // Legacy flat row (no wrapper). Treat the whole row as the field map.
+        if (! array_key_exists('fields', $row) && ! array_key_exists('type', $row)) {
+            // Legacy flat row (no wrapper). Treat the whole row as the field
+            // map. Checked on the raw keys: `$type` already carries the first
+            // repeatable's shortName as its default, so it is never null here.
             $copy = $row;
             unset($copy['id'], $copy['type']);
             $fields = $copy;
             $type = $this->repeatables[0]?->shortName();
         }
 
-        return [
+        $payload = [
             'id' => $id,
             'type' => $type,
             'fields' => $fields,
         ];
+
+        $repeatable = $this->findRepeatableByShortName($type) ?? $this->repeatables[0] ?? null;
+
+        return $this->withResolvedTitle($payload, $repeatable, $fields, $index);
+    }
+
+    /**
+     * Attach the row header a Closure-titled repeatable resolves on the
+     * server. `Repeatable::title('{attr}')` templates are evaluated live by
+     * the frontend and need nothing here; a `title(Closure)` can only run in
+     * PHP, so its result travels with the row as `title` (1-based index, as
+     * the Closure contract documents). Rows of a repeatable without a
+     * Closure title keep their `{id, type, fields}` shape untouched.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $fields
+     * @return array<string, mixed>
+     */
+    protected function withResolvedTitle(array $payload, ?Repeatable $repeatable, array $fields, int $index): array
+    {
+        if ($repeatable === null || ! $repeatable->hasTitleCallback()) {
+            return $payload;
+        }
+
+        $payload['title'] = $repeatable->resolveTitle($fields, $index + 1);
+
+        return $payload;
     }
 
     /**
@@ -551,11 +587,11 @@ class Repeater extends Field
             }
         }
 
-        return [
+        return $this->withResolvedTitle([
             'id' => $this->uniqueField !== null ? $row->{$this->uniqueField} : $row->getKey(),
             'type' => $repeatable->shortName(),
             'fields' => $fieldsPayload,
-        ];
+        ], $repeatable, $fieldsPayload, $index);
     }
 
     /**
