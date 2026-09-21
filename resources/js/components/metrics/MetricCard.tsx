@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { cardGridSpanStyle } from '@/lib/cardGridSpan'
 import type { MetricDefinition, ActiveFilters } from '@/types'
 import { ValueCard } from './ValueCard'
 import { TrendCard } from './TrendCard'
@@ -53,9 +54,6 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
   const result = query.data?.data?.result ?? null
   const isLive = !!metric.refreshEvery
 
-  // Compute responsive grid column
-  const gridColumn = metric.width ? `span ${metric.width}` : 'span 4'
-
   // Card style accent colors (Martis extension)
   const styleColors: Record<string, string> = {
     success: 'var(--martis-success)',
@@ -69,8 +67,11 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
   return (
     <div
       className="martis-metric-card rounded-lg"
+      // The grid column is not set inline: the card only carries its
+      // resolved `width` / `widthMd` / `widthLg` spans as custom properties
+      // and `.martis-dashboard-grid` (martis.css) places it per breakpoint.
       style={{
-        gridColumn,
+        ...cardGridSpanStyle(metric),
         border: '1px solid var(--martis-border)',
         borderLeft: accentColor ? `4px solid ${accentColor}` : '1px solid var(--martis-border)',
         backgroundColor: 'var(--martis-surface)',

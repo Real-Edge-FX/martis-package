@@ -132,6 +132,9 @@ abstract class Metric implements MetricContract
      * Accepts either a 12-column grid value (1-12) or a {@see MetricWidthPreset}
      * case. Fraction strings ('1/3', '1/2', '2/3', 'full') are also accepted
      * and auto-converted via the preset enum.
+     *
+     * Applies from the md breakpoint upward unless `widthMd()` / `widthLg()`
+     * override it; below md the dashboard grid gives every card the full row.
      */
     public function width(int|string|MetricWidthPreset $width): static
     {
@@ -141,8 +144,8 @@ abstract class Metric implements MetricContract
     }
 
     /**
-     * Set responsive width from md breakpoint (>= 768px).
-     * Martis extension.
+     * Set responsive width from md breakpoint (>= 768px). Falls back to
+     * `width()`. Martis extension.
      */
     public function widthMd(int $width): static
     {
@@ -152,8 +155,8 @@ abstract class Metric implements MetricContract
     }
 
     /**
-     * Set responsive width from lg breakpoint (>= 1024px).
-     * Martis extension.
+     * Set responsive width from lg breakpoint (>= 1024px). Falls back to
+     * `widthMd()`, then `width()`. Martis extension.
      */
     public function widthLg(int $width): static
     {

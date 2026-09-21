@@ -9,6 +9,7 @@ import { CardSkeleton } from '@/components/LoadingSkeleton'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { MetricCard } from '@/components/metrics'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { cardGridSpanStyle } from '@/lib/cardGridSpan'
 import { FilterPanel } from '@/components/FilterPanel'
 import { Card } from 'primereact/card'
 import { Link, useParams } from 'react-router-dom'
@@ -251,16 +252,17 @@ function DashboardView({
             </button>
           ) : null}
 
-          {/* Metric cards grid (12-column) */}
+          {/* Metric cards grid (12-column). `.martis-dashboard-grid` owns
+              the tracks and every card's `grid-column` per breakpoint
+              (single column below `md`, then the `width` / `widthMd` /
+              `widthLg` cascade), reading the custom properties each item
+              carries via `cardGridSpanStyle()`. */}
           {dashboardQuery.isLoading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
             </div>
           ) : cards.length > 0 ? (
-            <div
-              className="grid gap-4"
-              style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}
-            >
+            <div className="martis-dashboard-grid">
               {cards.map((card) => {
                 // A plain Card (type 'card') renders its own component and has no
                 // compute endpoint — it receives the active filters so it can
@@ -272,7 +274,6 @@ function DashboardView({
                   const CustomCard = componentRegistry.resolve(card.component)
                   if (CustomCard) {
                     const C = CustomCard as React.ComponentType<{ card: typeof card; filters: ActiveFilters }>
-                    const span = card.width ?? 4
                     if (card.framed) {
                       return (
                         <MetricCard
@@ -285,7 +286,7 @@ function DashboardView({
                       )
                     }
                     return (
-                      <div key={card.uriKey} style={{ gridColumn: `span ${span} / span ${span}` }}>
+                      <div key={card.uriKey} style={cardGridSpanStyle(card)}>
                         <C card={card} filters={activeFilters} />
                       </div>
                     )

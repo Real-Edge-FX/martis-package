@@ -20,6 +20,12 @@ class Card implements CardContract
     /** Authorization callback. */
     protected ?Closure $canSeeCallback = null;
 
+    /** Responsive width from the md breakpoint (>= 768px). Martis extension. */
+    protected ?int $widthMd = null;
+
+    /** Responsive width from the lg breakpoint (>= 1024px). Martis extension. */
+    protected ?int $widthLg = null;
+
     /**
      * @param  array<string, mixed>  $meta
      */
@@ -98,10 +104,36 @@ class Card implements CardContract
 
     /**
      * Grid column span in the 12-column dashboard grid (1-12).
+     *
+     * Applies from the md breakpoint upward unless `widthMd()` / `widthLg()`
+     * override it; below md every card spans the full row.
      */
     public function width(int $span): static
     {
         $this->width = max(1, min(12, $span));
+
+        return $this;
+    }
+
+    /**
+     * Grid column span from the md breakpoint (>= 768px). Falls back to
+     * `width()`. Martis extension, same cascade as `Metric::widthMd()`.
+     */
+    public function widthMd(int $span): static
+    {
+        $this->widthMd = max(1, min(12, $span));
+
+        return $this;
+    }
+
+    /**
+     * Grid column span from the lg breakpoint (>= 1024px). Falls back to
+     * `widthMd()`, then `width()`. Martis extension, same cascade as
+     * `Metric::widthLg()`.
+     */
+    public function widthLg(int $span): static
+    {
+        $this->widthLg = max(1, min(12, $span));
 
         return $this;
     }
@@ -137,6 +169,8 @@ class Card implements CardContract
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
             'width' => $this->width,
+            'widthMd' => $this->widthMd,
+            'widthLg' => $this->widthLg,
             'framed' => $this->framed,
             'badge' => $this->badge(),
             'lock' => $this->lockPayloadNow(),

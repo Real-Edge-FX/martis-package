@@ -645,14 +645,23 @@ All elements use `data-pr-tooltip` and `data-pr-position` attributes:
 
 ### Responsive 12-column metric grid
 
-Arbitrary 12-column widths plus responsive breakpoints:
+Arbitrary 12-column widths plus responsive breakpoints (`md` = 768px,
+`lg` = 1024px), as a mobile-first cascade:
 
 ```php
-TotalUsers::make('Total Users')
-    ->width(12)       // mobile: full width
-    ->widthMd(6)      // tablet: half
-    ->widthLg(4)      // desktop: one-third
+UsersPerDay::make('Trend')
+    ->width(12)       // from md (tablet): full row
+    ->widthLg(8)      // from lg (desktop): two-thirds
 ```
+
+Below `md` every card takes the full row, whatever its declared widths
+(the same rule the form grid applies to field spans), so a phone never
+shows a third-width card and a dashboard written for desktop keeps its
+look above `md`. `widthMd()` sets the `md` tier explicitly; `widthLg()`
+falls back to it, then to `width()`. The cards carry the resolved tiers
+as custom properties and `.martis-dashboard-grid` (martis.css) owns the
+placement per media query, so a theme can re-enable `width()` on phones
+with one rule. See [Metrics → Responsive widths](metrics.md#responsive-widths-widthmd--widthlg).
 
 Fraction strings (`'1/2'`, `'1/3'`, `'2/3'`, …) are auto-converted for
 convenience.
@@ -805,13 +814,15 @@ The React component receives all `meta` data as props.
 ```php
 Card::make('Revenue')
     ->componentKey('revenue-card')
-    ->width(6)        // grid-column span (1-12), defaults to 4
+    ->width(6)        // grid-column span (1-12) from md, defaults to 4
+    ->widthLg(4)      // optional: span from lg (widthMd() sets the md tier)
     ->framed();       // wrap custom component in the default MetricCard chrome
 ```
 
-- `width(int)` — the Dashboard grid wraps the custom component in a
-  `div` with `grid-column: span {width}`, so the component body never
-  touches `gridColumn` itself.
+- `width(int)`, `widthMd(int)`, `widthLg(int)` — the Dashboard grid
+  wraps the custom component in a `div` it places from these values
+  (full row below `md`, then the cascade described above), so the
+  component body never touches `grid-column` itself.
 - `framed(bool = true)` — when `true`, the component renders inside
   the standard `MetricCard` container (title, icon, border). Defaults
   to `false` so hero-style cards can render full-bleed.
