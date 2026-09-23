@@ -32,9 +32,10 @@
  * | `@tanstack/react-query`     | `.shims/tanstack-react-query.mjs`      |
  * | `@martis/runtime`           | `.shims/runtime.mjs`                   |
  *
- * Plus three legacy-path aliases (also pointing at the runtime shim)
+ * Plus four legacy-path aliases (also pointing at the runtime shim)
  * so override stubs published by older Martis versions keep building:
  * `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`.
+ * They resolve only the names the runtime shim exports.
  *
  * The earlier v1.9.0–v1.9.2 stub used `rollupOptions.external` +
  * `output.globals` for the same goal, but `globals` only works for
@@ -83,11 +84,14 @@ export default defineConfig({
       {find: '@martis/runtime', replacement: runtimeShim},
       // Legacy paths from pre-v1.10 stubs (auth pages used these
       // before `@martis/runtime` existed). Keeping the aliases lets
-      // apps with old stubs upgrade without re-running install.
-      {find: /^@\/contexts\//, replacement: runtimeShim},
-      {find: /^@\/lib\//, replacement: runtimeShim},
-      {find: /^@\/components\/auth\//, replacement: runtimeShim},
-      {find: /^@martis\/martis\//, replacement: runtimeShim},
+      // override files published by older versions keep building.
+      // Each pattern matches the whole specifier: the alias replaces
+      // only the matched text, so a prefix match would leave the rest
+      // on the shim path (`@/lib/api` -> `.shims/runtime.mjsapi`).
+      {find: /^@\/contexts\/.*$/, replacement: runtimeShim},
+      {find: /^@\/lib\/.*$/, replacement: runtimeShim},
+      {find: /^@\/components\/auth\/.*$/, replacement: runtimeShim},
+      {find: /^@martis\/martis\/.*$/, replacement: runtimeShim},
     ],
   },
   build: {

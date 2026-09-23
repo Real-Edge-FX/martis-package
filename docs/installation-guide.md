@@ -435,6 +435,39 @@ MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js
 
 The blade view emits the resolved array as `window.MartisConfig.extensions`. The SPA loops over it and dynamic-imports each via `import(url)`. Failures are isolated — one broken extension can't take down the whole panel; the error is logged with the URL.
 
+### Refreshing the extension scaffold after an upgrade
+
+The scaffold files (`vite.extensions.config.ts`, `tsconfig.extensions.json`, `resources/js/martis-extensions/index.ts` and the shims under `resources/js/martis-extensions/.shims/`) are copied into your app once. `composer update` does not touch them, and `martis:install` skips every file that already exists unless you pass `--force`, which rewrites all of them (the files in the four buckets are never touched).
+
+Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which re-exports the members of `window.Martis.runtime` by name. A name the runtime gains in a later Martis version can be imported by name only once your copy of that file exports it. Until then the build stops with:
+
+```
+"Dropdown" is not exported by "resources/js/martis-extensions/.shims/runtime.mjs"
+```
+
+| Named export | In the shim since |
+|---|---|
+| `useAuth`, `useToast`, `useToastSafe`, `useIsMobile`, `TwoFactorRequiredError`, `EmailVerificationRequiredError`, `AuthProvider`, `api`, `ApiError`, `config`, `AuthFrame`, `Sidebar`, `Topbar`, `Footer`, and the `react-router-dom`, `react-i18next` and `@tanstack/react-query` re-exports (`Link`, `useNavigate`, `useTranslation`, `useQuery`, …) | v1.10.0 |
+| `FieldInput`, `FieldDisplay`, `DrawerShell`, `Tooltip` | v1.19.0 |
+| `useMartisForm`, `FieldsForm`, `useToolFields` | v1.20.0 |
+| `martisEventBus` | v1.21.0 |
+| `useRevalidateOnFocus` | v1.22.0 |
+| `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal` | v1.38.0 |
+
+Three ways to get a missing name, from the narrowest:
+
+1. **Copy the shim from the package.** It holds no app code, so replacing it is safe:
+
+   ```bash
+   cp vendor/martis/martis/stubs/extensions/runtime-shim.mjs.stub resources/js/martis-extensions/.shims/runtime.mjs
+   npm run build:extensions
+   ```
+
+2. **Refresh the whole scaffold** with `php artisan martis:install --force`. It rewrites the Vite config, the tsconfig, `index.ts` and every shim, so review the diff if you edited any of them.
+3. **Read the name off the default export**, which every shim since v1.10.0 provides and which is the host's runtime object itself: `import runtime from '@martis/runtime'`, then `const { Dropdown } = runtime`. A misspelt name is then `undefined` at render time instead of a build error.
+
+**Legacy import paths (fixed in v1.38.0).** The Vite config also sends four pre-v1.10 paths to the runtime shim, so override files published by older versions keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*` and `@martis/martis/*`. From v1.10.0 to v1.37.x the config matched only the start of those paths, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each of the four patterns match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`.
+
 ### Upgrading from v1.8.18 or earlier
 
 If your app shipped a `resources/js/martis/boot.ts` from the legacy build-time mechanism, the file is silently ignored from v1.8.19 onwards. `martis:install` detects it and prints a one-time warning so you know the file is dead. To migrate:
@@ -514,6 +547,8 @@ Use the asset-only command if you only want to refresh static files. Use the ins
 ```bash
 php artisan martis:install --force
 ```
+
+`--force` also rewrites the extension scaffold (Vite config, shims, `index.ts`), which is how an existing extension picks up the runtime names added since it was scaffolded. See [Refreshing the extension scaffold after an upgrade](#refreshing-the-extension-scaffold-after-an-upgrade) for the narrower options.
 
 If your application uses the optional profile migration, re-run the install command with the same profile options after upgrading:
 

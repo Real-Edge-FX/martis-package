@@ -566,13 +566,13 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `NestedParentProvider` (v1.38.0) | Names the record whose related records the relationship panels inside list, when the page URL does not name it; `id: null` on a create form. See [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380). |
 | `NestedParent` (type) | The provider's `value`: `{ resource: string; id: string \| number \| null }`. |
 
+Import each one by name from `@martis/runtime`, which your extension build resolves to `resources/js/martis-extensions/.shims/runtime.mjs`. `martis:install` publishes that file once and `composer update` does not refresh it, so on an extension scaffolded before the version that added a name the build fails with `"Dropdown" is not exported by "resources/js/martis-extensions/.shims/runtime.mjs"`: see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
+
 ### Example — Select inside a custom Action component
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
-
-const { FieldInput } = martisRuntime
+import { FieldInput } from '@martis/runtime'
 
 const docTypeField = {
     type: 'select',
@@ -612,9 +612,7 @@ its own state:
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
-
-const { DrawerShell, FieldInput } = martisRuntime
+import { DrawerShell, FieldInput } from '@martis/runtime'
 
 export function ReviewTool() {
     const [open, setOpen] = useState(false)
@@ -642,9 +640,7 @@ PrimeReact's DOM. Add the `martis-filter-dropdown` class for the compact look:
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
-
-const { Dropdown } = martisRuntime
+import { Dropdown } from '@martis/runtime'
 
 export function StatusFilter() {
     const [status, setStatus] = useState<string | null>(null)
@@ -664,7 +660,7 @@ export function StatusFilter() {
 }
 ```
 
-`createPortal` (also on `martisRuntime`) is available for overlays that must
+`createPortal` (also exported by `@martis/runtime`) is available for overlays that must
 escape a clipped/overflow-hidden container — the extension's React shim is
 React-core-only, so `react-dom`'s portal is exposed through the runtime.
 
@@ -725,12 +721,8 @@ opened from a record drawer) names the record of its own subtree. Type the
 `value` with the re-exported `NestedParent`.
 
 An extension scaffolded before v1.38.0 has a `.shims/runtime.mjs` without the
-named export. Read it off the default export (`import runtime from
-'@martis/runtime'`, then `runtime.NestedParentProvider`), which every shim
-since v1.10.0 provides, or copy the `NestedParentProvider` line from the
-package's `stubs/extensions/runtime-shim.mjs.stub` into your shim
-(`martis:install --force` rewrites every scaffold file, your vite config and
-`index.ts` included).
+`NestedParentProvider` export: see [Refreshing the extension scaffold after an
+upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
 
 ### Caveats
 

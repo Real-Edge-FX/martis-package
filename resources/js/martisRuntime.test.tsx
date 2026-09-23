@@ -2,17 +2,25 @@ import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
 import runtimeShim from '../../stubs/extensions/runtime-shim.mjs.stub?raw'
+import viteExtensionsConfig from '../../stubs/extensions/vite.extensions.config.ts.stub?raw'
 import type { FieldDefinition } from '@/types'
 
+const docs = import.meta.glob('../../docs/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+
 /**
- * Contract tests for the consumer-extension runtime bag. Two concerns:
+ * Contract tests for the consumer-extension runtime bag. Three concerns:
  *
  * 1. The exports a consumer reaches for are present and callable.
  *    Consumer-extension bundles bind to `window.Martis.runtime.X` at
  *    runtime — if a name silently disappears, the consumer crashes
  *    only after deploy. These tests guard the contract.
  *
- * 2. The FieldInput export added in v1.14.0 actually routes to the
+ * 2. The scaffold `martis:install` publishes resolves them: the runtime
+ *    shim names every member (and every name the docs import), and the
+ *    vite aliases send `@martis/runtime` and the legacy paths to it. A
+ *    gap here fails the consumer's build, not ours.
+ *
+ * 3. The FieldInput export added in v1.14.0 actually routes to the
  *    right component for the field type and threads `onChange`
  *    through. Catches regressions where someone refactors
  *    `FieldRenderer` and the runtime export quietly stops resolving.
@@ -68,18 +76,74 @@ describe('martisRuntime', () => {
         expect(martisRuntime.tanstackReactQuery).toBeTypeOf('object')
     })
 
-    it('the consumer-extension shim re-exports runtime names only, the relation parent provider included', () => {
+    it('the consumer-extension shim re-exports every runtime member under its own name, and nothing else', () => {
         // `@martis/runtime` resolves to the published shim in a consumer build,
         // and the shim reads each named export off `window.Martis.runtime`: a
         // name the shim lacks fails the consumer's build, and a name the
-        // runtime lacks imports `undefined`.
+        // runtime lacks imports `undefined`. The third-party modules ride on
+        // the runtime as namespaces and reach consumers through their own
+        // shims and the hooks the shim flattens, not as named exports.
         const reexported = [...runtimeShim.matchAll(/^export const (\w+) = R\.(\w+)$/gm)]
 
         for (const [, name, key] of reexported) {
             expect(key).toBe(name)
             expect(martisRuntime).toHaveProperty(key)
         }
-        expect(reexported.map(([, name]) => name)).toContain('NestedParentProvider')
+
+        const named = new Set(reexported.map(([, name]) => name))
+        const namespaces = ['reactRouterDom', 'reactI18next', 'tanstackReactQuery']
+        expect(Object.keys(martisRuntime).filter((key) => !namespaces.includes(key) && !named.has(key))).toEqual([])
+    })
+
+    it('every name the docs import from @martis/runtime is a shim export', () => {
+        // The docs examples are copied into consumer extensions, whose build
+        // fails on any imported name the shim does not export.
+        const exported = new Set([...runtimeShim.matchAll(/^export const (\w+) =/gm)].map(([, name]) => name))
+        const missing: string[] = []
+
+        for (const [file, source] of Object.entries(docs)) {
+            const imports = source.matchAll(/^import\s+(type\s+)?((?:\w+\s*,\s*)?(?:\{[^}]*\}|\*\s*as\s+\w+|\w+))\s+from\s+['"]@martis\/runtime['"]/gm)
+            for (const [, typeOnly, clause] of imports) {
+                if (typeOnly) continue
+                const specifiers = (clause.match(/\{([^}]*)\}/)?.[1] ?? '').split(',').map((s) => s.trim())
+                for (const specifier of specifiers) {
+                    if (specifier === '' || specifier.startsWith('type ')) continue
+                    const name = specifier.split(/\s+as\s+/)[0]
+                    if (!exported.has(name)) missing.push(`${file.replace('../../', '')}: ${name}`)
+                }
+            }
+        }
+
+        expect(missing).toEqual([])
+    })
+
+    it('the consumer vite config sends @martis/runtime and every legacy runtime path to the whole shim', () => {
+        // Mirrors Vite's alias plugin: the first entry whose `find` matches
+        // wins (a string matches the whole specifier or a path prefix), and
+        // only the matched text is replaced, so a regex that matches the
+        // start of `@/lib/api` would leave `api` on the shim path.
+        const entries: { find: string | RegExp; replacement: string }[] = [...viteExtensionsConfig.matchAll(/\{find: (?:'([^']+)'|\/(.+?)\/([a-z]*)), replacement: (\w+)\}/g)]
+            .map(([, literal, source, flags, replacement]) => ({ find: literal ?? new RegExp(source, flags), replacement }))
+        const resolve = (id: string) => {
+            const entry = entries.find(({ find }) => (typeof find === 'string' ? id === find || id.startsWith(`${find}/`) : find.test(id)))
+            return entry ? id.replace(entry.find, entry.replacement) : id
+        }
+        const expected: Record<string, string> = {
+            'react': 'reactShim',
+            'react-dom': 'reactShim',
+            'react/jsx-runtime': 'jsxRuntimeShim',
+            'react-router-dom': 'routerShim',
+            'react-i18next': 'i18nextShim',
+            '@tanstack/react-query': 'queryShim',
+            '@martis/runtime': 'runtimeShim',
+            // The paths override stubs published before v1.10.0 import.
+            '@/contexts/AuthContext': 'runtimeShim',
+            '@/lib/api': 'runtimeShim',
+            '@/components/auth/AuthFrame': 'runtimeShim',
+            '@martis/martis/hooks/useIsMobile': 'runtimeShim',
+        }
+
+        expect(Object.fromEntries(Object.keys(expected).map((id) => [id, resolve(id)]))).toEqual(expected)
     })
 
     it('FieldInput renders a text input for type=text and threads onChange', () => {

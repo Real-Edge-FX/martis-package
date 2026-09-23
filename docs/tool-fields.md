@@ -34,10 +34,8 @@ Where a field's *definition* comes from is your choice, and the three sources ar
 Define a `FieldDefinition[]` inline in your Tool and feed it to `useMartisForm`. No backend at all. Pure-frontend behaviours work immediately.
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
+import { useMartisForm, FieldsForm } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { useMartisForm, FieldsForm } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
@@ -83,9 +81,7 @@ class CreateProject extends Tool implements ProvidesFields
 The Tool declares its React component key exactly as any Tool does (see [tools.md](tools.md)). On the frontend, fetch the definitions with `useToolFields`:
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
-
-const { useToolFields, useMartisForm, FieldsForm } = martisRuntime
+import { useToolFields, useMartisForm, FieldsForm } from '@martis/runtime'
 
 export function CreateProjectTool() {
   const { fields, isLoading, error } = useToolFields('create-project')
@@ -106,10 +102,8 @@ Tools that don't `use ProvidesToolFields` (the default) return no fields; the en
 Pass `resourceKey` (and `recordId` when editing an existing record) so **server-backed** behaviours reuse that Resource's endpoints. This is what unlocks slug-uniqueness checks, `BelongsTo` option loading, and server `dependsOn` closures inside a Tool.
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
+import { useMartisForm, FieldsForm } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { useMartisForm, FieldsForm } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
@@ -153,10 +147,8 @@ The end-to-end target: your own drawer (composed from `runtime.DrawerShell`, the
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
+import { DrawerShell, useMartisForm, FieldsForm, api } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { DrawerShell, useMartisForm, FieldsForm, api } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
@@ -198,10 +190,8 @@ Persistence stays the Tool's job — Martis does not impose a save pipeline on T
 `FieldsForm` renders the **entire** field set, containers included. But because `useMartisForm` hands you the `fieldProps(field)` bundle, you can also drop a **single** `FieldInput` anywhere in your own JSX and interleave it with non-Martis UI. Every field driven by the same `form` shares one state, so a Slug field still sees the Title field's value.
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
+import { useMartisForm, FieldInput } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { useMartisForm, FieldInput } = martisRuntime
 
 const titleField: FieldDefinition = { type: 'text', attribute: 'title', label: 'Title' }
 const slugField: FieldDefinition = { type: 'slug', attribute: 'slug', label: 'Slug', sourceAttribute: 'title' }
@@ -235,9 +225,7 @@ A Tool that renders its own filter bar — separate from the field-form harness 
 | `DropdownProps`, `MultiSelectProps` (types) | Type the controls without importing from `primereact/*` (the extension build doesn't alias it). |
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
-
-const { Dropdown } = martisRuntime
+import { Dropdown } from '@martis/runtime'
 
 <Dropdown
   className="martis-filter-dropdown"
@@ -249,6 +237,8 @@ const { Dropdown } = martisRuntime
 ```
 
 See [overrides.md §5.A](overrides.md#5a-composing-native-field-components-v1140) for the full runtime-exports table and a longer example.
+
+The three are on the runtime since v1.29.0, but the extension's `.shims/runtime.mjs` exports them by name only since v1.38.0: on an extension scaffolded earlier, refresh the shim first (see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
 
 ## API contracts
 

@@ -25,11 +25,16 @@
  *
  * Adding to this surface: new exports are non-breaking (semver minor).
  * Removing or renaming = breaking (major). Rule of thumb: add only
- * what an override stub actually imports. Power-user code that needs
- * deeper internals can still import from `@/...` directly when the
- * consumer's vite is configured to alias it (default install does).
+ * what an override stub actually imports. Each member also needs its
+ * `export const` line in `stubs/extensions/runtime-shim.mjs.stub`, the
+ * file a consumer build resolves `@martis/runtime` to (the shim test in
+ * `martisRuntime.test.tsx` fails without it). The consumer's vite also
+ * sends the pre-v1.10 paths (`@/contexts/*`, `@/lib/*`,
+ * `@/components/auth/*`, `@martis/martis/*`) to that shim, so they
+ * reach these names only, not package internals.
  *
- * @see docs/runtime-api.md
+ * @see docs/overrides.md (5.A) and docs/installation-guide.md
+ *      ("Refreshing the extension scaffold after an upgrade")
  */
 
 import * as ReactRouterDom from 'react-router-dom'
@@ -156,7 +161,7 @@ export const martisRuntime = {
   // react-dom). Exposing the exact controls Martis's own filters use — with
   // the `martis-filter-dropdown` styling available via CSS — lets Tools render
   // pixel-identical single/multi filters and portal overlays without
-  // hand-replicating PrimeReact's internal DOM. See docs/runtime-api.md.
+  // hand-replicating PrimeReact's internal DOM. See docs/overrides.md (5.A).
   Dropdown,
   MultiSelect,
   createPortal,

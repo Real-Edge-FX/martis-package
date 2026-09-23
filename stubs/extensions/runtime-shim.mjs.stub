@@ -15,8 +15,13 @@
  * loaded (`app.tsx` awaits all `MARTIS_EXTENSIONS` URLs since v1.9.2),
  * so by the time this shim runs the global is always populated.
  *
- * See `martis-package/docs/runtime-api.md` for the full surface and
- * the semver contract.
+ * `martis:install` publishes this file once and rewrites it only with
+ * `--force`, so a name the runtime gains in a later Martis version is
+ * importable by name only once this file exports it; the default
+ * export reads any member (`import runtime from '@martis/runtime'`).
+ * See "Refreshing the extension scaffold after an upgrade" in the
+ * package's `docs/installation-guide.md`, and `docs/overrides.md`
+ * section 5.A for the composition components.
  */
 
 const R =
@@ -71,6 +76,13 @@ export const FieldInput = R.FieldInput
 export const FieldDisplay = R.FieldDisplay
 export const DrawerShell = R.DrawerShell
 export const Tooltip = R.Tooltip
+
+// PrimeReact filter controls + `react-dom`'s portal (on the runtime since
+// v1.29.0). The controls Martis's own filters use, and a portal for
+// overlays, since the React shim is React core only.
+export const Dropdown = R.Dropdown
+export const MultiSelect = R.MultiSelect
+export const createPortal = R.createPortal
 
 // Relation parent provider (v1.38.0+). Names the record whose related
 // records the relationship panels inside list, when the page URL does not
