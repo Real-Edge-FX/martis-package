@@ -36,8 +36,6 @@ function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefini
   return result
 }
 
-
-
 /**
  * The values of the scalar fields, the part of the form the dirty check
  * compares: fields that manage their own state outside `values` (e.g. Trix,
