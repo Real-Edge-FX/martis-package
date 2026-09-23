@@ -5,6 +5,7 @@ import { MagnifyingGlassIcon, XIcon, PlusIcon, CheckIcon } from '@phosphor-icons
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
+import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
 
 interface TagValue {
   id: number | string
@@ -161,14 +162,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
   }
 
   function getOptionLabel(record: RelatedRecord): string {
-    if (titleAttribute && record[titleAttribute] != null) {
-      return String(record[titleAttribute])
-    }
-    if (record._title) return record._title
-    for (const attr of ['name', 'title', 'label']) {
-      if (record[attr] != null) return String(record[attr])
-    }
-    return `#${record.id}`
+    return relatedRecordLabel(record, titleAttribute)
   }
 
   function isSelectedId(id: number | string): boolean {

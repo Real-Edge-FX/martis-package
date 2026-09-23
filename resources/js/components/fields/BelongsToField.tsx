@@ -10,6 +10,7 @@ import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
+import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface BelongsToValue {
@@ -503,37 +504,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   }
 
   function getOptionLabel(record: RelatedRecord): string {
-    // Extract text even when the attribute was serialized as a Stack
-    // (`{ __martisStack: true, entries: [...] }`) — otherwise the dropdown
-    // would render "[object Object]" for every option.
-    const extract = (v: unknown): string | null => {
-      if (v === undefined || v === null) return null
-      if (typeof v === 'string') return v
-      if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-      if (typeof v === 'object') {
-        const obj = v as Record<string, unknown>
-        if (obj.__martisStack && Array.isArray(obj.entries)) {
-          const heading = obj.entries.find((e: unknown) => (e as { variant?: string }).variant === 'heading') as { text?: unknown } | undefined
-          const first = obj.entries[0] as { text?: unknown } | undefined
-          const text = heading?.text ?? first?.text
-          return text != null ? String(text) : null
-        }
-        // Generic object with no known structure — prefer the _title
-        // fallback rather than returning "[object Object]".
-        return null
-      }
-      return null
-    }
-    if (titleAttribute) {
-      const fromAttr = extract(record[titleAttribute])
-      if (fromAttr !== null) return fromAttr
-    }
-    if (record._title) return record._title
-    for (const attr of ['name', 'title', 'label', 'email']) {
-      const fromAttr = extract(record[attr])
-      if (fromAttr !== null) return fromAttr
-    }
-    return `#${record.id}`
+    return relatedRecordLabel(record, titleAttribute)
   }
 
   function getOptionSubtitle(record: RelatedRecord): string | null {

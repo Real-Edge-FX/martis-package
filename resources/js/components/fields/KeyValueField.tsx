@@ -94,9 +94,9 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
   const [rows, setRows] = useState<KeyValueRow[]>(() => toRows(value))
 
   // The last value this input handed to `onChange`. A `value` prop that
-  // differs from it came from outside (the form hydrating the stored rows
-  // after mount, a reset, a dependsOn sync) and replaces the rows; the form
-  // handing back what the input just emitted does not.
+  // differs from it came from outside (the edit form seeding the stored
+  // rows after mount, a form reset) and replaces the rows; the form handing
+  // back what the input just emitted does not.
   const emitted = useRef<unknown>(value)
 
   useEffect(() => {

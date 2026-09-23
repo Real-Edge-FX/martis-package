@@ -9,6 +9,7 @@ import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIco
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
+import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface MorphToValue {
@@ -354,16 +355,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   }
 
   function getOptionLabel(record: RelatedRecord): string {
-    if (titleAttribute && record[titleAttribute] !== undefined && record[titleAttribute] !== null) {
-      return String(record[titleAttribute])
-    }
-    if (record._title) return record._title
-    for (const attr of ['name', 'title', 'label', 'email']) {
-      if (record[attr] !== undefined && record[attr] !== null) {
-        return String(record[attr])
-      }
-    }
-    return `#${record.id}`
+    return relatedRecordLabel(record, titleAttribute)
   }
 
   function getOptionSubtitle(record: RelatedRecord): string | null {
