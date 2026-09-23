@@ -136,6 +136,22 @@ it('replicate fields endpoint returns pre-filled values', function () {
         ->and($data['values']['body'])->toBe('Some body content');
 });
 
+it('answers a replicated create with the replicated message', function () {
+    $post = ReplicateTestModel::create(['title' => 'Original Post']);
+
+    $copy = $this->postJson('/martis/api/resources/replicate-test-models', [
+        'title' => 'Original Post (copy)',
+        'fromResourceId' => $post->id,
+    ])->assertCreated();
+    $plain = $this->postJson('/martis/api/resources/replicate-test-models', [
+        'title' => 'Another post',
+    ])->assertCreated();
+
+    expect($copy->json('meta.message'))->toBe(ReplicateTestResource::replicatedMessage())
+        ->and($plain->json('meta.message'))->toBe(ReplicateTestResource::createdMessage())
+        ->and(ReplicateTestResource::replicatedMessage())->not->toBe(ReplicateTestResource::createdMessage());
+});
+
 it('replicate fields returns 404 for non-existent record', function () {
     $response = $this->getJson('/martis/api/resources/replicate-test-models/99999/replicate');
 

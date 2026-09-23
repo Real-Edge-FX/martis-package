@@ -318,7 +318,11 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
-        $meta = ['message' => $resourceClass::createdMessage()];
+        // A create form that replicates a record sends the id it copied
+        // (`fromResourceId`), and the toast reads the replicated message.
+        $meta = ['message' => $request->filled('fromResourceId')
+            ? $resourceClass::replicatedMessage()
+            : $resourceClass::createdMessage()];
         $redirectTo = $res->redirectAfterCreate($model, $request);
         if (is_string($redirectTo) && $redirectTo !== '') {
             $meta['redirectTo'] = $redirectTo;
