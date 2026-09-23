@@ -55,11 +55,11 @@ class HasManyController extends MartisController
      * sorting, and pagination. Uses the related resource's field definitions
      * and search pipeline (including Scout when applicable).
      */
-    #[QueryParameter('search', description: 'Filter related records by free text.', required: false, type: 'string')]
+    #[QueryParameter('search', description: 'Filter related records by free text, on the searchable fields of the related resource the user can see.', required: false, type: 'string')]
     #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
-    #[QueryParameter('sort', description: 'Column to sort by.', required: false, type: 'string')]
-    #[QueryParameter('direction', description: 'Sort direction: asc or desc.', required: false, type: 'string')]
-    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string')]
+    #[QueryParameter('sort', description: 'Attribute to sort by: a sortable field of the related resource the user can see; any other value is ignored.', required: false, type: 'string')]
+    #[QueryParameter('direction', description: 'Sort direction: asc or desc (asc for any other value).', required: false, type: 'string')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string')]
     public function index(
         Request $request,
         string $resource,

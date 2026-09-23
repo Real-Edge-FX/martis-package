@@ -79,11 +79,11 @@ class ResourceController extends MartisController
      * Authentication: requires an authenticated session (Laravel session cookie).
      * The response includes an envelope with data, meta (pagination) and links (navigation).
      */
-    #[QueryParameter('search', description: 'Filter records by free text. Searches all fields marked as searchable in the Resource.', required: false, type: 'string')]
+    #[QueryParameter('search', description: 'Filter records by free text. Searches the fields marked as searchable in the Resource that the user can see.', required: false, type: 'string')]
     #[QueryParameter('per_page', description: 'Number of records per page. Maximum: 100. Default defined by the Resource (usually 15).', required: false, type: 'integer', example: 15)]
-    #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource.', required: false, type: 'string')]
-    #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default: "asc".', required: false, type: 'string', example: 'asc')]
-    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string', example: 'with')]
+    #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource that the user can see; any other value is ignored.', required: false, type: 'string')]
+    #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default, and for any other value: "asc".', required: false, type: 'string', example: 'asc')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string', example: 'with')]
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveRoutableResource($resource);
