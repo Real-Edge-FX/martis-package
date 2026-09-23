@@ -339,6 +339,10 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const createButtonIconField = (field as unknown as Record<string, unknown>).createButtonIcon as string | undefined
   const createButtonColorField = (field as unknown as Record<string, unknown>).createButtonColor as string | undefined
   const fieldPlaceholder = (field as unknown as Record<string, unknown>).placeholder as string | undefined
+  // `relationSearchable(false)`: no search box, so the list shows as many
+  // options as the relatable endpoint returns (it caps a page at 100).
+  const relationSearchable = (field as unknown as Record<string, unknown>).relationSearchable !== false
+  const perPage = relationSearchable ? 20 : 100
   const resourceIconColor = (field as unknown as Record<string, unknown>).iconColor as string | undefined
 
   // Extract current ID from value (handles both plain ID and {id, title} objects)
@@ -419,8 +423,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       const endpoint = scopedUrl
-        ? withQuery(scopedUrl, `per_page=20${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${relatedResource}${searchParam}`
+        ? withQuery(scopedUrl, `per_page=${perPage}${searchParam}`)
+        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${relatedResource}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -428,7 +432,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     } finally {
       setLoading(false)
     }
-  }, [relatedResource, scopedUrl, field.attribute])
+  }, [relatedResource, scopedUrl, field.attribute, perPage])
 
   // Load initial options when dropdown opens
   useEffect(() => {
@@ -586,17 +590,19 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
       {open && (
         <div className="martis-belongs-to-dropdown">
           {/* Search input */}
-          <div className="martis-belongs-to-search">
-            <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder={tMsg('belongs_to_search_placeholder', { defaultValue: 'Search…' })}
-              className="martis-belongs-to-search-input"
-            />
-          </div>
+          {relationSearchable && (
+            <div className="martis-belongs-to-search">
+              <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder={tMsg('belongs_to_search_placeholder', { defaultValue: 'Search…' })}
+                className="martis-belongs-to-search-input"
+              />
+            </div>
+          )}
 
           {/* Options list */}
           <div className="martis-belongs-to-options">

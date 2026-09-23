@@ -196,17 +196,16 @@ If you still see the empty state on an older version, check `storage/logs/larave
 
 ### Searchable on a relationship column returns 0 results
 
-`->searchable()` defaults to `LIKE %term%` against the field's column on the resource's table. To search a related model's column (for example, the owner's `name`), use a relationship field with `relationSearchable()`:
+`->searchable()` defaults to `LIKE %term%` against the field's column on the resource's table. To search a related model's column (for example, the owner's `name`), list it as a dot path in the resource's `searchableRelations()`: the index search and the global search add a `whereHas` for it.
 
 ```php
-use Martis\Fields\BelongsTo;
-
-BelongsTo::make('Owner', 'owner', \App\Martis\UserResource::class)
-    ->searchable()
-    ->relationSearchable(),
+public static function searchableRelations(): array
+{
+    return ['owner.name'];
+}
 ```
 
-`relationSearchable()` is shipped on `BelongsTo`, `MorphTo`, `HasMany`, `MorphMany`, and `Tag`. It tells the global search to issue a `whereHas` against the related table's title attribute (or the columns you explicitly opt in via the resource's `searchableRelations()`). See [Fields](fields.md#sortable--searchable) for the full search behaviour.
+See [Global Search → Searchable detail relations](global-search.md#-searchable-detail-relations--searchablerelations). `relationSearchable()` on a relationship field searches nothing on its own: it shows or hides the search box of that field's panel (`HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany`) or, since v1.38.0, of its picker (`BelongsTo`, `MorphTo`, `Tag`).
 
 ## Theme and components
 

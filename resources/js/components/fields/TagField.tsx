@@ -130,6 +130,10 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
   const relatedResource = (field as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as Record<string, unknown>).titleAttribute as string | undefined
   const preload = (field as Record<string, unknown>).preload as boolean | undefined
+  // `relationSearchable(false)`: no search box, so the list shows as many
+  // options as the relatable endpoint returns (it caps a page at 100).
+  const relationSearchable = (field as Record<string, unknown>).relationSearchable !== false
+  const perPage = relationSearchable ? 30 : 100
   const showCreateRelationButton = (field as Record<string, unknown>).showCreateRelationButton === true
   const fieldModalSize = ((field as Record<string, unknown>).modalSize as string) || '2xl'
   // A readonly field keeps its tags, so it offers no inline create either.
@@ -190,8 +194,8 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       // Always use relatable endpoint - applies query hooks server-side
       const endpoint = scopedUrl
-        ? withQuery(scopedUrl, `per_page=30${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=30&related_resource=${relatedResource}${searchParam}`
+        ? withQuery(scopedUrl, `per_page=${perPage}${searchParam}`)
+        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${relatedResource}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -199,7 +203,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
     } finally {
       setLoading(false)
     }
-  }, [relatedResource, scopedUrl, field.attribute])
+  }, [relatedResource, scopedUrl, field.attribute, perPage])
 
   // Preload all options on mount if preload=true
   useEffect(() => {
@@ -339,27 +343,29 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
           }}
         >
           {/* Search input */}
-          <div
-            className="flex items-center gap-2 px-3 py-2"
-            style={{ borderBottom: '1px solid var(--martis-border)' }}
-          >
-            <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
-            <input
-              autoFocus
-              type="text"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder={tMsg('search_tags')}
-              style={{
-                flex: 1,
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                fontSize: '0.875rem',
-                color: 'var(--martis-text)',
-              }}
-            />
-          </div>
+          {relationSearchable && (
+            <div
+              className="flex items-center gap-2 px-3 py-2"
+              style={{ borderBottom: '1px solid var(--martis-border)' }}
+            >
+              <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+              <input
+                autoFocus
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder={tMsg('search_tags')}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontSize: '0.875rem',
+                  color: 'var(--martis-text)',
+                }}
+              />
+            </div>
+          )}
 
           {/* Options */}
           <div style={{ overflowY: 'auto', flex: 1 }}>

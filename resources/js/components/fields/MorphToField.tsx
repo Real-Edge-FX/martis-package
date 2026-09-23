@@ -261,6 +261,10 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
   const withSubtitles = (field as unknown as Record<string, unknown>).withSubtitles === true
   const subtitleAttribute = ((field as unknown as Record<string, unknown>).subtitleAttribute as string) || 'subtitle'
+  // `relationSearchable(false)`: no search box, so the list shows as many
+  // options as the relatable endpoint returns (it caps a page at 100).
+  const relationSearchable = (field as unknown as Record<string, unknown>).relationSearchable !== false
+  const perPage = relationSearchable ? 20 : 100
 
   const qc = useQueryClient()
 
@@ -330,8 +334,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       const endpoint = scopedUrl
-        ? withQuery(scopedUrl, `per_page=20&related_resource=${selectedType}${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${selectedType}${searchParam}`
+        ? withQuery(scopedUrl, `per_page=${perPage}&related_resource=${selectedType}${searchParam}`)
+        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${selectedType}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -339,7 +343,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     } finally {
       setLoading(false)
     }
-  }, [selectedType, scopedUrl, field.attribute])
+  }, [selectedType, scopedUrl, field.attribute, perPage])
 
   // Load options when dropdown opens
   useEffect(() => {
@@ -535,17 +539,19 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
           {/* Dropdown panel */}
           {open && (
             <div className="martis-belongs-to-dropdown">
-              <div className="martis-belongs-to-search">
-                <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={search}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={tMsg('morph_to_search_placeholder', 'Search...')}
-                  className="martis-belongs-to-search-input"
-                />
-              </div>
+              {relationSearchable && (
+                <div className="martis-belongs-to-search">
+                  <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={search}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder={tMsg('morph_to_search_placeholder', 'Search...')}
+                    className="martis-belongs-to-search-input"
+                  />
+                </div>
+              )}
 
               <div className="martis-belongs-to-options">
                 {loading && options.length === 0 ? (

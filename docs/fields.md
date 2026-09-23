@@ -1666,7 +1666,7 @@ BelongsTo::make('category_id', 'Category')
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API. | `null` |
 | `placeholder` | `placeholder(string\|\Closure $text): static` | `$this` | Custom placeholder shown when no value is selected. Closure receives `(?Request $r)` for per-request resolution. | translated `'Select {field}...'` |
-| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. Without it the dropdown has no search box and lists up to 100 records, or the related resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored and the search box always showed). | `true` |
 | `relatableQueryUsing` | `relatableQueryUsing(\Closure $closure): static` | `$this` | Per-field constraint on the picker query. Closure receives `(Request $request, Builder $query, BelongsTo $field)` and must return a `Builder`. Runs after the resource's static `relatableQuery()`. | `null` |
 | `displayAsLink` | `displayAsLink(bool $value = true): static` | `$this` | Render as clickable link on index/detail. | `true` |
 | `showCreateRelationButton` | `showCreateRelationButton(bool\|\Closure $callback = true): static` | `$this` | Show "+" button to create related record inline via modal. | `false` |
@@ -1780,7 +1780,7 @@ Tag::make('tags', 'Tags')
 | `showCreateRelationButton` | `showCreateRelationButton(): static` | `$this` | Show inline create button. | `false` |
 | `modalSize` | `modalSize(string $size): static` | `$this` | Inline creation modal size (`sm` to `7xl`). | `'2xl'` |
 | `preload` | `preload(): static` | `$this` | Preload all tags on init (for small sets). | `false` |
-| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in the picker. Without it the picker has no search box and lists up to 100 tags, or the related resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored). | `true` |
 | `getRelationship` | `getRelationship(): string` | `string` | Get relationship method name. | — |
 | `getTitleAttribute` | `getTitleAttribute(): string` | `string` | Get title attribute. | — |
 | `getRelatedResource` | `getRelatedResource(): ?string` | `?string` | Get related resource URI key. | — |
@@ -2308,7 +2308,7 @@ MorphTo::make('commentable', 'Commentable')
 |--------|-----------|---------|-------------|---------|
 | `types` | `types(array $resourceClasses): static` | `$this` | Allowed resource families for this polymorphic relationship. Each entry is a `Resource` class name; the model class is derived via `newModel()`. | — |
 | `titleAttribute` | `titleAttribute(string $attr): static` | `$this` | Attribute used for the display label in the picker and on detail rows. | `'name'` |
-| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable / disable text search inside the record dropdown. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable / disable text search inside the record dropdown. Without it the dropdown has no search box and lists up to 100 records of the picked type, or its resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored). | `true` |
 | `showCreateRelationButton` | `showCreateRelationButton(bool\|\Closure $callback = true): static` | `$this` | Show the inline "+" button that creates a related record per type. | `false` |
 | `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
 | `modalSize` | `modalSize(ModalSize $size): static` | `$this` | Modal size for the inline create flow. Pass any `Martis\Enums\ModalSize` case (`Small` through `SevenExtraLarge`). | `ModalSize::TwoExtraLarge` |
