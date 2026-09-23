@@ -63,7 +63,7 @@ it('includes the MCP section when --with-mcp is set', function () {
         ->and($body)->toContain('MARTIS_MCP_ENABLED')
         // When the MCP is wired the guidelines must route ALL doc reads
         // through it and never point the agent at the raw files.
-        ->and($body)->toContain('exclusively')
+        ->and($body)->toContain('Read the docs **only** through these tools')
         ->and($body)->not->toContain('vendor/martis/martis/docs')
         ->and($body)->not->toContain('Read these directly with your file-read tool')
         // the disabled-MCP guidance must steer to the operator, not the files

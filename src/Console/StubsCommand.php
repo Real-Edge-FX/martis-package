@@ -16,6 +16,12 @@ use Martis\Stubs\StubResolver;
  * project copy first, falling back to the package original only
  * when the override is absent. See {@see StubResolver}.
  *
+ * Besides the top-level templates it publishes the ones a generator
+ * reads from a subdirectory ({@see self::NESTED}), such as the
+ * `martis:agents` primer, into the same relative path. The
+ * `extensions/` scaffold is not a generator template: `martis:install`
+ * publishes it.
+ *
  * Idempotent: existing files are skipped unless `--force` is set.
  */
 class StubsCommand extends Command
@@ -24,6 +30,15 @@ class StubsCommand extends Command
         {--force : Overwrite stubs that already exist in stubs/martis}';
 
     protected $description = 'Publish all Martis generator stubs into stubs/martis for customisation';
+
+    /**
+     * Templates a generator reads from a subdirectory of the stubs.
+     *
+     * @var list<string>
+     */
+    private const NESTED = [
+        AgentsCommand::STUB,
+    ];
 
     /**
      * Handle.
@@ -48,8 +63,15 @@ class StubsCommand extends Command
         $copied = 0;
         $skipped = 0;
 
+        $sources = [];
         foreach ($files->files($sourceDir) as $file) {
-            $relative = $file->getFilename();
+            $sources[$file->getFilename()] = $file->getPathname();
+        }
+        foreach (self::NESTED as $relative) {
+            $sources[$relative] = StubResolver::packagePath($relative);
+        }
+
+        foreach ($sources as $relative => $source) {
             $target = $targetDir.'/'.$relative;
 
             if ($files->exists($target) && ! $force) {
@@ -59,7 +81,8 @@ class StubsCommand extends Command
                 continue;
             }
 
-            $files->copy($file->getPathname(), $target);
+            $files->ensureDirectoryExists(dirname($target));
+            $files->copy($source, $target);
             $this->components->twoColumnDetail($relative, '<fg=green>'.($force ? 'OVERWRITTEN' : 'PUBLISHED').'</>');
             $copied++;
         }
