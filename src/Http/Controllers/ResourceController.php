@@ -1226,7 +1226,6 @@ class ResourceController extends MartisController
         /** @var class-string<resource>|null $resourceClass */
         $resourceClass = null;
         $relationField = null;
-        $relatedUriKey = null;
 
         if ($hasSourceContext) {
             [$resourceClass, $error] = $this->resolveResource($resource);
@@ -1263,22 +1262,83 @@ class ResourceController extends MartisController
                 return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();
             }
 
-            // Determine the related resource class from the field
-            if ($relationField instanceof BelongsTo) {
-                $relatedUriKey = $this->getRelatedResourceKey($relationField);
-            } elseif ($relationField instanceof MorphTo) {
-                // MorphTo: resolve from related_resource query param (type-specific)
-                $rawRelated = $request->query('related_resource', '');
-                $relatedUriKey = is_string($rawRelated) ? $rawRelated : null;
-            } elseif ($relationField instanceof TagField) {
-                $relatedUriKey = $relationField->getRelatedResource();
-            }
+            $relatedUriKey = $this->relatedUriKeyOf($relationField, $request);
         } else {
             // No source context - resolve related resource from query param
             $rawRelated = $request->query('related_resource', '');
             $relatedUriKey = is_string($rawRelated) ? $rawRelated : null;
         }
 
+        return $this->relatableResponse($request, $relatedUriKey, $resourceClass, $relationField);
+    }
+
+    /**
+     * Return filtered options for a relationship field an Action declares.
+     *
+     * GET /api/resources/{resource}/actions/{action}/relatable/{field}
+     *
+     * The pickers of an action modal read the Action's own declaration of
+     * the field: its related resource and its field-level scope
+     * (relatableQueryUsing(), withoutTrashed()) apply, and the resource the
+     * Action runs on is the source of the relatable{PluralModelName}() hook.
+     * Gated like running the Action (viewAny on the resource, canSee() on
+     * the Action), then like every picker (viewAny on the related resource).
+     */
+    public function actionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
+        $actionInstance = $this->findAction(new $resourceClass, $action, $request);
+
+        if ($actionInstance === null) {
+            return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
+        }
+
+        if (! $actionInstance->authorizedToSee($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        $relationField = $this->findField(
+            [fn (): array => $actionInstance->fields($request)],
+            $fieldAttr,
+            [BelongsTo::class, MorphTo::class, TagField::class],
+        );
+
+        if ($relationField === null) {
+            return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();
+        }
+
+        return $this->relatableResponse($request, $this->relatedUriKeyOf($relationField, $request), $resourceClass, $relationField);
+    }
+
+    /**
+     * List the records of the related resource a picker offers, one page
+     * at a time, with the relatable scoping applied.
+     *
+     * Without a source resource (the context-free call) only the target's
+     * relatableQuery() applies.
+     *
+     * @param  class-string<\Martis\Resource>|null  $resourceClass  The source resource, if any
+     */
+    private function relatableResponse(
+        Request $request,
+        ?string $relatedUriKey,
+        ?string $resourceClass,
+        ?FieldContract $relationField,
+    ): IlluminateJsonResponse {
         // Auth check: ensure user can viewAny the related resource (F-2 fix)
         if ($relatedUriKey !== null && $this->registry->has($relatedUriKey)) {
             $relatedCheck = new ($this->registry->get($relatedUriKey));
@@ -1301,7 +1361,7 @@ class ResourceController extends MartisController
         $query = $relatedModelClass::query();
 
         // Apply relatable query hooks via central resolver
-        if ($hasSourceContext && $resourceClass !== null) {
+        if ($resourceClass !== null) {
             $query = RelationshipQueryResolver::resolve(
                 $resourceClass,
                 $relatedResourceClass,
@@ -1396,6 +1456,30 @@ class ResourceController extends MartisController
                 'next' => $paginator->nextPageUrl(),
             ],
         )->toResponse();
+    }
+
+    /**
+     * The URI key of the resource a relationship field picks from: a
+     * BelongsTo or Tag names it, a MorphTo takes the type its picker
+     * selected (`related_resource`).
+     */
+    private function relatedUriKeyOf(FieldContract $field, Request $request): ?string
+    {
+        if ($field instanceof BelongsTo) {
+            return $this->getRelatedResourceKey($field);
+        }
+
+        if ($field instanceof MorphTo) {
+            $rawRelated = $request->query('related_resource', '');
+
+            return is_string($rawRelated) ? $rawRelated : null;
+        }
+
+        if ($field instanceof TagField) {
+            return $field->getRelatedResource();
+        }
+
+        return null;
     }
 
     /**

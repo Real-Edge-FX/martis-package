@@ -7,6 +7,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
 use Martis\Http\Resources\JsonErrorResponse;
@@ -226,6 +227,23 @@ abstract class MartisController extends Controller
                 yield from $this->flattenFormItems($nested);
             }
         }
+    }
+
+    /**
+     * Find an Action a resource registers, by URI key. The caller runs the
+     * Action's gates (authorizedToSee(), authorizedToRun()).
+     */
+    protected function findAction(Resource $resource, string $uriKey, Request $request): ?ActionContract
+    {
+        $actions = $resource->actions($request);
+
+        foreach ($actions as $action) {
+            if ($action->uriKey() === $uriKey) {
+                return $action;
+            }
+        }
+
+        return null;
     }
 
     /**

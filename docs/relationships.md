@@ -690,11 +690,17 @@ The first declaration found wins: when `fields()` and `fieldsForUpdate()` declar
 
 > Before v1.38.0 the endpoint searched `fields()` only: a picker declared on a form alone answered `Field 'x' not found.` (404) and opened with no options.
 
+The pickers fill `{id}` from the form they render in: the record under edit on an update form, `_` on a create form. A create form nested in another resource's page sends `_` as well, so the inline-create modal and a create drawer opened from an edit or detail page read the create forms of their own resource. A record id the host passes explicitly (`recordId`, as a Tool form bound to a record does) always wins; otherwise the record id in the page URL is only used outside a create form, and only for the page's own resource.
+
+The pickers of an Action modal ask the Action instead: `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}` looks the field up in the Action's `fields()`, so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the resource the Action runs on is the source of the `relatable{PluralModelName}()` hook. It answers 403 without `viewAny` on that resource or when the Action's `canSee()` denies, and 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`. See [Actions → Relation fields](actions.md#relation-fields).
+
+> Before v1.38.0 the pickers of an Action modal asked the page's resource: an attribute only the Action declares answered 404 with an empty picker, and one the resource also declares listed the resource's options (its related resource and scope) instead of the Action's.
+
 The [Slug](fields.md#slug) collision check reads the forms in the same order (the update form when its `id` names a record). The [`dependsOn` sync](fields.md#reactive-fields--dependsonfield-closure) and the server-side [`Select` search](fields.md#select) take the form from their `context` parameter and search only that form (`create` includes `fieldsForInlineCreate()`), never `fields()`, so a field that is not on the form cannot be probed.
 
 ### Relatable scoping precedence
 
-When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource — the BelongsTo dropdown (`/relatable/{field}`), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`):
+When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource — the BelongsTo dropdown (`/relatable/{field}`), the Action modal pickers (`/actions/{action}/relatable/{field}`, with the resource the Action runs on as the source), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`):
 
 1. **`relatableQuery` on the target resource** — the generic fence the target declares for itself. It always runs.
 2. **`relatable{PluralModelName}` on the source resource** (specific override, gets passed the field) — narrows the already-fenced query for that source's relationships.
@@ -744,6 +750,7 @@ Per-type feature tests:
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
 - `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.
 - `tests/Feature/FormFieldLookupTest.php` (19) — `BelongsTo`, `MorphTo` and `Tag` pickers declared only in `fieldsForCreate()` / `fieldsForUpdate()` / `fieldsForInlineCreate()`, the form declaration winning over `fields()`, the record bound to the update form, the `fields()` fallback and the `viewAny` gate, plus the Slug check, `dependsOn` sync and `Select` search on a form-only field.
+- `tests/Feature/ActionRelatableEndpointTest.php` (13) — `BelongsTo`, `MorphTo` and `Tag` pickers of an Action modal: the Action's declaration (related resource, `relatableQueryUsing()`) over the resource's, the relatable hooks, search, 404 for what the Action does not declare, and the `viewAny` / `canSee()` gates.
 
 ---
 

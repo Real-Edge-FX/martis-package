@@ -292,20 +292,6 @@ class ActionController extends MartisController
         ));
     }
 
-    /** Find a specific action by URI key. */
-    private function findAction(Resource $resource, string $uriKey, Request $request): ?ActionContract
-    {
-        $actions = $resource->actions($request);
-
-        foreach ($actions as $action) {
-            if ($action->uriKey() === $uriKey) {
-                return $action;
-            }
-        }
-
-        return null;
-    }
-
     /**
      * Resolve Eloquent models from the request.
      *

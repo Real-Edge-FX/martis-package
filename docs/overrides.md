@@ -666,9 +666,21 @@ React-core-only, so `react-dom`'s portal is exposed through the runtime.
 
 ### Caveats
 
-**1. `BelongsTo` outside a resource form needs `related_resource`.**
+**1. Relation pickers take their scope from the props you pass.**
 
-`BelongsToFieldInput` builds its options endpoint from the resource context: `/api/resources/{resourceKey}/{recordId}/relatable/{attribute}`. When you mount it from a custom Action component that has no parent resource, it falls through to the synthetic endpoint `/api/resources/_/_/relatable/{attribute}?related_resource={uriKey}`. Make sure your `FieldDefinition` carries the `relatedResource` (the target resource's `uriKey`) so Martis can resolve the relatable query on the server side. For pure enum dropdowns prefer `select` — it has no async dependency and works anywhere.
+`BelongsTo`, `MorphTo` and `Tag` load their options from `/api/resources/{resource}/{id}/relatable/{attribute}`. `{resource}` is `resourceKey`, else the resource of the page. `{id}` is `recordId`; without one, `context="create"` sends `_` (the create forms), and any other input uses the page's record only when it is scoped to the page's own resource (`_` otherwise). In a custom Action component, pass `actionEndpoint` so the pickers read the Action's own declaration of the field:
+
+```tsx
+<FieldInput
+    field={field}
+    value={values[field.attribute] ?? null}
+    onChange={(v) => setValue(field.attribute, v)}
+    context="create"
+    actionEndpoint={`/api/resources/${resource}/actions/${action.uriKey}`}
+/>
+```
+
+With no resource at all (a Tool page without `resourceKey`), the input falls back to the context-free `/api/resources/_/_/relatable/{attribute}?related_resource={uriKey}`, so the `FieldDefinition` must carry `relatedResource` (the target resource's `uriKey`) for the server to resolve the relatable query. For pure enum dropdowns prefer `select`: it has no async dependency and works anywhere.
 
 **2. Consumer bundles hosted outside the Martis shell need the published stylesheet.**
 

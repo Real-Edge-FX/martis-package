@@ -460,6 +460,9 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.actions.index');
                                 Route::get('/resources/{resource}/actions/{action}/fields', [ActionController::class, 'fields'])
                                     ->name('resources.actions.fields');
+                                // Options of a relation field the Action declares (its modal's pickers)
+                                Route::get('/resources/{resource}/actions/{action}/relatable/{field}', [ResourceController::class, 'actionRelatableOptions'])
+                                    ->name('resources.actions.relatable');
                                 Route::post('/resources/{resource}/actions/{action}', [ActionController::class, 'execute'])
                                     ->name('resources.actions.execute');
                                 Route::post('/resources/{resource}/{id}/actions/{action}', [ActionController::class, 'executeSingle'])

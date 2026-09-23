@@ -201,7 +201,7 @@ GET /martis/api/resources/{resource}/{id}/relatable/{field}
 GET /martis/api/resources/{resource}/{id}/relatable/{field}?search=term
 ```
 
-Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record, otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
+Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record, otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, and the pickers of an action modal use the action's own endpoint (see [Actions](#actions)). See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
 
 ### HasMany / HasOne / BelongsToMany / MorphMany / MorphOne / MorphToMany
 
@@ -233,6 +233,7 @@ Per-resource and per-row action execution.
 |---|---|---|
 | `GET` | `/martis/api/resources/{resource}/actions` | List actions visible on the index. |
 | `GET` | `/martis/api/resources/{resource}/actions/{action}/fields` | Confirmation-modal field schema for an action. |
+| `GET` | `/martis/api/resources/{resource}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares, read from the action's `fields()` (v1.38.0). Gated on `viewAny` of the resource, the action's `canSee()` and `viewAny` of the related resource. |
 | `POST` | `/martis/api/resources/{resource}/actions/{action}` | Run a bulk / standalone action. |
 | `POST` | `/martis/api/resources/{resource}/{id}/actions/{action}` | Run an inline (per-row) action. |
 | `GET` | `/martis/api/resources/{resource}/{id}/belongs-to-many/{rel}/actions` | Pivot-row actions list. |

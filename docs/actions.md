@@ -467,6 +467,30 @@ public function handle(ActionFields $fields, Collection $models): ActionResponse
 }
 ```
 
+### Relation fields
+
+`BelongsTo`, `MorphTo` and `Tag` fields work in `fields()` as on a resource form. Their pickers load options from the Action itself, `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}`, which reads the Action's declaration of the field: its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, even when the resource declares a field under the same attribute. The usual [relatable scoping](relationships.md#relatable-scoping-precedence) runs first: the target resource's `relatableQuery()`, then the `relatable{PluralModelName}()` hook of the resource the Action runs on.
+
+```php
+use Illuminate\Database\Eloquent\Builder;
+use Martis\Fields\BelongsTo;
+use Martis\Fields\Tag;
+
+public function fields(Request $request): array
+{
+    return [
+        BelongsTo::make('assignee', 'Assignee', UserResource::class)
+            ->relatableQueryUsing(fn (Request $request, Builder $query) => $query->where('active', true)),
+
+        Tag::make('labels', 'Labels')->relatedResource('labels'),
+    ];
+}
+```
+
+The endpoint is gated like running the Action (403 without `viewAny` on the resource, or when the Action's `canSee()` denies), then like every picker (403 without `viewAny` on the related resource), and answers 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`. The scope decides what the picker lists; `handle()` receives the submitted value under the field's attribute (`$fields->assignee_id` for the `BelongsTo` above) and should check it like any other input.
+
+> Before v1.38.0 these pickers asked the page's resource for the attribute: one only the Action declares answered 404 and the picker opened empty, and one the resource also declares listed the resource's options instead of the Action's.
+
 ---
 
 ## Post-processing with then()
@@ -1202,6 +1226,7 @@ RemoveTag::make()
 |--------|------|-------------|
 | `GET` | `/api/resources/{resource}/actions` | List available actions (filter with `?context=index\|detail\|inline`) |
 | `GET` | `/api/resources/{resource}/actions/{action}/fields` | Get action fields |
+| `GET` | `/api/resources/{resource}/actions/{action}/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares (see [Relation fields](#relation-fields)) |
 | `POST` | `/api/resources/{resource}/actions/{action}` | Execute action (bulk) |
 | `POST` | `/api/resources/{resource}/{id}/actions/{action}` | Execute action (single record) |
 

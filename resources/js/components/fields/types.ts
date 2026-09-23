@@ -21,6 +21,16 @@ export interface FieldInputProps {
   /** The form context the input renders in. Server-scoped fields send it so the backend looks the field up in the matching field set. */
   context?: 'create' | 'update'
   /**
+   * Base path of the Action's endpoints when the input renders one of an
+   * Action's fields (e.g. `/api/resources/posts/actions/publish-post`).
+   * Relation pickers (`BelongsTo`, `MorphTo`, `Tag`) then load their options
+   * from `{actionEndpoint}/relatable/{attribute}`, which reads the Action's
+   * own declaration of the field instead of the page's resource. The action
+   * modals leave `resourceKey` unset, so per-resource input overrides and
+   * resource-scoped lookups do not reach Action fields.
+   */
+  actionEndpoint?: string
+  /**
    * The Tool URI key when the form is scoped to a Tool implementing
    * `ProvidesFields`. Routes server-backed field behaviours (remote Select
    * search) at `/api/tools/{toolKey}/...`. When both `toolKey` and

@@ -384,6 +384,7 @@ export function FieldInput({
   recordId,
   toolKey,
   context,
+  actionEndpoint,
   formValues,
 }: {
   field: FieldDefinition
@@ -394,6 +395,7 @@ export function FieldInput({
   recordId?: string | number
   toolKey?: string
   context?: 'create' | 'update'
+  actionEndpoint?: string
   formValues?: Record<string, unknown>
 }) {
   // Tier 0: per-context field override (from PHP field->overrideCreate/Update)
@@ -417,6 +419,7 @@ export function FieldInput({
       recordId={recordId}
       toolKey={toolKey}
       context={context}
+      actionEndpoint={actionEndpoint}
       formValues={formValues}
     />
   )

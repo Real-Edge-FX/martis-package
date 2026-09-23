@@ -332,6 +332,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                     }
                     error={fieldErrors[field.attribute]}
                     context="create"
+                    actionEndpoint={`/api/resources/${resource}/actions/${action.uriKey}`}
                   />
                 </div>
               ))}
