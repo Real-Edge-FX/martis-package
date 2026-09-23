@@ -56,3 +56,14 @@ describe('BelongsToFieldDisplay — record-detail link resolution', () => {
     expect(link.getAttribute('href')).toBe('/resources/users/7')
   })
 })
+
+// `BelongsTo::multiple()` is gone; `withMeta(['multiple' => true])` still puts
+// the key on the definition, and the display rendered the record as empty.
+describe('BelongsToFieldDisplay with a stray `multiple` key', () => {
+  it('shows the related record', () => {
+    const field = baseField({ relatedResource: 'users', multiple: true })
+    renderWithRouter(<BelongsToFieldDisplay field={field} value={{ id: 7, title: 'Jane' }} />)
+
+    expect(screen.getByRole('link', { name: 'Jane' }).getAttribute('href')).toBe('/resources/users/7')
+  })
+})

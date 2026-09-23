@@ -2117,13 +2117,6 @@ class ResourceController extends MartisController
         return null;
     }
 
-    /**
-     * Sync deferred many-to-many relationships after model save.
-     *
-     * BelongsTo fields in multiple mode register pending syncs during fill().
-     * This method executes them after the model has been persisted.
-     */
-
     // -------------------------------------------------------------------------
     // Peek — GET /api/resources/{resource}/{id}/peek
     // -------------------------------------------------------------------------
@@ -2185,6 +2178,14 @@ class ResourceController extends MartisController
         ])->toResponse();
     }
 
+    /**
+     * Run the relationship writes that wait for the saved model's key.
+     *
+     * During fill() a `Tag` field registers its pivot sync
+     * (DeferredRelationSync) and a `Repeater` its HasMany rows
+     * (DeferredRepeaterSync): both need the parent's primary key, which a
+     * record being created only has once it is saved.
+     */
     private function syncDeferredRelations(Model $model): void
     {
         DeferredRelationSync::sync($model);

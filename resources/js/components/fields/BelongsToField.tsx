@@ -24,14 +24,6 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
   return v !== null && typeof v === 'object' && 'id' in (v as Record<string, unknown>)
 }
 
-/** The records a multiple-mode value names (its `{ id, title }` entries). */
-function selectedItemsOf(value: unknown): Array<{ id: number | string; title: string | null }> {
-  if (!Array.isArray(value)) return []
-  return (value as unknown[])
-    .filter(v => isBelongsToValue(v as BelongsToValue))
-    .map(v => { const bv = v as BelongsToValue; return { id: bv.id, title: bv.title ?? null } })
-}
-
 // ---------------------------------------------------------------------------
 // PeekCard — hover preview card fetching content from the resource's
 // fieldsForPreview() via the /peek endpoint.
@@ -265,45 +257,6 @@ export function BelongsToFieldDisplay({ value, field }: FieldDisplayProps) {
     return <span className="martis-text-muted">{tMsg('belongs_to_empty', { defaultValue: '—' })}</span>
   }
 
-  // Multiple mode: value is an array of {id, title} objects
-  const isMultiple = (field as unknown as Record<string, unknown>).multiple === true
-  if (isMultiple || Array.isArray(value)) {
-    const items = Array.isArray(value) ? (value as unknown[]).filter(isBelongsToValue) : []
-    if (items.length === 0) {
-      return <span className="martis-text-muted">{tMsg('belongs_to_empty', { defaultValue: '—' })}</span>
-    }
-    const relatedResourceMulti = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
-    const displayAsLinkMulti = (field as unknown as Record<string, unknown>).displayAsLink !== false
-    return (
-      <div className="flex flex-wrap gap-1">
-        {items.map((item) => {
-          const label = item.title ?? String(item.id)
-          if (relatedResourceMulti && displayAsLinkMulti) {
-            return (
-              <Link
-                key={item.id}
-                to={recordHref(relatedResourceMulti, item.id)}
-                className="martis-badge hover:underline"
-                style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-accent)', borderColor: 'var(--martis-border)' }}
-              >
-                {label}
-              </Link>
-            )
-          }
-          return (
-            <span
-              key={item.id}
-              className="martis-badge"
-              style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-text)', borderColor: 'var(--martis-border)' }}
-            >
-              {label}
-            </span>
-          )
-        })}
-      </div>
-    )
-  }
-
   if (isBelongsToValue(value)) {
     const label = value.title ?? String(value.id)
     const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
@@ -371,7 +324,6 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
   const isNullable = (field as unknown as Record<string, unknown>).nullable as boolean | undefined
-  const isMultiple = (field as unknown as Record<string, unknown>).multiple === true
   const showCreateRelationButton = (field as unknown as Record<string, unknown>).showCreateRelationButton === true
   const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
   const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
@@ -390,22 +342,15 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
 
   // Extract current ID from value (handles both plain ID and {id, title} objects)
   const currentId = useMemo(() => {
-    if (isMultiple) return null
     if (value === null || value === undefined || value === '') return null
     if (isBelongsToValue(value)) return value.id
     return value
-  }, [value, isMultiple])
+  }, [value])
 
   const currentTitle = useMemo(() => {
-    if (isMultiple) return null
     if (isBelongsToValue(value)) return value.title ?? null
     return null
-  }, [value, isMultiple])
-
-  // Multiple mode: selected items array
-  const [selectedItems, setSelectedItems] = useState<Array<{id: number | string; title: string | null}>>(
-    () => (isMultiple ? selectedItemsOf(value) : []),
-  )
+  }, [value])
 
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -419,19 +364,18 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const searchInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // The last value this input handed to `onChange` (a bare id, or the ids in
-  // multiple mode). A `value` prop that differs from it came from outside
-  // (the edit form seeding the record, "Create & add another" clearing the
-  // form) and replaces what the trigger shows; the form handing back what the
-  // input just emitted keeps the labels of the records it picked.
+  // The last value this input handed to `onChange` (a bare id). A `value`
+  // prop that differs from it came from outside (the edit form seeding the
+  // record, "Create & add another" clearing the form) and replaces what the
+  // trigger shows; the form handing back what the input just emitted keeps
+  // the label of the record it picked.
   const emitted = useRef<unknown>(value)
 
   useEffect(() => {
     if (value === emitted.current) return
     emitted.current = value
-    if (isMultiple) setSelectedItems(selectedItemsOf(value))
-    else setSelectedLabel(currentTitle)
-  }, [value, isMultiple, currentTitle])
+    setSelectedLabel(currentTitle)
+  }, [value, currentTitle])
 
   function emit(next: unknown) {
     emitted.current = next
@@ -514,27 +458,6 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     return null
   }
 
-  // Multiple mode: toggle selection
-  function handleMultipleSelect(record: RelatedRecord) {
-    const label = getOptionLabel(record)
-    setSelectedItems(prev => {
-      const exists = prev.some(item => String(item.id) === String(record.id))
-      const next = exists
-        ? prev.filter(item => String(item.id) !== String(record.id))
-        : [...prev, { id: record.id, title: label }]
-      emit(next.map(item => item.id))
-      return next
-    })
-  }
-
-  // Multiple mode: clear all
-  function handleMultipleClear(e: React.MouseEvent) {
-    e.stopPropagation()
-    e.preventDefault()
-    setSelectedItems([])
-    emit([])
-  }
-
   function handleInlineCreated(record: { id: string | number; title: string | null }) {
     setShowInlineCreate(false)
     void qc.invalidateQueries({ queryKey: ["relatable"] })
@@ -559,106 +482,6 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     emit(null)
     setSelectedLabel(null)
     setSearch('')
-  }
-
-  // Multiple mode: return multi-select UI
-  if (isMultiple) {
-    const multiTriggerLabel = selectedItems.length === 0
-      ? null
-      : selectedItems.length <= 2
-        ? selectedItems.map(item => item.title ?? `#${item.id}`).join(', ')
-        : tMsg('belongs_to_multiple_selected', { n: selectedItems.length, defaultValue: `${selectedItems.length} selected` })
-
-    return (
-      <div ref={containerRef} className="relative">
-        <button
-          type="button"
-          onClick={() => !field.readonly && setOpen(!open)}
-          disabled={field.readonly}
-          className="martis-belongs-to-trigger"
-          style={{
-            width: '100%',
-            borderColor: error ? 'var(--martis-danger)' : open ? 'var(--martis-accent)' : 'var(--martis-border)',
-            opacity: field.readonly ? 0.6 : 1,
-            cursor: field.readonly ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <span className="martis-belongs-to-trigger-label">
-            {multiTriggerLabel ?? (
-              <span style={{ color: 'var(--martis-text-muted)' }}>
-                {fieldPlaceholder ?? tMsg('select_field', { field: field.label })}
-              </span>
-            )}
-          </span>
-          {selectedItems.length > 0 && !field.readonly && (
-            <span
-              role="button"
-              tabIndex={-1}
-              onClick={handleMultipleClear}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleMultipleClear(e as unknown as React.MouseEvent) }}
-              className="martis-belongs-to-clear martis-clear-btn-multi"
-              data-pr-tooltip={tMsg('belongs_to_clear', { defaultValue: 'Clear selection' })}
-              data-pr-position="top"
-            >
-              <XIcon size={14} weight="bold" />
-            </span>
-          )}
-          <CaretDownIcon
-            size={14}
-            weight="bold"
-            style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }}
-          />
-        </button>
-        {/* Tooltip handled by global Layout <Tooltip> */}
-
-        {open && (
-          <div className="martis-belongs-to-dropdown">
-            <div className="martis-belongs-to-search">
-              <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder={tMsg('belongs_to_search_placeholder', { defaultValue: 'Search…' })}
-                className="martis-belongs-to-search-input"
-              />
-            </div>
-            <div className="martis-belongs-to-options">
-              {loading && options.length === 0 ? (
-                <div className="martis-belongs-to-empty">{tMsg('loading')}</div>
-              ) : !loading && options.length === 0 ? (
-                <div className="martis-belongs-to-empty">
-                  {search
-                    ? tMsg('belongs_to_no_results', { defaultValue: 'No results' })
-                    : tMsg('no_records_available')}
-                </div>
-              ) : (
-                options.map((record) => {
-                  const label = getOptionLabel(record)
-                  const isSelected = selectedItems.some(item => String(item.id) === String(record.id))
-                  return (
-                    <button
-                      key={record.id}
-                      type="button"
-                      onClick={() => handleMultipleSelect(record)}
-                      className={`martis-belongs-to-option ${isSelected ? 'martis-belongs-to-option--selected' : ''}`}
-                    >
-                      <span className="martis-belongs-to-option-label flex-1 min-w-0 block">{label}</span>
-                      {isSelected && (
-                        <CheckIcon size={14} weight="bold" style={{ color: 'var(--martis-accent)', flexShrink: 0 }} />
-                      )}
-                    </button>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        )}
-
-        {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
-      </div>
-    )
   }
 
   // Fallback: if no related resource configured, show a simple number input

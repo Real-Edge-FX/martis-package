@@ -9,10 +9,9 @@ import type { FieldDefinition } from '@/types'
  * after the input mounted: an edit form seeds the stored record after
  * rendering its fields, and "Create & add another" clears the form for the
  * next record. The input kept the label of the record it picked (it emits
- * the bare id) and, in multiple mode, the records it picked, so a cleared
- * form still showed the previous record's parent while the value was empty:
- * the next submit sent no key (silently empty when nullable, a 422 on a
- * field that looked filled when required).
+ * the bare id), so a cleared form still showed the previous record's parent
+ * while the value was empty: the next submit sent no key (silently empty
+ * when nullable, a 422 on a field that looked filled when required).
  */
 
 const apiGetMock = vi.fn()
@@ -103,30 +102,21 @@ describe('BelongsToFieldInput value from outside (single)', () => {
   })
 })
 
-describe('BelongsToFieldInput value from outside (multiple)', () => {
-  it('shows the records handed in after mount (the edit form seeding the record)', () => {
-    const { rerender } = renderInput(makeField({ multiple: true }), null)
+/*
+ * `BelongsTo::multiple()` was removed in April 2026 (a N:N relation is a
+ * `BelongsToMany` or a `Tag`) and the field never serialises `multiple`, but
+ * the input kept a multiple mode that `withMeta(['multiple' => true])` still
+ * switched on: it emitted a list of ids, which `BelongsTo::fill()` reads as
+ * no id at all, so saving cleared the foreign key. The key changes nothing now.
+ */
+describe('BelongsToFieldInput with a stray `multiple` key', () => {
+  it('picks one record and emits its id', async () => {
+    const onChange = vi.fn()
+    renderInput(makeField({ multiple: true }), null, onChange)
 
-    rerender([{ id: 7, title: 'Ana' }, { id: 8, title: 'Rui' }])
-
-    expect(triggerText()).toBe('Ana, Rui')
-  })
-
-  it('drops the picked records when the form is cleared', async () => {
-    let current: unknown = null
-    const { rerender } = renderInput(makeField({ multiple: true }), current, (next) => {
-      current = next
-    })
-    const placeholder = triggerText()
     await pick('Ana')
-    rerender(current)
-    await pick('Rui')
-    rerender(current)
-    expect(current).toEqual([7, 8])
-    expect(triggerText()).toBe('Ana, Rui')
 
-    rerender([])
-
-    expect(triggerText()).toBe(placeholder)
+    expect(onChange).toHaveBeenLastCalledWith(7)
+    expect(triggerText()).toBe('Ana')
   })
 })

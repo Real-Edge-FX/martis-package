@@ -1647,7 +1647,7 @@ BelongsTo::make('user', 'Author')
     ->relatedResource('users')
 ```
 
-For many-to-many relationships use [`BelongsToMany`](#belongstomany), [`MorphToMany`](#morphtomany), or [`Tag`](#tag) — `BelongsTo` itself is single-cardinality.
+For many-to-many relationships use [`BelongsToMany`](#belongstomany), [`MorphToMany`](#morphtomany), or [`Tag`](#tag) — `BelongsTo` itself is single-cardinality. Since v1.38.0 a `multiple` key on its definition (`withMeta(['multiple' => true])`) changes nothing; before, it switched the input to a multi-select left over from the `multiple()` method removed in April 2026, which sent a list of ids that `fill()` stored as an empty foreign key.
 
 ```php
 // Inline create — show "+" button to create related record in a modal
@@ -2916,7 +2916,7 @@ with `searchOptionsUsing()` searches them, from the row (v1.38.0+): see
 
 **File:** `src/Fields/DeferredRelationSync.php`
 
-Static registry for deferred many-to-many relationship syncs. Used by `Tag` and similar fields where the pivot rows can only be written after the parent model has been saved (so the parent's primary key is available).
+Static registry for deferred many-to-many relationship syncs. Used by `Tag`, whose pivot rows can only be written after the parent model has been saved (so the parent's primary key is available). No other bundled field registers syncs here: `BelongsTo` has no multiple mode (use `BelongsToMany` or `Tag` for a N:N relation).
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
