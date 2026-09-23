@@ -203,9 +203,9 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* O bot\u00e3o Criar do header foi removido quando record === null
-           *  para evitar duplica\u00e7\u00e3o com o Criar prominente dentro do
-           *  empty-state card abaixo. */}
+          {/* No Create button in the header while record === null: the
+           *  empty-state card below carries the prominent one, and two
+           *  would duplicate it. */}
           {record !== null && showEdit && viaParams !== null && (
             <button
               type="button"
