@@ -394,9 +394,12 @@ class BelongsToMany extends Field
      */
     protected function extraAttributes(): array
     {
+        // A pivot field the user cannot see (`canSee()`) is left out, as the
+        // pivot endpoints never write it from the request nor send it back.
+        $request = $this->safeRequest() ?? Request::create('/');
         $pivotFields = [];
         foreach ($this->getPivotFields() as $field) {
-            if ($field instanceof Field) {
+            if ($field instanceof Field && $field->isAuthorizedToSee($request)) {
                 $pivotFields[] = $field->toArray();
             }
         }

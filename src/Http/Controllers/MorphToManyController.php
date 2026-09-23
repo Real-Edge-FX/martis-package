@@ -108,7 +108,7 @@ class MorphToManyController extends MartisController
                     foreach ($pivotColumns as $col) {
                         $pivotData[$col] = $model->pivot->{$col} ?? null;
                     }
-                    $row['_pivot'] = $this->presentPivotValues($field->getPivotFields(), $pivotData);
+                    $row['_pivot'] = $this->presentPivotValues($request, $field->getPivotFields(), $pivotData);
                 }
 
                 return $row;
@@ -432,8 +432,8 @@ class MorphToManyController extends MartisController
             return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
-        // Readonly and immutable pivot fields keep their stored value, and so
-        // do the row fields of a pivot Repeater that a row cannot write.
+        // Readonly, hidden and immutable pivot fields keep their stored value,
+        // and so do the row fields of a pivot Repeater a row cannot write.
         $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation, relatedId: $relatedModel->getKey());
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
@@ -457,7 +457,7 @@ class MorphToManyController extends MartisController
         }
 
         return JsonResponse::make(
-            ['id' => $relatedId, 'pivot' => $this->presentPivotValues($pivotFields, $pivotData)],
+            ['id' => $relatedId, 'pivot' => $this->presentPivotValues($request, $pivotFields, $pivotData)],
             meta: ['message' => 'Pivot updated successfully.'],
         )->toResponse();
     }

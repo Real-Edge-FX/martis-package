@@ -413,9 +413,14 @@ class MorphToMany extends Field
      */
     protected function extraAttributes(): array
     {
+        // A pivot field the user cannot see (`canSee()`) is left out, as the
+        // pivot endpoints never write it from the request nor send it back.
+        $request = $this->safeRequest() ?? Request::create('/');
         $pivotFields = [];
         foreach ($this->getPivotFields() as $pf) {
-            $pivotFields[] = $pf->toArray();
+            if ($pf->isAuthorizedToSee($request)) {
+                $pivotFields[] = $pf->toArray();
+            }
         }
 
         $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());

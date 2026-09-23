@@ -278,7 +278,9 @@ Each pivot value is written through the pivot field's own `fill()`, run on a piv
 On top of `fill()`, the pivot endpoints apply the write rules of the resource endpoints:
 
 - an `immutable()` pivot field is written on attach and skipped on the pivot update;
-- a `readonly()` pivot field never takes its value from the request: the attach stores its `default()` when it has one, and the pivot update leaves the column alone.
+- a `readonly()` pivot field never takes its value from the request: the attach stores its `default()` when it has one, and the pivot update leaves the column alone;
+- a pivot field the user cannot see (`canSee()`) is written like a readonly one and is not validated, and it is left out of the relationship's schema (so the attach and edit forms do not render it) and of the pivot values sent back: each attached record's `_pivot` and the pivot update's response (v1.38.0+);
+- a pivot `Repeater` writes its rows as on a record: a row keeps the stored value of a row field it cannot write and a new row takes the field's `default()`, and its rows are sent back as the Repeater reads them, without the row fields the user cannot see (v1.38.0+, see [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields)).
 
 The forms match: the attach form keeps an immutable pivot field editable, and the form that edits a pivot row renders it read-only, like a readonly one.
 
@@ -291,9 +293,9 @@ The attach stores the `default()` of every pivot field it does not take from the
 ])
 ```
 
-A value the request sends for a skipped field still runs the field's rules. A pivot update with nothing left to write (an empty body, or only readonly and immutable values) answers 200 and leaves the row as it was. See [Fields → Immutable fields](fields.md#immutable-fields).
+A value the request sends for a readonly or immutable field still runs the field's rules (a field the user cannot see is not validated). A pivot update with nothing left to write (an empty body, or only readonly and immutable values) answers 200 and leaves the row as it was. See [Fields → Immutable fields](fields.md#immutable-fields).
 
-Up to v1.37.3 the attach and the pivot update wrote every pivot value the request sent, readonly and immutable fields included, and a pivot update with nothing to write answered 500 (an `UPDATE` with an empty `SET`) unless the relation declared `withTimestamps()` or `using()`. The values were copied from the request as they came, so a pivot `fillUsing()` never ran, a computed pivot field was written to a column that does not exist and a `MultiSelect` sent its array to the column (both a 500).
+Before v1.38.0 `canSee()` on a pivot field was ignored: the field was serialised, listed in `_pivot`, validated and written like any other. Up to v1.37.3 the attach and the pivot update wrote every pivot value the request sent, readonly and immutable fields included, and a pivot update with nothing to write answered 500 (an `UPDATE` with an empty `SET`) unless the relation declared `withTimestamps()` or `using()`. The values were copied from the request as they came, so a pivot `fillUsing()` never ran, a computed pivot field was written to a column that does not exist and a `MultiSelect` sent its array to the column (both a 500).
 
 #### Relation pickers among the pivot fields
 
@@ -698,6 +700,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Field rules run as on the resource endpoint (rule objects, `ValidationRule`s, closures, `creationRules()` / `updateRules()`) | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
 | `immutable()` fields written on create, skipped on update, as on the resource endpoint | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
 | `readonly()` pivot fields never written from the request (the attach stores their `default()`) | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| `canSee()` pivot fields left out of the schema, `_pivot` and the validation, never written from the request | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot values written through each field's `fill()` (`fillUsing()`, computed, structured fields, custom pivot casts) | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
@@ -710,7 +713,7 @@ Pivot fields declared via `->fields(fn () => [Number::make('weight'), ...])` rou
 
 | Surface | Body shape | Notes |
 |---|---|---|
-| Index response | `data[*]._pivot` | Pivot keys are merged into `_pivot` on each related row. Underscore prefix is intentional — keeps them visually distinct from real columns. |
+| Index response | `data[*]._pivot` | Pivot keys are merged into `_pivot` on each related row. Underscore prefix is intentional: it keeps them visually distinct from real columns. A pivot field the user cannot see is left out, and a pivot `Repeater`'s rows are read like a record's (v1.38.0+). |
 | Attach | flat keys at top level: `{ related_id: X, weight: 12 }` | Pivot fields read directly from request input via `extractPivotData()`. |
 | Update pivot (`PUT .../{relatedId}/pivot`) | flat keys at top level: `{ weight: 99 }` | Same shape as attach — no nested `pivot` key. |
 

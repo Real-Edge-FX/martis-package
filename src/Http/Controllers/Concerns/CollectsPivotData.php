@@ -28,15 +28,20 @@ use Martis\Http\Resources\JsonErrorResponse;
  * - a `readonly()` pivot field never takes its value from the request: the
  *   attach stores its `default()` when it has one, as it does for any pivot
  *   field the request omits, and the pivot update leaves the column alone;
+ * - a pivot field the user cannot see (`canSee()`) is written the same way
+ *   as a readonly one, is not validated, and `presentPivotValues()` leaves it
+ *   out of the pivot values sent back, as the resource endpoints leave out a
+ *   field of the record the user cannot see;
  * - an `immutable()` pivot field is written on attach and skipped on the
  *   pivot update, as the resource's own update and the inline relationship
  *   updates skip an immutable field.
  *
- * Every pivot field is still validated through `BuildsFieldRules`, so a
- * value the request sends for a skipped field runs its rules, like an
- * immutable field on the resource endpoint. The rules come from the same
- * `buildWriteValidation()` the record endpoints use, so a pivot `Repeater`
- * validates the fields inside its rows and a field's custom messages apply.
+ * Every other pivot field is validated through `BuildsFieldRules`, so a
+ * value the request sends for a readonly or immutable field runs its rules,
+ * like an immutable field on the resource endpoint. The rules come from the
+ * same `buildWriteValidation()` the record endpoints use, so a pivot
+ * `Repeater` validates the fields inside its rows and a field's custom
+ * messages apply.
  *
  * A pivot `Repeater` writes its rows as on a record: a row keeps the stored
  * value of a field it cannot write (readonly, computed, hidden from the user,
@@ -71,7 +76,8 @@ trait CollectsPivotData
         }
         $preset = $pivot->getAttributes();
 
-        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, [], $pivot);
+        $visible = array_values(array_filter($fields, static fn (Field $field): bool => $field->isAuthorizedToSee($request)));
+        $validation = $this->buildWriteValidation($visible, $request->all(), $isUpdate, [], $pivot);
 
         if ($validation['rules'] !== []) {
             $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
@@ -85,16 +91,19 @@ trait CollectsPivotData
 
         foreach ($fields as $field) {
             $attribute = $field->attribute();
+            // Neither a readonly field nor one the user cannot see takes its
+            // value from the request.
+            $writable = ! $field->isReadonly() && in_array($field, $visible, true);
 
             if ($isUpdate) {
-                if (! $field->isReadonly() && ! $field->isImmutable() && $request->has($attribute)) {
+                if ($writable && ! $field->isImmutable() && $request->has($attribute)) {
                     $field->fill($pivot, $request->input($attribute));
                 }
 
                 continue;
             }
 
-            if (! $field->isReadonly() && $request->has($attribute)) {
+            if ($writable && $request->has($attribute)) {
                 $field->fill($pivot, $request->input($attribute));
 
                 continue;
@@ -102,8 +111,9 @@ trait CollectsPivotData
 
             $default = $field->getDefaultValue();
             if ($default !== null) {
-                // A readonly field takes nothing from the request, but its
-                // default goes through its own fill like any other value.
+                // A readonly or hidden field takes nothing from the request,
+                // but its default goes through its own fill like any other
+                // value.
                 (clone $field)->readonly(false)->fill($pivot, $default);
             }
         }
@@ -140,18 +150,25 @@ trait CollectsPivotData
     }
 
     /**
-     * Pivot values as they are sent back: the rows of each pivot Repeater
-     * among `$pivotFields` as its read gives them (without the fields the
-     * user cannot see), the other values as they are.
+     * Pivot values as they are sent back: without the value of a pivot field
+     * the user cannot see, and with the rows of each pivot Repeater as its
+     * read gives them (without the row fields the user cannot see); the other
+     * values as they are.
      *
      * @param  list<mixed>  $pivotFields
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
-    protected function presentPivotValues(array $pivotFields, array $values): array
+    protected function presentPivotValues(Request $request, array $pivotFields, array $values): array
     {
         foreach ($pivotFields as $field) {
-            if ($field instanceof Repeater && array_key_exists($field->attribute(), $values)) {
+            if (! $field instanceof Field || ! array_key_exists($field->attribute(), $values)) {
+                continue;
+            }
+
+            if (! $field->isAuthorizedToSee($request)) {
+                unset($values[$field->attribute()]);
+            } elseif ($field instanceof Repeater) {
                 $values[$field->attribute()] = $field->resolveRows($values[$field->attribute()]);
             }
         }

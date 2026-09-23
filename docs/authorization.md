@@ -172,6 +172,11 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   its value from the request (a stored row keeps it, a new row stores the
   field's `default()`). See
   [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields).
+  On a pivot field of a `BelongsToMany` / `MorphToMany` too (v1.38.0+): it
+  is left out of the relationship's schema and of the pivot values sent
+  back, is not validated, and is never written from the request (the attach
+  stores its `default()`). See
+  [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
 - `Field::readonly(bool|Closure)`: renders the field without an editor, and
   the save never takes its value from the request, inside a `Repeater` row
   included (v1.38.0+).
