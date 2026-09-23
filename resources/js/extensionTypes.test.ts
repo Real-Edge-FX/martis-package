@@ -20,9 +20,12 @@ const stub = (file: string): string => stubs[`../../stubs/extensions/${file}`] ?
  *
  * 1. Each type entry in `resources/js/extension-types/` re-exports exactly
  *    the names its shim exports, as the objects the runtime serves.
- * 2. Each generated `<shim>-shim.d.mts.stub` declares exactly those names
- *    (plus the types the runtime module exports) and imports only what a
- *    consumer app installs.
+ * 2. Each generated `<shim>-shim.d.mts.stub` declares exactly those names,
+ *    plus the types of its module: the ones the runtime module exports, or
+ *    every type of the host's copy of a third-party library (its interfaces
+ *    and type aliases, so a consumer keeps the types its `paths` no longer
+ *    take from `node_modules`), and imports only what a consumer app
+ *    installs.
  * 3. The published tsconfig sends every specifier the Vite config sends to a
  *    shim to that shim's declarations (`react` and `react/jsx-runtime`
  *    excepted, typed by the consumer's `@types/react`), and nothing else.
@@ -101,6 +104,44 @@ function declarationExports(source: string): { values: string[]; types: string[]
     return { values: [...values].sort(), types: [...types].sort(), modules: [...modules].sort() }
 }
 
+/**
+ * The exports of each module that are types only (interfaces and type
+ * aliases), as the package's TypeScript resolves it: the host's copy of the
+ * library, which the declarations carry. A class or enum is a value too,
+ * which a shim exports by name or not at all.
+ */
+function libraryTypeExports(specifiers: string[]): Record<string, string[]> {
+    const file = `${ts.sys.getCurrentDirectory()}/resources/js/__library-type-exports__.ts`
+    const source = specifiers.map((specifier, index) => `import * as Module${index} from '${specifier}'`).join('\n')
+    const options: ts.CompilerOptions = { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.ReactJSX, strict: true, skipLibCheck: true, noEmit: true, types: [] }
+    const host = ts.createCompilerHost(options)
+    const program = ts.createProgram({
+        rootNames: [file],
+        options,
+        host: {
+            ...host,
+            fileExists: (name) => name === file || host.fileExists(name),
+            readFile: (name) => (name === file ? source : host.readFile(name)),
+            getSourceFile: (name, version) => (name === file ? ts.createSourceFile(name, source, version) : host.getSourceFile(name, version)),
+        },
+    })
+    const checker = program.getTypeChecker()
+    const imports = program.getSourceFile(file)?.statements.filter(ts.isImportDeclaration) ?? []
+
+    return Object.fromEntries(specifiers.map((specifier, index) => {
+        const module = checker.getSymbolAtLocation(imports[index].moduleSpecifier)
+        expect(module, `${specifier} does not resolve`).toBeDefined()
+        const names = checker.getExportsOfModule(module as ts.Symbol)
+            .map((symbol) => [symbol, (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol).flags] as const)
+            .filter(([, flags]) => (flags & ts.SymbolFlags.Type) !== 0 && (flags & ts.SymbolFlags.Value) === 0)
+            .map(([symbol]) => symbol)
+            .map((symbol) => symbol.name)
+            .filter((name) => name !== 'default')
+
+        return [specifier, names.sort()]
+    }))
+}
+
 describe('the extension shim declarations', () => {
     it('ship for exactly the shims that have a type entry', () => {
         const declared = Object.keys(stubs)
@@ -115,7 +156,9 @@ describe('the extension shim declarations', () => {
         const declaration = declarationExports(stub(`${shim}-shim.d.mts.stub`))
 
         expect(declaration.values).toEqual([...named.keys(), 'default'].sort())
-        expect(declaration.types).toEqual(shim === 'runtime' ? typeExports(runtimeSource) : [])
+        // The runtime's own types, or every type of the library.
+        const types = shim === 'runtime' ? typeExports(runtimeSource) : (libraryTypeExports([specifier])[specifier] ?? [])
+        expect(declaration.types).toEqual(types)
         // `martis:install` adds react, react-dom and @phosphor-icons/react to the
         // consumer; the runtime reaches the third-party types through the
         // sibling shims' declarations.

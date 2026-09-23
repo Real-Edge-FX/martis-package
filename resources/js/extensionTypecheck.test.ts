@@ -13,8 +13,9 @@ import runtimeEntrySource from '@/extension-types/runtime.ts?raw'
  *    `martis:card`, `martis:tool --with-component`), strict;
  * 2. the extension entry (`index.ts`) once it imports `@martis/runtime`, as
  *    the docs have it do, strict;
- * 3. every TypeScript docs block that imports `@martis/runtime` or uses
- *    `window.Martis`, as a snippet: what it leaves out (an undeclared
+ * 3. every TypeScript docs block that imports `@martis/runtime` or another
+ *    module the build sends to a declared shim, or uses `window.Martis`, as
+ *    a snippet: what it leaves out (an undeclared
  *    local, the reader's own module) is context, anything else (a runtime
  *    name used wrongly or not imported, a React hook not imported, a prop
  *    that does not exist) fails. A block headed
@@ -75,18 +76,22 @@ function asModule(block: string): string {
 /** The first line of a docs block that goes into the extension entry. */
 const ENTRY_BLOCK = /^\/\/ resources\/js\/martis-extensions\/index\.ts\b/
 
+/** An import of a third-party module the build sends to a shim with declarations. */
+const SHIMMED_IMPORT = /from ['"](?:react-dom|react-router-dom|react-i18next|@tanstack\/react-query)['"]/
+
 /**
  * Every TypeScript docs block (```ts, ```tsx or ```typescript) that imports
- * `@martis/runtime` or reaches the host through `window.Martis`, except the
- * ones documenting package code. A block headed with the entry's path is
- * the scaffold's `index.ts` with the block added.
+ * `@martis/runtime` or a shimmed third-party module, or reaches the host
+ * through `window.Martis`, except the ones documenting package code. A
+ * block headed with the entry's path is the scaffold's `index.ts` with the
+ * block added.
  */
 function docsBlocks(): Record<string, string> {
     const blocks: Record<string, string> = {}
     for (const [page, source] of Object.entries(docs)) {
         for (const match of source.matchAll(/```(?:tsx?|typescript)\n([\s\S]*?)```/g)) {
             const block = match[1]
-            if (!(block.includes('@martis/runtime') || /\bwindow\.Martis\b/.test(block)) || block.includes('Package-internal')) continue
+            if (!(block.includes('@martis/runtime') || SHIMMED_IMPORT.test(block) || /\bwindow\.Martis\b/.test(block)) || block.includes('Package-internal')) continue
             const name = `docs-examples/${page.replace(/\.md$/, '')}_${source.slice(0, match.index).split('\n').length}`
             if (ENTRY_BLOCK.test(block)) blocks[`${name}.index.ts`] = `${extensionStubs['index.ts.stub']}\n${block}`
             else blocks[`${name}.tsx`] = asModule(block)
@@ -183,6 +188,33 @@ const extensionSources = [`${EXT}/index.ts`, ...Object.keys(generatorOutputs())]
  * that carries the runtime's `createPortal` only, so tsc has to refuse the
  * rest of the module (`flushSync`) instead of reading `@types/react-dom`.
  */
+/**
+ * The types a consumer imports from the libraries the build shims: the
+ * tsconfig `paths` send those specifiers to the declarations, not to
+ * `node_modules`, so the declarations carry each library's types. A class
+ * or enum the shim does not export has no value in the build, and is
+ * reached through the default export, the host's module.
+ */
+const LIBRARY_TYPES_PROBE = `${EXT}/tools/LibraryTypesProbe.tsx`
+put(LIBRARY_TYPES_PROBE, [
+    "import type { Container } from 'react-dom'",
+    "import type ReactRouterDom from 'react-router-dom'",
+    "import type { LinkProps, NavigateFunction } from 'react-router-dom'",
+    "import type { UseTranslationResponse } from 'react-i18next'",
+    "import { useQuery, type QueryKey, type UseQueryResult } from '@tanstack/react-query'",
+    '// @ts-expect-error the shim does not export QueryCache, so the build has no value for it',
+    "import { QueryCache } from '@tanstack/react-query'",
+    '',
+    "export type LibraryTypes = [Container, LinkProps, NavigateFunction, ReactRouterDom.NavigationType, UseTranslationResponse<'translation', undefined>, QueryKey]",
+    '',
+    'export default function LibraryTypesProbe() {',
+    "  const query: UseQueryResult<string> = useQuery({ queryKey: ['probe'], queryFn: async () => 'ok' })",
+    '  void QueryCache',
+    '  return <span>{query.data}</span>',
+    '}',
+    '',
+].join('\n'))
+
 const REACT_DOM_PROBE = `${EXT}/tools/ReactDomProbe.tsx`
 put(REACT_DOM_PROBE, [
     "import ReactDOM, { createPortal } from 'react-dom'",
@@ -218,6 +250,10 @@ describe('a consumer extension type-checks against the published declarations', 
         expect(typecheck('tsconfig.extensions.json', [REACT_DOM_PROBE])).toEqual([])
     }, 120_000)
 
+    it('types each shimmed library\'s own types from the declarations, and no class the shim does not export, strict', () => {
+        expect(typecheck('tsconfig.extensions.json', [LIBRARY_TYPES_PROBE])).toEqual([])
+    }, 120_000)
+
     it('type-checks the extension entry once it imports @martis/runtime, strict', () => {
         // Its own program, with the entry as the only root, as in an app
         // whose index.ts registers through the runtime.
@@ -233,7 +269,7 @@ describe('a consumer extension type-checks against the published declarations', 
         expect(typecheck(`${EXT}/tsconfig.json`, extensionSources)).toEqual([])
     }, 120_000)
 
-    it('type-checks every docs example that imports @martis/runtime or uses window.Martis', () => {
+    it('type-checks every docs example that imports @martis/runtime or a shimmed module, or uses window.Martis', () => {
         const importable = importableNames()
         const errors = typecheck('tsconfig.docs.json', [`${EXT}/index.ts`, ...Object.keys(docsBlocks())]).filter((line) => {
             // Context a snippet leaves out: a local it does not declare, the reader's own module.

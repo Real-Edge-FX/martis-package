@@ -13,6 +13,7 @@ import type { FieldDefinition } from '@/types'
 
 const docs = import.meta.glob('../../docs/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 const shims = import.meta.glob('../../stubs/extensions/*-shim.mjs.stub', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+const declarations = import.meta.glob('../../stubs/extensions/*-shim.d.mts.stub', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 
 /**
  * The consumer vite's alias table, applied the way Vite's alias plugin
@@ -36,10 +37,25 @@ function resolveAlias(id: string): string {
  * path.join(shimsDir, 'runtime.mjs')`) from the `<name>-shim.mjs.stub`
  * next to it.
  */
+function shimFile(variable: string): string | undefined {
+    return viteExtensionsConfig.match(new RegExp(`const ${variable} = path\\.join\\(shimsDir, '([\\w-]+)\\.mjs'\\)`))?.[1]
+}
+
 function shimExports(variable: string): Set<string> {
-    const file = viteExtensionsConfig.match(new RegExp(`const ${variable} = path\\.join\\(shimsDir, '([\\w-]+)\\.mjs'\\)`))?.[1]
-    const source = shims[`../../stubs/extensions/${file}-shim.mjs.stub`] ?? ''
+    const source = shims[`../../stubs/extensions/${shimFile(variable)}-shim.mjs.stub`] ?? ''
     return new Set([...source.matchAll(/^export const (\w+) =/gm)].map(([, name]) => name))
+}
+
+/**
+ * The types the declarations published next to that shim export
+ * (`export type { ... }`), or `null` for a shim without declarations: the
+ * React shims, which the consumer's `@types/react` types.
+ */
+function shimTypes(variable: string): Set<string> | null {
+    const source = declarations[`../../stubs/extensions/${shimFile(variable)}-shim.d.mts.stub`]
+    if (source === undefined) return null
+
+    return new Set([...source.matchAll(/^export type \{([^}]*)\}/gm)].flatMap(([, names]) => names.split(',').map((name) => name.trim().split(/\s+as\s+/).pop() ?? '')).filter((name) => name !== ''))
 }
 
 /**
@@ -180,8 +196,10 @@ describe('martisRuntime', () => {
         // aliased specifier (`@martis/runtime`, the legacy `@/lib/*` style
         // paths, `react-dom`, ...) reaches a shim, and a value name that shim
         // does not export fails the build with "is not exported"; a type
-        // from `@martis/runtime` must be one `lib/martisRuntime.ts`
-        // re-exports. An `@/...` or `@martis/...` path no alias matches does
+        // must be one the shim's declarations export (from `@martis/runtime`,
+        // one `lib/martisRuntime.ts` re-exports), since the consumer's
+        // tsconfig sends the specifier to them, React's own shims excepted
+        // (typed by @types/react). An `@/...` or `@martis/...` path no alias matches does
         // not resolve at all, and one the legacy aliases send to the runtime
         // shim builds but teaches a package path, so the docs name
         // `@martis/runtime`. A code block that documents the package's own
@@ -212,14 +230,13 @@ describe('martisRuntime', () => {
                 }
 
                 const exported = shimExports(target)
+                const types = target === 'runtimeShim' ? runtimeTypes : shimTypes(target)
                 const names = (clause.match(/\{([^}]*)\}/)?.[1] ?? '').split(',').map((s) => s.trim()).filter((s) => s !== '')
                 for (const entry of names) {
                     const isType = typeOnly !== undefined || entry.startsWith('type ')
                     const name = entry.replace(/^type\s+/, '').split(/\s+as\s+/)[0]
-                    // Types from React and the other third-party shims come
-                    // from the `@types` packages the consumer installs.
-                    if (isType && target !== 'runtimeShim') continue
-                    if (exported.has(name) || (isType && runtimeTypes.has(name))) continue
+                    if (isType && types === null) continue
+                    if (exported.has(name) || (isType && types?.has(name))) continue
                     problems.push(`${page}: ${isType ? 'type ' : ''}${name} from '${specifier}'`)
                 }
             }

@@ -2662,7 +2662,9 @@ declare namespace ReactI18next {
  * Type entry for the `react-i18next` shim
  * (`stubs/extensions/react-i18next-shim.mjs.stub`). `npm run build:types`
  * bundles it into `react-i18next-shim.d.mts.stub`: the names the shim
- * exports, and the host's module namespace as the default export.
+ * exports, the types of the library, and the host's module namespace as the
+ * default export.
  */
 
 export { I18nextProvider, Trans, ReactI18next as default, initReactI18next, useTranslation, withTranslation };
+export type { ErrorArgs, ErrorCode, FallbackNs, I18nextProviderProps, IcuTransComponent, IcuTransContentDeclaration, IcuTransProps, IcuTransWithoutContextComponent, IcuTransWithoutContextProps, ReportNamespaces, TransProps, TransSelectorProps, TranslationProps, UseTranslationOptions, UseTranslationResponse, WithTranslation, WithTranslationProps };

@@ -2075,8 +2075,10 @@ declare namespace ReactRouterDom {
  * Type entry for the `react-router-dom` shim
  * (`stubs/extensions/react-router-dom-shim.mjs.stub`). `npm run build:types`
  * bundles it into `react-router-dom-shim.d.mts.stub`: the names the shim
- * exports, and the whole module as its default export (the shim's default
- * is `window.Martis.runtime.reactRouterDom`, the host's module namespace).
+ * exports, the types of the library, and the whole module as its default
+ * export (the shim's default is `window.Martis.runtime.reactRouterDom`, the
+ * host's module namespace).
  */
 
 export { BrowserRouter, HashRouter, Link, NavLink, Navigate, Outlet, Route, RouterProvider, Routes, createBrowserRouter, createHashRouter, createMemoryRouter, ReactRouterDom as default, generatePath, matchPath, matchRoutes, useLocation, useMatch, useNavigate, useNavigationType, useParams, useResolvedPath, useSearchParams };
+export type { ActionFunction, ActionFunctionArgs, AwaitProps, Blocker, BlockerFunction, BrowserRouterProps, DataRouteMatch, DataRouteObject, DataStrategyFunction, DataStrategyFunctionArgs, DataStrategyMatch, DataStrategyResult, ErrorResponse, Fetcher, FetcherFormProps, FetcherSubmitFunction, FetcherWithComponents, FormEncType, FormMethod, FormProps, FutureConfig, GetScrollRestorationKeyFunction, Hash, HashRouterProps, HistoryRouterProps, IndexRouteObject, IndexRouteProps, JsonFunction, LayoutRouteProps, LazyRouteFunction, LinkProps, LoaderFunction, LoaderFunctionArgs, Location, MemoryRouterProps, NavLinkProps, NavLinkRenderProps, NavigateFunction, NavigateOptions, NavigateProps, Navigation, Navigator, NonIndexRouteObject, OutletProps, ParamKeyValuePair, ParamParseKey, Params, PatchRoutesOnNavigationFunction, PatchRoutesOnNavigationFunctionArgs, Path, PathMatch, PathParam, PathPattern, PathRouteProps, Pathname, RedirectFunction, RelativeRoutingType, RouteMatch, RouteObject, RouteProps, RouterProps, RouterProviderProps, RoutesProps, ScrollRestorationProps, Search, SetURLSearchParams, ShouldRevalidateFunction, ShouldRevalidateFunctionArgs, SubmitFunction, SubmitOptions, To, UIMatch, URLSearchParamsInit, V7_FormMethod };
