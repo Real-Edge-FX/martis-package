@@ -278,10 +278,15 @@ export function AudioFieldInput({ field, value, onChange, error }: FieldInputPro
   const resolved = resolveUrl(value as StoredValue)
 
   const handleFile = useCallback((file: File | null | undefined) => {
+    // `fill()` skips a readonly field (an `immutable()` one on update arrives
+    // as readonly too): a dropped file is ignored.
+    if (field.readonly) return
     if (file) onChange(file)
-  }, [onChange])
+  }, [field.readonly, onChange])
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // Cancelled on a readonly field too: `onDragOver` accepts every drag, so
+    // an uncancelled drop makes the browser open the file and leave the form.
     e.preventDefault()
     setDragOver(false)
     handleFile(e.dataTransfer.files?.[0])
@@ -302,10 +307,7 @@ export function AudioFieldInput({ field, value, onChange, error }: FieldInputPro
         if (!field.readonly) setDragOver(true)
       }}
       onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        if (field.readonly) return
-        handleDrop(e)
-      }}
+      onDrop={handleDrop}
     >
       {resolved ? (
         <>
