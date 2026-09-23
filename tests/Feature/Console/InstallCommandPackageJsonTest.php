@@ -49,14 +49,12 @@ function runUpdatePackageJsonDeps(): InstallCommand
     // calling a protected helper in isolation, so bootstrap it the
     // same way the framework does.
     $componentsRef = new ReflectionProperty(Command::class, 'components');
-    $componentsRef->setAccessible(true);
     $componentsRef->setValue($command, app()->make(
         Factory::class,
         ['output' => $output],
     ));
 
     $ref = new ReflectionMethod(InstallCommand::class, 'updatePackageJsonDeps');
-    $ref->setAccessible(true);
     $ref->invoke($command, new Filesystem);
 
     return $command;

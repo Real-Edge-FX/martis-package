@@ -595,7 +595,6 @@ class MartisServiceProvider extends ServiceProvider
             $ref = new \ReflectionClass(ResetPassword::class);
             if ($ref->hasProperty('createUrlCallback')) {
                 $prop = $ref->getProperty('createUrlCallback');
-                $prop->setAccessible(true);
                 if ($prop->getValue() !== null) {
                     return; // Already customised — respect it.
                 }
@@ -642,7 +641,6 @@ class MartisServiceProvider extends ServiceProvider
             $ref = new \ReflectionClass(VerifyEmail::class);
             if ($ref->hasProperty('createUrlCallback')) {
                 $prop = $ref->getProperty('createUrlCallback');
-                $prop->setAccessible(true);
                 if ($prop->getValue() !== null) {
                     return; // Consumer already customised — respect it.
                 }

@@ -70,7 +70,6 @@ final class AuthenticatedStreamableHttpTransport extends StreamableHttpServerTra
         // Retrieve the private $socket from the parent class via reflection.
         $rc = new \ReflectionClass(StreamableHttpServerTransport::class);
         $propSocket = $rc->getProperty('socket');
-        $propSocket->setAccessible(true);
         /** @var SocketServer $socket */
         $socket = $propSocket->getValue($this);
 
@@ -79,7 +78,6 @@ final class AuthenticatedStreamableHttpTransport extends StreamableHttpServerTra
 
         // Retrieve the vendor's handler to delegate to after auth passes.
         $rm = new \ReflectionMethod(StreamableHttpServerTransport::class, 'createRequestHandler');
-        $rm->setAccessible(true);
         /** @var callable $vendorHandler */
         $vendorHandler = $rm->invoke($this);
 
@@ -102,7 +100,6 @@ final class AuthenticatedStreamableHttpTransport extends StreamableHttpServerTra
 
         // Update the private $http property so close() can reach the new server.
         $propHttp = $rc->getProperty('http');
-        $propHttp->setAccessible(true);
         $propHttp->setValue($this, $newHttp);
     }
 
@@ -120,7 +117,6 @@ final class AuthenticatedStreamableHttpTransport extends StreamableHttpServerTra
     protected function createRequestHandler(): callable
     {
         $rm = new \ReflectionMethod(StreamableHttpServerTransport::class, 'createRequestHandler');
-        $rm->setAccessible(true);
         /** @var callable $next */
         $next = $rm->invoke($this);
         $token = $this->token;

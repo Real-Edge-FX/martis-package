@@ -57,7 +57,6 @@ function listOverridesFrontendKeys(string $extensionsDir): array
 {
     $command = new ListOverridesCommand;
     $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
-    $reflection->setAccessible(true);
 
     /** @var list<string> */
     return $reflection->invoke($command, $extensionsDir);
@@ -131,7 +130,6 @@ it('--frontend discovers tool/field/card filenames in their respective buckets',
     // pollute the rows table.
     $command = new ListOverridesCommand;
     $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
-    $reflection->setAccessible(true);
     /** @var list<string> $keys */
     $keys = $reflection->invoke($command, base_path('resources/js/martis-extensions'));
 
@@ -153,7 +151,6 @@ it('--frontend derives keys for arbitrary override filenames (v1.10.1+)', functi
 
     $command = new ListOverridesCommand;
     $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
-    $reflection->setAccessible(true);
     /** @var list<string> $keys */
     $keys = $reflection->invoke($command, base_path('resources/js/martis-extensions'));
 
@@ -180,7 +177,6 @@ it('--frontend supports a custom --extensions-dir path', function () {
 
         $command = new ListOverridesCommand;
         $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
-        $reflection->setAccessible(true);
         /** @var list<string> $keys */
         $keys = $reflection->invoke($command, $alt);
 
