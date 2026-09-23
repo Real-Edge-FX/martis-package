@@ -239,6 +239,10 @@ class BelongsToManyController extends MartisController
                 'prev' => $paginator->previousPageUrl(),
                 'next' => $paginator->nextPageUrl(),
             ],
+            // The pivot fields a new row hides (`canSeeForModel()` asked on
+            // the row the attach would write), so the attach modal leaves
+            // them out; the attach stores their `default()` anyway.
+            extraMeta: ['hiddenPivotFields' => $this->pivotFieldsHiddenOnAttach($request, $field->getPivotFields(), $relation)],
         )->toResponse();
     }
 

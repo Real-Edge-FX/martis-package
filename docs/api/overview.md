@@ -222,7 +222,7 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `PUT` | `/{r}/{id}/has-one/{rel}` | Update. |
 | `DELETE` | `/{r}/{id}/has-one/{rel}` | Delete. |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}` | List with pivot data. |
-| `GET` | `/{r}/{id}/belongs-to-many/{rel}/attachable` | Options available to attach. |
+| `GET` | `/{r}/{id}/belongs-to-many/{rel}/attachable` | Options available to attach. `meta.hiddenPivotFields` lists the attributes of the pivot fields a new row hides (`canSeeForModel()` on the row the attach writes), which the attach modal leaves out (v1.38.0). |
 | `POST` | `/{r}/{id}/belongs-to-many/{rel}/attach` | Attach with optional pivot fields. |
 | `DELETE` | `/{r}/{id}/belongs-to-many/{rel}/{relatedId}/detach` | Detach. |
 | `PUT` | `/{r}/{id}/belongs-to-many/{rel}/{relatedId}/pivot` | Update pivot row. |

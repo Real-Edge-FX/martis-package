@@ -208,6 +208,12 @@ it('decides an attach on the new pivot row: a pivot field hidden for it is not v
     expect(pmvStoredRow($table))->toBe(['role' => 'Lead', 'rate' => 'std', 'shared' => true]);
 })->with($endpoints);
 
+it('names the pivot fields a new row hides in the attachable list, for the attach modal to leave out', function (string $endpoint, string $relation) {
+    $this->getJson("/martis/api/resources/pmv-projects/{$this->project->id}/{$endpoint}/{$relation}/attachable")
+        ->assertOk()
+        ->assertJsonPath('meta.hiddenPivotFields', ['rate', 'approver_id']);
+})->with(array_map(fn (array $e): array => [$e[0], $e[1]], $endpoints));
+
 it('leaves a pivot field hidden for the stored pivot row alone on pivot update', function (string $endpoint, string $relation, string $table) {
     $this->project->{$relation}()->attach($this->person->id, ['role' => 'Dev', 'rate' => '10', 'shared' => false]);
 

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
@@ -149,6 +150,26 @@ trait CollectsPivotData
         if ($values !== []) {
             $pivot->setRawAttributes(array_merge($pivot->getAttributes(), $values), true);
         }
+    }
+
+    /**
+     * The attributes of the pivot fields a new row hides: those the user can
+     * see (`canSee()`) but whose `canSeeForModel()` denies the row the attach
+     * would write. The attachable list sends them, so the attach modal leaves
+     * those fields out instead of offering an input the attach ignores.
+     *
+     * @param  list<FieldContract>  $pivotFields
+     * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
+     * @return list<string>
+     */
+    protected function pivotFieldsHiddenOnAttach(Request $request, array $pivotFields, EloquentBelongsToMany $relation): array
+    {
+        $seen = array_values(array_filter(
+            $pivotFields,
+            static fn ($field): bool => $field instanceof Field && $field->isAuthorizedToSee($request),
+        ));
+
+        return Field::hiddenAttributes($seen, Field::filterForModel($seen, $request, $relation->newPivot()));
     }
 
     /**

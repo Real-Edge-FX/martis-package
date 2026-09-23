@@ -640,6 +640,13 @@ function AttachModal({
 
   const records = attachableQuery.data?.data ?? []
   const pagination = attachableQuery.data?.meta
+  // The pivot fields a new row hides (`canSeeForModel()` on the row the
+  // attach writes): the attachable list names them, and the modal leaves them
+  // out; the attach stores their `default()` whatever the form sends.
+  const attachHidden = useHiddenAttributes({
+    _hidden: (attachableQuery.data?.meta as { hiddenPivotFields?: unknown } | undefined)?.hiddenPivotFields,
+  })
+  const shownPivotFields = useMemo(() => withoutHiddenFields(pivotFields, attachHidden), [pivotFields, attachHidden])
   const schema = schemaQuery.data?.data
   const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
 
@@ -800,7 +807,7 @@ function AttachModal({
         )}
 
         {/* Pivot fields (if any) */}
-        {pivotFields.length > 0 && selected.length > 0 && (
+        {shownPivotFields.length > 0 && selected.length > 0 && (
           <div
             className="shrink-0 space-y-4 border-t px-6 py-4"
             style={{ borderColor: 'var(--martis-border)' }}
@@ -808,7 +815,7 @@ function AttachModal({
             <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--martis-text-muted)' }}>
               {tAct('pivot_fields', 'Pivot Fields')}
             </p>
-            {pivotFields.map((pf) => {
+            {shownPivotFields.map((pf) => {
               const isRequired = !!(pf as unknown as { required?: boolean }).required
               const fieldError = fieldErrors[pf.attribute]
               return (
