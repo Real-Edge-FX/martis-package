@@ -32,9 +32,10 @@
  * | `@tanstack/react-query`     | `.shims/tanstack-react-query.mjs`      |
  * | `@martis/runtime`           | `.shims/runtime.mjs`                   |
  *
- * Plus four legacy-path aliases (also pointing at the runtime shim)
+ * Plus five legacy-path aliases (also pointing at the runtime shim)
  * so override stubs published by older Martis versions keep building:
- * `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`.
+ * `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`
+ * and `@/components/fields/types`.
  * They resolve only the names the runtime shim exports.
  * `tsconfig.extensions.json` maps the same specifiers (the React ones
  * excepted, typed by `@types/react`) to the declarations published next to
@@ -95,6 +96,9 @@ export default defineConfig({
       {find: /^@\/lib\/.*$/, replacement: runtimeShim},
       {find: /^@\/components\/auth\/.*$/, replacement: runtimeShim},
       {find: /^@martis\/martis\/.*$/, replacement: runtimeShim},
+      // The type module the v1.9.3 field override imports its props from
+      // (type-only; exact, so the app's own `@/components/fields/*` stay its own).
+      {find: /^@\/components\/fields\/types$/, replacement: runtimeShim},
     ],
   },
   build: {

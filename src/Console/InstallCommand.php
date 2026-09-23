@@ -812,6 +812,9 @@ class InstallCommand extends Command
             'vite.extensions.config.ts.stub' => 'vite.extensions.config.ts',
             'tsconfig.extensions.json.stub' => 'tsconfig.extensions.json',
             'index.ts.stub' => 'resources/js/martis-extensions/index.ts',
+            // v1.38.0+: editors type a file with the nearest tsconfig.json,
+            // so this one points them at tsconfig.extensions.json.
+            'martis-extensions-tsconfig.json.stub' => 'resources/js/martis-extensions/tsconfig.json',
             ...self::EXTENSION_SHIMS,
         ];
 

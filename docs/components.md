@@ -230,8 +230,17 @@ Every dialog in Martis renders through the same CSS shell so consumer-built over
 Consumer recipe for a custom confirmation dialog:
 
 ```tsx
+import type { ReactNode } from 'react'
 import { XIcon, WarningIcon } from '@phosphor-icons/react'
 import { createPortal, useModalHistoryLock } from '@martis/runtime'
+
+interface Props {
+  open: boolean
+  onCancel: () => void
+  onConfirm: () => void
+  title: ReactNode
+  body: ReactNode
+}
 
 export function DangerConfirm({ open, onCancel, onConfirm, title, body }: Props) {
   useModalHistoryLock(open)
@@ -533,6 +542,7 @@ The package's own modules also import two constants from `@/lib/config`, which a
 Reactive React hook that returns `true` when motion should be paused. Combines the OS-level signal (`@media (prefers-reduced-motion: reduce)`) with the per-user Martis preference (`html[data-reduced-motion="true"]` written by `PreferencesContext`).
 
 ```tsx
+import { useEffect } from 'react'
 import { usePrefersReducedMotion } from '@martis/runtime' // v1.38.0+
 
 const reducedMotion = usePrefersReducedMotion()
@@ -644,6 +654,7 @@ martisEventBus.emit('martis:notification-received', { id: 42, title: 'New order'
 Resources and Tools built on `useQuery` already get `refetchOnWindowFocus` from the react-query default: the data revalidates automatically when the operator returns to a backgrounded Martis tab. Custom Tools that fetch data manually (no react-query) don't get this for free — `useRevalidateOnFocus` closes that gap.
 
 ```tsx
+import { useCallback, useEffect, useState } from 'react'
 import { useRevalidateOnFocus } from '@martis/runtime'
 
 function MyManualFetchTool() {
@@ -679,6 +690,7 @@ Reason about staleness explicitly rather than discovering it via a duplicate act
 Wraps a form with the package-wide unsaved-changes guard. Reads the resource's `confirmUnsavedChanges` flag from the schema, snapshots initial values, and intercepts navigation when the form is dirty. The full-page create and update forms use it; a custom create or update override takes it from `@martis/runtime` (v1.38.0+).
 
 ```tsx
+import { useMemo, useState } from 'react'
 import { useUnsavedChangesGuard } from '@martis/runtime'
 
 function MyForm({ schema, initialValues }) {

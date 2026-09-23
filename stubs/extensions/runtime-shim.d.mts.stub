@@ -27,6 +27,72 @@ interface User {
     avatar_url?: string | null;
     [key: string]: unknown;
 }
+interface ResourceMeta {
+    uriKey: string;
+    label: string;
+    singularLabel: string;
+    icon: string | null;
+    group: string | null;
+    titleAttribute?: string;
+    subtitle?: string | null;
+    /**
+     * Optional per-resource accent override. Either a built-in accent
+     * name (`martis | blue | teal | violet | amber`) or a hex string.
+     * The Layout component writes this as `data-accent` (or, for hex
+     * values, an inline `--martis-accent` property) on `<html>` while
+     * the resource is active and restores the user's global preference
+     * on unmount.
+     */
+    accentColor?: string | null;
+}
+type NavigationBadgeTone = "neutral" | "info" | "success" | "warning" | "danger" | "accent";
+interface NavigationBadge {
+    text: string;
+    tone: NavigationBadgeTone;
+}
+interface NavigationGroup {
+    label: string | null;
+    icon?: string | null;
+    collapsable?: boolean;
+    /** Optional top-level section this group belongs to (e.g. "Resources"). */
+    section?: string | null;
+    /** When set, the group label becomes a link to this URL. */
+    path?: string | null;
+    /** Heterogeneous list: leaf items OR nested MenuGroup entries. */
+    items: NavigationGroupChild[];
+}
+interface NavigationItemBase {
+    type: "resource" | "link" | "tool" | "dashboard" | "lens" | "filter";
+    label: string;
+    url: string;
+    icon: string | null;
+    external?: boolean;
+    /** Optional decorative badge ("New", "Beta", "Pro" — distinct from count). */
+    badge?: NavigationBadge | null;
+}
+interface NavigationResourceItem extends NavigationItemBase, ResourceMeta {
+    type: "resource";
+    /** Optional count badge surfaced by the backend. null = hidden. */
+    count?: number | null;
+}
+interface NavigationLinkItem extends NavigationItemBase {
+    type: "link" | "tool" | "dashboard" | "lens" | "filter";
+    /** uriKey for tool/dashboard/lens entries (used to key the badges poll). */
+    uriKey?: string;
+    /** Optional count badge surfaced by the backend (tools, v1.29.0). null = hidden. */
+    count?: number | null;
+}
+type NavigationItem = NavigationResourceItem | NavigationLinkItem;
+interface NavigationNestedGroup {
+    type: "group";
+    label: string;
+    icon?: string | null;
+    collapsable?: boolean;
+    /** When set, the group label becomes a link to this URL. */
+    path?: string | null;
+    items: NavigationItem[];
+}
+type NavigationGroupChild = NavigationItem | NavigationNestedGroup;
 type FilterType = 'select' | 'multi-select' | 'boolean' | 'date' | 'date-range';
 interface FilterOption {
     label: string;
@@ -5450,4 +5516,4 @@ declare const martisRuntime: {
 type MartisRuntime = typeof martisRuntime;
 
 export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, iconRegistry, layoutRegistry, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
-export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NestedParent, OverrideProps, TooltipProps, UseToolFieldsResult };
+export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, TooltipProps, UseToolFieldsResult };

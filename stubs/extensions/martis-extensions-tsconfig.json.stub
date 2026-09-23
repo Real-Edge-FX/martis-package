@@ -1,0 +1,5 @@
+{
+  "//": "Editors (VS Code and every tsserver client) type a file with the nearest tsconfig.json. This one gives the extension sources the settings of ../../../tsconfig.extensions.json, which `npx tsc -p tsconfig.extensions.json` uses, so `@martis/runtime` and the other shimmed modules resolve in the editor too.",
+  "extends": "../../../tsconfig.extensions.json",
+  "include": ["./**/*"]
+}

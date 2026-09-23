@@ -92,6 +92,10 @@ export type {
   OverrideProps,
   MartisLoaderProps,
   MartisLoaderConfig,
+  NavigationGroup,
+  NavigationGroupChild,
+  NavigationItem,
+  NavigationNestedGroup,
 } from '@/lib/martisRuntime'
 
 export { martisRuntime as default } from '@/lib/martisRuntime'

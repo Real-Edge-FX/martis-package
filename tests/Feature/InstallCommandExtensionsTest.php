@@ -189,3 +189,15 @@ it('the martis-extension-shims tag rewrites an existing shim only with --force',
     expect((string) $this->fs->get($runtime))
         ->toBe((string) $this->fs->get(StubResolver::packagePath('extensions/runtime-shim.mjs.stub')));
 });
+
+it('martis:install publishes a tsconfig.json next to the extension sources for editors', function () {
+    $this->artisan('martis:install', ['--force' => true])->assertSuccessful();
+
+    $published = base_path('resources/js/martis-extensions/tsconfig.json');
+    expect($this->fs->exists($published))->toBeTrue();
+
+    /** @var array{extends: string, include: list<string>} $config */
+    $config = json_decode((string) $this->fs->get($published), true);
+    expect($config['extends'])->toBe('../../../tsconfig.extensions.json')
+        ->and($config['include'])->toBe(['./**/*']);
+});

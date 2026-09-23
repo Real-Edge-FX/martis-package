@@ -829,7 +829,7 @@ The command:
 1. Creates the React component file at `resources/js/martis-extensions/overrides/{ClassName}.tsx`.
 2. For shell pieces and auth pages, the file is published with the canonical fixed filename (`Shell.tsx`, `Sidebar.tsx`, `LoginPage.tsx`, etc.) so the bundle's `OVERRIDE_KEYS` map registers it automatically. The user-supplied `name` argument is ignored for these fixed slots — they exist exactly once each.
 3. For `--type=generic` and `--type=field` the user-supplied name becomes the filename; the bundle's auto-discovery loop derives `{kebab(name)}` (and `{kebab(name)}-input` for the field-shape pair) and registers each half automatically. v1.10.1+.
-4. Shell stubs document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
+4. Shell stubs document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source. The sidebar stub types that payload with `NavigationGroup` / `NavigationItem` from `@martis/runtime` and lists the items of a nested menu group (`type: 'group'`) under its label (v1.38.0; the v1.9.3 stub drew such a group as a link).
 
 > **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead — that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis/fields/<name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
 

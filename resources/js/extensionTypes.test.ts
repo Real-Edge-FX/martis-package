@@ -167,7 +167,7 @@ describe('the published tsconfig.extensions.json', () => {
             expected[literal ?? tsPathPattern(source)] = [`./resources/js/martis-extensions/.shims/${shim}.d.mts`]
         }
 
-        expect(Object.keys(expected)).toHaveLength(8)
+        expect(Object.keys(expected)).toHaveLength(9)
         expect(tsconfig.compilerOptions.paths).toEqual(expected)
     })
 

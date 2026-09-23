@@ -34,9 +34,9 @@
  * needs its re-export in `resources/js/extension-types/runtime.ts`, the
  * entry `npm run build:types` turns into the declarations published next
  * to the shim (`extensionTypes.test.ts` fails without it). The
- * consumer's vite also sends the pre-v1.10 paths (`@/contexts/*`,
- * `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`) to that shim, so
- * they reach these names only, not package internals.
+ * consumer's vite also sends the legacy paths (`@/contexts/*`, `@/lib/*`,
+ * `@/components/auth/*`, `@martis/martis/*`, `@/components/fields/types`)
+ * to that shim, so they reach these names only, not package internals.
  *
  * @see docs/overrides.md (5.A) and docs/installation-guide.md
  *      ("Refreshing the extension scaffold after an upgrade")
@@ -296,3 +296,13 @@ export type { LayoutProps } from '@/lib/layoutRegistry'
 export type { OverrideProps } from '@/types'
 export type { MartisLoaderProps } from '@/components/Loader'
 export type { MartisLoaderConfig } from '@/lib/config'
+
+/**
+ * The `/api/navigation` payload a sidebar or topbar override renders: a
+ * group's `items` hold leaf items (`NavigationItem`) and nested groups
+ * (`NavigationNestedGroup`, `type: 'group'`). The sidebar override stub
+ * types its query with them, and the v1.9.3 stub imported
+ * `NavigationGroup` from `@martis/martis/types` (a legacy path the
+ * consumer resolves to this module).
+ */
+export type { NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup } from '@/types'

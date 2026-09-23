@@ -351,6 +351,7 @@ your-app/
 └── resources/js/martis-extensions/
     ├── index.ts                               # auto-discovery entry — picks up everything below
     ├── .shims/                                # the host modules the build imports (*.mjs) and their types (*.d.mts)
+    ├── tsconfig.json                          # points editors at tsconfig.extensions.json
     ├── tools/                                 # martis:tool --with-component drops files here
     ├── fields/                                # martis:field drops files here
     ├── cards/                                 # martis:card drops files here
@@ -446,7 +447,9 @@ The blade view emits the resolved array as `window.MartisConfig.extensions`. The
 npx tsc -p tsconfig.extensions.json
 ```
 
-Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the four legacy paths included, so `tsc` checks your code against the modules the build uses. The declarations carry the Martis types and those of the host's copy of each library; `react`, `react-dom` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
+Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses. The declarations carry the Martis types and those of the host's copy of each library; `react`, `react-dom` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
+
+Editors type a file with the nearest `tsconfig.json`, so the scaffold also puts one in `resources/js/martis-extensions/` that extends `tsconfig.extensions.json` (v1.38.0): VS Code and other tsserver clients resolve `@martis/runtime` the same way `tsc` does, and `npx tsc -p resources/js/martis-extensions` is equivalent to the command above.
 
 The tsconfig is browser-only (`"types": ["vite/client"]`, no `@types/node`) and does not cover `vite.extensions.config.ts`. If your app has its own `tsconfig.json` that includes `resources/js` (the Laravel React starter kit does), exclude `resources/js/martis-extensions` from it: that config does not know the aliases, so it reports `Cannot find module '@martis/runtime'`.
 
@@ -492,11 +495,21 @@ Three ways to get a missing name, from the narrowest:
   "@/contexts/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
   "@/lib/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
   "@/components/auth/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
-  "@martis/martis/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"]
+  "@martis/martis/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@/components/fields/types": ["./resources/js/martis-extensions/.shims/runtime.d.mts"]
 }
 ```
 
-**Legacy import paths (fixed in v1.38.0).** The Vite config also sends four pre-v1.10 paths to the runtime shim, so override files published by older versions keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*` and `@martis/martis/*`. From v1.10.0 to v1.37.x the config matched only the start of those paths, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each of the four patterns match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`. A type-only import from another internal path still builds, because Vite drops it, but `tsc` cannot resolve it: the v1.9.3 field override takes `FieldDisplayProps` / `FieldInputProps` from `@/components/fields/types` (import them from `@martis/runtime`), and the v1.9.3 sidebar override takes `NavigationGroup` from `@martis/martis/lib/api` (declare it in the file, as the current stub does).
+For your editor, add `resources/js/martis-extensions/tsconfig.json` (or copy `vendor/martis/martis/stubs/extensions/martis-extensions-tsconfig.json.stub` there):
+
+```json
+{
+  "extends": "../../../tsconfig.extensions.json",
+  "include": ["./**/*"]
+}
+```
+
+**Legacy import paths (fixed in v1.38.0).** The Vite config also sends the paths that override files published by older versions import to the runtime shim, so those files keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*` and `@/components/fields/types` (the type module the v1.9.3 field override imports its props from). From v1.10.0 to v1.37.x the config matched only the start of the first four, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each pattern match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`. `tsc` resolves them too, through the tsconfig `paths` above. On the sidebar override the v1.9.3 generator wrote, it then reports what that file does wrong: it draws a nested menu group (`type: 'group'`) as a link. Regenerate it with `php artisan martis:component --type=sidebar --force`, whose output lists a nested group's items under its label.
 
 ### Upgrading from v1.8.18 or earlier
 

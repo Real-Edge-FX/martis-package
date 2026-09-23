@@ -20,7 +20,8 @@
       "@/contexts/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
       "@/lib/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
       "@/components/auth/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
-      "@martis/martis/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"]
+      "@martis/martis/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+      "@/components/fields/types": ["./resources/js/martis-extensions/.shims/runtime.d.mts"]
     },
     "types": ["vite/client"]
   },

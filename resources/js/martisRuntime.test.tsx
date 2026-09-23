@@ -234,6 +234,8 @@ describe('martisRuntime', () => {
             '@/lib/api': 'runtimeShim',
             '@/components/auth/AuthFrame': 'runtimeShim',
             '@martis/martis/hooks/useIsMobile': 'runtimeShim',
+            // The type module the v1.9.3 field override imports (type-only).
+            '@/components/fields/types': 'runtimeShim',
         }
 
         expect(Object.fromEntries(Object.keys(expected).map((id) => [id, resolveAlias(id)]))).toEqual(expected)
