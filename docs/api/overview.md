@@ -162,10 +162,10 @@ Drives the lightweight "Create related" form embedded in HasMany / BelongsToMany
 ### Slug live collision check
 
 ```http
-GET /martis/api/resources/{resource}/slug-check/{field}?value=...&exclude_id=...
+GET /martis/api/resources/{resource}/slug-check/{field}?value=...&id=...
 ```
 
-Used by `Slug::make()` for live "this slug is taken" hints in the create / update form.
+Used by `Slug::make()` for live "this slug is taken" hints in the create / update form. `id` is the record being edited: it is left out of the uniqueness probe, and when it names a record the Slug is read from `fieldsForUpdate()`; otherwise from `fieldsForCreate()`, then `fieldsForInlineCreate()`. `fields()` is searched last.
 
 ### Select option search
 
@@ -173,7 +173,7 @@ Used by `Slug::make()` for live "this slug is taken" hints in the create / updat
 GET /martis/api/resources/{resource}/fields/{field}/options?search=term&context=create|update&id=<record>
 ```
 
-Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver.
+Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`: `fieldsForCreate()`, then `fieldsForInlineCreate()` since v1.38.0; `update`: `fieldsForUpdate()`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver.
 
 ### Lenses
 
@@ -190,7 +190,7 @@ POST /martis/api/resources/{resource}/sync-field
 Body: { field: "<attribute>", formData: { ...current form values... }, context: "create" | "update", id?: <record> }
 ```
 
-Server-side resolution of reactive `dependsOn()` fields. Frontend debounces (200 ms) + uses `AbortController` so the latest value always wins. Gated on the create ability, or on the update ability with the record named by `id` bound first (required in the update context since v1.37.0, so a policy typed `update(User, Model)` receives the model; 404 when the record does not exist). Rejects unknown attributes (422), non-reactive attributes (422), empty attribute names (422). See [Fields § Reactive fields](../fields.md#reactive-fields--dependsonfield-closure).
+Server-side resolution of reactive `dependsOn()` fields. Frontend debounces (200 ms) + uses `AbortController` so the latest value always wins. Gated on the create ability, or on the update ability with the record named by `id` bound first (required in the update context since v1.37.0, so a policy typed `update(User, Model)` receives the model; 404 when the record does not exist). Rejects unknown attributes (422), non-reactive attributes (422), empty attribute names (422). The field is looked up in the same field set as the select search above (`create` covers `fieldsForInlineCreate()` since v1.38.0). See [Fields § Reactive fields](../fields.md#reactive-fields--dependsonfield-closure).
 
 ## Relationship Endpoints
 
@@ -201,7 +201,7 @@ GET /martis/api/resources/{resource}/{id}/relatable/{field}
 GET /martis/api/resources/{resource}/{id}/relatable/{field}?search=term
 ```
 
-Returns the option list for a BelongsTo / MorphTo dropdown, filtered by the resource's `relatableQuery()` if defined.
+Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record, otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
 
 ### HasMany / HasOne / BelongsToMany / MorphMany / MorphOne / MorphToMany
 

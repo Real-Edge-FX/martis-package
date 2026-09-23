@@ -121,6 +121,8 @@ public function fieldsForDetail(Request $request): array
 
 Useful when the listing wants only a few summary columns while the detail page renders the full editor.
 
+A field can live on a form override alone. The endpoints that answer for one field of a form (the `BelongsTo` / `MorphTo` / `Tag` pickers, the Slug check, the `dependsOn` sync and the server-side `Select` search) read it from the form it renders on: `fieldsForUpdate()` on the edit form, `fieldsForCreate()` and `fieldsForInlineCreate()` on the create forms. See [Relationships → Relation fields declared on one form only](relationships.md#relation-fields-declared-on-one-form-only).
+
 ### filters() / lenses() / cards() / dashboards()
 
 Resources opt into the four extension subsystems by overriding these methods on the Resource class. Each returns a list of objects of the matching type.

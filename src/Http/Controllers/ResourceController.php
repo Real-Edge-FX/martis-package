@@ -772,9 +772,7 @@ class ResourceController extends MartisController
         $context = in_array($context, ['create', 'update'], true) ? $context : 'create';
         $id = $request->input('id');
 
-        // Resolve the field set for the current context, flatten layout
-        // containers (Panel/Section/TabGroup), and locate the requested
-        // attribute. Gate on the ability that matches the context so a user
+        // Gate on the ability that matches the context so a user
         // who cannot create/update the resource cannot probe its sync data —
         // the previous update check (create OR viewAny) let a view-only user
         // reach update-field metadata. The update gate binds the record named
@@ -791,36 +789,10 @@ class ResourceController extends MartisController
             return $forbidden ?? JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $rawFields = $context === 'update'
-            ? $instance->fieldsForUpdate($request)
-            : $instance->fieldsForCreate($request);
-
-        // Layout containers (Section/Panel/TabGroup) expose flattenFields();
-        // the getFields()/fields() probes below are kept for custom layouts.
-        $flatten = function (array $items) use (&$flatten): array {
-            $out = [];
-            foreach ($items as $item) {
-                if ($item instanceof FieldContract) {
-                    $out[] = $item;
-                } elseif ($item instanceof LayoutContract) {
-                    $out = array_merge($out, $item->flattenFields());
-                } elseif (method_exists($item, 'getFields')) {
-                    $out = array_merge($out, $flatten($item->getFields()));
-                } elseif (method_exists($item, 'fields')) {
-                    $out = array_merge($out, $flatten($item->fields()));
-                }
-            }
-
-            return $out;
-        };
-
-        $field = null;
-        foreach ($flatten($rawFields) as $candidate) {
-            if ($candidate->attribute() === $attribute) {
-                $field = $candidate;
-                break;
-            }
-        }
+        // Locate the field on the form it renders on (layout containers
+        // included): the update form, or the create page and the
+        // inline-create modal.
+        $field = $this->findFormField($instance, $request, $context, $attribute);
 
         if ($field === null) {
             return JsonErrorResponse::validation(['field' => ["Unknown field [{$attribute}]."]])->toResponse();
@@ -1270,19 +1242,22 @@ class ResourceController extends MartisController
                 return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
 
-            // Find the relationship field in the resource fields.
-            // Flatten layout containers first so a relationship field
-            // nested inside Section / Panel / TabGroup still resolves
-            // — without it, the lookup silently misses and the user
-            // sees a "Field 'X' not found." 404 even though the field
-            // is declared on the resource.
-            $fields = Field::flattenLayoutFields($instance->fields($request));
-            foreach ($fields as $field) {
-                if ($field->attribute() === $fieldAttr) {
-                    $relationField = $field;
-                    break;
-                }
-            }
+            // Find the relationship field on the form the picker renders
+            // in: the update form when the id names a record, the create
+            // forms otherwise, then fields(). A picker a resource declares
+            // on fieldsForCreate() / fieldsForUpdate() only resolves (it
+            // used to answer "Field 'X' not found." with an empty picker),
+            // and the form's own declaration wins over the one in
+            // fields(). Layout containers are searched too.
+            [$formInstance, $formContext] = $this->resolveFormFromRecordId($resourceClass, $id);
+            $relationField = $this->findFormField(
+                $formInstance,
+                $request,
+                $formContext,
+                $fieldAttr,
+                [BelongsTo::class, MorphTo::class, TagField::class],
+                orFields: true,
+            );
 
             if ($relationField === null) {
                 return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();

@@ -25,8 +25,9 @@ use Martis\ResourceRegistry;
  *   data.options — list<{label, value}> exactly as `Select::searchOptions()` returns it
  *
  * The field is located in the same field set the form was rendered from
- * (`fieldsForCreate` / `fieldsForUpdate` for a Resource, `fields()` for a
- * Tool implementing ProvidesFields), so a select that is not on the form
+ * (`fieldsForUpdate()`, or `fieldsForCreate()` and the inline-create modal's
+ * `fieldsForInlineCreate()`, for a Resource; `fields()` for a Tool
+ * implementing ProvidesFields), so a select that is not on the form
  * cannot be probed, and the gates mirror the schema / sync-field
  * endpoints: the ability that matches the context for Resources, and
  * `MartisManager::findTool()` (404 when `canSee()` denies) for Tools.
@@ -70,11 +71,9 @@ class FieldOptionsController extends MartisController
             return $forbidden ?? JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = $context === 'update'
-            ? $instance->fieldsForUpdate($request)
-            : $instance->fieldsForCreate($request);
+        $select = $this->findFormField($instance, $request, $context, $field, [Select::class]);
 
-        return $this->respond($request, $fields, $field);
+        return $this->respond($request, $select instanceof Select ? $select : null, $field);
     }
 
     /**
@@ -87,17 +86,17 @@ class FieldOptionsController extends MartisController
             return JsonErrorResponse::notFound("Tool [{$uriKey}] not found.")->toResponse();
         }
 
-        $fields = $tool instanceof ProvidesFields ? $tool->fields($request) : [];
+        $select = $this->findField(
+            [fn (): array => $tool instanceof ProvidesFields ? $tool->fields($request) : []],
+            $field,
+            [Select::class],
+        );
 
-        return $this->respond($request, $fields, $field);
+        return $this->respond($request, $select instanceof Select ? $select : null, $field);
     }
 
-    /**
-     * @param  iterable<mixed>  $fields
-     */
-    private function respond(Request $request, iterable $fields, string $attribute): IlluminateJsonResponse
+    private function respond(Request $request, ?Select $select, string $attribute): IlluminateJsonResponse
     {
-        $select = $this->locateSelect($fields, $attribute);
         if ($select === null) {
             return JsonErrorResponse::validation(['field' => ["Unknown select field [{$attribute}]."]])->toResponse();
         }
@@ -109,40 +108,5 @@ class FieldOptionsController extends MartisController
         $term = is_string($raw) ? mb_substr(trim($raw), 0, self::MAX_TERM_LENGTH) : '';
 
         return JsonResponse::make(['options' => $select->searchOptions($term, $request)])->toResponse();
-    }
-
-    /**
-     * @param  iterable<mixed>  $fields
-     */
-    private function locateSelect(iterable $fields, string $attribute): ?Select
-    {
-        foreach ($this->flatten($fields) as $candidate) {
-            if ($candidate instanceof Select && $candidate->attribute() === $attribute) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Recursively flatten layout containers (Panel, Section, TabGroup) into a
-     * single list of field instances. Mirrors SlugController::flatten().
-     *
-     * @param  iterable<mixed>  $items
-     * @return iterable<object>
-     */
-    private function flatten(iterable $items): iterable
-    {
-        foreach ($items as $item) {
-            if (is_object($item) && method_exists($item, 'flattenFields')) {
-                yield from $item->flattenFields();
-
-                continue;
-            }
-            if (is_object($item)) {
-                yield $item;
-            }
-        }
     }
 }

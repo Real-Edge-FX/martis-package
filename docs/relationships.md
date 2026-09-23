@@ -659,6 +659,37 @@ public static function relatableUsers(Request $request, Builder $query, ?FieldCo
 }
 ```
 
+### Relation fields declared on one form only
+
+The picker endpoint of `BelongsTo`, `MorphTo` and `Tag` (`GET /api/resources/{resource}/{id}/relatable/{attribute}`) looks the field up on the form the picker renders in, so a relation field that a resource declares only in `fieldsForCreate()` or `fieldsForUpdate()` lists its options like one declared in `fields()`:
+
+```php
+public function fields(Request $request): array
+{
+    return [Text::make('name')];
+}
+
+public function fieldsForCreate(Request $request): array
+{
+    return [
+        Text::make('name'),
+        Tag::make('tags', 'Tags')->relatedResource('tags')->titleAttribute('name'),
+    ];
+}
+```
+
+The `{id}` segment of the URL decides which form is read, and `fields()` comes last:
+
+1. **`{id}` names a record of the resource** (the edit form): `fieldsForUpdate()`, on the resource bound to that record, so a `relatableQueryUsing()` closure on the field can read it through `$this->model`.
+2. **`{id}` is `_`** (a create form) **or names no record**: `fieldsForCreate()`, then `fieldsForInlineCreate()` (the inline-create modal).
+3. **`fields()`**, so a picker that only `fields()` declares keeps working on every form.
+
+The first declaration found wins: when `fields()` and `fieldsForUpdate()` declare the same attribute differently, the edit form's picker uses the `fieldsForUpdate()` one (its `relatableQueryUsing()`, `withoutTrashed()`, related resource). Section / Panel / TabGroup containers are searched, and only a `BelongsTo`, `MorphTo` or `Tag` under the attribute counts, so a read-only `Text` that reuses the attribute on a form does not hide the picker declared in `fields()`. Authorisation does not depend on which declaration is used: `viewAny` on the resource and on the related resource, then the scoping below.
+
+> Before v1.38.0 the endpoint searched `fields()` only: a picker declared on a form alone answered `Field 'x' not found.` (404) and opened with no options.
+
+The [Slug](fields.md#slug) collision check reads the forms in the same order (the update form when its `id` names a record). The [`dependsOn` sync](fields.md#reactive-fields--dependsonfield-closure) and the server-side [`Select` search](fields.md#select) take the form from their `context` parameter and search only that form (`create` includes `fieldsForInlineCreate()`), never `fields()`, so a field that is not on the form cannot be probed.
+
 ### Relatable scoping precedence
 
 When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource — the BelongsTo dropdown (`/relatable/{field}`), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`):
@@ -710,6 +741,7 @@ Per-type feature tests:
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
 - `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.
+- `tests/Feature/FormFieldLookupTest.php` (19) — `BelongsTo`, `MorphTo` and `Tag` pickers declared only in `fieldsForCreate()` / `fieldsForUpdate()` / `fieldsForInlineCreate()`, the form declaration winning over `fields()`, the record bound to the update form, the `fields()` fallback and the `viewAny` gate, plus the Slug check, `dependsOn` sync and `Select` search on a form-only field.
 
 ---
 

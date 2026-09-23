@@ -42,8 +42,14 @@ class SlugController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $slugField = $this->findSlugField($resourceInstance, $field, $request);
-        if ($slugField === null) {
+        // The Slug of the form the check comes from: the update form when
+        // `id` names a record, the create forms otherwise, then fields(), so
+        // a slug declared on one form only (the inline-create modal included)
+        // resolves, and that form's separator and reserved list apply.
+        $rawId = $request->query('id');
+        [$formInstance, $formContext] = $this->resolveFormFromRecordId($resourceClass, is_string($rawId) ? $rawId : null);
+        $slugField = $this->findFormField($formInstance, $request, $formContext, $field, [Slug::class], orFields: true);
+        if (! $slugField instanceof Slug) {
             return JsonErrorResponse::notFound("Slug field '{$field}' not found.")->toResponse();
         }
 
@@ -114,47 +120,5 @@ class SlugController extends MartisController
         }
 
         return null;
-    }
-
-    private function findSlugField(object $resourceInstance, string $attribute, Request $request): ?Slug
-    {
-        // Search across every context where Slug may legitimately appear — a
-        // resource may only expose the Slug field on create/update forms.
-        $candidateMethods = ['fields', 'fieldsForCreate', 'fieldsForUpdate'];
-        foreach ($candidateMethods as $method) {
-            if (! method_exists($resourceInstance, $method)) {
-                continue;
-            }
-            /** @var list<mixed> $fields */
-            $fields = $resourceInstance->{$method}($request);
-            foreach ($this->flatten($fields) as $f) {
-                if ($f instanceof Slug && $f->attribute() === $attribute) {
-                    return $f;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Recursively flatten layout containers (Panel, Section, TabGroup) into a
-     * single list of Field instances.
-     *
-     * @param  iterable<mixed>  $items
-     * @return iterable<object>
-     */
-    private function flatten(iterable $items): iterable
-    {
-        foreach ($items as $item) {
-            if (is_object($item) && method_exists($item, 'flattenFields')) {
-                yield from $item->flattenFields();
-
-                continue;
-            }
-            if (is_object($item)) {
-                yield $item;
-            }
-        }
     }
 }

@@ -3,6 +3,7 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -100,6 +101,155 @@ abstract class MartisController extends Controller
         }
 
         return [$instance, null];
+    }
+
+    /**
+     * Resolve the form a per-field endpoint answers for from the record id
+     * in its URL (relatable options, slug check).
+     *
+     * An id that names a record of the resource is the update form, on an
+     * instance bound to that record so closures on its fields can read it.
+     * Anything else is the create form on a fresh instance: the `_`
+     * placeholder, no id, or an id that names no record (a form nested in
+     * another resource's page can send that page's id). No ability is
+     * checked here: the caller keeps its own gates.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array{0: \Martis\Resource, 1: 'create'|'update'}
+     */
+    protected function resolveFormFromRecordId(string $resourceClass, int|string|null $id): array
+    {
+        $model = $id === null || $id === '' || $id === '_'
+            ? null
+            : $this->findFormRecord($resourceClass, $id);
+
+        return $model === null
+            ? [new $resourceClass, 'create']
+            : [new $resourceClass($model), 'update'];
+    }
+
+    /**
+     * Find the field a per-field form endpoint (relatable options, slug
+     * check, dependsOn sync, remote select options) answers for.
+     *
+     * Searches the field sets of the form `$context` names, in order: the
+     * update form (`fieldsForUpdate()`), or the two create forms, the page
+     * (`fieldsForCreate()`) and the inline-create modal
+     * (`fieldsForInlineCreate()`); then `fields()` when `$orFields` is set.
+     * A field declared on one form only resolves, and the form's own
+     * declaration wins over a differently configured one in `fields()`.
+     * Layout containers are searched too, and only an instance of one of
+     * `$types` matches, so a form that reuses an attribute for another kind
+     * of field does not shadow the one the caller needs.
+     *
+     * @param  'create'|'update'  $context
+     * @param  list<class-string<FieldContract>>  $types
+     */
+    protected function findFormField(
+        Resource $resource,
+        Request $request,
+        string $context,
+        string $attribute,
+        array $types = [FieldContract::class],
+        bool $orFields = false,
+    ): ?FieldContract {
+        $sets = $context === 'update'
+            ? [fn (): array => $resource->fieldsForUpdate($request)]
+            : [
+                fn (): array => $resource->fieldsForCreate($request),
+                fn (): array => $resource->fieldsForInlineCreate($request),
+            ];
+
+        if ($orFields) {
+            $sets[] = fn (): array => $resource->fields($request);
+        }
+
+        return $this->findField($sets, $attribute, $types);
+    }
+
+    /**
+     * The first field with this attribute that is an instance of one of
+     * `$types`, searching the field sets in order. A set is only built when
+     * the sets before it do not declare the field.
+     *
+     * @param  iterable<\Closure(): iterable<mixed>>  $sets
+     * @param  list<class-string<FieldContract>>  $types
+     */
+    protected function findField(iterable $sets, string $attribute, array $types = [FieldContract::class]): ?FieldContract
+    {
+        foreach ($sets as $set) {
+            foreach ($this->flattenFormItems($set()) as $field) {
+                if ($field->attribute() !== $attribute) {
+                    continue;
+                }
+
+                foreach ($types as $type) {
+                    if ($field instanceof $type) {
+                        return $field;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The fields of a field set, with the layout containers opened: Section,
+     * Panel and TabGroup, and custom containers exposing `flattenFields()`,
+     * `getFields()` or `fields()`.
+     *
+     * @param  iterable<mixed>  $items
+     * @return \Generator<int, FieldContract>
+     */
+    private function flattenFormItems(iterable $items): \Generator
+    {
+        foreach ($items as $item) {
+            if ($item instanceof FieldContract) {
+                yield $item;
+
+                continue;
+            }
+
+            if (! is_object($item)) {
+                continue;
+            }
+
+            $nested = match (true) {
+                method_exists($item, 'flattenFields') => $item->flattenFields(),
+                method_exists($item, 'getFields') => $item->getFields(),
+                method_exists($item, 'fields') => $item->fields(),
+                default => [],
+            };
+
+            if (is_iterable($nested)) {
+                yield from $this->flattenFormItems($nested);
+            }
+        }
+    }
+
+    /**
+     * Find the record a form request names without letting an id its key
+     * column cannot hold reach the database: PostgreSQL rejects `abc` for an
+     * integer key, or `42` for a uuid one, where other drivers match
+     * nothing, and a nested form can send the id of another resource.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     */
+    private function findFormRecord(string $resourceClass, int|string $id): ?Model
+    {
+        /** @var class-string<Model> $modelClass */
+        $modelClass = $resourceClass::model();
+
+        if ((new $modelClass)->getKeyType() === 'int' && preg_match('/^-?\d+$/', (string) $id) !== 1) {
+            return null;
+        }
+
+        try {
+            return $this->findModelByKey($resourceClass, $id);
+        } catch (QueryException) {
+            return null;
+        }
     }
 
     /**
