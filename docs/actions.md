@@ -1271,7 +1271,7 @@ public function actions(Request $request): array
 }
 ```
 
-`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource. Pivot actions run synchronously: `queued()`, dry runs and the action event log are resource-action features only.
+`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource. Pivot actions always run synchronously: `ShouldQueue`, `withDryRun()` and the action event log apply to resource actions only.
 
 The pivot action routes (see the [API Reference](#api-reference)) resolve `{relationship}` only to a relationship field the resource declares with the route's type (`BelongsToMany` on `belongs-to-many`, `MorphToMany` on `morph-to-many`, nested layouts included). Any other name answers 404 without calling a model method.
 
