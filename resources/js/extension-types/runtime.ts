@@ -68,6 +68,9 @@ export { usePreferences, usePreferencesOptional } from '@/contexts/PreferencesCo
 export { loadLocale, applyDocumentDirection } from '@/lib/i18n'
 export { usePrefersReducedMotion } from '@/lib/usePrefersReducedMotion'
 
+// Keyboard shortcuts
+export { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
+
 // The third-party hooks the shim flattens (their declarations live in the
 // sibling shims' files; the generator points these imports there)
 export { Link, NavLink, Outlet, Navigate, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'
@@ -96,6 +99,8 @@ export type {
   NavigationGroupChild,
   NavigationItem,
   NavigationNestedGroup,
+  ShortcutOptions,
+  Shortcut,
 } from '@/lib/martisRuntime'
 
 export { martisRuntime as default } from '@/lib/martisRuntime'

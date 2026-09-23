@@ -5507,6 +5507,55 @@ declare function loadLocale(locale: string): Promise<void>;
 declare function usePrefersReducedMotion(): boolean;
 
 /**
+ * Keyboard shortcuts registry.
+ *
+ * Single source of truth for every keyboard combo the Martis admin
+ * shell, custom Tools and consumer plugins want to register. Built
+ * directly on the browser `KeyboardEvent` API — no Mousetrap or other
+ * 3rd-party dep, so the footprint stays minimal and the behaviour is
+ * fully explicit.
+ *
+ * Public API (also on `@martis/runtime` for consumer extensions, and on
+ * `window.Martis.shortcuts` as `add` / `remove` / `list`):
+ *
+ *   addShortcut(combo, handler, options?)
+ *   disableShortcut(combo)
+ *   listShortcuts(): readonly Shortcut[]
+ *
+ * Combo grammar:
+ *   - Single key:        `'k'`, `'?'`, `'escape'`, `'/'`
+ *   - With modifiers:    `'cmd+k'`, `'ctrl+shift+s'`, `'mod+/'`
+ *     `mod` is the platform-natural primary modifier — `meta` on macOS,
+ *     `ctrl` everywhere else. Use it instead of branching by OS.
+ *   - Two-key sequence:  `'g r'`, `'g i'`
+ *     The two tokens fire when pressed within `SEQUENCE_TIMEOUT` ms of
+ *     each other, with the input not focused. Sequences cannot include
+ *     modifiers — they are intended as Vim/Gmail-style mnemonics.
+ *
+ * By default a shortcut does NOT fire while the user is typing in an
+ * `<input>`, `<textarea>`, `<select>`, or `contentEditable` element.
+ * Pass `{ allowInInput: true }` to override (e.g. `cmd+k` palette).
+ */
+interface ShortcutOptions {
+    /** Short human-readable description; surfaces in the `?` help overlay. */
+    description?: string;
+    /** Logical group used to organise the help overlay. Defaults to `'Custom'`. */
+    group?: string;
+    /** Allow the shortcut to fire while an input/textarea/contentEditable is focused. */
+    allowInInput?: boolean;
+    /** Stop propagation + preventDefault when the handler runs. Defaults to `true`. */
+    preventDefault?: boolean;
+}
+interface Shortcut extends ShortcutOptions {
+    combo: string;
+    handler: (event: KeyboardEvent) => void;
+}
+/** Convenience top-level functions matching the public-API name expected by docs. */
+declare const addShortcut: (combo: string, handler: Shortcut["handler"], options?: ShortcutOptions) => () => void;
+declare const disableShortcut: (combo: string) => void;
+declare const listShortcuts: () => readonly Shortcut[];
+
+/**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
  * by `app.tsx`. Consumer-extension shims re-export from here.
  */
@@ -5564,6 +5613,9 @@ declare const martisRuntime: {
     readonly loadLocale: typeof loadLocale;
     readonly applyDocumentDirection: typeof applyDocumentDirection;
     readonly usePrefersReducedMotion: typeof usePrefersReducedMotion;
+    readonly addShortcut: (combo: string, handler: Shortcut["handler"], options?: ShortcutOptions) => () => void;
+    readonly disableShortcut: (combo: string) => void;
+    readonly listShortcuts: () => readonly Shortcut[];
     readonly DrawerShell: typeof DrawerShell;
     readonly Tooltip: typeof Tooltip;
     readonly Dropdown: typeof Dropdown;
@@ -5574,10 +5626,10 @@ declare const martisRuntime: {
     readonly tanstackReactQuery: typeof TanstackReactQuery;
 };
 /**
- * Ambient typing so `window.Martis.runtime` is well-typed when the
- * `keyboardShortcuts.ts` `Window` augmentation is loaded.
+ * The type of the runtime bag: `window.Martis.runtime`, and the default
+ * export of `@martis/runtime` in a consumer extension.
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, iconRegistry, layoutRegistry, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
-export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
+export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, Shortcut, ShortcutOptions, TooltipProps, UseToolFieldsResult };

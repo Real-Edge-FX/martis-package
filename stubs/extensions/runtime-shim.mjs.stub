@@ -145,6 +145,13 @@ export const loadLocale = R.loadLocale
 export const applyDocumentDirection = R.applyDocumentDirection
 export const usePrefersReducedMotion = R.usePrefersReducedMotion
 
+// Keyboard shortcuts (v1.38.0+): the registry the shell binds its own combos
+// to, so a combo registered here shows in the help overlay. The same
+// functions are on `window.Martis.shortcuts`. See docs/keyboard-shortcuts.md.
+export const addShortcut = R.addShortcut
+export const disableShortcut = R.disableShortcut
+export const listShortcuts = R.listShortcuts
+
 // `react-router-dom` re-exports flattened on the top level so legacy
 // stub imports `import {useNavigate} from 'react-router-dom'` resolve
 // when the consumer's vite alias points the bare module specifier

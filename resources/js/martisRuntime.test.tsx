@@ -5,6 +5,7 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { MartisLoader } from '@/components/Loader'
+import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
 import runtimeSource from './lib/martisRuntime.ts?raw'
 import runtimeShim from '../../stubs/extensions/runtime-shim.mjs.stub?raw'
 import viteExtensionsConfig from '../../stubs/extensions/vite.extensions.config.ts.stub?raw'
@@ -140,6 +141,13 @@ describe('martisRuntime', () => {
         expect(martisRuntime.loadLocale).toBeTypeOf('function')
         expect(martisRuntime.applyDocumentDirection).toBeTypeOf('function')
         expect(martisRuntime.usePrefersReducedMotion).toBeTypeOf('function')
+
+        // Keyboard shortcuts (v1.38.0): the registry the shell binds its own
+        // combos to, so an extension's combo shows in the help overlay and
+        // takes part in the first-registered-wins order.
+        expect(martisRuntime.addShortcut).toBe(addShortcut)
+        expect(martisRuntime.disableShortcut).toBe(disableShortcut)
+        expect(martisRuntime.listShortcuts).toBe(listShortcuts)
 
         // 3rd-party re-exports
         expect(martisRuntime.reactRouterDom).toBeTypeOf('object')

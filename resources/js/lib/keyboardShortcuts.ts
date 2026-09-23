@@ -7,7 +7,8 @@
  * 3rd-party dep, so the footprint stays minimal and the behaviour is
  * fully explicit.
  *
- * Public API (also exposed on `window.Martis.shortcuts`):
+ * Public API (also on `@martis/runtime` for consumer extensions, and on
+ * `window.Martis.shortcuts` as `add` / `remove` / `list`):
  *
  *   addShortcut(combo, handler, options?)
  *   disableShortcut(combo)
@@ -297,48 +298,11 @@ export const disableShortcut = (combo: string): void => keyboardShortcuts.remove
 
 export const listShortcuts = (): readonly Shortcut[] => keyboardShortcuts.list()
 
-// Expose on the global Martis object so consumers can invoke it from
-// `boot.ts` (`window.Martis.shortcuts.add(...)`) without importing
-// across module boundaries.
-declare global {
-  interface Window {
-    Martis?: {
-      shortcuts?: {
-        add: typeof addShortcut
-        remove: typeof disableShortcut
-        list: typeof listShortcuts
-      }
-      /**
-       * Component registry exposed by `app.tsx` at boot so consumer
-       * extension bundles can register Tools / overrides without
-       * shipping their own copy of the registry. v1.8.19+.
-       */
-      componentRegistry?: unknown
-      /**
-       * React module instance bundled by the package. Consumer
-       * extensions external `react` to this to share the JSX runtime
-       * (no duplicate-instance hazards). v1.8.19+.
-       */
-      react?: unknown
-      /**
-       * React's `jsx-runtime` module exports (`jsx`, `jsxs`, `Fragment`)
-       * the JSX transform compiles into. Mirrors `react?: unknown`
-       * but for the separate `react/jsx-runtime` import surface that
-       * consumer extension bundles need to resolve. v1.9.3+.
-       */
-      reactJsxRuntime?: unknown
-      /**
-       * `@martis/runtime` public surface — exposed by `app.tsx` at
-       * boot. Consumer-extension shims re-export from here.
-       * v1.10.0+. See `lib/martisRuntime.ts`.
-       */
-      runtime?: unknown
-      /** Package version (semver string). v1.8.19+. */
-      version?: string
-    } & Record<string, unknown>
-  }
-}
-
+// Expose on the global Martis object too, for code outside the extension
+// bundle (`window.Martis.shortcuts.add(...)`); an extension imports the
+// functions from `@martis/runtime`. The `Window.Martis` type lives in
+// `martis-global.d.ts`: declared here, it would reach the consumer's
+// runtime declarations and clash with the one in their extension entry.
 if (typeof window !== 'undefined') {
   window.Martis = {
     ...(window.Martis ?? {}),

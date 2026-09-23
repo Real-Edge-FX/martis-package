@@ -11,10 +11,15 @@ import runtimeEntrySource from '@/extension-types/runtime.ts?raw'
  *
  * 1. the TSX every generator writes (`martis:component`, `martis:field`,
  *    `martis:card`, `martis:tool --with-component`), strict;
- * 2. every docs block that imports `@martis/runtime`, as a snippet: what
- *    it leaves out (an undeclared local, the reader's own module) is
- *    context, anything else (a runtime name used wrongly or not imported,
- *    a React hook not imported, a prop that does not exist) fails.
+ * 2. the extension entry (`index.ts`) once it imports `@martis/runtime`, as
+ *    the docs have it do, strict;
+ * 3. every TypeScript docs block that imports `@martis/runtime` or uses
+ *    `window.Martis`, as a snippet: what it leaves out (an undeclared
+ *    local, the reader's own module) is context, anything else (a runtime
+ *    name used wrongly or not imported, a React hook not imported, a prop
+ *    that does not exist) fails. A block headed
+ *    `// resources/js/martis-extensions/index.ts` is compiled as that file:
+ *    the scaffold's entry with the block added.
  *
  * The consumer lives in memory, as if under the package's
  * `node_modules/.cache`, so `react` and `@types/react` resolve from the
@@ -67,20 +72,45 @@ function asModule(block: string): string {
     return `${block}\nexport {}\n`
 }
 
-/** Every docs block that imports `@martis/runtime`, except the ones documenting package code. */
+/** The first line of a docs block that goes into the extension entry. */
+const ENTRY_BLOCK = /^\/\/ resources\/js\/martis-extensions\/index\.ts\b/
+
+/**
+ * Every TypeScript docs block (```ts, ```tsx or ```typescript) that imports
+ * `@martis/runtime` or reaches the host through `window.Martis`, except the
+ * ones documenting package code. A block headed with the entry's path is
+ * the scaffold's `index.ts` with the block added.
+ */
 function docsBlocks(): Record<string, string> {
     const blocks: Record<string, string> = {}
     for (const [page, source] of Object.entries(docs)) {
-        for (const match of source.matchAll(/```tsx?\n([\s\S]*?)```/g)) {
+        for (const match of source.matchAll(/```(?:tsx?|typescript)\n([\s\S]*?)```/g)) {
             const block = match[1]
-            if (!block.includes('@martis/runtime') || block.includes('Package-internal')) continue
-            const line = source.slice(0, match.index).split('\n').length
-            blocks[`docs-examples/${page.replace(/\.md$/, '')}_${line}.tsx`] = asModule(block)
+            if (!(block.includes('@martis/runtime') || /\bwindow\.Martis\b/.test(block)) || block.includes('Package-internal')) continue
+            const name = `docs-examples/${page.replace(/\.md$/, '')}_${source.slice(0, match.index).split('\n').length}`
+            if (ENTRY_BLOCK.test(block)) blocks[`${name}.index.ts`] = `${extensionStubs['index.ts.stub']}\n${block}`
+            else blocks[`${name}.tsx`] = asModule(block)
         }
     }
 
     return blocks
 }
+
+/**
+ * The scaffold's entry once it imports `@martis/runtime`, as the docs have
+ * it do to register a component or a shortcut. The runtime declarations
+ * then load before the entry's own `Window.Martis` declaration, so one in
+ * the declarations would clash with it (TS2717).
+ */
+const ENTRY_WITH_RUNTIME = `${EXT}/entry-with-runtime/index.ts`
+const entryWithRuntime = [
+    "import { addShortcut, componentRegistry } from '@martis/runtime'",
+    '',
+    extensionStubs['index.ts.stub'],
+    "componentRegistry.register('status-badge', () => null)",
+    "addShortcut('mod+k', () => undefined, { description: 'Open my launcher', group: 'Navigation', allowInInput: true })",
+    '',
+].join('\n')
 
 // The consumer, in memory: the scaffold `martis:install` publishes, the
 // generator outputs and the docs blocks.
@@ -95,6 +125,7 @@ for (const [stub, source] of Object.entries(extensionStubs)) {
     if (stub.endsWith('-shim.d.mts.stub')) put(`${EXT}/.shims/${stub.replace('-shim.d.mts.stub', '.d.mts')}`, source)
 }
 for (const [file, source] of Object.entries(generatorOutputs())) put(file, source)
+put(ENTRY_WITH_RUNTIME, entryWithRuntime)
 for (const [file, source] of Object.entries(docsBlocks())) put(file, source)
 // Docs blocks are snippets: untyped parameters are not what this checks.
 put('tsconfig.docs.json', JSON.stringify({ extends: './tsconfig.extensions.json', compilerOptions: { noImplicitAny: false } }))
@@ -165,6 +196,12 @@ describe('a consumer extension type-checks against the published declarations', 
         expect(typecheck('tsconfig.extensions.json', extensionSources)).toEqual([])
     }, 120_000)
 
+    it('type-checks the extension entry once it imports @martis/runtime, strict', () => {
+        // Its own program, with the entry as the only root, as in an app
+        // whose index.ts registers through the runtime.
+        expect(typecheck('tsconfig.extensions.json', [ENTRY_WITH_RUNTIME])).toEqual([])
+    }, 120_000)
+
     it('types the extension sources the same way for an editor, through the tsconfig.json next to them', () => {
         // Editors (tsserver) use the nearest tsconfig.json, not tsconfig.extensions.json.
         const editor = JSON.parse(extensionStubs['martis-extensions-tsconfig.json.stub'] ?? '{}') as { extends?: string; include?: string[] }
@@ -174,7 +211,7 @@ describe('a consumer extension type-checks against the published declarations', 
         expect(typecheck(`${EXT}/tsconfig.json`, extensionSources)).toEqual([])
     }, 120_000)
 
-    it('type-checks every docs example that imports @martis/runtime', () => {
+    it('type-checks every docs example that imports @martis/runtime or uses window.Martis', () => {
         const importable = importableNames()
         const errors = typecheck('tsconfig.docs.json', [`${EXT}/index.ts`, ...Object.keys(docsBlocks())]).filter((line) => {
             // Context a snippet leaves out: a local it does not declare, the reader's own module.

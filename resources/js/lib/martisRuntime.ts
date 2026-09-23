@@ -82,6 +82,7 @@ import { MartisLoader } from '@/components/Loader'
 import { usePreferences, usePreferencesOptional } from '@/contexts/PreferencesContext'
 import { loadLocale, applyDocumentDirection } from '@/lib/i18n'
 import { usePrefersReducedMotion } from '@/lib/usePrefersReducedMotion'
+import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -210,6 +211,17 @@ export const martisRuntime = {
   applyDocumentDirection,
   usePrefersReducedMotion,
 
+  // Keyboard shortcuts (since v1.38.0): the registry the shell binds its own
+  // combos to (`mod+k`, `/`, `shift+?`), so a combo an extension adds shows
+  // in the help overlay and takes part in the same conflict order (the first
+  // handler registered under a combo runs). `window.Martis.shortcuts` holds
+  // the same functions as `add` / `remove` / `list`. See
+  // docs/keyboard-shortcuts.md. Pair with the ShortcutOptions and Shortcut
+  // types re-exported below.
+  addShortcut,
+  disableShortcut,
+  listShortcuts,
+
   // Generic slide-over drawer shell. Lets consumer Tools host
   // edit/add/detail forms (composed from FieldInput) in a native
   // drawer without re-implementing the shell — the Tool controls
@@ -246,8 +258,8 @@ export const martisRuntime = {
 } as const
 
 /**
- * Ambient typing so `window.Martis.runtime` is well-typed when the
- * `keyboardShortcuts.ts` `Window` augmentation is loaded.
+ * The type of the runtime bag: `window.Martis.runtime`, and the default
+ * export of `@martis/runtime` in a consumer extension.
  */
 export type MartisRuntime = typeof martisRuntime
 
@@ -306,3 +318,9 @@ export type { MartisLoaderConfig } from '@/lib/config'
  * consumer resolves to this module).
  */
 export type { NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup } from '@/types'
+
+/**
+ * The options `runtime.addShortcut` takes, and the registrations
+ * `runtime.listShortcuts()` returns.
+ */
+export type { ShortcutOptions, Shortcut } from '@/lib/keyboardShortcuts'

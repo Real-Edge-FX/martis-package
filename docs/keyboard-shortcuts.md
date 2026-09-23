@@ -6,28 +6,32 @@ No 3rd-party dependency: implementation lives in `resources/js/lib/keyboardShort
 
 ## Public API
 
-An extension reaches the registry through `window.Martis.shortcuts`, which the SPA sets before it loads your extension bundle:
+An extension imports the three functions from `@martis/runtime` (v1.38.0+), with the `ShortcutOptions` and `Shortcut` types:
 
 ```ts
-window.Martis.shortcuts.add('mod+s', handler)   // addShortcut: returns a disposer
-window.Martis.shortcuts.remove('mod+s')          // disableShortcut
-window.Martis.shortcuts.list()                   // listShortcuts
+import { addShortcut, disableShortcut, listShortcuts } from '@martis/runtime'
+
+const dispose = addShortcut('mod+s', handler)   // returns a disposer
+disableShortcut('mod+s')                         // removes every handler under the combo
+listShortcuts()                                  // the live registrations
 ```
 
-Inside the package the same three functions are module exports, which `window.Martis.shortcuts` maps 1:1 (`add`, `remove`, `list`):
+They are the functions the shell registers its own combos with, so a combo your extension adds shows in the help overlay and takes part in the same conflict order. The SPA also sets them on `window.Martis.shortcuts` (as `add`, `remove` and `list`) before it loads your extension bundle, for code that is not part of the bundle.
+
+Inside the package the same three functions are module exports:
 
 ```ts
-// Package-internal: resources/js/lib/keyboardShortcuts.ts, not on @martis/runtime.
+// Package-internal: resources/js/lib/keyboardShortcuts.ts, which @martis/runtime re-exports.
 import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
 ```
-
-The sections below use the function names; from an extension, call `window.Martis.shortcuts.add`, `.remove` and `.list` with the same arguments.
 
 ### `addShortcut(combo, handler, options?)`
 
 Registers a new shortcut. Returns a disposer for symmetric cleanup (call it from `useEffect` cleanup, Tool teardown, etc.).
 
 ```ts
+import { addShortcut } from '@martis/runtime'
+
 const dispose = addShortcut('mod+k', () => openPalette(), {
   description: 'Open command palette',
   group: 'Navigation',
@@ -37,6 +41,8 @@ const dispose = addShortcut('mod+k', () => openPalette(), {
 // later
 dispose()
 ```
+
+The options object is a `ShortcutOptions`:
 
 | Option | Type | Default | Description |
 |---|---|---|---|
@@ -50,12 +56,16 @@ dispose()
 Removes every handler registered under `combo`.
 
 ```ts
-disableShortcut('mod+k') // suppresses the bundled palette toggle
+import { disableShortcut } from '@martis/runtime'
+
+disableShortcut('mod+k') // removes every handler registered under mod+k so far
 ```
+
+The shell registers its own combos when it mounts, after your extension entry has run: to replace one of them, see [Take over a bundled shortcut](#take-over-a-bundled-shortcut).
 
 ### `listShortcuts(): readonly Shortcut[]`
 
-Returns the live registration set (combo, handler, group, description). Used internally by the help overlay; consumer code can read it for diagnostics.
+Returns the live registration set (combo, handler, group, description), each entry a `Shortcut`. Used internally by the help overlay; consumer code can read it for diagnostics.
 
 ## Combo grammar
 
@@ -135,16 +145,17 @@ Override with `{ allowInInput: true }` for combos that should always fire (typic
 
 ### Custom Tool registers an open-shortcut
 
-```ts
+```tsx
 // In your Tool's React entry component.
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { addShortcut } from '@martis/runtime'
 
 export function MyDeploymentsTool() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    return window.Martis.shortcuts.add('g d', () => navigate('/tools/deployments'), {
+    return addShortcut('g d', () => navigate('/tools/deployments'), {
       description: 'Go to Deployments tool',
       group: 'Tools',
     })
@@ -156,11 +167,13 @@ export function MyDeploymentsTool() {
 
 ### Take over a bundled shortcut
 
-The topbar registers `mod+k` and `/` when the shell mounts, and the SPA mounts only after your extension bundle has run, so `window.Martis.shortcuts.remove('mod+k')` in the extension entry finds nothing to remove yet. Take the combo over instead: when several handlers share a combo, the one registered first runs and the others do not, so a handler your extension entry registers wins over the bundled one:
+The topbar registers `mod+k` and `/` when the shell mounts, and the SPA mounts only after your extension bundle has run, so `disableShortcut('mod+k')` in the extension entry finds nothing to remove yet. Take the combo over instead: when several handlers share a combo, the one registered first runs and the others do not, so a handler your extension entry registers wins over the bundled one:
 
 ```ts
 // resources/js/martis-extensions/index.ts (runs before the shell mounts)
-window.Martis.shortcuts.add('mod+k', () => {
+import { addShortcut } from '@martis/runtime'
+
+addShortcut('mod+k', () => {
   // your command
 }, { description: 'Open my launcher', group: 'Navigation', allowInInput: true })
 ```
@@ -170,8 +183,12 @@ Pass `allowInInput: true` when the bundled handler has it (`mod+k` does): a hand
 ### Form-save shortcut on a custom page
 
 ```ts
+import { useEffect } from 'react'
+import { addShortcut } from '@martis/runtime'
+
+// Inside your page component, with `formRef` on its <form>.
 useEffect(() => {
-  return window.Martis.shortcuts.add('mod+s', (e) => {
+  return addShortcut('mod+s', (e) => {
     e.preventDefault()
     formRef.current?.submit()
   }, {

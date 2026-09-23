@@ -456,7 +456,7 @@ Event::listen(BeforeDelete::class, function (BeforeDelete $event) {
 
 Every display component receives `FieldDisplayProps`. Examples below use the [Tailwind preset](theming.md#-in-tsx-tailwind-preset) so the override stays in sync with the active theme (light/dark, accent override, density).
 
-```typescript
+```tsx
 import type { FieldDisplayProps } from '@martis/runtime'
 
 export function StatusBadge({ field, value }: FieldDisplayProps) {
@@ -483,7 +483,7 @@ export function StatusBadge({ field, value }: FieldDisplayProps) {
 
 Every input component receives `FieldInputProps`:
 
-```typescript
+```tsx
 import type { FieldInputProps } from '@martis/runtime'
 
 export function StatusSelect({ field, value, onChange, error }: FieldInputProps) {
@@ -912,6 +912,10 @@ componentRegistry.register('layout:footer', MyFooter)
 
 ```typescript
 // resources/js/martis-extensions/index.ts
+import { componentRegistry } from '@martis/runtime'
+import { MyTopbar } from './components/MyTopbar'
+import { MyFooter } from './components/MyFooter'
+
 componentRegistry.register('my-topbar', MyTopbar)
 componentRegistry.register('my-footer', MyFooter)
 ```

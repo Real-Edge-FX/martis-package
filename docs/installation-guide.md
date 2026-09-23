@@ -423,11 +423,11 @@ window.Martis = {
   reactJsxRuntime,     // react/jsx-runtime, read by the JSX shim
   runtime,             // the @martis/runtime surface the shims re-export
   version,             // "1.9.0" etc.
-  shortcuts,           // global keyboard-shortcut helpers: add, remove, list
+  shortcuts,           // the keyboard-shortcut helpers as add, remove, list (addShortcut, disableShortcut, listShortcuts on @martis/runtime)
 }
 ```
 
-A consumer extension reads this global to register components without bundling its own copy of `componentRegistry` or React.
+The shims and the scaffold's `index.ts` read this global, so a consumer extension registers components and shortcuts without bundling its own copy of `componentRegistry`, the shortcut registry or React. In your own code, import them from `@martis/runtime`, which is typed: `window.Martis` is typed in an extension only as far as the `declare global` in `index.ts` goes (`componentRegistry.register`).
 
 ### Configuring multiple bundle URLs
 
@@ -470,7 +470,7 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 | `useMartisForm`, `FieldsForm`, `useToolFields` | v1.20.0 |
 | `martisEventBus` | v1.21.0 |
 | `useRevalidateOnFocus` | v1.22.0 |
-| `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal`, the registries (`componentRegistry`, `iconRegistry`, `layoutRegistry`), `usePageTitle`, `useModalHistoryLock`, `OverridePropsProvider`, `useOverrideProps`, `useOverridePropsOptional`, `useUnsavedChangesGuard`, `useError`, `cssVar`, `accentColor`, `mutedTextColor`, `chartPalette`, `resolveColor`, `avatarColorForSeed`, `Sparkline`, `ClearButton`, `MartisLoader`, `usePreferences`, `usePreferencesOptional`, `loadLocale`, `applyDocumentDirection`, `usePrefersReducedMotion` | v1.38.0 |
+| `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal`, the registries (`componentRegistry`, `iconRegistry`, `layoutRegistry`), `usePageTitle`, `useModalHistoryLock`, `OverridePropsProvider`, `useOverrideProps`, `useOverridePropsOptional`, `useUnsavedChangesGuard`, `useError`, `cssVar`, `accentColor`, `mutedTextColor`, `chartPalette`, `resolveColor`, `avatarColorForSeed`, `Sparkline`, `ClearButton`, `MartisLoader`, `usePreferences`, `usePreferencesOptional`, `loadLocale`, `applyDocumentDirection`, `usePrefersReducedMotion`, `addShortcut`, `disableShortcut`, `listShortcuts` | v1.38.0 |
 
 Three ways to get a missing name, from the narrowest:
 
