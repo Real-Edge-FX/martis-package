@@ -386,10 +386,11 @@ class LensController extends MartisController
     }
 
     /**
-     * Resolve the fields declared by the lens for index rendering. When
-     * the lens returns an empty list, fall back to the parent resource's
-     * index fields so that developers can opt into full parity without
-     * redeclaring columns.
+     * Resolve the fields declared by the lens for index rendering: its own
+     * `fields()`, shown on the index, without the fields the user cannot
+     * see. A lens that declares none has no columns; it does not inherit
+     * the parent resource's index fields, which would leak the resource's
+     * columns into the lens view (see docs/lenses.md, `meta.fields`).
      *
      * @return list<Field>
      */
