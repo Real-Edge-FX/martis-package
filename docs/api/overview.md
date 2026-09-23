@@ -88,7 +88,7 @@ Content-Type: application/json
 
 ## Resource Endpoints
 
-The list of registered resources lives in the [Navigation endpoint](#navigation-endpoint) (`/api/navigation`). Each entry carries the `uriKey` you use below.
+The list of registered resources lives in the [Navigation endpoint](#navigation-endpoints) (`/api/navigation`). Each entry carries the `uriKey` you use below.
 
 ### Index (List Records)
 
@@ -236,9 +236,10 @@ Per-resource and per-row action execution.
 | `GET` | `/martis/api/resources/{resource}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares, read from the action's `fields()` (v1.38.0). Gated on `viewAny` of the resource, the action's `canSee()` and `viewAny` of the related resource. |
 | `POST` | `/martis/api/resources/{resource}/actions/{action}` | Run a bulk / standalone action. |
 | `POST` | `/martis/api/resources/{resource}/{id}/actions/{action}` | Run an inline (per-row) action. |
-| `GET` | `/martis/api/resources/{resource}/{id}/belongs-to-many/{rel}/actions` | Pivot-row actions list. |
+| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions` | Pivot-row actions list. |
+| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/fields` | Field schema of a pivot action (v1.38.0). |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` a pivot action declares, behind the panel's pivot action gates, with the parent resource as the source of the relatable hooks (v1.38.0). |
-| `POST` | `/martis/api/resources/{resource}/{id}/belongs-to-many/{rel}/actions/{action}` | Run a pivot-row action. |
+| `POST` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}` | Run a pivot-row action: a dry run (`dryRun: true` with `withDryRun()`) answers `{ preview }`, a `ShouldQueue` action is queued, and the run is written to the action event log (v1.38.0). Gated on the parent's `runAction` / `runDestructiveAction` policy ability like a resource action. |
 
 ## Translation Endpoint
 

@@ -368,7 +368,7 @@ are for `help()`.
 
 A `Tooltip` field class was deliberately rejected — a `Field`
 represents a value, not a decoration. See
-[Fields → Tooltips](fields.md#tooltips) for the full rationale and the
+[Fields → Tooltips](fields.md#tooltips-martis-differential) for the full rationale and the
 `tooltip()` vs `help()` decision matrix.
 
 ### Icon — Phosphor picker
@@ -629,7 +629,7 @@ Tooltip limitations:
 - Works reliably with dynamically rendered elements (conditional buttons, pills, drawers).
 - No tooltip "skip" when hovering quickly between adjacent items (e.g. sidebar menu).
 - Instant switch between targets without delay when moving between tooltip elements.
-- First hover uses 300ms delay; subsequent hovers between targets are immediate.
+- First hover uses a 500 ms delay; subsequent hovers between targets are immediate.
 
 All elements use `data-pr-tooltip` and `data-pr-position` attributes:
 
@@ -695,7 +695,7 @@ class RecentDeploys extends ActivityFeedMetric
 ```
 
 Generator: `php artisan martis:activity-feed`. Full reference in
-[metrics.md](metrics.md#activity-feed-metric).
+[metrics.md](metrics.md#activity-feed-metric-martis-extension).
 
 ### `EndpointTableMetric`
 
@@ -716,7 +716,7 @@ class TopEndpoints extends EndpointTableMetric
 ```
 
 Generator: `php artisan martis:endpoint-table`. Full reference in
-[metrics.md](metrics.md#endpoint-table-metric).
+[metrics.md](metrics.md#endpoint-table-metric-martis-extension).
 
 ### Trend sparkline mode
 

@@ -206,7 +206,7 @@ BelongsTo::make('Owner', 'owner', \App\Martis\UserResource::class)
     ->relationSearchable(),
 ```
 
-`relationSearchable()` is shipped on `BelongsTo`, `MorphTo`, `HasMany`, `MorphMany`, and `Tag`. It tells the global search to issue a `whereHas` against the related table's title attribute (or the columns you explicitly opt in via the resource's `searchableRelations()`). See [Fields](fields.md#searchable) for the full search behaviour.
+`relationSearchable()` is shipped on `BelongsTo`, `MorphTo`, `HasMany`, `MorphMany`, and `Tag`. It tells the global search to issue a `whereHas` against the related table's title attribute (or the columns you explicitly opt in via the resource's `searchableRelations()`). See [Fields](fields.md#sortable--searchable) for the full search behaviour.
 
 ## Theme and components
 

@@ -314,7 +314,7 @@ On update a field is validated only when the request sends it. The controller dr
 Text::make('code')
     ->required()   // dropped on update: an update may omit `code`
     ->rules([
-        // `$this->model` is the record being edited (null on create).
+        // `$this->model` is the record being edited (unsaved, or null, on create).
         Rule::unique('invoices', 'code')->ignore($this->model?->getKey()),
         function (string $attribute, mixed $value, Closure $fail): void {
             if (str_contains((string) $value, ' ')) {
@@ -324,7 +324,7 @@ Text::make('code')
     ]);
 ```
 
-This holds on every update endpoint: the resource's own PUT, the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the pivot update of a `BelongsToMany` / `MorphToMany`. A record edited from its parent's detail page is validated exactly like the same record edited on its own page. Take the record to ignore from `$this->model`, not from the route: on the relationship endpoints the `{id}` route parameter is the parent's id.
+This holds on every update endpoint: the resource's own PUT, the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the pivot update of a `BelongsToMany` / `MorphToMany`. A record edited from its parent's detail page is validated exactly like the same record edited on its own page. Take the record to ignore from `$this->model`, not from the route: on the relationship endpoints the `{id}` route parameter is the parent's id. On a pivot update `$this->model` is the parent record; the pivot row is the route's `{relatedId}`.
 
 Up to v1.37.3 the relationship endpoints validated less. The pivot update kept string rules only (every rule object and closure was skipped); the inline updates skipped closures and `Rule::enum()` / `Rule::requiredIf()` objects and answered any update of a related resource that declares a `ValidationRule` instance with a 500; and no relationship endpoint applied `creationRules()` / `updateRules()`.
 
@@ -342,7 +342,7 @@ The forms follow the same split. The update forms render an immutable field read
 
 Every bundled input renders a readonly field read-only, so the lock holds whatever the field type. The inputs with more than one control lock each of them: `Avatar` shows the stored image with the picker disabled and no Choose file / Remove buttons; `BooleanGroup` disables every checkbox; `Repeater` shows its rows (the collapse toggles still work) with read-only row fields and no control that adds, removes, duplicates, reorders or pastes rows; `File` / `Image` keep their download links and previews, drop the remove and Change buttons, disable the picker and ignore a dropped file; `Audio` keeps its player, drops the Replace and Remove buttons, disables the picker and ignores a dropped file. A file dropped on a readonly `File`, `Image` or `Audio` input is still cancelled, so the browser does not open it in place of the form. Up to v1.37.3 `Avatar`, `BooleanGroup`, `Repeater`, `File` and `Image` ignored `readonly()` (`File` / `Image` only disabled their hidden file input), so a readonly field of those types took a change in the form that the save then dropped (200, column unchanged), and a file dropped on a readonly `Audio` field was not cancelled: the browser opened it in the tab and left the form.
 
-The pivot endpoints write the pivot row without going through `fill()`, so they apply `readonly()` themselves as well: a readonly pivot field (in the `fields()` of a `BelongsToMany` / `MorphToMany`) never takes its value from the request. The attach stores its `default()` instead, as it does for any pivot field the request omits, and the pivot update leaves the column alone. See [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
+The pivot endpoints write each pivot field (in the `fields()` of a `BelongsToMany` / `MorphToMany`) through its `fill()`, and `readonly()` holds there too: a readonly pivot field never takes its value from the request. The attach stores its `default()` instead, as it does for any pivot field the request omits, and the pivot update leaves the column alone. See [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
 
 Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` and the pivot update wrote it like any other field, and the attach and the pivot update also wrote a readonly pivot field from the request.
 
@@ -2577,13 +2577,13 @@ KeyValue::make('metadata', 'Metadata')
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
 | `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys. | `false` |
 | `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows. | `false` |
-| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button. | `false` |
+| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button. v1.38.0+. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
 | `getActionText` | `getActionText(): string` | `string` | Get action text. | — |
 | `isEditingKeysDisabled` | `isEditingKeysDisabled(): bool` | `bool` | Check if key editing disabled. | — |
 | `isAddingRowsDisabled` | `isAddingRowsDisabled(): bool` | `bool` | Check if adding disabled. | — |
-| `isDeletingRowsDisabled` | `isDeletingRowsDisabled(): bool` | `bool` | Check if deleting disabled. | — |
+| `isDeletingRowsDisabled` | `isDeletingRowsDisabled(): bool` | `bool` | Check if deleting disabled. v1.38.0+. | — |
 
 **A fixed set of keys.** The three `disable*` flags are independent. To present
 a map whose keys are fixed and only the values are editable (opening hours per

@@ -668,7 +668,7 @@ export function StatusFilter() {
 escape a clipped/overflow-hidden container — the extension's React shim is
 React-core-only, so `react-dom`'s portal is exposed through the runtime.
 
-### Naming the record of the relationship panels (v1.38.0)
+### Naming the record of the relationship panels (v1.38.0+)
 
 A relationship field rendered through `FieldDisplay` or `FieldInput` (a
 `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany` panel, a `HasOne` /

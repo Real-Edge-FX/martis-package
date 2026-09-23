@@ -8,9 +8,9 @@ page-builder-style layouts.
 
 - [Quick start](#quick-start)
 - [Storage modes](#storage-modes)
-  - [JSON](#json-mode-asjson)
-  - [HasMany](#hasmany-mode-ashasmany)
-  - [Polymorphic ⭐](#polymorphic-mode-aspolymorphic-)
+  - [JSON](#json-mode--asjson)
+  - [HasMany](#hasmany-mode--ashasmany)
+  - [Polymorphic ⭐](#polymorphic-mode--aspolymorphic-)
 - [Writing a Repeatable](#writing-a-repeatable)
 - [Core API](#core-api)
 - [⭐ Martis differentials](#-martis-differentials)
@@ -300,7 +300,7 @@ field attributes.
 
 ### Polymorphic storage
 
-See [Polymorphic mode](#polymorphic-mode-aspolymorphic-). One table holds
+See [Polymorphic mode](#polymorphic-mode--aspolymorphic-). One table holds
 every row type — ideal for page-builder-style layouts.
 
 ## Validation

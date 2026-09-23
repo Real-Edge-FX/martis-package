@@ -5,7 +5,7 @@ detail pages: **Panels**, **Tabs**, and **Sections**.
 
 - **Panel** — a visual grouping with a title bar, optional description, collapsible, and a Show more limit.
 - **TabGroup / Tab** — navigable sections; each Tab holds fields and/or Panels.
-- **Section** — a configurable CSS grid for multi-column form layouts with `Field::span()`. Covered in [Grid Layout](/docs/core/grid-layout).
+- **Section** — a configurable CSS grid for multi-column form layouts with `Field::span()`. Covered in [Grid Layout](grid-layout.md).
 
 ---
 
@@ -264,7 +264,7 @@ It does not appear in `fields()` (index) — fields are always flattened for the
 | `fieldsForUpdate`  | ✅    | ✅       | ✅                  | ✅               | ✅      |
 | `fieldsForDetail`  | ✅    | ✅       | ✅                  | ✅               | ✅      |
 
-Section cannot be nested inside a Tab (Tab accepts `FieldContract|Panel` only). See [Grid Layout](/docs/core/grid-layout) for the Section API.
+Section cannot be nested inside a Tab (Tab accepts `FieldContract|Panel` only). See [Grid Layout](grid-layout.md) for the Section API.
 
 ### Relationship panels inside layout containers
 

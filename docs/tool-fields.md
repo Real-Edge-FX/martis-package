@@ -313,7 +313,7 @@ Also exported from `@martis/runtime` so you can type your options and results wi
 Two operational caveats carry over from composing native field components. They are documented in full in [overrides.md §5.A "Composing native field components"](overrides.md#5a-composing-native-field-components-v1140); the short version:
 
 1. **A consumer bundle hosted outside the Martis shell must load the published `martis.css`.** Field components rely on the `martis-*` class namespace. If your Tool renders inside Martis pages (the normal case — registered via `componentRegistry`) you inherit the styles for free. A bundle running outside the shell must also load `vendor/martis/assets/app-*.css`, or the fields render unstyled.
-2. **`BelongsTo` outside a resource form needs `related_resource`.** Without a parent resource context, `BelongsTo` resolves options against a synthetic endpoint and needs the target resource's `uriKey` on its `FieldDefinition` (`related_resource`). For pure enum dropdowns prefer `select` — it has no async dependency and works anywhere. Binding a `resourceKey` (Mode C) is the cleaner path when the field belongs to a real Resource.
+2. **Relation pickers take their scope from the props you pass.** `BelongsTo`, `MorphTo` and `Tag` scope their options with `resourceKey` / `recordId`, or `actionEndpoint` in a custom Action component. With no resource at all, the `FieldDefinition` must carry `relatedResource` (the target resource's `uriKey`). For pure enum dropdowns prefer `select`.
 
 ## Compatibility
 

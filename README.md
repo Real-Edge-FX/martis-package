@@ -136,8 +136,8 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | Document | Description |
 |----------|-------------|
 | [Installation Guide](docs/installation-guide.md) | Step-by-step: Composer, assets, config, first resource |
-| [Quick Start](docs/setup/quickstart.md) | Dev workflow, hot reload, first CRUD |
-| [Troubleshooting](docs/setup/troubleshooting.md) | Common issues and solutions |
+| [Quick Start](docs/quick-start.md) | A first resource with a working CRUD in five minutes |
+| [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |
 
 ### Core Concepts
 
@@ -173,12 +173,10 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | [Configuration](docs/configuration.md) | Complete `config/martis.php` reference + host `MartisServiceProvider` for code-side registrations |
 | [Loader](docs/loader.md) | Page loader configuration and customization |
 
-### Architecture & API
+### API
 
 | Document | Description |
 |----------|-------------|
-| [Technology Stack](docs/architecture/stack.md) | PHP, Laravel, React, PrimeReact, Tailwind, Vite, testing tools |
-| [Architectural Decisions](docs/architecture/decisions.md) | ADRs: why Inertia, why PrimeReact, why contracts |
 | [REST API Overview](docs/api/overview.md) | All endpoints, request/response formats, authentication, error handling |
 
 ### Project Status
@@ -186,7 +184,6 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | Document | Description |
 |----------|-------------|
 | [Martis Differentials](docs/differentials.md) | All Martis-only features grouped by subsystem |
-| [Release Process](docs/release-process.md) | Tag creation playbook |
 | [Documentation Index](docs/README.md) | Full docs hub with quick links |
 
 ## Tech Stack
