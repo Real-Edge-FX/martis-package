@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useId, useRef } from "react"
 import { createPortal } from "react-dom"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
 import { EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
@@ -219,7 +219,10 @@ export function TrixFieldInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLElement | null>(null)
   const hiddenInputRef = useRef<HTMLInputElement | null>(null)
-  const inputId = `trix-input-${field.attribute}`
+  // Trix finds its hidden input by id in the whole document, so the id is
+  // unique per editor: another editor for the same attribute (the next row
+  // of a Repeater, an inline-create modal over the form) has its own input.
+  const inputId = `trix-input-${field.attribute}-${useId().replace(/:/g, "")}`
   const lastPropValue = useRef<string>("")
   const internalUpdate = useRef(false)
 
