@@ -20,8 +20,8 @@ namespace Martis\Fields;
  *    dependent fields system — live change reporting is not supported.
  *
  * API:
- *  - loadingWhen(['value1', 'value2'])  — valores que renderizam spinner de loading
- *  - failedWhen(['value1', 'value2'])   — valores que renderizam indicador de erro
+ *  - loadingWhen(['value1', 'value2']): values that render the loading spinner
+ *  - failedWhen(['value1', 'value2']): values that render the error indicator
  *
  * Unlisted values are rendered as "success" state (completed).
  */

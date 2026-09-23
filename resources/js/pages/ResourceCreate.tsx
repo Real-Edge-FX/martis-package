@@ -70,10 +70,9 @@ function CreateTargetPage() {
   usePageTitle(schema ? `${tNav('create', { defaultValue: 'Create' })} ${schema.singularLabel}` : null)
   const rawFormFields = schema?.fieldsForCreate ?? NO_FIELDS
 
-  // Marca a FK do pai como readonly quando criamos via rela\u00e7\u00e3o
-  // aninhada: o utilizador n\u00e3o deve poder mudar o pai —
-  // s\u00f3 ver o seu nome. Deep-walk para apanhar o campo mesmo
-  // dentro de Panel/Section/TabGroup.
+  // Mark the parent's FK readonly when creating through a nested relation:
+  // the user must not change the parent, only see its name. Deep-walk so the
+  // field is found inside a Panel / Section / TabGroup too.
   const allFormFields = useMemo(() => {
     if (!isViaRelation) return rawFormFields
     const walk = (fields: unknown[]): unknown[] =>
