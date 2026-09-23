@@ -122,6 +122,12 @@ class PostPolicy
         return $this->update($user, $post);
     }
 
+    // Optional: whether the user may attach any tag to this post at all
+    public function attachAnyTag(User $user, Post $post): bool
+    {
+        return $this->update($user, $post);
+    }
+
     // Optional — attach / detach on belongsToMany / morphToMany
     public function attachTag(User $user, Post $post, \App\Models\Tag $tag): bool
     {
@@ -168,6 +174,17 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   target resource's policy**. The inline "Create Related" button is
   automatically hidden when the current user cannot create the target
   resource, independent of the `showCreateRelationButton()` toggle.
+- `BelongsToMany` / `MorphToMany` attach: `attachAny{Model}`
+  (`authorizedToAttachAny()`) gates the attach as a whole. When it
+  denies, the list of records to attach (`.../attachable`), the attach
+  itself (one record or several) and the pickers of the attach modal's
+  pivot fields answer 403 (v1.38.0+). When it allows, `attach{Model}`
+  decides per record (a batch attach skips the records it denies),
+  `detach{Model}` decides the detach, and `updatePivot{Model}` (falling
+  back to `update`) the pivot update and the pickers of the pivot edit
+  modal. The Attach button follows the field's `canAttach()` toggle.
+  Before v1.38.0 the attach and the list of records to attach did not
+  check `attachAny{Model}`, so a user it denied could still attach.
 
 ## UI flag contract
 

@@ -1091,7 +1091,7 @@ Override these directly on a Resource to hardcode behaviour without writing a Po
 |---------|----------|-------------------|
 | `add{Model}` | Inline create related record | allowed |
 | `attach{Model}` | Attach specific related record | allowed |
-| `attachAny{Model}` | Show attach button | allowed |
+| `attachAny{Model}` | Attach at all: the list of records to attach, the attach and the attach modal's pivot pickers answer 403 when it denies (v1.38.0+) | allowed |
 | `detach{Model}` | Detach related record | allowed |
 
 ### Authorization Metadata

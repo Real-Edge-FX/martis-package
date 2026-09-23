@@ -150,11 +150,16 @@ class MorphToManyController extends MartisController
         }
 
         [
+            'parentModel' => $parentModel,
             'parentResourceClass' => $parentResourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
             'field' => $field,
         ] = $ctx;
+
+        if (! $this->canAttachAnyRelated($request, $parentModel, $ctx)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
 
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
@@ -261,6 +266,12 @@ class MorphToManyController extends MartisController
             'relation' => $relation,
             'field' => $field,
         ] = $ctx;
+
+        // The parent-level ability first: a user who may attach no record
+        // of the related model attaches none, one or several.
+        if (! $this->canAttachAnyRelated($request, $parentModel, $ctx)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
 
         // Accept related_ids (array) or related_id (single)
         $relatedIds = $request->input('related_ids');
@@ -636,6 +647,22 @@ class MorphToManyController extends MartisController
             static fn (Field $f): string => $f->attribute(),
             $field->getPivotFields(),
         );
+    }
+
+    /**
+     * Whether the user may attach any record of the related model to the
+     * parent: `authorizedToAttachAny()`, the `attachAny{Model}` policy
+     * ability (permitted when the policy does not define it). The list of
+     * records to attach, the attach modal's pivot pickers and the attach
+     * need it; `canAttachRelated()` then decides per record.
+     *
+     * @param  array{relation: EloquentMorphToMany<Model, Model>, parentResourceClass: class-string<\Martis\Resource>}  $ctx
+     */
+    private function canAttachAnyRelated(Request $request, Model $parentModel, array $ctx): bool
+    {
+        $parentInstance = new $ctx['parentResourceClass']($parentModel);
+
+        return $parentInstance->authorizedToAttachAny($request, $ctx['relation']->getRelated()::class);
     }
 
     /**

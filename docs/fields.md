@@ -1897,7 +1897,7 @@ public function authorizedToDetach(Request $request, Model $related): bool
 }
 ```
 
-If these methods are not defined, the field falls back to `authorizedToUpdate()`.
+Without an override they ask the parent's policy (`attach{Model}`, `detach{Model}`; permitted when the policy does not define them). `attachAny{Model}` (`authorizedToAttachAny()`) gates the attach as a whole: when it denies, the list of records to attach, the attach and the attach modal's pivot pickers answer 403 (v1.38.0+). See [Relationships → Authorization](relationships.md#authorization).
 
 **Overrides:**
 - `resolve()` returns `null` on the detail page (data is loaded via API endpoints), or the count (integer) when shown on index.

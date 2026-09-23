@@ -307,7 +307,7 @@ BelongsToMany::make('Members', 'members')
 
 The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `indexQuery()`, `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
 
-- the attach modal needs `authorizedToAttachAny()` for the related model (the `attachAny{Model}` policy ability): no record is picked yet, and the attach checks `attach{Model}` for each one;
+- the attach modal needs `authorizedToAttachAny()` for the related model (the `attachAny{Model}` policy ability), as the list of records to attach and the attach itself do: no record is picked yet, and the attach then checks `attach{Model}` for each one;
 - the pivot edit modal needs `authorizedToUpdatePivot()` for that record (`updatePivot{Model}`, falling back to `update`), as the pivot update does.
 
 Then, like every picker, `viewAny` on the related resource. An attribute the relationship does not declare as a `BelongsTo`, `MorphTo` or `Tag` pivot field, an unknown relationship, a missing parent, or a `{relatedId}` the relationship does not attach answer 404.
@@ -372,7 +372,9 @@ public function authorizedToDetach(Request $request, Model $related): bool
 }
 ```
 
-If these methods are absent, the framework falls back to `authorizedToUpdate()`.
+Without an override they ask the parent's policy: `attach{Model}` and `detach{Model}`, permitted when the policy does not define them. Before any record is picked, `authorizedToAttachAny()` (the `attachAny{Model}` ability, permitted when undefined) gates the attach as a whole: when it denies, the list of records to attach (`.../attachable`), the attach itself and the pickers of the attach modal's pivot fields answer 403, while the detach and the pivot update keep their own abilities. The pivot update asks `authorizedToUpdatePivot()` (`updatePivot{Model}`, falling back to `update`).
+
+> Before v1.38.0 the attach and the list of records to attach did not check `attachAny{Model}`: a user it denied could still attach.
 
 ### API Endpoints
 
@@ -698,6 +700,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `attachAny{Model}` gates the list of records to attach, the attach and the attach modal's pivot pickers; `attach{Model}` then decides per record | n/a | n/a | ✅ | n/a | n/a | ✅ |
 
 ### Pivot data API (BelongsToMany & MorphToMany)
 
@@ -841,6 +844,7 @@ Per-type feature tests:
 - `tests/Feature/ActionRelatableEndpointTest.php` (13) — `BelongsTo`, `MorphTo` and `Tag` pickers of an Action modal: the Action's declaration (related resource, `relatableQueryUsing()`) over the resource's, the relatable hooks, search, 404 for what the Action does not declare, and the `viewAny` / `canSee()` gates.
 - `tests/Feature/PivotActionRelatableEndpointTest.php` (12) — the same pickers in a pivot action modal, on `BelongsToMany` and `MorphToMany` panels: field actions and resource `pivotAction()` ones, the parent resource's relatable hooks, and 404 for an action the panel does not offer, an undeclared attribute or relationship, or a missing parent.
 - `tests/Feature/PivotFieldRelatableEndpointTest.php` (40): the same pickers among the pivot fields, in the attach modal and the pivot edit modal of both panels: the pivot field's declaration and `relatableQueryUsing()`, the parent resource's relatable hooks, search, a Repeater row among the pivot fields, 404 for an undeclared attribute or relationship, a missing parent and a related record the relationship does not attach, and the `viewAny` / `view` / `attachAny{Model}` / `updatePivot{Model}` gates.
+- `tests/Feature/AttachAnyGateTest.php` (8): `attachAny{Model}` on both panels, refusing the attach (one record or several) and the list of records to attach while leaving the detach and the pivot update alone, and `attach{Model}` still deciding per record when it allows.
 - `tests/Feature/RepeaterRowFieldLookupTest.php` (21): pickers and a remote `Select` declared in a Repeater's row types, read from the row the request names (`repeater` + `repeatable`) on the create and update forms, an Action's fields and a Tool's fields: two row types declaring the same attribute, search, the relatable hooks, 404 for an unknown Repeater, row type or attribute, and the `viewAny` gates.
 
 ---

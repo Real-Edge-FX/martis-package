@@ -156,6 +156,10 @@ class BelongsToManyController extends MartisController
             'field' => $field,
         ] = $ctx;
 
+        if (! $this->canAttachAny($request, $parentModel, $ctx)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
@@ -266,6 +270,12 @@ class BelongsToManyController extends MartisController
             'relation' => $relation,
             'field' => $field,
         ] = $ctx;
+
+        // The parent-level ability first: a user who may attach no record
+        // of the related model attaches none, one or several.
+        if (! $this->canAttachAny($request, $parentModel, $ctx)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
 
         // Accept related_ids (array) or related_id (single)
         $relatedIds = $request->input('related_ids');
@@ -686,6 +696,22 @@ class BelongsToManyController extends MartisController
         }
 
         return $out;
+    }
+
+    /**
+     * Whether the user may attach any record of the related model to the
+     * parent: `authorizedToAttachAny()`, the `attachAny{Model}` policy
+     * ability (permitted when the policy does not define it). The list of
+     * records to attach, the attach modal's pivot pickers and the attach
+     * need it; `canAttach()` then decides per record.
+     *
+     * @param  array{relation: EloquentBelongsToMany<Model, Model>, parentResourceClass: class-string<\Martis\Resource>}  $ctx
+     */
+    private function canAttachAny(Request $request, Model $parentModel, array $ctx): bool
+    {
+        $parentInstance = new $ctx['parentResourceClass']($parentModel);
+
+        return $parentInstance->authorizedToAttachAny($request, $ctx['relation']->getRelated()::class);
     }
 
     /**
