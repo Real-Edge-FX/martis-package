@@ -289,7 +289,18 @@ edits. The guard intercepts:
 - The drawer close button, backdrop click and ESC
 - The browser back button
 - Clicks on breadcrumb / in-app router links
-- Tab close / hard reload (via `beforeunload`)
+
+Tab close and hard reload are not intercepted: the guard wires no
+`beforeunload` prompt, which doubled up with its own dialog.
+
+On the full-page routes the guard holds the browser back button only
+while the form has unsaved changes (v1.38.0+). A clean form leaves the
+history alone, so Back and Forward move between pages as on any other
+page; once the user has typed something, Back asks first, and leaving
+the page after that can drop the Forward history, as editing a page does
+in any browser. Before v1.38.0 every visit to a create or edit page
+added an entry to the history, which erased the pages the user could go
+Forward to, and a clean form could make Back skip the previous page.
 
 Opt in via `Resource::confirmUnsavedChanges()`:
 

@@ -93,14 +93,28 @@ resource uses a drawer override or the page-based create/update flow.
 
 **Implementation**
 
-- **Browser back/forward** — handled via a history *sentinel* pushed on
-  mount plus a **capture-phase popstate listener** that calls
-  `stopImmediatePropagation()`. This prevents React Router from ever
-  seeing the pop, avoiding the v6 URL-flicker bug. The sentinel is
-  re-armed the moment the dialog opens, so repeated back presses while
-  the dialog is visible stay trapped. On confirm the guard pops the
-  re-armed sentinel (drawer: one `back()`; page: `go(-2)` for sentinel
-  + real entry).
+- **Browser back/forward** — a drawer pushes a history *sentinel* while
+  it is open. A full-page form pushes one only once it has unsaved
+  changes (v1.38.0+): a copy of the page's own history entry (same URL,
+  same router `key` and `idx`) flagged as the guard's, so a clean form
+  leaves the history alone and Back and Forward move between pages as
+  anywhere else. Back from the sentinel lands on the page's entry, which
+  a **capture-phase popstate listener** recognises and keeps from React
+  Router with `stopImmediatePropagation()`, avoiding the v6 URL-flicker
+  bug; every other pop belongs to the router, or to the modal or drawer
+  on top. The sentinel is re-armed the moment the dialog opens, so
+  repeated back presses while the dialog is visible stay trapped. On
+  confirm the guard pops the re-armed sentinel (drawer: one `back()`;
+  page: `go(-2)` for sentinel + real entry); changes saved since the
+  sentinel was pushed let the back press carry on to the previous page.
+  A page left with its sentinel on top (a save that redirects, a
+  confirmed link) adopts that sentinel when Back returns to it, so the
+  next Back walks past the page in one press. Before v1.38.0 the page
+  pushed its sentinel on every mount, including a return by Back or
+  Forward: that erased the Forward history, and a clean form took every
+  pop for its own sentinel and went back once more, skipping the
+  previous page or leaving the app while the address bar and the page on
+  screen disagreed.
 - **In-app navigation** — `useBlocker` (React Router v6.4 data-router
   API) intercepts `<Link>` clicks and imperative `navigate()` calls.
   Popstate-originated navigations are deliberately ignored

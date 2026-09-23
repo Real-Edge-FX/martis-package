@@ -712,6 +712,8 @@ See [Default Row Actions — Row-click redundancy](default_row_actions.md#row-cl
 
 Martis differential. Opts the create/update surfaces — both drawer overrides and full-page create/update routes — into the **UnsavedChangesDialog**. When the user tries to discard changes (close the drawer, navigate away, click Cancel), the dialog asks for confirmation.
 
+On the full-page routes the browser back button is held only while the form has unsaved changes (v1.38.0+); a clean form leaves Back and Forward working as on any other page. Before v1.38.0 opening a create or edit page erased the Forward history, and Back could skip the previous page. See [Overrides → Unsaved changes guard](overrides.md#unsaved-changes-guard).
+
 ```php
 // Enable with package defaults (generic copy).
 public static function confirmUnsavedChanges(): bool

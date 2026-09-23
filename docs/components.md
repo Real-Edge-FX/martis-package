@@ -724,7 +724,7 @@ function MyForm({ schema, initialValues }) {
 | `schema` | `ResourceSchema \| undefined` | Resource schema. The hook reads `schema.confirmUnsavedChanges` to decide whether to engage. |
 | `bypass` | `boolean` | When `true`, suppresses the guard for the next navigation (used after a successful submit). |
 
-The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<Link>` or `useNavigate()` triggers the dialog. It also integrates with the modal-history lock primitives in `resources/js/lib/historyLock.ts` so back-button navigation respects the guard.
+The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<Link>` or `useNavigate()` triggers the dialog. It holds the browser back button only while the form is dirty (v1.38.0+): the first render where `values` differ from `initialSnapshot` pushes a copy of the page's history entry, and the Back press that removes it opens the dialog. A clean form leaves the history alone, so Back and Forward work as on any other page. It also integrates with the modal-history lock primitives in `resources/js/lib/historyLock.ts`: a modal open over the form keeps the back button, and a form that turns dirty while a modal holds the top history entry is guarded once the modal closes. Before v1.38.0 the hook pushed its history entry on mount, which erased the Forward history and could make Back skip a page.
 
 ## useError Hook
 
