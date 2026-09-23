@@ -117,10 +117,11 @@ function CreateTargetPage() {
   // internally and exposes `resolvedFields`). The page keeps only the
   // page-level concerns below.
 
-  // Pre-fill form with replicated values when data loads
+  // Pre-fill form with replicated values when data loads. A copy that carries
+  // no values starts from an empty form, so the fields still mount.
   useEffect(() => {
-    if (isReplicate && replicateQuery.data?.data?.values && !replicateApplied) {
-      form.setValues(replicateQuery.data.data.values)
+    if (isReplicate && replicateQuery.data && !replicateApplied) {
+      form.setValues(replicateQuery.data.data?.values ?? {})
       setReplicateApplied(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -351,6 +352,13 @@ function CreateTargetPage() {
       return <C {...overrideProps} />
     }
   }
+
+  // The copy fills the form in an effect after the replicate query resolves.
+  // Mount the fields only then, as Nova's Replicate view does, so every input
+  // starts from the copied value (an input that reads its value at mount
+  // would otherwise see an empty form, and a slug would take the copy for
+  // its title changing).
+  if (isReplicate && !replicateApplied) return <FormSkeleton />
 
   return (
     <div className="space-y-6">

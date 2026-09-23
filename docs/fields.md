@@ -1374,7 +1374,7 @@ Slug::make('slug')
 - `isLockedFor(?Model $model): bool` — Query the lock condition directly.
 
 **⭐ Martis extensions (UI, automatic):**
-- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration), until the slug is edited by hand. On an edit form (the update page or the update drawer) a stored slug counts as set: changing the source leaves it alone, so renaming a record does not silently change its URL. Edit the slug directly, or clear it (a `nullable()` slug shows a clear button) to regenerate it from the source and follow it again.
+- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration), until the slug is edited by hand. On a create form, a replicated record included, the slug follows the source from the source's first change, as in Nova: the slug the form opens with, copied or empty, stays until then (v1.38.0+). On an edit form (the update page or the update drawer) a stored slug counts as set: changing the source leaves it alone, so renaming a record does not silently change its URL, and an empty stored slug follows the source at once. Edit the slug directly, or clear it (a `nullable()` slug shows a clear button) to regenerate it from the source and follow it again. A slug the user empties by hand stays empty while the source has text, and follows the source again once the source is empty too, so the next record's slug follows its title after "Create & add another" (v1.38.0+). Before v1.38.0 a create form took a slug it opened with for one set by hand, so a replicated slug never followed the title, and filled an empty slug from a source that already had text.
 - **Live collision detection** — debounced probe against
   `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
   Response envelope:
@@ -2937,6 +2937,8 @@ Martis supports resource replication. When a user clicks "Replicate" on a detail
 3. `ResourceCreate` fetches pre-fill data from `GET /api/resources/{resource}/{id}/replicate`
 4. Form is pre-filled with source record values (File fields excluded)
 5. User can modify values and submit to create the new record
+
+The form keeps its loading skeleton until the copied values have filled it, then mounts the fields, as Nova's Replicate view does, so every input starts from the copy (v1.38.0+). A response without `values` opens an empty form, and a failed request shows the error page. A copied `Slug` stays as copied until the title changes, and then follows it (see [Slug](#slug)). Before v1.38.0 the fields mounted empty and received the copy one render later: an input that reads its value when it mounts showed nothing of it, and the copied slug was replaced at once by one made from the copied title.
 
 ### API Endpoint
 

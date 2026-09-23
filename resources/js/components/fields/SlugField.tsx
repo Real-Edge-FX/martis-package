@@ -134,6 +134,7 @@ export function SlugFieldInput({
   resourceKey,
   recordId,
   formValues,
+  context,
 }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const extras = (field as unknown as { sourceAttribute?: string; separator?: string; reserved?: string[] }) ?? {}
@@ -164,7 +165,14 @@ export function SlugFieldInput({
   const locked = !!field.readonly
 
   const stringValue = value === null || value === undefined ? '' : String(value)
-  const [manuallyEdited, setManuallyEdited] = useState<boolean>(stringValue !== '')
+  // A create form (a replicated copy or a default included) follows the
+  // source from its first change, like Nova's Slug, and keeps the slug it
+  // mounts with until then. Anywhere else (an edit form, or a form that names
+  // no context, such as a pivot edit) a slug present at mount counts as set,
+  // so renaming a record does not change its URL, and an empty one follows
+  // the source at once.
+  const creating = context === 'create'
+  const [manuallyEdited, setManuallyEdited] = useState<boolean>(!creating && stringValue !== '')
   const [checkState, setCheckState] = useState<CheckState>({ kind: 'idle' })
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -211,19 +219,28 @@ export function SlugFieldInput({
 
   // ⭐ D1 — Live preview: auto-generate from the source field as the user types
   // in the source input. We stop auto-generating once the user has typed into
-  // the slug input directly (detected via `manuallyEdited`).
+  // the slug input directly (detected via `manuallyEdited`). On a create form
+  // only a change counts: the source and the hand-edited flag as the previous
+  // run saw them tell a mount (no change, so the slug it mounts with stays)
+  // from a new title or a slug the user cleared.
+  const lastSourceRef = useRef<unknown>(source)
+  const lastManuallyEditedRef = useRef(manuallyEdited)
   useEffect(() => {
+    const sourceChanged = source !== lastSourceRef.current
+    const handEditCleared = lastManuallyEditedRef.current && !manuallyEdited
+    lastSourceRef.current = source
+    lastManuallyEditedRef.current = manuallyEdited
     if (locked) return
     if (manuallyEdited) return
     if (!sourceAttribute) return
-    const source = formValues?.[sourceAttribute]
+    if (creating && !sourceChanged && !handEditCleared) return
     if (typeof source !== 'string' || source === '') return
     const generated = slugify(source, separator)
     if (generated !== stringValue) {
       emit(generated === '' ? null : generated)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formValues?.[sourceAttribute ?? ''], sourceAttribute, separator, locked, manuallyEdited])
+  }, [source, sourceAttribute, separator, locked, manuallyEdited])
 
   // ⭐ D2 — Debounced collision check against /api/resources/{resource}/slug-check/{field}.
   useEffect(() => {
