@@ -266,7 +266,14 @@ BelongsToMany::make('Tags', 'tags')
 
 Pivot fields validate with their own rules, like any field: the attach runs `rules()` plus `creationRules()`, and the pivot update runs `rules()` plus `updateRules()` with the literal `required` dropped and `sometimes` first, so a pivot field the update does not send is left alone. Rule objects (`Rule::in()`, `Rule::unique()`), `ValidationRule` instances and closures run on both. See [Fields → What an update validates](fields.md#what-an-update-validates).
 
-Pivot values are written as the request sends them, except where a record field would not be written either. The pivot endpoints write the row without `fill()`, so they apply these rules themselves:
+Each pivot value is written through the pivot field's own `fill()`, run on a pivot model of the relationship's class (the stock `Pivot`, or the class passed to `->using()`), the way a record field is filled and the way Nova fills the pivot. So a pivot field behaves as it does on a record (v1.38.0+):
+
+- a `fillUsing()` callback receives the pivot model and decides what to write (several columns included);
+- a `computed()` field writes nothing;
+- a structured field (`MultiSelect`, `KeyValue`, `BooleanGroup`) is stored as JSON, or handed to the cast of a custom pivot class and encoded once;
+- a `Boolean` stores a boolean, a `BelongsTo` its foreign key column, a `Password` its hash.
+
+On top of `fill()`, the pivot endpoints apply the write rules of the resource endpoints:
 
 - an `immutable()` pivot field is written on attach and skipped on the pivot update;
 - a `readonly()` pivot field never takes its value from the request: the attach stores its `default()` when it has one, and the pivot update leaves the column alone.
@@ -284,7 +291,7 @@ The attach stores the `default()` of every pivot field it does not take from the
 
 A value the request sends for a skipped field still runs the field's rules. A pivot update with nothing left to write (an empty body, or only readonly and immutable values) answers 200 and leaves the row as it was. See [Fields → Immutable fields](fields.md#immutable-fields).
 
-Up to v1.37.3 the attach and the pivot update wrote every pivot value the request sent, readonly and immutable fields included, and a pivot update with nothing to write answered 500 (an `UPDATE` with an empty `SET`) unless the relation declared `withTimestamps()` or `using()`.
+Up to v1.37.3 the attach and the pivot update wrote every pivot value the request sent, readonly and immutable fields included, and a pivot update with nothing to write answered 500 (an `UPDATE` with an empty `SET`) unless the relation declared `withTimestamps()` or `using()`. The values were copied from the request as they came, so a pivot `fillUsing()` never ran, a computed pivot field was written to a column that does not exist and a `MultiSelect` sent its array to the column (both a 500).
 
 ### Pivot Actions
 
@@ -662,6 +669,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Field rules run as on the resource endpoint (rule objects, `ValidationRule`s, closures, `creationRules()` / `updateRules()`) | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
 | `immutable()` fields written on create, skipped on update, as on the resource endpoint | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
 | `readonly()` pivot fields never written from the request (the attach stores their `default()`) | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| Pivot values written through each field's `fill()` (`fillUsing()`, computed, structured fields, custom pivot casts) | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -794,6 +802,7 @@ Per-type feature tests:
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
 - `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.
+- `tests/Feature/PivotFieldFillTest.php` (7) — pivot values written through each field's `fill()` on the attach (single and batch) and the pivot update of both panels: a `fillUsing()` callback, a `MultiSelect`, a computed field and a `Boolean`, plus a custom pivot class that casts a structured field once.
 - `tests/Feature/FormFieldLookupTest.php` (19) — `BelongsTo`, `MorphTo` and `Tag` pickers declared only in `fieldsForCreate()` / `fieldsForUpdate()` / `fieldsForInlineCreate()`, the form declaration winning over `fields()`, the record bound to the update form, the `fields()` fallback and the `viewAny` gate, plus the Slug check, `dependsOn` sync and `Select` search on a form-only field.
 - `tests/Feature/ActionRelatableEndpointTest.php` (13) — `BelongsTo`, `MorphTo` and `Tag` pickers of an Action modal: the Action's declaration (related resource, `relatableQueryUsing()`) over the resource's, the relatable hooks, search, 404 for what the Action does not declare, and the `viewAny` / `canSee()` gates.
 - `tests/Feature/PivotActionRelatableEndpointTest.php` (12) — the same pickers in a pivot action modal, on `BelongsToMany` and `MorphToMany` panels: field actions and resource `pivotAction()` ones, the parent resource's relatable hooks, and 404 for an action the panel does not offer, an undeclared attribute or relationship, or a missing parent.

@@ -305,7 +305,7 @@ class MorphToManyController extends MartisController
         }
 
         // Pivot data
-        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -422,7 +422,7 @@ class MorphToManyController extends MartisController
         }
 
         // Readonly and immutable pivot fields keep their stored value.
-        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true);
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -559,7 +559,7 @@ class MorphToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }

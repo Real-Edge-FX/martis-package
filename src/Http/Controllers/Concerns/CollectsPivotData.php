@@ -2,6 +2,9 @@
 
 namespace Martis\Http\Controllers\Concerns;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -10,12 +13,16 @@ use Martis\Http\Resources\JsonErrorResponse;
 
 /**
  * Validate the pivot fields of an attach or a pivot update and collect the
- * values the request may write to the pivot row.
+ * values to write to the pivot row.
  *
  * The BelongsToMany and MorphToMany controllers write the pivot row through
- * Eloquent's `attach()` and `updateExistingPivot()`, never through
- * `Field::fill()`, so the write rules that `fill()` and the resource
- * controllers apply to a record field are applied here:
+ * Eloquent's `attach()` and `updateExistingPivot()`. The values come from
+ * each pivot field's own `fill()`, run on a pivot model of the relationship's
+ * class (the way Nova fills the pivot), so a pivot field writes what it
+ * writes on a record: a `fillUsing()` callback runs, a computed field writes
+ * nothing, a structured field is encoded (or handed to the pivot class's
+ * cast), a `Boolean` stores a boolean. On top of `fill()`, the write rules
+ * the resource controllers apply to a record field hold here:
  *
  * - a `readonly()` pivot field never takes its value from the request: the
  *   attach stores its `default()` when it has one, as it does for any pivot
@@ -37,9 +44,10 @@ trait CollectsPivotData
      * response of a failed validation.
      *
      * @param  list<mixed>  $pivotFields
+     * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
      * @return array<string, mixed>|IlluminateJsonResponse
      */
-    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate): array|IlluminateJsonResponse
+    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate, EloquentBelongsToMany $relation): array|IlluminateJsonResponse
     {
         $fields = array_values(array_filter($pivotFields, static fn (mixed $field): bool => $field instanceof Field));
 
@@ -60,30 +68,64 @@ trait CollectsPivotData
             }
         }
 
-        $data = [];
+        // A blank pivot of the relationship's own class (pivot values and
+        // the morph type already set), so each field sees the casts it will
+        // be stored through.
+        $pivot = $relation->newPivot();
+        $preset = $pivot->getAttributes();
+
         foreach ($fields as $field) {
             $attribute = $field->attribute();
 
             if ($isUpdate) {
                 if (! $field->isReadonly() && ! $field->isImmutable() && $request->has($attribute)) {
-                    $data[$attribute] = $request->input($attribute);
+                    $field->fill($pivot, $request->input($attribute));
                 }
 
                 continue;
             }
 
             if (! $field->isReadonly() && $request->has($attribute)) {
-                $data[$attribute] = $request->input($attribute);
+                $field->fill($pivot, $request->input($attribute));
 
                 continue;
             }
 
             $default = $field->getDefaultValue();
             if ($default !== null) {
-                $data[$attribute] = $default;
+                // A readonly field takes nothing from the request, but its
+                // default goes through its own fill like any other value.
+                (clone $field)->readonly(false)->fill($pivot, $default);
             }
         }
 
-        return $data;
+        return $this->pivotWriteValues($relation, $pivot, $preset);
+    }
+
+    /**
+     * The attributes the fields set on the pivot, in the form `attach()` and
+     * `updateExistingPivot()` expect: with the stock pivot class Eloquent
+     * writes them as they are, so each keeps its stored value; with a custom
+     * pivot class (`->using()`) Eloquent fills them through the class first,
+     * so a cast attribute goes back as its cast value and is encoded once.
+     *
+     * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
+     * @param  array<string, mixed>  $preset
+     * @return array<string, mixed>
+     */
+    private function pivotWriteValues(EloquentBelongsToMany $relation, Pivot $pivot, array $preset): array
+    {
+        $customClass = $relation->getPivotClass() !== Pivot::class;
+
+        $values = [];
+        foreach ($pivot->getAttributes() as $key => $stored) {
+            if (array_key_exists($key, $preset) && $preset[$key] === $stored) {
+                continue;
+            }
+
+            $values[$key] = $customClass && $pivot->hasCast($key) ? $pivot->getAttribute($key) : $stored;
+        }
+
+        return $values;
     }
 }

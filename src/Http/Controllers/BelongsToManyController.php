@@ -312,7 +312,7 @@ class BelongsToManyController extends MartisController
         }
 
         // Pivot data
-        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -357,7 +357,7 @@ class BelongsToManyController extends MartisController
         $relatedModelClass = $relatedResourceClass::model();
 
         // Pivot data (shared across all records in batch mode)
-        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -518,7 +518,7 @@ class BelongsToManyController extends MartisController
         }
 
         // Readonly and immutable pivot fields keep their stored value.
-        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true);
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
