@@ -467,6 +467,41 @@ public function handle(ActionFields $fields, Collection $models): ActionResponse
 }
 ```
 
+### Fields the request cannot set
+
+As Nova resolves an Action's fields, the run takes a value from the request only for the fields the user may set (v1.38.0+). A field the request cannot set is not validated, and `handle()` receives its `default()` whatever the request sends, or no value at all when it has no default:
+
+| Action field | In the modal | Validated | What `handle()` receives |
+|---|---|---|---|
+| hidden by `canSee()` / `canSeeWhen()` | no | no | its `default()`, or nothing |
+| `readonly()` | yes, read-only | no | its `default()`, or nothing |
+| `computed()` | yes | no | nothing |
+| any other field | yes | yes | the value the request sends |
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Textarea::make('message', 'Message')->required(),
+        // Admins pick the channel; everyone else runs with `email`.
+        Select::make('channel', 'Channel')
+            ->optionsFromMap(['email' => 'Email', 'sms' => 'SMS'])
+            ->default('email')
+            ->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
+        // Shown, never set by the user.
+        Text::make('reference', 'Reference')->readonly()->default(fn () => 'REF-'.now()->format('Ymd')),
+    ];
+}
+```
+
+A user who cannot see `channel` runs the action with `channel` = `email` even when the request says `sms`, and `reference` always holds the server's default.
+
+The rows of a `Repeater` among the fields follow the Repeater's row rules, every row being a new one (an Action stores nothing): a readonly or hidden row field holds its `default()` or nothing, a computed one nothing, and an immutable one the value the row sends. See [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields).
+
+This holds for a resource action and a [pivot action](#pivot-actions), synchronous, dry run or queued (the job receives the same values). A key of `fields` that names no field of the Action reaches `handle()` as sent: a [custom component](#custom-component-martis-extension) posts its own values that way, so check such a value like any other input.
+
+Before v1.38.0 the fields endpoints listed every field of the Action, the run validated every field (a required field the user could not see failed the run) and `handle()` received every value the request sent, a hidden, readonly or computed field and the fields of a Repeater's rows included.
+
 ### Relation fields
 
 `BelongsTo`, `MorphTo` and `Tag` fields work in `fields()` as on a resource form. Their pickers load options from the Action itself, `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}`, which reads the Action's declaration of the field: its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, even when the resource declares a field under the same attribute. The usual [relatable scoping](relationships.md#relatable-scoping-precedence) runs first: the target resource's `relatableQuery()`, then the `relatable{PluralModelName}()` hook of the resource the Action runs on.
@@ -851,7 +886,9 @@ ActionController::execute()
   3. Check canSee() — 403 if unauthorized
   4. Load Eloquent models by the IDs in "resources"
   5. Check canRun() per model — 403 if any unauthorized
-  6. Validate fields against action->fields() rules
+  6. Validate the fields the request may set against their rules
+     (a hidden, readonly or computed field is not validated and gets its
+     default(); see "Fields the request cannot set")
   7. Capture model attribute snapshots (state BEFORE execution)
          │
          ▼
@@ -1278,7 +1315,7 @@ public function actions(Request $request): array
 }
 ```
 
-`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource.
+`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource, and so do the rules for the [fields the request cannot set](#fields-the-request-cannot-set).
 
 Running a pivot action also needs the policy a resource action checks, asked of the record whose relationship panel runs it (v1.38.0+): `runAction` on its resource's policy, falling back to `update`, or for a `DestructiveAction`, `runDestructiveAction`, falling back to `delete`. A user who may only view the parent record cannot run a pivot action on its rows; before v1.38.0 only `canSee()` and `canRun()` gated one.
 
@@ -1302,12 +1339,12 @@ The pivot action routes (see the [API Reference](#api-reference)) resolve `{rela
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/resources/{resource}/actions` | List available actions (filter with `?context=index\|detail\|inline`) |
-| `GET` | `/api/resources/{resource}/actions/{action}/fields` | Get action fields |
+| `GET` | `/api/resources/{resource}/actions/{action}/fields` | Get action fields (without the ones the user cannot see) |
 | `GET` | `/api/resources/{resource}/actions/{action}/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares (see [Relation fields](#relation-fields)) |
 | `POST` | `/api/resources/{resource}/actions/{action}` | Execute action (bulk) |
 | `POST` | `/api/resources/{resource}/{id}/actions/{action}` | Execute action (single record) |
 | `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions` | List the pivot actions of a relationship panel (see [Pivot Actions](#pivot-actions)) |
-| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/fields` | Get pivot action fields |
+| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/fields` | Get pivot action fields (without the ones the user cannot see) |
 | `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the pivot action declares (see [Relation fields](#relation-fields)) |
 | `POST` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}` | Execute a pivot action on attached records (`resources` holds related ids) |
 

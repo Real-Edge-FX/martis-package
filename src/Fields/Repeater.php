@@ -30,6 +30,8 @@ use Ramsey\Uuid\Uuid;
  * on a stored row) keeps the stored row's value, or takes its `default()`
  * on a new row; a field the user cannot see is left out of the schema and
  * of the rows a read gives (see `rowWritesField()`, `visibleRowValues()`).
+ * The rows of a Repeater among an Action's fields are all new rows (see
+ * `protectNewRows()`).
  *
  * The fields inside the rows are validated on the server by every endpoint
  * that writes the Repeater (see `buildRowValidation()`).
@@ -701,6 +703,38 @@ class Repeater extends Field
             if (is_array($row) && $repeatable !== null) {
                 [, $continued] = $this->takeStoredRow($row, $repeatable, $stored);
                 $value[$key] = $this->protectRow($row, $repeatable, $continued, $request);
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * The rows `$value` sends, each written as a new row: nothing is stored
+     * for a row to continue, so each field a row does not take from the
+     * request (readonly, computed, hidden from the user by `canSee()`) holds
+     * its `default()` or is left out (see `protectRowValues()`); an immutable
+     * field keeps the value the row sends, as on any new row. A Repeater
+     * inside a row writes its rows as new JSON rows (see `protectJsonRows()`:
+     * each keeps the id it sends, or gets one). A value that is not a list or
+     * a map, and an entry that is not a row, are returned as sent.
+     *
+     * An Action's fields store nothing: `handle()` receives the rows of a
+     * Repeater among them through this.
+     */
+    public function protectNewRows(mixed $value, ?Request $request = null): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $request ??= $this->safeRequest() ?? Request::create('/');
+
+        foreach ($value as $key => $row) {
+            $repeatable = is_array($row) ? ($this->repeatableForIncomingRow($row) ?? $this->repeatables[0] ?? null) : null;
+
+            if (is_array($row) && $repeatable !== null) {
+                $value[$key] = $this->protectRow($row, $repeatable, null, $request);
             }
         }
 

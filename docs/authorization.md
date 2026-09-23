@@ -180,6 +180,10 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   A field placed directly in a `Tab` is hidden like one anywhere else
   (v1.38.0+; before, a `Tab` ignored `canSee()` on the fields it holds
   directly: they were listed, sent, validated and written).
+  Among an Action's fields too (v1.38.0+): the modal does not list it, the
+  run does not validate it, and `handle()` receives its `default()` or
+  nothing, whatever the request sends. See
+  [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
 - `Field::readonly(bool|Closure)`: renders the field without an editor, and
   the save never takes its value from the request, inside a `Repeater` row
   included (v1.38.0+).

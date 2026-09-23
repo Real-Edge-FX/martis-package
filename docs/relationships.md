@@ -851,6 +851,7 @@ Per-type feature tests:
 - `tests/Feature/PivotFieldRelatableEndpointTest.php` (40): the same pickers among the pivot fields, in the attach modal and the pivot edit modal of both panels: the pivot field's declaration and `relatableQueryUsing()`, the parent resource's relatable hooks, search, a Repeater row among the pivot fields, 404 for an undeclared attribute or relationship, a missing parent and a related record the relationship does not attach, and the `viewAny` / `view` / `attachAny{Model}` / `updatePivot{Model}` gates.
 - `tests/Feature/AttachAnyGateTest.php` (8): `attachAny{Model}` on both panels, refusing the attach (one record or several) and the list of records to attach while leaving the detach and the pivot update alone, and `attach{Model}` still deciding per record when it allows.
 - `tests/Feature/RepeaterRowFieldLookupTest.php` (21): pickers and a remote `Select` declared in a Repeater's row types, read from the row the request names (`repeater` + `repeatable`) on the create and update forms, an Action's fields and a Tool's fields: two row types declaring the same attribute, search, the relatable hooks, 404 for an unknown Repeater, row type or attribute, and the `viewAny` gates.
+- `tests/Feature/ActionFieldVisibilityTest.php` (9): the fields of a resource action and a pivot action the request cannot set (hidden, readonly, computed, and a Repeater's rows) left out of the modal or the validation, and `handle()` receiving their `default()` (the queued job too).
 
 ---
 

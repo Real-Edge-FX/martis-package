@@ -540,8 +540,11 @@ the rows the stored row holds. A Repeater with a `fillUsing()` callback hands
 the callback the rows with these fields already set (the stored values of a
 stored row, the defaults of a new one), read from the rows the Repeater stores
 on the record. A Repeater among an Action's fields has no stored rows: every
-row is a new one, and `handle()` receives the rows as the modal sends them,
-like every Action field value.
+row is a new one, so `handle()` receives each row with its readonly and hidden
+fields at their `default()` (or without them) and without its computed fields,
+whatever the request sends (v1.38.0+; before, `handle()` received the rows as
+the modal sent them). See
+[Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
 
 Before v1.38.0 `readonly()` on a row field only reached the form, and
 `computed()`, `canSee()` and `immutable()` had no effect there: every storage

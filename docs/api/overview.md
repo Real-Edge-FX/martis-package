@@ -236,14 +236,16 @@ Per-resource and per-row action execution.
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/martis/api/resources/{resource}/actions` | List actions visible on the index. |
-| `GET` | `/martis/api/resources/{resource}/actions/{action}/fields` | Confirmation-modal field schema for an action. |
+| `GET` | `/martis/api/resources/{resource}/actions/{action}/fields` | Confirmation-modal field schema for an action, without the fields the user cannot see (v1.38.0). |
 | `GET` | `/martis/api/resources/{resource}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares, read from the action's `fields()` (v1.38.0). Gated on `viewAny` of the resource, the action's `canSee()` and `viewAny` of the related resource. |
 | `POST` | `/martis/api/resources/{resource}/actions/{action}` | Run a bulk / standalone action. |
 | `POST` | `/martis/api/resources/{resource}/{id}/actions/{action}` | Run an inline (per-row) action. |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions` | Pivot-row actions list. |
-| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/fields` | Field schema of a pivot action (v1.38.0). |
+| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/fields` | Field schema of a pivot action, without the fields the user cannot see (v1.38.0). |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` a pivot action declares, behind the panel's pivot action gates, with the parent resource as the source of the relatable hooks (v1.38.0). |
 | `POST` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}` | Run a pivot-row action: a dry run (`dryRun: true` with `withDryRun()`) answers `{ preview }`, a `ShouldQueue` action is queued, and the run is written to the action event log (v1.38.0). Gated on the parent's `runAction` / `runDestructiveAction` policy ability like a resource action. |
+
+A run validates, and takes from `fields`, only the values of the fields the user may set: a field the user cannot see, a readonly one and a computed one are not validated, and `handle()` receives their `default()` or nothing (v1.38.0). See [Actions → Fields the request cannot set](../actions.md#fields-the-request-cannot-set).
 
 ## Translation Endpoint
 

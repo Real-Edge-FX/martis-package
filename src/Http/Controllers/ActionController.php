@@ -24,6 +24,7 @@ use Martis\Exceptions\MartisException;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field as MartisField;
 use Martis\Fields\MorphToMany as MorphToManyField;
+use Martis\Fields\Repeater;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Resources\JsonErrorResponse;
@@ -127,7 +128,7 @@ class ActionController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = $actionInstance->fields($request);
+        $fields = $this->visibleActionFields($actionInstance->fields($request), $request);
 
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
@@ -191,20 +192,11 @@ class ActionController extends MartisController
             }
         }
 
-        $actionFields = $actionInstance->fields($request);
-        if (! empty($actionFields)) {
-            /** @var array<string, mixed> $fieldData */
-            $fieldData = $request->input('fields', []);
-            $validator = $this->actionFieldsValidator($actionFields, $fieldData);
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
 
-            if ($validator->fails()) {
-                return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
-            }
+        if ($fields instanceof IlluminateJsonResponse) {
+            return $fields;
         }
-
-        /** @var array<string, mixed> $rawFields */
-        $rawFields = $request->input('fields', []);
-        $fields = ActionFields::fromRequest($rawFields);
 
         if ($request->boolean('dryRun') && $actionInstance instanceof Action && $actionInstance->hasDryRun()) {
             $preview = $actionInstance->dryRun($fields, $models);
@@ -334,6 +326,106 @@ class ActionController extends MartisController
         )->get();
 
         return $result;
+    }
+
+    /**
+     * The field values a run of an Action hands `handle()` (and `dryRun()`,
+     * and the job of a queued Action), or the 422 of a failed validation.
+     *
+     * As Nova resolves an Action's fields, only the fields that take their
+     * value from the request (see `takesValueFromRequest()`) are validated
+     * and give `handle()` the value the request sends; see
+     * `actionFieldValues()` for the others.
+     *
+     * @param  list<FieldContract>  $fields  The Action's fields.
+     */
+    private function resolveActionFields(array $fields, Request $request): ActionFields|IlluminateJsonResponse
+    {
+        $raw = $request->input('fields', []);
+        /** @var array<string, mixed> $values */
+        $values = is_array($raw) ? $raw : [];
+
+        if ($fields !== []) {
+            $writable = array_values(array_filter(
+                $fields,
+                fn (FieldContract $field): bool => $this->takesValueFromRequest($field, $request),
+            ));
+
+            $validator = $this->actionFieldsValidator($writable, $values);
+
+            if ($validator->fails()) {
+                return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
+            }
+        }
+
+        return ActionFields::fromRequest($this->actionFieldValues($fields, $values, $request));
+    }
+
+    /**
+     * The fields of an Action the modal renders: the ones the user may see
+     * (`canSee()`), as Nova serialises an Action's fields.
+     *
+     * @param  list<FieldContract>  $fields
+     * @return list<FieldContract>
+     */
+    private function visibleActionFields(array $fields, Request $request): array
+    {
+        return array_values(array_filter(
+            $fields,
+            fn (FieldContract $field): bool => $field->isAuthorizedToSee($request),
+        ));
+    }
+
+    /**
+     * Whether an Action field takes its value from the request: not when
+     * the user cannot see it (`canSee()`), nor when it is readonly or
+     * computed, as a field of a record never takes its value from the
+     * request then.
+     */
+    private function takesValueFromRequest(FieldContract $field, Request $request): bool
+    {
+        if (! $field->isAuthorizedToSee($request)) {
+            return false;
+        }
+
+        return ! $field instanceof MartisField || (! $field->isReadonly() && ! $field->isComputed());
+    }
+
+    /**
+     * The values `handle()` receives: the value the request sends for each
+     * field that takes its value from it (see `takesValueFromRequest()`),
+     * with the rows of a Repeater written as new rows (an Action stores
+     * nothing, see `Repeater::protectNewRows()`), and for every other field
+     * its `default()`, or nothing when it has none (a computed field has
+     * none). A key that names no field of the Action is kept as sent: a
+     * custom component posts its own values that way.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    private function actionFieldValues(array $fields, array $values, Request $request): array
+    {
+        foreach ($fields as $field) {
+            $attribute = $field->attribute();
+
+            if ($this->takesValueFromRequest($field, $request)) {
+                if ($field instanceof Repeater && array_key_exists($attribute, $values)) {
+                    $values[$attribute] = $field->protectNewRows($values[$attribute], $request);
+                }
+
+                continue;
+            }
+
+            unset($values[$attribute]);
+
+            $default = $field instanceof MartisField && ! $field->isComputed() ? $field->getDefaultValue() : null;
+            if ($default !== null) {
+                $values[$attribute] = $default;
+            }
+        }
+
+        return $values;
     }
 
     /**
@@ -667,7 +759,7 @@ class ActionController extends MartisController
             return $resolved;
         }
 
-        $fields = $resolved['action']->fields($request);
+        $fields = $this->visibleActionFields($resolved['action']->fields($request), $request);
 
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
@@ -757,19 +849,14 @@ class ActionController extends MartisController
             }
         }
 
-        $actionFields = $actionInstance->fields($request);
-        if (! empty($actionFields)) {
-            /** @var array<string, mixed> $fieldData */
-            $fieldData = $request->input('fields', []);
-            $validator = $this->actionFieldsValidator($actionFields, $fieldData);
-            if ($validator->fails()) {
-                return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
-            }
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
+
+        if ($fields instanceof IlluminateJsonResponse) {
+            return $fields;
         }
 
         /** @var array<string, mixed> $rawFields */
         $rawFields = $request->input('fields', []);
-        $fields = ActionFields::fromRequest($rawFields);
 
         if ($request->boolean('dryRun') && $actionInstance->hasDryRun()) {
             return JsonResponse::make(['preview' => $actionInstance->dryRun($fields, $models)])->toResponse();
