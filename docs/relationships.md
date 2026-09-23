@@ -151,6 +151,8 @@ it: the list, the pivot actions, the attach picker, Create / Edit links
 On `team-members/2`, a `HasOneThrough` card showing project 3 renders the
 project's `HasMany` tasks from `/api/resources/projects/3/has-many/tasks`, and
 its Create button opens `/resources/tasks/create?viaResource=projects&viaResourceId=3&…`.
+That form posts to the relationship's endpoint, as multipart when it carries a
+file (v1.38.0+; before, it always posted JSON and a picked file was lost).
 Since **v1.38.0**: before it, only the `HasOne` / `MorphOne` cards honoured the
 enclosing card, so a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany`
 nested in a card or rendered in a drawer asked the page's record (404, or the

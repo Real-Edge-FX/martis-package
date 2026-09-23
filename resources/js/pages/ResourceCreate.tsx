@@ -203,10 +203,14 @@ function CreateTargetPage() {
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
       if (isViaRelation) {
-        return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(
-          `/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`,
-          data,
-        )
+        // The relationship's endpoint takes a file the way the resource's
+        // does: multipart when the form carries one (a File serialises to
+        // `{}` in JSON).
+        const url = `/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`
+        if (hasFileValues(data)) {
+          return api.upload<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>('POST', url, data)
+        }
+        return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(url, data)
       }
       const payload = isReplicate ? { ...data, fromResourceId } : data
       if (hasFileValues(payload)) {
